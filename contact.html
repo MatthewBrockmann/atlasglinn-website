@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact - Atlas Glinn | Get In Touch</title>
+    <meta name="description" content="Contact Atlas Glinn for a personalized security assessment. Executive protection, training, and risk management services in Houston, TX.">
+    <meta name="keywords" content="contact Atlas Glinn, security consultation Houston, executive protection quote, security assessment Houston TX">
+    <link rel="canonical" href="https://www.atlasglinn.com/contact/">
+    <meta property="og:title" content="Contact Atlas Glinn | Security Consultation — Houston, TX">
+    <meta property="og:description" content="Contact Atlas Glinn for a personalized security assessment. Executive protection, training, and risk management services in Houston, TX.">
+    <meta property="og:image" content="https://atlasglinn.com/wp-content/uploads/2025/02/Atlas-Glinn-Logo-Rev1-1.png">
+    <meta property="og:type" content="website">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Atlas Glinn, LLC">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;700&family=Inconsolata:wght@400;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            color: #ffffff;
+            background: #080C14;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* ══════════ ANIMATIONS ══════════ */
+        @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
+        }
+        @keyframes goldShimmer {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes sparkle {
+            0%,100% { opacity: 0; transform: scale(0); }
+            50% { opacity: 1; transform: scale(1); }
+        }
+
+        .gold-shimmer {
+            background: linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%);
+            background-size: 1000px 100%;
+            animation: shimmer 6s linear infinite;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* ══════════ NAVIGATION ══════════ */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            background: rgba(8, 12, 20, 0.95); backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(26, 107, 222, 0.2); padding: 1rem 2rem;
+            transform: translateY(-100%); transition: transform .6s ease;
+        }
+        nav.visible { transform: translateY(0); }
+        .nav-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .nav-logo { display: flex; align-items: center; gap: 1rem; text-decoration: none; color: #1A6BDE; }
+        .nav-logo img { height: 40px; width: auto; }
+        .nav-logo-text { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.2rem; color: #1A6BDE; }
+        .nav-links { display: flex; gap: 2rem; align-items: center; list-style: none; }
+        .nav-links a { color: #ffffff; text-decoration: none; font-size: 0.9rem; transition: color 0.3s ease; text-transform: uppercase; letter-spacing: 0.05em; }
+        .nav-links a:hover { color: #1A6BDE; }
+        .mobile-menu-btn { display: none; background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; }
+
+        .cta-button {
+            background: #1A6BDE; color: white; padding: 0.75rem 1.5rem; border: none;
+            border-radius: 4px; cursor: pointer; font-family: 'Rajdhani', sans-serif;
+            font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+            transition: all 0.3s ease; text-decoration: none; display: inline-block;
+        }
+        .cta-button:hover { background: #155ac8; box-shadow: 0 0 20px rgba(26, 107, 222, 0.5); }
+        .secondary-button { background: transparent; border: 2px solid #1A6BDE; color: #1A6BDE; }
+        .secondary-button:hover { background: #1A6BDE; color: white; }
+
+        /* ══════════ HERO ══════════ */
+        .hero { position: relative; width: 100%; height: 70vh; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
+        .hero-bg-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        .hero-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 12, 20, 0.55); z-index: 2; }
+        .hero-content { position: relative; z-index: 3; text-align: center; max-width: 800px; padding: 0 2rem 4rem; }
+        .hero-headline { font-family: 'Orbitron', sans-serif; font-size: 3.2rem; font-weight: 900; margin-bottom: 1rem; letter-spacing: 0.02em; line-height: 1.1; }
+        .hero-headline .gold-text {
+            background: linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%);
+            background-size: 1000px 100%; animation: shimmer 6s linear infinite;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .hero-subheading { font-size: 1.3rem; margin-bottom: 2rem; color: #b0b0b0; font-weight: 300; }
+        #hero-particles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+
+        /* ══════════ SECTIONS ══════════ */
+        .section { max-width: 1400px; margin: 0 auto; padding: 4rem 2rem; }
+        .section-title { font-family: 'Orbitron', sans-serif; font-size: 2.5rem; font-weight: 900; margin-bottom: 1rem; letter-spacing: 0.02em; }
+        .section-subtitle { font-size: 1.1rem; color: #b0b0b0; margin-bottom: 3rem; }
+        .section-divider { background: #0f1622; padding: 1.5rem 2rem; border-top: 1px solid rgba(201,168,76,.15); border-bottom: 1px solid rgba(201,168,76,.15); text-align: center; margin: 0; max-width: 100%; }
+        .section-divider h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; font-weight: 900; letter-spacing: 0.02em; margin: 0; }
+        .section-divider p { font-size: 0.95rem; color: #b0b0b0; margin: 0.5rem 0 0; }
+
+        /* ══════════ CONTACT GRID ══════════ */
+        .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: start; }
+        .contact-info p { font-size: 1rem; color: #b0b0b0; line-height: 2; }
+        .contact-info a { color: #1A6BDE; text-decoration: none; transition: color .3s; }
+        .contact-info a:hover { color: #C9A84C; }
+        .contact-form input, .contact-form textarea { width: 100%; padding: 14px 18px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); border-radius: 4px; color: #fff; font-family: 'Rajdhani', sans-serif; font-size: 1rem; margin-bottom: 16px; transition: border-color .3s; }
+        .contact-form input:focus, .contact-form textarea:focus { outline: none; border-color: #1A6BDE; }
+        .contact-form textarea { height: 140px; resize: vertical; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+        .social-links { display: flex; gap: 1rem; margin-top: 1rem; }
+        .social-links a { color: #1A6BDE; text-decoration: none; transition: color 0.3s ease; }
+        .social-links a:hover { color: #C9A84C; }
+
+        /* ══════════ MAP ══════════ */
+        .map-section { max-width: 1400px; margin: 0 auto; padding: 0 2rem 4rem; }
+
+        /* ══════════ AWARDS ══════════ */
+        .awards-section { text-align: center; padding: 4rem 2rem; }
+        .awards-section img { max-width: 200px; filter: drop-shadow(0 0 20px rgba(201,168,76,.3)); transition: transform .3s; }
+        .awards-section img:hover { transform: scale(1.05); }
+
+        /* ══════════ PHOTO STRIP ══════════ */
+        .photo-strip { display: flex; overflow-x: auto; gap: 1rem; padding: 2rem 0; scroll-behavior: smooth; cursor: grab; }
+        .photo-strip::-webkit-scrollbar { height: 6px; }
+        .photo-strip::-webkit-scrollbar-track { background: rgba(26, 107, 222, 0.1); }
+        .photo-strip::-webkit-scrollbar-thumb { background: #1A6BDE; border-radius: 3px; }
+        .photo-item { flex: 0 0 280px; height: 280px; border-radius: 4px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
+        .photo-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
+        .photo-item:hover img { transform: scale(1.05); }
+
+        /* ══════════ FOOTER ══════════ */
+        footer { background: #0a0e17; border-top: 1px solid rgba(201,168,76,.1); padding: 3rem 2rem 1rem; }
+        .footer-container { max-width: 1400px; margin: 0 auto; }
+        .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+        .footer-section h4 { font-family: 'Orbitron', sans-serif; color: #C9A84C; margin-bottom: 1rem; font-size: 0.9rem; }
+        .footer-section ul { list-style: none; }
+        .footer-section ul li { margin-bottom: 0.5rem; }
+        .footer-section a { color: #b0b0b0; text-decoration: none; transition: color 0.3s ease; font-size: 0.9rem; }
+        .footer-section a:hover { color: #1A6BDE; }
+        .footer-bottom { border-top: 1px solid rgba(201,168,76,.1); padding-top: 2rem; text-align: center; color: #888; font-size: 0.85rem; }
+
+        /* ══════════ REVEAL ══════════ */
+        .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+        .reveal.active { opacity: 1; transform: translateY(0); }
+
+        /* ══════════ MOBILE NAV OVERLAY ══════════ */
+        .mobile-nav { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; background: rgba(0,0,0,.95); backdrop-filter: blur(20px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; opacity: 0; visibility: hidden; transition: all .3s; }
+        .mobile-nav.open { opacity: 1; visibility: visible; }
+        .mobile-nav a { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: #fff; text-decoration: none; }
+        .mobile-nav-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: #fff; font-size: 32px; cursor: pointer; }
+
+        /* ══════════ RESPONSIVE ══════════ */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .mobile-menu-btn { display: block; }
+            .hero-headline { font-size: 2rem; }
+            .contact-grid { grid-template-columns: 1fr; gap: 2rem; }
+            .form-row { grid-template-columns: 1fr; }
+            .section { padding: 3rem 1rem; }
+            .section-title { font-size: 1.8rem; }
+            .photo-item { flex: 0 0 200px; height: 200px; }
+        }
+        @media (max-width: 480px) {
+            nav { padding: 0.75rem 1rem; }
+            .hero-headline { font-size: 1.8rem; }
+            .section-title { font-size: 1.4rem; }
+        }
+    
+        /* ═══ CINEMATIC IMAGE SYSTEM ═══ */
+        .photo-item img, .full-bleed-divider img {
+            animation: kenburns 20s ease-in-out infinite alternate;
+            transition: transform 0.8s cubic-bezier(0.23,1,0.32,1), filter 0.5s ease;
+            filter: contrast(1.1) saturate(1.1);
+        }
+        .photo-item:nth-child(odd) img { animation-name: kenburns-alt; }
+        .photo-item:nth-child(3n) img { animation-name: kenburns-pan; animation-duration: 25s; }
+        .photo-item img:hover, .full-bleed-divider img:hover {
+            transform: scale(1.08) !important;
+            filter: contrast(1.2) saturate(1.2) brightness(1.05);
+        }
+        .photo-item { overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.5), 0 0 30px rgba(201,168,76,0.08); transition: box-shadow 0.5s ease, transform 0.5s ease; }
+        .photo-item:hover { box-shadow: 0 25px 70px rgba(0,0,0,0.7), 0 0 50px rgba(201,168,76,0.15); transform: translateY(-4px); }
+        .full-bleed-divider { overflow: hidden; position: relative; }
+        .full-bleed-divider img { animation: kenburns-slow 30s ease-in-out infinite alternate; }
+        @keyframes kenburns { 0% { transform: scale(1) translate(0, 0); } 100% { transform: scale(1.12) translate(-2%, -1%); } }
+        @keyframes kenburns-alt { 0% { transform: scale(1.08) translate(-1%, 0); } 100% { transform: scale(1) translate(1%, -1%); } }
+        @keyframes kenburns-pan { 0% { transform: scale(1) translate(0, 0); } 50% { transform: scale(1.06) translate(-1.5%, -1%); } 100% { transform: scale(1.1) translate(1%, -0.5%); } }
+        @keyframes kenburns-slow { 0% { transform: scale(1) translate(0, 0); } 100% { transform: scale(1.08) translate(-1%, -0.5%); } }
+        /* ═══ 3D PARALLAX PHOTO EFFECT ═══ */
+        .photo-item .parallax-3d-container { width: 100%; height: 100%; }
+        .photo-item .parallax-3d-inner { height: 100%; }
+        .photo-item .parallax-3d-inner img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+        .full-bleed-divider .parallax-3d-container { width: 100%; }
+        .parallax-3d-container { perspective: 1000px; width: 100%; }
+        .parallax-3d-inner { position: relative; overflow: hidden; border-radius: 4px; box-shadow: 0 25px 60px rgba(0,0,0,0.6), 0 0 40px rgba(201,168,76,0.12); transition: transform 0.15s ease-out, box-shadow 0.3s ease; transform-style: preserve-3d; will-change: transform; }
+        .parallax-3d-img { width: 100%; display: block; transition: transform 0.3s ease-out; filter: contrast(1.1) saturate(1.1); }
+        .parallax-3d-shine { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%, transparent 100%); opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
+        .parallax-3d-container:hover .parallax-3d-shine { opacity: 1; }
+        .parallax-3d-container:hover .parallax-3d-inner { box-shadow: 0 35px 80px rgba(0,0,0,0.7), 0 0 60px rgba(201,168,76,0.2); }
+
+    </style>
+</head>
+<body>
+
+<!-- ══════════ NAVIGATION ══════════ -->
+<nav id="main-nav" class="visible" style="transform:translateY(0)">
+    <div class="nav-container">
+        <a href="atlasglinn-final.html" class="nav-logo">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/02/Atlas-Glinn-Logo-Rev1-2-e1744918824251.png" alt="Atlas Glinn">
+            <span class="nav-logo-text">ATLAS GLINN</span>
+        </a>
+        <ul class="nav-links">
+            <li><a href="atlasglinn-final.html">Home</a></li>
+            <li><a href="executive-protection.html">Executive Protection</a></li>
+            <li><a href="residential-protection.html">Residential Protection</a></li>
+            <li><a href="disaster-recovery.html">Disaster Recovery</a></li>
+            <li><a href="training.html">Training</a></li>
+            <li><a href="technology.html">Technology</a></li>
+            <li><a href="about.html">About</a></li>
+            <li><a href="careers.html">Careers</a></li>
+            <li><a href="contact.html" class="cta-button" style="padding:.6rem 1.2rem;font-size:.85rem;">Contact Us</a></li>
+        </ul>
+        <button class="mobile-menu-btn" onclick="document.getElementById('mobile-nav').classList.add('open')">&#9776;</button>
+    </div>
+</nav>
+
+<!-- Mobile Nav Overlay -->
+<div id="mobile-nav" class="mobile-nav">
+    <button class="mobile-nav-close" onclick="this.parentElement.classList.remove('open')">&times;</button>
+    <a href="atlasglinn-final.html" onclick="this.parentElement.classList.remove('open')">Home</a>
+    <a href="executive-protection.html" onclick="this.parentElement.classList.remove('open')">Executive Protection</a>
+    <a href="residential-protection.html" onclick="this.parentElement.classList.remove('open')">Residential</a>
+    <a href="disaster-recovery.html" onclick="this.parentElement.classList.remove('open')">Disaster Recovery</a>
+    <a href="training.html" onclick="this.parentElement.classList.remove('open')">Training</a>
+    <a href="technology.html" onclick="this.parentElement.classList.remove('open')">Technology</a>
+    <a href="about.html" onclick="this.parentElement.classList.remove('open')">About</a>
+    <a href="careers.html" onclick="this.parentElement.classList.remove('open')">Careers</a>
+    <a href="contact.html" onclick="this.parentElement.classList.remove('open')">Contact</a>
+</div>
+
+<!-- ══════════ HERO ══════════ -->
+<section class="hero">
+    <video autoplay muted loop playsinline class="hero-bg-img" style="object-fit:cover; object-position:center 50%;"><source src="images/corporate_buildings.mp4" type="video/mp4"></video>
+    <div class="hero-overlay" style="background:rgba(8,12,20,0.3);"></div>
+    <canvas id="hero-particles"></canvas>
+    <div class="hero-content">
+        <h1 class="hero-headline"><span class="gold-text">Details</span> Matter</h1>
+    </div>
+</section>
+
+<!-- ══════════ CONTACT ══════════ -->
+<section class="section">
+    <div class="contact-grid">
+        <!-- Left Column — Contact Info -->
+        <div class="reveal">
+            <h2 class="section-title">Contact <span class="gold-shimmer">Information</span></h2>
+            <div class="contact-info" style="margin-top:2rem;">
+                <p><strong style="color:#fff;font-size:1.1rem;">Atlas Glinn, LLC | MAST Solutions</strong></p>
+                <p style="margin-top:1rem;">2450 Fondren Road, Suite 255<br>Houston, TX 77063</p>
+                <p style="margin-top:1rem;">Phone: <a href="tel:+12816548100">(281) 654-8100</a></p>
+                <p>Email: <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p>
+                <div class="social-links" style="margin-top:2rem;">
+                    <a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank">Instagram</a>
+                    <a href="https://www.linkedin.com/in/mastsolutions1" target="_blank">LinkedIn</a>
+                    <a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank">Yelp</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column — Contact Form -->
+        <div class="contact-form reveal">
+            <form action="mailto:atlasglinn.hq@atlasglinn.com" method="post" enctype="text/plain">
+                <div class="form-row">
+                    <input type="text" name="first_name" placeholder="First Name" required>
+                    <input type="text" name="last_name" placeholder="Last Name" required>
+                </div>
+                <input type="email" name="email" placeholder="Email Address" required>
+                <input type="email" name="confirm_email" placeholder="Confirm Email" required>
+                <input type="tel" name="phone" placeholder="Phone (optional)">
+                <textarea name="message" placeholder="How can we help?"></textarea>
+                <button type="submit" class="cta-button" style="width:100%;padding:1rem;font-size:1rem;">Send Message</button>
+                <div id="contact-success" style="display:none; text-align:center; padding:2rem; margin-top:1rem;">
+                    <div style="font-size:2rem; margin-bottom:0.5rem;">&#9989;</div>
+                    <p style="color:#C9A84C; font-family:'Orbitron',sans-serif; font-size:1rem;">Thank you for your interest in Atlas Glinn.</p>
+                    <p style="color:#b0b0b0; font-size:0.9rem; margin-top:0.5rem;">We will respond as soon as possible.</p>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════ FOOTER ══════════ -->
+<footer>
+    <div class="footer-container">
+        <!-- AWARDS & CREDENTIALS -->
+        <div style="display:flex; align-items:center; justify-content:center; gap:4rem; padding-bottom:2.5rem; border-bottom:1px solid rgba(201,168,76,.15); margin-bottom:2.5rem; flex-wrap:wrap;">
+            <div style="text-align:center;">
+                <img src="https://atlasglinn.com/wp-content/uploads/2025/02/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" style="height:120px; filter:drop-shadow(0 0 15px rgba(201,168,76,.3));" loading="lazy">
+                <p style="font-family:'Orbitron',sans-serif; font-size:0.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#C9A84C; margin-top:0.8rem;">Best of Business 2025</p>
+            </div>
+            <div style="text-align:center;">
+                <img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" style="height:120px; filter:drop-shadow(0 0 15px rgba(201,168,76,.3));" loading="lazy">
+                <p style="font-family:'Orbitron',sans-serif; font-size:0.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#C9A84C; margin-top:0.8rem;">Chamber of Commerce</p>
+            </div>
+        </div>
+
+        <div class="footer-grid">
+            <div class="footer-section">
+                <h4>Atlas Glinn</h4>
+                <ul>
+                    <li><a href="atlasglinn-final.html">Home</a></li>
+                    <li><a href="executive-protection.html">Executive Protection</a></li>
+                    <li><a href="residential-protection.html">Residential Protection</a></li>
+                    <li><a href="disaster-recovery.html">Disaster Recovery</a></li>
+                    <li><a href="technology.html">Technology</a></li>
+                    <li><a href="technology.html">Atlas EP App</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>MAST Solutions</h4>
+                <ul>
+                    <li><a href="training.html">Training Programs</a></li>
+                    <li><a href="technology.html">Atlas EP Platform</a></li>
+                    <li><a href="cuas-aerodefense.html">Counter-Drone Solutions</a></li>
+                    <li><a href="training.html">MAST Solutions</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Company</h4>
+                <ul>
+                    <li><a href="about.html">About Us</a></li>
+                    <li><a href="careers.html">Careers</a></li>
+                    <li><a href="https://atlasglinn.com/blog/" target="_blank">Resources</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Connect</h4>
+                <p style="color: #b0b0b0; margin-bottom: 1rem;">
+                    2450 Fondren Rd, Suite 255<br>Houston, TX 77063<br>
+                    <a href="tel:+12816548100" style="color: #1A6BDE;">(281) 654-8100</a><br>
+                    <a href="mailto:atlasglinn.hq@atlasglinn.com" style="color: #1A6BDE;">atlasglinn.hq@atlasglinn.com</a>
+                </p>
+                <div class="social-links" style="display:flex; gap:1.2rem; flex-wrap:wrap;">
+                    <a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" style="color:#1A6BDE; text-decoration:none;">Instagram</a>
+                    <a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" style="color:#1A6BDE; text-decoration:none;">LinkedIn</a>
+                    <a href="https://www.youtube.com/@atlasglinn" target="_blank" style="color:#1A6BDE; text-decoration:none;">YouTube</a>
+                    <a href="https://www.facebook.com/mastsolutions" target="_blank" style="color:#1A6BDE; text-decoration:none;">Facebook</a>
+                    <a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" style="color:#1A6BDE; text-decoration:none;">Yelp</a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved.</p>
+            <p>Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management</p>
+        </div>
+    </div>
+</footer>
+
+<!-- ══════════ JAVASCRIPT ══════════ -->
+<script>
+// ── HERO GOLD DUST PARTICLES ──
+(function(){
+    const c=document.getElementById('hero-particles');if(!c)return;
+    const ctx=c.getContext('2d');let w,h;const pts=[];const count=50;
+    function resize(){w=c.width=c.parentElement.offsetWidth;h=c.height=c.parentElement.offsetHeight;}
+    resize();window.addEventListener('resize',resize);
+    for(let i=0;i<count;i++){pts.push({x:Math.random()*w,y:Math.random()*h,vx:(Math.random()-0.5)*0.3,vy:-Math.random()*0.4-0.1,size:Math.random()*2+0.5,opacity:Math.random()*0.4+0.1,gold:Math.random()>0.4});}
+    function draw(){
+        ctx.clearRect(0,0,w,h);
+        pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fillStyle=p.gold?`rgba(201,168,76,${p.opacity})`:`rgba(255,255,255,${p.opacity*0.3})`;ctx.fill();p.x+=p.vx;p.y+=p.vy;if(p.y<-10){p.y=h+10;p.x=Math.random()*w;}if(p.x<-10||p.x>w+10){p.x=Math.random()*w;}});
+        requestAnimationFrame(draw);
+    }
+    draw();
+})();
+
+// ── SCROLL REVEAL ──
+const revealObserver=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('active');revealObserver.unobserve(e.target);}});},{threshold:0.1,rootMargin:'0px 0px -50px 0px'});
+document.querySelectorAll('.reveal').forEach(el=>revealObserver.observe(el));
+
+// ── PHOTO STRIP DRAG ──
+document.querySelectorAll('.photo-strip').forEach(strip=>{
+    let isDown=false,startX,scrollLeft;
+    strip.addEventListener('mousedown',(e)=>{isDown=true;strip.style.cursor='grabbing';startX=e.pageX-strip.offsetLeft;scrollLeft=strip.scrollLeft;});
+    strip.addEventListener('mouseleave',()=>{isDown=false;strip.style.cursor='grab';});
+    strip.addEventListener('mouseup',()=>{isDown=false;strip.style.cursor='grab';});
+    strip.addEventListener('mousemove',(e)=>{if(!isDown)return;e.preventDefault();strip.scrollLeft=scrollLeft-((e.pageX-strip.offsetLeft)-startX)*1.5;});
+});
+
+// ── PARALLAX HERO ──
+window.addEventListener('scroll',()=>{const hero=document.querySelector('.hero-bg-img');if(hero){hero.style.transform=`translateY(${window.scrollY*0.3}px)`;}});
+
+// ── EMAIL CONFIRM VALIDATION ──
+document.querySelector('form').addEventListener('submit', function(e) {
+    const email = this.querySelector('input[name="email"]').value;
+    const confirm = this.querySelector('input[name="confirm_email"]').value;
+    if (email !== confirm) {
+        e.preventDefault();
+        alert('Email addresses do not match. Please check and try again.');
+    }
+});
+</script>
+
+<script>
+function parallax3D(e, container) {
+    const inner = container.querySelector('.parallax-3d-inner');
+    const img = container.querySelector('.parallax-3d-img') || container.querySelector('img');
+    const shine = container.querySelector('.parallax-3d-shine');
+    const rect = container.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    inner.style.transform = 'rotateY(' + (x * 12) + 'deg) rotateX(' + (-y * 8) + 'deg) scale(1.02)';
+    if (img) img.style.transform = 'translateX(' + (-x * 15) + 'px) translateY(' + (-y * 10) + 'px) scale(1.05)';
+    if (shine) shine.style.background = 'radial-gradient(circle at ' + ((x+0.5)*100) + '% ' + ((y+0.5)*100) + '%, rgba(255,255,255,0.2) 0%, transparent 60%)';
+}
+function resetParallax(container) {
+    const inner = container.querySelector('.parallax-3d-inner');
+    const img = container.querySelector('.parallax-3d-img') || container.querySelector('img');
+    if (inner) inner.style.transform = 'rotateY(0) rotateX(0) scale(1)';
+    if (img) img.style.transform = 'translateX(0) translateY(0) scale(1)';
+}
+</script>
+
+<script>
+document.querySelector('.contact-form form').addEventListener('submit', function(e) {
+    document.getElementById('contact-success').style.display = 'block';
+});
+</script>
+<script>
+// ── UNIVERSAL 3D TILT ON ALL CARDS ──
+document.querySelectorAll('.service-card, .testimonial, .benefit-card, .tech-partner, .discipline-card, .app-tier, .position-card').forEach(card => {
+    card.style.transition = 'transform 0.2s ease-out, box-shadow 0.3s ease';
+    card.style.transformStyle = 'preserve-3d';
+    card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width - 0.5;
+        const y = (e.clientY - rect.top) / rect.height - 0.5;
+        card.style.transform = `perspective(800px) rotateY(${x * 12}deg) rotateX(${-y * 8}deg) translateY(-4px) scale(1.02)`;
+        card.style.boxShadow = '0 25px 60px rgba(0,0,0,0.5), 0 0 30px rgba(201,168,76,0.1)';
+    });
+    card.addEventListener('mouseleave', () => {
+        card.style.transform = 'perspective(800px) rotateY(0) rotateX(0) translateY(0) scale(1)';
+        card.style.boxShadow = '';
+    });
+});
+</script>
+
+</body>
+</html>

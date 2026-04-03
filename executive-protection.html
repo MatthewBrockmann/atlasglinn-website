@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dignitary Protection - Atlas Glinn | Elite Security Solutions</title>
+    <meta name="description" content="Expert dignitary protection services by Atlas Glinn. Discreet, adaptable security for U.S. Senators, Fortune 500 executives, dignitaries, and their families. Houston, TX.">
+    <meta name="keywords" content="executive protection Houston TX, dignitary protection, bodyguard Houston, close protection, motorcade security, VIP security, OPORD, advance work">
+    <link rel="canonical" href="https://www.atlasglinn.com/executive-protection/">
+    <meta property="og:title" content="Executive Protection Houston TX | Atlas Glinn">
+    <meta property="og:description" content="Expert dignitary protection services by Atlas Glinn. Discreet, adaptable security for U.S. Senators, Fortune 500 executives, dignitaries, and their families. Houston, TX.">
+    <meta property="og:image" content="https://atlasglinn.com/wp-content/uploads/2025/02/Atlas-Glinn-Logo-Rev1-1.png">
+    <meta property="og:type" content="website">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Atlas Glinn, LLC">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;700&family=Inconsolata:wght@400;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            color: #ffffff;
+            background: #080C14;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* ══════════ ANIMATIONS ══════════ */
+        @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
+        }
+        @keyframes goldShimmer {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes sparkle {
+            0%,100% { opacity: 0; transform: scale(0); }
+            50% { opacity: 1; transform: scale(1); }
+        }
+
+        .gold-shimmer {
+            background: linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%);
+            background-size: 1000px 100%;
+            animation: shimmer 6s linear infinite;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* ══════════ NAVIGATION ══════════ */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            background: rgba(8, 12, 20, 0.95); backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(26, 107, 222, 0.2); padding: 1rem 2rem;
+            transform: translateY(0);
+        }
+        .nav-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .nav-logo { display: flex; align-items: center; gap: 1rem; text-decoration: none; color: #1A6BDE; }
+        .nav-logo img { height: 40px; width: auto; }
+        .nav-logo-text { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.2rem; color: #1A6BDE; }
+        .nav-links { display: flex; gap: 2rem; align-items: center; list-style: none; }
+        .nav-links a { color: #ffffff; text-decoration: none; font-size: 0.9rem; transition: color 0.3s ease; text-transform: uppercase; letter-spacing: 0.05em; }
+        .nav-links a:hover { color: #1A6BDE; }
+        .mobile-menu-btn { display: none; background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; }
+
+        .cta-button {
+            background: #1A6BDE; color: white; padding: 0.75rem 1.5rem; border: none;
+            border-radius: 4px; cursor: pointer; font-family: 'Rajdhani', sans-serif;
+            font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+            transition: all 0.3s ease; text-decoration: none; display: inline-block;
+        }
+        .cta-button:hover { background: #155ac8; box-shadow: 0 0 20px rgba(26, 107, 222, 0.5); }
+        .secondary-button { background: transparent; border: 2px solid #1A6BDE; color: #1A6BDE; }
+        .secondary-button:hover { background: #1A6BDE; color: white; }
+
+        /* ══════════ HERO ══════════ */
+        .hero { position: relative; width: 100%; height: 80vh; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; margin-top: 70px; }
+        .hero-bg-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        .hero-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 12, 20, 0.55); z-index: 2; }
+        .hero-content { position: relative; z-index: 3; text-align: center; max-width: 900px; padding: 0 2rem 4rem; }
+        .hero-headline { font-family: 'Orbitron', sans-serif; font-size: 3.2rem; font-weight: 900; margin-bottom: 1rem; letter-spacing: 0.02em; line-height: 1.1; }
+        .hero-headline .gold-text {
+            background: linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%);
+            background-size: 1000px 100%; animation: shimmer 6s linear infinite;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .hero-subheading { font-size: 1.2rem; margin-bottom: 2rem; color: #b0b0b0; font-weight: 300; max-width: 700px; margin-left: auto; margin-right: auto; }
+
+        /* ══════════ SECTIONS ══════════ */
+        .section { max-width: 1400px; margin: 0 auto; padding: 4rem 2rem; }
+        .section-title { font-family: 'Orbitron', sans-serif; font-size: 2.5rem; font-weight: 900; margin-bottom: 1rem; letter-spacing: 0.02em; }
+        .section-subtitle { font-size: 1.1rem; color: #b0b0b0; margin-bottom: 3rem; }
+        .section-divider { background: #0f1622; padding: 1.5rem 2rem; border-top: 1px solid rgba(201,168,76,.15); border-bottom: 1px solid rgba(201,168,76,.15); text-align: center; margin: 0; max-width: 100%; }
+        .section-divider h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; font-weight: 900; letter-spacing: 0.02em; margin: 0; }
+        .section-divider p { font-size: 0.95rem; color: #b0b0b0; margin: 0.5rem 0 0; }
+        .section-full { padding: 6rem 2rem; }
+
+        /* ══════════ BODY TEXT ══════════ */
+        .body-content { max-width: 900px; margin: 0 auto; }
+        .body-content p { font-size: 1.1rem; color: #d0d0d0; margin-bottom: 1.5rem; line-height: 1.9; }
+
+        /* ══════════ SERVICES GRID ══════════ */
+        .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
+        .service-card {
+            background: rgba(26, 107, 222, 0.05); border: 1px solid rgba(201, 168, 76, 0.3);
+            padding: 2rem; border-radius: 4px; transition: all 0.4s ease; position: relative;
+            transform-style: preserve-3d; box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 15px rgba(201,168,76,0.08);
+        }
+        .service-card:hover { background: rgba(26, 107, 222, 0.1); border-color: rgba(201, 168, 76, 0.6); box-shadow: 0 15px 50px rgba(0,0,0,0.5), 0 0 40px rgba(201,168,76,0.2); transform: translateY(-4px); }
+        .service-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: linear-gradient(90deg, #1A6BDE, #C9A84C); transform: scaleX(0); transform-origin: left; transition: transform .4s; }
+        .service-card:hover::before { transform: scaleX(1); }
+        .service-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; color: #1A6BDE; margin-bottom: 1rem; }
+        .service-card p { color: #b0b0b0; font-size: 0.95rem; line-height: 1.6; }
+        .service-card .card-icon { font-size: 2rem; margin-bottom: 1rem; }
+
+        /* ══════════ PHOTO STRIP ══════════ */
+        .photo-strip { display: flex; overflow-x: auto; gap: 1rem; padding: 2rem 0; scroll-behavior: smooth; cursor: grab; }
+        .photo-strip::-webkit-scrollbar { height: 6px; }
+        .photo-strip::-webkit-scrollbar-track { background: rgba(26, 107, 222, 0.1); }
+        .photo-strip::-webkit-scrollbar-thumb { background: #1A6BDE; border-radius: 3px; }
+        .photo-item { flex: 0 0 280px; height: 280px; border-radius: 4px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
+        .photo-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
+        .photo-item:hover img { transform: scale(1.05); }
+
+        /* ══════════ CTA SECTION ══════════ */
+        .cta-section { background: linear-gradient(135deg, rgba(26, 107, 222, 0.1) 0%, rgba(26, 107, 222, 0.05) 100%); border: 1px solid rgba(26, 107, 222, 0.3); padding: 4rem 2rem; border-radius: 4px; text-align: center; }
+        .cta-section h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; margin-bottom: 1rem; }
+        .cta-section p { font-size: 1.1rem; color: #b0b0b0; margin-bottom: 2rem; }
+
+        /* ══════════ CONTACT INFO ══════════ */
+        .contact-info p { font-size: 1rem; color: #b0b0b0; line-height: 2; }
+        .contact-info a { color: #1A6BDE; text-decoration: none; transition: color .3s; }
+        .contact-info a:hover { color: #C9A84C; }
+
+        /* ══════════ FOOTER ══════════ */
+        footer { background: #0a0e17; border-top: 1px solid rgba(201,168,76,.1); padding: 3rem 2rem 1rem; }
+        .footer-container { max-width: 1400px; margin: 0 auto; }
+        .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+        .footer-section h4 { font-family: 'Orbitron', sans-serif; color: #C9A84C; margin-bottom: 1rem; font-size: 0.9rem; }
+        .footer-section ul { list-style: none; }
+        .footer-section ul li { margin-bottom: 0.5rem; }
+        .footer-section a { color: #b0b0b0; text-decoration: none; transition: color 0.3s ease; font-size: 0.9rem; }
+        .footer-section a:hover { color: #1A6BDE; }
+        .footer-bottom { border-top: 1px solid rgba(201,168,76,.1); padding-top: 2rem; text-align: center; color: #888; font-size: 0.85rem; }
+        .social-links { display: flex; gap: 1rem; margin-top: 1rem; }
+        .social-links a { color: #1A6BDE; text-decoration: none; transition: color 0.3s ease; }
+        .social-links a:hover { color: #C9A84C; }
+
+        /* ══════════ REVEAL ══════════ */
+        .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+        .reveal.active { opacity: 1; transform: translateY(0); }
+
+        /* ══════════ MOBILE NAV OVERLAY ══════════ */
+        .mobile-nav { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; background: rgba(0,0,0,.95); backdrop-filter: blur(20px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; opacity: 0; visibility: hidden; transition: all .3s; }
+        .mobile-nav.open { opacity: 1; visibility: visible; }
+        .mobile-nav a { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: #fff; text-decoration: none; }
+        .mobile-nav-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: #fff; font-size: 32px; cursor: pointer; }
+
+        /* ══════════ RESPONSIVE ══════════ */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .mobile-menu-btn { display: block; }
+            .hero-headline { font-size: 2rem; }
+            .section { padding: 3rem 1rem; }
+            .section-title { font-size: 1.8rem; }
+            .photo-item { flex: 0 0 200px; height: 200px; }
+            .hero { height: 60vh; }
+        }
+        @media (max-width: 480px) {
+            nav { padding: 0.75rem 1rem; }
+            .hero-headline { font-size: 1.8rem; }
+            .section-title { font-size: 1.4rem; }
+        }
+    
+        /* ═══ CINEMATIC IMAGE SYSTEM ═══ */
+        .photo-item img, .full-bleed-divider img {
+            animation: kenburns 20s ease-in-out infinite alternate;
+            transition: transform 0.8s cubic-bezier(0.23,1,0.32,1), filter 0.5s ease;
+            filter: contrast(1.1) saturate(1.1);
+        }
+        .photo-item:nth-child(odd) img { animation-name: kenburns-alt; }
+        .photo-item:nth-child(3n) img { animation-name: kenburns-pan; animation-duration: 25s; }
+        .photo-item img:hover, .full-bleed-divider img:hover {
+            transform: scale(1.08) !important;
+            filter: contrast(1.2) saturate(1.2) brightness(1.05);
+        }
+        .photo-item { overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.5), 0 0 30px rgba(201,168,76,0.08); transition: box-shadow 0.5s ease, transform 0.5s ease; }
+        .photo-item:hover { box-shadow: 0 25px 70px rgba(0,0,0,0.7), 0 0 50px rgba(201,168,76,0.15); transform: translateY(-4px); }
+        .full-bleed-divider { overflow: hidden; position: relative; }
+        .full-bleed-divider img { animation: kenburns-slow 30s ease-in-out infinite alternate; }
+        @keyframes kenburns { 0% { transform: scale(1) translate(0, 0); } 100% { transform: scale(1.12) translate(-2%, -1%); } }
+        @keyframes kenburns-alt { 0% { transform: scale(1.08) translate(-1%, 0); } 100% { transform: scale(1) translate(1%, -1%); } }
+        @keyframes kenburns-pan { 0% { transform: scale(1) translate(0, 0); } 50% { transform: scale(1.06) translate(-1.5%, -1%); } 100% { transform: scale(1.1) translate(1%, -0.5%); } }
+        @keyframes kenburns-slow { 0% { transform: scale(1) translate(0, 0); } 100% { transform: scale(1.08) translate(-1%, -0.5%); } }
+        /* ═══ 3D PARALLAX PHOTO EFFECT ═══ */
+        .photo-item .parallax-3d-container { width: 100%; height: 100%; }
+        .photo-item .parallax-3d-inner { height: 100%; }
+        .photo-item .parallax-3d-inner img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+        .full-bleed-divider .parallax-3d-container { width: 100%; }
+        .parallax-3d-container { perspective: 1000px; width: 100%; }
+        .parallax-3d-inner { position: relative; overflow: hidden; border-radius: 4px; box-shadow: 0 25px 60px rgba(0,0,0,0.6), 0 0 40px rgba(201,168,76,0.12); transition: transform 0.15s ease-out, box-shadow 0.3s ease; transform-style: preserve-3d; will-change: transform; }
+        .parallax-3d-img { width: 100%; display: block; transition: transform 0.3s ease-out; filter: contrast(1.1) saturate(1.1); }
+        .parallax-3d-shine { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%, transparent 100%); opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
+        .parallax-3d-container:hover .parallax-3d-shine { opacity: 1; }
+        .parallax-3d-container:hover .parallax-3d-inner { box-shadow: 0 35px 80px rgba(0,0,0,0.7), 0 0 60px rgba(201,168,76,0.2); }
+
+    </style>
+</head>
+<body>
+
+<!-- ══════════ NAVIGATION ══════════ -->
+<nav id="main-nav" class="visible" style="transform:translateY(0)">
+    <div class="nav-container">
+        <a href="atlasglinn-final.html" class="nav-logo">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/02/Atlas-Glinn-Logo-Rev1-2-e1744918824251.png" alt="Atlas Glinn">
+            <span class="nav-logo-text">ATLAS GLINN</span>
+        </a>
+        <ul class="nav-links">
+            <li><a href="atlasglinn-final.html">Home</a></li>
+            <li><a href="executive-protection.html">Executive Protection</a></li>
+            <li><a href="residential-protection.html">Residential Protection</a></li>
+            <li><a href="disaster-recovery.html">Disaster Recovery</a></li>
+            <li><a href="training.html">Training</a></li>
+            <li><a href="technology.html">Technology</a></li>
+            <li><a href="about.html">About</a></li>
+            <li><a href="careers.html">Careers</a></li>
+            <li><a href="contact.html" class="cta-button" style="padding:.6rem 1.2rem;font-size:.85rem;">Contact Us</a></li>
+        </ul>
+        <button class="mobile-menu-btn" onclick="document.getElementById('mobile-nav').classList.add('open')">&#9776;</button>
+    </div>
+</nav>
+
+<!-- Mobile Nav Overlay -->
+<div id="mobile-nav" class="mobile-nav">
+    <button class="mobile-nav-close" onclick="this.parentElement.classList.remove('open')">&times;</button>
+    <a href="atlasglinn-final.html" onclick="this.parentElement.classList.remove('open')">Home</a>
+    <a href="executive-protection.html" onclick="this.parentElement.classList.remove('open')">Executive Protection</a>
+    <a href="residential-protection.html" onclick="this.parentElement.classList.remove('open')">Residential</a>
+    <a href="disaster-recovery.html" onclick="this.parentElement.classList.remove('open')">Disaster Recovery</a>
+    <a href="training.html" onclick="this.parentElement.classList.remove('open')">Training</a>
+    <a href="technology.html" onclick="this.parentElement.classList.remove('open')">Technology</a>
+    <a href="about.html" onclick="this.parentElement.classList.remove('open')">About</a>
+    <a href="careers.html" onclick="this.parentElement.classList.remove('open')">Careers</a>
+    <a href="contact.html" onclick="this.parentElement.classList.remove('open')">Contact</a>
+</div>
+
+<!-- ══════════ HERO — VIDEO ══════════ -->
+<section class="hero" style="height:100vh; background:#000;">
+    <img class="hero-bg-img" src="https://atlasglinn.com/wp-content/uploads/2025/05/Atlas-Glinn-Executive-Protection-scaled.jpeg" alt="Executive Protection" style="animation:kenburns 20s ease-in-out infinite alternate;">
+    <div class="hero-overlay" style="background:linear-gradient(180deg, rgba(8,12,20,0.25) 0%, rgba(8,12,20,0.55) 100%);"></div>
+    <div class="hero-content">
+        <h1 class="hero-headline"><span class="gold-text">Details</span> Matter</h1>
+    </div>
+</section>
+<script>
+// Force video autoplay (browsers block autoplay without user interaction)
+document.addEventListener('DOMContentLoaded', function() {
+    var v = document.getElementById('hero-video');
+    if (v) { v.play().catch(function(){}); }
+});
+</script>
+
+
+<!-- ══════════ BODY CONTENT ══════════ -->
+<section class="section">
+    <div class="body-content reveal">
+        <p>With unmatched precision, Atlas Glinn provides discreet, adaptable security&mdash;so you can focus on what matters most. Our team brings decades of combined experience protecting high-level executives, dignitaries, and their families.</p>
+        <p>Led by a former Head of Security &amp; Dignitary Protection for U.S. Senators Ted Cruz and Eric &ldquo;Bulldog&rdquo; Schmitt, we understand the complexity of executive safety in an ever-changing threat landscape.</p>
+        <p>At Atlas Glinn, we understand that details matter. Our team of highly trained professionals is dedicated to providing exceptional dignitary protection tailored to your unique needs. Whether you require discreet, low-profile security or a highly visible presence, we adapt seamlessly to ensure your safety and peace of mind.</p>
+    </div>
+</section>
+
+<!-- ══════════ SERVICES ══════════ -->
+<div class="section-divider">
+    <h2>Our <span class="gold-shimmer">Services</span></h2>
+    <p>Comprehensive Dignitary Protection Tailored to Your Needs</p>
+</div>
+<section class="section" style="padding-top: 2rem;">
+    <div class="services-grid">
+        <div class="service-card reveal">
+            <div class="card-icon">&#128737;</div>
+            <h3>Close Protection</h3>
+            <p>Dedicated personal protection officers providing 24/7 security coverage with discreet, professional presence tailored to your lifestyle and threat profile.</p>
+        </div>
+        <div class="service-card reveal">
+            <div class="card-icon">&#128269;</div>
+            <h3>Advance Operations</h3>
+            <p>Thorough pre-deployment reconnaissance and venue assessment. Our advance teams identify and mitigate threats before you arrive at any location.</p>
+        </div>
+        <div class="service-card reveal">
+            <div class="card-icon">&#128663;</div>
+            <h3>Motorcade Planning</h3>
+            <p>Strategic route planning, secure vehicle coordination, and tactical motorcade operations ensuring safe movement through any environment.</p>
+        </div>
+        <div class="service-card reveal">
+            <div class="card-icon">&#129333;</div>
+            <h3>Body Man Duties</h3>
+            <p>Close-proximity personal security serving as your dedicated detail agent, managing immediate security concerns and daily logistics seamlessly.</p>
+        </div>
+        <div class="service-card reveal">
+            <div class="card-icon">&#9888;</div>
+            <h3>Crisis Management</h3>
+            <p>Rapid response protocols and contingency planning for high-threat scenarios. Expert coordination during emergencies to protect lives and assets.</p>
+        </div>
+        <div class="service-card reveal">
+            <div class="card-icon">&#127973;</div>
+            <h3>Emergency Response</h3>
+            <p>Immediate tactical response capabilities including evacuation procedures, medical coordination, and real-time threat neutralization protocols.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════ OPORD FRAMEWORK ══════════ -->
+<div class="section-divider">
+    <h2>The OPORD <span class="gold-shimmer">Framework</span></h2>
+    <p>Atlas Glinn applies military-grade Operations Order (OPORD) methodology to every executive protection engagement.</p>
+</div>
+<section class="section" style="padding-top: 2rem; border-top:1px solid rgba(26,107,222,.15);">
+    <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:2px; max-width:1200px; margin:0 auto;">
+        <div class="service-card reveal" style="text-align:center; padding:2rem 1.2rem;">
+            <div style="font-family:'Orbitron',sans-serif; font-size:2rem; color:#C9A84C; margin-bottom:1rem; font-weight:900;">01</div>
+            <h3 style="font-size:1rem;">Situation</h3>
+            <p style="font-size:0.85rem;">Threat assessment, terrain analysis, weather, and hostile/friendly force identification.</p>
+        </div>
+        <div class="service-card reveal" style="text-align:center; padding:2rem 1.2rem;">
+            <div style="font-family:'Orbitron',sans-serif; font-size:2rem; color:#C9A84C; margin-bottom:1rem; font-weight:900;">02</div>
+            <h3 style="font-size:1rem;">Mission</h3>
+            <p style="font-size:0.85rem;">Clear objective definition — who, what, when, where, and why for every protective detail.</p>
+        </div>
+        <div class="service-card reveal" style="text-align:center; padding:2rem 1.2rem;">
+            <div style="font-family:'Orbitron',sans-serif; font-size:2rem; color:#C9A84C; margin-bottom:1rem; font-weight:900;">03</div>
+            <h3 style="font-size:1rem;">Execution</h3>
+            <p style="font-size:0.85rem;">Concept of operations, maneuver plan, routes, contingencies, and emergency action protocols.</p>
+        </div>
+        <div class="service-card reveal" style="text-align:center; padding:2rem 1.2rem;">
+            <div style="font-family:'Orbitron',sans-serif; font-size:2rem; color:#C9A84C; margin-bottom:1rem; font-weight:900;">04</div>
+            <h3 style="font-size:1rem;">Sustainment</h3>
+            <p style="font-size:0.85rem;">Logistics, communications plan, medical support, vehicle assignments, and equipment allocation.</p>
+        </div>
+        <div class="service-card reveal" style="text-align:center; padding:2rem 1.2rem;">
+            <div style="font-family:'Orbitron',sans-serif; font-size:2rem; color:#C9A84C; margin-bottom:1rem; font-weight:900;">05</div>
+            <h3 style="font-size:1rem;">Command</h3>
+            <p style="font-size:0.85rem;">Chain of command, signal plan, reporting procedures, and succession of authority.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════ SELECTION BASELINE ══════════ -->
+<div class="section-divider">
+    <h2>Selection <span class="gold-shimmer">Baseline</span></h2>
+    <p>The standard we hold every operator to — before they ever step on a detail.</p>
+</div>
+<section class="section" style="padding-top: 2rem; border-top:1px solid rgba(26,107,222,.15);">
+    <!-- 10 ATTRIBUTES -->
+    <div class="reveal" style="margin-bottom:4rem;">
+        <h3 style="font-family:'Orbitron',sans-serif; font-size:1.2rem; color:#1A6BDE; text-align:center; margin-bottom:2rem;">10 Attributes for Dignitary Protection</h3>
+        <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:2px; max-width:1200px; margin:0 auto;">
+            <div class="service-card" style="text-align:center; padding:1.5rem 1rem;"><div style="color:#C9A84C; font-family:'Orbitron',sans-serif; font-size:1.5rem; font-weight:900; margin-bottom:.5rem;">01</div><h3 style="font-size:.9rem;">Integrity</h3></div>
+            <div class="service-card" style="text-align:center; padding:1.5rem 1rem;"><div style="color:#C9A84C; font-family:'Orbitron',sans-serif; font-size:1.5rem; font-weight:900; margin-bottom:.5rem;">02</div><h3 style="font-size:.9rem;">Determination</h3></div>
+            <div class="service-card" style="text-align:center; padding:1.5rem 1rem;"><div style="color:#C9A84C; font-family:'Orbitron',sans-serif; font-size:1.5rem; font-weight:900; margin-bottom:.5rem;">03</div><h3 style="font-size:.9rem;">Effective Intelligence</h3></div>
+            <div class="service-card" style="text-align:center; padding:1.5rem 1rem;"><div style="color:#C9A84C; font-family:'Orbitron',sans-serif; font-size:1.5rem; font-weight:900; margin-bottom:.5rem;">04</div><h3 style="font-size:.9rem;">Physical Ability</h3></div>
+            <div class="service-card" style="text-align:center; padding:1.5rem 1rem;"><div style="color:#C9A84C; font-family:'Orbitron',sans-serif; font-size:1.5rem; font-weight:900; margin-bottom:.5rem;">05</div><h3 style="font-size:.9rem;">Dependability</h3></div>
+            <div class="service-card" style="text-align:center; padding:1.5rem 1rem;"><div style="color:#C9A84C; font-family:'Orbitron',sans-serif; font-size:1.5rem; font-weight:900; margin-bottom:.5rem;">06</div><h3 style="font-size:.9rem;">Teamwork</h3></div>
+            <div class="service-card" style="text-align:center; padding:1.5rem 1rem;"><div style="color:#C9A84C; font-family:'Orbitron',sans-serif; font-size:1.5rem; font-weight:900; margin-bottom:.5rem;">07</div><h3 style="font-size:.9rem;">Adaptability</h3></div>
+            <div class="service-card" style="text-align:center; padding:1.5rem 1rem;"><div style="color:#C9A84C; font-family:'Orbitron',sans-serif; font-size:1.5rem; font-weight:900; margin-bottom:.5rem;">08</div><h3 style="font-size:.9rem;">Interpersonal Skills</h3></div>
+            <div class="service-card" style="text-align:center; padding:1.5rem 1rem;"><div style="color:#C9A84C; font-family:'Orbitron',sans-serif; font-size:1.5rem; font-weight:900; margin-bottom:.5rem;">09</div><h3 style="font-size:.9rem;">Initiative</h3></div>
+            <div class="service-card" style="text-align:center; padding:1.5rem 1rem;"><div style="color:#C9A84C; font-family:'Orbitron',sans-serif; font-size:1.5rem; font-weight:900; margin-bottom:.5rem;">10</div><h3 style="font-size:.9rem;">Stress Tolerance</h3></div>
+        </div>
+    </div>
+
+    <!-- 5 LEADERSHIP TRAITS -->
+    <div class="reveal" style="margin-bottom:4rem;">
+        <h3 style="font-family:'Orbitron',sans-serif; font-size:1.2rem; color:#1A6BDE; text-align:center; margin-bottom:2rem;">Five Leadership Traits</h3>
+        <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:2px; max-width:1200px; margin:0 auto;">
+            <div class="service-card" style="text-align:center; padding:2rem 1rem; border-left:3px solid #C9A84C;"><h3 style="font-size:1rem;">Courage</h3></div>
+            <div class="service-card" style="text-align:center; padding:2rem 1rem; border-left:3px solid #C9A84C;"><h3 style="font-size:1rem;">Honor</h3></div>
+            <div class="service-card" style="text-align:center; padding:2rem 1rem; border-left:3px solid #C9A84C;"><h3 style="font-size:1rem;">Integrity</h3></div>
+            <div class="service-card" style="text-align:center; padding:2rem 1rem; border-left:3px solid #C9A84C;"><h3 style="font-size:1rem;">Loyalty</h3></div>
+            <div class="service-card" style="text-align:center; padding:2rem 1rem; border-left:3px solid #C9A84C;"><h3 style="font-size:1rem;">Discipline</h3></div>
+        </div>
+    </div>
+
+    <!-- 6 SOFT SKILLS -->
+    <div class="reveal">
+        <h3 style="font-family:'Orbitron',sans-serif; font-size:1.2rem; color:#1A6BDE; text-align:center; margin-bottom:2rem;">Soft Skills</h3>
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:2px; max-width:1200px; margin:0 auto;">
+            <div class="service-card" style="padding:1.5rem;"><div style="color:#C9A84C; font-family:'Orbitron',sans-serif; font-size:1.2rem; font-weight:900; margin-bottom:.5rem;">01</div><h3 style="font-size:.95rem; margin-bottom:.5rem;">Combative Disruptions</h3><p style="font-size:.85rem;">Understanding and managing confrontational scenarios with tactical composure.</p></div>
+            <div class="service-card" style="padding:1.5rem;"><div style="color:#C9A84C; font-family:'Orbitron',sans-serif; font-size:1.2rem; font-weight:900; margin-bottom:.5rem;">02</div><h3 style="font-size:.95rem; margin-bottom:.5rem;">Direct & Consistent Response</h3><p style="font-size:.85rem;">Immediate, measured response to disruptive behavior — every time, without hesitation.</p></div>
+            <div class="service-card" style="padding:1.5rem;"><div style="color:#C9A84C; font-family:'Orbitron',sans-serif; font-size:1.2rem; font-weight:900; margin-bottom:.5rem;">03</div><h3 style="font-size:.95rem; margin-bottom:.5rem;">Kill With Kindness</h3><p style="font-size:.85rem;">Read intent. Disarm tension through professionalism and interpersonal intelligence before it escalates.</p></div>
+            <div class="service-card" style="padding:1.5rem;"><div style="color:#C9A84C; font-family:'Orbitron',sans-serif; font-size:1.2rem; font-weight:900; margin-bottom:.5rem;">04</div><h3 style="font-size:.95rem; margin-bottom:.5rem;">Verbal Judo</h3><p style="font-size:.85rem;">React and initiate a disruptive response that de-escalates the situation through tactical verbal communication.</p></div>
+            <div class="service-card" style="padding:1.5rem;"><div style="color:#C9A84C; font-family:'Orbitron',sans-serif; font-size:1.2rem; font-weight:900; margin-bottom:.5rem;">05</div><h3 style="font-size:.95rem; margin-bottom:.5rem;">Command Presence</h3><p style="font-size:.85rem;">Project authority, confidence, and control through bearing, posture, and professional demeanor.</p></div>
+            <div class="service-card" style="padding:1.5rem;"><div style="color:#C9A84C; font-family:'Orbitron',sans-serif; font-size:1.2rem; font-weight:900; margin-bottom:.5rem;">06</div><h3 style="font-size:.95rem; margin-bottom:.5rem;">Attention & Effective Intelligence</h3><p style="font-size:.85rem;">Capacity for sustained situational awareness and real-time threat assessment in dynamic environments.</p></div>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════ SOP FOR PROTECTIVE DETAIL ══════════ -->
+<div class="section-divider">
+    <h2>Atlas Glinn <span class="gold-shimmer">SOP</span> for Protective Detail</h2>
+    <p>Standard Operating Procedure — the operational framework behind every detail.</p>
+</div>
+<section class="section" style="padding-top: 2rem; border-top:1px solid rgba(201,168,76,.15);">
+    <!-- CRITICAL TIME / HIT TIME -->
+    <div class="reveal" style="max-width:1100px; margin:0 auto 4rem; display:grid; grid-template-columns:1fr 1fr; gap:2rem;">
+        <div class="service-card" style="padding:2.5rem; border-left:4px solid #C9A84C; text-align:center;">
+            <h3 style="font-family:'Orbitron',sans-serif; font-size:1.8rem; color:#C9A84C; margin-bottom:.5rem;">Critical Time</h3>
+            <p style="font-size:1rem; color:#b0b0b0;">The window of maximum vulnerability — arrival, departure, transitions, and exposed movements.</p>
+        </div>
+        <div class="service-card" style="padding:2.5rem; border-left:4px solid #1A6BDE; text-align:center;">
+            <h3 style="font-family:'Orbitron',sans-serif; font-size:1.8rem; color:#1A6BDE; margin-bottom:.5rem;">Hit Time</h3>
+            <p style="font-size:1rem; color:#b0b0b0;">The precise moment an adversary is most likely to act — identified, planned for, and neutralized.</p>
+        </div>
+    </div>
+
+    <!-- PACE -->
+    <div class="reveal" style="margin-bottom:4rem;">
+        <h3 style="font-family:'Orbitron',sans-serif; font-size:1.2rem; color:#1A6BDE; text-align:center; margin-bottom:2rem;">PACE Planning</h3>
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:2px; max-width:1200px; margin:0 auto;">
+            <div class="service-card" style="text-align:center; padding:2rem 1.2rem; border-top:3px solid #C9A84C;">
+                <div style="font-family:'Orbitron',sans-serif; font-size:2.5rem; color:#C9A84C; font-weight:900; margin-bottom:.5rem;">P</div>
+                <h3 style="font-size:1.1rem; margin-bottom:.5rem;">Primary</h3>
+                <p style="font-size:.85rem;">First-choice route, venue, and protocol. Fully advanced and verified.</p>
+            </div>
+            <div class="service-card" style="text-align:center; padding:2rem 1.2rem; border-top:3px solid #1A6BDE;">
+                <div style="font-family:'Orbitron',sans-serif; font-size:2.5rem; color:#1A6BDE; font-weight:900; margin-bottom:.5rem;">A</div>
+                <h3 style="font-size:1.1rem; margin-bottom:.5rem;">Alternate</h3>
+                <p style="font-size:.85rem;">Secondary option — pre-scouted, ready to execute if primary is compromised.</p>
+            </div>
+            <div class="service-card" style="text-align:center; padding:2rem 1.2rem; border-top:3px solid #C9A84C;">
+                <div style="font-family:'Orbitron',sans-serif; font-size:2.5rem; color:#C9A84C; font-weight:900; margin-bottom:.5rem;">C</div>
+                <h3 style="font-size:1.1rem; margin-bottom:.5rem;">Contingency</h3>
+                <p style="font-size:.85rem;">Emergency fallback when both primary and alternate are unavailable.</p>
+            </div>
+            <div class="service-card" style="text-align:center; padding:2rem 1.2rem; border-top:3px solid #1A6BDE;">
+                <div style="font-family:'Orbitron',sans-serif; font-size:2.5rem; color:#1A6BDE; font-weight:900; margin-bottom:.5rem;">E</div>
+                <h3 style="font-size:1.1rem; margin-bottom:.5rem;">Emergency</h3>
+                <p style="font-size:.85rem;">Last resort — immediate extraction, safe haven, or emergency action protocol.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOCATION BASELINE -->
+    <div class="reveal">
+        <h3 style="font-family:'Orbitron',sans-serif; font-size:1.2rem; color:#1A6BDE; text-align:center; margin-bottom:2rem;">Location Baseline</h3>
+        <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:2px; max-width:1200px; margin:0 auto;">
+            <div class="service-card" style="text-align:center; padding:1.5rem 1rem;">
+                <div style="color:#C9A84C; font-size:1.8rem; margin-bottom:.8rem;">&#127758;</div>
+                <h3 style="font-size:.95rem; margin-bottom:.5rem;">Terrain</h3>
+                <p style="font-size:.8rem;">Physical environment, entry/exit points, elevation, cover, and concealment.</p>
+            </div>
+            <div class="service-card" style="text-align:center; padding:1.5rem 1rem;">
+                <div style="color:#C9A84C; font-size:1.8rem; margin-bottom:.8rem;">&#9729;</div>
+                <h3 style="font-size:.95rem; margin-bottom:.5rem;">Weather</h3>
+                <p style="font-size:.8rem;">Conditions affecting visibility, movement, comms, and threat posture.</p>
+            </div>
+            <div class="service-card" style="text-align:center; padding:1.5rem 1rem;">
+                <div style="color:#C9A84C; font-size:1.8rem; margin-bottom:.8rem;">&#128205;</div>
+                <h3 style="font-size:.95rem; margin-bottom:.5rem;">Range of Ops</h3>
+                <p style="font-size:.8rem;">Operational radius, response times, and jurisdictional boundaries.</p>
+            </div>
+            <div class="service-card" style="text-align:center; padding:1.5rem 1rem;">
+                <div style="color:#C9A84C; font-size:1.8rem; margin-bottom:.8rem;">&#128269;</div>
+                <h3 style="font-size:.95rem; margin-bottom:.5rem;">Advance Recon</h3>
+                <p style="font-size:.8rem;">Advance team reconnaissance — site surveys, threat ID, and venue clearance.</p>
+            </div>
+            <div class="service-card" style="text-align:center; padding:1.5rem 1rem;">
+                <div style="color:#C9A84C; font-size:1.8rem; margin-bottom:.8rem;">&#128197;</div>
+                <h3 style="font-size:.95rem; margin-bottom:.5rem;">Schedule Tempo</h3>
+                <p style="font-size:.8rem;">Schedule and locations tempo — timing, transitions, and movement patterns.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════ DIGNITARY PROTECTION SHOWCASE ══════════ -->
+<div class="section-divider">
+    <h2>Protecting What <span class="gold-shimmer">Matters Most</span></h2>
+    <p>From U.S. Senators to Fortune 500 executives &mdash; discreet, adaptive protection at the highest level.</p>
+</div>
+<section style="position:relative; width:100vw; height:100vh; margin-left:calc(-50vw + 50%); overflow:hidden; display:flex; align-items:center; justify-content:center;">
+    <img src="https://atlasglinn.com/wp-content/uploads/2025/05/Executive-Protection.jpg" alt="Dignitary Protection" style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; object-position:center top; z-index:1; filter:brightness(0.7) contrast(1.15) saturate(1.1);">
+    <div style="position:absolute; top:0; left:0; width:100%; height:100%; background:linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.6) 100%); z-index:2;"></div>
+    <canvas id="dp-particles" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:3; pointer-events:none;"></canvas>
+    <div style="position:relative; z-index:4; text-align:center; max-width:700px; padding:2rem;">
+        <h2 style="font-family:'Orbitron',sans-serif; font-size:3.5rem; font-weight:900; margin-bottom:1rem; line-height:1.1; text-shadow:0 2px 20px rgba(0,0,0,0.8);">
+            Protecting What <span class="gold-shimmer">Matters Most</span>
+        </h2>
+        <p style="font-size:1.3rem; color:rgba(255,255,255,0.85); margin-bottom:2rem; text-shadow:0 1px 10px rgba(0,0,0,0.8);">
+            From U.S. Senators to Fortune 500 executives &mdash; discreet, adaptive protection at the highest level.
+        </p>
+    </div>
+</section>
+<script>
+(function(){
+const c=document.getElementById('dp-particles');if(!c)return;
+const ctx=c.getContext('2d');
+let w,h;function resize(){w=c.width=c.clientWidth;h=c.height=c.clientHeight;}
+resize();window.addEventListener('resize',resize);
+const particles=[];for(let i=0;i<40;i++){particles.push({x:Math.random()*w,y:Math.random()*h,s:Math.random()*2+1,vy:-Math.random()*0.5-0.2,o:Math.random()*0.5+0.2});}
+function draw(){ctx.clearRect(0,0,w,h);particles.forEach(p=>{ctx.fillStyle=`rgba(201,168,76,${p.o})`;ctx.fillRect(p.x,p.y,p.s,p.s);p.y+=p.vy;if(p.y<0){p.y=h;p.x=Math.random()*w;}});requestAnimationFrame(draw);}
+draw();
+window.addEventListener('scroll',()=>{const img=c.parentElement.querySelector('img');if(img){const rect=c.parentElement.getBoundingClientRect();const factor=(rect.top/window.innerHeight)*30;img.style.transform=`translateY(${factor}px) scale(1.1)`;}});
+})();
+</script>
+
+
+<!-- ══════════ REVIEWS ══════════ -->
+<div class="section-divider">
+    <h2><span class="gold-shimmer">Reviews</span></h2>
+    <p>Google Reviews & LinkedIn Recommendations</p>
+</div>
+<section class="section" style="text-align:center; padding-top:2rem;">
+    <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:2rem;">
+        <span style="color:#FFD700; font-size:1.5rem;">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+        <span style="font-size:1.8rem; font-weight:900;">5.0</span>
+        <span style="color:rgba(255,255,255,0.5); font-size:0.9rem;">Google Reviews</span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1.5rem; max-width:1200px; margin:0 auto; text-align:left;">
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:1px solid rgba(201,168,76,0.3); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Law Enforcement</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"Matthew is an expert in his field. He is highly motivated, knowledgeable and I highly recommend him for top-tier performance."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Kenny Upton — Deputy, Harris County Sheriff</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:1px solid rgba(201,168,76,0.3); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Navy SEAL / Former CIA</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"His leadership, dedication, drive, and passion is second to none. A master at teamwork, problem-solving, leadership, and communication."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Ray Cash Care — Navy SEAL / Former CIA</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:1px solid rgba(201,168,76,0.3); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Reconnaissance Marine</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"As a former Reconnaissance Marine, Matthew's teaching has not only made me a better shooter, he has made me a better team player."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Arthur Metcalfe — Recon Marine, 18yr O&G</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:1px solid rgba(201,168,76,0.3); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Flight Paramedic</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"Brockmann had hosted and taught some of the best classes I have been a part of. I can't recommend him enough."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">William H. Miller BS, TP-C, FP-C, CPM — Flight Paramedic</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:1px solid rgba(201,168,76,0.3); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">President & CEO</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"Extremely professional. In an extremely competitive industry Matt has never failed to provide exceptional guidance. I recommend him without hesitation."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Craig Etkin — President & CEO, intelligence360</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:1px solid rgba(201,168,76,0.3); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">CxO / Investor</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"I've trained with some big-name national & global self-defense trainers. I've always felt safe training with Matt — the #1 criterion for choosing a trainer."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Wayne Sadin — CxO/VP Investor</div>
+        </div>
+    </div>
+    <div style="display:flex; gap:1.5rem; justify-content:center; margin-top:2rem;">
+        <a href="https://www.google.com/search?q=Atlas+Glinn+Houston+reviews" target="_blank" style="font-size:0.85rem; color:#1A6BDE; text-decoration:none;">Google Reviews &rarr;</a>
+        <a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" style="font-size:0.85rem; color:#1A6BDE; text-decoration:none;">LinkedIn &rarr;</a>
+    </div>
+</section>
+
+<!-- ══════════ FOOTER ══════════ -->
+<footer>
+    <div class="footer-container">
+        <!-- AWARDS & CREDENTIALS -->
+        <div style="display:flex; align-items:center; justify-content:center; gap:4rem; padding-bottom:2.5rem; border-bottom:1px solid rgba(201,168,76,.15); margin-bottom:2.5rem; flex-wrap:wrap;">
+            <div style="text-align:center;">
+                <img src="https://atlasglinn.com/wp-content/uploads/2025/02/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" style="height:120px; filter:drop-shadow(0 0 15px rgba(201,168,76,.3));" loading="lazy">
+                <p style="font-family:'Orbitron',sans-serif; font-size:0.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#C9A84C; margin-top:0.8rem;">Best of Business 2025</p>
+            </div>
+            <div style="text-align:center;">
+                <img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" style="height:120px; filter:drop-shadow(0 0 15px rgba(201,168,76,.3));" loading="lazy">
+                <p style="font-family:'Orbitron',sans-serif; font-size:0.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#C9A84C; margin-top:0.8rem;">Chamber of Commerce</p>
+            </div>
+        </div>
+
+        <div class="footer-grid">
+            <div class="footer-section">
+                <h4>Atlas Glinn</h4>
+                <ul>
+                    <li><a href="atlasglinn-final.html">Home</a></li>
+                    <li><a href="executive-protection.html">Executive Protection</a></li>
+                    <li><a href="residential-protection.html">Residential Protection</a></li>
+                    <li><a href="disaster-recovery.html">Disaster Recovery</a></li>
+                    <li><a href="technology.html">Technology</a></li>
+                    <li><a href="technology.html">Atlas EP App</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>MAST Solutions</h4>
+                <ul>
+                    <li><a href="training.html">Training Programs</a></li>
+                    <li><a href="technology.html">Atlas EP Platform</a></li>
+                    <li><a href="cuas-aerodefense.html">Counter-Drone Solutions</a></li>
+                    <li><a href="training.html">MAST Solutions</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Company</h4>
+                <ul>
+                    <li><a href="about.html">About Us</a></li>
+                    <li><a href="careers.html">Careers</a></li>
+                    <li><a href="https://atlasglinn.com/blog/" target="_blank">Resources</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Connect</h4>
+                <p style="color: #b0b0b0; margin-bottom: 1rem;">
+                    2450 Fondren Rd, Suite 255<br>Houston, TX 77063<br>
+                    <a href="tel:+12816548100" style="color: #1A6BDE;">(281) 654-8100</a><br>
+                    <a href="mailto:atlasglinn.hq@atlasglinn.com" style="color: #1A6BDE;">atlasglinn.hq@atlasglinn.com</a>
+                </p>
+                <div class="social-links" style="display:flex; gap:1.2rem; flex-wrap:wrap;">
+                    <a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" style="color:#1A6BDE; text-decoration:none;">Instagram</a>
+                    <a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" style="color:#1A6BDE; text-decoration:none;">LinkedIn</a>
+                    <a href="https://www.youtube.com/@atlasglinn" target="_blank" style="color:#1A6BDE; text-decoration:none;">YouTube</a>
+                    <a href="https://www.facebook.com/mastsolutions" target="_blank" style="color:#1A6BDE; text-decoration:none;">Facebook</a>
+                    <a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" style="color:#1A6BDE; text-decoration:none;">Yelp</a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved.</p>
+            <p>Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management</p>
+        </div>
+    </div>
+</footer>
+
+<!-- ══════════ JAVASCRIPT ══════════ -->
+<script>
+// ── SCROLL REVEAL ──
+const revealObserver=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('active');revealObserver.unobserve(e.target);}});},{threshold:0.1,rootMargin:'0px 0px -50px 0px'});
+document.querySelectorAll('.reveal').forEach(el=>revealObserver.observe(el));
+
+// ── OLD 3D TILT REMOVED — using universal script below ──
+
+// ── PHOTO STRIP DRAG ──
+document.querySelectorAll('.photo-strip').forEach(strip=>{
+    let isDown=false,startX,scrollLeft;
+    strip.addEventListener('mousedown',(e)=>{isDown=true;strip.style.cursor='grabbing';startX=e.pageX-strip.offsetLeft;scrollLeft=strip.scrollLeft;});
+    strip.addEventListener('mouseleave',()=>{isDown=false;strip.style.cursor='grab';});
+    strip.addEventListener('mouseup',()=>{isDown=false;strip.style.cursor='grab';});
+    strip.addEventListener('mousemove',(e)=>{if(!isDown)return;e.preventDefault();strip.scrollLeft=scrollLeft-((e.pageX-strip.offsetLeft)-startX)*1.5;});
+});
+
+// ── PARALLAX HERO ──
+window.addEventListener('scroll',()=>{const hero=document.querySelector('.hero-bg-img');if(hero){hero.style.transform=`translateY(${window.scrollY*0.3}px)`;}});
+</script>
+
+<script>
+function parallax3D(e, container) {
+    const inner = container.querySelector('.parallax-3d-inner');
+    const img = container.querySelector('.parallax-3d-img') || container.querySelector('img');
+    const shine = container.querySelector('.parallax-3d-shine');
+    const rect = container.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    inner.style.transform = 'rotateY(' + (x * 12) + 'deg) rotateX(' + (-y * 8) + 'deg) scale(1.02)';
+    if (img) img.style.transform = 'translateX(' + (-x * 15) + 'px) translateY(' + (-y * 10) + 'px) scale(1.05)';
+    if (shine) shine.style.background = 'radial-gradient(circle at ' + ((x+0.5)*100) + '% ' + ((y+0.5)*100) + '%, rgba(255,255,255,0.2) 0%, transparent 60%)';
+}
+function resetParallax(container) {
+    const inner = container.querySelector('.parallax-3d-inner');
+    const img = container.querySelector('.parallax-3d-img') || container.querySelector('img');
+    if (inner) inner.style.transform = 'rotateY(0) rotateX(0) scale(1)';
+    if (img) img.style.transform = 'translateX(0) translateY(0) scale(1)';
+}
+</script>
+<script>
+// ── UNIVERSAL 3D TILT ON ALL CARDS ──
+document.querySelectorAll('.service-card, .testimonial, .benefit-card, .tech-partner, .discipline-card, .app-tier, .position-card').forEach(card => {
+    card.style.transition = 'transform 0.2s ease-out, box-shadow 0.3s ease';
+    card.style.transformStyle = 'preserve-3d';
+    card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width - 0.5;
+        const y = (e.clientY - rect.top) / rect.height - 0.5;
+        card.style.transform = `perspective(800px) rotateY(${x * 12}deg) rotateX(${-y * 8}deg) translateY(-4px) scale(1.02)`;
+        card.style.boxShadow = '0 25px 60px rgba(0,0,0,0.6), 0 0 40px rgba(201,168,76,0.25), 0 0 80px rgba(201,168,76,0.1)';
+    });
+    card.addEventListener('mouseleave', () => {
+        card.style.transform = 'perspective(800px) rotateY(0) rotateX(0) translateY(0) scale(1)';
+        card.style.boxShadow = '';
+    });
+});
+</script>
+
+</body>
+</html>

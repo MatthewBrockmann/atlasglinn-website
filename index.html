@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atlas Glinn - Elite Security Solutions, Risk Management & Training</title>
+    <meta name="description" content="Elite security services by Atlas Glinn: dignitary protection, residential security, armed drivers. Safeguard what matters with advanced technology and expert training.">
+    <meta name="keywords" content="executive protection Houston, security company Houston TX, dignitary protection, bodyguard services, risk management, Atlas Glinn, MAST Solutions, AI surveillance, counter-drone">
+    <link rel="canonical" href="https://www.atlasglinn.com/">
+    <meta property="og:title" content="Atlas Glinn | Elite Security Solutions & Executive Protection — Houston, TX">
+    <meta property="og:description" content="Elite security services by Atlas Glinn: dignitary protection, residential security, armed drivers. Safeguard what matters with advanced technology and expert training.">
+    <meta property="og:image" content="https://atlasglinn.com/wp-content/uploads/2025/02/Atlas-Glinn-Logo-Rev1-1.png">
+    <meta property="og:type" content="website">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Atlas Glinn, LLC">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;700&family=Inconsolata:wght@400;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            color: #ffffff;
+            background: #080C14;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* ══════════ ANIMATIONS ══════════ */
+        @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
+        }
+        @keyframes goldShimmer {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes sparkle {
+            0%,100% { opacity: 0; transform: scale(0); }
+            50% { opacity: 1; transform: scale(1); }
+        }
+
+        .gold-shimmer {
+            background: linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%);
+            background-size: 1000px 100%;
+            animation: shimmer 6s linear infinite;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* ══════════ 3D INTRO OVERLAY ══════════ */
+        #intro-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999;
+            background: #000; display: flex; align-items: center; justify-content: center;
+            transition: opacity 1.2s ease, visibility 1.2s ease;
+        }
+        #intro-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+        #three-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #intro-content {
+            position: relative; z-index: 10; text-align: center;
+            opacity: 0; transform: translateY(30px);
+            transition: opacity 1s ease .5s, transform 1s ease .5s;
+        }
+        #intro-content.visible { opacity: 1; transform: translateY(0); }
+        #intro-logo {
+            width: auto; height: 180px; margin: 0 auto 30px; object-fit: contain;
+            filter: drop-shadow(0 0 40px rgba(201,168,76,.4));
+        }
+        #intro-title {
+            font-family: 'Orbitron', sans-serif; font-size: clamp(28px,5vw,56px); font-weight: 900;
+            letter-spacing: .12em; text-transform: uppercase;
+            background: linear-gradient(135deg, #BF953F 0%, #FCF6BA 30%, #B38728 50%, #FBF5B7 70%, #AA771C 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-size: 200% 200%; animation: goldShimmer 3s ease infinite;
+        }
+        #intro-tagline {
+            font-family: 'Rajdhani', sans-serif; font-size: 16px; letter-spacing: .3em;
+            color: rgba(255,255,255,.4); margin-top: 16px; text-transform: uppercase;
+        }
+        #skip-intro {
+            position: absolute; bottom: 40px; right: 40px; z-index: 20;
+            font-family: 'Rajdhani', sans-serif; font-size: 13px; letter-spacing: .15em;
+            color: rgba(255,255,255,.3); cursor: pointer; text-transform: uppercase;
+            border: 1px solid rgba(255,255,255,.1); padding: 10px 24px; border-radius: 4px;
+            background: transparent; transition: all .3s;
+        }
+        #skip-intro:hover { color: #fff; border-color: #C9A84C; }
+        #intro-enter {
+            position: absolute; right: 60px; top: 50%; transform: translateY(-50%);
+            padding: 14px 48px; z-index: 20;
+            font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700;
+            letter-spacing: .2em; text-transform: uppercase;
+            border: 2px solid #C9A84C; color: #C9A84C;
+            background: transparent; cursor: pointer; border-radius: 4px;
+            transition: all .4s; opacity: 0;
+        }
+        #intro-enter.visible { opacity: 1; transition-delay: 1.5s; }
+        #intro-enter:hover { background: #C9A84C; color: #000; }
+
+        /* ══════════ NAVIGATION ══════════ */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            background: rgba(8, 12, 20, 0.95); backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(26, 107, 222, 0.2); padding: 1rem 2rem;
+            transform: translateY(-100%); transition: transform .6s ease;
+        }
+        nav.visible { transform: translateY(0); }
+        .nav-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .nav-logo { display: flex; align-items: center; gap: 1rem; text-decoration: none; color: #1A6BDE; }
+        .nav-logo img { height: 40px; width: auto; }
+        .nav-logo-text { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.2rem; color: #1A6BDE; }
+        .nav-links { display: flex; gap: 2rem; align-items: center; list-style: none; }
+        .nav-links a { color: #ffffff; text-decoration: none; font-size: 0.9rem; transition: color 0.3s ease; text-transform: uppercase; letter-spacing: 0.05em; }
+        .nav-links a:hover { color: #1A6BDE; }
+        .mobile-menu-btn { display: none; background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; }
+
+        .cta-button {
+            background: #1A6BDE; color: white; padding: 0.75rem 1.5rem; border: none;
+            border-radius: 4px; cursor: pointer; font-family: 'Rajdhani', sans-serif;
+            font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+            transition: all 0.3s ease; text-decoration: none; display: inline-block;
+        }
+        .cta-button:hover { background: #155ac8; box-shadow: 0 0 20px rgba(26, 107, 222, 0.5); }
+        .secondary-button { background: transparent; border: 2px solid #1A6BDE; color: #1A6BDE; }
+        .secondary-button:hover { background: #1A6BDE; color: white; }
+
+        /* ══════════ HERO ══════════ */
+        .hero { position: relative; width: 100%; height: 100vh; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
+        .hero-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        .hero-bg-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        .hero-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at 30% 50%, rgba(8,12,20,0.3) 0%, rgba(8,12,20,0.7) 70%); z-index: 2; }
+        .hero-content { position: relative; z-index: 3; text-align: center; max-width: 800px; padding: 0 2rem 4rem; }
+        .hero-headline { font-family: 'Orbitron', sans-serif; font-size: 3.2rem; font-weight: 900; margin-bottom: 1rem; letter-spacing: 0.02em; line-height: 1.1; }
+        .hero-headline .gold-text {
+            background: linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%);
+            background-size: 1000px 100%; animation: shimmer 6s linear infinite;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .hero-subheading { font-size: 1.3rem; margin-bottom: 2rem; color: #b0b0b0; font-weight: 300; }
+        .hero-ctas { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+        .hero-ctas .cta-button { padding: 1rem 2rem; font-size: 1rem; }
+        #hero-particles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+
+        /* ══════════ CREDENTIAL BAR ══════════ */
+        .credential-bar { background: #0f1622; padding: 3rem 2rem; border-top: 1px solid rgba(201,168,76,.15); border-bottom: 1px solid rgba(201,168,76,.15); }
+        .credential-grid { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; text-align: center; }
+        .credential-item h3 {
+            font-family: 'Orbitron', sans-serif; font-size: 2.5rem; margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #BF953F, #FCF6BA, #B38728, #FBF5B7, #AA771C);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-size: 200% 200%; animation: goldShimmer 4s ease infinite;
+        }
+        .credential-item p { color: #b0b0b0; font-size: 0.95rem; }
+
+        /* ══════════ SECTIONS ══════════ */
+        .section { max-width: 1400px; margin: 0 auto; padding: 4rem 2rem; }
+        .section-title { font-family: 'Orbitron', sans-serif; font-size: 2.5rem; font-weight: 900; margin-bottom: 1rem; letter-spacing: 0.02em; }
+        .section-subtitle { font-size: 1.1rem; color: #b0b0b0; margin-bottom: 3rem; }
+        .section-divider { background: #0f1622; padding: 1.5rem 2rem; border-top: 1px solid rgba(201,168,76,.15); border-bottom: 1px solid rgba(201,168,76,.15); text-align: center; margin: 0; max-width: 100%; }
+        .section-divider h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; font-weight: 900; letter-spacing: 0.02em; margin: 0; }
+        .section-divider p { font-size: 0.95rem; color: #b0b0b0; margin: 0.5rem 0 0; }
+        .section-full { padding: 6rem 2rem; }
+
+        /* ══════════ EP SECTION ══════════ */
+        .ep-container { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+        .ep-text h2 { font-family: 'Orbitron', sans-serif; font-size: 2.2rem; margin-bottom: 1.5rem; line-height: 1.2; }
+        .ep-text p { font-size: 1.05rem; color: #d0d0d0; margin-bottom: 1.5rem; line-height: 1.8; }
+        .ep-image { width: 100%; border-radius: 4px; box-shadow: 0 20px 60px rgba(26, 107, 222, 0.2); transition: transform .4s; }
+        .ep-image:hover { transform: scale(1.02); }
+
+        /* ══════════ SERVICES ══════════ */
+        .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
+        .service-card {
+            background: rgba(26, 107, 222, 0.05); border: 1px solid rgba(201, 168, 76, 0.3);
+            padding: 2rem; border-radius: 4px; transition: all 0.4s ease; position: relative;
+            transform-style: preserve-3d; box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 15px rgba(201,168,76,0.08);
+        }
+        .service-card:hover { background: rgba(26, 107, 222, 0.1); border-color: rgba(201, 168, 76, 0.6); box-shadow: 0 15px 50px rgba(0,0,0,0.5), 0 0 40px rgba(201,168,76,0.2); transform: translateY(-4px); }
+        .service-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: linear-gradient(90deg, #1A6BDE, #C9A84C); transform: scaleX(0); transform-origin: left; transition: transform .4s; }
+        .service-card:hover::before { transform: scaleX(1); }
+        .service-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; color: #1A6BDE; margin-bottom: 1rem; }
+        .service-card p { color: #b0b0b0; font-size: 0.95rem; line-height: 1.6; }
+        .card-link { display: inline-block; margin-top: 16px; font-size: 0.85rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #C9A84C; text-decoration: none; transition: color .3s; }
+        .card-link:hover { color: #FCF6BA; }
+
+        /* ══════════ PHOTO STRIP ══════════ */
+        .photo-strip { display: flex; overflow-x: auto; gap: 1rem; padding: 2rem 0; scroll-behavior: smooth; cursor: grab; }
+        .photo-strip::-webkit-scrollbar { height: 6px; }
+        .photo-strip::-webkit-scrollbar-track { background: rgba(26, 107, 222, 0.1); }
+        .photo-strip::-webkit-scrollbar-thumb { background: #1A6BDE; border-radius: 3px; }
+        .photo-item { flex: 0 0 280px; height: 280px; border-radius: 4px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
+        .photo-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
+        .photo-item:hover img { transform: scale(1.05); }
+
+        /* ══════════ TRAINING ══════════ */
+        .disciplines-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem; }
+        .discipline-card { background: rgba(26, 107, 222, 0.05); border: 1px solid rgba(201, 168, 76, 0.3); padding: 2rem; border-radius: 4px; text-align: center; transition: all 0.4s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 15px rgba(201,168,76,0.08); }
+        .discipline-card:hover { background: rgba(26, 107, 222, 0.1); border-color: rgba(201, 168, 76, 0.6); transform: translateY(-5px); box-shadow: 0 15px 50px rgba(0,0,0,0.5), 0 0 40px rgba(201,168,76,0.2); }
+        .discipline-card .disc-icon { font-size: 2.5rem; color: #1A6BDE; }
+        .discipline-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; color: #1A6BDE; margin-top: 1rem; }
+        .discipline-card p { font-size: 0.85rem; color: #b0b0b0; margin-top: .5rem; }
+
+        /* ══════════ TECHNOLOGY ══════════ */
+        .tech-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; }
+        .tech-partner { background: rgba(26, 107, 222, 0.05); border: 1px solid rgba(26, 107, 222, 0.2); padding: 2rem; border-radius: 4px; transition: all 0.3s ease; }
+        .tech-partner:hover { background: rgba(26, 107, 222, 0.1); border-color: #1A6BDE; transform: translateY(-4px); }
+        .tech-partner h3 { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; color: #1A6BDE; margin-bottom: 1rem; }
+        .tech-partner p { color: #b0b0b0; font-size: 0.9rem; line-height: 1.6; }
+
+        /* ══════════ APP PROMO ══════════ */
+        .app-promo { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+        .app-promo-content h2 { font-family: 'Orbitron', sans-serif; font-size: 2.2rem; margin-bottom: 1.5rem; }
+        .app-promo-content p { font-size: 1.05rem; color: #d0d0d0; margin-bottom: 1.5rem; line-height: 1.8; }
+        .app-features { list-style: none; margin: 2rem 0; }
+        .app-features li { padding: 0.75rem 0; padding-left: 2rem; position: relative; color: #b0b0b0; }
+        .app-features li:before { content: "▸"; position: absolute; left: 0; color: #1A6BDE; font-size: 1.5rem; }
+        .app-image { width: 100%; max-width: 100%; border-radius: 4px; box-shadow: 0 20px 60px rgba(0,0,0,.4); }
+        .app-tiers { display: flex; gap: 16px; flex-wrap: wrap; margin: 2rem 0; }
+        .app-tier { text-align: center; padding: 20px 24px; border: 1px solid rgba(255,255,255,.06); border-radius: 8px; background: rgba(255,255,255,.02); min-width: 120px; transition: border-color .3s; }
+        .app-tier:hover { border-color: #C9A84C; }
+        .app-tier-name { font-size: 10px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: #C9A84C; margin-bottom: 6px; }
+        .app-tier-price { font-family: 'Orbitron', sans-serif; font-size: 24px; font-weight: 900; }
+        .app-tier-period { font-size: 11px; color: #b0b0b0; }
+
+        /* ══════════ MEDIA / VIDEOS ══════════ */
+        .media-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2rem; margin-bottom: 2rem; }
+        .video-card { background: rgba(26, 107, 222, 0.05); border: 1px solid rgba(26, 107, 222, 0.2); border-radius: 4px; overflow: hidden; transition: all .4s; }
+        .video-card:hover { border-color: rgba(201,168,76,.4); transform: translateY(-2px); }
+        .video-card iframe { width: 100%; aspect-ratio: 16/9; border: none; }
+        .video-card-info { padding: 16px 20px; }
+        .video-card-info h4 { font-family: 'Orbitron', sans-serif; font-size: 0.9rem; margin-bottom: 4px; }
+        .video-card-info p { font-size: 0.85rem; color: #b0b0b0; }
+        .press-card { background: rgba(26, 107, 222, 0.05); border: 1px solid rgba(26, 107, 222, 0.2); border-radius: 4px; padding: 3rem 2rem; text-align: center; transition: all .4s; }
+        .press-card:hover { border-color: #C9A84C; transform: translateY(-2px); }
+        .press-logo { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; letter-spacing: .15em; text-transform: uppercase; color: #888; margin-bottom: 16px; }
+        .press-card h4 { font-family: 'Orbitron', sans-serif; font-size: 1.2rem; margin-bottom: 12px; }
+        .press-card p { font-size: 0.95rem; color: #b0b0b0; line-height: 1.6; margin-bottom: 20px; max-width: 600px; margin-left: auto; margin-right: auto; }
+
+        /* ══════════ TEAM ══════════ */
+        .team-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; max-width: 900px; margin: 0 auto; }
+        .team-card { text-align: center; }
+        .team-card img { width: 180px; height: 180px; border-radius: 50%; object-fit: cover; margin: 0 auto 20px; border: 3px solid rgba(201,168,76,.3); transition: border-color .3s; }
+        .team-card:hover img { border-color: #C9A84C; }
+        .team-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; margin-bottom: 4px; }
+        .team-role { font-size: 0.8rem; color: #C9A84C; letter-spacing: .15em; text-transform: uppercase; margin-bottom: 16px; }
+        .team-card p { font-size: 0.9rem; color: #b0b0b0; line-height: 1.7; max-width: 380px; margin: 0 auto; }
+
+        /* ══════════ TESTIMONIALS ══════════ */
+        .testimonials-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+        .testimonial { background: rgba(26,107,222,.05); border: 1px solid rgba(26,107,222,.2); padding: 2rem; border-radius: 4px; position: relative; }
+        .testimonial::before { content: '\201C'; position: absolute; top: 12px; left: 20px; font-size: 48px; color: rgba(201,168,76,.2); font-family: serif; line-height: 1; }
+        .testimonial p { font-size: 0.9rem; color: rgba(255,255,255,.6); line-height: 1.7; font-style: italic; margin-bottom: 16px; padding-top: 24px; }
+        .testimonial-author { font-size: 0.8rem; font-weight: 700; color: #C9A84C; letter-spacing: .06em; }
+
+        /* ══════════ CTA SECTION ══════════ */
+        .cta-section { background: linear-gradient(135deg, rgba(26, 107, 222, 0.1) 0%, rgba(26, 107, 222, 0.05) 100%); border: 1px solid rgba(26, 107, 222, 0.3); padding: 4rem 2rem; border-radius: 4px; text-align: center; }
+        .cta-section h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; margin-bottom: 1rem; }
+        .cta-section p { font-size: 1.1rem; color: #b0b0b0; margin-bottom: 2rem; }
+
+        /* ══════════ CONTACT ══════════ */
+        .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: start; }
+        .contact-info p { font-size: 1rem; color: #b0b0b0; line-height: 2; }
+        .contact-info a { color: #1A6BDE; text-decoration: none; transition: color .3s; }
+        .contact-info a:hover { color: #C9A84C; }
+        .contact-form input, .contact-form textarea { width: 100%; padding: 14px 18px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); border-radius: 4px; color: #fff; font-family: 'Rajdhani', sans-serif; font-size: 1rem; margin-bottom: 16px; transition: border-color .3s; }
+        .contact-form input:focus, .contact-form textarea:focus { outline: none; border-color: #1A6BDE; }
+        .contact-form textarea { height: 120px; resize: vertical; }
+
+        /* ══════════ FOOTER ══════════ */
+        footer { background: #0a0e17; border-top: 1px solid rgba(201,168,76,.1); padding: 3rem 2rem 1rem; }
+        .footer-container { max-width: 1400px; margin: 0 auto; }
+        .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+        .footer-section h4 { font-family: 'Orbitron', sans-serif; color: #C9A84C; margin-bottom: 1rem; font-size: 0.9rem; }
+        .footer-section ul { list-style: none; }
+        .footer-section ul li { margin-bottom: 0.5rem; }
+        .footer-section a { color: #b0b0b0; text-decoration: none; transition: color 0.3s ease; font-size: 0.9rem; }
+        .footer-section a:hover { color: #1A6BDE; }
+        .footer-bottom { border-top: 1px solid rgba(201,168,76,.1); padding-top: 2rem; text-align: center; color: #888; font-size: 0.85rem; }
+        .social-links { display: flex; gap: 1rem; margin-top: 1rem; }
+        .social-links a { color: #1A6BDE; text-decoration: none; transition: color 0.3s ease; }
+        .social-links a:hover { color: #C9A84C; }
+
+        /* ══════════ REVEAL ══════════ */
+        .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+        .reveal.active { opacity: 1; transform: translateY(0); }
+
+        /* ══════════ MOBILE NAV OVERLAY ══════════ */
+        .mobile-nav { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; background: rgba(0,0,0,.95); backdrop-filter: blur(20px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; opacity: 0; visibility: hidden; transition: all .3s; }
+        .mobile-nav.open { opacity: 1; visibility: visible; }
+        .mobile-nav a { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: #fff; text-decoration: none; }
+        .mobile-nav-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: #fff; font-size: 32px; cursor: pointer; }
+
+        /* ══════════ RESPONSIVE ══════════ */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .mobile-menu-btn { display: block; }
+            .hero-headline { font-size: 2rem; }
+            .ep-container, .app-promo, .contact-grid { grid-template-columns: 1fr; gap: 2rem; }
+            .credential-grid { grid-template-columns: repeat(2, 1fr); }
+            .section { padding: 3rem 1rem; }
+            .section-title { font-size: 1.8rem; }
+            .media-grid { grid-template-columns: 1fr; }
+            .team-grid { grid-template-columns: 1fr; }
+            .testimonials-row { grid-template-columns: 1fr; }
+            .photo-item { flex: 0 0 200px; height: 200px; }
+            .hero-ctas { flex-direction: column; align-items: center; }
+            .app-tiers { justify-content: center; }
+        }
+        @media (max-width: 480px) {
+            nav { padding: 0.75rem 1rem; }
+            .hero-headline { font-size: 1.8rem; }
+            .credential-item h3 { font-size: 1.8rem; }
+            .section-title { font-size: 1.4rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ══════════ 3D INTRO OVERLAY ══════════ -->
+<div id="intro-overlay">
+    <canvas id="three-canvas"></canvas>
+    <img id="flying-logo" src="images/ag-logo.png" alt="" style="position:absolute;z-index:15;width:50px;height:50px;object-fit:contain;pointer-events:none;filter:drop-shadow(0 0 12px rgba(201,168,76,.6));display:none;">
+    <div id="intro-content">
+        <h1 id="intro-title">Atlas Glinn</h1>
+    </div>
+    <button id="intro-enter" onclick="enterSite()">Enter</button>
+    <button id="skip-intro" onclick="enterSite()">Skip Intro &rarr;</button>
+</div>
+
+<!-- ══════════ NAVIGATION ══════════ -->
+<nav id="main-nav">
+    <div class="nav-container">
+        <a href="atlasglinn-final.html" class="nav-logo">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/02/Atlas-Glinn-Logo-Rev1-2-e1744918824251.png" alt="Atlas Glinn">
+            <span class="nav-logo-text">ATLAS GLINN</span>
+        </a>
+        <ul class="nav-links">
+            <li><a href="atlasglinn-final.html">Home</a></li>
+            <li><a href="executive-protection.html">Executive Protection</a></li>
+            <li><a href="residential-protection.html">Residential Protection</a></li>
+            <li><a href="disaster-recovery.html">Disaster Recovery</a></li>
+            <li><a href="training.html">Training</a></li>
+            <li><a href="technology.html">Technology</a></li>
+            <li><a href="about.html">About</a></li>
+            <li><a href="careers.html">Careers</a></li>
+            <li><a href="contact.html" class="cta-button" style="padding:.6rem 1.2rem;font-size:.85rem;">Contact Us</a></li>
+        </ul>
+        <button class="mobile-menu-btn" onclick="document.getElementById('mobile-nav').classList.add('open')">&#9776;</button>
+    </div>
+</nav>
+
+<!-- Mobile Nav Overlay -->
+<div id="mobile-nav" class="mobile-nav">
+    <button class="mobile-nav-close" onclick="this.parentElement.classList.remove('open')">&times;</button>
+    <a href="atlasglinn-final.html" onclick="this.parentElement.classList.remove('open')">Home</a>
+    <a href="executive-protection.html" onclick="this.parentElement.classList.remove('open')">Executive Protection</a>
+    <a href="residential-protection.html" onclick="this.parentElement.classList.remove('open')">Residential</a>
+    <a href="disaster-recovery.html" onclick="this.parentElement.classList.remove('open')">Disaster Recovery</a>
+    <a href="training.html" onclick="this.parentElement.classList.remove('open')">Training</a>
+    <a href="technology.html" onclick="this.parentElement.classList.remove('open')">Technology</a>
+    <a href="about.html" onclick="this.parentElement.classList.remove('open')">About</a>
+    <a href="careers.html" onclick="this.parentElement.classList.remove('open')">Careers</a>
+    <a href="contact.html" onclick="this.parentElement.classList.remove('open')">Contact</a>
+</div>
+
+<!-- ══════════ HERO WITH VIDEO ══════════ -->
+<section class="hero" style="height:100vh;">
+    <video autoplay muted loop playsinline style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; object-position:center center; z-index:1;">
+        <source src="https://atlasglinn.com/wp-content/uploads/2025/04/Atlas-Glinn-and-MAST-Solutions.mp4" type="video/mp4">
+    </video>
+    <div class="hero-overlay" style="background:linear-gradient(135deg, rgba(8,12,20,0.6) 0%, rgba(8,12,20,0.3) 50%, rgba(8,12,20,0.6) 100%);"></div>
+    <div class="hero-content">
+        <h1 class="hero-headline"><span class="gold-shimmer">Details</span> <span style="color:#1A6BDE;">Matter</span></h1>
+    </div>
+</section>
+
+<!-- ══════════ CREDENTIAL BAR ══════════ -->
+<section class="credential-bar">
+    <div class="credential-grid">
+        <div class="credential-item reveal"><h3 data-target="1500">0</h3><p>Hours of Experience</p></div>
+        <div class="credential-item reveal"><h3 data-target="2">0</h3><p>U.S. Senators Protected</p></div>
+        <div class="credential-item reveal"><h3 data-target="17">0</h3><p>Partnerships</p></div>
+        <div class="credential-item reveal"><h3 data-target="700">0</h3><p>Professionals Trained</p></div>
+    </div>
+</section>
+
+<!-- ══════════ SERVICES ══════════ -->
+<div class="section-divider">
+    <h2>Our <span class="gold-shimmer">Services</span></h2>
+    <p>Customized Security Solutions Tailored to Every Client's Needs</p>
+</div>
+<section class="section" id="services" style="padding-top: 2rem;">
+    <div class="services-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="service-card reveal" style="position:relative; overflow:hidden; min-height:320px; display:flex; align-items:flex-end;">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/05/Atlas-Glinn-Executive-Protection-scaled.jpeg" alt="Executive Protection" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;filter:brightness(.6) contrast(1.1);border-radius:4px;" loading="lazy">
+            <div style="position:relative;z-index:1;padding:1.5rem;">
+                <h3>Executive Protection</h3>
+                <p>Discreet, adaptive security for high-level executives and dignitaries.</p>
+                <a href="executive-protection.html" class="card-link">Learn More &rarr;</a>
+            </div>
+        </div>
+        <div class="service-card reveal" style="position:relative; overflow:hidden; min-height:320px; display:flex; align-items:flex-end;">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/04/closeup-cctv-camera-wall-min-1024x683.jpg?v=2" alt="Residential Protection — AI Surveillance" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;filter:brightness(.6) contrast(1.1);border-radius:4px;" loading="lazy">
+            <div style="position:relative;z-index:1;padding:1.5rem;">
+                <h3>Residential Protection</h3>
+                <p>24/7 security guards and AI surveillance for your home and estate.</p>
+                <a href="residential-protection.html" class="card-link">Learn More &rarr;</a>
+            </div>
+        </div>
+        <div class="service-card reveal" style="position:relative; overflow:hidden; min-height:320px; display:flex; align-items:flex-end;">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/05/Atlas-Glinn-Protection.png" alt="Secure Transport" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;filter:brightness(.6) contrast(1.1);border-radius:4px;" loading="lazy">
+            <div style="position:relative;z-index:1;padding:1.5rem;">
+                <h3>Secure Transport</h3>
+                <p>Armed drivers, route planning, and tactical escort for motorcade operations.</p>
+                <a href="executive-protection.html" class="card-link">Learn More &rarr;</a>
+            </div>
+        </div>
+        <div class="service-card reveal" style="position:relative; overflow:hidden; min-height:320px; display:flex; align-items:flex-end;">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/05/Atlas-Glinn-Training-1024x951.jpeg" alt="Training" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;filter:brightness(.6) contrast(1.1);border-radius:4px;" loading="lazy">
+            <div style="position:relative;z-index:1;padding:1.5rem;">
+                <h3>Training Programs</h3>
+                <p>Rigorous training for real-world challenges. Delivered by operators, for operators.</p>
+                <a href="training.html" class="card-link">Learn More &rarr;</a>
+            </div>
+        </div>
+        <div class="service-card reveal" style="position:relative; overflow:hidden; min-height:320px; display:flex; align-items:flex-end;">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/04/closeup-cctv-camera-wall-min-1024x683.jpg" alt="AI Surveillance" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;filter:brightness(.6) contrast(1.1);border-radius:4px;" loading="lazy">
+            <div style="position:relative;z-index:1;padding:1.5rem;">
+                <h3>AI Surveillance</h3>
+                <p>AI-powered intelligence gathering, threat assessment, and real-time analytics.</p>
+                <a href="technology.html" class="card-link">Learn More &rarr;</a>
+            </div>
+        </div>
+        <div class="service-card reveal" style="position:relative; overflow:hidden; min-height:320px; display:flex; align-items:flex-end;">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/05/Atlas-Glinn-3.jpg" alt="Disaster Recovery" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;filter:brightness(.6) contrast(1.1);border-radius:4px;" loading="lazy">
+            <div style="position:relative;z-index:1;padding:1.5rem;">
+                <h3>Disaster Recovery</h3>
+                <p>Rapid response and asset protection during crisis situations.</p>
+                <a href="disaster-recovery.html" class="card-link">Learn More &rarr;</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+
+<!-- ══════════ AI-POWERED PROTECTION PLATFORM ══════════ -->
+<div class="section-divider">
+    <h2>Atlas EP <span class="gold-shimmer">Platform</span></h2>
+    <p>We didn't just build a security company &mdash; we built the intelligence platform behind it. Powered by artificial intelligence, designed by a 34-year EP veteran.</p>
+</div>
+<section class="section" id="app" style="position:relative; padding-top: 2rem; padding-bottom: 4rem; padding-left: 2rem; padding-right: 2rem;">
+    <!-- GLOW EFFECT -->
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(26,107,222,.08) 0%,transparent 70%);pointer-events:none;"></div>
+    <div style="text-align:center; margin-bottom:3rem; position:relative; z-index:2;" class="reveal">
+        <p style="font-family:'Orbitron',sans-serif; font-size:0.85rem; letter-spacing:0.2em; color:#C9A84C; text-transform:uppercase; margin-bottom:0.5rem;">Built By Atlas Glinn</p>
+    </div>
+
+    <!-- FEATURES + BENEFITS GRID -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:2rem; margin-bottom:4rem;" class="reveal">
+        <div>
+            <h3 style="font-family:'Orbitron',sans-serif; font-size:1.3rem; color:#1A6BDE; margin-bottom:1.5rem;">AI Intelligence Features</h3>
+            <div style="display:flex; flex-direction:column; gap:1.2rem;">
+                <div style="display:flex; gap:0.8rem; align-items:flex-start;"><span style="color:#C9A84C; font-size:1.4rem; line-height:1;">&#9670;</span><div><strong style="color:#fff;">AI Threat Analysis &amp; Scoring</strong><br><span style="color:#b0b0b0; font-size:0.9rem;">Real-time threat intelligence powered by Anthropic Claude AI. Automated situation reports, risk scoring, and predictive threat modeling.</span></div></div>
+                <div style="display:flex; gap:0.8rem; align-items:flex-start;"><span style="color:#C9A84C; font-size:1.4rem; line-height:1;">&#9670;</span><div><strong style="color:#fff;">Blue Force Tracking</strong><br><span style="color:#b0b0b0; font-size:0.9rem;">Real-time GPS positioning of your entire protection team. Anti-spoofing technology ensures accurate, tamper-proof location data.</span></div></div>
+                <div style="display:flex; gap:0.8rem; align-items:flex-start;"><span style="color:#C9A84C; font-size:1.4rem; line-height:1;">&#9670;</span><div><strong style="color:#fff;">Encrypted Push-to-Talk Radio</strong><br><span style="color:#b0b0b0; font-size:0.9rem;">Military-grade AES-256-GCM encrypted voice comms. No third-party servers, no interception risk.</span></div></div>
+                <div style="display:flex; gap:0.8rem; align-items:flex-start;"><span style="color:#C9A84C; font-size:1.4rem; line-height:1;">&#9670;</span><div><strong style="color:#fff;">Crime Data Intelligence</strong><br><span style="color:#b0b0b0; font-size:0.9rem;">Live crime feeds, sex offender mapping, aviation/airspace monitoring &mdash; all layered on Google Earth for advance work.</span></div></div>
+            </div>
+        </div>
+        <div>
+            <h3 style="font-family:'Orbitron',sans-serif; font-size:1.3rem; color:#1A6BDE; margin-bottom:1.5rem;">Operator Benefits</h3>
+            <div style="display:flex; flex-direction:column; gap:1.2rem;">
+                <div style="display:flex; gap:0.8rem; align-items:flex-start;"><span style="color:#C9A84C; font-size:1.4rem; line-height:1;">&#9670;</span><div><strong style="color:#fff;">Covert Emergency Stream</strong><br><span style="color:#b0b0b0; font-size:0.9rem;">Silent SOS with live audio/video streaming. Your team sees and hears everything without alerting the threat.</span></div></div>
+                <div style="display:flex; gap:0.8rem; align-items:flex-start;"><span style="color:#C9A84C; font-size:1.4rem; line-height:1;">&#9670;</span><div><strong style="color:#fff;">Duress Detection</strong><br><span style="color:#b0b0b0; font-size:0.9rem;">Dead man's switch + heart rate monitoring. If you go down, your team knows immediately. Apple Watch companion with wrist SOS.</span></div></div>
+                <div style="display:flex; gap:0.8rem; align-items:flex-start;"><span style="color:#C9A84C; font-size:1.4rem; line-height:1;">&#9670;</span><div><strong style="color:#fff;">Counter-Surveillance Sweep</strong><br><span style="color:#b0b0b0; font-size:0.9rem;">BLE + IR camera detection for room sweeps. Identify hidden surveillance devices before your principal arrives.</span></div></div>
+                <div style="display:flex; gap:0.8rem; align-items:flex-start;"><span style="color:#C9A84C; font-size:1.4rem; line-height:1;">&#9670;</span><div><strong style="color:#fff;">Cyber Defense Suite</strong><br><span style="color:#b0b0b0; font-size:0.9rem;">Evil twin WiFi detection, jailbreak monitoring, MITM protection. Your device security is part of the mission.</span></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRICING TIERS -->
+    <div class="reveal" style="margin-bottom:3rem;">
+        <h3 style="font-family:'Orbitron',sans-serif; font-size:1.3rem; text-align:center; margin-bottom:1.5rem;">Choose Your <span class="gold-shimmer">Plan</span></h3>
+        <div class="app-tiers" style="justify-content:center;">
+            <div class="app-tier"><div class="app-tier-name">Free</div><div class="app-tier-price">$0</div><div class="app-tier-period">demo mode</div></div>
+            <div class="app-tier"><div class="app-tier-name">Personal Safety</div><div class="app-tier-price">$9.99</div><div class="app-tier-period">/month</div></div>
+            <div class="app-tier"><div class="app-tier-name">Operator</div><div class="app-tier-price">$49</div><div class="app-tier-period">/month</div></div>
+            <div class="app-tier"><div class="app-tier-name">Professional</div><div class="app-tier-price">$149</div><div class="app-tier-period">/month</div></div>
+            <div class="app-tier"><div class="app-tier-name">Command</div><div class="app-tier-price">$249</div><div class="app-tier-period">/seat/mo</div></div>
+            <div class="app-tier"><div class="app-tier-name">Enterprise</div><div class="app-tier-price">$500+</div><div class="app-tier-period">/seat/mo</div></div>
+        </div>
+    </div>
+
+    <!-- BIG CTA -->
+    <div style="text-align:center; margin-top:3rem;" class="reveal">
+        <a href="technology.html" style="display:inline-block; padding:1.2rem 3rem; font-family:'Orbitron',sans-serif; font-size:1.1rem; font-weight:700; letter-spacing:.15em; text-transform:uppercase; color:#fff; background:linear-gradient(135deg, #1A6BDE 0%, #0D4EA6 100%); border:2px solid rgba(26,107,222,.6); border-radius:6px; text-decoration:none; box-shadow:0 0 30px rgba(26,107,222,.3), 0 0 60px rgba(26,107,222,.1); transition:all .4s;">
+            Explore Atlas EP &rarr;
+        </a>
+    </div>
+</section>
+
+<!-- ══════════ MEDIA / CAPABILITY ══════════ -->
+<div class="section-divider">
+    <h2>We Don't Do <span class="gold-shimmer">Press.</span></h2>
+    <p>We let our work speak for itself.</p>
+</div>
+<section class="section" id="media" style="padding-top: 2rem;">
+    <!-- REQUEST CAPABILITY STATEMENT -->
+    <div class="reveal" style="max-width:700px; margin:3rem auto 0; background:rgba(26,107,222,0.05); border:1px solid rgba(26,107,222,0.2); border-radius:4px; padding:3rem;">
+        <h3 style="font-family:'Orbitron',sans-serif; font-size:1.5rem; text-align:center; margin-bottom:0.5rem;">Request <span class="gold-shimmer">Capability Statement</span></h3>
+        <p style="text-align:center; color:#b0b0b0; margin-bottom:2rem; font-size:0.95rem;">Submit your request and we'll send our capability statement directly to your email.</p>
+        <form action="mailto:atlasglinn.hq@atlasglinn.com" method="post" enctype="text/plain" style="display:flex; flex-direction:column; gap:1rem;">
+            <input type="text" name="Full Name" placeholder="Full Name" required style="background:rgba(255,255,255,0.05); border:1px solid rgba(26,107,222,0.3); color:#fff; padding:0.8rem 1rem; border-radius:4px; font-family:'Rajdhani',sans-serif; font-size:1rem;">
+            <input type="email" name="Email" placeholder="Email Address" required style="background:rgba(255,255,255,0.05); border:1px solid rgba(26,107,222,0.3); color:#fff; padding:0.8rem 1rem; border-radius:4px; font-family:'Rajdhani',sans-serif; font-size:1rem;">
+            <input type="text" name="Company" placeholder="Company" required style="background:rgba(255,255,255,0.05); border:1px solid rgba(26,107,222,0.3); color:#fff; padding:0.8rem 1rem; border-radius:4px; font-family:'Rajdhani',sans-serif; font-size:1rem;">
+            <select name="Security Status" required style="background:rgba(255,255,255,0.05); border:1px solid rgba(26,107,222,0.3); color:#b0b0b0; padding:0.8rem 1rem; border-radius:4px; font-family:'Rajdhani',sans-serif; font-size:1rem;">
+                <option value="">Do you currently have or need security?</option>
+                <option value="Currently have security">Currently have security</option>
+                <option value="Need security">Need security</option>
+                <option value="Evaluating options">Evaluating options</option>
+            </select>
+            <select name="Request Type" required style="background:rgba(255,255,255,0.05); border:1px solid rgba(26,107,222,0.3); color:#b0b0b0; padding:0.8rem 1rem; border-radius:4px; font-family:'Rajdhani',sans-serif; font-size:1rem;">
+                <option value="">RFP / RFQ</option>
+                <option value="RFP">RFP — Request for Proposal</option>
+                <option value="RFQ">RFQ — Request for Quote</option>
+                <option value="General Inquiry">General Inquiry</option>
+            </select>
+            <button type="submit" class="cta-button" style="width:100%; padding:1rem; font-size:1.1rem;">Request Capability Statement</button>
+        </form>
+    </div>
+
+</section>
+
+
+<!-- ══════════ GOOGLE REVIEWS ══════════ -->
+<div class="section-divider">
+    <h2><span class="gold-shimmer">Google</span> Reviews</h2>
+</div>
+<section class="section" style="padding-top: 2rem; text-align:center;">
+    <div style="height:1rem;"></div>
+    <div class="reveal" style="display:flex; align-items:center; justify-content:center; gap:1rem; margin-bottom:2rem;">
+        <div style="display:flex; gap:4px;">
+            <span style="color:#FFD700; font-size:1.8rem;">&#9733;</span>
+            <span style="color:#FFD700; font-size:1.8rem;">&#9733;</span>
+            <span style="color:#FFD700; font-size:1.8rem;">&#9733;</span>
+            <span style="color:#FFD700; font-size:1.8rem;">&#9733;</span>
+            <span style="color:#FFD700; font-size:1.8rem;">&#9733;</span>
+        </div>
+        <span style="font-size:2rem; font-weight:700; color:#fff;">5.0</span>
+        <span style="color:rgba(255,255,255,0.6); font-size:1rem;">Based on 10 reviews</span>
+    </div>
+    <div class="testimonials-row">
+        <div class="testimonial reveal" style="position:relative;">
+            <div style="position:absolute; top:1rem; right:1rem;">
+                <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#4285F4" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.7 2.5 30.2 0 24 0 14.6 0 6.6 5.4 2.8 13.3l7.9 6.1C12.7 13.1 17.9 9.5 24 9.5z"/><path fill="#34A853" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.5 2.8-2.2 5.2-4.6 6.8l7.1 5.5C43.4 37.5 46.5 31.5 46.5 24.5z"/><path fill="#FBBC05" d="M10.7 28.6c-1-2.8-1-5.8 0-8.6l-7.9-6.1C.5 18.2-.5 23.5.5 28.5l10.2-0z"/><path fill="#EA4335" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.1-5.5c-2.3 1.5-5.3 2.4-8.8 2.4-6.1 0-11.3-3.6-13.3-8.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>
+            </div>
+            <p>I've worked with Matt and his team for several years. They are extremely professional, and their training and expertise is second to none.</p>
+            <div class="testimonial-author">Craig E. &mdash; President &amp; CEO</div>
+            <div style="display:flex; gap:3px; margin-top:0.5rem;">
+                <span style="color:#FFD700;">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+            </div>
+        </div>
+        <div class="testimonial reveal" style="position:relative;">
+            <div style="position:absolute; top:1rem; right:1rem;">
+                <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#4285F4" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.7 2.5 30.2 0 24 0 14.6 0 6.6 5.4 2.8 13.3l7.9 6.1C12.7 13.1 17.9 9.5 24 9.5z"/><path fill="#34A853" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.5 2.8-2.2 5.2-4.6 6.8l7.1 5.5C43.4 37.5 46.5 31.5 46.5 24.5z"/><path fill="#FBBC05" d="M10.7 28.6c-1-2.8-1-5.8 0-8.6l-7.9-6.1C.5 18.2-.5 23.5.5 28.5l10.2-0z"/><path fill="#EA4335" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.1-5.5c-2.3 1.5-5.3 2.4-8.8 2.4-6.1 0-11.3-3.6-13.3-8.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>
+            </div>
+            <p>Simply THE BEST hands on tactical training you can find local to Houston, TX.</p>
+            <div class="testimonial-author">Guadalupe A. &mdash; Power Testing Specialist</div>
+            <div style="display:flex; gap:3px; margin-top:0.5rem;">
+                <span style="color:#FFD700;">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+            </div>
+        </div>
+        <div class="testimonial reveal" style="position:relative;">
+            <div style="position:absolute; top:1rem; right:1rem;">
+                <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#4285F4" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.7 2.5 30.2 0 24 0 14.6 0 6.6 5.4 2.8 13.3l7.9 6.1C12.7 13.1 17.9 9.5 24 9.5z"/><path fill="#34A853" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.5 2.8-2.2 5.2-4.6 6.8l7.1 5.5C43.4 37.5 46.5 31.5 46.5 24.5z"/><path fill="#FBBC05" d="M10.7 28.6c-1-2.8-1-5.8 0-8.6l-7.9-6.1C.5 18.2-.5 23.5.5 28.5l10.2-0z"/><path fill="#EA4335" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.1-5.5c-2.3 1.5-5.3 2.4-8.8 2.4-6.1 0-11.3-3.6-13.3-8.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>
+            </div>
+            <p>Matthew is an expert in his field. I have had the privilege to train with and work alongside him on numerous occasions.</p>
+            <div class="testimonial-author">Kenny U. &mdash; Deputy</div>
+            <div style="display:flex; gap:3px; margin-top:0.5rem;">
+                <span style="color:#FFD700;">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+            </div>
+        </div>
+    </div>
+    <div style="margin-top:2rem;" class="reveal">
+        <a href="https://www.google.com/search?q=Atlas+Glinn+Houston+reviews" target="_blank" class="cta-button secondary-button" style="display:inline-flex; align-items:center; gap:0.5rem;">
+            <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#4285F4" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.7 2.5 30.2 0 24 0 14.6 0 6.6 5.4 2.8 13.3l7.9 6.1C12.7 13.1 17.9 9.5 24 9.5z"/><path fill="#34A853" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.5 2.8-2.2 5.2-4.6 6.8l7.1 5.5C43.4 37.5 46.5 31.5 46.5 24.5z"/><path fill="#FBBC05" d="M10.7 28.6c-1-2.8-1-5.8 0-8.6l-7.9-6.1C.5 18.2-.5 23.5.5 28.5l10.2-0z"/><path fill="#EA4335" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.1-5.5c-2.3 1.5-5.3 2.4-8.8 2.4-6.1 0-11.3-3.6-13.3-8.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>
+            View All Google Reviews
+        </a>
+    </div>
+</section>
+
+
+<!-- ══════════ FOOTER ══════════ -->
+<footer>
+    <div class="footer-container">
+        <!-- AWARDS & CREDENTIALS -->
+        <div style="display:flex; align-items:center; justify-content:center; gap:4rem; padding-bottom:2.5rem; border-bottom:1px solid rgba(201,168,76,.15); margin-bottom:2.5rem; flex-wrap:wrap;">
+            <div style="text-align:center;">
+                <img src="https://atlasglinn.com/wp-content/uploads/2025/02/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" style="height:120px; filter:drop-shadow(0 0 15px rgba(201,168,76,.3));" loading="lazy">
+                <p style="font-family:'Orbitron',sans-serif; font-size:0.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#C9A84C; margin-top:0.8rem;">Best of Business 2025</p>
+            </div>
+            <div style="text-align:center;">
+                <img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" style="height:120px; filter:drop-shadow(0 0 15px rgba(201,168,76,.3));" loading="lazy">
+                <p style="font-family:'Orbitron',sans-serif; font-size:0.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#C9A84C; margin-top:0.8rem;">Chamber of Commerce</p>
+            </div>
+        </div>
+
+        <div class="footer-grid">
+            <div class="footer-section">
+                <h4>Atlas Glinn</h4>
+                <ul>
+                    <li><a href="atlasglinn-final.html">Home</a></li>
+                    <li><a href="executive-protection.html">Executive Protection</a></li>
+                    <li><a href="residential-protection.html">Residential Protection</a></li>
+                    <li><a href="disaster-recovery.html">Disaster Recovery</a></li>
+                    <li><a href="technology.html">Technology</a></li>
+                    <li><a href="technology.html">Atlas EP App</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>MAST Solutions</h4>
+                <ul>
+                    <li><a href="training.html">Training Programs</a></li>
+                    <li><a href="technology.html">Atlas EP Platform</a></li>
+                    <li><a href="cuas-aerodefense.html">Counter-Drone Solutions</a></li>
+                    <li><a href="training.html">MAST Solutions</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Company</h4>
+                <ul>
+                    <li><a href="about.html">About Us</a></li>
+                    <li><a href="careers.html">Careers</a></li>
+                    <li><a href="https://atlasglinn.com/blog/" target="_blank">Resources</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Connect</h4>
+                <p style="color: #b0b0b0; margin-bottom: 1rem;">
+                    2450 Fondren Rd, Suite 255<br>Houston, TX 77063<br>
+                    <a href="tel:+12816548100" style="color: #1A6BDE;">(281) 654-8100</a><br>
+                    <a href="mailto:atlasglinn.hq@atlasglinn.com" style="color: #1A6BDE;">atlasglinn.hq@atlasglinn.com</a>
+                </p>
+                <div class="social-links" style="display:flex; gap:1.2rem; flex-wrap:wrap;">
+                    <a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" style="color:#1A6BDE; text-decoration:none;">Instagram</a>
+                    <a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" style="color:#1A6BDE; text-decoration:none;">LinkedIn</a>
+                    <a href="https://www.youtube.com/@atlasglinn" target="_blank" style="color:#1A6BDE; text-decoration:none;">YouTube</a>
+                    <a href="https://www.facebook.com/mastsolutions" target="_blank" style="color:#1A6BDE; text-decoration:none;">Facebook</a>
+                    <a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" style="color:#1A6BDE; text-decoration:none;">Yelp</a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved.</p>
+            <p>Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management</p>
+        </div>
+    </div>
+</footer>
+
+<!-- ══════════ JAVASCRIPT ══════════ -->
+<script>
+// ── THREE.JS 3D INTRO ──
+(function(){
+    const canvas = document.getElementById('three-canvas');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    camera.position.z = 5;
+
+    const particleCount = 2000;
+    const positions = new Float32Array(particleCount * 3);
+    const velocities = new Float32Array(particleCount * 3);
+    const colors = new Float32Array(particleCount * 3);
+    const goldColors = [[0.75,0.58,0.24],[0.99,0.96,0.73],[0.70,0.53,0.16],[0.98,0.96,0.72],[0.67,0.47,0.11]];
+
+    for(let i=0;i<particleCount;i++){
+        positions[i*3]=(Math.random()-0.5)*20;
+        positions[i*3+1]=(Math.random()-0.5)*20;
+        positions[i*3+2]=(Math.random()-0.5)*20;
+        velocities[i*3]=(Math.random()-0.5)*0.005;
+        velocities[i*3+1]=(Math.random()-0.5)*0.005;
+        velocities[i*3+2]=(Math.random()-0.5)*0.005;
+        const c=goldColors[Math.floor(Math.random()*goldColors.length)];
+        colors[i*3]=c[0];colors[i*3+1]=c[1];colors[i*3+2]=c[2];
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+    geo.setAttribute('color', new THREE.BufferAttribute(colors,3));
+    const mat = new THREE.PointsMaterial({size:0.05,vertexColors:true,transparent:true,opacity:0.8,blending:THREE.AdditiveBlending,sizeAttenuation:true});
+    const particles = new THREE.Points(geo, mat);
+    scene.add(particles);
+
+    // Sparkle ring
+    const ringCount=500;const ringPos=new Float32Array(ringCount*3);const ringColors=new Float32Array(ringCount*3);
+    for(let i=0;i<ringCount;i++){
+        const angle=(i/ringCount)*Math.PI*2;const r=2+Math.random()*0.5;
+        ringPos[i*3]=Math.cos(angle)*r;ringPos[i*3+1]=Math.sin(angle)*r+(Math.random()-0.5)*0.3;ringPos[i*3+2]=(Math.random()-0.5)*0.5;
+        const c=goldColors[Math.floor(Math.random()*goldColors.length)];
+        ringColors[i*3]=c[0];ringColors[i*3+1]=c[1];ringColors[i*3+2]=c[2];
+    }
+    const ringGeo=new THREE.BufferGeometry();
+    ringGeo.setAttribute('position',new THREE.BufferAttribute(ringPos,3));
+    ringGeo.setAttribute('color',new THREE.BufferAttribute(ringColors,3));
+    const ringMat=new THREE.PointsMaterial({size:0.04,vertexColors:true,transparent:true,opacity:0.9,blending:THREE.AdditiveBlending});
+    const ring=new THREE.Points(ringGeo,ringMat);
+    scene.add(ring);
+
+    let time=0;
+    function animate(){
+        requestAnimationFrame(animate);time+=0.005;
+        const pos=geo.attributes.position.array;
+        for(let i=0;i<particleCount;i++){
+            pos[i*3]+=velocities[i*3];pos[i*3+1]+=velocities[i*3+1];pos[i*3+2]+=velocities[i*3+2];
+            if(Math.random()<0.01){velocities[i*3]=(Math.random()-0.5)*0.005;velocities[i*3+1]=(Math.random()-0.5)*0.005;}
+        }
+        geo.attributes.position.needsUpdate=true;
+        particles.rotation.y=time*0.15;particles.rotation.x=Math.sin(time*0.3)*0.1;
+        ring.rotation.z=time*0.3;ring.rotation.x=Math.sin(time)*0.2;
+        const pulse=1+Math.sin(time*3)*0.02;ring.scale.set(pulse,pulse,pulse);
+        renderer.render(scene,camera);
+    }
+    animate();
+
+    setTimeout(()=>{
+        document.getElementById('intro-content').classList.add('visible');
+        document.getElementById('intro-enter').classList.add('visible');
+    },800);
+
+    window.addEventListener('resize',()=>{
+        camera.aspect=window.innerWidth/window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth,window.innerHeight);
+    });
+})();
+
+// ── ENTER SITE ──
+function enterSite(){
+    document.getElementById('intro-overlay').classList.add('hidden');
+    document.getElementById('main-nav').classList.add('visible');
+    document.body.style.overflow='auto';
+    sessionStorage.setItem('atlasglinn_entered','true');
+}
+// Skip orbital if already entered this session
+if(sessionStorage.getItem('atlasglinn_entered')){enterSite();}
+
+// ── HERO GOLD DUST PARTICLES ──
+(function(){
+    const c=document.getElementById('hero-particles');if(!c)return;
+    const ctx=c.getContext('2d');let w,h;const pts=[];const count=50;
+    function resize(){w=c.width=c.parentElement.offsetWidth;h=c.height=c.parentElement.offsetHeight;}
+    resize();window.addEventListener('resize',resize);
+    for(let i=0;i<count;i++){pts.push({x:Math.random()*w,y:Math.random()*h,vx:(Math.random()-0.5)*0.3,vy:-Math.random()*0.4-0.1,size:Math.random()*2+0.5,opacity:Math.random()*0.4+0.1,gold:Math.random()>0.4});}
+    function draw(){
+        ctx.clearRect(0,0,w,h);
+        pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fillStyle=p.gold?`rgba(201,168,76,${p.opacity})`:`rgba(255,255,255,${p.opacity*0.3})`;ctx.fill();p.x+=p.vx;p.y+=p.vy;if(p.y<-10){p.y=h+10;p.x=Math.random()*w;}if(p.x<-10||p.x>w+10){p.x=Math.random()*w;}});
+        requestAnimationFrame(draw);
+    }
+    draw();
+})();
+
+// ── SCROLL REVEAL ──
+const revealObserver=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('active');revealObserver.unobserve(e.target);}});},{threshold:0.1,rootMargin:'0px 0px -50px 0px'});
+document.querySelectorAll('.reveal').forEach(el=>revealObserver.observe(el));
+
+// ── STAT COUNTER ANIMATION ──
+const statObserver=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){const el=e.target;const target=parseInt(el.dataset.target);if(isNaN(target))return;const suffix=(target===2)?'':'+';let current=0;const step=Math.max(1,Math.floor(target/60));const timer=setInterval(()=>{current+=step;if(current>=target){current=target;clearInterval(timer);}el.textContent=current+suffix;},30);statObserver.unobserve(el);}});},{threshold:0.5});
+document.querySelectorAll('[data-target]').forEach(el=>statObserver.observe(el));
+
+// ── OLD 3D TILT REMOVED — using universal script below ──
+
+// ── PHOTO STRIP DRAG ──
+document.querySelectorAll('.photo-strip').forEach(strip=>{
+    let isDown=false,startX,scrollLeft;
+    strip.addEventListener('mousedown',(e)=>{isDown=true;strip.style.cursor='grabbing';startX=e.pageX-strip.offsetLeft;scrollLeft=strip.scrollLeft;});
+    strip.addEventListener('mouseleave',()=>{isDown=false;strip.style.cursor='grab';});
+    strip.addEventListener('mouseup',()=>{isDown=false;strip.style.cursor='grab';});
+    strip.addEventListener('mousemove',(e)=>{if(!isDown)return;e.preventDefault();strip.scrollLeft=scrollLeft-((e.pageX-strip.offsetLeft)-startX)*1.5;});
+});
+
+// ── PARALLAX HERO ──
+window.addEventListener('scroll',()=>{const hero=document.querySelector('#hero-globe');if(hero){hero.style.transform=`translateY(${window.scrollY*0.3}px)`;}});
+
+// Auto-enter after 12 seconds
+setTimeout(()=>{if(!document.getElementById('intro-overlay').classList.contains('hidden')){enterSite();}},3500);
+
+// ── 3D GLOBE WITH FLIGHT ARC: HOUSTON → BUENOS AIRES ──
+(function(){
+const canvas=document.getElementById('hero-globe');
+if(!canvas)return;
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(45,canvas.clientWidth/canvas.clientHeight,0.1,100);
+camera.position.set(1.2,0.3,3.0);
+const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true});
+renderer.setSize(canvas.clientWidth,canvas.clientHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+
+// Globe wireframe
+const globeGeo=new THREE.SphereGeometry(1,48,48);
+const globeMat=new THREE.MeshBasicMaterial({color:0x1A6BDE,wireframe:true,transparent:true,opacity:0.12});
+const globe=new THREE.Mesh(globeGeo,globeMat);
+scene.add(globe);
+
+// Gold latitude/longitude lines
+const latMat=new THREE.LineBasicMaterial({color:0xC9A84C,transparent:true,opacity:0.15});
+for(let i=-60;i<=60;i+=30){
+  const r=Math.cos(i*Math.PI/180);
+  const y=Math.sin(i*Math.PI/180);
+  const pts=[];
+  for(let j=0;j<=64;j++){const a=j/64*Math.PI*2;pts.push(new THREE.Vector3(Math.cos(a)*r,y,Math.sin(a)*r));}
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),latMat));
+}
+for(let i=0;i<360;i+=30){
+  const pts=[];
+  for(let j=-90;j<=90;j+=5){const la=j*Math.PI/180;const lo=i*Math.PI/180;pts.push(new THREE.Vector3(Math.cos(la)*Math.cos(lo),Math.sin(la),Math.cos(la)*Math.sin(lo)));}
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),latMat));
+}
+
+// Convert lat/lon to 3D
+function latLon(lat,lon,r=1.01){const la=lat*Math.PI/180;const lo=-lon*Math.PI/180;return new THREE.Vector3(Math.cos(la)*Math.cos(lo)*r,Math.sin(la)*r,Math.cos(la)*Math.sin(lo)*r);}
+
+// City markers
+const houston=latLon(29.76,-95.37);
+const buenosAires=latLon(-34.60,-58.38);
+const markerGeo=new THREE.SphereGeometry(0.025,12,12);
+const goldMat=new THREE.MeshBasicMaterial({color:0xC9A84C});
+const blueMat=new THREE.MeshBasicMaterial({color:0x1A6BDE});
+const h=new THREE.Mesh(markerGeo,goldMat);h.position.copy(houston);scene.add(h);
+const b=new THREE.Mesh(markerGeo,blueMat);b.position.copy(buenosAires);scene.add(b);
+
+// Pulsing rings at cities
+function makeRing(pos,col){
+  const rGeo=new THREE.RingGeometry(0.03,0.045,32);
+  const rMat=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.6,side:THREE.DoubleSide});
+  const ring=new THREE.Mesh(rGeo,rMat);ring.position.copy(pos);ring.lookAt(0,0,0);
+  scene.add(ring);return ring;
+}
+const hRing=makeRing(houston,0xC9A84C);
+const bRing=makeRing(buenosAires,0x1A6BDE);
+
+// Flight arc (great circle with altitude)
+const arcPts=[];
+for(let i=0;i<=80;i++){
+  const t=i/80;
+  const p=new THREE.Vector3().lerpVectors(houston,buenosAires,t).normalize();
+  const alt=1.01+Math.sin(t*Math.PI)*0.35;
+  p.multiplyScalar(alt);
+  arcPts.push(p);
+}
+const arcGeo=new THREE.BufferGeometry().setFromPoints(arcPts);
+const arcMat=new THREE.LineBasicMaterial({color:0xC9A84C,transparent:true,opacity:0.8});
+scene.add(new THREE.Line(arcGeo,arcMat));
+
+// Flying logo along arc — load from page image to avoid CORS
+const logoImg=document.getElementById('intro-logo');
+const logoCanvas=document.createElement('canvas');
+logoCanvas.width=128;logoCanvas.height=128;
+const lctx=logoCanvas.getContext('2d');
+logoImg.onload=function(){lctx.drawImage(logoImg,0,0,128,128);logoTex.needsUpdate=true;};
+if(logoImg.complete){lctx.drawImage(logoImg,0,0,128,128);}
+const logoTex=new THREE.CanvasTexture(logoCanvas);
+const logoMat=new THREE.SpriteMaterial({map:logoTex,transparent:true,opacity:0});
+const dot=new THREE.Sprite(logoMat);
+dot.scale.set(0.01,0.01,1);
+scene.add(dot);
+
+// Trail particles behind dot
+const trailCount=30;
+const trailGeo=new THREE.BufferGeometry();
+const trailPos=new Float32Array(trailCount*3);
+trailGeo.setAttribute('position',new THREE.BufferAttribute(trailPos,3));
+const trailMat=new THREE.PointsMaterial({color:0xC9A84C,size:0.008,transparent:true,opacity:0.5});
+const trail=new THREE.Points(trailGeo,trailMat);
+scene.add(trail);
+const trailHistory=[];
+
+// Scattered gold dust particles around globe
+const dustCount=600;
+const dustGeo=new THREE.BufferGeometry();
+const dustPositions=new Float32Array(dustCount*3);
+for(let i=0;i<dustCount;i++){
+  const r=1.5+Math.random()*2;
+  const theta=Math.random()*Math.PI*2;
+  const phi=Math.acos(2*Math.random()-1);
+  dustPositions[i*3]=r*Math.sin(phi)*Math.cos(theta);
+  dustPositions[i*3+1]=r*Math.sin(phi)*Math.sin(theta);
+  dustPositions[i*3+2]=r*Math.cos(phi);
+}
+dustGeo.setAttribute('position',new THREE.BufferAttribute(dustPositions,3));
+const dustMat=new THREE.PointsMaterial({color:0xC9A84C,size:0.012,transparent:true,opacity:0.3});
+scene.add(new THREE.Points(dustGeo,dustMat));
+
+// Animate
+let time=0;
+function animate(){
+  requestAnimationFrame(animate);
+  time+=0.003;
+  globe.rotation.y=time*0.3;
+
+  // Pulse rings
+  const pulse=0.5+Math.sin(time*8)*0.5;
+  hRing.material.opacity=0.3+pulse*0.4;
+  bRing.material.opacity=0.3+pulse*0.4;
+  const sc=1+pulse*0.5;
+  hRing.scale.set(sc,sc,sc);
+  bRing.scale.set(sc,sc,sc);
+
+  // Animate dot along arc
+  const arcT=(time*0.5)%1;
+  const idx=Math.floor(arcT*79);
+  const frac=arcT*79-idx;
+  if(idx<79){
+    dot.position.lerpVectors(arcPts[idx],arcPts[idx+1],frac);
+    // Rotate dot with globe
+    const rotY=new THREE.Matrix4().makeRotationY(time*0.3);
+    dot.position.applyMatrix4(rotY);
+  }
+
+  // Update trail
+  trailHistory.unshift(dot.position.clone());
+  if(trailHistory.length>trailCount)trailHistory.pop();
+  for(let i=0;i<trailCount;i++){
+    if(i<trailHistory.length){
+      trailPos[i*3]=trailHistory[i].x;
+      trailPos[i*3+1]=trailHistory[i].y;
+      trailPos[i*3+2]=trailHistory[i].z;
+    }
+  }
+  trailGeo.attributes.position.needsUpdate=true;
+
+  // Rotate markers & arc with globe
+  h.position.copy(houston).applyAxisAngle(new THREE.Vector3(0,1,0),time*0.3);
+  b.position.copy(buenosAires).applyAxisAngle(new THREE.Vector3(0,1,0),time*0.3);
+  hRing.position.copy(h.position);hRing.lookAt(0,0,0);
+  bRing.position.copy(b.position);bRing.lookAt(0,0,0);
+
+  // Project dot position to screen coords for HTML logo overlay
+  const flyLogo=document.getElementById('flying-logo');
+  if(flyLogo && dot){
+    const v=dot.position.clone().project(camera);
+    const cx=canvas.clientWidth/2;const cy=canvas.clientHeight/2;
+    flyLogo.style.left=(cx+v.x*cx-25)+'px';
+    flyLogo.style.top=(cy-v.y*cy-25)+'px';
+    flyLogo.style.display='block';
+  }
+
+  renderer.render(scene,camera);
+}
+animate();
+
+window.addEventListener('resize',()=>{
+  camera.aspect=canvas.clientWidth/canvas.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(canvas.clientWidth,canvas.clientHeight);
+});
+})();
+</script>
+<script>
+// ── UNIVERSAL 3D TILT ON ALL CARDS ──
+document.querySelectorAll('.service-card, .testimonial, .benefit-card, .tech-partner, .discipline-card, .app-tier, .position-card').forEach(card => {
+    card.style.transition = 'transform 0.2s ease-out, box-shadow 0.3s ease';
+    card.style.transformStyle = 'preserve-3d';
+    card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width - 0.5;
+        const y = (e.clientY - rect.top) / rect.height - 0.5;
+        card.style.transform = `perspective(800px) rotateY(${x * 12}deg) rotateX(${-y * 8}deg) translateY(-4px) scale(1.02)`;
+        card.style.boxShadow = '0 25px 60px rgba(0,0,0,0.6), 0 0 40px rgba(201,168,76,0.25), 0 0 80px rgba(201,168,76,0.1)';
+    });
+    card.addEventListener('mouseleave', () => {
+        card.style.transform = 'perspective(800px) rotateY(0) rotateX(0) translateY(0) scale(1)';
+        card.style.boxShadow = '';
+    });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atlas Glinn - About Us | Elite Security Leadership</title>
+    <meta name="description" content="Meet the Atlas Glinn leadership team. 34+ years of elite security, dignitary protection, and tactical training expertise led by Matthew Brockmann and Michael Cline.">
+    <meta name="keywords" content="about Atlas Glinn, Matthew Brockmann, Michael Cline, security leadership Houston, Navy SEAL, U.S. Senator protection, MAST Solutions">
+    <link rel="canonical" href="https://www.atlasglinn.com/about/">
+    <meta property="og:title" content="About Atlas Glinn | Elite Security Leadership — Houston, TX">
+    <meta property="og:description" content="Meet the Atlas Glinn leadership team. 34+ years of elite security, dignitary protection, and tactical training expertise led by Matthew Brockmann and Michael Cline.">
+    <meta property="og:image" content="https://atlasglinn.com/wp-content/uploads/2025/02/Atlas-Glinn-Logo-Rev1-1.png">
+    <meta property="og:type" content="website">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Atlas Glinn, LLC">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;700&family=Inconsolata:wght@400;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            color: #ffffff;
+            background: #080C14;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* ANIMATIONS */
+        @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
+        }
+        @keyframes goldShimmer {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .gold-shimmer {
+            background: linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%);
+            background-size: 1000px 100%;
+            animation: shimmer 6s linear infinite;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* NAVIGATION */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            background: rgba(8, 12, 20, 0.95); backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(26, 107, 222, 0.2); padding: 1rem 2rem;
+            transform: translateY(0); transition: transform .6s ease;
+        }
+        nav.visible { transform: translateY(0); }
+        .nav-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .nav-logo { display: flex; align-items: center; gap: 1rem; text-decoration: none; color: #1A6BDE; }
+        .nav-logo img { height: 40px; width: auto; }
+        .nav-logo-text { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.2rem; color: #1A6BDE; }
+        .nav-links { display: flex; gap: 2rem; align-items: center; list-style: none; }
+        .nav-links a { color: #ffffff; text-decoration: none; font-size: 0.9rem; transition: color 0.3s ease; text-transform: uppercase; letter-spacing: 0.05em; }
+        .nav-links a:hover { color: #1A6BDE; }
+        .mobile-menu-btn { display: none; background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; }
+
+        .cta-button {
+            background: #1A6BDE; color: white; padding: 0.75rem 1.5rem; border: none;
+            border-radius: 4px; cursor: pointer; font-family: 'Rajdhani', sans-serif;
+            font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+            transition: all 0.3s ease; text-decoration: none; display: inline-block;
+        }
+        .cta-button:hover { background: #155ac8; box-shadow: 0 0 20px rgba(26, 107, 222, 0.5); }
+        .secondary-button { background: transparent; border: 2px solid #1A6BDE; color: #1A6BDE; }
+        .secondary-button:hover { background: #1A6BDE; color: white; }
+
+        /* HERO */
+        .hero { position: relative; width: 100%; height: 100vh; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
+        .hero-bg-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        .hero-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 12, 20, 0.25); z-index: 2; }
+        .hero video { object-position: center 60%; }
+        .hero-content { position: relative; z-index: 3; text-align: center; max-width: 800px; padding: 0 2rem 4rem; }
+        .hero-headline { font-family: 'Orbitron', sans-serif; font-size: 3.2rem; font-weight: 900; margin-bottom: 1rem; letter-spacing: 0.02em; line-height: 1.1; }
+        .hero-headline .gold-text {
+            background: linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%);
+            background-size: 1000px 100%; animation: shimmer 6s linear infinite;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+
+        /* SECTIONS */
+        .section { max-width: 1400px; margin: 0 auto; padding: 4rem 2rem; }
+        .section-title { font-family: 'Orbitron', sans-serif; font-size: 2.5rem; font-weight: 900; margin-bottom: 1rem; letter-spacing: 0.02em; }
+        .section-subtitle { font-size: 1.1rem; color: #b0b0b0; margin-bottom: 3rem; }
+        .section-divider { background: #0f1622; padding: 1.5rem 2rem; border-top: 1px solid rgba(201,168,76,.15); border-bottom: 1px solid rgba(201,168,76,.15); text-align: center; margin: 0; max-width: 100%; }
+        .section-divider h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; font-weight: 900; letter-spacing: 0.02em; margin: 0; }
+        .section-divider p { font-size: 0.95rem; color: #b0b0b0; margin: 0.5rem 0 0; }
+
+        /* MISSION */
+        .mission-text { font-size: 1.2rem; color: #d0d0d0; line-height: 2; max-width: 900px; margin: 0 auto; text-align: center; }
+
+        /* TEAM */
+        .team-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; max-width: 1100px; margin: 0 auto; }
+        .team-card { text-align: center; }
+        .team-card img { width: 200px; height: 200px; border-radius: 50%; object-fit: cover; margin: 0 auto 20px; border: 3px solid rgba(201,168,76,.3); transition: border-color .3s; display: block; }
+        .team-card:hover img { border-color: #C9A84C; }
+        .team-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1.2rem; margin-bottom: 4px; }
+        .team-role { font-size: 0.8rem; color: #C9A84C; letter-spacing: .15em; text-transform: uppercase; margin-bottom: 16px; }
+        .team-card p { font-size: 0.9rem; color: #b0b0b0; line-height: 1.7; max-width: 480px; margin: 0 auto; text-align: left; }
+
+        /* TESTIMONIALS */
+        .testimonials-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+        .testimonial { background: rgba(26,107,222,.05); border: 1px solid rgba(26,107,222,.2); padding: 2rem; border-radius: 4px; position: relative; transform-style: preserve-3d; transition: all 0.3s ease; }
+        .testimonial:hover { background: rgba(26,107,222,.1); border-color: rgba(26,107,222,.5); transform: translateY(-4px); }
+        .testimonial::before { content: '\201C'; position: absolute; top: 12px; left: 20px; font-size: 48px; color: rgba(201,168,76,.2); font-family: serif; line-height: 1; }
+        .testimonial::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: linear-gradient(90deg, #1A6BDE, #C9A84C); transform: scaleX(0); transform-origin: left; transition: transform .4s; }
+        .testimonial:hover::after { transform: scaleX(1); }
+        .testimonial p { font-size: 0.9rem; color: rgba(255,255,255,.6); line-height: 1.7; font-style: italic; margin-bottom: 16px; padding-top: 24px; }
+        .testimonial-author { font-size: 0.8rem; font-weight: 700; color: #C9A84C; letter-spacing: .06em; }
+
+        /* CTA SECTION */
+        .cta-section { background: linear-gradient(135deg, rgba(26, 107, 222, 0.1) 0%, rgba(26, 107, 222, 0.05) 100%); border: 1px solid rgba(26, 107, 222, 0.3); padding: 4rem 2rem; border-radius: 4px; text-align: center; }
+        .cta-section h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; margin-bottom: 1rem; }
+        .cta-section p { font-size: 1.1rem; color: #b0b0b0; margin-bottom: 0.5rem; }
+        .cta-section a.cta-button { margin-top: 1.5rem; }
+
+        /* FOOTER */
+        footer { background: #0a0e17; border-top: 1px solid rgba(201,168,76,.1); padding: 3rem 2rem 1rem; }
+        .footer-container { max-width: 1400px; margin: 0 auto; }
+        .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+        .footer-section h4 { font-family: 'Orbitron', sans-serif; color: #C9A84C; margin-bottom: 1rem; font-size: 0.9rem; }
+        .footer-section ul { list-style: none; }
+        .footer-section ul li { margin-bottom: 0.5rem; }
+        .footer-section a { color: #b0b0b0; text-decoration: none; transition: color 0.3s ease; font-size: 0.9rem; }
+        .footer-section a:hover { color: #1A6BDE; }
+        .footer-bottom { border-top: 1px solid rgba(201,168,76,.1); padding-top: 2rem; text-align: center; color: #888; font-size: 0.85rem; }
+        .social-links { display: flex; gap: 1rem; margin-top: 1rem; }
+        .social-links a { color: #1A6BDE; text-decoration: none; transition: color 0.3s ease; }
+        .social-links a:hover { color: #C9A84C; }
+
+        /* REVEAL */
+        .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+        .reveal.active { opacity: 1; transform: translateY(0); }
+
+        /* MOBILE NAV OVERLAY */
+        .mobile-nav { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; background: rgba(0,0,0,.95); backdrop-filter: blur(20px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; opacity: 0; visibility: hidden; transition: all .3s; }
+        .mobile-nav.open { opacity: 1; visibility: visible; }
+        .mobile-nav a { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: #fff; text-decoration: none; }
+        .mobile-nav-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: #fff; font-size: 32px; cursor: pointer; }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .mobile-menu-btn { display: block; }
+            .hero-headline { font-size: 2rem; }
+            .team-grid { grid-template-columns: 1fr; gap: 3rem; }
+            .testimonials-row { grid-template-columns: 1fr; }
+            .section { padding: 3rem 1rem; }
+            .section-title { font-size: 1.8rem; }
+            .hero { height: 60vh; }
+        }
+        @media (max-width: 480px) {
+            nav { padding: 0.75rem 1rem; }
+            .hero-headline { font-size: 1.8rem; }
+            .section-title { font-size: 1.4rem; }
+        }
+    
+        /* ═══ CINEMATIC IMAGE SYSTEM ═══ */
+        .photo-item img, .full-bleed-divider img {
+            animation: kenburns 20s ease-in-out infinite alternate;
+            transition: transform 0.8s cubic-bezier(0.23,1,0.32,1), filter 0.5s ease;
+            filter: contrast(1.1) saturate(1.1);
+        }
+        .photo-item:nth-child(odd) img { animation-name: kenburns-alt; }
+        .photo-item:nth-child(3n) img { animation-name: kenburns-pan; animation-duration: 25s; }
+        .photo-item img:hover, .full-bleed-divider img:hover {
+            transform: scale(1.08) !important;
+            filter: contrast(1.2) saturate(1.2) brightness(1.05);
+        }
+        .photo-item { overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.5), 0 0 30px rgba(201,168,76,0.08); transition: box-shadow 0.5s ease, transform 0.5s ease; }
+        .photo-item:hover { box-shadow: 0 25px 70px rgba(0,0,0,0.7), 0 0 50px rgba(201,168,76,0.15); transform: translateY(-4px); }
+        .full-bleed-divider { overflow: hidden; position: relative; }
+        .full-bleed-divider img { animation: kenburns-slow 30s ease-in-out infinite alternate; }
+        @keyframes kenburns { 0% { transform: scale(1) translate(0, 0); } 100% { transform: scale(1.12) translate(-2%, -1%); } }
+        @keyframes kenburns-alt { 0% { transform: scale(1.08) translate(-1%, 0); } 100% { transform: scale(1) translate(1%, -1%); } }
+        @keyframes kenburns-pan { 0% { transform: scale(1) translate(0, 0); } 50% { transform: scale(1.06) translate(-1.5%, -1%); } 100% { transform: scale(1.1) translate(1%, -0.5%); } }
+        @keyframes kenburns-slow { 0% { transform: scale(1) translate(0, 0); } 100% { transform: scale(1.08) translate(-1%, -0.5%); } }
+        /* ═══ 3D PARALLAX PHOTO EFFECT ═══ */
+        .photo-item .parallax-3d-container { width: 100%; height: 100%; }
+        .photo-item .parallax-3d-inner { height: 100%; }
+        .photo-item .parallax-3d-inner img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+        .full-bleed-divider .parallax-3d-container { width: 100%; }
+        .parallax-3d-container { perspective: 1000px; width: 100%; }
+        .parallax-3d-inner { position: relative; overflow: hidden; border-radius: 4px; box-shadow: 0 25px 60px rgba(0,0,0,0.6), 0 0 40px rgba(201,168,76,0.12); transition: transform 0.15s ease-out, box-shadow 0.3s ease; transform-style: preserve-3d; will-change: transform; }
+        .parallax-3d-img { width: 100%; display: block; transition: transform 0.3s ease-out; filter: contrast(1.1) saturate(1.1); }
+        .parallax-3d-shine { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%, transparent 100%); opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
+        .parallax-3d-container:hover .parallax-3d-shine { opacity: 1; }
+        .parallax-3d-container:hover .parallax-3d-inner { box-shadow: 0 35px 80px rgba(0,0,0,0.7), 0 0 60px rgba(201,168,76,0.2); }
+
+    </style>
+</head>
+<body>
+
+<!-- ══════════ NAVIGATION ══════════ -->
+<nav id="main-nav" class="visible" style="transform:translateY(0)">
+    <div class="nav-container">
+        <a href="atlasglinn-final.html" class="nav-logo">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/02/Atlas-Glinn-Logo-Rev1-2-e1744918824251.png" alt="Atlas Glinn">
+            <span class="nav-logo-text">ATLAS GLINN</span>
+        </a>
+        <ul class="nav-links">
+            <li><a href="atlasglinn-final.html">Home</a></li>
+            <li><a href="executive-protection.html">Executive Protection</a></li>
+            <li><a href="residential-protection.html">Residential Protection</a></li>
+            <li><a href="disaster-recovery.html">Disaster Recovery</a></li>
+            <li><a href="training.html">Training</a></li>
+            <li><a href="technology.html">Technology</a></li>
+            <li><a href="about.html">About</a></li>
+            <li><a href="careers.html">Careers</a></li>
+            <li><a href="contact.html" class="cta-button" style="padding:.6rem 1.2rem;font-size:.85rem;">Contact Us</a></li>
+        </ul>
+        <button class="mobile-menu-btn" onclick="document.getElementById('mobile-nav').classList.add('open')">&#9776;</button>
+    </div>
+</nav>
+
+<!-- Mobile Nav Overlay -->
+<div id="mobile-nav" class="mobile-nav">
+    <button class="mobile-nav-close" onclick="this.parentElement.classList.remove('open')">&times;</button>
+    <a href="atlasglinn-final.html" onclick="this.parentElement.classList.remove('open')">Home</a>
+    <a href="executive-protection.html" onclick="this.parentElement.classList.remove('open')">Executive Protection</a>
+    <a href="residential-protection.html" onclick="this.parentElement.classList.remove('open')">Residential</a>
+    <a href="disaster-recovery.html" onclick="this.parentElement.classList.remove('open')">Disaster Recovery</a>
+    <a href="training.html" onclick="this.parentElement.classList.remove('open')">Training</a>
+    <a href="technology.html" onclick="this.parentElement.classList.remove('open')">Technology</a>
+    <a href="about.html" onclick="this.parentElement.classList.remove('open')">About</a>
+    <a href="careers.html" onclick="this.parentElement.classList.remove('open')">Careers</a>
+    <a href="contact.html" onclick="this.parentElement.classList.remove('open')">Contact</a>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+    <video autoplay muted loop playsinline class="hero-bg-img" style="object-fit:cover;"><source src="images/about-hero-new.mp4" type="video/mp4"></video>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+        <h1 class="hero-headline"><span class="gold-text">Details</span> Matter</h1>
+    </div>
+</section>
+
+<!-- MISSION -->
+<div class="section-divider">
+    <h2>Our <span class="gold-shimmer">Mission</span></h2>
+</div>
+<section class="section" style="padding-top: 2rem; text-align:center;">
+    <p class="mission-text reveal">Our mission is to provide you with unparalleled peace of mind, safeguarding what matters most &mdash; your safety, your assets, and your way of life. With a foundation built on elite expertise and a relentless pursuit of excellence, we deliver tailored protection solutions that blend seamlessly into your world.</p>
+</section>
+
+<!-- TEAM -->
+<div class="section-divider">
+    <h2>Meet The <span class="gold-shimmer">Team</span></h2>
+    <p>We redefine security with precision, discretion, and unwavering commitment</p>
+</div>
+<section class="section" style="padding-top: 2rem; text-align:center;">
+    <div class="team-grid">
+        <div class="team-card reveal">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/03/Matthew-Brockmann-Atlas-glenn-security-ceo-protection1-scaled-e1741887403903.jpeg" alt="Matthew Brockmann" loading="lazy">
+            <h3>Matthew Brockmann</h3>
+            <div class="team-role">Founder &amp; CEO</div>
+            <p>Matthew Brockmann is the visionary founder of both MAST Solutions and Atlas Glinn, bringing over 34 years of expertise in security, training, and dignitary protection. A seasoned civilian contractor, he specializes in Military, Law Enforcement, and Homeland Security Special Response Teams (SRT), with extensive experience collaborating with elite Tier 1 Operators from units like Navy SEALs, Recon Marines, and USASOC. His career began in 1991 at Gunsight under Cornel J. Cooper. As a former Head of Security and Dignitary Protection for U.S. Senators Ted Cruz, Eric 'Bulldog' Schmitt, among others, Brockmann has honed his skills in high-stakes environments. He is a certified Firearms Instructor for civilians, law enforcement, and agencies, and a Gracie Jiu-Jitsu practitioner.</p>
+        </div>
+        <div class="team-card reveal">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/03/Cline-Bio-Pic-1024x819.jpg" alt="Michael Cline" loading="lazy">
+            <h3>Michael Cline</h3>
+            <div class="team-role">Chief Operating Officer</div>
+            <p>As the Chief Operating Officer at Atlas Glinn, Michael Cline brings a wealth of experience and a strategic vision to the company. With a distinguished 12-year career as a Navy SEAL, Michael has honed exceptional leadership, discipline, and problem-solving skills that are now pivotal in driving Atlas Glinn's operational excellence.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════ VIDEO GALLERY ══════════ -->
+<div class="section-divider">
+    <h2>Atlas Glinn <span class="gold-shimmer">In Action</span></h2>
+    <p>Training, operations, and the people behind the mission</p>
+</div>
+<section class="section" style="padding-top: 2rem; text-align:center;">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:2rem; max-width:1100px; margin:0 auto;">
+        <div class="reveal" style="border-radius:8px; overflow:hidden; border:1px solid rgba(26,107,222,.2); background:#0a0e17;">
+            <video autoplay muted loop playsinline style="width:100%; aspect-ratio:16/9; object-fit:cover; display:block;">
+                <source src="images/careers-gallery.mp4" type="video/mp4">
+            </video>
+            <div style="padding:1rem; text-align:left;">
+                <h4 style="font-family:'Orbitron',sans-serif; font-size:0.9rem; margin-bottom:4px;">Atlas Glinn Team</h4>
+                <p style="font-size:0.85rem; color:#b0b0b0;">Behind the scenes with our executive protection team</p>
+            </div>
+        </div>
+        <div class="reveal" style="border-radius:8px; overflow:hidden; border:1px solid rgba(26,107,222,.2); background:#0a0e17;">
+            <video autoplay muted loop playsinline style="width:100%; aspect-ratio:16/9; object-fit:cover; display:block;">
+                <source src="images/forge-legend-mast.mp4" type="video/mp4">
+            </video>
+            <div style="padding:1rem; text-align:left;">
+                <h4 style="font-family:'Orbitron',sans-serif; font-size:0.9rem; margin-bottom:4px;">MAST Solutions — Forge & Legend</h4>
+                <p style="font-size:0.85rem; color:#b0b0b0;">Training excellence through MAST Solutions</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<div class="section-divider">
+    <h2>What Clients <span class="gold-shimmer">Say</span></h2>
+</div>
+<section class="section" style="padding-top: 2rem; text-align:center;">
+    <div style="height:2rem;"></div>
+    <div class="testimonials-row">
+        <div class="testimonial reveal">
+            <p>I've worked with Matt &amp; his team for several years. They are extremely professional, and their training &amp; expertise is second to none.</p>
+            <div class="testimonial-author">Craig E. &mdash; President &amp; CEO</div>
+        </div>
+        <div class="testimonial reveal">
+            <p>I trained with Matt &amp; the team at MAST Solutions for over a year. The techniques, skills &amp; mentality I learned in the first class were well more advanced.</p>
+            <div class="testimonial-author">Brian S. &mdash; IRC &amp; MBA</div>
+        </div>
+        <div class="testimonial reveal">
+            <p>Simply THE BEST hands on tactical training you can find local to Houston, TX.</p>
+            <div class="testimonial-author">Guadalupe A. &mdash; Power Testing Specialist</div>
+        </div>
+    </div>
+    <div style="height:2rem;"></div>
+    <div class="testimonials-row">
+        <div class="testimonial reveal">
+            <p>Matthew is an expert in his field, I have had the privilege to train with &amp; work alongside him on numerous occasions.</p>
+            <div class="testimonial-author">Kenny U. &mdash; Deputy</div>
+        </div>
+        <div class="testimonial reveal">
+            <p>I highly recommend Matthew &amp; his team for your security &amp; training needs.</p>
+            <div class="testimonial-author">Charles W. &mdash; Business Operations Manager</div>
+        </div>
+        <div class="testimonial reveal">
+            <p>Matthew is a highly skilled individual with ample knowledge of firearm operations, safety &amp; security.</p>
+            <div class="testimonial-author">Alf T. &mdash; Senior Operations Advisor</div>
+        </div>
+    </div>
+</section>
+
+<!-- INSIGHTS & RESOURCES -->
+<div class="section-divider">
+    <h2>Insights & <span class="gold-shimmer">Resources</span></h2>
+    <p>Expert perspectives on security, protection, and preparedness</p>
+</div>
+<section class="section" style="padding-top: 2rem; text-align:center;">
+    <div class="testimonials-row reveal">
+        <a href="https://atlasglinn.com/training-certification/raising-the-bar-why-the-security-industry-needs-higher-standards-and-how-atlas-glinn-is-leading-the-charge/" target="_blank" style="text-decoration:none;color:inherit;" class="testimonial" style="text-align:left;cursor:pointer;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#C9A84C;margin-bottom:0.75rem;padding-top:0;">TRAINING & CERTIFICATION</div>
+            <h3 style="font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700;margin-bottom:0.5rem;color:#fff;line-height:1.3;">Raising the Bar: Why the Security Industry Needs Higher Standards</h3>
+            <p style="font-style:normal;padding-top:0;margin-bottom:1rem;">Discover why Atlas Glinn is leading the charge to elevate training standards across the security industry.</p>
+            <span style="color:#1A6BDE;font-size:0.85rem;font-weight:600;">Read More &rarr;</span>
+        </a>
+        <a href="https://atlasglinn.com/case-studies-success-stories/why-real-world-experience-matters-in-executive-protection-a-lesson-from-the-front-lines/" target="_blank" style="text-decoration:none;color:inherit;" class="testimonial" style="text-align:left;cursor:pointer;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#C9A84C;margin-bottom:0.75rem;padding-top:0;">CASE STUDIES</div>
+            <h3 style="font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700;margin-bottom:0.5rem;color:#fff;line-height:1.3;">Why Real-World Experience Matters in Executive Protection</h3>
+            <p style="font-style:normal;padding-top:0;margin-bottom:1rem;">A lesson from the front lines on why field-tested expertise outperforms theory every time.</p>
+            <span style="color:#1A6BDE;font-size:0.85rem;font-weight:600;">Read More &rarr;</span>
+        </a>
+        <a href="https://atlasglinn.com/case-studies-success-stories/how-we-secured-a-ceos-global-tour/" target="_blank" style="text-decoration:none;color:inherit;" class="testimonial" style="text-align:left;cursor:pointer;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#C9A84C;margin-bottom:0.75rem;padding-top:0;">CASE STUDIES</div>
+            <h3 style="font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700;margin-bottom:0.5rem;color:#fff;line-height:1.3;">How We Secured a CEO's Global Tour</h3>
+            <p style="font-style:normal;padding-top:0;margin-bottom:1rem;">An inside look at the coordination and planning behind protecting a Fortune 500 executive across multiple countries.</p>
+            <span style="color:#1A6BDE;font-size:0.85rem;font-weight:600;">Read More &rarr;</span>
+        </a>
+    </div>
+    <div style="height:2rem;"></div>
+    <div class="testimonials-row reveal">
+        <a href="https://atlasglinn.com/training-certification/why-atlas-glinns-security-training-sets-the-standard/" target="_blank" style="text-decoration:none;color:inherit;" class="testimonial" style="text-align:left;cursor:pointer;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#C9A84C;margin-bottom:0.75rem;padding-top:0;">TRAINING & CERTIFICATION</div>
+            <h3 style="font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700;margin-bottom:0.5rem;color:#fff;line-height:1.3;">Why Atlas Glinn's Security Training Sets the Standard</h3>
+            <p style="font-style:normal;padding-top:0;margin-bottom:1rem;">Our training programs are built on decades of real-world experience with elite military and law enforcement units.</p>
+            <span style="color:#1A6BDE;font-size:0.85rem;font-weight:600;">Read More &rarr;</span>
+        </a>
+        <a href="https://atlasglinn.com/disaster-recovery-asset-protection/preparing-for-natural-disasters-a-security-must/" target="_blank" style="text-decoration:none;color:inherit;" class="testimonial" style="text-align:left;cursor:pointer;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#C9A84C;margin-bottom:0.75rem;padding-top:0;">DISASTER RECOVERY</div>
+            <h3 style="font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700;margin-bottom:0.5rem;color:#fff;line-height:1.3;">Preparing for Natural Disasters: A Security Must</h3>
+            <p style="font-style:normal;padding-top:0;margin-bottom:1rem;">Why disaster preparedness is a critical component of any comprehensive security strategy.</p>
+            <span style="color:#1A6BDE;font-size:0.85rem;font-weight:600;">Read More &rarr;</span>
+        </a>
+        <a href="https://atlasglinn.com/executive-residential-protection/5-essential-tips-for-vip-security-in-2025/" target="_blank" style="text-decoration:none;color:inherit;" class="testimonial" style="text-align:left;cursor:pointer;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#C9A84C;margin-bottom:0.75rem;padding-top:0;">EXECUTIVE PROTECTION</div>
+            <h3 style="font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700;margin-bottom:0.5rem;color:#fff;line-height:1.3;">5 Essential Tips for VIP Security in 2025</h3>
+            <p style="font-style:normal;padding-top:0;margin-bottom:1rem;">Key strategies every VIP protection detail should implement to stay ahead of evolving threats.</p>
+            <span style="color:#1A6BDE;font-size:0.85rem;font-weight:600;">Read More &rarr;</span>
+        </a>
+    </div>
+</section>
+
+<!-- CTA -->
+<div class="section-divider">
+    <h2>Ready to Work With <span class="gold-shimmer">Us</span>?</h2>
+</div>
+<section class="section" style="padding-top: 2rem;">
+    <div class="cta-section reveal">
+        <p>Phone: <a href="tel:+12816548100" style="color:#1A6BDE;text-decoration:none;">(281) 654-8100</a></p>
+        <p>Email: <a href="mailto:atlasglinn.hq@atlasglinn.com" style="color:#1A6BDE;text-decoration:none;">atlasglinn.hq@atlasglinn.com</a></p>
+        <a href="contact.html" class="cta-button">Contact Us</a>
+    </div>
+</section>
+
+<!-- ══════════ REVIEWS ══════════ -->
+<div class="section-divider">
+    <h2><span class="gold-shimmer">Reviews</span></h2>
+    <p>Google Reviews & LinkedIn Recommendations</p>
+</div>
+<section class="section" style="text-align:center; padding-top:2rem;">
+    <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:2rem;">
+        <span style="color:#FFD700; font-size:1.5rem;">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+        <span style="font-size:1.8rem; font-weight:900;">5.0</span>
+        <span style="color:rgba(255,255,255,0.5); font-size:0.9rem;">Google Reviews</span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1.5rem; max-width:1200px; margin:0 auto; text-align:left;">
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:1px solid rgba(201,168,76,0.3); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Law Enforcement</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"Matthew is an expert in his field. He is highly motivated, knowledgeable and I highly recommend him for top-tier performance."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Kenny Upton — Deputy, Harris County Sheriff</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:1px solid rgba(201,168,76,0.3); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Navy SEAL / Former CIA</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"His leadership, dedication, drive, and passion is second to none. A master at teamwork, problem-solving, leadership, and communication."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Ray Cash Care — Navy SEAL / Former CIA</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:1px solid rgba(201,168,76,0.3); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Reconnaissance Marine</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"As a former Reconnaissance Marine, Matthew's teaching has not only made me a better shooter, he has made me a better team player."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Arthur Metcalfe — Recon Marine, 18yr O&G</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:1px solid rgba(201,168,76,0.3); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Flight Paramedic</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"Brockmann had hosted and taught some of the best classes I have been a part of. I can't recommend him enough."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">William H. Miller BS, TP-C, FP-C, CPM — Flight Paramedic</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:1px solid rgba(201,168,76,0.3); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">President & CEO</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"Extremely professional. In an extremely competitive industry Matt has never failed to provide exceptional guidance. I recommend him without hesitation."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Craig Etkin — President & CEO, intelligence360</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:1px solid rgba(201,168,76,0.3); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">CxO / Investor</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"I've trained with some big-name national & global self-defense trainers. I've always felt safe training with Matt — the #1 criterion for choosing a trainer."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Wayne Sadin — CxO/VP Investor</div>
+        </div>
+    </div>
+    <div style="display:flex; gap:1.5rem; justify-content:center; margin-top:2rem;">
+        <a href="https://www.google.com/search?q=Atlas+Glinn+Houston+reviews" target="_blank" style="font-size:0.85rem; color:#1A6BDE; text-decoration:none;">Google Reviews &rarr;</a>
+        <a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" style="font-size:0.85rem; color:#1A6BDE; text-decoration:none;">LinkedIn &rarr;</a>
+    </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+    <div class="footer-container">
+        <!-- AWARDS & CREDENTIALS -->
+        <div style="display:flex; align-items:center; justify-content:center; gap:4rem; padding-bottom:2.5rem; border-bottom:1px solid rgba(201,168,76,.15); margin-bottom:2.5rem; flex-wrap:wrap;">
+            <div style="text-align:center;">
+                <img src="https://atlasglinn.com/wp-content/uploads/2025/02/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" style="height:120px; filter:drop-shadow(0 0 15px rgba(201,168,76,.3));" loading="lazy">
+                <p style="font-family:'Orbitron',sans-serif; font-size:0.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#C9A84C; margin-top:0.8rem;">Best of Business 2025</p>
+            </div>
+            <div style="text-align:center;">
+                <img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" style="height:120px; filter:drop-shadow(0 0 15px rgba(201,168,76,.3));" loading="lazy">
+                <p style="font-family:'Orbitron',sans-serif; font-size:0.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#C9A84C; margin-top:0.8rem;">Chamber of Commerce</p>
+            </div>
+        </div>
+
+        <div class="footer-grid">
+            <div class="footer-section">
+                <h4>Atlas Glinn</h4>
+                <ul>
+                    <li><a href="atlasglinn-final.html">Home</a></li>
+                    <li><a href="executive-protection.html">Executive Protection</a></li>
+                    <li><a href="residential-protection.html">Residential Protection</a></li>
+                    <li><a href="disaster-recovery.html">Disaster Recovery</a></li>
+                    <li><a href="technology.html">Technology</a></li>
+                    <li><a href="technology.html">Atlas EP App</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>MAST Solutions</h4>
+                <ul>
+                    <li><a href="training.html">Training Programs</a></li>
+                    <li><a href="technology.html">Atlas EP Platform</a></li>
+                    <li><a href="cuas-aerodefense.html">Counter-Drone Solutions</a></li>
+                    <li><a href="training.html">MAST Solutions</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Company</h4>
+                <ul>
+                    <li><a href="about.html">About Us</a></li>
+                    <li><a href="careers.html">Careers</a></li>
+                    <li><a href="https://atlasglinn.com/blog/" target="_blank">Resources</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Connect</h4>
+                <p style="color: #b0b0b0; margin-bottom: 1rem;">
+                    2450 Fondren Rd, Suite 255<br>Houston, TX 77063<br>
+                    <a href="tel:+12816548100" style="color: #1A6BDE;">(281) 654-8100</a><br>
+                    <a href="mailto:atlasglinn.hq@atlasglinn.com" style="color: #1A6BDE;">atlasglinn.hq@atlasglinn.com</a>
+                </p>
+                <div class="social-links" style="display:flex; gap:1.2rem; flex-wrap:wrap;">
+                    <a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" style="color:#1A6BDE; text-decoration:none;">Instagram</a>
+                    <a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" style="color:#1A6BDE; text-decoration:none;">LinkedIn</a>
+                    <a href="https://www.youtube.com/@atlasglinn" target="_blank" style="color:#1A6BDE; text-decoration:none;">YouTube</a>
+                    <a href="https://www.facebook.com/mastsolutions" target="_blank" style="color:#1A6BDE; text-decoration:none;">Facebook</a>
+                    <a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" style="color:#1A6BDE; text-decoration:none;">Yelp</a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved.</p>
+            <p>Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management</p>
+        </div>
+    </div>
+</footer>
+
+<!-- JAVASCRIPT -->
+<script>
+// Scroll Reveal
+const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+        if (e.isIntersecting) { e.target.classList.add('active'); revealObserver.unobserve(e.target); }
+    });
+}, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// 3D Tilt on testimonial cards
+document.querySelectorAll('.testimonial').forEach(card => {
+    card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const rotateX = (y - rect.height / 2) / rect.height * -6;
+        const rotateY = (x - rect.width / 2) / rect.width * 6;
+        card.style.transform = `perspective(600px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-4px)`;
+    });
+    card.addEventListener('mouseleave', () => { card.style.transform = ''; });
+});
+</script>
+
+<script>
+function parallax3D(e, container) {
+    const inner = container.querySelector('.parallax-3d-inner');
+    const img = container.querySelector('.parallax-3d-img') || container.querySelector('img');
+    const shine = container.querySelector('.parallax-3d-shine');
+    const rect = container.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    inner.style.transform = 'rotateY(' + (x * 12) + 'deg) rotateX(' + (-y * 8) + 'deg) scale(1.02)';
+    if (img) img.style.transform = 'translateX(' + (-x * 15) + 'px) translateY(' + (-y * 10) + 'px) scale(1.05)';
+    if (shine) shine.style.background = 'radial-gradient(circle at ' + ((x+0.5)*100) + '% ' + ((y+0.5)*100) + '%, rgba(255,255,255,0.2) 0%, transparent 60%)';
+}
+function resetParallax(container) {
+    const inner = container.querySelector('.parallax-3d-inner');
+    const img = container.querySelector('.parallax-3d-img') || container.querySelector('img');
+    if (inner) inner.style.transform = 'rotateY(0) rotateX(0) scale(1)';
+    if (img) img.style.transform = 'translateX(0) translateY(0) scale(1)';
+}
+</script>
+<script>
+// ── UNIVERSAL 3D TILT ON ALL CARDS ──
+document.querySelectorAll('.service-card, .testimonial, .benefit-card, .tech-partner, .discipline-card, .app-tier, .position-card').forEach(card => {
+    card.style.transition = 'transform 0.2s ease-out, box-shadow 0.3s ease';
+    card.style.transformStyle = 'preserve-3d';
+    card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width - 0.5;
+        const y = (e.clientY - rect.top) / rect.height - 0.5;
+        card.style.transform = `perspective(800px) rotateY(${x * 12}deg) rotateX(${-y * 8}deg) translateY(-4px) scale(1.02)`;
+        card.style.boxShadow = '0 25px 60px rgba(0,0,0,0.5), 0 0 30px rgba(201,168,76,0.1)';
+    });
+    card.addEventListener('mouseleave', () => {
+        card.style.transform = 'perspective(800px) rotateY(0) rotateX(0) translateY(0) scale(1)';
+        card.style.boxShadow = '';
+    });
+});
+</script>
+
+</body>
+</html>

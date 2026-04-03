@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autonomous Drone Security Houston TX | Sunflower Labs — Atlas Glinn</title>
+    <meta name="description" content="Fully autonomous drone surveillance by Sunflower Labs. Real-time intelligent monitoring, AI detection, and 24/7 property protection. Atlas Glinn — elite partner. Houston, TX. (281) 654-8100.">
+    <link rel="canonical" href="https://www.atlasglinn.com/uas/">
+    <meta property="og:title" content="UAS Autonomous Drones | Sunflower Labs — Atlas Glinn">
+    <meta property="og:description" content="Fully autonomous drone security. AI detection, real-time surveillance, 24/7 protection.">
+    <meta property="og:image" content="https://atlasglinn.com/wp-content/uploads/2025/03/Technology-UAS-1.png">
+    <meta property="og:type" content="website">
+    <meta name="keywords" content="autonomous drone security, Sunflower Labs, UAS surveillance, drone patrol, autonomous security drones, Beehive system">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Atlas Glinn, LLC">
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"Service","name":"UAS Autonomous Drone Security","provider":{"@type":"Organization","name":"Atlas Glinn","telephone":"+1-281-654-8100","address":{"@type":"PostalAddress","streetAddress":"2450 Fondren Road, Suite 255","addressLocality":"Houston","addressRegion":"TX","postalCode":"77063"}},"description":"Fully autonomous drone surveillance via Sunflower Labs. Real-time AI-powered monitoring for properties, parking lots, and secured areas.","areaServed":"United States","serviceType":"Autonomous Drone Surveillance"}
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;700&family=Inconsolata:wght@400;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            color: #ffffff;
+            background: #080C14;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* ══════════ ANIMATIONS ══════════ */
+        @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
+        }
+        @keyframes goldShimmer {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes kenburns {
+            0% { transform: scale(1) translate(0, 0); }
+            100% { transform: scale(1.12) translate(-2%, -1%); }
+        }
+        @keyframes kenburns-alt {
+            0% { transform: scale(1.08) translate(-1%, 0); }
+            100% { transform: scale(1) translate(1%, -1%); }
+        }
+        @keyframes kenburns-slow {
+            0% { transform: scale(1) translate(0, 0); }
+            100% { transform: scale(1.08) translate(-1%, -0.5%); }
+        }
+
+        .gold-shimmer {
+            background: linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%);
+            background-size: 1000px 100%;
+            animation: shimmer 6s linear infinite;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* ══════════ NAVIGATION ══════════ */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            background: rgba(8, 12, 20, 0.95); backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(26, 107, 222, 0.2); padding: 1rem 2rem;
+            transform: translateY(0); transition: transform .6s ease;
+        }
+        nav.visible { transform: translateY(0); }
+        .nav-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .nav-logo { display: flex; align-items: center; gap: 1rem; text-decoration: none; color: #1A6BDE; }
+        .nav-logo img { height: 40px; width: auto; }
+        .nav-logo-text { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.2rem; color: #1A6BDE; }
+        .nav-links { display: flex; gap: 2rem; align-items: center; list-style: none; }
+        .nav-links a { color: #ffffff; text-decoration: none; font-size: 0.9rem; transition: color 0.3s ease; text-transform: uppercase; letter-spacing: 0.05em; }
+        .nav-links a:hover { color: #1A6BDE; }
+        .mobile-menu-btn { display: none; background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; }
+
+        .cta-button {
+            background: #1A6BDE; color: white; padding: 0.75rem 1.5rem; border: none;
+            border-radius: 4px; cursor: pointer; font-family: 'Rajdhani', sans-serif;
+            font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+            transition: all 0.3s ease; text-decoration: none; display: inline-block;
+        }
+        .cta-button:hover { background: #155ac8; box-shadow: 0 0 20px rgba(26, 107, 222, 0.5); }
+        .secondary-button { background: transparent; border: 2px solid #1A6BDE; color: #1A6BDE; }
+        .secondary-button:hover { background: #1A6BDE; color: white; }
+
+        /* ══════════ HERO ══════════ */
+        .hero { position: relative; width: 100%; height: 100vh; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
+        .hero-bg-img {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover; z-index: 1;
+            filter: contrast(1.1) saturate(1.15) brightness(1.05);
+            animation: kenburns 20s ease-in-out infinite alternate;
+        }
+        .hero-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(180deg, rgba(8,12,20,0.2) 0%, rgba(8,12,20,0.5) 100%); z-index: 2; }
+        .hero-content { position: relative; z-index: 3; text-align: center; max-width: 800px; padding: 0 2rem 4rem; }
+        .hero-headline { font-family: 'Orbitron', sans-serif; font-size: 3.2rem; font-weight: 900; margin-bottom: 1rem; letter-spacing: 0.02em; line-height: 1.1; }
+        .hero-headline .gold-text {
+            background: linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%);
+            background-size: 1000px 100%; animation: shimmer 6s linear infinite;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        #hero-particles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+
+        /* ══════════ SECTIONS ══════════ */
+        .section { max-width: 1400px; margin: 0 auto; padding: 4rem 2rem; }
+        .section-title { font-family: 'Orbitron', sans-serif; font-size: 2.5rem; font-weight: 900; margin-bottom: 1rem; letter-spacing: 0.02em; }
+        .section-subtitle { font-size: 1.1rem; color: #b0b0b0; margin-bottom: 3rem; }
+        .section-divider { background: #0f1622; padding: 1.5rem 2rem; border-top: 1px solid rgba(201,168,76,.15); border-bottom: 1px solid rgba(201,168,76,.15); text-align: center; margin: 0; max-width: 100%; }
+        .section-divider h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; font-weight: 900; letter-spacing: 0.02em; margin: 0; }
+        .section-divider p { font-size: 0.95rem; color: #b0b0b0; margin: 0.5rem 0 0; }
+        .section-body { font-size: 1.05rem; color: #d0d0d0; line-height: 1.9; max-width: 900px; margin-bottom: 1.5rem; }
+
+        /* ══════════ HOW IT WORKS ══════════ */
+        .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-top: 3rem; background: rgba(26,107,222,0.08); }
+        .how-step {
+            background: #080C14; padding: 3rem 2rem; text-align: center;
+            transition: all 0.3s ease; position: relative;
+            transform-style: preserve-3d;
+        }
+        .how-step:hover { background: rgba(26,107,222,0.05); }
+        .how-num { font-family: 'Orbitron', sans-serif; font-size: 2.5rem; font-weight: 900; color: #C9A84C; line-height: 1; margin-bottom: 1rem; }
+        .how-name { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: 0.75rem; }
+        .how-desc { font-size: 0.9rem; color: rgba(255,255,255,0.5); line-height: 1.7; }
+
+        /* ══════════ SPECS ══════════ */
+        .specs-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 4rem;
+            max-width: 1100px; margin: 0 auto; align-items: center;
+        }
+        .specs-img-wrap {
+            overflow: hidden; border-radius: 8px;
+            border: 1px solid rgba(26,107,222,0.15);
+        }
+        .specs-img {
+            width: 100%; display: block;
+            animation: kenburns-slow 30s ease-in-out infinite alternate;
+            filter: contrast(1.1) saturate(1.1);
+        }
+        .spec-list { list-style: none; display: flex; flex-direction: column; gap: 0; margin-top: 1.5rem; }
+        .spec-list li {
+            display: flex; justify-content: space-between; padding: 1rem 0;
+            border-bottom: 1px solid rgba(26,107,222,0.1); font-size: 1rem;
+        }
+        .spec-list li span:first-child { color: rgba(255,255,255,0.5); }
+        .spec-list li span:last-child { font-weight: 700; color: #fff; }
+
+        /* ══════════ FULL-BLEED DIVIDER ══════════ */
+        .full-bleed {
+            position: relative; width: 100%; height: 50vh; overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .full-bleed-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover;
+            animation: kenburns-alt 25s ease-in-out infinite alternate;
+            filter: contrast(1.1) saturate(1.1);
+        }
+        .full-bleed-overlay { position: absolute; inset: 0; background: rgba(8,12,20,0.6); }
+        .full-bleed-content { position: relative; z-index: 2; text-align: center; max-width: 700px; padding: 2rem; }
+        .full-bleed-content h2 {
+            font-family: 'Orbitron', sans-serif; font-size: 2.2rem; font-weight: 900;
+            letter-spacing: 0.02em; line-height: 1.1; margin-bottom: 1rem;
+        }
+        .full-bleed-content p { font-size: 1.05rem; color: rgba(255,255,255,0.6); line-height: 1.7; }
+
+        /* ══════════ CAPABILITY CARDS ══════════ */
+        .cap-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; margin-top: 3rem; }
+        .cap-card {
+            background: rgba(26,107,222,0.05); border: 1px solid rgba(201,168,76,0.3);
+            padding: 2.5rem 2rem; border-radius: 4px; transition: all 0.4s ease;
+            transform-style: preserve-3d; position: relative; box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 15px rgba(201,168,76,0.08);
+        }
+        .cap-card:hover { background: rgba(26,107,222,0.1); border-color: rgba(201,168,76,0.6); transform: translateY(-4px); box-shadow: 0 15px 50px rgba(0,0,0,0.5), 0 0 40px rgba(201,168,76,0.2); }
+        .cap-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: linear-gradient(90deg, #1A6BDE, #C9A84C); transform: scaleX(0); transform-origin: left; transition: transform .4s; }
+        .cap-card:hover::before { transform: scaleX(1); }
+        .cap-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1rem; color: #1A6BDE; margin-bottom: 0.75rem; }
+        .cap-card p { font-size: 0.9rem; color: #b0b0b0; line-height: 1.7; }
+
+        /* ══════════ CTA SECTION ══════════ */
+        .cta-section { background: linear-gradient(135deg, rgba(26, 107, 222, 0.1) 0%, rgba(26, 107, 222, 0.05) 100%); border: 1px solid rgba(26, 107, 222, 0.3); padding: 4rem 2rem; border-radius: 4px; text-align: center; }
+        .cta-section h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; margin-bottom: 1rem; }
+        .cta-section p { font-size: 1.1rem; color: #b0b0b0; margin-bottom: 2rem; }
+
+        /* ══════════ FOOTER ══════════ */
+        footer { background: #0a0e17; border-top: 1px solid rgba(201,168,76,.1); padding: 3rem 2rem 1rem; }
+        .footer-container { max-width: 1400px; margin: 0 auto; }
+        .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+        .footer-section h4 { font-family: 'Orbitron', sans-serif; color: #C9A84C; margin-bottom: 1rem; font-size: 0.9rem; }
+        .footer-section ul { list-style: none; }
+        .footer-section ul li { margin-bottom: 0.5rem; }
+        .footer-section a { color: #b0b0b0; text-decoration: none; transition: color 0.3s ease; font-size: 0.9rem; }
+        .footer-section a:hover { color: #1A6BDE; }
+        .footer-bottom { border-top: 1px solid rgba(201,168,76,.1); padding-top: 2rem; text-align: center; color: #888; font-size: 0.85rem; }
+        .social-links { display: flex; gap: 1rem; margin-top: 1rem; }
+        .social-links a { color: #1A6BDE; text-decoration: none; transition: color 0.3s ease; }
+        .social-links a:hover { color: #C9A84C; }
+
+        /* ══════════ REVEAL ══════════ */
+        .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+        .reveal.active { opacity: 1; transform: translateY(0); }
+
+        /* ══════════ MOBILE NAV OVERLAY ══════════ */
+        .mobile-nav { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; background: rgba(0,0,0,.95); backdrop-filter: blur(20px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; opacity: 0; visibility: hidden; transition: all .3s; }
+        .mobile-nav.open { opacity: 1; visibility: visible; }
+        .mobile-nav a { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: #fff; text-decoration: none; }
+        .mobile-nav-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: #fff; font-size: 32px; cursor: pointer; }
+
+        /* ══════════ RESPONSIVE ══════════ */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .mobile-menu-btn { display: block; }
+            .hero-headline { font-size: 2rem; }
+            .section { padding: 3rem 1rem; }
+            .section-title { font-size: 1.8rem; }
+            .how-grid { grid-template-columns: 1fr; }
+            .specs-grid { grid-template-columns: 1fr; }
+            .cap-grid { grid-template-columns: 1fr; }
+            .full-bleed { height: 40vh; }
+            .full-bleed-content h2 { font-size: 1.6rem; }
+            .hero { height: 60vh; }
+        }
+        @media (max-width: 480px) {
+            nav { padding: 0.75rem 1rem; }
+            .hero-headline { font-size: 1.8rem; }
+            .section-title { font-size: 1.4rem; }
+        }
+
+        /* ═══ 3D PARALLAX EFFECT ═══ */
+        .parallax-3d-container { perspective: 1000px; width: 100%; }
+        .parallax-3d-inner { position: relative; overflow: hidden; border-radius: 4px; box-shadow: 0 25px 60px rgba(0,0,0,0.6), 0 0 40px rgba(201,168,76,0.12); transition: transform 0.15s ease-out, box-shadow 0.3s ease; transform-style: preserve-3d; will-change: transform; }
+        .parallax-3d-img { width: 100%; display: block; transition: transform 0.3s ease-out; filter: contrast(1.1) saturate(1.1); }
+        .parallax-3d-shine { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%, transparent 100%); opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
+        .parallax-3d-container:hover .parallax-3d-shine { opacity: 1; }
+        .parallax-3d-container:hover .parallax-3d-inner { box-shadow: 0 35px 80px rgba(0,0,0,0.7), 0 0 60px rgba(201,168,76,0.2); }
+    </style>
+</head>
+<body>
+
+<!-- ══════════ NAVIGATION ══════════ -->
+<nav id="main-nav" class="visible" style="transform:translateY(0)">
+    <div class="nav-container">
+        <a href="atlasglinn-final.html" class="nav-logo">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/02/Atlas-Glinn-Logo-Rev1-2-e1744918824251.png" alt="Atlas Glinn">
+            <span class="nav-logo-text">ATLAS GLINN</span>
+        </a>
+        <ul class="nav-links">
+            <li><a href="atlasglinn-final.html">Home</a></li>
+            <li><a href="executive-protection.html">Executive Protection</a></li>
+            <li><a href="residential-protection.html">Residential Protection</a></li>
+            <li><a href="disaster-recovery.html">Disaster Recovery</a></li>
+            <li><a href="training.html">Training</a></li>
+            <li><a href="technology.html">Technology</a></li>
+            <li><a href="about.html">About</a></li>
+            <li><a href="careers.html">Careers</a></li>
+            <li><a href="contact.html" class="cta-button" style="padding:.6rem 1.2rem;font-size:.85rem;">Contact Us</a></li>
+        </ul>
+        <button class="mobile-menu-btn" onclick="document.getElementById('mobile-nav').classList.add('open')">&#9776;</button>
+    </div>
+</nav>
+
+<!-- Mobile Nav Overlay -->
+<div id="mobile-nav" class="mobile-nav">
+    <button class="mobile-nav-close" onclick="this.parentElement.classList.remove('open')">&times;</button>
+    <a href="atlasglinn-final.html" onclick="this.parentElement.classList.remove('open')">Home</a>
+    <a href="executive-protection.html" onclick="this.parentElement.classList.remove('open')">Executive Protection</a>
+    <a href="residential-protection.html" onclick="this.parentElement.classList.remove('open')">Residential</a>
+    <a href="disaster-recovery.html" onclick="this.parentElement.classList.remove('open')">Disaster Recovery</a>
+    <a href="training.html" onclick="this.parentElement.classList.remove('open')">Training</a>
+    <a href="technology.html" onclick="this.parentElement.classList.remove('open')">Technology</a>
+    <a href="about.html" onclick="this.parentElement.classList.remove('open')">About</a>
+    <a href="careers.html" onclick="this.parentElement.classList.remove('open')">Careers</a>
+    <a href="contact.html" onclick="this.parentElement.classList.remove('open')">Contact</a>
+</div>
+
+<!-- ══════════ HERO ══════════ -->
+<section class="hero">
+    <video autoplay muted loop playsinline class="hero-bg-img" style="object-fit:cover; object-position:center 50%;"><source src="images/technology-hero.mp4" type="video/mp4"></video>
+    <div class="hero-overlay" style="background:linear-gradient(180deg, rgba(8,12,20,0.2) 0%, rgba(8,12,20,0.4) 100%);"></div>
+    <canvas id="hero-particles"></canvas>
+    <div class="hero-content">
+        <h1 class="hero-headline"><span class="gold-text">Details</span> Matter</h1>
+    </div>
+</section>
+
+<!-- ══════════ INTRO ══════════ -->
+<div class="section-divider">
+    <h2>Autonomous Drones <span class="gold-shimmer">That Never Sleep</span></h2>
+    <p>Sunflower Labs partnership delivering fully autonomous aerial surveillance</p>
+</div>
+<section class="section" style="padding-top: 2rem;">
+    <div style="max-width:900px; margin:0 auto;">
+        <p class="section-body reveal">Atlas Glinn partners with Sunflower Labs to deliver cutting-edge autonomous drone technology integrated into complete security solutions. The Beehive system deploys The Bee &mdash; a fully autonomous drone &mdash; on demand or on schedule, with zero human intervention required.</p>
+        <p class="section-body reveal">AI detection identifies people, vehicles, and animals with real-time tracking. The drone autonomously navigates, surveys, deters, and returns to base to recharge &mdash; all without a pilot. This is security that never takes a break.</p>
+    </div>
+</section>
+
+<!-- ══════════ AI CAPABILITIES ══════════ -->
+<div class="section-divider">
+    <h2>Intelligent <span class="gold-shimmer">Detection</span></h2>
+    <p>AI-powered threat identification and real-time response</p>
+</div>
+<section class="section" style="padding-top: 2rem; text-align:center;">
+    <div class="cap-grid">
+        <div class="cap-card reveal">
+            <h3>People Detection</h3>
+            <p>Advanced AI identifies and tracks human subjects in real time, day or night. Low-light and optional thermal imaging ensure no gap in coverage.</p>
+        </div>
+        <div class="cap-card reveal">
+            <h3>Vehicle Recognition</h3>
+            <p>Automated vehicle detection and tracking across parking lots, driveways, and perimeters. Instant alerts for unauthorized access.</p>
+        </div>
+        <div class="cap-card reveal">
+            <h3>Animal Classification</h3>
+            <p>AI distinguishes between human threats and wildlife, reducing false alarms while maintaining maximum threat awareness.</p>
+        </div>
+        <div class="cap-card reveal">
+            <h3>Real-Time Tracking</h3>
+            <p>Continuous subject tracking from detection through resolution. Live HD video feeds to security teams and monitoring centers.</p>
+        </div>
+        <div class="cap-card reveal">
+            <h3>Autonomous Deterrence</h3>
+            <p>Visible drone presence deters intruders on contact. No waiting for human response &mdash; the system acts immediately and autonomously.</p>
+        </div>
+        <div class="cap-card reveal">
+            <h3>Zero Human Intervention</h3>
+            <p>From launch to landing, The Bee operates entirely on its own. Self-deploying, self-navigating, self-charging. Fully autonomous.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════ FULL-BLEED DIVIDER ══════════ -->
+<div class="full-bleed">
+    <img class="full-bleed-bg" src="https://atlasglinn.com/wp-content/uploads/2025/03/Technology-UAS-1.png" alt="Autonomous drone in flight">
+    <div class="full-bleed-overlay"></div>
+    <div class="full-bleed-content">
+        <div class="reveal" style="font-family:'Orbitron',sans-serif; font-size:0.7rem; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:#C9A84C; margin-bottom:1rem;">24/7 Autonomous</div>
+        <h2 class="reveal">No Pilot Required.<br>No Gaps in <span class="gold-shimmer">Coverage</span>.</h2>
+        <p class="reveal">Autonomous drones via Sunflower Labs. Real-time intelligent surveillance with instant threat response.</p>
+    </div>
+</div>
+
+<!-- ══════════ HOW IT WORKS ══════════ -->
+<div class="section-divider">
+    <h2>How It <span class="gold-shimmer">Works</span></h2>
+    <p>Six-step autonomous security cycle</p>
+</div>
+<section class="section" style="padding-top: 2rem; text-align:center;" id="how">
+    <div class="how-grid">
+        <div class="how-step reveal">
+            <div class="how-num">01</div>
+            <div class="how-name">Trigger</div>
+            <p class="how-desc">Flight triggered automatically by motion sensors, cameras, scheduled intervals, or manual demand via app.</p>
+        </div>
+        <div class="how-step reveal">
+            <div class="how-num">02</div>
+            <div class="how-name">Navigate</div>
+            <p class="how-desc">The Bee autonomously navigates to the destination with obstacle avoidance in 99% of weather conditions.</p>
+        </div>
+        <div class="how-step reveal">
+            <div class="how-num">03</div>
+            <div class="how-name">Monitor</div>
+            <p class="how-desc">Real-time HD video with AI detection &mdash; identifying people, vehicles, and animals. Low-light and optional thermal imaging.</p>
+        </div>
+        <div class="how-step reveal">
+            <div class="how-num">04</div>
+            <div class="how-name">Deter</div>
+            <p class="how-desc">Visible drone presence deters intruders. Tracking provides real-time alerts to security teams and monitoring centers.</p>
+        </div>
+        <div class="how-step reveal">
+            <div class="how-num">05</div>
+            <div class="how-name">Return</div>
+            <p class="how-desc">Autonomous return-to-base and self-charging. Ready for the next flight within minutes.</p>
+        </div>
+        <div class="how-step reveal">
+            <div class="how-num">06</div>
+            <div class="how-name">Repeat</div>
+            <p class="how-desc">Up to 8 hours of daily drone coverage. Continuous autonomous protection without interruption.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════ SPECIFICATIONS ══════════ -->
+<div class="section-divider">
+    <h2>System <span class="gold-shimmer">Specifications</span></h2>
+</div>
+<section class="section" style="padding-top: 2rem;">
+    <div class="specs-grid">
+        <div class="specs-img-wrap reveal">
+            <div class="parallax-3d-container" onmousemove="parallax3D(event,this)" onmouseleave="resetParallax(this)">
+                <div class="parallax-3d-inner">
+                    <img class="specs-img" src="https://atlasglinn.com/wp-content/uploads/2025/03/IMG_1837-1024x751.jpeg" alt="Sunflower Labs Beehive system">
+                    <div class="parallax-3d-shine"></div>
+                </div>
+            </div>
+        </div>
+        <div class="reveal">
+            <div style="font-family:'Orbitron',sans-serif; font-size:0.7rem; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:#C9A84C; margin-bottom:1rem;">The Beehive System</div>
+            <h2 class="section-title" style="margin-bottom:1rem;">Specifications</h2>
+            <p class="section-body">Purpose-built for security. The Beehive houses, charges, and deploys The Bee autonomously. Operates within geocaged airspace restricted to your property.</p>
+            <ul class="spec-list">
+                <li><span>Operational Radius</span><span>~600m (1,800 ft)</span></li>
+                <li><span>Flight Duration</span><span>Up to 20 min</span></li>
+                <li><span>Daily Coverage</span><span>Up to 8 hours</span></li>
+                <li><span>Operating Cost</span><span>$4&ndash;7/hour</span></li>
+                <li><span>Installation</span><span>8&ndash;12 weeks</span></li>
+                <li><span>Weather</span><span>99% conditions</span></li>
+                <li><span>Integrations</span><span>RTSP, Webhooks, API</span></li>
+            </ul>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════ CTA ══════════ -->
+<div class="section-divider">
+    <h2>Ready for <span class="gold-shimmer">Autonomous Protection</span>?</h2>
+</div>
+<section class="section" style="padding-top: 2rem;">
+    <div class="cta-section reveal">
+        <p>Contact Atlas Glinn to design a custom autonomous drone surveillance solution for your property.</p>
+        <a href="contact.html" class="cta-button">Contact Us</a>
+        <p style="margin-top:1.5rem;color:#C9A84C;font-size:1.1rem;"><a href="tel:+12816548100" style="color:#C9A84C;text-decoration:none;">(281) 654-8100</a></p>
+    </div>
+</section>
+
+<!-- ══════════ REVIEWS ══════════ -->
+<div class="section-divider">
+    <h2><span class="gold-shimmer">Reviews</span></h2>
+    <p>Google Reviews & LinkedIn Recommendations</p>
+</div>
+<section class="section" style="text-align:center; padding-top:2rem;">
+    <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:2rem;">
+        <span style="color:#FFD700; font-size:1.5rem;">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+        <span style="font-size:1.8rem; font-weight:900;">5.0</span>
+        <span style="color:rgba(255,255,255,0.5); font-size:0.9rem;">Google Reviews</span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1.5rem; max-width:1200px; margin:0 auto; text-align:left;">
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:1px solid rgba(201,168,76,0.3); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Law Enforcement</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"Matthew is an expert in his field. He is highly motivated, knowledgeable and I highly recommend him for top-tier performance."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Kenny Upton — Deputy, Harris County Sheriff</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:1px solid rgba(201,168,76,0.3); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Navy SEAL / Former CIA</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"His leadership, dedication, drive, and passion is second to none. A master at teamwork, problem-solving, leadership, and communication."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Ray Cash Care — Navy SEAL / Former CIA</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:1px solid rgba(201,168,76,0.3); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Reconnaissance Marine</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"As a former Reconnaissance Marine, Matthew's teaching has not only made me a better shooter, he has made me a better team player."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Arthur Metcalfe — Recon Marine, 18yr O&G</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:1px solid rgba(201,168,76,0.3); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Flight Paramedic</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"Brockmann had hosted and taught some of the best classes I have been a part of. I can't recommend him enough."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">William H. Miller BS, TP-C, FP-C, CPM — Flight Paramedic</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:1px solid rgba(201,168,76,0.3); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">President & CEO</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"Extremely professional. In an extremely competitive industry Matt has never failed to provide exceptional guidance. I recommend him without hesitation."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Craig Etkin — President & CEO, intelligence360</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:1px solid rgba(201,168,76,0.3); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">CxO / Investor</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"I've trained with some big-name national & global self-defense trainers. I've always felt safe training with Matt — the #1 criterion for choosing a trainer."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Wayne Sadin — CxO/VP Investor</div>
+        </div>
+    </div>
+    <div style="display:flex; gap:1.5rem; justify-content:center; margin-top:2rem;">
+        <a href="https://www.google.com/search?q=Atlas+Glinn+Houston+reviews" target="_blank" style="font-size:0.85rem; color:#1A6BDE; text-decoration:none;">Google Reviews &rarr;</a>
+        <a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" style="font-size:0.85rem; color:#1A6BDE; text-decoration:none;">LinkedIn &rarr;</a>
+    </div>
+</section>
+
+<!-- ══════════ FOOTER ══════════ -->
+<footer>
+    <div class="footer-container">
+        <!-- AWARDS & CREDENTIALS -->
+        <div style="display:flex; align-items:center; justify-content:center; gap:4rem; padding-bottom:2.5rem; border-bottom:1px solid rgba(201,168,76,.15); margin-bottom:2.5rem; flex-wrap:wrap;">
+            <div style="text-align:center;">
+                <img src="https://atlasglinn.com/wp-content/uploads/2025/02/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" style="height:120px; filter:drop-shadow(0 0 15px rgba(201,168,76,.3));" loading="lazy">
+                <p style="font-family:'Orbitron',sans-serif; font-size:0.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#C9A84C; margin-top:0.8rem;">Best of Business 2025</p>
+            </div>
+            <div style="text-align:center;">
+                <img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" style="height:120px; filter:drop-shadow(0 0 15px rgba(201,168,76,.3));" loading="lazy">
+                <p style="font-family:'Orbitron',sans-serif; font-size:0.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#C9A84C; margin-top:0.8rem;">Chamber of Commerce</p>
+            </div>
+        </div>
+
+        <div class="footer-grid">
+            <div class="footer-section">
+                <h4>Atlas Glinn</h4>
+                <ul>
+                    <li><a href="atlasglinn-final.html">Home</a></li>
+                    <li><a href="executive-protection.html">Executive Protection</a></li>
+                    <li><a href="residential-protection.html">Residential Protection</a></li>
+                    <li><a href="disaster-recovery.html">Disaster Recovery</a></li>
+                    <li><a href="technology.html">Technology</a></li>
+                    <li><a href="technology.html">Atlas EP App</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>MAST Solutions</h4>
+                <ul>
+                    <li><a href="training.html">Training Programs</a></li>
+                    <li><a href="technology.html">Atlas EP Platform</a></li>
+                    <li><a href="cuas-aerodefense.html">Counter-Drone Solutions</a></li>
+                    <li><a href="training.html">MAST Solutions</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Company</h4>
+                <ul>
+                    <li><a href="about.html">About Us</a></li>
+                    <li><a href="careers.html">Careers</a></li>
+                    <li><a href="https://atlasglinn.com/blog/" target="_blank">Resources</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Connect</h4>
+                <p style="color: #b0b0b0; margin-bottom: 1rem;">
+                    2450 Fondren Rd, Suite 255<br>Houston, TX 77063<br>
+                    <a href="tel:+12816548100" style="color: #1A6BDE;">(281) 654-8100</a><br>
+                    <a href="mailto:atlasglinn.hq@atlasglinn.com" style="color: #1A6BDE;">atlasglinn.hq@atlasglinn.com</a>
+                </p>
+                <div class="social-links" style="display:flex; gap:1.2rem; flex-wrap:wrap;">
+                    <a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" style="color:#1A6BDE; text-decoration:none;">Instagram</a>
+                    <a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" style="color:#1A6BDE; text-decoration:none;">LinkedIn</a>
+                    <a href="https://www.youtube.com/@atlasglinn" target="_blank" style="color:#1A6BDE; text-decoration:none;">YouTube</a>
+                    <a href="https://www.facebook.com/mastsolutions" target="_blank" style="color:#1A6BDE; text-decoration:none;">Facebook</a>
+                    <a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" style="color:#1A6BDE; text-decoration:none;">Yelp</a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved.</p>
+            <p>Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management</p>
+        </div>
+    </div>
+</footer>
+
+<!-- ══════════ JAVASCRIPT ══════════ -->
+<script>
+// ── HERO GOLD DUST PARTICLES ──
+(function(){
+    const c=document.getElementById('hero-particles');if(!c)return;
+    const ctx=c.getContext('2d');let w,h;const pts=[];const count=50;
+    function resize(){w=c.width=c.parentElement.offsetWidth;h=c.height=c.parentElement.offsetHeight;}
+    resize();window.addEventListener('resize',resize);
+    for(let i=0;i<count;i++){pts.push({x:Math.random()*w,y:Math.random()*h,vx:(Math.random()-0.5)*0.3,vy:-Math.random()*0.4-0.1,size:Math.random()*2+0.5,opacity:Math.random()*0.4+0.1,gold:Math.random()>0.4});}
+    function draw(){
+        ctx.clearRect(0,0,w,h);
+        pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fillStyle=p.gold?`rgba(201,168,76,${p.opacity})`:`rgba(255,255,255,${p.opacity*0.3})`;ctx.fill();p.x+=p.vx;p.y+=p.vy;if(p.y<-10){p.y=h+10;p.x=Math.random()*w;}if(p.x<-10||p.x>w+10){p.x=Math.random()*w;}});
+        requestAnimationFrame(draw);
+    }
+    draw();
+})();
+
+// ── SCROLL REVEAL ──
+const revealObserver=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('active');revealObserver.unobserve(e.target);}});},{threshold:0.1,rootMargin:'0px 0px -50px 0px'});
+document.querySelectorAll('.reveal').forEach(el=>revealObserver.observe(el));
+
+// ── OLD 3D TILT REMOVED — using universal script below ──
+
+// ── PARALLAX HERO ──
+window.addEventListener('scroll',()=>{const hero=document.querySelector('.hero-bg-img');if(hero){hero.style.transform=`translateY(${window.scrollY*0.3}px)`;}});
+</script>
+
+<script>
+function parallax3D(e, container) {
+    const inner = container.querySelector('.parallax-3d-inner');
+    const img = container.querySelector('.parallax-3d-img') || container.querySelector('img');
+    const shine = container.querySelector('.parallax-3d-shine');
+    const rect = container.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    inner.style.transform = 'rotateY(' + (x * 12) + 'deg) rotateX(' + (-y * 8) + 'deg) scale(1.02)';
+    if (img) img.style.transform = 'translateX(' + (-x * 15) + 'px) translateY(' + (-y * 10) + 'px) scale(1.05)';
+    if (shine) shine.style.background = 'radial-gradient(circle at ' + ((x+0.5)*100) + '% ' + ((y+0.5)*100) + '%, rgba(255,255,255,0.2) 0%, transparent 60%)';
+}
+function resetParallax(container) {
+    const inner = container.querySelector('.parallax-3d-inner');
+    const img = container.querySelector('.parallax-3d-img') || container.querySelector('img');
+    if (inner) inner.style.transform = 'rotateY(0) rotateX(0) scale(1)';
+    if (img) img.style.transform = 'translateX(0) translateY(0) scale(1)';
+}
+</script>
+<script>
+// ── UNIVERSAL 3D TILT ON ALL CARDS ──
+document.querySelectorAll('.service-card, .testimonial, .benefit-card, .tech-partner, .discipline-card, .app-tier, .position-card').forEach(card => {
+    card.style.transition = 'transform 0.2s ease-out, box-shadow 0.3s ease';
+    card.style.transformStyle = 'preserve-3d';
+    card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width - 0.5;
+        const y = (e.clientY - rect.top) / rect.height - 0.5;
+        card.style.transform = `perspective(800px) rotateY(${x * 12}deg) rotateX(${-y * 8}deg) translateY(-4px) scale(1.02)`;
+        card.style.boxShadow = '0 25px 60px rgba(0,0,0,0.6), 0 0 40px rgba(201,168,76,0.25), 0 0 80px rgba(201,168,76,0.1)';
+    });
+    card.addEventListener('mouseleave', () => {
+        card.style.transform = 'perspective(800px) rotateY(0) rotateX(0) translateY(0) scale(1)';
+        card.style.boxShadow = '';
+    });
+});
+</script>
+
+</body>
+</html>
