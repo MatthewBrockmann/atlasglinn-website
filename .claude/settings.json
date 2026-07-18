@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "nohup bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/setup-seo.sh\" >> \"$CLAUDE_PROJECT_DIR/.claude/hooks/setup-seo.log\" 2>&1 & echo 'claude-seo bootstrap started in background (log: .claude/hooks/setup-seo.log)'"
+          }
+        ]
+      }
+    ]
+  }
+}
