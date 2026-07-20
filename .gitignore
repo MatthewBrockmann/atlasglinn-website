@@ -1,2 +1,12 @@
 .DS_Store
 images/.DS_Store
+
+# Claude SEO toolchain — rebuilt per-session by .claude/hooks/setup-seo.sh
+.claude/skills/seo/.venv/
+.claude/hooks/setup-seo.log
+__pycache__/
+*.pyc
+# Local credentials must never be committed
+.claude/**/client_secret*.json
+.claude/**/oauth-token.json
+.claude/**/service_account*.json
