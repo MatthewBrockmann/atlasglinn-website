@@ -1,0 +1,36 @@
+# Atlas Glinn, LLC
+
+> Executive protection, risk management, and security technology firm based in
+> Houston, Texas. Atlas Glinn provides licensed protective services to
+> executives, families, and high-net-worth principals, and builds the field
+> technology its own operators use.
+
+Atlas Glinn operates two connected lines of business: protective services
+delivered by licensed agents, and the security technology that supports them —
+including Atlas EP, an iOS application for protection details, and counter-drone
+and autonomous surveillance systems.
+
+## Services
+
+- [Executive & Dignitary Protection](https://atlasglinn.com/executive-protection.html): Licensed close protection for executives, dignitaries, and families. Armed and unarmed details, secure transport, advance work, and route planning.
+- [Residential Protection](https://atlasglinn.com/residential-protection.html): Estate and residential security programs, including standing posts and technical surveillance countermeasures.
+- [Counter-Drone / C-UAS](https://atlasglinn.com/cuas-aerodefense.html): Detection and mitigation of unauthorized unmanned aircraft over sensitive sites and events.
+- [Autonomous Drone Security](https://atlasglinn.com/uas.html): UAS-based perimeter and site surveillance.
+- [Disaster Recovery & Asset Protection](https://atlasglinn.com/disaster-recovery.html): Continuity and asset security during natural disasters and civil disruption.
+- [Training](https://atlasglinn.com/training.html): Protective operations instruction delivered with MAST Solutions.
+
+## Technology
+
+- [Atlas EP App](https://atlasglinn.com/ep-app.html): iOS application for protection details — daily activity reports, team coordination, emergency signalling, and situational intelligence.
+- [Technology Overview](https://atlasglinn.com/technology.html): The systems Atlas Glinn fields and develops.
+
+## Company
+
+- [About](https://atlasglinn.com/about.html)
+- [Contact](https://atlasglinn.com/contact.html): Houston, Texas.
+- [Careers](https://atlasglinn.com/careers.html)
+
+## Policies
+
+- [Privacy Policy](https://atlasglinn.com/privacy.html)
+- [Terms of Service](https://atlasglinn.com/terms.html)
