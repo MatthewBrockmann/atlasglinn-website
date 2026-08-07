@@ -73,3 +73,49 @@ same session — never left pending or half-configured:
    (missing user secret, environment/network-policy limit) must be surfaced
    explicitly with the exact command or action that finishes it, both in the
    final report and in this file's status tables.
+
+## ATLAS — the one agent (added 2026-08-07)
+
+Brockmann speaks to **ONE** agent: **ATLAS**. Everything else is a worker ATLAS
+dispatches. He should never have to name a sub-agent, pick a model, or remind a
+session to read the rules.
+
+**ATLAS is defined in the `brain` repo, not here.** That repo is the source of
+truth and this file is a pointer, deliberately — duplicating the definitions
+across repos is how they drift, which is the failure class the brain vault exists
+to kill.
+
+| What | Where (in `MatthewBrockmann/brain`) |
+|---|---|
+| Entry point / doctrine | `.claude/skills/atlas/SKILL.md` |
+| Worker fleet (7 agents) | `.claude/agents/atlas-*.md` |
+| Locked rules, re-injected every turn | `00-rules/prime-directives.md` |
+| Cloud-readable memory (442 files) | `04-resources/agent-memory/` |
+| Merged-vs-running dashboard | `04-resources/Deployment-Status.md` |
+| Current work queue | `04-resources/ATLAS-session-plan-2026-08-07.md` |
+
+**Model split** (Brockmann, 2026-08-07): main loop = **Fable 5** or **Opus 5**.
+Workers are routed by task with the model passed **explicitly** on every call,
+never inherited — **Sonnet** for `atlas-scout` (recon) and `atlas-scribe`
+(record-keeping); **Opus** for `atlas-architect`, `atlas-builder`, `atlas-ops`,
+`atlas-verifier`, and `atlas-security`. The security tier is **never** downgraded.
+The point is rate of return: cheap models absorb the mechanical volume so the
+expensive ones are spent on judgment.
+
+**Rules that bind sessions in this repo too:**
+- **Never claim a Mac-only action from a cloud session.** Hooks, LaunchAgents, the
+  local RAG and the canonical memory store are Mac-local by physics.
+- **No live credentials anywhere git can see** — `[Keychain <name>]` references only.
+  A real-looking secret in a tracked file is a bug to report, never to use.
+- **Say who acts.** Label every command block `ALREADY RUN BY CLAUDE — do not paste`
+  or `YOU RUN THIS — copy-paste into Terminal`. An unlabelled block is the violation.
+- **Wired ≠ firing.** An automation is done only when it is wired, fired-observed
+  with an artifact seen, has a heartbeat, has every referenced path verified to
+  exist, and has its "why" captured. Until then say "wired, NOT confirmed firing."
+- **Deploy-or-don't-declare-done.** Merged is not running. Say which one it is.
+
+⚠️ **Known open item on this site:** `AtlasGlinn_WireGuard_Page.html` (in the
+AtlasEP repo) advertises "military-grade WireGuard VPN tunnels" and no WireGuard
+implementation exists in any repo — no config, no `.conf`, no `wg0`. Either it is
+hosted entirely outside git or the claim is unsupported. Resolve before any SEO or
+content work amplifies that page.
