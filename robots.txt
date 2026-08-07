@@ -1,0 +1,36 @@
+# atlasglinn.com — Atlas Glinn, LLC
+# Houston, TX — executive protection, risk management, counter-drone, training
+
+User-agent: *
+Allow: /
+
+# AI search crawlers — explicitly welcomed.
+# Atlas Glinn wants to be citable in AI answers, not just blue links.
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+Sitemap: https://atlasglinn.com/sitemap.xml
