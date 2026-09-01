@@ -15,6 +15,24 @@ ALLOWED_ORIGINS = "https://www.atlasglinn.com,https://atlasglinn.com,https://mas
 SITE_URL = "https://www.atlasglinn.com/mastsolutions.html"
 NOTIFY_FROM = "MAST Solutions <bookings@mastsolutions.com>"
 
+# ── Document distribution (owner-specified 2026-09-01) ──────────────
+# Two explicit lists rather than one list with exclusions — an exclusion rule
+# breaks the first time someone is added in the wrong place.
+#
+# The signed range agreement goes to all four. Everything else omits Alex.
+DOC_RECIPIENTS_AGREEMENT = "alexalbert308@gmail.com,atlasglinn.hqw@atlasglinn.com,Matthew@mastsolutions.com,a.glover@atlasglinn.com"
+DOC_RECIPIENTS_INTERNAL  = "atlasglinn.hqw@atlasglinn.com,Matthew@mastsolutions.com,a.glover@atlasglinn.com"
+#
+# ⚠️ VERIFY `atlasglinn.hqw@` before first send — every other reference in this
+#    project is `atlasglinn.hq@` (no w). A wrong address fails silently.
+# ⚠️ Eligibility answers are NOT in either list, deliberately. They are
+#    criminal-history data; staff read them in the admin under access control.
+#    See ARCHITECTURE.md §6a.
+
+# The range address is NOT public. It ships only in post-registration email.
+RANGE_ADDRESS = "4159 County Road 161, Wharton, TX 77488"
+RANGE_COORDS  = "29.339959, -96.046542"
+
 # Order storage. Create with:
 #   wrangler d1 create mast_bookings
 # then paste the returned database_id below.

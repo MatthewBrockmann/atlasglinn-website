@@ -344,9 +344,86 @@ Worth keeping in the email body as well as the attachment — the document itsel
 says *"Screenshot this page. Cell service drops off well before you get there."*
 An attachment someone never opened is no use on a dirt road with no bars.
 
-⚠️ **The site currently shows only the Houston office.** Training is at
-**4159 County Road 161, Wharton, TX 77488** (29.339959, -96.046542). Decide
-whether the range address is public or released only after booking.
+### The range address is NOT public (owner, 2026-09-01)
+
+**Decided.** `4159 County Road 161, Wharton, TX 77488` (29.339959, -96.046542) is
+released **only after a completed registration**, in the confirmation email.
+
+This has to be enforced in more places than the obvious one:
+
+- The public site shows **Houston** (2450 Fondren Rd) only — never Wharton
+- **JSON-LD / schema.org must not carry the range address.** Structured data is
+  machine-readable by design; putting it there publishes it to search engines
+  more effectively than a paragraph would
+- The `sessions.location` field stores `Wharton Range` as a label, and the full
+  address lives in one place used only by the confirmation and reminder emails
+- Range directions are **not** a public URL — serve them from a signed,
+  expiring link tied to the booking, or attach the PDF. A guessable
+  `/range-directions.pdf` is a public address with extra steps
+- The T−7 and T−1 reminders may repeat it; marketing email never does
+
+---
+
+## 6a. Document distribution — SPECIFIED BY OWNER
+
+Recipients:
+
+| # | Name | Address |
+|---|---|---|
+| 1 | Alex Albert | `alexalbert308@gmail.com` |
+| 2 | Atlas Glinn HQ | `atlasglinn.hqw@atlasglinn.com` ⚠️ see note |
+| 3 | Matthew Brockmann | `Matthew@mastsolutions.com` |
+| 4 | Anthony Glover | `a.glover@atlasglinn.com` |
+
+| Document | 1 Alex | 2 HQ | 3 Matthew | 4 Glover | Customer |
+|---|:--:|:--:|:--:|:--:|:--:|
+| **Signed range agreement** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Booking / payment receipt | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Eligibility answers | ❌ | ⚠️ see below | ⚠️ | ⚠️ | ❌ |
+| Range address + directions | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Roster before class | ❌ | ✅ | ✅ | ✅ | ❌ |
+
+**Alex Albert receives the signed range agreement and nothing else.**
+
+### ⚠️ Two flags on this
+
+**1. `atlasglinn.hqw@atlasglinn.com` — is `hqw` correct?** Every other reference
+in this project is `atlasglinn.hq@atlasglinn.com` (no `w`). If it is a typo, the
+documents bounce or, worse, silently go nowhere. **Verify before first send** —
+a distribution list is exactly the kind of thing that fails quietly for months.
+
+**2. Do not email the eligibility answers to anyone.** The owner's instinct to
+keep Alex off everything but the waiver is right, and the same logic extends
+further: these are criminal-history responses. Emailing them creates permanent,
+uncontrolled copies in four mailboxes, outside row-level security, un-deletable,
+and outside the retention policy.
+
+**Recommended instead:** the notification says *"Registration #1234 needs
+eligibility review"* with a link. The answers are read in the admin, under access
+control, and the record stays in one place.
+
+This matters beyond hygiene: under the TDPSA, sensitive personal data is the one
+category the small-business exemption does not fully cover
+(see `DATA-AND-MARKETING.md`). Scattering it across inboxes — one of them a
+personal Gmail — is the opposite of the containment that keeps the exemption
+intact.
+
+**3. Alex's address is a personal Gmail**, and signed agreements carry full name,
+home address, phone and emergency contacts. That is real PII leaving
+organisational control. Worth confirming it is intended, and worth considering an
+`@atlasglinn.com` address instead.
+
+### Config
+
+```toml
+# wrangler.toml — non-secret routing, kept out of code so it can change
+# without a redeploy
+DOC_RECIPIENTS_AGREEMENT = "alexalbert308@gmail.com,atlasglinn.hqw@atlasglinn.com,Matthew@mastsolutions.com,a.glover@atlasglinn.com"
+DOC_RECIPIENTS_INTERNAL  = "atlasglinn.hqw@atlasglinn.com,Matthew@mastsolutions.com,a.glover@atlasglinn.com"
+```
+
+Two lists, not one with exclusions — an exclusion list is a bug waiting to
+happen the first time someone adds a recipient in the wrong place.
 
 ---
 
