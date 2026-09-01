@@ -5,24 +5,75 @@ requirements. Decisions marked ⚠️ are his to make before build starts.
 
 ---
 
-## 1. What changed
-
-The original flow was *pick a course → pay*. The new requirement inserts
-screening and a signed legal agreement **before** money changes hands:
+## 1. The flow — SPECIFIED BY OWNER (2026-09-01)
 
 ```
-Browse → pick course+date → PROFILE (create or log in)
-       → eligibility questions → sign the Participation Agreement
-       → pay (Stripe) → confirmation email + range directions
-       → T−7 reminder → T−1 reminder → post-class follow-up
+1.  Click a class
+2.  Create a profile — OR CONTINUE AS GUEST        ← profile is optional
+3.  Eligibility questions (Y/N)  ────────┐
+      all No + citizen Yes  → continue   │  any Yes → FOLLOW-UP,
+                                         │            not a rejection
+4.  Range Participation Agreement — sign ┘
+5.  Refund / cancellation — agree checkbox
+6.  Payment (Stripe)
+7.  Receipt → customer
+    All completed documents → MAST + range
+    Newsletter opt-in → Mailchimp
+8.  T−7 reminder → T−1 reminder → post-class follow-up
 ```
 
-This is the right order. You cannot take payment for a class someone is
-ineligible to attend, and a refund after the fact is worse than a block before.
+Screening before signature before payment. You cannot take money for a class
+someone may not be able to attend, and a refund afterwards is worse than a gate
+before.
 
-It has one consequence worth stating plainly: **checkout is no longer three
-clicks**, and it should not be. Three clicks was correct for a seat with no
-prerequisites; it is wrong for a live-fire class with a negligence waiver.
+**Checkout is no longer three clicks, and should not be.** Three was right for a
+seat with no prerequisites; it is wrong for a live-fire class carrying a
+negligence waiver.
+
+### Two owner decisions that change the earlier design
+
+**Profile is OPTIONAL — guest checkout is allowed.** Earlier drafts assumed an
+account was required. It is not.
+
+The consequence worth designing around: **the one-year waiver reuse only works
+for someone with a profile.** A guest has no identity to attach it to, so a guest
+signs again every time. That is not a drawback — it is the single most honest
+reason to create an account, and the checkout should say so in one line:
+
+> *Create a profile and you won't sign this again for a year.*
+
+Guests still get a record; it is keyed on email rather than an account, and is
+promoted to the profile if they later register with the same address.
+
+**A "Yes" answer is a FOLLOW-UP, not a rejection.** This is the owner's call and
+it is the right one — a yes can have an explanation (an expunged record, a
+resolved order, a misunderstanding of the question). Auto-rejecting turns a
+phone call into a lost customer and an angry one.
+
+So a Yes:
+- Stops the flow before signature and before payment — **nothing is charged**
+- Creates a **review item** for staff, with the participant's contact details
+- Shows the participant a neutral message: their registration needs a brief
+  conversation before it can be completed, and someone will contact them
+- Never states which question triggered it, and never emails the reason
+
+```sql
+CREATE TABLE eligibility_reviews (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  email         TEXT NOT NULL,
+  profile_id    TEXT,                    -- null for guests
+  session_id    INTEGER,
+  flagged_q     TEXT NOT NULL,           -- which question(s), staff-eyes only
+  status        TEXT DEFAULT 'pending',  -- pending | cleared | declined
+  staff_note    TEXT,
+  reviewed_by   TEXT,
+  created_at    TEXT NOT NULL,
+  reviewed_at   TEXT
+);
+```
+
+Cleared → a one-time resume link puts them back at the agreement step. Declined →
+a neutral message, and the reason stays in the staff note, never in an email.
 
 ---
 
