@@ -767,13 +767,13 @@
             <li><a href="/careers.html">Careers</a></li>
             <li><a href="/contact.html" class="cta-nav-btn">Contact Us</a></li>
         </ul>
-        <button class="mobile-menu-btn" onclick="document.getElementById('mobile-nav').classList.add('open')">&#9776;</button>
+        <button class="mobile-menu-btn" aria-label="Open navigation menu" aria-controls="mobile-nav" aria-expanded="false" onclick="document.getElementById('mobile-nav').classList.add('open');this.setAttribute('aria-expanded','true')">&#9776;</button>
     </div>
 </nav>
 
 <!-- Mobile Nav Overlay -->
 <div id="mobile-nav" class="mobile-nav">
-    <button class="mobile-nav-close" onclick="this.parentElement.classList.remove('open')">&times;</button>
+    <button class="mobile-nav-close" aria-label="Close navigation menu" onclick="this.parentElement.classList.remove('open')">&times;</button>
     <a href="/" onclick="this.parentElement.classList.remove('open')">Home</a>
     <a href="/executive-protection.html" onclick="this.parentElement.classList.remove('open')">Executive Protection</a>
     <a href="/residential-protection.html" onclick="this.parentElement.classList.remove('open')">Residential Protection</a>
@@ -1091,7 +1091,7 @@
     <div class="footer-links">
       <h4>Company</h4>
       <a href="/">Atlas Glinn LLC</a>
-      <a href="https://www.mastsolutions.com">MAST Solutions</a>
+      <a href="mastsolutions.html">MAST Solutions</a>
       <a href="/ep-app">Executive Protection</a>
       <a href="/training.html">Training Programs</a>
     </div>

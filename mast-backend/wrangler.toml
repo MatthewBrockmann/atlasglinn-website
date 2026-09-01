@@ -1,0 +1,28 @@
+name = "mast-booking-backend"
+main = "src/worker.js"
+compatibility_date = "2026-01-15"
+
+# Non-secret configuration. Secrets go in via `wrangler secret put` — never here.
+[vars]
+# Comma-separated origin allowlist. Also used to validate Stripe return URLs.
+ALLOWED_ORIGINS = "https://www.mastsolutions.com,https://mastsolutions.com"
+SITE_URL = "https://www.mastsolutions.com"
+NOTIFY_FROM = "MAST Solutions <bookings@mastsolutions.com>"
+
+# Order storage. Create with:
+#   wrangler d1 create mast_bookings
+# then paste the returned database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "mast_bookings"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+# ── Secrets (set with `wrangler secret put <NAME>`) ─────────────────
+#   STRIPE_SECRET_KEY       sk_live_... (or sk_test_... while testing)
+#   STRIPE_WEBHOOK_SECRET   whsec_...   from the Stripe webhook endpoint
+#   RESEND_API_KEY          re_...      for booking notification emails
+#   NOTIFY_EMAIL            where booking alerts are sent (comma-separated ok)
+#   ADMIN_KEY               long random string guarding GET /roster
+#
+# Optional per-plan fallback when a membership is not in the D1 table:
+#   STRIPE_PRICE_<PLAN_KEY> e.g. STRIPE_PRICE_RANGE_MEMBER = price_1Abc...
