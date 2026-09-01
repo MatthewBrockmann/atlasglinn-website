@@ -41,20 +41,49 @@ Every one of these depends on dates existing:
 **This is the first thing to build**, and it needs owner input (which courses
 run when, and capacity per session).
 
+**Capacity is set (owner, 2026-09-01):**
+
+| Course type | Seats |
+|---|---|
+| Fundamental — 1 day | **16** |
+| Operator — 2 day | **10** |
+
 ```sql
 CREATE TABLE sessions (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   course_sku    TEXT NOT NULL,              -- FK -> offerings.sku
   starts_at     TEXT NOT NULL,              -- ISO 8601, America/Chicago
   ends_at       TEXT,
-  capacity      INTEGER NOT NULL DEFAULT 12,
+  capacity      INTEGER NOT NULL,           -- 16 fundamental / 10 operator
   location      TEXT DEFAULT 'Wharton Range',
   status        TEXT DEFAULT 'open',        -- open | full | cancelled | done
   notes         TEXT
 );
+
+-- course_type drives the capacity default; store it on the offering
+ALTER TABLE offerings ADD COLUMN course_type TEXT DEFAULT 'fundamental';
+                                             -- fundamental | operator
 ```
 
 A booking then references a **session**, not just a course.
+
+**Seats must be held atomically.** Two people paying for the last seat at the
+same moment is a real failure on a 10-seat live-fire class, not a theoretical
+one. Reserve the seat when checkout starts, with a short expiry, and release it
+if payment does not complete:
+
+```sql
+CREATE TABLE seat_holds (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id  INTEGER NOT NULL,
+  profile_id  TEXT NOT NULL,
+  seats       INTEGER NOT NULL DEFAULT 1,
+  expires_at  TEXT NOT NULL,      -- ~20 min, covers a Stripe checkout
+  consumed    INTEGER DEFAULT 0   -- set on successful payment
+);
+```
+
+Seats available = `capacity − confirmed − live holds`.
 
 ---
 
@@ -185,23 +214,57 @@ itself and they confirm rather than retype.
 
 ---
 
-## 5. Eligibility screening
+## 5. Eligibility screening — SPECIFIED
 
-The owner referenced "a 4473" — ATF Form 4473 is the federal firearms
-**transfer** record. MAST is not transferring firearms, so 4473 itself does not
-apply; what is wanted is 4473-style **prohibited-person screening**.
+ATF Form 4473 is the federal firearms **transfer** record. MAST is not
+transferring firearms, so this is not a 4473 and must not be labelled one. It is
+4473-**derived** prohibited-person screening, which is a reasonable gate for a
+live-fire class.
 
-⚠️ **The exact question list is the owner's to supply** — these are legal
-attestations and must not be invented. Two constraints come from the agreement
-itself and are not optional:
+**Owner selected (2026-09-01): 11.b, 11.c, 11.d, 11.h, 11.i, and 12.a.**
+Deliberately excluded: 11.e (controlled substances), 11.f (mental adjudication /
+commitment), 11.g (dishonorable discharge).
 
-- **18 or older.** The agreement warrants the signer is "at least eighteen years
-  of age". The form must enforce it, not just ask.
-- **Guests sign too.** "I am responsible for ensuring that any guest I bring
-  has signed" — so a booking for more than one seat needs an agreement per
-  attendee, not one for the buyer.
+**Order: this form comes FIRST, then the range waiver.** Screening before a
+signature means an ineligible applicant never signs anything and never pays.
 
-Store each answer with its version, same reasoning as the waiver.
+### The six questions, as they will appear
+
+Numbered, Yes/No, wording carried from the 4473 because it is well-tested
+language. `expected` is the answer required to proceed.
+
+| # | Question | Expected |
+|---|---|---|
+| 1 | Are you under indictment or information in any court for a felony, or any other crime for which the judge could imprison you for more than one year? | **No** |
+| 2 | Have you ever been convicted in any court of a felony, or any other crime for which the judge could have imprisoned you for more than one year, even if you received a shorter sentence including probation? | **No** |
+| 3 | Are you a fugitive from justice? | **No** |
+| 4 | Are you subject to a court order restraining you from harassing, stalking, or threatening your child or an intimate partner or child of such partner? | **No** |
+| 5 | Have you ever been convicted in any court of a misdemeanor crime of domestic violence? | **No** |
+| 6 | Are you a citizen of the United States of America? | **Yes** |
+| 7 | Are you 18 years of age or older? | **Yes** |
+
+Question 7 is not from the 4473 — it is required by the agreement itself, which
+warrants the signer is "at least eighteen years of age". Asking it is not
+optional; the form must **enforce** it, not merely record it.
+
+### Handling
+
+- Any disqualifying answer → stop before the waiver, before payment. Show a
+  neutral message with a phone number; do not state which question failed.
+- **Never auto-email a rejection listing the reason.** A record saying "declined:
+  domestic violence conviction" sitting in an inbox is a liability of its own.
+- Store answers with `questions_version` (same discipline as the agreement), the
+  timestamp, and IP.
+
+⚠️ **This is criminal-history data.** It is sensitive personal information and
+must be: encrypted at rest, restricted to staff who need it, retained under a
+stated policy rather than forever, and never synced to Mailchimp or any
+analytics tool. Route it to Supabase with row-level security — never into the
+PostHog event stream.
+
+- **Guests sign too.** "I am responsible for ensuring that any guest I bring has
+  signed" — a booking for more than one seat needs screening and an agreement
+  **per attendee**, not one for the buyer.
 
 ---
 
@@ -329,13 +392,17 @@ Steps 1–6 are the minimum for a real booking. 7–10 are the compounding layer
 
 ## Open decisions (owner)
 
-| # | Decision | Blocks |
-|---|---|---|
-| 1 | Class dates + capacity per session | Everything |
-| 2 | Supabase vs hand-rolled auth | Profiles |
-| 3 | Typed attestation vs e-sign service | Waiver |
-| 4 | Eligibility question text (verbatim) | Screening |
-| 5 | Range address public, or post-booking only? | Site copy |
-| 6 | Six course prices | Payment |
-| 7 | Refund / cancellation policy | First sale |
-| 8 | Mailchimp API key, audience ID, server prefix | Marketing sync |
+| # | Decision | Status | Blocks |
+|---|---|---|---|
+| 1 | Class dates per course | ⏳ owner working on it | Everything downstream |
+| 1b | Capacity | ✅ 16 fundamental / 10 operator | — |
+| 2 | Supabase vs hand-rolled auth | ⚠️ open — Supabase recommended | Profiles |
+| 3 | Signature method | ✅ typed attestation + timestamp + IP | — |
+| 4 | Eligibility questions | ✅ 4473 b/c/d/h/i + citizenship + 18+ | — |
+| 5 | Range address public, or post-booking? | ⚠️ open | Site copy |
+| 6 | Six course prices | ⏳ owner listing with dates | Payment |
+| 7 | Refund / cancellation policy | ⏳ drafted, awaiting review | First sale |
+| 8 | Mailchimp key, audience ID, server prefix | ⚠️ open — no key on file | Marketing sync |
+| 9 | Where signed agreements are emailed | ⚠️ open | Confirmation email |
+
+See `REFUND-POLICY-DRAFT.md` for #7.
