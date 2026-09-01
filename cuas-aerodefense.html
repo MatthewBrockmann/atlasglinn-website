@@ -258,13 +258,13 @@
             <li><a href="careers.html">Careers</a></li>
             <li><a href="contact.html" class="cta-button" style="padding:.6rem 1.2rem;font-size:.85rem;">Contact Us</a></li>
         </ul>
-        <button class="mobile-menu-btn" onclick="document.getElementById('mobile-nav').classList.add('open')">&#9776;</button>
+        <button class="mobile-menu-btn" aria-label="Open navigation menu" aria-controls="mobile-nav" aria-expanded="false" onclick="document.getElementById('mobile-nav').classList.add('open');this.setAttribute('aria-expanded','true')">&#9776;</button>
     </div>
 </nav>
 
 <!-- Mobile Nav Overlay -->
 <div id="mobile-nav" class="mobile-nav">
-    <button class="mobile-nav-close" onclick="this.parentElement.classList.remove('open')">&times;</button>
+    <button class="mobile-nav-close" aria-label="Close navigation menu" onclick="this.parentElement.classList.remove('open')">&times;</button>
     <a href="index.html" onclick="this.parentElement.classList.remove('open')">Home</a>
     <a href="executive-protection.html" onclick="this.parentElement.classList.remove('open')">Executive Protection</a>
     <a href="residential-protection.html" onclick="this.parentElement.classList.remove('open')">Residential</a>
@@ -535,7 +535,7 @@
                     <li><a href="training.html">Training Programs</a></li>
                     <li><a href="technology.html">Atlas EP Platform</a></li>
                     <li><a href="cuas-aerodefense.html">Counter-Drone Solutions</a></li>
-                    <li><a href="training.html">MAST Solutions</a></li>
+                    <li><a href="mastsolutions.html">MAST Solutions</a></li>
                 </ul>
             </div>
             <div class="footer-section">
