@@ -94,18 +94,20 @@ function baseCors(origin) {
  * Rows live in D1 (table `offerings`) so they can be edited without a redeploy;
  * if the table is empty or D1 is unbound, these seeds are used.
  *
- * ⚠️ SEED PRICES ARE UNCONFIRMED PLACEHOLDERS. Stripe charges exactly these
- * amounts — verify every one before taking live payments.
+ * ⚠️ PRICES ARE DELIBERATELY ZERO — they have not been supplied by the owner.
+ * A zero price makes handleBooking() return 409 "call to enroll" rather than
+ * charging a guessed amount. Set the real values in D1 (see schema.sql) before
+ * taking payments; a wrong number here charges a real card.
+ *
+ * SKUs must match mastsolutions.html and mast-wp-theme/inc/catalog.php exactly.
  */
 const SEED_CLASSES = [
-  { sku: 'MAST-HG-OP', name: 'Handgun Operator', price_cents: 39500 },
-  { sku: 'MAST-AWO', name: 'Advanced Weapons Operation', price_cents: 59500 },
-  { sku: 'MAST-FOF', name: 'Force on Force', price_cents: 49500 },
-  { sku: 'MAST-DA', name: 'Direct Action', price_cents: 69500 },
-  { sku: 'MAST-LLNO', name: 'Low-Light / Night Ops', price_cents: 35000 },
-  { sku: 'MAST-LRR', name: 'Long Range Rifle', price_cents: 49500 },
-  { sku: 'MAST-TMED', name: 'Tactical Medical Training', price_cents: 29500 },
-  { sku: 'MAST-RSO', name: 'NRA Certified RSO', price_cents: 15000 },
+  { sku: 'MAST-SHOTGUN', name: 'Shotgun Operator', price_cents: 0 },
+  { sku: 'MAST-AWO', name: 'Advanced Weapons Operation', price_cents: 0 },
+  { sku: 'MAST-FOF', name: 'Force on Force', price_cents: 0 },
+  { sku: 'MAST-DA', name: 'Direct Action', price_cents: 0 },
+  { sku: 'MAST-LLNO', name: 'Low-Light / Night Ops', price_cents: 0 },
+  { sku: 'MAST-TMED', name: 'Tactical Medical', price_cents: 0 },
 ];
 
 async function lookupClass(env, sku) {
@@ -559,7 +561,7 @@ function safeUrl(candidate, env) {
 }
 
 function defaultUrl(env, suffix) {
-  const base = allowedOrigins(env)[0] || env.SITE_URL || 'https://www.mastsolutions.com';
+  const base = allowedOrigins(env)[0] || env.SITE_URL || 'https://mastsolutions.com';
   return base.replace(/\/$/, '/') + suffix;
 }
 

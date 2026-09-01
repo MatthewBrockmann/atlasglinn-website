@@ -54,14 +54,14 @@ const DB = {
 const env = {
   STRIPE_SECRET_KEY: 'sk_test_x',
   STRIPE_WEBHOOK_SECRET: 'whsec_testsecret',
-  ALLOWED_ORIGINS: 'https://www.mastsolutions.com,https://mastsolutions.com',
+  ALLOWED_ORIGINS: 'https://mastsolutions.com,https://mastsolutions.com',
   NOTIFY_EMAIL: 'hq@atlasglinn.com',
   RESEND_API_KEY: 're_test',
   ADMIN_KEY: 'super-secret-admin-key',
   DB,
 };
 const ctx = { waitUntil: (p) => p };
-const post = (path, body, origin = 'https://www.mastsolutions.com') =>
+const post = (path, body, origin = 'https://mastsolutions.com') =>
   worker.fetch(new Request('https://api.test' + path, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin }, body: JSON.stringify(body),
   }), env, ctx);
@@ -101,13 +101,13 @@ console.log('\n── Redirect allowlist ──');
   });
   const s = stripeCalls[0].get('success_url');
   ok('off-origin success_url rejected', !s.includes('evil.example.com'), 'got ' + s);
-  ok('falls back to allowlisted origin', s.startsWith('https://www.mastsolutions.com'), 'got ' + s);
+  ok('falls back to allowlisted origin', s.startsWith('https://mastsolutions.com'), 'got ' + s);
 }
 {
   stripeCalls.length = 0;
   await post('/create-booking', {
     sku: 'MAST-DA', customer_email: 'a@b.com',
-    success_url: 'https://www.mastsolutions.com/?checkout=success',
+    success_url: 'https://mastsolutions.com/?checkout=success',
   });
   ok('on-origin success_url accepted',
      stripeCalls[0].get('success_url').includes('mastsolutions.com/?checkout=success'));
@@ -171,7 +171,7 @@ const evt = JSON.stringify({
 }
 
 console.log('\n── Admin roster auth ──');
-const get = (path, origin = 'https://www.mastsolutions.com') =>
+const get = (path, origin = 'https://mastsolutions.com') =>
   worker.fetch(new Request('https://api.test' + path, { headers: { Origin: origin } }), env, ctx);
 {
   ok('no key rejected', (await get('/roster')).status === 401);

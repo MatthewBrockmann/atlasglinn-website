@@ -5,8 +5,14 @@ compatibility_date = "2026-01-15"
 # Non-secret configuration. Secrets go in via `wrangler secret put` — never here.
 [vars]
 # Comma-separated origin allowlist. Also used to validate Stripe return URLs.
-ALLOWED_ORIGINS = "https://www.mastsolutions.com,https://mastsolutions.com"
-SITE_URL = "https://www.mastsolutions.com"
+#
+# The MAST page is served from the Atlas Glinn site today (mastsolutions.com is a
+# GoDaddy forward, not a web server), so atlasglinn.com MUST be listed or CORS
+# blocks checkout on the page's actual origin. mastsolutions.com entries are here
+# for when it gets real hosting; www.mastsolutions.com has no DNS record yet.
+# The FIRST entry is the fallback used for Stripe return URLs.
+ALLOWED_ORIGINS = "https://www.atlasglinn.com,https://atlasglinn.com,https://mastsolutions.com"
+SITE_URL = "https://www.atlasglinn.com/mastsolutions.html"
 NOTIFY_FROM = "MAST Solutions <bookings@mastsolutions.com>"
 
 # Order storage. Create with:

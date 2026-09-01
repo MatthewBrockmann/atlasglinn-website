@@ -37,16 +37,18 @@ CREATE TABLE IF NOT EXISTS offerings (
   sort_order  INTEGER DEFAULT 0
 );
 
--- ⚠️ PLACEHOLDER PRICES — confirm every amount before taking live payments.
+-- ⚠️ PRICES ARE ZERO ON PURPOSE — not yet supplied by the owner.
+-- A zero price makes the Worker return 409 "call to enroll" instead of charging
+-- a guessed amount. Set the real values before taking payments:
+--   wrangler d1 execute mast_bookings --remote \
+--     --command "UPDATE offerings SET price_cents = 45000 WHERE sku = 'MAST-SHOTGUN'"
 INSERT OR IGNORE INTO offerings (sku, name, price_cents, sort_order) VALUES
-  ('MAST-HG-OP', 'Handgun Operator',           39500, 1),
-  ('MAST-AWO',   'Advanced Weapons Operation', 59500, 2),
-  ('MAST-FOF',   'Force on Force',             49500, 3),
-  ('MAST-DA',    'Direct Action',              69500, 4),
-  ('MAST-LLNO',  'Low-Light / Night Ops',      35000, 5),
-  ('MAST-LRR',   'Long Range Rifle',           49500, 6),
-  ('MAST-TMED',  'Tactical Medical Training',  29500, 7),
-  ('MAST-RSO',   'NRA Certified RSO',          15000, 8);
+  ('MAST-SHOTGUN', 'Shotgun Operator',           0, 1),
+  ('MAST-AWO',     'Advanced Weapons Operation', 0, 2),
+  ('MAST-FOF',     'Force on Force',             0, 3),
+  ('MAST-DA',      'Direct Action',              0, 4),
+  ('MAST-LLNO',    'Low-Light / Night Ops',      0, 5),
+  ('MAST-TMED',    'Tactical Medical',           0, 6);
 
 -- ── Memberships: plan key -> Stripe recurring Price ID ──────────────
 -- Rows are added once the real tiers and Stripe Prices exist.
