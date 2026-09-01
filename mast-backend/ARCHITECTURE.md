@@ -531,6 +531,8 @@ Steps 1–6 are the minimum for a real booking. 7–10 are the compounding layer
 | 6 | Six course prices | ⏳ owner listing with dates | Payment |
 | 7 | Refund / cancellation policy | ⏳ drafted, awaiting review | First sale |
 | 8 | Mailchimp key, audience ID, server prefix | ⚠️ open — no key on file | Marketing sync |
+| 10 | Eligibility retention | ✅ outcomes kept, answers purged — see `RETENTION-POLICY.md` | — |
+| 11 | Document routing + private range address | ✅ specified — see §6a | — |
 | 9 | Where signed agreements are emailed | ⚠️ open | Confirmation email |
 
 See `REFUND-POLICY-DRAFT.md` for #7.
