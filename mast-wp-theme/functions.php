@@ -16,7 +16,7 @@ define( 'MAST_VERSION', '1.0.0' );
  *   define( 'MAST_CHECKOUT_BASE', 'https://your-worker.workers.dev' );
  */
 if ( ! defined( 'MAST_CHECKOUT_BASE' ) ) {
-	define( 'MAST_CHECKOUT_BASE', 'https://safeguard-stripe-backend.matthew-221.workers.dev' );
+	define( 'MAST_CHECKOUT_BASE', 'https://mast-booking-backend.matthew-221.workers.dev' );
 }
 
 require_once get_template_directory() . '/inc/catalog.php';
@@ -41,8 +41,8 @@ function mast_assets() {
 		'mast-checkout',
 		'MAST',
 		array(
-			'storeEndpoint' => trailingslashit( MAST_CHECKOUT_BASE ) . 'create-store-checkout',
-			'subEndpoint'   => trailingslashit( MAST_CHECKOUT_BASE ) . 'create-checkout',
+			'storeEndpoint' => trailingslashit( MAST_CHECKOUT_BASE ) . 'create-booking',
+			'subEndpoint'   => trailingslashit( MAST_CHECKOUT_BASE ) . 'create-membership',
 			'returnUrl'     => home_url( '/' ),
 			'phone'         => mast_contact( 'phone' ),
 			'i18n'          => array(

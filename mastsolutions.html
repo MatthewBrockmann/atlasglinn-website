@@ -480,10 +480,11 @@ footer { background: var(--dark); color: var(--dark-ink-2); border-top: 1px soli
 'use strict';
 
 // ── CHECKOUT BACKEND (Cloudflare Worker: safeguard-stripe-backend) ──
-const CHECKOUT_ENDPOINT = 'https://safeguard-stripe-backend.matthew-221.workers.dev/create-store-checkout';
+const CHECKOUT_ENDPOINT = 'https://mast-booking-backend.matthew-221.workers.dev/create-booking';
 
 // ⚠️ PRICES PENDING CONFIRMATION — placeholder amounts anchored to historical
-// listings. Confirm every price_cents before launch; Stripe charges these values.
+// listings. These are DISPLAY ONLY — the Worker holds the authoritative prices
+// (mast-backend/schema.sql). Update both together before launch.
 const CLASSES = [
   { sku: 'MAST-HG-OP',  cat: 'Firearms',            name: 'Handgun Operator',           meta: '2 days · All levels',        price_cents: 39500, desc: 'Two days reinforcing the fundamentals, then adding non-static components — movement and fighting platforms.' },
   { sku: 'MAST-AWO',    cat: 'Firearms · Tactics',  name: 'Advanced Weapons Operation', meta: '2 days · LE / vetted',       price_cents: 59500, desc: 'Advanced weapons operations in high-threat urban environments — law enforcement, security teams, and select qualified citizens.' },
@@ -556,12 +557,12 @@ async function startCheckout() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        product_name: 'MAST Solutions — ' + current.name,
-        price_cents: current.price_cents,
+        // The SKU is the only product identity sent. The Worker looks the price
+        // up server-side, so a tampered request cannot choose its own amount.
+        sku: current.sku,
         qty: qty,
         customer_email: email,
         customer_name: $('co-name').value.trim(),
-        sku: current.sku,
         success_url: base + '?checkout=success&class=' + encodeURIComponent(current.name),
         cancel_url: base + '?checkout=cancelled'
       })

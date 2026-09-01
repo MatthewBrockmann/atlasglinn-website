@@ -133,12 +133,13 @@
 				cancelUrl: cancelUrl
 			}
 			: {
-				product_name: 'MAST Solutions — ' + current.name,
-				price_cents: current.price,
+				// The SKU is the only product identity sent. The Worker looks up
+				// the price server-side, so a tampered request cannot set its own
+				// amount. `current.price` is display-only.
+				sku: current.sku || '',
 				qty: qty,
 				customer_email: email,
 				customer_name: nameEl.value.trim(),
-				sku: current.sku || '',
 				success_url: successUrl,
 				cancel_url: cancelUrl
 			};
