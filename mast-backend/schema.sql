@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS orders (
   kind              TEXT NOT NULL,          -- 'class_booking' | 'membership'
   sku               TEXT,
   session_id        INTEGER,                -- FK -> sessions.id
+  session_date      TEXT,                   -- Saturday of the chosen training weekend (YYYY-MM-DD)
+  session_label     TEXT,                   -- human label as shown at checkout, e.g. "Sat–Sun, Oct 10–11, 2026"
   item_name         TEXT,
   qty               INTEGER DEFAULT 1,
   amount_total      INTEGER DEFAULT 0,      -- cents, as charged by Stripe

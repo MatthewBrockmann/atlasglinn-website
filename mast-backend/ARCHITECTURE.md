@@ -63,6 +63,8 @@ CREATE TABLE eligibility_reviews (
   email         TEXT NOT NULL,
   profile_id    TEXT,                    -- null for guests
   session_id    INTEGER,
+  session_date  TEXT,     -- Saturday of the training weekend chosen in the calendar (added 2026-09-02)
+  session_label TEXT,     -- e.g. "Sat–Sun, Oct 10–11, 2026", as shown at checkout
   flagged_q     TEXT NOT NULL,           -- which question(s), staff-eyes only
   status        TEXT DEFAULT 'pending',  -- pending | cleared | declined
   staff_note    TEXT,

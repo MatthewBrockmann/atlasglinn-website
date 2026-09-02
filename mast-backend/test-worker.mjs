@@ -113,6 +113,39 @@ console.log('\n── Redirect allowlist ──');
      stripeCalls[0].get('success_url').includes('mastsolutions.com/?checkout=success'));
 }
 
+console.log('\n── Training weekends (calendar) ──');
+{
+  const res = await worker.fetch(new Request('https://api.test/weekends', { headers: { Origin: 'https://mastsolutions.com' } }), env, ctx);
+  const body = await res.json();
+  ok('GET /weekends answers 200', res.status === 200);
+  ok('lists all 15 owner weekends', Array.isArray(body.weekends) && body.weekends.length === 15, 'got ' + (body.weekends || []).length);
+  ok('Oct 31 is blocked', body.weekends.some((w) => w.saturday === '2026-10-31' && w.status === 'blocked'));
+  ok('Jan 30 (5th weekend) is present', body.weekends.some((w) => w.saturday === '2027-01-30'));
+}
+{
+  stripeCalls.length = 0;
+  const res = await post('/create-booking', {
+    sku: 'MAST-DA', customer_email: 'a@b.com', session_date: '2026-10-10', session_label: 'Sat–Sun, Oct 10–11, 2026',
+  });
+  const sent = stripeCalls[0];
+  ok('valid weekend accepted', res.status === 200, await res.clone().text());
+  ok('session_date carried in Stripe metadata', sent && sent.get('metadata[session_date]') === '2026-10-10');
+  ok('date label appears on the Stripe line item',
+     sent && sent.get('line_items[0][price_data][product_data][description]').includes('Oct 10'));
+}
+{
+  const res = await post('/create-booking', { sku: 'MAST-DA', customer_email: 'a@b.com', session_date: '2026-10-31' });
+  ok('blocked weekend (Oct 31) rejected (409)', res.status === 409, 'got ' + res.status);
+}
+{
+  const res = await post('/create-booking', { sku: 'MAST-DA', customer_email: 'a@b.com', session_date: '2026-10-17' });
+  ok('non-training Saturday rejected (404)', res.status === 404, 'got ' + res.status);
+}
+{
+  const res = await post('/create-booking', { sku: 'MAST-DA', customer_email: 'a@b.com', session_date: 'next saturday' });
+  ok('malformed date rejected (400)', res.status === 400, 'got ' + res.status);
+}
+
 console.log('\n── Membership plan resolution ──');
 {
   stripeCalls.length = 0;
