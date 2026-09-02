@@ -284,6 +284,30 @@
         .testimonial p { font-size: 0.9rem; color: rgba(255,255,255,0.7); font-style: italic; margin-bottom: 1rem; line-height: 1.7; }
         .testimonial-author { font-size: 0.8rem; font-weight: 700; color: #C9A84C; letter-spacing: .06em; }
 
+        /* CAPABILITY STATEMENT */
+        .cap-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2rem; max-width: 1200px; margin: 0 auto; }
+        .cap-grid .service-card h3 { display: flex; align-items: center; gap: .6rem; }
+        .cap-grid .service-card h3 span { font-family: 'Inconsolata', monospace; font-size: .7rem; letter-spacing: .18em; color: #C9A84C; }
+        .cap-list { list-style: none; columns: 1; }
+        .cap-list li { font-size: .95rem; color: #b0b0b0; line-height: 1.55; padding: .3rem 0 .3rem 1.1rem; position: relative; border-bottom: 1px solid rgba(255,255,255,.05); }
+        .cap-list li:last-child { border-bottom: none; }
+        .cap-list li::before { content: ''; position: absolute; left: 0; top: .85em; width: 5px; height: 5px; background: #C9A84C; transform: rotate(45deg); }
+        .cap-list b { color: #fff; font-weight: 600; }
+        .cap-data { display: grid; grid-template-columns: auto 1fr; gap: .45rem 1.2rem; font-size: .95rem; }
+        .cap-data dt { font-family: 'Inconsolata', monospace; font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: #C9A84C; padding-top: .25rem; }
+        .cap-data dd { color: #d0d0d0; }
+        .cap-data dd a { color: #1A6BDE; text-decoration: none; }
+        .cap-data dd a:hover { color: #C9A84C; }
+        .cap-data dd.pending { color: #888; font-style: italic; }
+        .cap-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 2.5rem; }
+        .cap-form { max-width: 700px; margin: 3rem auto 0; background: rgba(26,107,222,0.05); border: 1px solid rgba(26,107,222,0.2); border-radius: 4px; padding: 3rem; }
+        .cap-form h3 { font-family: 'Orbitron', sans-serif; font-size: 1.5rem; text-align: center; margin-bottom: 0.5rem; }
+        .cap-form > p { text-align: center; color: #b0b0b0; margin-bottom: 2rem; font-size: 0.95rem; }
+        .cap-form form { display: flex; flex-direction: column; gap: 1rem; }
+        .cap-form input, .cap-form select { background: rgba(255,255,255,0.05); border: 1px solid rgba(26,107,222,0.3); color: #fff; padding: 0.8rem 1rem; border-radius: 4px; font-family: 'Rajdhani', sans-serif; font-size: 1rem; }
+        .cap-form select { color: #b0b0b0; }
+        .cap-form input:focus, .cap-form select:focus { outline: none; border-color: #1A6BDE; }
+
         /* CTA SECTION */
         .cta-section { background: linear-gradient(135deg, rgba(26, 107, 222, 0.1) 0%, rgba(26, 107, 222, 0.05) 100%); border: 1px solid rgba(26, 107, 222, 0.3); padding: 4rem 2rem; border-radius: 4px; text-align: center; }
         .cta-section h2 { font-family: 'Orbitron', sans-serif; font-size: clamp(2rem, 5vw, 3.2rem); margin-bottom: 1rem; font-weight: 900; }
@@ -323,8 +347,14 @@
             .ep-container { grid-template-columns: 1fr; gap: 2rem; }
             .founder-img { max-width: 420px; margin: 0 auto; }
             .testimonials-row { grid-template-columns: 1fr 1fr; }
+            .cap-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 1150px) {
+            .nav-links { gap: 1.2rem; }
+            .nav-links a { font-size: 0.8rem; }
         }
         @media (max-width: 768px) {
+            .cap-form { padding: 1.6rem 1.2rem; }
             .nav-links { display: none; }
             .mobile-menu-btn { display: block; }
             .hero { height: 78vh; min-height: 520px; }
@@ -371,6 +401,7 @@
             <li><a href="#founder">Instructor</a></li>
             <li><a href="#media">Media</a></li>
             <li><a href="#reviews">Reviews</a></li>
+            <li><a href="#capability">Capability</a></li>
             <li><a href="index.html">Atlas Glinn</a></li>
             <li><a href="#courses" class="cta-button" style="padding:.6rem 1.2rem;font-size:.85rem;">Book</a></li>
         </ul>
@@ -386,6 +417,7 @@
     <a href="#founder" onclick="this.parentElement.classList.remove('open')">Instructor</a>
     <a href="#media" onclick="this.parentElement.classList.remove('open')">Media</a>
     <a href="#reviews" onclick="this.parentElement.classList.remove('open')">Reviews</a>
+    <a href="#capability" onclick="this.parentElement.classList.remove('open')">Capability</a>
     <a href="index.html">Atlas Glinn</a>
     <a href="#courses" onclick="this.parentElement.classList.remove('open')" style="color:#C9A84C">Book a Course</a>
 </div>
@@ -640,6 +672,94 @@
     <div style="display:flex; gap:1.5rem; justify-content:center; margin-top:2rem;">
         <a href="https://www.google.com/search?q=Atlas+Glinn+Houston+reviews" target="_blank" rel="noopener" style="font-size:0.85rem; color:#1A6BDE; text-decoration:none;">Google Reviews &rarr;</a>
         <a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener" style="font-size:0.85rem; color:#1A6BDE; text-decoration:none;">LinkedIn &rarr;</a>
+    </div>
+</section>
+
+<!-- ══════════ CAPABILITY STATEMENT ══════════ -->
+<div class="section-divider" id="capability">
+    <h2>Capability <span class="gold-shimmer">Statement</span></h2>
+    <p>For agencies, units, and procurement officers</p>
+</div>
+<section class="section" style="padding-top: 2rem;">
+    <div class="cap-grid">
+        <div class="service-card reveal">
+            <h3>Core Competencies</h3>
+            <ul class="cap-list">
+                <li><b>Firearms instruction</b> &mdash; handgun, carbine, shotgun, sub-gun, select-fire M4A1 / MK18</li>
+                <li><b>Low-light and NVG operations</b> &mdash; fundamentals through no-light operator</li>
+                <li><b>CQB, shoothouse and team tactics</b> &mdash; mechanics, movement, comms and signal</li>
+                <li><b>Force-on-force</b> &mdash; live OpFor with UTM and Simunition; bolts provided</li>
+                <li><b>Vehicle and motorcade operations</b> &mdash; individual and team</li>
+                <li><b>Maritime VBSS</b> &mdash; boarding, seizing and controlling vessels, persons and property</li>
+                <li><b>Dignitary and executive protection training</b>; home and property protection</li>
+                <li><b>Gear and kit</b> &mdash; go, shelter-in-place, urban movement, low-vis and high-vis</li>
+            </ul>
+        </div>
+        <div class="service-card reveal">
+            <h3>Past Performance</h3>
+            <ul class="cap-list">
+                <li><b>U.S. Senator Ted Cruz</b> &mdash; Head of Security and Dignitary Liaison for high-profile operations</li>
+                <li><b>U.S. Senator Eric Schmitt</b> &mdash; executive protection and security liaison during critical engagements</li>
+                <li><b>Vercel</b> &mdash; Head of Security; protective services for key personnel and assets</li>
+                <li><b>Executive protection and security liaison</b> &mdash; Jordan Peterson, Naval Ravikant, Matt Walsh and media executives</li>
+                <li><b>Harris County Courthouse</b> &mdash; security advisor and consultant; instructor for Precinct 3 and Harris County Constables and for Diplomatic Protection Teams; approved supplier, February 2023</li>
+                <li><b>TTPOA instructor</b> &mdash; maritime vessel boarding (VBSS); multi-agency Houston Ship Channel operations</li>
+                <li><b>856th Military Police Company</b> &mdash; urban operations and CQC via the Department of the Army; <b>U.S. Army</b> pre-deployment, 101st CQB package</li>
+                <li><b>HPD SWAT</b> and <b>Baytown SWAT</b> &mdash; firearms and tactics; details on request</li>
+            </ul>
+        </div>
+        <div class="service-card reveal">
+            <h3>Differentiators</h3>
+            <ul class="cap-list">
+                <li><b>Three-phase training and vetting pipeline</b> &mdash; a minimum score at every phase, from tangible performance metrics and instructor and advisory-committee assessment. Every Atlas Glinn agent on a protective or transportation assignment trains through it.</li>
+                <li><b>Founder-led instruction</b> on every course since 2005</li>
+                <li><b>DPS Level III Firearms Instructor</b>; Texas Rangers Chief Training Officer co-signed; Tony Leal CTO certification</li>
+                <li><b>CSAT tactical rifle instructor</b> under Paul Howe; trained by Bill Jeans and John Perretti</li>
+                <li><b>SureFire Low-Light Institute</b> and <b>Strategos International</b> low-light instructor programs, law enforcement</li>
+                <li><b>TTPOA Maritime VBSS</b> instructor, Houston Ship Channel</li>
+                <li><b>Small classes</b> &mdash; 16 seats for fundamentals, 10 for any P1 or operator course</li>
+                <li><b>Private range</b> near Houston; address issued on registration</li>
+                <li><b>5.0 Google rating</b>; Best of Business 2025; Chamber of Commerce verified member</li>
+            </ul>
+        </div>
+        <div class="service-card reveal">
+            <h3>Company Data</h3>
+            <dl class="cap-data">
+                <dt>Entity</dt><dd>MAST Solutions, training division of Atlas Glinn, LLC</dd>
+                <dt>Business size</dt><dd>Small</dd>
+                <dt>Established</dt><dd>2005 &middot; Houston, Texas</dd>
+                <dt>Approach</dt><dd>Assessment &middot; Strategy &middot; Implementation &middot; Monitoring</dd>
+                <dt>Address</dt><dd>2450 Fondren Rd, Suite 255, Houston, TX 77063</dd>
+                <dt>Phone</dt><dd><a href="tel:+12816548100">(281) 654-8100</a></dd>
+                <dt>Email</dt><dd><a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></dd>
+                <dt>Web</dt><dd><a href="https://atlasglinn.com/mastsolutions.html">atlasglinn.com/mastsolutions</a></dd>
+                <dt>UEI / CAGE</dt><dd class="pending">Provided on request</dd>
+                <dt>NAICS</dt><dd class="pending">Provided on request</dd>
+                <dt>Capacity</dt><dd>Individual seats, team blocks, agency and unit instruction; call for quote</dd>
+            </dl>
+        </div>
+    </div>
+    <div class="cap-actions">
+        <a href="mast-capability-statement.html" class="cta-button">View &amp; Print Capability Statement</a>
+        <a href="#cap-request" class="cta-button secondary-button">Request by Email</a>
+    </div>
+
+    <div class="cap-form reveal" id="cap-request">
+        <h3>Request <span class="gold-shimmer">Capability Statement</span></h3>
+        <p>Submit your request and we'll send the MAST Solutions capability statement directly to your email.</p>
+        <form action="mailto:atlasglinn.hq@atlasglinn.com?subject=MAST%20Solutions%20Capability%20Statement%20Request" method="post" enctype="text/plain">
+            <input type="text" name="Full Name" placeholder="Full Name" required autocomplete="name">
+            <input type="email" name="Email" placeholder="Email Address" required autocomplete="email">
+            <input type="text" name="Agency or Company" placeholder="Agency / Unit / Company" required autocomplete="organization">
+            <select name="Interest" required>
+                <option value="">What are you evaluating?</option>
+                <option value="Agency or unit training block">Agency or unit training block</option>
+                <option value="Individual course seats">Individual course seats</option>
+                <option value="RFP / RFQ">RFP / RFQ</option>
+                <option value="General inquiry">General inquiry</option>
+            </select>
+            <button type="submit" class="cta-button" style="width:100%; padding:1rem; font-size:1.1rem;">Request Capability Statement</button>
+        </form>
     </div>
 </section>
 
