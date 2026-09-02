@@ -54,7 +54,8 @@ CREATE TABLE IF NOT EXISTS offerings (
 );
 
 -- Prices confirmed by owner 2026-09-01.
--- Capacity rule (owner): 1-day = 16 seats, 2-day operator = 10 seats.
+-- Capacity rule (owner, 2026-09-01): fundamentals = 16, ANY P1/operator = 10.
+-- Owner will adjust individual courses upward later.
 INSERT OR IGNORE INTO offerings
   (sku, name, price_cents, hours, days, course_type, category, capacity, blurb, sort_order) VALUES
   -- Handgun
@@ -67,9 +68,9 @@ INSERT OR IGNORE INTO offerings
   ('MAST-SG-FUND','Shotgun Fundamentals',            22500,  8, 1, 'fundamental','Shotgun',        16, 'Loading under stress, patterning, transitions, and structure work.', 30),
   -- Sub-gun
   ('MAST-SUB-FUND','Sub-Gun Fundamentals',           22500,  8, 1, 'fundamental','Sub-Gun',        16, 'MP5 and variants, 9mm carbine and variants.', 40),
-  ('MAST-SUB-P1', 'Sub-Gun P1',                      25000,  8, 1, 'operator',   'Sub-Gun',        16, 'Phase one sub-gun employment.', 41),
+  ('MAST-SUB-P1', 'Sub-Gun P1',                      25000,  8, 1, 'operator',   'Sub-Gun',        10, 'Phase one sub-gun employment.', 41),
   -- Select-fire
-  ('MAST-SF-P1',  'Select-Fire M4A1 / MK18 Operator P1', 50000, 8, 1, 'operator','Select-Fire',    16, 'Select-fire employment on the M4A1 / MK18 platform.', 50),
+  ('MAST-SF-P1',  'Select-Fire M4A1 / MK18 Operator P1', 50000, 8, 1, 'operator','Select-Fire',    10, 'Select-fire employment on the M4A1 / MK18 platform.', 50),
   ('MAST-SF-P2',  'Select-Fire M4A1 / MK18 Operator P2', 95000, 16, 2, 'operator','Select-Fire',   10, 'Day one live-fire range. Day two CQB shoothouse. UTM rounds sold separately — bolts provided.', 51),
   -- Low-light / NVG
   ('MAST-LL-FUND','Low-Light Fundamentals',          22500,  8, 1, 'fundamental','Low-Light / NVG',16, 'Marksmanship and manipulation in the light you will actually have.', 60),
@@ -80,20 +81,14 @@ INSERT OR IGNORE INTO offerings
   ('MAST-TEAM-P1','Team Tactics P1',                 45000, 16, 2, 'operator',   'Team Tactics',   10, 'Working as an element rather than as individuals.', 70),
   ('MAST-TEAM-P2','Team Tactics P2',                 47500, 16, 2, 'operator',   'Team Tactics',   10, 'Mechanics, movement, comms and signal.', 71),
   -- Protective
-  ('MAST-HPP-P1', 'Home & Property Protection P1',   25000,  8, 1, 'fundamental','Protective',     16, 'Defending the place you live, phase one.', 80),
-  ('MAST-VEH-P1', 'Vehicular Tactics P1',            22500,  8, 1, 'fundamental','Protective',     16, 'Working in and around the vehicle.', 81),
+  ('MAST-HPP-P1', 'Home & Property Protection P1',   25000,  8, 1, 'fundamental','Protective',     10, 'Defending the place you live, phase one.', 80),
+  ('MAST-VEH-P1', 'Vehicular Tactics P1',            22500,  8, 1, 'fundamental','Protective',     10, 'Working in and around the vehicle.', 81),
   ('MAST-VEH-P2', 'Vehicular Tactics / Team Tactics P2', 50000, 16, 2, 'operator','Protective',    10, 'Vehicle work as a team over two days.', 82),
   ('MAST-MOTOR-P1','Motorcade P1',                       0, NULL, NULL,'operator','Protective',    10, 'Motorcade operations, phase one. Call for pricing.', 83),
   ('MAST-MOTOR-P2','Motorcade P2',                       0, NULL, NULL,'operator','Protective',    10, 'Motorcade operations, phase two. Call for pricing.', 84),
   -- Gear
   ('MAST-GEAR',   'Gear & Kit Considerations',       75000, 24, 3, 'operator',   'Gear',           10, 'Go bag, shelter-in-place, urban movement, low-vis and high-vis, individual and team.', 90);
 
--- ⚠️ FOUR CAPACITY ASSUMPTIONS FOR OWNER CONFIRMATION
---   MAST-SF-P1   1 day, select-fire, seated at 16 by the stated 1-day rule.
---                A select-fire live-fire line at 16 may warrant a lower ratio.
---   MAST-SUB-P1  1 day but labelled P1 (operator tier) — seated 16 by day count.
---   MAST-HPP-P1  duration was not stated; assumed 8 hours / 1 day.
---   MAST-GEAR    3 days is outside the stated rule; seated 10 as a multi-day.
 
 -- ── Sessions: a course on a date ────────────────────────────────────
 CREATE TABLE IF NOT EXISTS sessions (
@@ -130,7 +125,7 @@ INSERT OR IGNORE INTO training_weekends (saturday, sunday, label, note) VALUES
   ('2026-10-10','2026-10-11','October — 2nd weekend', NULL),
   ('2026-10-24','2026-10-25','October — 4th weekend', NULL),
   ('2026-10-31','2026-11-01','October — 5th weekend',
-     'Saturday is HALLOWEEN and Sunday falls in November. Confirm before scheduling a 2-day class.'),
+     'BLOCKED by owner — Halloween, and the weekend straddles the month.'),
   ('2026-11-14','2026-11-15','November — 2nd weekend', NULL),
   ('2026-12-12','2026-12-13','December — 2nd weekend', NULL),
   ('2027-01-09','2027-01-10','January — 2nd weekend', NULL),
@@ -143,10 +138,7 @@ INSERT OR IGNORE INTO training_weekends (saturday, sunday, label, note) VALUES
   ('2027-04-10','2027-04-11','April — 2nd weekend', NULL),
   ('2027-04-24','2027-04-25','April — 4th weekend', NULL);
 
--- ⚠️ 2026-10-31 needs an owner decision. Saturday is Halloween, and a 2-day
---    class would run Sunday 1 November — the weekend straddles the month.
---    Fine for a 1-day Saturday class; questionable for a 2-day. Set
---    status='blocked' if it should not be offered.
+UPDATE training_weekends SET status = 'blocked' WHERE saturday = '2026-10-31';
 
 -- ── Seat holds: prevents two people buying the last seat ────────────
 CREATE TABLE IF NOT EXISTS seat_holds (

@@ -371,7 +371,7 @@ Recipients:
 | # | Name | Address |
 |---|---|---|
 | 1 | Alex Albert | `alexalbert308@gmail.com` |
-| 2 | Atlas Glinn HQ | `atlasglinn.hqw@atlasglinn.com` ⚠️ see note |
+| 2 | Atlas Glinn HQ | `atlasglinn.hq@atlasglinn.com` ⚠️ see note |
 | 3 | Matthew Brockmann | `Matthew@mastsolutions.com` |
 | 4 | Anthony Glover | `a.glover@atlasglinn.com` |
 
@@ -387,10 +387,8 @@ Recipients:
 
 ### ⚠️ Two flags on this
 
-**1. `atlasglinn.hqw@atlasglinn.com` — is `hqw` correct?** Every other reference
-in this project is `atlasglinn.hq@atlasglinn.com` (no `w`). If it is a typo, the
-documents bounce or, worse, silently go nowhere. **Verify before first send** —
-a distribution list is exactly the kind of thing that fails quietly for months.
+**1. `atlasglinn.hq@atlasglinn.com` — confirmed by owner 2026-09-01.** An earlier
+draft carried a stray `w`; corrected everywhere.
 
 **2. Do not email the eligibility answers to anyone.** The owner's instinct to
 keep Alex off everything but the waiver is right, and the same logic extends
@@ -418,8 +416,8 @@ organisational control. Worth confirming it is intended, and worth considering a
 ```toml
 # wrangler.toml — non-secret routing, kept out of code so it can change
 # without a redeploy
-DOC_RECIPIENTS_AGREEMENT = "alexalbert308@gmail.com,atlasglinn.hqw@atlasglinn.com,Matthew@mastsolutions.com,a.glover@atlasglinn.com"
-DOC_RECIPIENTS_INTERNAL  = "atlasglinn.hqw@atlasglinn.com,Matthew@mastsolutions.com,a.glover@atlasglinn.com"
+DOC_RECIPIENTS_AGREEMENT = "alexalbert308@gmail.com,atlasglinn.hq@atlasglinn.com,Matthew@mastsolutions.com,a.glover@atlasglinn.com"
+DOC_RECIPIENTS_INTERNAL  = "atlasglinn.hq@atlasglinn.com,Matthew@mastsolutions.com,a.glover@atlasglinn.com"
 ```
 
 Two lists, not one with exclusions — an exclusion list is a bug waiting to
@@ -523,16 +521,17 @@ Steps 1–6 are the minimum for a real booking. 7–10 are the compounding layer
 | # | Decision | Status | Blocks |
 |---|---|---|---|
 | 1 | Class dates per course | ⏳ owner working on it | Everything downstream |
-| 1b | Capacity | ✅ 16 fundamental / 10 operator | — |
+| 1b | Capacity | ✅ 16 fundamentals / **10 for any P1 or operator** — owner adjusting individually later | — |
 | 2 | Supabase vs hand-rolled auth | ⚠️ open — Supabase recommended | Profiles |
 | 3 | Signature method | ✅ typed attestation + timestamp + IP | — |
 | 4 | Eligibility questions | ✅ 4473 b/c/d/h/i + citizenship + 18+ | — |
 | 5 | Range address public, or post-booking? | ⚠️ open | Site copy |
 | 6 | Six course prices | ⏳ owner listing with dates | Payment |
-| 7 | Refund / cancellation policy | ⏳ drafted, awaiting review | First sale |
+| 7 | Refund / cancellation policy | ✅ **approved as drafted** — adjustable later | — |
 | 8 | Mailchimp key, audience ID, server prefix | ⚠️ open — no key on file | Marketing sync |
-| 10 | Eligibility retention | ✅ outcomes kept, answers purged — see `RETENTION-POLICY.md` | — |
+| 10 | Eligibility retention | ✅ outcomes kept, answers purged. **Purpose is attestation/protection, not denial** — see `RETENTION-POLICY.md` | — |
+| 12 | Oct 31 weekend | ✅ **blocked** | — |
 | 11 | Document routing + private range address | ✅ specified — see §6a | — |
-| 9 | Where signed agreements are emailed | ⚠️ open | Confirmation email |
+| 9 | Where signed agreements are emailed | ✅ four recipients, `atlasglinn.hq@` confirmed | — |
 
 See `REFUND-POLICY-DRAFT.md` for #7.

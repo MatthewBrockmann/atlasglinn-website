@@ -7,6 +7,22 @@
 > store users who are not activating accounts so we can be sure we are not
 > training people who are not allowed."*
 
+And his clarification of what the screening is FOR:
+
+> *"This is for our safety — they can lie, and we are not running background
+> checks. This protects us — not to deny, as we can decide on-site if they get
+> refunded per our judgment."*
+
+**That reframes the whole thing.** The eligibility form is not a gate; it is a
+signed attestation. Its job is to put the participant on record. If they lie,
+the liability shifts to them — which is exactly the protection MAST needs given
+no background check is run. On-site judgment remains the real decision, and the
+refund policy already gives the instructor that latitude.
+
+The owner may also trim the questions to three: felony, U.S. citizen, and one
+other. Fewer well-chosen attestations are stronger than many — a short form gets
+read.
+
 Two goals that pull against each other, and one design that satisfies both.
 
 ---

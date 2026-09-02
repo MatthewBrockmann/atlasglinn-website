@@ -20,11 +20,11 @@ NOTIFY_FROM = "MAST Solutions <bookings@mastsolutions.com>"
 # breaks the first time someone is added in the wrong place.
 #
 # The signed range agreement goes to all four. Everything else omits Alex.
-DOC_RECIPIENTS_AGREEMENT = "alexalbert308@gmail.com,atlasglinn.hqw@atlasglinn.com,Matthew@mastsolutions.com,a.glover@atlasglinn.com"
-DOC_RECIPIENTS_INTERNAL  = "atlasglinn.hqw@atlasglinn.com,Matthew@mastsolutions.com,a.glover@atlasglinn.com"
+DOC_RECIPIENTS_AGREEMENT = "alexalbert308@gmail.com,atlasglinn.hq@atlasglinn.com,Matthew@mastsolutions.com,a.glover@atlasglinn.com"
+DOC_RECIPIENTS_INTERNAL  = "atlasglinn.hq@atlasglinn.com,Matthew@mastsolutions.com,a.glover@atlasglinn.com"
 #
-# ⚠️ VERIFY `atlasglinn.hqw@` before first send — every other reference in this
-#    project is `atlasglinn.hq@` (no w). A wrong address fails silently.
+# Address confirmed by owner 2026-09-01: atlasglinn.hq@ (an earlier draft
+# had a stray "w").
 # ⚠️ Eligibility answers are NOT in either list, deliberately. They are
 #    criminal-history data; staff read them in the admin under access control.
 #    See ARCHITECTURE.md §6a.
