@@ -94,20 +94,34 @@ function baseCors(origin) {
  * Rows live in D1 (table `offerings`) so they can be edited without a redeploy;
  * if the table is empty or D1 is unbound, these seeds are used.
  *
- * ⚠️ PRICES ARE DELIBERATELY ZERO — they have not been supplied by the owner.
- * A zero price makes handleBooking() return 409 "call to enroll" rather than
- * charging a guessed amount. Set the real values in D1 (see schema.sql) before
- * taking payments; a wrong number here charges a real card.
+ * Prices confirmed by the owner 2026-09-01. A price_cents of 0 means "call for
+ * pricing" and makes handleBooking() return 409 rather than charging anything.
  *
- * SKUs must match mastsolutions.html and mast-wp-theme/inc/catalog.php exactly.
+ * SKUs must match schema.sql, mastsolutions.html, and the WP theme exactly —
+ * a mismatch returns 404 on Enroll.
  */
 const SEED_CLASSES = [
-  { sku: 'MAST-SHOTGUN', name: 'Shotgun Operator', price_cents: 0 },
-  { sku: 'MAST-AWO', name: 'Advanced Weapons Operation', price_cents: 0 },
-  { sku: 'MAST-FOF', name: 'Force on Force', price_cents: 0 },
-  { sku: 'MAST-DA', name: 'Direct Action', price_cents: 0 },
-  { sku: 'MAST-LLNO', name: 'Low-Light / Night Ops', price_cents: 0 },
-  { sku: 'MAST-TMED', name: 'Tactical Medical', price_cents: 0 },
+  { sku: 'MAST-HG-FUND',  name: 'Handgun Fundamentals',                    price_cents: 22500 },
+  { sku: 'MAST-HG-OP',    name: 'Handgun Operator',                        price_cents: 45000 },
+  { sku: 'MAST-CAR-FUND', name: 'Carbine Fundamentals',                    price_cents: 22500 },
+  { sku: 'MAST-CAR-OP',   name: 'Carbine Operator',                        price_cents: 45000 },
+  { sku: 'MAST-SG-FUND',  name: 'Shotgun Fundamentals',                    price_cents: 22500 },
+  { sku: 'MAST-SUB-FUND', name: 'Sub-Gun Fundamentals',                    price_cents: 22500 },
+  { sku: 'MAST-SUB-P1',   name: 'Sub-Gun P1',                              price_cents: 25000 },
+  { sku: 'MAST-SF-P1',    name: 'Select-Fire M4A1 / MK18 Operator P1',     price_cents: 50000 },
+  { sku: 'MAST-SF-P2',    name: 'Select-Fire M4A1 / MK18 Operator P2',     price_cents: 95000 },
+  { sku: 'MAST-LL-FUND',  name: 'Low-Light Fundamentals',                  price_cents: 22500 },
+  { sku: 'MAST-LL-P1',    name: 'Low-Light Operator P1',                   price_cents: 45000 },
+  { sku: 'MAST-NVG-P1',   name: 'Low-Light / No-Light NVG Operator P1',    price_cents: 50000 },
+  { sku: 'MAST-NVG-P2',   name: 'NVG Operator P2',                         price_cents: 95000 },
+  { sku: 'MAST-TEAM-P1',  name: 'Team Tactics P1',                         price_cents: 45000 },
+  { sku: 'MAST-TEAM-P2',  name: 'Team Tactics P2',                         price_cents: 47500 },
+  { sku: 'MAST-HPP-P1',   name: 'Home & Property Protection P1',           price_cents: 25000 },
+  { sku: 'MAST-VEH-P1',   name: 'Vehicular Tactics P1',                    price_cents: 22500 },
+  { sku: 'MAST-VEH-P2',   name: 'Vehicular Tactics / Team Tactics P2',     price_cents: 50000 },
+  { sku: 'MAST-GEAR',     name: 'Gear & Kit Considerations',               price_cents: 75000 },
+  { sku: 'MAST-MOTOR-P1', name: 'Motorcade P1',                            price_cents: 0 },
+  { sku: 'MAST-MOTOR-P2', name: 'Motorcade P2',                            price_cents: 0 },
 ];
 
 async function lookupClass(env, sku) {

@@ -146,7 +146,11 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:20px 0;
 .c .pr small{display:block;font-family:'Share Tech Mono';font-size:9px;color:var(--muted);letter-spacing:.12em;font-weight:400}
 .enroll{background:transparent;border:1px solid var(--gold);color:var(--gold);padding:9px 20px;font-family:Rajdhani;
   font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;border-radius:2px;transition:all .3s}
+.enroll{text-decoration:none;display:inline-block}
 .enroll:hover{background:var(--gold);color:var(--midnight)}
+.cat-block{margin-bottom:52px}
+.cat-head{display:flex;align-items:center;gap:18px;margin-bottom:20px}
+.cat-rule{flex:1;height:1px;background:var(--hair)}
 .course-note{text-align:center;margin-top:34px;font-size:14.5px;color:var(--muted)}
 .course-note a{color:var(--gold)}
 
@@ -323,8 +327,8 @@ footer .fnav a:hover{color:var(--gold)}
 
 <!-- ═══ COURSES ═══ -->
 <section class="sec" id="courses" style="padding-top:0"><div class="wrap">
-  <div class="sec-head"><div class="mono">Course Catalog</div><h2>Six Courses.</h2>
-    <p>Reserve a seat online. Dates, gear lists, range directions and prerequisites confirmed by email.</p></div>
+  <div class="sec-head"><div class="mono">Course Catalog</div><h2>Twenty-One Courses.</h2>
+    <p>Fundamentals through select-fire and night vision. Reserve a seat online — dates, gear lists, range directions and prerequisites confirmed by email after booking.</p></div>
   <div class="courses" id="courses-grid"></div>
   <p class="course-note">Team blocks and agency instruction available on request &mdash;
     <a href="mailto:atlasglinn.hq@atlasglinn.com">email us</a> or call
@@ -436,36 +440,96 @@ const CATALOG_ENDPOINT = 'https://mast-booking-backend.matthew-221.workers.dev/c
    confirmed — the Worker's D1 `offerings` table decides what Stripe charges.
    SKUs must match mast-backend/schema.sql exactly or Enroll returns 404. */
 const COURSES = [
-  { sku:'MAST-SHOTGUN', cat:'Firearms',           name:'Shotgun Operator',           meta:'2 DAYS · ALL LEVELS',
-    desc:'Fighting shotgun — loading under stress, transitions, patterning, and structure work.', price_cents:null },
-  { sku:'MAST-AWO',     cat:'Firearms · Tactics', name:'Advanced Weapons Operation', meta:'2 DAYS · LE / VETTED',
-    desc:'Advanced weapons operations in high-threat urban environments.', price_cents:null },
-  { sku:'MAST-FOF',     cat:'Scenario',           name:'Force on Force',             meta:'1 DAY · INTERMEDIATE+',
-    desc:'Carbine and handgun inside structures against live, controlled aggressors.', price_cents:null },
-  { sku:'MAST-DA',      cat:'Law Enforcement',    name:'Direct Action',              meta:'2 DAYS · LE ONLY · SUTRA',
-    desc:'Small-unit operations in high-threat rural environments.', price_cents:null },
-  { sku:'MAST-LLNO',    cat:'Conditions',         name:'Low-Light / Night Ops',      meta:'1 EVENING · INTERMEDIATE',
-    desc:"Marksmanship and manipulation drilled in the light you'll actually have.", price_cents:null },
-  { sku:'MAST-TMED',    cat:'Medical',            name:'Tactical Medical',           meta:'1 DAY · ALL LEVELS',
-    desc:'Self-aid and buddy-aid under stress. Equipment, tourniquets, decisions.', price_cents:null },
+  // Handgun
+  { sku:'MAST-HG-FUND',  cat:'Handgun',         name:'Handgun Fundamentals',            meta:'8 HRS · 1 DAY',  price_cents:22500, seats:16,
+    desc:'Grip, stance, sights, trigger. The base every other course builds on.' },
+  { sku:'MAST-HG-OP',    cat:'Handgun',         name:'Handgun Operator',                meta:'16 HRS · 2 DAYS', price_cents:45000, seats:10,
+    desc:'Two days past the fundamentals — movement, transitions, and fighting platforms.' },
+  // Carbine
+  { sku:'MAST-CAR-FUND', cat:'Carbine',         name:'Carbine Fundamentals',            meta:'8 HRS · 1 DAY',  price_cents:22500, seats:16,
+    desc:'Zero, manipulation, and marksmanship with the carbine.' },
+  { sku:'MAST-CAR-OP',   cat:'Carbine',         name:'Carbine Operator',                meta:'16 HRS · 2 DAYS', price_cents:45000, seats:10,
+    desc:'Two days of carbine work under movement and time pressure.' },
+  // Shotgun
+  { sku:'MAST-SG-FUND',  cat:'Shotgun',         name:'Shotgun Fundamentals',            meta:'8 HRS · 1 DAY',  price_cents:22500, seats:16,
+    desc:'Loading under stress, patterning, transitions, and structure work.' },
+  // Sub-gun
+  { sku:'MAST-SUB-FUND', cat:'Sub-Gun',         name:'Sub-Gun Fundamentals',            meta:'8 HRS · 1 DAY',  price_cents:22500, seats:16,
+    desc:'MP5 and variants, 9mm carbine and variants.' },
+  { sku:'MAST-SUB-P1',   cat:'Sub-Gun',         name:'Sub-Gun P1',                      meta:'8 HRS · 1 DAY',  price_cents:25000, seats:16,
+    desc:'Phase one sub-gun employment.' },
+  // Select-fire
+  { sku:'MAST-SF-P1',    cat:'Select-Fire',     name:'Select-Fire M4A1 / MK18 P1',      meta:'8 HRS · 1 DAY',  price_cents:50000, seats:16,
+    desc:'Select-fire employment on the M4A1 / MK18 platform.' },
+  { sku:'MAST-SF-P2',    cat:'Select-Fire',     name:'Select-Fire M4A1 / MK18 P2',      meta:'16 HRS · 2 DAYS', price_cents:95000, seats:10,
+    desc:'Day one live-fire range. Day two CQB shoothouse. UTM rounds sold separately — bolts provided.' },
+  // Low-light / NVG
+  { sku:'MAST-LL-FUND',  cat:'Low-Light / NVG', name:'Low-Light Fundamentals',          meta:'8 HRS · 1 DAY',  price_cents:22500, seats:16,
+    desc:'Marksmanship and manipulation in the light you will actually have.' },
+  { sku:'MAST-LL-P1',    cat:'Low-Light / NVG', name:'Low-Light Operator P1',           meta:'16 HRS · 2 DAYS', price_cents:45000, seats:10,
+    desc:'Two days working the transition from low light to no light.' },
+  { sku:'MAST-NVG-P1',   cat:'Low-Light / NVG', name:'No-Light NVG Operator P1',        meta:'16 HRS · 2 DAYS', price_cents:50000, seats:10,
+    desc:'Night vision employment, phase one.' },
+  { sku:'MAST-NVG-P2',   cat:'Low-Light / NVG', name:'NVG Operator P2',                 meta:'16 HRS · 2 DAYS', price_cents:95000, seats:10,
+    desc:'Advanced night vision employment.' },
+  // Team tactics
+  { sku:'MAST-TEAM-P1',  cat:'Team Tactics',    name:'Team Tactics P1',                 meta:'16 HRS · 2 DAYS', price_cents:45000, seats:10,
+    desc:'Working as an element rather than as individuals.' },
+  { sku:'MAST-TEAM-P2',  cat:'Team Tactics',    name:'Team Tactics P2',                 meta:'16 HRS · 2 DAYS', price_cents:47500, seats:10,
+    desc:'Mechanics, movement, comms and signal.' },
+  // Protective
+  { sku:'MAST-HPP-P1',   cat:'Protective',      name:'Home & Property Protection P1',   meta:'8 HRS · 1 DAY',  price_cents:25000, seats:16,
+    desc:'Defending the place you live, phase one.' },
+  { sku:'MAST-VEH-P1',   cat:'Protective',      name:'Vehicular Tactics P1',            meta:'8 HRS · 1 DAY',  price_cents:22500, seats:16,
+    desc:'Working in and around the vehicle.' },
+  { sku:'MAST-VEH-P2',   cat:'Protective',      name:'Vehicular / Team Tactics P2',     meta:'16 HRS · 2 DAYS', price_cents:50000, seats:10,
+    desc:'Vehicle work as a team over two days.' },
+  { sku:'MAST-MOTOR-P1', cat:'Protective',      name:'Motorcade P1',                    meta:'CALL FOR DETAILS', price_cents:0, seats:10,
+    desc:'Motorcade operations, phase one.' },
+  { sku:'MAST-MOTOR-P2', cat:'Protective',      name:'Motorcade P2',                    meta:'CALL FOR DETAILS', price_cents:0, seats:10,
+    desc:'Motorcade operations, phase two.' },
+  // Gear
+  { sku:'MAST-GEAR',     cat:'Gear',            name:'Gear & Kit Considerations',       meta:'24 HRS · 3 DAYS', price_cents:75000, seats:10,
+    desc:'Go bag, shelter-in-place, urban movement, low-vis and high-vis, individual and team.' },
 ];
 
 const $ = id => document.getElementById(id);
 const money = c => '$' + (c/100).toLocaleString('en-US', { minimumFractionDigits: c % 100 ? 2 : 0 });
 const priceLabel = c => c ? money(c) : '&mdash;';
 
-/* Render catalog */
-$('courses-grid').innerHTML = COURSES.map((c,i) => `
-  <article class="c">
-    <div class="tag">${c.cat}</div>
-    <h3>${c.name}</h3>
-    <div class="meta">${c.meta}</div>
-    <p>${c.desc}</p>
-    <div class="foot">
-      <div class="pr">${priceLabel(c.price_cents)}<small>PER SEAT</small></div>
-      <button class="enroll" onclick="openSheet(${i})">Enroll</button>
-    </div>
-  </article>`).join('');
+/* Render catalog, grouped by discipline — 21 flat cards would be the
+   "text-heavy card grid" the brand spec rules out. */
+const CATS = [...new Set(COURSES.map(c => c.cat))];
+
+function priceHtml(c){
+  return c.price_cents
+    ? money(c.price_cents) + '<small>PER SEAT</small>'
+    : 'CALL<small>FOR PRICING</small>';
+}
+function actionHtml(c, i){
+  return c.price_cents
+    ? `<button class="enroll" onclick="openSheet(${i})">Enroll</button>`
+    : `<a class="enroll" href="tel:+12816548100">Call</a>`;
+}
+
+document.getElementById('courses-grid').outerHTML = CATS.map(cat => {
+  const items = COURSES.map((c,i) => ({c,i})).filter(x => x.c.cat === cat);
+  return `<div class="cat-block">
+      <div class="cat-head"><span class="mono">${cat}</span><span class="cat-rule"></span></div>
+      <div class="courses">` +
+      items.map(({c,i}) => `
+        <article class="c">
+          <div class="tag">${c.meta}</div>
+          <h3>${c.name}</h3>
+          <div class="meta">${c.seats} SEATS MAX</div>
+          <p>${c.desc}</p>
+          <div class="foot">
+            <div class="pr">${priceHtml(c)}</div>
+            ${actionHtml(c,i)}
+          </div>
+        </article>`).join('') +
+      `</div></div>`;
+}).join('');
 
 /* Pull live prices from the Worker so the page and Stripe never disagree. */
 fetch(CATALOG_ENDPOINT)
