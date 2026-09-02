@@ -111,27 +111,42 @@ CREATE INDEX IF NOT EXISTS idx_sessions_course ON sessions (course_sku);
 CREATE INDEX IF NOT EXISTS idx_sessions_start  ON sessions (starts_at);
 
 -- ── Training weekends (owner, 2026-09-01) ───────────────────────────
--- Sep last · Oct 2nd+4th · Nov 2nd · Dec 2nd · Jan-Apr 2nd+4th.
+-- Sep last · Oct 2nd+4th · Nov 2nd · Dec 2nd · Jan-Apr 2nd+4th,
+-- PLUS the 5th weekend wherever a month has one (owner amendment).
+--
+-- Only two months in this window have five Saturdays: October 2026 and
+-- January 2027. Every other month has exactly four.
+--
 -- Courses are not yet assigned to weekends — the owner is organising that.
 CREATE TABLE IF NOT EXISTS training_weekends (
   saturday TEXT PRIMARY KEY,
   sunday   TEXT NOT NULL,
-  label    TEXT
+  label    TEXT,
+  status   TEXT DEFAULT 'available',   -- available | scheduled | blocked
+  note     TEXT
 );
-INSERT OR IGNORE INTO training_weekends (saturday, sunday, label) VALUES
-  ('2026-09-26','2026-09-27','September — last weekend'),
-  ('2026-10-10','2026-10-11','October — 2nd weekend'),
-  ('2026-10-24','2026-10-25','October — 4th weekend'),
-  ('2026-11-14','2026-11-15','November — 2nd weekend'),
-  ('2026-12-12','2026-12-13','December — 2nd weekend'),
-  ('2027-01-09','2027-01-10','January — 2nd weekend'),
-  ('2027-01-23','2027-01-24','January — 4th weekend'),
-  ('2027-02-13','2027-02-14','February — 2nd weekend'),
-  ('2027-02-27','2027-02-28','February — 4th weekend'),
-  ('2027-03-13','2027-03-14','March — 2nd weekend'),
-  ('2027-03-27','2027-03-28','March — 4th weekend'),
-  ('2027-04-10','2027-04-11','April — 2nd weekend'),
-  ('2027-04-24','2027-04-25','April — 4th weekend');
+INSERT OR IGNORE INTO training_weekends (saturday, sunday, label, note) VALUES
+  ('2026-09-26','2026-09-27','September — last weekend', NULL),
+  ('2026-10-10','2026-10-11','October — 2nd weekend', NULL),
+  ('2026-10-24','2026-10-25','October — 4th weekend', NULL),
+  ('2026-10-31','2026-11-01','October — 5th weekend',
+     'Saturday is HALLOWEEN and Sunday falls in November. Confirm before scheduling a 2-day class.'),
+  ('2026-11-14','2026-11-15','November — 2nd weekend', NULL),
+  ('2026-12-12','2026-12-13','December — 2nd weekend', NULL),
+  ('2027-01-09','2027-01-10','January — 2nd weekend', NULL),
+  ('2027-01-23','2027-01-24','January — 4th weekend', NULL),
+  ('2027-01-30','2027-01-31','January — 5th weekend', NULL),
+  ('2027-02-13','2027-02-14','February — 2nd weekend', NULL),
+  ('2027-02-27','2027-02-28','February — 4th weekend', NULL),
+  ('2027-03-13','2027-03-14','March — 2nd weekend', NULL),
+  ('2027-03-27','2027-03-28','March — 4th weekend', NULL),
+  ('2027-04-10','2027-04-11','April — 2nd weekend', NULL),
+  ('2027-04-24','2027-04-25','April — 4th weekend', NULL);
+
+-- ⚠️ 2026-10-31 needs an owner decision. Saturday is Halloween, and a 2-day
+--    class would run Sunday 1 November — the weekend straddles the month.
+--    Fine for a 1-day Saturday class; questionable for a 2-day. Set
+--    status='blocked' if it should not be offered.
 
 -- ── Seat holds: prevents two people buying the last seat ────────────
 CREATE TABLE IF NOT EXISTS seat_holds (
