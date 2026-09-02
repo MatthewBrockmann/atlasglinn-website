@@ -428,16 +428,15 @@
         }
     
         /* ══════════ ARTICLE PAGES (articles/*.html) ══════════ */
-        .article-hero { background: linear-gradient(180deg, #0f1622 0%, #080C14 100%); border-bottom: 1px solid rgba(201,168,76,.15); padding: 2.2rem 2rem 3.5rem; text-align: center; }
+        .article-hero { background: linear-gradient(180deg, #0f1622 0%, #080C14 100%); border-bottom: 1px solid rgba(201,168,76,.15); padding: 6.2rem 2rem 3.5rem; text-align: center; }
         .article-hero .inner { max-width: 820px; margin: 0 auto; }
         .article-hero h1 { font-family: 'Orbitron', sans-serif; font-size: clamp(1.8rem, 4.4vw, 3rem); font-weight: 900; line-height: 1.14; margin: 1rem 0; letter-spacing: .01em; }
         .article-hero .dek { font-size: 1.15rem; color: #b0b0b0; font-weight: 300; line-height: 1.65; }
         .article-hero .byline { font-family: 'Inconsolata', monospace; font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: #888; margin-top: 1.6rem; }
         .archival-note { max-width: 700px; margin: 1.4rem auto 0; font-size: .9rem; line-height: 1.6; color: #C9A84C; border: 1px solid rgba(201,168,76,.3); border-radius: 4px; padding: .75rem 1.1rem; background: rgba(201,168,76,.05); }
 
-        .breadcrumb { max-width: 820px; margin: 0 auto; padding: 6.2rem 2rem 0; font-family: 'Inconsolata', monospace; font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: #666; }
-        .breadcrumb { background: #0f1622; }
-.breadcrumb a { color: #1A6BDE; text-decoration: none; }
+        .breadcrumb { max-width: 820px; margin: 0 auto 1.6rem; padding: 0; text-align: center; font-family: 'Inconsolata', monospace; font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: #666; }
+        .breadcrumb a { color: #1A6BDE; text-decoration: none; }
         .breadcrumb a:hover { color: #C9A84C; }
 
         .article { max-width: 820px; margin: 0 auto; padding: 3rem 2rem 2rem; }
@@ -493,7 +492,7 @@
     </style>
 </head>
 <body>
-<div class="draft-banner" style="position:fixed;top:0;left:0;right:0;z-index:5000;background:#C9A84C;color:#080C14;font:700 12px/1.4 Rajdhani,sans-serif;letter-spacing:.14em;text-transform:uppercase;text-align:center;padding:6px 12px;">Draft &middot; not published &middot; not indexed &middot; for review only</div>
+<div class="draft-banner" style="position:fixed;bottom:0;left:0;right:0;z-index:5000;background:#C9A84C;color:#080C14;font:700 12px/1.4 Rajdhani,sans-serif;letter-spacing:.14em;text-transform:uppercase;text-align:center;padding:6px 12px;">Draft &middot; not published &middot; not indexed &middot; for review only</div>
 
 <!-- ══════════ NAVIGATION (Atlas Glinn frame, MAST wordmark) ══════════ -->
 <nav id="main-nav">
@@ -527,6 +526,9 @@
 
 <!-- ══════════ ARTICLE HERO (no video — short dark band) ══════════ -->
 <header class="article-hero">
+<div class="breadcrumb" role="navigation" aria-label="Breadcrumb">
+    <a href="../index.html">Home</a> / <a href="../mastsolutions.html">MAST Solutions</a> / <a href="index.html">Articles</a> / <span>Situational Awareness</span>
+</div>
     <div class="inner">
         <div class="eyebrow">Personal Security &middot; Awareness</div>
         <h1>Situational Awareness Is a Habit, Not a Mood</h1>
@@ -535,9 +537,6 @@
     </div>
 </header>
 
-<nav class="breadcrumb" aria-label="Breadcrumb">
-    <a href="../index.html">Home</a> / <a href="../mastsolutions.html">MAST Solutions</a> / <a href="index.html">Articles</a> / <span>Situational Awareness</span>
-</nav>
 
 <article class="article">
     <p>People hear "situational awareness" and picture somebody in a restaurant sitting with their back to the wall, scanning the room, never relaxing. That is not awareness. That is exhausting, and anyone who tries to live that way quits within a week and goes back to noticing nothing at all.</p>

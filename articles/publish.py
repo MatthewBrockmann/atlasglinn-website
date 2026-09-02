@@ -27,7 +27,7 @@ ART = os.path.join(ROOT, 'articles')
 SITEMAP = os.path.join(ROOT, 'sitemap.xml')
 CHECK = '--check' in sys.argv
 
-BANNER = ('<div class="draft-banner" style="position:fixed;top:0;left:0;right:0;z-index:5000;'
+BANNER = ('<div class="draft-banner" style="position:fixed;bottom:0;left:0;right:0;z-index:5000;'
           'background:#C9A84C;color:#080C14;font:700 12px/1.4 Rajdhani,sans-serif;letter-spacing:.14em;'
           'text-transform:uppercase;text-align:center;padding:6px 12px;">'
           'Draft &middot; not published &middot; not indexed &middot; for review only</div>\n')
