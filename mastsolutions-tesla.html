@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAST Solutions - Tactical Training Houston TX | Atlas Glinn</title>
+    <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Twenty-one courses, one standard. Houston, Texas since 2005. Pick a course, pick a weekend, book online.">
+    <!-- Review variant of mastsolutions.html built to the vault design brief
+         (Tesla-style: every section fills the screen, one headline, one line).
+         Not indexed while the owner chooses between the two builds. -->
+    <meta name="robots" content="noindex, nofollow">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;700&family=Inconsolata:wght@400;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; scroll-snap-type: y proximity; }
+        body { font-family: 'Rajdhani', sans-serif; color: #fff; background: #080C14; line-height: 1.6; overflow-x: hidden; }
+        img { max-width: 100%; }
+
+        @keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
+        @keyframes goldShimmer { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        @keyframes rise { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+        .gold-shimmer { background: linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size: 1000px 100%; animation: shimmer 6s linear infinite; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .eyebrow { font-family: 'Inconsolata', monospace; font-size: 0.75rem; letter-spacing: .22em; text-transform: uppercase; color: #C9A84C; }
+
+        /* NAV (Atlas Glinn) */
+        nav { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: rgba(8,12,20,0.7); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(26,107,222,0.15); padding: 1rem 2rem; transition: background .3s; }
+        .nav-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .nav-logo { display: flex; align-items: center; gap: 1rem; text-decoration: none; color: #1A6BDE; }
+        .nav-logo img { height: 40px; width: auto; }
+        .nav-logo-text { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.2rem; letter-spacing: .08em; color: #1A6BDE; }
+        .nav-logo-text span { color: #C9A84C; font-weight: 700; }
+        .nav-links { display: flex; gap: 2rem; align-items: center; list-style: none; }
+        .nav-links a { color: #fff; text-decoration: none; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; transition: color .3s; }
+        .nav-links a:hover { color: #1A6BDE; }
+        .mobile-menu-btn { display: none; background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; }
+        .cta-button { background: #1A6BDE; color: #fff; padding: 0.75rem 1.5rem; border: none; border-radius: 4px; cursor: pointer; font-family: 'Rajdhani', sans-serif; font-size: 1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; transition: all .3s; text-decoration: none; display: inline-block; }
+        .cta-button:hover { background: #155ac8; box-shadow: 0 0 20px rgba(26,107,222,.5); }
+        .cta-button[disabled] { opacity: .45; cursor: not-allowed; box-shadow: none; }
+        .secondary-button { background: transparent; border: 2px solid #1A6BDE; color: #1A6BDE; }
+        .secondary-button:hover { background: #1A6BDE; color: #fff; }
+        .ghost-button { background: transparent; border: 2px solid rgba(255,255,255,.35); color: #fff; }
+        .ghost-button:hover { border-color: #C9A84C; color: #C9A84C; box-shadow: none; }
+        .mobile-nav { position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,.95); backdrop-filter: blur(20px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; opacity: 0; visibility: hidden; transition: all .3s; }
+        .mobile-nav.open { opacity: 1; visibility: visible; }
+        .mobile-nav a { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: #fff; text-decoration: none; }
+        .mobile-nav-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: #fff; font-size: 32px; cursor: pointer; }
+
+        /* ══════════ SCREENS: every section fills the viewport and snaps ══════════ */
+        .screen { position: relative; min-height: 100vh; scroll-snap-align: start; display: flex; align-items: flex-end; overflow: hidden; background: #080C14; }
+        .screen .bg { position: absolute; inset: 0; background: #0f1622 center/cover no-repeat; transform: scale(1.04); transition: transform 8s ease; }
+        .screen:hover .bg { transform: scale(1.1); }
+        .screen .veil { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8,12,20,.2) 0%, rgba(8,12,20,.35) 45%, rgba(8,12,20,.92) 100%); }
+        .screen .inner { position: relative; z-index: 2; width: 100%; max-width: 1400px; margin: 0 auto; padding: 6rem 2rem 4.5rem; }
+        .screen.center { align-items: center; text-align: center; }
+        .screen.center .inner { display: flex; flex-direction: column; align-items: center; }
+        .h-big { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: clamp(2.4rem, 6vw, 5.4rem); line-height: 1; letter-spacing: .01em; margin: .6rem 0 1rem; }
+        .h-line { font-size: clamp(1.05rem, 1.6vw, 1.35rem); color: #d0d0d0; font-weight: 300; max-width: 640px; line-height: 1.6; }
+        .ctas { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 2rem; }
+        .screen.center .ctas { justify-content: center; }
+        .in .inner > * { animation: rise .8s ease both; }
+        .in .inner > *:nth-child(2) { animation-delay: .1s; } .in .inner > *:nth-child(3) { animation-delay: .2s; } .in .inner > *:nth-child(4) { animation-delay: .3s; }
+
+        /* HERO */
+        .hero-yt { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+        .hero-yt iframe { position: absolute; top: 50%; left: 50%; width: 180%; height: 180%; transform: translate(-50%,-50%); border: none; pointer-events: none; }
+        .hero-yt.poster { background: center/cover no-repeat; }
+        .hero .veil { background: radial-gradient(ellipse at center, rgba(8,12,20,.3) 0%, rgba(8,12,20,.75) 65%, #080C14 100%); }
+        .hero .h-big { font-size: clamp(2.8rem, 9.5vw, 8rem); }
+        .vol { position: absolute; right: 28px; bottom: 28px; z-index: 4; width: 56px; height: 56px; border-radius: 50%; background: rgba(8,12,20,.85); border: 2px solid #C9A84C; color: #fff; display: grid; place-items: center; cursor: pointer; box-shadow: 0 8px 30px rgba(0,0,0,.5); }
+        .vol[hidden] { display: none; }
+        .vol[aria-pressed="true"] { color: #C9A84C; }
+        .vol[aria-pressed="true"] .slash { display: none; }
+
+        /* PROOF (counters) */
+        .counters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2rem; margin-top: 3rem; width: 100%; max-width: 1100px; }
+        .counter b { display: block; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: clamp(2rem, 4vw, 3.4rem); background: linear-gradient(135deg, #BF953F, #FCF6BA, #B38728, #FBF5B7, #AA771C); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-size: 200% 200%; animation: goldShimmer 4s ease infinite; }
+        .counter > span { color: #b0b0b0; font-size: .95rem; }
+
+        /* WHO WE TRAIN: three full-height panels */
+        .who { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; min-height: 100vh; scroll-snap-align: start; background: #080C14; }
+        .panel { position: relative; min-height: 100vh; display: flex; align-items: flex-end; overflow: hidden; background: #0f1622; }
+        .panel .bg { position: absolute; inset: 0; background: #0f1622 center/cover no-repeat; transform: scale(1.04); transition: transform 6s ease; }
+        .panel:hover .bg { transform: scale(1.12); }
+        .panel::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8,12,20,.1) 0%, rgba(8,12,20,.45) 50%, #080C14 100%); }
+        .panel .txt { position: relative; z-index: 2; padding: 2.5rem 2rem 3rem; width: 100%; }
+        .panel h3 { font-family: 'Orbitron', sans-serif; font-size: clamp(1.9rem, 3.2vw, 3rem); font-weight: 900; line-height: 1.02; }
+        .panel p { color: #d0d0d0; font-size: 1.05rem; margin-top: .7rem; max-width: 420px; line-height: 1.6; }
+        .panel .eyebrow { margin-bottom: .6rem; }
+
+        /* DISCIPLINES: full-height horizontal strip */
+        .disc-screen { position: relative; min-height: 100vh; scroll-snap-align: start; background: #080C14; }
+        .disc-screen .title { position: absolute; top: 6rem; left: 2rem; z-index: 3; pointer-events: none; }
+        .strip { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 3px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: #1A6BDE #0f1622; }
+        .strip .panel { flex: 0 0 min(80vw, 460px); min-height: 100vh; scroll-snap-align: start; }
+        .strip .panel h3 { font-size: 1.8rem; }
+        .strip .panel p { font-size: .95rem; }
+        .disc-icon { height: 48px; display: grid; place-items: start; margin-bottom: .9rem; }
+        .disc-icon svg { width: 42px; height: 42px; fill: none; stroke: #1A6BDE; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; transition: transform .4s; }
+        .panel:hover .disc-icon svg { transform: scale(1.08); }
+
+        /* COURSES: headline left, catalog right */
+        .courses-grid { display: grid; grid-template-columns: .9fr 1.1fr; gap: 3rem; align-items: end; width: 100%; }
+        .catalog-panel { max-height: 78vh; overflow-y: auto; padding-right: .5rem; scrollbar-width: thin; scrollbar-color: #1A6BDE #0f1622; }
+        .cat { border: 1px solid rgba(201,168,76,.3); border-radius: 4px; background: rgba(8,12,20,.72); backdrop-filter: blur(8px); margin-bottom: .8rem; overflow: hidden; transition: border-color .3s; }
+        .cat.open { border-color: rgba(201,168,76,.6); }
+        .cat-btn { width: 100%; display: flex; align-items: center; gap: 1rem; padding: 1.05rem 1.3rem; background: none; border: none; color: #fff; cursor: pointer; text-align: left; font-family: 'Rajdhani', sans-serif; }
+        .cat-btn:hover { background: rgba(26,107,222,.08); }
+        .cat-name { font-family: 'Orbitron', sans-serif; font-size: .95rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #C9A84C; flex: 1; }
+        .cat-count { font-family: 'Inconsolata', monospace; font-size: .72rem; letter-spacing: .15em; color: #888; text-transform: uppercase; }
+        .cat-chev { width: 26px; height: 26px; border: 1px solid rgba(26,107,222,.5); border-radius: 50%; display: grid; place-items: center; color: #1A6BDE; font-size: 13px; transition: transform .3s; }
+        .cat.open .cat-chev { transform: rotate(180deg); background: #1A6BDE; color: #fff; }
+        .cat-panel { display: none; border-top: 1px solid rgba(201,168,76,.2); }
+        .cat.open .cat-panel { display: block; }
+        .course-row { display: grid; grid-template-columns: 1fr auto; gap: 1.2rem; align-items: center; padding: 1rem 1.3rem; border-bottom: 1px solid rgba(255,255,255,.06); cursor: pointer; transition: background .25s; }
+        .course-row:last-child { border-bottom: none; }
+        .course-row:hover, .course-row:focus-visible { background: rgba(26,107,222,.1); outline: none; }
+        .course-row.call { cursor: default; }
+        .cr-name { font-family: 'Orbitron', sans-serif; font-size: .95rem; font-weight: 700; margin-bottom: .25rem; }
+        .cr-meta { font-family: 'Inconsolata', monospace; font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: #C9A84C; }
+        .cr-desc { display: none; }
+        .cr-side { display: flex; align-items: center; gap: 1.2rem; }
+        .cr-price { font-family: 'Orbitron', sans-serif; font-size: 1.15rem; font-weight: 900; color: #C9A84C; text-align: right; line-height: 1; }
+        .cr-price small { display: block; font-family: 'Inconsolata', monospace; font-size: .6rem; letter-spacing: .14em; color: #888; margin-top: .3rem; font-weight: 400; }
+        .cr-btn { padding: .55rem 1rem; font-size: .8rem; white-space: nowrap; }
+
+        /* INSTRUCTOR */
+        .instructor .bg { background-position: 78% 20%; }
+        .instructor .veil { background: linear-gradient(90deg, rgba(8,12,20,.95) 0%, rgba(8,12,20,.75) 45%, rgba(8,12,20,.25) 100%); }
+        .creds { list-style: none; margin-top: 1.4rem; display: grid; gap: .5rem; max-width: 560px; }
+        .creds li { font-size: 1rem; color: #b0b0b0; padding-left: 1.2rem; position: relative; }
+        .creds li::before { content: ''; position: absolute; left: 0; top: .6em; width: 6px; height: 6px; background: #C9A84C; transform: rotate(45deg); }
+        .creds b { color: #fff; font-weight: 600; }
+        .cadre { margin-top: 1.6rem; color: #b0b0b0; max-width: 560px; font-size: .98rem; }
+
+        /* MEDIA strip */
+        .media-strip { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 1rem; padding: 1.5rem 0 .5rem; scrollbar-width: thin; scrollbar-color: #1A6BDE #0f1622; }
+        .video-card { flex: 0 0 min(82vw, 520px); scroll-snap-align: start; background: rgba(8,12,20,.7); border: 1px solid rgba(26,107,222,.25); border-radius: 4px; overflow: hidden; }
+        .yt { position: relative; aspect-ratio: 16/9; background: #000; cursor: pointer; overflow: hidden; }
+        .yt img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: .85; transition: opacity .3s; }
+        .yt:hover img { opacity: 1; }
+        .yt .play { position: absolute; inset: 0; margin: auto; width: 68px; height: 68px; border-radius: 50%; border: 2px solid #C9A84C; background: rgba(8,12,20,.8); display: grid; place-items: center; }
+        .yt .play::after { content: ''; border-left: 20px solid #fff; border-top: 12px solid transparent; border-bottom: 12px solid transparent; margin-left: 5px; }
+        .yt:hover .play { background: #1A6BDE; border-color: #1A6BDE; }
+        .yt iframe, .yt video { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+        .yt.mp4 { background: linear-gradient(135deg, #0f1622, #080C14); }
+        .yt.mp4 .lbl { position: absolute; left: 16px; bottom: 14px; font-family: 'Inconsolata', monospace; font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; color: #C9A84C; }
+        .video-card-info { padding: 14px 18px; }
+        .video-card-info h4 { font-family: 'Orbitron', sans-serif; font-size: .85rem; margin-bottom: 3px; }
+        .video-card-info p { font-size: .85rem; color: #b0b0b0; }
+
+        /* REVIEWS: one voice at a time */
+        .quote { max-width: 900px; min-height: 9rem; }
+        .quote p { font-family: 'Orbitron', sans-serif; font-weight: 400; font-size: clamp(1.15rem, 2.2vw, 1.8rem); line-height: 1.5; transition: opacity .6s; }
+        .quote .by { margin-top: 1.4rem; font-size: .9rem; color: #C9A84C; letter-spacing: .06em; font-weight: 700; transition: opacity .6s; }
+        .quote.fade p, .quote.fade .by { opacity: 0; }
+        .dots { display: flex; gap: 8px; justify-content: center; margin-top: 1.5rem; }
+        .dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.2); }
+        .dots i.on { background: #C9A84C; }
+
+        /* CTA screen + footer */
+        .cta-info { margin-top: 2rem; display: flex; flex-wrap: wrap; gap: .5rem 2rem; justify-content: center; font-family: 'Inconsolata', monospace; font-size: .78rem; letter-spacing: .08em; color: #888; }
+        .cta-info a { color: #1A6BDE; text-decoration: none; }
+        footer { background: #0a0e17; border-top: 1px solid rgba(201,168,76,.1); padding: 3rem 2rem 1rem; }
+        .footer-container { max-width: 1400px; margin: 0 auto; }
+        .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+        .footer-section h4 { font-family: 'Orbitron', sans-serif; color: #C9A84C; margin-bottom: 1rem; font-size: 0.9rem; }
+        .footer-section ul { list-style: none; }
+        .footer-section ul li { margin-bottom: 0.5rem; }
+        .footer-section a { color: #b0b0b0; text-decoration: none; font-size: 0.9rem; }
+        .footer-section a:hover { color: #1A6BDE; }
+        .footer-bottom { border-top: 1px solid rgba(201,168,76,.1); padding-top: 2rem; text-align: center; color: #888; font-size: 0.85rem; }
+        .social-links { display: flex; gap: 1.2rem; margin-top: 1rem; flex-wrap: wrap; }
+        .social-links a { color: #1A6BDE; text-decoration: none; }
+
+        /* MODALS (calendar, checkout, qualifications) */
+        .modal-bd { position: fixed; inset: 0; background: rgba(8,12,20,.82); backdrop-filter: blur(4px); z-index: 3000; opacity: 0; visibility: hidden; transition: all .25s; }
+        .modal-bd.open { opacity: 1; visibility: visible; }
+        .modal { position: fixed; z-index: 3001; background: #0f1622; border: 1px solid rgba(201,168,76,.4); border-radius: 6px; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.97); width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow-y: auto; padding: 2rem; opacity: 0; visibility: hidden; transition: all .25s; box-shadow: 0 30px 80px rgba(0,0,0,.7); }
+        .modal.wide { width: min(1000px, calc(100vw - 32px)); }
+        .modal.open { opacity: 1; visibility: visible; transform: translate(-50%,-50%) scale(1); }
+        .modal-x { position: absolute; top: 10px; right: 14px; background: none; border: none; color: #888; font-size: 30px; cursor: pointer; line-height: 1; }
+        .modal-x:hover { color: #C9A84C; }
+        .modal h3 { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; font-weight: 700; padding-right: 2rem; margin: .35rem 0 .2rem; }
+        .modal-meta { font-family: 'Inconsolata', monospace; font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: #888; }
+        .modal-price { font-family: 'Orbitron', sans-serif; font-weight: 900; color: #C9A84C; font-size: 1.1rem; margin-top: .4rem; }
+        .cal-nav { display: flex; align-items: center; justify-content: space-between; margin: 1.4rem 0 .8rem; }
+        .cal-nav button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(26,107,222,.5); background: none; color: #1A6BDE; font-size: 20px; cursor: pointer; }
+        .cal-nav button:hover:not([disabled]) { background: #1A6BDE; color: #fff; }
+        .cal-nav button[disabled] { opacity: .25; cursor: default; }
+        .cal-month { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1rem; letter-spacing: .06em; }
+        .cal-dow, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .cal-dow div { font-family: 'Inconsolata', monospace; font-size: .68rem; letter-spacing: .12em; color: #888; text-align: center; padding-bottom: 4px; }
+        .day { height: 40px; display: grid; place-items: center; font-size: .95rem; font-weight: 500; color: #666; border-radius: 4px; border: 1px solid transparent; position: relative; }
+        .day.other { color: #333; }
+        .day.wk { color: #fff; border-color: rgba(201,168,76,.55); background: rgba(201,168,76,.08); cursor: pointer; font-weight: 700; }
+        .day.wk::after { content: ''; position: absolute; bottom: 4px; width: 4px; height: 4px; border-radius: 50%; background: #C9A84C; }
+        .day.wk:hover { background: rgba(26,107,222,.25); border-color: #1A6BDE; }
+        .day.sel { background: #1A6BDE; border-color: #1A6BDE; color: #fff; }
+        .day.sel::after { background: #fff; }
+        .day.blk { color: #555; text-decoration: line-through; border-color: rgba(255,255,255,.08); cursor: not-allowed; }
+        .day.past { opacity: .35; cursor: not-allowed; }
+        .cal-legend { display: flex; gap: 1.2rem; flex-wrap: wrap; font-family: 'Inconsolata', monospace; font-size: .68rem; letter-spacing: .1em; color: #888; margin-top: .8rem; text-transform: uppercase; }
+        .cal-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
+        .cal-quick { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+        .chip { font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: .85rem; padding: .35rem .7rem; border-radius: 20px; border: 1px solid rgba(201,168,76,.4); color: #d0d0d0; background: none; cursor: pointer; }
+        .chip:hover { border-color: #1A6BDE; color: #fff; }
+        .chip.sel { background: #1A6BDE; border-color: #1A6BDE; color: #fff; }
+        .cal-foot { position: sticky; bottom: -2rem; background: #0f1622; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.4rem -2rem -2rem; padding: 1rem 2rem 1.2rem; border-top: 1px solid rgba(201,168,76,.2); flex-wrap: wrap; }
+        .cal-sel { font-size: .95rem; color: #b0b0b0; }
+        .cal-sel b { color: #fff; font-family: 'Orbitron', sans-serif; font-size: .85rem; }
+        .cal-hint { font-size: .85rem; color: #888; line-height: 1.5; }
+        .sheet label { display: block; font-family: 'Inconsolata', monospace; font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; color: #C9A84C; margin: 1rem 0 .4rem; }
+        .sheet input { width: 100%; padding: 13px 15px; font-size: 16px; font-family: 'Rajdhani', sans-serif; font-weight: 500; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); color: #fff; border-radius: 4px; }
+        .sheet input:focus { outline: none; border-color: #1A6BDE; }
+        .sheet-date { display: flex; justify-content: space-between; align-items: center; gap: 1rem; background: rgba(26,107,222,.08); border: 1px solid rgba(26,107,222,.3); border-radius: 4px; padding: .8rem 1rem; margin-top: 1rem; font-size: .95rem; }
+        .sheet-date button { background: none; border: none; color: #1A6BDE; font-family: 'Rajdhani', sans-serif; font-weight: 700; cursor: pointer; font-size: .85rem; letter-spacing: .05em; text-transform: uppercase; }
+        .qty { display: flex; align-items: center; gap: 1rem; }
+        .qty button { width: 42px; height: 42px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.12); color: #fff; font-size: 19px; cursor: pointer; border-radius: 4px; }
+        .qty .qv { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.2rem; min-width: 30px; text-align: center; }
+        .total { display: flex; justify-content: space-between; align-items: baseline; margin: 1.4rem 0 .4rem; padding-top: 1.1rem; border-top: 1px solid rgba(201,168,76,.2); font-family: 'Inconsolata', monospace; font-size: .72rem; letter-spacing: .14em; color: #888; text-transform: uppercase; }
+        .total .amt { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.5rem; color: #C9A84C; }
+        .sheet .cta-button { width: 100%; margin-top: .9rem; text-align: center; padding: 1rem; }
+        .secure { text-align: center; font-family: 'Inconsolata', monospace; font-size: .68rem; letter-spacing: .1em; color: #888; margin-top: .8rem; }
+        .err { display: none; font-size: .95rem; color: #FF6B5A; margin-top: .8rem; line-height: 1.5; }
+        .err.show { display: block; }
+        .banner { position: fixed; top: 84px; left: 50%; transform: translateX(-50%); z-index: 2500; background: #0f1622; border: 1px solid #C9A84C; color: #fff; font-size: .95rem; padding: .9rem 1.6rem; border-radius: 4px; box-shadow: 0 20px 50px rgba(0,0,0,.6); display: none; max-width: calc(100vw - 32px); text-align: center; }
+        .banner.show { display: block; }
+        .quals-list { padding: .4rem 0 0 1.4rem; columns: 2; column-gap: 2.4rem; }
+        .quals-list li { font-size: .92rem; color: #b0b0b0; line-height: 1.5; padding: .3rem .4rem .3rem .1rem; break-inside: avoid; }
+        .quals-list li::marker { color: #C9A84C; font-family: 'Inconsolata', monospace; font-size: .78rem; }
+
+        @media (prefers-reduced-motion: reduce) { html { scroll-snap-type: none; scroll-behavior: auto; } *, *::before, *::after { animation: none !important; transition: none !important; } }
+        @media (max-width: 1150px) { .nav-links { gap: 1.2rem; } .nav-links a { font-size: .8rem; } }
+        @media (max-width: 900px) {
+            .who { grid-template-columns: 1fr; }
+            .panel { min-height: 100vh; }
+            .courses-grid { grid-template-columns: 1fr; gap: 1.6rem; align-items: start; }
+            .catalog-panel { max-height: none; }
+            .counters { grid-template-columns: 1fr 1fr; gap: 1.4rem; }
+            .instructor .veil { background: linear-gradient(180deg, rgba(8,12,20,.2) 0%, rgba(8,12,20,.85) 55%, #080C14 100%); }
+            .instructor .bg { background-position: 70% 15%; }
+            .quals-list { columns: 1; }
+        }
+        @media (max-width: 768px) {
+            html { scroll-snap-type: none; }
+            .nav-links { display: none; } .mobile-menu-btn { display: block; }
+            .screen .inner { padding: 5.5rem 1.2rem 3rem; }
+            .ctas { flex-direction: column; align-items: stretch; }
+            .screen.center .ctas { align-items: center; }
+            .course-row { grid-template-columns: 1fr; gap: .8rem; padding: 1rem 1.1rem; }
+            .cr-side { justify-content: space-between; }
+            .modal { top: auto; bottom: 0; left: 0; transform: translateY(14px); width: 100%; max-height: 92vh; border-radius: 12px 12px 0 0; padding: 1.4rem 1.2rem calc(1.4rem + env(safe-area-inset-bottom)); }
+            .modal.open { transform: translateY(0); }
+            .cal-foot { bottom: calc(-1.4rem - env(safe-area-inset-bottom)); margin: 1.2rem -1.2rem calc(-1.4rem - env(safe-area-inset-bottom)); padding: .9rem 1.2rem calc(1rem + env(safe-area-inset-bottom)); }
+            .cal-foot .cta-button { width: 100%; text-align: center; }
+            .day { height: 44px; }
+            .disc-screen .title { top: 5.2rem; left: 1.2rem; }
+        }
+        @media (max-width: 480px) { nav { padding: 0.75rem 1rem; } .nav-logo img { height: 32px; } .nav-logo-text { font-size: 1rem; } }
+    </style>
+</head>
+<body>
+
+<nav id="main-nav">
+    <div class="nav-container">
+        <a href="#top" class="nav-logo" aria-label="MAST Solutions home">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/02/Atlas-Glinn-Logo-Rev1-2-e1744918824251.png" alt="Atlas Glinn">
+            <span class="nav-logo-text">MAST <span>SOLUTIONS</span></span>
+        </a>
+        <ul class="nav-links">
+            <li><a href="#courses">Courses</a></li>
+            <li><a href="#who">Who We Train</a></li>
+            <li><a href="#founder">Instructors</a></li>
+            <li><a href="#media">Media</a></li>
+            <li><a href="#capability">Capability</a></li>
+            <li><a href="index.html">Atlas Glinn</a></li>
+            <li><a href="#courses" class="cta-button" style="padding:.6rem 1.2rem;font-size:.85rem;">Book</a></li>
+        </ul>
+        <button class="mobile-menu-btn" aria-label="Open navigation menu" aria-controls="mobile-nav" aria-expanded="false" onclick="document.getElementById('mobile-nav').classList.add('open');this.setAttribute('aria-expanded','true')">&#9776;</button>
+    </div>
+</nav>
+<div id="mobile-nav" class="mobile-nav">
+    <button class="mobile-nav-close" aria-label="Close navigation menu" onclick="this.parentElement.classList.remove('open')">&times;</button>
+    <a href="#courses" onclick="this.parentElement.classList.remove('open')">Courses</a>
+    <a href="#who" onclick="this.parentElement.classList.remove('open')">Who We Train</a>
+    <a href="#founder" onclick="this.parentElement.classList.remove('open')">Instructors</a>
+    <a href="#media" onclick="this.parentElement.classList.remove('open')">Media</a>
+    <a href="#capability" onclick="this.parentElement.classList.remove('open')">Capability</a>
+    <a href="index.html">Atlas Glinn</a>
+    <a href="#courses" onclick="this.parentElement.classList.remove('open')" style="color:#C9A84C">Book a Course</a>
+</div>
+<div id="banner" class="banner" role="status"></div>
+
+<!-- 1 · HERO -->
+<section class="screen hero center" id="top">
+    <div class="hero-yt" id="hero-yt" data-id="jwQ5OyKEKwg"></div>
+    <div class="veil"></div>
+    <div class="inner">
+        <div class="eyebrow">Tactical Training &middot; Houston, Texas &middot; Est. 2005</div>
+        <h1 class="h-big"><span class="gold-shimmer">Details Matter.</span></h1>
+        <p class="h-line">Twenty years training the people who cannot afford to be wrong.</p>
+        <div class="ctas">
+            <a href="#courses" class="cta-button" style="padding:1rem 2rem;">View Courses</a>
+            <a href="#founder" class="cta-button ghost-button" style="padding:1rem 2rem;">The Instructors</a>
+        </div>
+    </div>
+    <button class="vol" id="hero-vol" type="button" aria-label="Unmute video" aria-pressed="false" hidden>
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16 8.5a4.5 4.5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path class="slash" d="M3 3l18 18" fill="none" stroke="#e0483a" stroke-width="2.2" stroke-linecap="round"/></svg>
+    </button>
+</section>
+
+<!-- 2 · PROOF -->
+<section class="screen center" id="proof">
+    <div class="bg" style="background-image:url('https://i.ytimg.com/vi/pSGWdaDglZE/maxresdefault.jpg')"></div>
+    <div class="veil"></div>
+    <div class="inner">
+        <div class="eyebrow">Since 2005</div>
+        <h2 class="h-big"><span data-count="1701">0</span>+ Students.</h2>
+        <p class="h-line">Military, law enforcement and private citizens. One standard.</p>
+        <div class="counters">
+            <div class="counter"><b>2005</b><span>Training since</span></div>
+            <div class="counter"><b><span data-count="1701">0</span>+</b><span>Students trained</span></div>
+            <div class="counter"><b><span data-count="21">0</span></b><span>Courses</span></div>
+            <div class="counter"><b>5.0</b><span>Google rating</span></div>
+        </div>
+    </div>
+</section>
+
+<!-- 3 · WHO WE TRAIN -->
+<div class="who" id="who">
+    <div class="panel"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/jwQ5OyKEKwg/maxresdefault.jpg');background-position:center 30%"></div>
+        <div class="txt"><div class="eyebrow">01</div><h3>Military.</h3><p>Special operations and conventional units. Live OpFor, UTM and Simunition, maritime VBSS.</p></div></div>
+    <div class="panel"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/pSGWdaDglZE/maxresdefault.jpg')"></div>
+        <div class="txt"><div class="eyebrow">02</div><h3>Law Enforcement.</h3><p>SWAT, warrant teams and federal agencies. Small-unit tactics under time pressure.</p></div></div>
+    <div class="panel"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/OfXe_bdH6t4/maxresdefault.jpg')"></div>
+        <div class="txt"><div class="eyebrow">03</div><h3>Civilian.</h3><p>Private citizens who take the preservation of life seriously. Same standard, scaled.</p></div></div>
+</div>
+
+<!-- 4 · SEVEN CORE DISCIPLINES -->
+<div class="disc-screen" id="disciplines">
+    <div class="title"><div class="eyebrow">The Curriculum</div><h2 class="h-big" style="font-size:clamp(1.8rem,4vw,3.2rem)">Seven Core <span class="gold-shimmer">Disciplines.</span></h2></div>
+    <div class="strip">
+        <div class="panel"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/jwQ5OyKEKwg/hqdefault.jpg');background-position:center top"></div>
+            <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="14"/><circle cx="24" cy="24" r="2.5" fill="#C9A84C" stroke="none"/><path d="M24 4v8M24 36v8M4 24h8M36 24h8"/></svg></div><h3>Firearms.</h3><p>Marksmanship and weapon handling.</p></div></div>
+        <div class="panel"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/OfXe_bdH6t4/hqdefault.jpg');background-position:left center"></div>
+            <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 22v10a10 10 0 0 0 10 10h4a10 10 0 0 0 10-10v-6"/><rect x="12" y="14" width="6" height="9" rx="3"/><rect x="19" y="11" width="6" height="12" rx="3"/><rect x="26" y="12" width="6" height="11" rx="3"/><rect x="33" y="15" width="5" height="11" rx="2.5"/><path d="M12 26h10"/></svg></div><h3>Hand Combat.</h3><p>Close-quarters fighting.</p></div></div>
+        <div class="panel"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/pSGWdaDglZE/hqdefault.jpg');background-position:right center"></div>
+            <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 40l6-6M14 34l-3-3 20-20a6 6 0 0 1 8 8L19 39l-5-5z"/><path d="M11 31l6 6" stroke="#C9A84C"/></svg></div><h3>Knife Combat.</h3><p>Defensive and tactical knife.</p></div></div>
+        <div class="panel"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/jwQ5OyKEKwg/hqdefault.jpg');background-position:center bottom"></div>
+            <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M14 42V8h20v34"/><path d="M14 42h20M30 25h.01"/><path d="M4 24h14M14 19l5 5-5 5" stroke="#C9A84C"/></svg></div><h3>CQB.</h3><p>Close Quarters Battle.</p></div></div>
+        <div class="panel"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/OfXe_bdH6t4/hqdefault.jpg')"></div>
+            <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M16 24h16"/><rect x="8" y="17" width="6" height="14" rx="1.5"/><rect x="34" y="17" width="6" height="14" rx="1.5"/><path d="M4 20v8M44 20v8"/></svg></div><h3>Fitness.</h3><p>Conditioning for duty.</p></div></div>
+        <div class="panel"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/mI7Ou5P-WHE/hqdefault.jpg')"></div>
+            <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="8" width="32" height="32" rx="6"/><path d="M24 16v16M16 24h16" stroke="#C9A84C" stroke-width="3"/></svg></div><h3>Medical.</h3><p>Emergency and trauma care.</p></div></div>
+        <div class="panel"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/pSGWdaDglZE/hqdefault.jpg');background-position:center top"></div>
+            <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M10 18l14-8 14 8M10 27l14-8 14 8M10 36l14-8 14 8"/></svg></div><h3>Leadership.</h3><p>Command and decision-making.</p></div></div>
+    </div>
+</div>
+
+<!-- 5 · COURSES -->
+<section class="screen" id="courses">
+    <div class="bg" style="background-image:url('https://i.ytimg.com/vi/OfXe_bdH6t4/maxresdefault.jpg')"></div>
+    <div class="veil"></div>
+    <div class="inner">
+        <div class="courses-grid">
+            <div>
+                <div class="eyebrow">Course Catalog</div>
+                <h2 class="h-big">Twenty-One<br>Courses.</h2>
+                <p class="h-line">Open a discipline, pick a course, pick your weekend. Ammunition, rentals and UTM rounds are added later.</p>
+                <p class="h-line" style="font-size:.95rem;margin-top:1rem;">Team blocks and agency instruction: <a href="tel:+12816548100" style="color:#1A6BDE;text-decoration:none;">(281) 654-8100</a></p>
+            </div>
+            <div class="catalog-panel" id="catalog"></div>
+        </div>
+    </div>
+</section>
+
+<!-- 6 · INSTRUCTORS -->
+<section class="screen instructor" id="founder">
+    <div class="bg" style="background-image:url('images/IMG_5949_2.jpg')"></div>
+    <div class="veil"></div>
+    <div class="inner">
+        <div class="eyebrow">Founder &amp; Lead Instructor</div>
+        <h2 class="h-big">Matthew<br><span class="gold-shimmer">Brockmann.</span></h2>
+        <p class="h-line">Founded MAST Solutions in 2005 and later Atlas Glinn, LLC. Head of Security and Dignitary Protection for U.S. Senators Ted Cruz and Eric &ldquo;Bulldog&rdquo; Schmitt. Teaches on the range.</p>
+        <ul class="creds">
+            <li>Trained by <b>Paul Howe</b> (1st SFOD-D), <b>Bill Jeans</b> and <b>John Perretti</b></li>
+            <li><b>DPS Level III Firearms Instructor</b> &middot; <b>TTPOA Maritime VBSS</b> instructor</li>
+            <li>Featured on <b>Modern Shooter TV</b> and in <b>The Washington Post</b></li>
+        </ul>
+        <p class="cadre">Courses run with a lead instructor, assistant instructors, and RSOs (Range Safety Officers) on the line. Your instructors are named on the course confirmation.</p>
+        <div class="ctas">
+            <button class="cta-button ghost-button" type="button" onclick="openQuals()">Qualifications &amp; Certifications</button>
+            <a href="#courses" class="cta-button">Train With Him</a>
+        </div>
+    </div>
+</section>
+
+<!-- 7 · MEDIA -->
+<section class="screen" id="media">
+    <div class="bg" style="background-image:url('https://i.ytimg.com/vi/mI7Ou5P-WHE/maxresdefault.jpg')"></div>
+    <div class="veil"></div>
+    <div class="inner">
+        <div class="eyebrow">MAST Solutions In Action</div>
+        <h2 class="h-big">In Action.</h2>
+        <p class="h-line">Training, operations, and the people behind the mission. Tap to play.</p>
+        <div class="media-strip" id="media-strip"></div>
+        <a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener" class="eyebrow" style="display:inline-block;margin-top:1rem;text-decoration:none;">The Washington Post &middot; Arming American Teachers &rarr;</a>
+    </div>
+</section>
+
+<!-- 8 · CAPABILITY -->
+<section class="screen center" id="capability">
+    <div class="bg" style="background-image:url('https://i.ytimg.com/vi/jwQ5OyKEKwg/maxresdefault.jpg');background-position:center 40%"></div>
+    <div class="veil"></div>
+    <div class="inner">
+        <div class="eyebrow">For agencies, units and procurement officers</div>
+        <h2 class="h-big">Capability <span class="gold-shimmer">Statement.</span></h2>
+        <p class="h-line">Core competencies, past performance, differentiators and company data on one page.</p>
+        <div class="ctas">
+            <a href="mast-capability-statement.html" class="cta-button" style="padding:1rem 2rem;">View &amp; Print</a>
+            <a href="mailto:atlasglinn.hq@atlasglinn.com?subject=MAST%20Solutions%20Capability%20Statement%20Request" class="cta-button ghost-button" style="padding:1rem 2rem;">Request by Email</a>
+        </div>
+    </div>
+</section>
+
+<!-- 9 · REVIEWS -->
+<section class="screen center" id="reviews">
+    <div class="veil" style="background:#0f1622"></div>
+    <div class="inner">
+        <div class="eyebrow">5.0 &middot; Google Reviews &middot; LinkedIn</div>
+        <div class="quote" id="quote"><p></p><div class="by"></div></div>
+        <div class="dots" id="dots"></div>
+    </div>
+</section>
+
+<!-- 10 · CTA -->
+<section class="screen center" id="contact" style="min-height:80vh;">
+    <div class="bg" style="background-image:url('https://i.ytimg.com/vi/pSGWdaDglZE/maxresdefault.jpg');background-position:center 60%"></div>
+    <div class="veil"></div>
+    <div class="inner">
+        <div class="eyebrow">Houston, Texas</div>
+        <h2 class="h-big">Train With <span class="gold-shimmer">MAST.</span></h2>
+        <p class="h-line">Individual seats, team blocks, and agency instruction.</p>
+        <div class="ctas">
+            <a href="#courses" class="cta-button" style="padding:1rem 2rem;">Book a Course</a>
+            <a href="tel:+12816548100" class="cta-button ghost-button" style="padding:1rem 2rem;">(281) 654-8100</a>
+        </div>
+        <div class="cta-info"><span>2450 Fondren Rd, Suite 255, Houston, TX 77063</span><a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div>
+    </div>
+</section>
+
+<footer>
+    <div class="footer-container">
+        <div class="footer-grid">
+            <div class="footer-section"><h4>Atlas Glinn</h4><ul><li><a href="index.html">Home</a></li><li><a href="executive-protection.html">Executive Protection</a></li><li><a href="residential-protection.html">Residential Protection</a></li><li><a href="disaster-recovery.html">Disaster Recovery</a></li><li><a href="technology.html">Technology</a></li><li><a href="ep-app.html">Atlas EP App</a></li></ul></div>
+            <div class="footer-section"><h4>MAST Solutions</h4><ul><li><a href="#courses">Course Catalog</a></li><li><a href="training.html">Training Programs</a></li><li><a href="#founder">The Instructors</a></li><li><a href="mast-capability-statement.html">Capability Statement</a></li><li><a href="cuas-aerodefense.html">Counter-Drone Solutions</a></li></ul></div>
+            <div class="footer-section"><h4>Company</h4><ul><li><a href="about.html">About Us</a></li><li><a href="careers.html">Careers</a></li><li><a href="https://atlasglinn.com/blog/" target="_blank" rel="noopener">Resources</a></li><li><a href="contact.html">Contact</a></li></ul></div>
+            <div class="footer-section"><h4>Connect</h4><p style="color:#b0b0b0;margin-bottom:1rem;">2450 Fondren Rd, Suite 255<br>Houston, TX 77063<br><a href="tel:+12816548100" style="color:#1A6BDE;">(281) 654-8100</a><br><a href="mailto:atlasglinn.hq@atlasglinn.com" style="color:#1A6BDE;">atlasglinn.hq@atlasglinn.com</a></p>
+                <div class="social-links"><a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a><a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a><a href="https://www.youtube.com/@mastsolutions" target="_blank" rel="noopener">YouTube</a><a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a></div></div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved.</p>
+            <p style="margin-top:.6rem;"><a href="privacy.html" style="color:#888;">Privacy Policy</a> &nbsp;&bull;&nbsp; <a href="terms.html" style="color:#888;">Terms of Service</a></p>
+        </div>
+    </div>
+</footer>
+
+<!-- CALENDAR -->
+<div id="cal-bd" class="modal-bd" onclick="closeCal()"></div>
+<div id="cal" class="modal" role="dialog" aria-modal="true" aria-labelledby="cal-title">
+    <button class="modal-x" aria-label="Close calendar" onclick="closeCal()">&times;</button>
+    <div class="eyebrow">Choose your weekend</div>
+    <h3 id="cal-title"></h3>
+    <div class="modal-meta" id="cal-meta"></div>
+    <div class="modal-price" id="cal-price"></div>
+    <div class="cal-nav"><button id="cal-prev" aria-label="Previous month" onclick="calShift(-1)">&#8249;</button><div class="cal-month" id="cal-month"></div><button id="cal-next" aria-label="Next month" onclick="calShift(1)">&#8250;</button></div>
+    <div class="cal-dow"><div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div></div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <div class="cal-legend"><span><i style="background:rgba(201,168,76,.5)"></i>Training weekend</span><span><i style="background:#1A6BDE"></i>Selected</span><span><i style="background:#333"></i>Unavailable</span></div>
+    <div class="cal-quick" id="cal-quick"></div>
+    <div class="cal-hint" style="margin-top:1rem;">One-day courses run Saturday, two-day courses Saturday and Sunday. Range directions and gear list follow by email after booking.</div>
+    <div class="cal-foot"><div class="cal-sel" id="cal-sel">Tap a highlighted date.</div><button class="cta-button" id="cal-go" disabled onclick="calContinue()">Continue &rarr;</button></div>
+</div>
+
+<!-- CHECKOUT -->
+<div id="sheet-bd" class="modal-bd" onclick="closeSheet()"></div>
+<div id="sheet" class="modal sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <button class="modal-x" aria-label="Close checkout" onclick="closeSheet()">&times;</button>
+    <div class="eyebrow">Reserve your seat</div>
+    <h3 id="sheet-title"></h3>
+    <div class="modal-meta" id="sheet-meta"></div>
+    <div class="sheet-date"><span id="sheet-date-label"></span><button type="button" onclick="backToCal()">Change date</button></div>
+    <label for="co-email">Email</label>
+    <input type="email" id="co-email" placeholder="you@example.com" autocomplete="email" inputmode="email" required>
+    <label for="co-name">Name <span style="color:#888">(optional)</span></label>
+    <input type="text" id="co-name" placeholder="First Last" autocomplete="name">
+    <label>Seats</label>
+    <div class="qty"><button type="button" aria-label="Fewer seats" onclick="step(-1)">&minus;</button><span class="qv" id="co-qty">1</span><button type="button" aria-label="More seats" onclick="step(1)">+</button></div>
+    <div class="total"><span>Total</span><span class="amt" id="co-total">&mdash;</span></div>
+    <button class="cta-button" id="co-pay" onclick="startCheckout()">Continue to Secure Checkout</button>
+    <div class="secure">&#128274; PAYMENTS PROCESSED BY STRIPE</div>
+    <div class="secure" style="letter-spacing:.04em;text-transform:none;font-family:'Rajdhani',sans-serif;font-size:.85rem;">By continuing you agree to our <a href="privacy.html" target="_blank" rel="noopener" style="color:#1A6BDE;text-decoration:none;">Privacy Policy</a>. Your range address and gear list follow by email.</div>
+    <div class="err" id="co-err"></div>
+</div>
+
+<!-- QUALIFICATIONS -->
+<div id="quals-bd" class="modal-bd" onclick="closeQuals()"></div>
+<div id="quals" class="modal wide" role="dialog" aria-modal="true" aria-labelledby="quals-title">
+    <button class="modal-x" aria-label="Close" onclick="closeQuals()">&times;</button>
+    <div class="eyebrow">Matthew Brockmann</div>
+    <h3 id="quals-title">Qualifications &amp; Certifications</h3>
+    <ol class="quals-list">
+        <li>Level II&ndash;IV training for PPO license through the DPS Private Security Bureau</li>
+        <li>Tested and passed by the Texas Department of Public Safety as Qualified Manager for a Class C private security and investigations company</li>
+        <li>Level III Firearms Instructor, qualified by DPS</li>
+        <li>NRA Firearms Instructor</li>
+        <li>Completed and passed aerosol weapons (OC) training</li>
+        <li>Completed and passed expandable tactical baton training for DPS</li>
+        <li>Completed and passed the Private Investigator course for PPO; tested with HPD P.I. Detective L.K. Fauster for certificate (2011)</li>
+        <li>Tested and passed the MMPI psychologist's declaration for personal protection officer authorization</li>
+        <li>Studied under John Perretti in unarmed offense and combatives: joint control, knife, and hand combatives</li>
+        <li>Completed and passed the Blackwater HTP weapons qualification course</li>
+        <li>Tactical rifle instructor for Brian Hoffner, 2004&ndash;2006</li>
+        <li>Studied urban carbine and gunfighting through Suarez International, 2006</li>
+        <li>Studied close-range gunfighting with Suarez International, 2006</li>
+        <li>Studied team tactics with an Arizona SWAT commander and former Gunsite instructor, 2005&ndash;2007</li>
+        <li>Advanced defensive pistol, Morgan Consulting, 2006</li>
+        <li>Advanced home defense, Morgan Consulting, 2007</li>
+        <li>CQC carbine, Morgan Consulting, 2007</li>
+        <li>Advanced rifle, Suarez International, 2007</li>
+        <li>Ultimate combative skills course, Suarez International, 2008</li>
+        <li>Texas Department of Public Safety concealed handgun instructor, 2009</li>
+        <li>State of Texas handgun training certificate of completion and proficiency under Chapter 411, Subchapter H, Texas Government Code</li>
+        <li>Studied under Sonny Puzikas (retired Spetsnaz, USSR MVD) in the AK-47/74 and combatives, 2006 and 2008</li>
+        <li>Tactical rifle instructor for CSAT (Combat Shooting and Tactics) with Paul Howe; certified 2009</li>
+        <li>Magpul Dynamics with Travis Haley and Chris Costa, 2010</li>
+        <li>Worked with Bruce Gray of SIG Arms Academy and Grayguns teaching a 7-day program, 2011</li>
+        <li>Completed and passed the SureFire Low-Light Institute instructor program for law enforcement</li>
+        <li>Completed and passed the Strategos International low-light instructor course, law enforcement</li>
+        <li>Worked with HPD SWAT in tactics training; details on request</li>
+        <li>Worked with Baytown SWAT in firearms and tactics; details on request</li>
+        <li>Multi-agency training including securing the Houston Ship Channel, boarding vessels (VBSS), and seizing and controlling persons, suspects, property and threat components</li>
+        <li>Trained the 856th Military Police Company in urban operations and close-quarter combat via the Department of the Army</li>
+        <li>Trained U.S. Army units for pre-deployment (101st CQB package)</li>
+    </ol>
+</div>
+
+<script>
+'use strict';
+const API = 'https://mast-booking-backend.matthew-221.workers.dev';
+const BOOKING_ENDPOINT = API + '/create-booking', CATALOG_ENDPOINT = API + '/catalog', WEEKENDS_ENDPOINT = API + '/weekends';
+
+const COURSES = [
+  { sku:'MAST-HG-FUND',  cat:'Handgun',         name:'Handgun Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16 },
+  { sku:'MAST-HG-OP',    cat:'Handgun',         name:'Handgun Operator',                hours:16, days:2, price_cents:45000, seats:10 },
+  { sku:'MAST-CAR-FUND', cat:'Carbine',         name:'Carbine Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16 },
+  { sku:'MAST-CAR-OP',   cat:'Carbine',         name:'Carbine Operator',                hours:16, days:2, price_cents:45000, seats:10 },
+  { sku:'MAST-SG-FUND',  cat:'Shotgun',         name:'Shotgun Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16 },
+  { sku:'MAST-SUB-FUND', cat:'Sub-Gun',         name:'Sub-Gun Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16 },
+  { sku:'MAST-SUB-P1',   cat:'Sub-Gun',         name:'Sub-Gun P1',                      hours:8,  days:1, price_cents:25000, seats:10 },
+  { sku:'MAST-SF-P1',    cat:'Select-Fire',     name:'Select-Fire M4A1 / MK18 Operator P1', hours:8, days:1, price_cents:50000, seats:10 },
+  { sku:'MAST-SF-P2',    cat:'Select-Fire',     name:'Select-Fire M4A1 / MK18 Operator P2', hours:16, days:2, price_cents:95000, seats:10 },
+  { sku:'MAST-LL-FUND',  cat:'Low-Light / NVG', name:'Low-Light Fundamentals',          hours:8,  days:1, price_cents:22500, seats:16 },
+  { sku:'MAST-LL-P1',    cat:'Low-Light / NVG', name:'Low-Light Operator P1',           hours:16, days:2, price_cents:45000, seats:10 },
+  { sku:'MAST-NVG-P1',   cat:'Low-Light / NVG', name:'Low-Light / No-Light NVG Operator P1', hours:16, days:2, price_cents:50000, seats:10 },
+  { sku:'MAST-NVG-P2',   cat:'Low-Light / NVG', name:'NVG Operator P2',                 hours:16, days:2, price_cents:95000, seats:10 },
+  { sku:'MAST-TEAM-P1',  cat:'Team Tactics',    name:'Team Tactics P1',                 hours:16, days:2, price_cents:45000, seats:10 },
+  { sku:'MAST-TEAM-P2',  cat:'Team Tactics',    name:'Team Tactics P2',                 hours:16, days:2, price_cents:47500, seats:10 },
+  { sku:'MAST-HPP-P1',   cat:'Protective',      name:'Home & Property Protection P1',   hours:8,  days:1, price_cents:25000, seats:10 },
+  { sku:'MAST-VEH-P1',   cat:'Protective',      name:'Vehicular Tactics P1',            hours:8,  days:1, price_cents:22500, seats:10 },
+  { sku:'MAST-VEH-P2',   cat:'Protective',      name:'Vehicular Tactics / Team Tactics P2', hours:16, days:2, price_cents:50000, seats:10 },
+  { sku:'MAST-MOTOR-P1', cat:'Protective',      name:'Motorcade P1',                    hours:0,  days:0, price_cents:0,     seats:10 },
+  { sku:'MAST-MOTOR-P2', cat:'Protective',      name:'Motorcade P2',                    hours:0,  days:0, price_cents:0,     seats:10 },
+  { sku:'MAST-GEAR',     cat:'Gear',            name:'Gear & Kit Considerations',       hours:24, days:3, price_cents:75000, seats:10 },
+];
+if (location.hash === '#test') COURSES.push({ sku:'MAST-TEST', cat:'Test', name:'Live payment test seat', hours:1, days:1, price_cents:100, seats:1 });
+
+let WEEKENDS = [
+  ['2026-09-26','September — last weekend'],['2026-10-10','October — 2nd weekend'],['2026-10-24','October — 4th weekend'],['2026-10-31','October — 5th weekend','blocked'],
+  ['2026-11-14','November — 2nd weekend'],['2026-12-12','December — 2nd weekend'],['2027-01-09','January — 2nd weekend'],['2027-01-23','January — 4th weekend'],['2027-01-30','January — 5th weekend'],
+  ['2027-02-13','February — 2nd weekend'],['2027-02-27','February — 4th weekend'],['2027-03-13','March — 2nd weekend'],['2027-03-27','March — 4th weekend'],['2027-04-10','April — 2nd weekend'],['2027-04-24','April — 4th weekend'],
+].map(([saturday, label, status]) => ({ saturday, label, status: status || 'available' }));
+
+const $ = id => document.getElementById(id);
+const money = c => '$' + (c/100).toLocaleString('en-US', { minimumFractionDigits: c % 100 ? 2 : 0 });
+const metaFor = c => c.days ? `${c.hours} HRS · ${c.days} DAY${c.days > 1 ? 'S' : ''} · ${c.seats} SEATS` : `CALL FOR DETAILS`;
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+
+/* Catalog */
+const CATS = [...new Set(COURSES.map(c => c.cat))];
+$('catalog').innerHTML = CATS.map((cat, ci) => {
+  const items = COURSES.map((c, i) => ({ c, i })).filter(x => x.c.cat === cat);
+  return `<div class="cat${ci === 0 ? ' open' : ''}" id="cat-${ci}"><button class="cat-btn" aria-expanded="${ci === 0}" onclick="toggleCat(${ci})"><span class="cat-name">All ${esc(cat)}</span><span class="cat-count">${items.length} course${items.length > 1 ? 's' : ''}</span><span class="cat-chev" aria-hidden="true">&#9662;</span></button><div class="cat-panel">` +
+    items.map(({ c, i }) => c.price_cents
+      ? `<div class="course-row" role="button" tabindex="0" onclick="openCal(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCal(${i});}"><div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaFor(c)}</div></div><div class="cr-side"><div class="cr-price" data-sku="${c.sku}">${money(c.price_cents)}<small>PER SEAT</small></div><span class="cta-button cr-btn">Select Date</span></div></div>`
+      : `<div class="course-row call"><div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaFor(c)}</div></div><div class="cr-side"><div class="cr-price">CALL<small>FOR PRICING</small></div><a class="cta-button ghost-button cr-btn" href="tel:+12816548100">Call</a></div></div>`).join('') + `</div></div>`;
+}).join('');
+function toggleCat(ci){ const el = $('cat-' + ci); const open = el.classList.toggle('open'); el.querySelector('.cat-btn').setAttribute('aria-expanded', open); }
+fetch(CATALOG_ENDPOINT).then(r => r.ok ? r.json() : null).then(d => { if (!d || !d.classes) return; const by = Object.fromEntries(d.classes.map(c => [c.sku, c.price_cents])); COURSES.forEach(c => { if (by[c.sku]) { c.price_cents = by[c.sku]; const el = document.querySelector(`.cr-price[data-sku="${c.sku}"]`); if (el) el.innerHTML = money(c.price_cents) + '<small>PER SEAT</small>'; } }); }).catch(() => {});
+fetch(WEEKENDS_ENDPOINT).then(r => r.ok ? r.json() : null).then(d => { if (d && Array.isArray(d.weekends) && d.weekends.length) WEEKENDS = d.weekends.map(w => ({ saturday: w.saturday, label: w.label || '', status: w.status || 'available' })); }).catch(() => {});
+
+/* Calendar */
+const parseISO = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const keyOf = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+let calCourse = null, calMonth = null, chosen = null, lastFocus = null;
+function weekendDates(w, days){ const sat = parseISO(w.saturday), out = []; const start = days === 3 ? -1 : 0, n = days === 1 ? 1 : (days === 3 ? 3 : 2); for (let k = 0; k < n; k++) { const d = new Date(sat); d.setDate(sat.getDate() + start + k); out.push(d); } return out; }
+function labelFor(w, days){ const ds = weekendDates(w, days), a = ds[0], b = ds[ds.length - 1]; const mo = d => d.toLocaleDateString('en-US', { month: 'short' }); if (ds.length === 1) return a.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }); const wd = ds.length === 2 ? 'Sat–Sun' : 'Fri–Sun'; const range = a.getMonth() === b.getMonth() ? `${mo(a)} ${a.getDate()}–${b.getDate()}` : `${mo(a)} ${a.getDate()} – ${mo(b)} ${b.getDate()}`; return `${wd}, ${range}, ${b.getFullYear()}`; }
+function isPast(w){ const t = new Date(); t.setHours(0,0,0,0); return parseISO(w.saturday) < t; }
+function bookable(w){ return (w.status === 'available' || w.status === 'scheduled') && !isPast(w); }
+function openCal(i){ calCourse = COURSES[i]; chosen = null; lastFocus = document.activeElement; $('cal-title').textContent = calCourse.name; $('cal-meta').textContent = metaFor(calCourse); $('cal-price').textContent = money(calCourse.price_cents) + ' per seat'; const first = WEEKENDS.find(bookable) || WEEKENDS[0]; const fd = parseISO(first.saturday); calMonth = new Date(fd.getFullYear(), fd.getMonth(), 1); renderCal(); $('cal-bd').classList.add('open'); $('cal').classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeCal(){ $('cal-bd').classList.remove('open'); $('cal').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+function calBounds(){ const a = parseISO(WEEKENDS[0].saturday), b = parseISO(WEEKENDS[WEEKENDS.length - 1].saturday); return { min: new Date(a.getFullYear(), a.getMonth(), 1), max: new Date(b.getFullYear(), b.getMonth(), 1) }; }
+function calShift(n){ const { min, max } = calBounds(); const next = new Date(calMonth.getFullYear(), calMonth.getMonth() + n, 1); if (next < min || next > max) return; calMonth = next; renderCal(); }
+function renderCal(){
+  const { min, max } = calBounds(); $('cal-month').textContent = MONTHS[calMonth.getMonth()] + ' ' + calMonth.getFullYear(); $('cal-prev').disabled = calMonth <= min; $('cal-next').disabled = calMonth >= max;
+  const dayMap = {}; WEEKENDS.forEach((w, wi) => weekendDates(w, calCourse.days).forEach(d => { dayMap[keyOf(d)] = wi; }));
+  const y = calMonth.getFullYear(), m = calMonth.getMonth(); const gridStart = new Date(y, m, 1 - new Date(y, m, 1).getDay()); let html = '';
+  for (let k = 0; k < 42; k++) { const d = new Date(gridStart); d.setDate(gridStart.getDate() + k); const wi = dayMap[keyOf(d)]; const other = d.getMonth() !== m; let cls = 'day' + (other ? ' other' : ''), attrs = '';
+    if (wi !== undefined && !other) { const w = WEEKENDS[wi]; if (bookable(w)) { cls += ' wk' + (chosen === wi ? ' sel' : ''); attrs = ` onclick="pick(${wi})" title="${esc(w.label)}"`; } else { cls += ' blk' + (isPast(w) ? ' past' : ''); attrs = ' title="Unavailable"'; } }
+    html += `<div class="${cls}"${attrs}>${d.getDate()}</div>`; }
+  $('cal-grid').innerHTML = html;
+  $('cal-quick').innerHTML = WEEKENDS.map((w, wi) => bookable(w) ? `<button type="button" class="chip${chosen === wi ? ' sel' : ''}" onclick="pick(${wi})">${labelFor(w, calCourse.days).replace(/, \d{4}$/, '')}</button>` : '').join('');
+  $('cal-sel').innerHTML = chosen === null ? 'Tap a highlighted date.' : `<b>${labelFor(WEEKENDS[chosen], calCourse.days)}</b>`; $('cal-go').disabled = chosen === null;
+}
+function pick(wi){ chosen = wi; const d = parseISO(WEEKENDS[wi].saturday); calMonth = new Date(d.getFullYear(), d.getMonth(), 1); renderCal(); }
+function calContinue(){ if (chosen === null) return; $('cal-bd').classList.remove('open'); $('cal').classList.remove('open'); openSheet(); }
+
+/* Checkout */
+let qty = 1;
+function openSheet(){ qty = 1; $('sheet-title').textContent = calCourse.name; $('sheet-meta').textContent = metaFor(calCourse); $('sheet-date-label').innerHTML = '&#128197; ' + labelFor(WEEKENDS[chosen], calCourse.days); $('co-qty').textContent = '1'; $('co-err').classList.remove('show'); updateTotal(); $('sheet-bd').classList.add('open'); $('sheet').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('co-email').focus(), 250); }
+function closeSheet(){ $('sheet-bd').classList.remove('open'); $('sheet').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+function backToCal(){ $('sheet-bd').classList.remove('open'); $('sheet').classList.remove('open'); renderCal(); $('cal-bd').classList.add('open'); $('cal').classList.add('open'); }
+function step(d){ qty = Math.min(10, Math.max(1, qty + d)); $('co-qty').textContent = String(qty); updateTotal(); }
+function updateTotal(){ if (calCourse) $('co-total').textContent = money(calCourse.price_cents * qty); }
+async function startCheckout(){
+  const email = $('co-email').value.trim(), err = $('co-err'); err.classList.remove('show');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { err.textContent = 'Enter a valid email address to receive your booking confirmation.'; err.classList.add('show'); $('co-email').focus(); return; }
+  const btn = $('co-pay'); btn.disabled = true; btn.textContent = 'Preparing secure checkout…';
+  const w = WEEKENDS[chosen]; const onPreview = location.hostname === 'htmlpreview.github.io'; const base = location.origin + location.pathname;
+  const returns = onPreview ? {} : { success_url: base + '?checkout=success&course=' + encodeURIComponent(calCourse.name) + '&date=' + encodeURIComponent(labelFor(w, calCourse.days)), cancel_url: base + '?checkout=cancelled' };
+  try {
+    const res = await fetch(BOOKING_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ sku: calCourse.sku, qty, session_date: w.saturday, session_label: labelFor(w, calCourse.days), customer_email: email, customer_name: $('co-name').value.trim() }, returns)) });
+    const data = await res.json(); if (!res.ok || !data.checkoutUrl) throw new Error(data.error || 'Checkout unavailable'); location.href = data.checkoutUrl;
+  } catch(e) { btn.disabled = false; btn.textContent = 'Continue to Secure Checkout'; err.textContent = 'Could not start checkout (' + e.message + '). Please try again or call (281) 654-8100.'; err.classList.add('show'); }
+}
+function openQuals(){ lastFocus = document.activeElement; $('quals-bd').classList.add('open'); $('quals').classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeQuals(){ $('quals-bd').classList.remove('open'); $('quals').classList.remove('open'); document.body.style.overflow = ''; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheet(); closeCal(); closeQuals(); } });
+(function(){ const p = new URLSearchParams(location.search); const s = p.get('checkout'); if (!s) return; const b = $('banner'); b.textContent = s === 'success' ? "You're booked" + (p.get('course') ? ' — ' + p.get('course') : '') + (p.get('date') ? ' · ' + p.get('date') : '') + '. Check your email for the receipt; gear list and range directions follow.' : 'Checkout cancelled — your card was not charged.'; b.classList.add('show'); setTimeout(() => b.classList.remove('show'), 9000); history.replaceState(null, '', location.pathname); })();
+
+/* Hero film + volume */
+(function(){
+  const box = $('hero-yt'), vol = $('hero-vol'), id = box.dataset.id;
+  const desktop = matchMedia('(min-width: 769px)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!desktop) { box.classList.add('poster'); box.style.backgroundImage = `url(https://i.ytimg.com/vi/${id}/maxresdefault.jpg)`; return; }
+  const f = document.createElement('iframe'); f.src = `https://www.youtube.com/embed/${id}?autoplay=1&mute=1&loop=1&playlist=${id}&controls=0&showinfo=0&modestbranding=1&rel=0&playsinline=1&enablejsapi=1`; f.title = 'MAST Solutions training'; f.allow = 'autoplay; encrypted-media'; f.setAttribute('allowfullscreen', ''); box.appendChild(f);
+  const cmd = (func, args) => { try { f.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args: args || '' }), '*'); } catch (e) {} };
+  let on = false; vol.hidden = false;
+  vol.addEventListener('click', () => { on = !on; if (on) { cmd('unMute'); cmd('setVolume', [100]); } else { cmd('mute'); } vol.setAttribute('aria-pressed', String(on)); vol.setAttribute('aria-label', on ? 'Mute video' : 'Unmute video'); });
+})();
+
+/* Media strip (facades; player loads on tap) */
+const MEDIA = [
+  { mp4: 'images/forge-legend-mast.mp4', title: 'MAST Solutions — Forge & Legend', sub: 'Training excellence through MAST Solutions' },
+  { yt: 'pSGWdaDglZE', title: 'Modern Shooter TV', sub: 'Lance M / Castro / Ray Cash — MAST Solutions' },
+  { yt: 'OfXe_bdH6t4', title: 'Modern Shooter TV', sub: 'Tactical Training Feature' },
+  { yt: 'jwQ5OyKEKwg', title: 'Training Reel', sub: 'The film behind the Training page hero' },
+  { mp4: 'images/careers-gallery.mp4', title: 'Atlas Glinn Team', sub: 'Behind the scenes with the executive protection team' },
+  { mp4: 'https://atlasglinn.com/wp-content/uploads/2025/04/Atlas-Glinn-and-MAST-Solutions.mp4', title: 'Atlas Glinn & MAST Solutions', sub: 'The film behind the atlasglinn.com home page' },
+  { yt: 'mI7Ou5P-WHE', title: 'Disaster Recovery & Asset Protection', sub: 'Immediate deployment when the storm has passed' },
+  { mp4: 'images/about-hero-new.mp4', title: 'About Atlas Glinn', sub: 'The film behind the About page hero' },
+];
+(function(){
+  const host = $('media-strip');
+  host.innerHTML = MEDIA.filter(i => i.yt || i.mp4).map(i => `<div class="video-card"><div class="yt${i.mp4 ? ' mp4' : ''}" role="button" tabindex="0" aria-label="Play ${esc(i.title)}" ${i.yt ? `data-yt="${esc(i.yt)}"` : `data-mp4="${esc(i.mp4)}"`}>${i.yt ? `<img src="https://i.ytimg.com/vi/${esc(i.yt)}/hqdefault.jpg" alt="" loading="lazy" decoding="async">` : `<span class="lbl">MAST Solutions · Film</span>`}<span class="play" aria-hidden="true"></span></div><div class="video-card-info"><h4>${esc(i.title)}</h4><p>${esc(i.sub || '')}</p></div></div>`).join('');
+  const play = el => { if (el.dataset.done) return; el.dataset.done = '1'; let node; if (el.dataset.yt) { node = document.createElement('iframe'); node.src = `https://www.youtube.com/embed/${el.dataset.yt}?autoplay=1&rel=0&modestbranding=1&playsinline=1`; node.title = el.getAttribute('aria-label'); node.allow = 'accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture'; node.setAttribute('allowfullscreen', ''); } else { node = document.createElement('video'); node.src = el.dataset.mp4; node.controls = true; node.autoplay = true; node.playsInline = true; node.preload = 'none'; } el.innerHTML = ''; el.appendChild(node); el.style.cursor = 'default'; };
+  host.addEventListener('click', e => { const el = e.target.closest('.yt'); if (el) play(el); });
+  host.addEventListener('keydown', e => { const el = e.target.closest('.yt'); if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); play(el); } });
+})();
+
+/* Counters (animate on entry) */
+(function(){
+  const io = new IntersectionObserver(en => en.forEach(x => { if (!x.isIntersecting) return; const el = x.target; io.unobserve(el); const target = parseInt(el.dataset.count, 10); const t0 = performance.now(), dur = 1400;
+    const tick = now => { const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3); el.textContent = Math.round(target * e).toLocaleString('en-US'); if (p < 1) requestAnimationFrame(tick); }; requestAnimationFrame(tick); }), { threshold: .4 });
+  document.querySelectorAll('[data-count]').forEach(el => io.observe(el));
+})();
+
+/* Reviews: one at a time */
+const REVIEWS = [
+  ['Matthew is an expert in his field. He is highly motivated, knowledgeable and I highly recommend him for top-tier performance.', 'Kenny Upton — Deputy, Harris County Sheriff'],
+  ['His leadership, dedication, drive, and passion is second to none. A master at teamwork, problem-solving, leadership, and communication.', 'Ray Cash Care — Navy SEAL / Former CIA'],
+  ['As a former Reconnaissance Marine, Matthew’s teaching has not only made me a better shooter, he has made me a better team player.', 'Arthur Metcalfe — Recon Marine'],
+  ['Brockmann had hosted and taught some of the best classes I have been a part of. I can’t recommend him enough.', 'William H. Miller — Flight Paramedic'],
+  ['Extremely professional. In an extremely competitive industry Matt has never failed to provide exceptional guidance. I recommend him without hesitation.', 'Craig Etkin — President & CEO, intelligence360'],
+  ['I’ve trained with some big-name national and global self-defense trainers. I’ve always felt safe training with Matt, the #1 criterion for choosing a trainer.', 'Wayne Sadin — CxO / Investor'],
+];
+(function(){
+  const q = $('quote'), dots = $('dots'); let i = 0;
+  dots.innerHTML = REVIEWS.map((_, k) => `<i${k === 0 ? ' class="on"' : ''}></i>`).join('');
+  const show = k => { q.querySelector('p').textContent = '“' + REVIEWS[k][0] + '”'; q.querySelector('.by').textContent = REVIEWS[k][1]; [...dots.children].forEach((d, j) => d.classList.toggle('on', j === k)); };
+  show(0);
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) setInterval(() => { q.classList.add('fade'); setTimeout(() => { i = (i + 1) % REVIEWS.length; show(i); q.classList.remove('fade'); }, 600); }, 6500);
+})();
+
+/* Screens animate their copy in as they arrive */
+(function(){ const io = new IntersectionObserver(en => en.forEach(x => { if (x.isIntersecting) { x.target.classList.add('in'); io.unobserve(x.target); } }), { threshold: .25 }); document.querySelectorAll('.screen').forEach(s => io.observe(s)); })();
+</script>
+</body>
+</html>
