@@ -18,23 +18,7 @@ ALLOWED_ORIGINS = "https://www.atlasglinn.com,https://atlasglinn.com,https://mas
 SITE_URL = "https://www.atlasglinn.com/mastsolutions.html"
 NOTIFY_FROM = "MAST Solutions <bookings@mastsolutions.com>"
 
-# ── Document distribution (owner-specified 2026-09-01) ──────────────
-# Two explicit lists rather than one list with exclusions — an exclusion rule
-# breaks the first time someone is added in the wrong place.
-#
-# The signed range agreement goes to all four. Everything else omits Alex.
-DOC_RECIPIENTS_AGREEMENT = "alexalbert308@gmail.com,atlasglinn.hq@atlasglinn.com,Matthew@mastsolutions.com,a.glover@atlasglinn.com"
-DOC_RECIPIENTS_INTERNAL  = "atlasglinn.hq@atlasglinn.com,Matthew@mastsolutions.com,a.glover@atlasglinn.com"
-#
-# Address confirmed by owner 2026-09-01: atlasglinn.hq@ (an earlier draft
-# had a stray "w").
-# ⚠️ Eligibility answers are NOT in either list, deliberately. They are
-#    criminal-history data; staff read them in the admin under access control.
-#    See ARCHITECTURE.md §6a.
 
-# The range address is NOT public. It ships only in post-registration email.
-RANGE_ADDRESS = "4159 County Road 161, Wharton, TX 77488"
-RANGE_COORDS  = "29.339959, -96.046542"
 
 # Order storage. Database created 2026-09-03 in the Atlas Glinn Cloudflare
 # account (region ENAM) and schema.sql applied to it.
@@ -49,6 +33,14 @@ database_id = "a510159f-a4f6-44fd-87d1-63db5ce27773"
 #   RESEND_API_KEY          re_...      for booking notification emails
 #   NOTIFY_EMAIL            where booking alerts are sent (comma-separated ok)
 #   ADMIN_KEY               long random string guarding GET /roster
+#
+# Private routing and location — SECRETS, never in this file (the repo is public):
+#   RANGE_ADDRESS           street address of the range; emailed only after booking
+#   RANGE_COORDS            "lat, lon" for the directions email
+#   DOC_RECIPIENTS_AGREEMENT comma-separated; everyone who receives the signed range
+#                           agreement (owner list of four, 2026-09-01)
+#   DOC_RECIPIENTS_INTERNAL  comma-separated; MAST staff who receive everything else
+#                           (same list minus the range host)
 #
 # Optional per-plan fallback when a membership is not in the D1 table:
 #   STRIPE_PRICE_<PLAN_KEY> e.g. STRIPE_PRICE_RANGE_MEMBER = price_1Abc...

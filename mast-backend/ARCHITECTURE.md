@@ -418,8 +418,8 @@ organisational control. Worth confirming it is intended, and worth considering a
 ```toml
 # wrangler.toml — non-secret routing, kept out of code so it can change
 # without a redeploy
-DOC_RECIPIENTS_AGREEMENT = "alexalbert308@gmail.com,atlasglinn.hq@atlasglinn.com,Matthew@mastsolutions.com,a.glover@atlasglinn.com"
-DOC_RECIPIENTS_INTERNAL  = "atlasglinn.hq@atlasglinn.com,Matthew@mastsolutions.com,a.glover@atlasglinn.com"
+DOC_RECIPIENTS_AGREEMENT = "[secret] range host + the three internal addresses"
+DOC_RECIPIENTS_INTERNAL  = "[secret] atlasglinn.hq@, Matthew@mastsolutions.com, a.glover@"
 ```
 
 Two lists, not one with exclusions — an exclusion list is a bug waiting to
