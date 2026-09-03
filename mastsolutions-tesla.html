@@ -54,8 +54,8 @@
         .screen .inner { position: relative; z-index: 2; width: 100%; max-width: 1400px; margin: 0 auto; padding: 6rem 2rem 4.5rem; }
         .screen.center { align-items: center; text-align: center; }
         .screen.center .inner { display: flex; flex-direction: column; align-items: center; }
-        .h-big { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: clamp(2.4rem, 6vw, 5.4rem); line-height: 1; letter-spacing: .01em; margin: .6rem 0 1rem; }
-        .h-line { font-size: clamp(1.05rem, 1.6vw, 1.35rem); color: #d0d0d0; font-weight: 300; max-width: 640px; line-height: 1.6; }
+        .h-big { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: clamp(1.7rem, 3.8vw, 2.6rem); line-height: 1; letter-spacing: .01em; margin: .6rem 0 1rem; }
+        .h-line { font-size: clamp(1rem, 1.4vw, 1.2rem); color: #d0d0d0; font-weight: 300; max-width: 640px; line-height: 1.6; }
         .ctas { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 2rem; }
         .screen.center .ctas { justify-content: center; }
         .in .inner > * { animation: rise .8s ease both; }
@@ -66,7 +66,7 @@
         .hero-yt iframe { position: absolute; top: 50%; left: 50%; width: 180%; height: 180%; transform: translate(-50%,-50%); border: none; pointer-events: none; }
         .hero-yt.poster { background: center/cover no-repeat; }
         .hero .veil { background: radial-gradient(ellipse at center, rgba(8,12,20,.3) 0%, rgba(8,12,20,.75) 65%, #080C14 100%); }
-        .hero .h-big { font-size: clamp(2.8rem, 9.5vw, 8rem); }
+        .hero .h-big { font-size: clamp(2rem, 5.4vw, 4.1rem); }
         .vol { position: absolute; right: 28px; bottom: 28px; z-index: 4; width: 56px; height: 56px; border-radius: 50%; background: rgba(8,12,20,.85); border: 2px solid #C9A84C; color: #fff; display: grid; place-items: center; cursor: pointer; box-shadow: 0 8px 30px rgba(0,0,0,.5); }
         .vol[hidden] { display: none; }
         .vol[aria-pressed="true"] { color: #C9A84C; }
@@ -74,7 +74,7 @@
 
         /* PROOF (counters) */
         .counters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2rem; margin-top: 3rem; width: 100%; max-width: 1100px; }
-        .counter b { display: block; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: clamp(2rem, 4vw, 3.4rem); background: linear-gradient(135deg, #BF953F, #FCF6BA, #B38728, #FBF5B7, #AA771C); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-size: 200% 200%; animation: goldShimmer 4s ease infinite; }
+        .counter b { display: block; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: clamp(1.8rem, 3vw, 2.6rem); background: linear-gradient(135deg, #BF953F, #FCF6BA, #B38728, #FBF5B7, #AA771C); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-size: 200% 200%; animation: goldShimmer 4s ease infinite; }
         .counter > span { color: #b0b0b0; font-size: .95rem; }
 
         /* WHO WE TRAIN: three full-height panels */
@@ -84,7 +84,7 @@
         .panel:hover .bg { transform: scale(1.12); }
         .panel::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8,12,20,.1) 0%, rgba(8,12,20,.45) 50%, #080C14 100%); }
         .panel .txt { position: relative; z-index: 2; padding: 2.5rem 2rem 3rem; width: 100%; }
-        .panel h3 { font-family: 'Orbitron', sans-serif; font-size: clamp(1.9rem, 3.2vw, 3rem); font-weight: 900; line-height: 1.02; }
+        .panel h3 { font-family: 'Orbitron', sans-serif; font-size: clamp(1.4rem, 2.4vw, 2.2rem); font-weight: 900; line-height: 1.02; }
         .panel p { color: #d0d0d0; font-size: 1.05rem; margin-top: .7rem; max-width: 420px; line-height: 1.6; }
         .panel .eyebrow { margin-bottom: .6rem; }
 
@@ -93,7 +93,7 @@
         .disc-screen .title { position: absolute; top: 6rem; left: 2rem; z-index: 3; pointer-events: none; }
         .strip { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 3px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: #1A6BDE #0f1622; }
         .strip .panel { flex: 0 0 min(80vw, 460px); min-height: 100vh; scroll-snap-align: start; }
-        .strip .panel h3 { font-size: 1.8rem; }
+        .strip .panel h3 { font-size: 1.5rem; }
         .strip .panel p { font-size: .95rem; }
         .disc-icon { height: 48px; display: grid; place-items: start; margin-bottom: .9rem; }
         .disc-icon svg { width: 42px; height: 42px; fill: none; stroke: #1A6BDE; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; transition: transform .4s; }
@@ -152,7 +152,7 @@
 
         /* REVIEWS: one voice at a time */
         .quote { max-width: 900px; min-height: 9rem; }
-        .quote p { font-family: 'Orbitron', sans-serif; font-weight: 400; font-size: clamp(1.15rem, 2.2vw, 1.8rem); line-height: 1.5; transition: opacity .6s; }
+        .quote p { font-family: 'Orbitron', sans-serif; font-weight: 400; font-size: clamp(1.05rem, 1.6vw, 1.3rem); line-height: 1.5; transition: opacity .6s; }
         .quote .by { margin-top: 1.4rem; font-size: .9rem; color: #C9A84C; letter-spacing: .06em; font-weight: 700; transition: opacity .6s; }
         .quote.fade p, .quote.fade .by { opacity: 0; }
         .dots { display: flex; gap: 8px; justify-content: center; margin-top: 1.5rem; }
@@ -251,7 +251,7 @@
             .screen.center .ctas { align-items: center; }
             .course-row { grid-template-columns: 1fr; gap: .8rem; padding: 1rem 1.1rem; }
             .cr-side { justify-content: space-between; }
-            .modal { top: auto; bottom: 0; left: 0; transform: translateY(14px); width: 100%; max-height: 92vh; border-radius: 12px 12px 0 0; padding: 1.4rem 1.2rem calc(1.4rem + env(safe-area-inset-bottom)); }
+            .modal, .modal.wide { top: auto; bottom: 0; left: 0; transform: translateY(14px); width: 100%; max-height: 92vh; border-radius: 12px 12px 0 0; padding: 1.4rem 1.2rem calc(1.4rem + env(safe-area-inset-bottom)); }
             .modal.open { transform: translateY(0); }
             .cal-foot { bottom: calc(-1.4rem - env(safe-area-inset-bottom)); margin: 1.2rem -1.2rem calc(-1.4rem - env(safe-area-inset-bottom)); padding: .9rem 1.2rem calc(1rem + env(safe-area-inset-bottom)); }
             .cal-foot .cta-button { width: 100%; text-align: center; }
@@ -340,7 +340,7 @@
 
 <!-- 4 · SEVEN CORE DISCIPLINES -->
 <div class="disc-screen" id="disciplines">
-    <div class="title"><div class="eyebrow">The Curriculum</div><h2 class="h-big" style="font-size:clamp(1.8rem,4vw,3.2rem)">Seven Core <span class="gold-shimmer">Disciplines.</span></h2></div>
+    <div class="title"><div class="eyebrow">The Curriculum</div><h2 class="h-big" style="font-size:clamp(1.5rem,3vw,2.2rem)">Seven Core <span class="gold-shimmer">Disciplines.</span></h2></div>
     <div class="strip">
         <div class="panel"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/jwQ5OyKEKwg/hqdefault.jpg');background-position:center top"></div>
             <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="14"/><circle cx="24" cy="24" r="2.5" fill="#C9A84C" stroke="none"/><path d="M24 4v8M24 36v8M4 24h8M36 24h8"/></svg></div><h3>Firearms.</h3><p>Marksmanship and weapon handling.</p></div></div>

@@ -104,7 +104,7 @@
         .hero-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2;
             background: radial-gradient(ellipse at center, rgba(8,12,20,0.35) 0%, rgba(8,12,20,0.8) 70%, #080C14 100%); }
         .hero-content { position: relative; z-index: 3; text-align: center; max-width: 1100px; padding: 0 2rem; }
-        .hero-headline { font-family: 'Orbitron', sans-serif; font-size: clamp(2.6rem, 9vw, 7.4rem); font-weight: 900; margin: 1.2rem 0 1rem; letter-spacing: 0.02em; line-height: 1; }
+        .hero-headline { font-family: 'Orbitron', sans-serif; font-size: clamp(1.8rem, 5vw, 3.2rem); font-weight: 900; margin: 1.2rem 0 1rem; letter-spacing: 0.02em; line-height: 1; }
         .hero-subheading { font-size: 1.3rem; margin-bottom: 2rem; color: #b0b0b0; font-weight: 300; }
         .hero-ctas { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
         .hero-ctas .cta-button { padding: 1rem 2rem; font-size: 1rem; }
@@ -148,13 +148,13 @@
         .bleed:hover .bg { transform: scale(1.12); }
         .bleed::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8,12,20,.1) 0%, rgba(8,12,20,.45) 50%, #080C14 100%); }
         .bleed .txt { position: relative; z-index: 2; padding: 2.5rem 2rem 2.8rem; width: 100%; }
-        .bleed h3 { font-family: 'Orbitron', sans-serif; font-size: clamp(1.9rem, 3.4vw, 3rem); font-weight: 900; line-height: 1.02; letter-spacing: .01em; }
+        .bleed h3 { font-family: 'Orbitron', sans-serif; font-size: clamp(1.3rem, 2.4vw, 2rem); font-weight: 900; line-height: 1.02; letter-spacing: .01em; }
         .bleed p { color: #d0d0d0; font-size: 1.05rem; margin-top: .7rem; max-width: 420px; line-height: 1.6; }
         .bleed .eyebrow { margin-bottom: .6rem; }
         .who-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; background: #080C14; }
         .strip { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 3px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: #1A6BDE #0f1622; }
         .strip .bleed { flex: 0 0 min(78vw, 420px); min-height: 60vh; scroll-snap-align: start; }
-        .strip .bleed h3 { font-size: 1.7rem; }
+        .strip .bleed h3 { font-size: 1.3rem; }
         .strip .bleed p { font-size: .95rem; }
         .strip .disc-icon { margin-bottom: .9rem; justify-content: start; place-items: start; }
         .strip .disc-icon svg { width: 40px; height: 40px; }
@@ -261,7 +261,7 @@
         .founder-img img { width: 100%; height: 100%; object-fit: cover; object-position: 86% 0%; display: block; transition: transform .6s; }
         .founder-img:hover img { transform: scale(1.03); }
         .founder-img::after { content: ''; position: absolute; inset: 12px; border: 1px solid rgba(201,168,76,.35); pointer-events: none; border-radius: 2px; }
-        .ep-text h2 { font-family: 'Orbitron', sans-serif; font-size: 2.4rem; margin: .6rem 0 1rem; line-height: 1.15; }
+        .ep-text h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; margin: .6rem 0 1rem; line-height: 1.15; }
         .ep-text .role { font-family: 'Inconsolata', monospace; font-size: .78rem; letter-spacing: .18em; text-transform: uppercase; color: #C9A84C; margin-bottom: 1.4rem; }
         .ep-text p { font-size: 1.05rem; color: #d0d0d0; margin-bottom: 1.5rem; line-height: 1.8; }
         .creds { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem 1.6rem; list-style: none; }
@@ -332,7 +332,7 @@
         .video-card-info p { font-size: 0.85rem; color: #b0b0b0; }
         .press-card { display: block; max-width: 800px; margin: 0 auto; background: rgba(26,107,222,0.05); border: 1px solid rgba(26,107,222,0.2); border-radius: 4px; padding: 2.5rem; text-decoration: none; transition: all .3s; }
         .press-card:hover { border-color: #C9A84C; transform: translateY(-2px); }
-        .press-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1.8rem; color: #fff; margin: .6rem 0 .3rem; }
+        .press-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1.2rem; color: #fff; margin: .6rem 0 .3rem; }
         .press-card h4 { font-size: 1.1rem; color: #1A6BDE; margin-bottom: 1rem; }
         .press-card p { color: #b0b0b0; font-size: 0.95rem; line-height: 1.7; }
         .press-card .more { display: inline-block; margin-top: 1rem; font-family: 'Orbitron', sans-serif; font-size: 0.8rem; letter-spacing: .1em; text-transform: uppercase; color: #C9A84C; }
@@ -370,7 +370,7 @@
 
         /* CTA SECTION */
         .cta-section { background: linear-gradient(135deg, rgba(26, 107, 222, 0.1) 0%, rgba(26, 107, 222, 0.05) 100%); border: 1px solid rgba(26, 107, 222, 0.3); padding: 4rem 2rem; border-radius: 4px; text-align: center; }
-        .cta-section h2 { font-family: 'Orbitron', sans-serif; font-size: clamp(2rem, 5vw, 3.2rem); margin-bottom: 1rem; font-weight: 900; }
+        .cta-section h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; margin-bottom: 1rem; font-weight: 900; }
         .cta-section p { font-size: 1.1rem; color: #b0b0b0; margin-bottom: 2rem; }
         .cta-info { margin-top: 2rem; display: flex; flex-wrap: wrap; gap: .5rem 2rem; justify-content: center; font-family: 'Inconsolata', monospace; font-size: .78rem; letter-spacing: .08em; color: #888; }
         .cta-info a { color: #1A6BDE; text-decoration: none; }
@@ -420,10 +420,12 @@
             .nav-links { display: none; }
             .mobile-menu-btn { display: block; }
             .hero { height: 78vh; min-height: 520px; }
+            .hero-headline { font-size: 2rem; }
             .hero-subheading { font-size: 1.05rem; }
             .credential-grid { grid-template-columns: repeat(2, 1fr); }
             .section { padding: 3rem 1rem; }
             .section-divider h2 { font-size: 1.5rem; }
+            .ep-text h2 { font-size: 2rem; }
             .media-grid { grid-template-columns: 1fr; }
             .testimonials-row { grid-template-columns: 1fr; }
             .hero-ctas { flex-direction: column; align-items: center; }
@@ -443,6 +445,7 @@
             nav { padding: 0.75rem 1rem; }
             .nav-logo img { height: 32px; }
             .nav-logo-text { font-size: 1rem; }
+            .hero-headline { font-size: 1.8rem; }
             .credential-item h3 { font-size: 1.8rem; }
             .section-divider h2 { font-size: 1.3rem; }
         }
