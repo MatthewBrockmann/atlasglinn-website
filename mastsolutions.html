@@ -163,9 +163,9 @@
         .disciplines-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1.5rem; }
         .discipline-card { background: rgba(26, 107, 222, 0.05); border: 1px solid rgba(201, 168, 76, 0.3); padding: 2rem 1rem; border-radius: 4px; text-align: center; transition: all 0.4s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 15px rgba(201,168,76,0.08); }
         .discipline-card:hover { background: rgba(26, 107, 222, 0.1); border-color: rgba(201, 168, 76, 0.6); transform: translateY(-5px); box-shadow: 0 15px 50px rgba(0,0,0,0.5), 0 0 40px rgba(201,168,76,0.2); }
-        .discipline-card .disc-icon { height: 48px; display: grid; place-items: center; }
-        .discipline-card .disc-icon svg { width: 44px; height: 44px; fill: none; stroke: #1A6BDE; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; transition: transform .4s; }
-        .discipline-card:hover .disc-icon svg { transform: scale(1.08); }
+        .disc-icon { height: 48px; display: grid; place-items: center; }
+        .disc-icon svg { width: 44px; height: 44px; fill: none; stroke: #1A6BDE; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; transition: transform .4s; }
+        .discipline-card:hover .disc-icon svg, .bleed:hover .disc-icon svg { transform: scale(1.08); }
         .discipline-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1rem; color: #1A6BDE; margin-top: 1rem; }
         .discipline-card p { font-size: 0.85rem; color: #b0b0b0; margin-top: .5rem; }
 
