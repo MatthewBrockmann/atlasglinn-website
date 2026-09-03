@@ -1,0 +1,31 @@
+/**
+
+This is the custom.css file
+
+Add your own custom CSS here and avoid modifying the core theme files, 
+since that'll make upgrading the theme problematic. 
+
+Your custom CSS will be loaded after the theme's stylesheets, 
+which means that your rules will take precedence.
+
+*/
+
+.skin2 .row1 {
+    min-height: 85px;
+    position: relative;
+    text-align: left;
+    width: 100%;
+}
+.special-font, .special-font a.btn-alternative {
+    color: #3a3a39;
+    font-family: Arial,sans-serif;
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 400;
+    text-align: left;
+    text-transform: none;
+}
+.contact-info ul li div.info-container {
+    color: #ffffff;
+    margin-bottom: 6px;
+}

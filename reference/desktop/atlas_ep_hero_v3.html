@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atlas EP Hero Film — v3 Animatic</title>
+<style>
+  :root {
+    --bg: #080C14;
+    --fg: #F2F4F8;
+    --muted: #9AA4B2;
+    --blue: #1A6BDE;
+    --blue-hi: #4A8DEE;
+    --gold: #C9A24A;
+    --hairline: rgba(255,255,255,.10);
+    --t: 90s; /* total duration */
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #000; color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased; }
+  body { display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+
+  /* HUD info bar */
+  .hud {
+    width: 100%;
+    background: #000;
+    border-bottom: 1px solid var(--hairline);
+    padding: 10px 18px;
+    display: flex; gap: 14px; align-items: center; justify-content: space-between;
+    font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+  }
+  .hud .left { display: flex; gap: 14px; align-items: center; }
+  .hud b { color: var(--fg); letter-spacing: .14em; }
+  .hud .pill { background: var(--blue); color: #fff; padding: 4px 10px; border-radius: 999px; font-weight: 700; }
+  .hud button {
+    background: transparent; color: var(--fg); border: 1px solid var(--hairline);
+    padding: 6px 14px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    border-radius: 999px; cursor: pointer; transition: all .2s;
+  }
+  .hud button:hover { background: var(--blue); border-color: var(--blue); }
+
+  /* Stage — 16:9 cinema with safe-area overlays */
+  .stage-wrap {
+    width: 100%;
+    max-width: 1280px;
+    aspect-ratio: 16 / 9;
+    position: relative;
+    margin: 16px;
+    background: var(--bg);
+    overflow: hidden;
+    border-radius: 4px;
+    box-shadow: 0 30px 80px rgba(0,0,0,.7);
+  }
+  .stage { position: absolute; inset: 0; }
+
+  /* Each scene fills the stage; controlled by animation timing */
+  .scene {
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    text-align: center;
+    padding: 6%;
+    opacity: 0;
+    animation-duration: var(--t);
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    animation-fill-mode: both;
+  }
+  .scene-inner { max-width: 80%; }
+
+  /* Scene metadata visible during preview */
+  .meta-tag {
+    position: absolute; top: 16px; left: 16px;
+    font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+    background: rgba(0,0,0,.5); padding: 6px 10px; border-radius: 4px;
+    border: 1px solid var(--hairline);
+  }
+  .broll-note {
+    position: absolute; top: 16px; right: 16px;
+    font-size: 10px; letter-spacing: .15em; text-transform: uppercase;
+    color: var(--gold); font-weight: 600;
+    background: rgba(201,162,74,.10); padding: 6px 10px; border-radius: 4px;
+    border: 1px solid rgba(201,162,74,.40); max-width: 380px; text-align: right;
+  }
+
+  /* Typography */
+  .eyebrow { color: var(--blue); font-size: 14px; letter-spacing: .32em; text-transform: uppercase; font-weight: 700; margin: 0 0 18px; }
+  h1.scene-h { font-size: clamp(34px, 4.6vw, 64px); line-height: 1.05; font-weight: 700; letter-spacing: -.02em; margin: 0 0 16px; }
+  .accent { color: var(--blue); }
+  .gold-accent { color: var(--gold); }
+  .scene-sub { font-size: clamp(15px, 1.4vw, 20px); color: var(--muted); line-height: 1.5; max-width: 740px; margin: 0 auto; }
+  .scene-feature { font-size: 11px; letter-spacing: .25em; text-transform: uppercase; color: var(--blue); font-weight: 700; margin-bottom: 14px; }
+
+  /* Background glow utilities per scene */
+  .glow-blue::before {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(50% 60% at 50% 50%, rgba(26,107,222,.30), rgba(26,107,222,.06) 45%, transparent 70%);
+    z-index: 0; pointer-events: none;
+  }
+  .scene > * { position: relative; z-index: 1; }
+
+  /* Letterbox cinema bars (subtle) */
+  .stage-wrap::before, .stage-wrap::after {
+    content: ""; position: absolute; left: 0; right: 0; height: 6%;
+    background: #000; z-index: 5; pointer-events: none;
+  }
+  .stage-wrap::before { top: 0; }
+  .stage-wrap::after { bottom: 0; }
+
+  /* Safe-area markers (toggle) */
+  .safe-areas { position: absolute; inset: 0; pointer-events: none; z-index: 6; display: none; }
+  .safe-areas.on { display: block; }
+  .safe-916, .safe-11 {
+    position: absolute; top: 0; bottom: 0;
+    border-left: 1px dashed rgba(255,255,255,.25);
+    border-right: 1px dashed rgba(255,255,255,.25);
+  }
+  .safe-916 { /* 9:16 vertical inside 16:9 = 31.64% width centered */
+    left: 34.18%; right: 34.18%;
+  }
+  .safe-916::after {
+    content: "9:16 SAFE"; position: absolute; top: 12px; left: 8px;
+    font-size: 9px; letter-spacing: .2em; color: rgba(255,255,255,.5);
+  }
+  .safe-11 { /* 1:1 inside 16:9 = 56.25% width centered */
+    left: 21.875%; right: 21.875%;
+    border-color: rgba(26,107,222,.4);
+  }
+  .safe-11::after {
+    content: "1:1 SAFE"; position: absolute; top: 30px; left: 8px;
+    font-size: 9px; letter-spacing: .2em; color: rgba(26,107,222,.6);
+  }
+
+  /* Film grain */
+  .grain {
+    position: absolute; inset: 0; pointer-events: none; z-index: 4;
+    opacity: .05; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='.6'/></svg>");
+  }
+
+  /* Timeline */
+  .timeline-wrap { width: 100%; max-width: 1280px; margin: 0 16px 24px; }
+  .timeline {
+    position: relative; height: 8px; background: rgba(255,255,255,.08);
+    border-radius: 4px; overflow: hidden;
+  }
+  .timeline-fill {
+    position: absolute; top: 0; left: 0; bottom: 0; width: 0;
+    background: var(--blue);
+    animation: fill var(--t) linear infinite;
+  }
+  @keyframes fill { from { width: 0; } to { width: 100%; } }
+
+  .scene-strip {
+    display: grid; gap: 2px; margin-top: 8px;
+    grid-template-columns: 4fr 5fr 5fr 5fr 5fr 6fr 6fr 6fr 6fr 6fr 6fr 6fr 6fr 10fr 8fr;
+    font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+  }
+  .scene-strip > span {
+    padding: 6px 4px; background: rgba(255,255,255,.04);
+    border-top: 2px solid transparent; text-align: center;
+    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  }
+  .scene-strip > span:nth-child(odd) { border-top-color: var(--blue); }
+
+  /* ===========================
+     SCENE TIMING (90s total)
+     1: 0–4    fade in/out
+     2: 4–9
+     3: 9–14
+     4: 14–19
+     5: 19–24
+     6: 24–30
+     7: 30–36
+     8: 36–42
+     9: 42–48
+     10: 48–54
+     11: 54–60
+     12: 60–66
+     13: 66–72
+     14: 72–82
+     15: 82–90
+     =========================== */
+  /* Generic per-scene keyframes — opacity windows */
+  @keyframes s1  { 0%,0%      { opacity: 0; } 0.5%,4%   { opacity: 1; } 4.5%        { opacity: 0; } 100% { opacity: 0; } }
+  @keyframes s2  { 0%,4%      { opacity: 0; } 4.5%,9%   { opacity: 1; } 9.5%        { opacity: 0; } 100% { opacity: 0; } }
+  @keyframes s3  { 0%,9%      { opacity: 0; } 9.5%,14%  { opacity: 1; } 14.5%       { opacity: 0; } 100% { opacity: 0; } }
+  @keyframes s4  { 0%,14%     { opacity: 0; } 14.5%,19% { opacity: 1; } 19.5%       { opacity: 0; } 100% { opacity: 0; } }
+  @keyframes s5  { 0%,19%     { opacity: 0; } 19.5%,24% { opacity: 1; } 24.5%       { opacity: 0; } 100% { opacity: 0; } }
+  @keyframes s6  { 0%,24%     { opacity: 0; } 24.5%,30% { opacity: 1; } 30.5%       { opacity: 0; } 100% { opacity: 0; } }
+  @keyframes s7  { 0%,30%     { opacity: 0; } 30.5%,36% { opacity: 1; } 36.5%       { opacity: 0; } 100% { opacity: 0; } }
+  @keyframes s8  { 0%,36%     { opacity: 0; } 36.5%,42% { opacity: 1; } 42.5%       { opacity: 0; } 100% { opacity: 0; } }
+  @keyframes s9  { 0%,42%     { opacity: 0; } 42.5%,48% { opacity: 1; } 48.5%       { opacity: 0; } 100% { opacity: 0; } }
+  @keyframes s10 { 0%,48%     { opacity: 0; } 48.5%,54% { opacity: 1; } 54.5%       { opacity: 0; } 100% { opacity: 0; } }
+  @keyframes s11 { 0%,54%     { opacity: 0; } 54.5%,60% { opacity: 1; } 60.5%       { opacity: 0; } 100% { opacity: 0; } }
+  @keyframes s12 { 0%,60%     { opacity: 0; } 60.5%,66% { opacity: 1; } 66.5%       { opacity: 0; } 100% { opacity: 0; } }
+  @keyframes s13 { 0%,66%     { opacity: 0; } 66.5%,72% { opacity: 1; } 72.5%       { opacity: 0; } 100% { opacity: 0; } }
+  @keyframes s14 { 0%,72%     { opacity: 0; } 72.5%,82% { opacity: 1; } 82.5%       { opacity: 0; } 100% { opacity: 0; } }
+  @keyframes s15 { 0%,82%     { opacity: 0; } 82.5%,99.5% { opacity: 1; } 100%      { opacity: 0; } }
+
+  .sc1  { animation-name: s1;  }
+  .sc2  { animation-name: s2;  }
+  .sc3  { animation-name: s3;  }
+  .sc4  { animation-name: s4;  }
+  .sc5  { animation-name: s5;  }
+  .sc6  { animation-name: s6;  }
+  .sc7  { animation-name: s7;  }
+  .sc8  { animation-name: s8;  }
+  .sc9  { animation-name: s9;  }
+  .sc10 { animation-name: s10; }
+  .sc11 { animation-name: s11; }
+  .sc12 { animation-name: s12; }
+  .sc13 { animation-name: s13; }
+  .sc14 { animation-name: s14; }
+  .sc15 { animation-name: s15; }
+
+  /* Wordmark */
+  .wordmark {
+    font-weight: 700; font-size: clamp(40px, 6vw, 80px);
+    letter-spacing: .14em; text-transform: uppercase;
+  }
+  .wordmark span { color: var(--blue); }
+  .wordmark-sub { font-size: 12px; letter-spacing: .4em; text-transform: uppercase; color: var(--muted); margin-top: 14px; }
+
+  /* Pricing tier ladder */
+  .tier-ladder { display: grid; gap: 10px; max-width: 720px; width: 100%; margin: 22px auto 0; text-align: left; }
+  .tier { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: baseline;
+    padding: 10px 0; border-bottom: 1px solid var(--hairline); font-size: 14px; }
+  .tier-name { letter-spacing: .12em; text-transform: uppercase; }
+  .tier-pop { color: var(--blue); font-weight: 700; }
+  .tier-price { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* Verify-flag */
+  .verify {
+    color: var(--gold); font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+    border: 1px solid rgba(201,162,74,.5); padding: 2px 6px; border-radius: 3px; margin-left: 8px;
+  }
+
+  /* CTA card */
+  .cta-card { display: inline-flex; align-items: center; gap: 14px; padding: 14px 28px;
+    border: 1px solid var(--blue); border-radius: 999px; }
+  .cta-card .num { color: var(--blue); font-weight: 700; letter-spacing: .1em; }
+
+  /* DETAILS MATTER super */
+  .details-matter {
+    font-size: clamp(48px, 7vw, 96px); font-weight: 800; letter-spacing: -.02em;
+    line-height: 1; margin-bottom: 14px;
+  }
+  .details-matter .matter { color: var(--blue); }
+
+  /* Pause control via JS toggling animation-play-state on .stage and .timeline-fill */
+  .paused .scene, .paused .timeline-fill { animation-play-state: paused !important; }
+</style>
+</head>
+<body>
+
+<div class="hud">
+  <div class="left">
+    <span class="pill">v3 ANIMATIC</span>
+    <span><b>Atlas EP Hero Film</b> · 90 sec · 15 scenes</span>
+  </div>
+  <div class="left">
+    <button id="btnPlay">Pause</button>
+    <button id="btnRestart">Restart</button>
+    <button id="btnSafe">Toggle Safe-Area</button>
+    <span>16:9 master · 9:16 + 1:1 cuts</span>
+  </div>
+</div>
+
+<div class="stage-wrap" id="stageWrap">
+  <div class="grain"></div>
+  <div class="safe-areas" id="safeAreas">
+    <div class="safe-916"></div>
+    <div class="safe-11"></div>
+  </div>
+
+  <div class="stage" id="stage">
+
+    <!-- SCENE 1 (0:00–0:04) Opening wordmark -->
+    <div class="scene sc1 glow-blue">
+      <div class="meta-tag">SCENE 1 / 15 · 0:00–0:04</div>
+      <div class="broll-note">[B-ROLL: black hold → wordmark fade in, heartbeat thump]</div>
+      <div class="scene-inner">
+        <div class="wordmark">ATLAS<span>GLINN</span></div>
+        <div class="wordmark-sub">EXECUTIVE PROTECTION · HOUSTON · GLOBAL</div>
+      </div>
+    </div>
+
+    <!-- ACT I — WHO IT'S FOR -->
+    <!-- SCENE 2 (0:04–0:09) College student -->
+    <div class="scene sc2 glow-blue">
+      <div class="meta-tag">SCENE 2 / 15 · 0:04–0:09 · ACT I — WHO</div>
+      <div class="broll-note">[B-ROLL: college girl walking from library to car at night, headphones in, parking lot half-lit]</div>
+      <div class="scene-inner">
+        <h1 class="scene-h">For the college student<br>walking <span class="accent">alone.</span></h1>
+      </div>
+    </div>
+
+    <!-- SCENE 3 (0:09–0:14) Woman parking garage -->
+    <div class="scene sc3 glow-blue">
+      <div class="meta-tag">SCENE 3 / 15 · 0:09–0:14</div>
+      <div class="broll-note">[B-ROLL: younger woman, parking garage, thumb on phone, covert SOS pulse on screen, audio/video stream begins]</div>
+      <div class="scene-inner">
+        <h1 class="scene-h">For the woman who shouldn't have to<br>look <span class="accent">over her shoulder.</span></h1>
+      </div>
+    </div>
+
+    <!-- SCENE 4 (0:14–0:19) Older woman fall detect -->
+    <div class="scene sc4 glow-blue">
+      <div class="meta-tag">SCENE 4 / 15 · 0:14–0:19</div>
+      <div class="broll-note">[B-ROLL: older woman alone in living room, slips → Apple Watch fall pulse → her son's phone lights up across town with location]</div>
+      <div class="scene-inner">
+        <h1 class="scene-h">For the parent<br>who lives <span class="accent">alone.</span></h1>
+      </div>
+    </div>
+
+    <!-- SCENE 5 (0:19–0:24) Family BFT -->
+    <div class="scene sc5 glow-blue">
+      <div class="meta-tag">SCENE 5 / 15 · 0:19–0:24</div>
+      <div class="broll-note">[B-ROLL: dad at desk, glances at phone — BFT map shows kids' dots safe at school, wife's car en route]</div>
+      <div class="scene-inner">
+        <h1 class="scene-h">For the family<br>that watches out for <span class="accent">each other.</span></h1>
+      </div>
+    </div>
+
+    <!-- SCENE 6 (0:24–0:30) Operator -->
+    <div class="scene sc6 glow-blue">
+      <div class="meta-tag">SCENE 6 / 15 · 0:24–0:30</div>
+      <div class="broll-note">[B-ROLL: operator hand on phone, app launch, exec sedan in background, earpiece visible]</div>
+      <div class="scene-inner">
+        <h1 class="scene-h">And for the professionals<br>who <span class="accent">cannot fail.</span></h1>
+      </div>
+    </div>
+
+    <!-- ACT II — WHAT IT DOES -->
+    <!-- SCENE 7 (0:30–0:36) Biometric auto-fire -->
+    <div class="scene sc7 glow-blue">
+      <div class="meta-tag">SCENE 7 / 15 · 0:30–0:36 · ACT II — WHAT</div>
+      <div class="broll-note">[B-ROLL: HR graph spikes red → app fires chain: 911 + family + livestream + GIO]</div>
+      <div class="scene-inner">
+        <div class="scene-feature">DURESS DETECTION</div>
+        <h1 class="scene-h">Your body knows first.<br><span class="accent">Atlas EP acts first.</span></h1>
+        <p class="scene-sub">Dead man's switch + heart rate monitoring. If you go down, your team knows immediately.</p>
+      </div>
+    </div>
+
+    <!-- SCENE 8 (0:36–0:42) Cyber + Counter-Surveillance + LENS b449 -->
+    <div class="scene sc8 glow-blue">
+      <div class="meta-tag">SCENE 8 / 15 · 0:36–0:42 · b449 NEW</div>
+      <div class="broll-note">[B-ROLL: phone scanning hotel room — evil twin WiFi flagged red, lens-reflection scanner highlights hidden camera glint]</div>
+      <div class="scene-inner">
+        <div class="scene-feature">COUNTER-SURVEILLANCE SWEEP + CYBER DEFENSE</div>
+        <h1 class="scene-h">Find what shouldn't <span class="accent">be there.</span></h1>
+        <p class="scene-sub">BLE + IR camera detection · NEW lens-reflection scanner · evil-twin WiFi · MITM protection. Home. Office. Airport. Anywhere.</p>
+      </div>
+    </div>
+
+    <!-- SCENE 9 (0:42–0:48) GIO -->
+    <div class="scene sc9 glow-blue">
+      <div class="meta-tag">SCENE 9 / 15 · 0:42–0:48</div>
+      <div class="broll-note">[B-ROLL: one-tap "GIO" button → live human officer message thread on phone]</div>
+      <div class="scene-inner">
+        <div class="scene-feature">GLOBAL INTELLIGENCE OFFICER <span class="verify">VERIFY copy</span></div>
+        <h1 class="scene-h">One tap.<br>A real intelligence officer <span class="accent">answers.</span></h1>
+      </div>
+    </div>
+
+    <!-- SCENE 10 (0:48–0:54) Crime data -->
+    <div class="scene sc10 glow-blue">
+      <div class="meta-tag">SCENE 10 / 15 · 0:48–0:54</div>
+      <div class="broll-note">[B-ROLL: map overlay with crime pins, sex-offender markers, airspace zones — Google Earth layered]</div>
+      <div class="scene-inner">
+        <div class="scene-feature">CRIME DATA INTELLIGENCE</div>
+        <h1 class="scene-h">See the threat<br><span class="accent">before it sees you.</span></h1>
+        <p class="scene-sub">Live crime feeds. Sex offender mapping. Aviation/airspace monitoring — all layered for advance work.</p>
+      </div>
+    </div>
+
+    <!-- SCENE 11 (0:54–1:00) PI capabilities -->
+    <div class="scene sc11 glow-blue">
+      <div class="meta-tag">SCENE 11 / 15 · 0:54–1:00</div>
+      <div class="broll-note">[B-ROLL: "Where is she now?" — family member's BFT dot on map, calm parent's POV]</div>
+      <div class="scene-inner">
+        <div class="scene-feature">PI CAPABILITIES <span class="verify">VERIFY scope</span></div>
+        <h1 class="scene-h">Find anyone you're<br><span class="accent">allowed to find.</span></h1>
+      </div>
+    </div>
+
+    <!-- SCENE 12 (1:00–1:06) BFT + PTT -->
+    <div class="scene sc12 glow-blue">
+      <div class="meta-tag">SCENE 12 / 15 · 1:00–1:06</div>
+      <div class="broll-note">[B-ROLL: tactical map, BFT dots, encrypted PTT waveform, AES-256-GCM badge]</div>
+      <div class="scene-inner">
+        <div class="scene-feature">BLUE FORCE TRACKING + ENCRYPTED PTT</div>
+        <h1 class="scene-h">Every operator. Live.<br><span class="accent">End-to-end encrypted.</span></h1>
+        <p class="scene-sub">Anti-spoofing GPS. Military-grade AES-256-GCM voice. No third-party servers, no interception risk.</p>
+      </div>
+    </div>
+
+    <!-- SCENE 13 (1:06–1:12) Wrist SOS + AI Threat -->
+    <div class="scene sc13 glow-blue">
+      <div class="meta-tag">SCENE 13 / 15 · 1:06–1:12</div>
+      <div class="broll-note">[B-ROLL: Apple Watch wrist SOS pulse → 3 phones light up (team / family / 911) with AI threat scoring overlay]</div>
+      <div class="scene-inner">
+        <div class="scene-feature">AI THREAT ANALYSIS + COVERT EMERGENCY STREAM</div>
+        <h1 class="scene-h">Wrist down.<br>Help <span class="accent">up.</span></h1>
+        <p class="scene-sub">Silent SOS with live audio/video stream. Anthropic Claude AI scores the threat in real time.</p>
+      </div>
+    </div>
+
+    <!-- ACT III — WHERE TO GET IT -->
+    <!-- SCENE 14 (1:12–1:22) Tier ladder -->
+    <div class="scene sc14 glow-blue">
+      <div class="meta-tag">SCENE 14 / 15 · 1:12–1:22 · ACT III — WHERE</div>
+      <div class="broll-note">[ON-SCREEN: clean tier ladder, Atlas blue accent on "Operator — Popular"]</div>
+      <div class="scene-inner">
+        <div class="eyebrow">From $9.99/mo</div>
+        <h1 class="scene-h">For everyone<br><span class="accent">who matters to you.</span></h1>
+        <div class="tier-ladder">
+          <div class="tier"><span class="tier-name">Free</span><span class="tier-price">$0 · demo, map view only <span class="verify">VERIFY tier</span></span></div>
+          <div class="tier"><span class="tier-name">Personal Safety</span><span class="tier-price">$9.99 / mo</span></div>
+          <div class="tier"><span class="tier-name tier-pop">Operator — Popular</span><span class="tier-price">$49 / mo</span></div>
+          <div class="tier"><span class="tier-name">Professional</span><span class="tier-price">$149 / mo</span></div>
+          <div class="tier"><span class="tier-name">Command</span><span class="tier-price">$249 / seat / mo</span></div>
+          <div class="tier"><span class="tier-name">Enterprise</span><span class="tier-price">$500+ / seat / mo</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCENE 15 (1:22–1:30) DETAILS MATTER + CTA -->
+    <div class="scene sc15 glow-blue">
+      <div class="meta-tag">SCENE 15 / 15 · 1:22–1:30 · CLOSE</div>
+      <div class="broll-note">[B-ROLL: black hold → DETAILS MATTER super → tagline → wordmark + URL → heartbeat resolve]</div>
+      <div class="scene-inner">
+        <div class="details-matter">DETAILS<br><span class="matter">MATTER.</span></div>
+        <p class="scene-sub" style="font-size:18px;color:var(--fg);max-width:640px;margin:0 auto 8px;">
+          Every tool an operator needs.<br>And every tool your family deserves.
+        </p>
+        <div class="wordmark" style="font-size:clamp(22px,2.4vw,32px);margin-top:24px;">ATLAS<span>GLINN</span></div>
+        <div style="display:flex;gap:18px;justify-content:center;margin-top:18px;flex-wrap:wrap;">
+          <div class="cta-card">atlasglinn.com/atlas-ep</div>
+          <div class="cta-card"><span class="num">(281) 654-8100</span></div>
+        </div>
+        <div style="margin-top:18px;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);">
+          Best of Business 2025 · Chamber of Commerce Verified
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="timeline-wrap">
+  <div class="timeline"><div class="timeline-fill"></div></div>
+  <div class="scene-strip">
+    <span>1·OPEN</span>
+    <span>2·STUDENT</span>
+    <span>3·WOMAN</span>
+    <span>4·PARENT</span>
+    <span>5·FAMILY</span>
+    <span>6·OPERATOR</span>
+    <span>7·DURESS</span>
+    <span>8·CYBER+CS</span>
+    <span>9·GIO</span>
+    <span>10·CRIME</span>
+    <span>11·PI</span>
+    <span>12·BFT+PTT</span>
+    <span>13·WRIST+AI</span>
+    <span>14·TIERS</span>
+    <span>15·CLOSE</span>
+  </div>
+</div>
+
+<script>
+  const stage = document.getElementById('stageWrap');
+  const btnPlay = document.getElementById('btnPlay');
+  const btnRestart = document.getElementById('btnRestart');
+  const btnSafe = document.getElementById('btnSafe');
+  const safe = document.getElementById('safeAreas');
+
+  let paused = false;
+  btnPlay.addEventListener('click', () => {
+    paused = !paused;
+    document.body.classList.toggle('paused', paused);
+    btnPlay.textContent = paused ? 'Play' : 'Pause';
+  });
+
+  btnRestart.addEventListener('click', () => {
+    // re-trigger CSS animations by removing/re-adding classes
+    document.querySelectorAll('.scene').forEach(s => {
+      s.style.animation = 'none'; void s.offsetWidth; s.style.animation = '';
+    });
+    const fill = document.querySelector('.timeline-fill');
+    fill.style.animation = 'none'; void fill.offsetWidth; fill.style.animation = '';
+    paused = false;
+    document.body.classList.remove('paused');
+    btnPlay.textContent = 'Pause';
+  });
+
+  btnSafe.addEventListener('click', () => safe.classList.toggle('on'));
+</script>
+</body>
+</html>

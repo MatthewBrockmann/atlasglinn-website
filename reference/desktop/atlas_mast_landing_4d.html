@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WHO · WHY · HOW — Atlas Glinn & MAST Solutions</title>
+<meta name="description" content="Atlas Glinn & MAST Solutions — Strategic alignment, leadership, and operational verticals. Details matter.">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&family=Cinzel:wght@600;900&display=swap');
+
+  :root {
+    --midnight: #050810;
+    --deep-navy: #0B1221;
+    --gunmetal: #1E2A3A;
+    --gunmetal-lt: #2C3845;
+    --steel: #3A4A5C;
+    --gold: #C9A84C;
+    --gold-antique: #D4AF37;
+    --gold-champagne: #E8D27D;
+    --gold-bright: #FCF6BA;
+    --copper: #B87333;
+    --copper-bright: #D9904A;
+    --text: #F0F4FF;
+    --text-dim: #8B95A8;
+    --text-mute: #5B6474;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    background: var(--midnight);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    overflow-x: hidden;
+    cursor: none;
+  }
+  html { scroll-behavior: smooth; }
+
+  /* Reticle cursor */
+  .reticle {
+    position: fixed;
+    top: 0; left: 0;
+    width: 44px; height: 44px;
+    pointer-events: none;
+    z-index: 10000;
+    transform: translate(-50%, -50%);
+    mix-blend-mode: difference;
+  }
+  .reticle::before, .reticle::after { content:''; position:absolute; background: var(--gold-champagne); }
+  .reticle::before { top:50%; left:0; width:100%; height:1px; transform:translateY(-50%); }
+  .reticle::after { left:50%; top:0; width:1px; height:100%; transform:translateX(-50%); }
+  .reticle-ring { position:absolute; inset:10px; border:1px solid var(--gold); border-radius:50%; opacity:.7; }
+  .reticle-dot { position:absolute; top:50%; left:50%; width:3px; height:3px; background:var(--gold-bright); border-radius:50%; transform:translate(-50%,-50%); }
+
+  #three-canvas { position:fixed; inset:0; width:100vw; height:100vh; z-index:1; pointer-events:none; }
+
+  .grain { position:fixed; inset:0; z-index:3; pointer-events:none; opacity:.035;
+    background-image: repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(255,255,255,.3) 2px, rgba(255,255,255,.3) 3px);
+    mix-blend-mode: overlay;
+  }
+  .vignette { position:fixed; inset:0; z-index:4; pointer-events:none;
+    background: radial-gradient(ellipse at center, transparent 0%, transparent 55%, rgba(5,8,16,.75) 100%);
+  }
+
+  /* Trailer intro */
+  #intro-seq {
+    position: fixed; inset:0; z-index:9000; background:#000;
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+    font-family: 'Cinzel', serif; pointer-events:none; transition: opacity 1s ease-out;
+  }
+  #intro-seq.done { opacity: 0; }
+  .intro-credit {
+    font-size:.75rem; letter-spacing:.6em; color:var(--text-dim); opacity:0;
+    animation: introFade 2.8s ease-in-out forwards; text-transform:uppercase;
+  }
+  .intro-credit:nth-child(1) { animation-delay:.3s; }
+  .intro-credit:nth-child(2) { animation-delay:1.2s; margin-top:1.8rem; color:var(--gold); font-weight:900; font-size:1.5rem; letter-spacing:.35em; }
+  .intro-credit:nth-child(3) { animation-delay:2.3s; margin-top:1.5rem; color:var(--gold-champagne); font-size:.85rem; letter-spacing:.5em; }
+  @keyframes introFade {
+    0% { opacity:0; transform:translateY(8px); }
+    18%, 75% { opacity:1; transform:translateY(0); }
+    100% { opacity:0; transform:translateY(-8px); }
+  }
+
+  /* Floating chapter nav (right side) */
+  .chapter-nav {
+    position:fixed; right:1.5rem; top:50%; transform:translateY(-50%);
+    z-index:30; display:flex; flex-direction:column; gap:.6rem;
+    font-family:'Share Tech Mono',monospace; font-size:.65rem;
+    pointer-events:auto;
+  }
+  .chap-link {
+    color:var(--text-mute); text-decoration:none; letter-spacing:.25em;
+    padding:.4rem .8rem; border:1px solid transparent;
+    transition: all .3s; text-transform:uppercase; cursor:none;
+    display:flex; align-items:center; gap:.6rem;
+  }
+  .chap-link::before {
+    content:''; width:18px; height:1px; background:var(--text-mute); transition:all .3s;
+  }
+  .chap-link:hover, .chap-link.active {
+    color:var(--gold-champagne); border-color:rgba(201,168,76,.35); background:rgba(201,168,76,.04);
+  }
+  .chap-link.active::before, .chap-link:hover::before { width:28px; background:var(--gold); }
+
+  /* HUD corners */
+  .hud { position:fixed; z-index:20; font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.3em; opacity:.55; }
+  .hud.tl { top:1.2rem; left:1.8rem; color:var(--gold-champagne); }
+  .hud.tr { top:1.2rem; right:18rem; color:var(--text-mute); }
+  .hud.bl { bottom:1.2rem; left:1.8rem; color:var(--text-mute); }
+  .hud.br { bottom:1.2rem; right:1.8rem; color:var(--gold); }
+
+  .progress { position:fixed; top:0; left:0; height:2px; width:0;
+    background: linear-gradient(90deg, var(--gold-antique), var(--gold-bright), var(--copper));
+    z-index:100; box-shadow: 0 0 14px rgba(201,168,76,.7); transition: width .1s linear;
+  }
+
+  /* Content */
+  .content { position:relative; z-index:5; }
+  section.panel {
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    padding:6rem 2rem; text-align:center; position:relative;
+  }
+
+  .eyebrow {
+    font-family:'Share Tech Mono',monospace; color:var(--gold-champagne);
+    letter-spacing:.45em; font-size:.75rem; text-transform:uppercase; margin-bottom:1.6rem;
+    opacity:0; transform:translateY(20px);
+    transition: opacity 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1);
+  }
+  .eyebrow.in { opacity:1; transform:translateY(0); }
+
+  h1.mega {
+    font-family:'Orbitron',sans-serif; font-weight:900;
+    font-size:clamp(3rem,10vw,9rem); letter-spacing:.02em; line-height:.95;
+    margin-bottom:2rem;
+    opacity:0; filter:blur(20px); transform:scale(1.15);
+    transition: opacity 1.2s cubic-bezier(.2,.7,.2,1), filter 1.2s cubic-bezier(.2,.7,.2,1), transform 1.4s cubic-bezier(.2,.7,.2,1);
+  }
+  h1.mega.in { opacity:1; filter:blur(0); transform:scale(1); }
+  h1.mega .gold { background: linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; text-shadow: 0 0 80px rgba(201,168,76,.3); }
+  h1.mega .white { color: var(--text); }
+
+  h2.section-h {
+    font-family:'Orbitron',sans-serif; font-weight:700;
+    font-size:clamp(2rem,5vw,4.5rem); letter-spacing:.03em; margin-bottom:1.4rem;
+    opacity:0; filter:blur(12px); transform:translateY(24px);
+    transition: opacity 1s cubic-bezier(.25,.6,.25,1), filter 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1);
+  }
+  h2.section-h.in { opacity:1; filter:blur(0); transform:translateY(0); }
+  h2.section-h .gold { background: linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+
+  .sub {
+    font-size:clamp(1rem,1.3vw,1.25rem); color:var(--text-dim);
+    max-width:720px; margin:0 auto 2.5rem; line-height:1.55; font-weight:300;
+    opacity:0; transform:translateY(16px);
+    transition: opacity 1s ease-out .3s, transform 1s ease-out .3s;
+  }
+  .sub.in { opacity:1; transform:translateY(0); }
+
+  .cta {
+    display:inline-block; padding:1.1rem 2.5rem; font-family:'Orbitron',sans-serif;
+    font-weight:700; letter-spacing:.2em; font-size:.85rem; text-transform:uppercase;
+    text-decoration:none; color:#000;
+    background: linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%);
+    border:1px solid var(--gold-champagne); cursor:none;
+    transition: transform .35s, box-shadow .35s; position:relative; overflow:hidden;
+  }
+  .cta::before { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent); transition: left .7s; }
+  .cta:hover { transform:translateY(-3px); box-shadow: 0 14px 44px rgba(201,168,76,.5); }
+  .cta:hover::before { left:100%; }
+
+  .secondary-cta {
+    display:inline-block; padding:1.1rem 2.5rem; font-family:'Orbitron',sans-serif;
+    font-weight:700; letter-spacing:.2em; font-size:.85rem; text-transform:uppercase;
+    text-decoration:none; color:var(--gold-champagne);
+    background: transparent; border:1px solid var(--gold); cursor:none;
+    transition: all .35s; margin-left:1rem;
+  }
+  .secondary-cta:hover { background: rgba(201,168,76,.08); border-color:var(--gold-bright); color:var(--gold-bright); }
+
+  .badge {
+    display:inline-block; padding:.45rem 1rem; border:1px solid var(--gold);
+    font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.4em;
+    color:var(--gold-champagne); margin-bottom:1.5rem;
+    background: rgba(201,168,76,.06); backdrop-filter: blur(8px);
+  }
+
+  /* 4-column pillar grid (Who/Why/How sections) */
+  .pillars {
+    display:grid; grid-template-columns: repeat(4, 1fr); gap:1.2rem;
+    max-width:1200px; margin:3rem auto 0;
+  }
+  .pillar {
+    padding:1.8rem 1.4rem; text-align:left;
+    border:1px solid rgba(201,168,76,.2);
+    background: linear-gradient(180deg, rgba(30,42,58,.45) 0%, rgba(11,18,33,.7) 100%);
+    backdrop-filter: blur(14px); position:relative; overflow:hidden;
+    transition: transform .45s, border-color .45s, background .45s;
+  }
+  .pillar::before { content:''; position:absolute; top:0; left:0; right:0; height:1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+  .pillar:hover { transform:translateY(-8px); border-color:var(--gold); background: linear-gradient(180deg, rgba(30,42,58,.7) 0%, rgba(11,18,33,.85) 100%); }
+  .pillar-num {
+    font-family:'Orbitron',sans-serif; font-size:.7rem; color:var(--gold);
+    letter-spacing:.4em; margin-bottom:1rem;
+  }
+  .pillar-h {
+    font-family:'Orbitron',sans-serif; font-weight:700;
+    font-size:1.2rem; color:var(--gold-champagne); margin-bottom:.8rem;
+    letter-spacing:.04em;
+  }
+  .pillar-body { font-size:.92rem; color:var(--text-dim); line-height:1.55; font-weight:300; }
+
+  /* 3-column grid variant */
+  .tri { display:grid; grid-template-columns: repeat(3, 1fr); gap:1.4rem; max-width:1100px; margin:3rem auto 0; }
+
+  /* Leadership cards */
+  .leaders { display:grid; grid-template-columns: repeat(2, 1fr); gap:1.6rem; max-width:1100px; margin:3rem auto 0; }
+  .leader {
+    padding:2rem 1.8rem; text-align:left;
+    border:1px solid rgba(201,168,76,.22);
+    background: linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.75) 100%);
+    backdrop-filter: blur(14px); position:relative;
+    transition: all .45s;
+  }
+  .leader::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background: linear-gradient(180deg, var(--gold), var(--copper)); }
+  .leader:hover { transform:translateY(-6px); border-color:var(--gold-champagne); }
+  .leader-role {
+    font-family:'Share Tech Mono',monospace; font-size:.65rem;
+    color:var(--gold); letter-spacing:.4em; text-transform:uppercase; margin-bottom:.7rem;
+  }
+  .leader-name {
+    font-family:'Orbitron',sans-serif; font-weight:700;
+    font-size:1.65rem; color:var(--text); margin-bottom:.4rem; letter-spacing:.02em;
+  }
+  .leader-title {
+    font-family:'Rajdhani',sans-serif; font-size:.95rem; color:var(--gold-champagne);
+    margin-bottom:1.2rem; letter-spacing:.08em;
+  }
+  .leader-bio { font-size:.92rem; color:var(--text-dim); line-height:1.55; font-weight:300; }
+
+  /* Credential chips */
+  .chips { display:flex; flex-wrap:wrap; gap:.65rem; justify-content:center; max-width:1000px; margin:2rem auto 0; }
+  .chip {
+    padding:.55rem 1rem; border:1px solid rgba(201,168,76,.35);
+    background: rgba(30,42,58,.55); backdrop-filter:blur(6px);
+    font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.25em;
+    color:var(--gold-champagne); text-transform:uppercase;
+  }
+
+  /* Stats */
+  .stats { display:grid; grid-template-columns: repeat(3,1fr); gap:1.8rem; max-width:980px; margin:3rem auto 0; }
+  .stat { text-align:center; padding:2rem 1.5rem;
+    border:1px solid rgba(201,168,76,.22);
+    background: linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.7) 100%);
+    backdrop-filter: blur(12px); position:relative; overflow:hidden;
+    transition: transform .4s, border-color .4s;
+  }
+  .stat::before { content:''; position:absolute; top:0; left:0; width:100%; height:1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+  .stat:hover { transform:translateY(-6px); border-color:var(--gold); }
+  .stat-num { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2.8rem,5.5vw,4.5rem);
+    background: linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    line-height:1; text-shadow: 0 0 40px rgba(201,168,76,.3);
+  }
+  .stat-label { font-family:'Share Tech Mono',monospace; font-size:.7rem;
+    letter-spacing:.35em; color:var(--text-dim); margin-top:1rem; text-transform:uppercase; }
+
+  /* Impact cascade (5 layered bars) */
+  .cascade { max-width:900px; margin:3rem auto 0; }
+  .cas-row {
+    display:flex; align-items:center; gap:1.5rem; padding:1.2rem 1.8rem;
+    margin-bottom:.8rem; border:1px solid rgba(201,168,76,.15);
+    background: linear-gradient(90deg, rgba(30,42,58,.3) 0%, rgba(11,18,33,.5) 100%);
+    backdrop-filter:blur(10px); transition: all .4s;
+  }
+  .cas-row:hover { border-color:var(--gold); transform:translateX(8px); background: linear-gradient(90deg, rgba(30,42,58,.6) 0%, rgba(11,18,33,.7) 100%); }
+  .cas-num { font-family:'Orbitron',sans-serif; font-weight:900; font-size:1.8rem;
+    color:var(--gold); min-width:60px; text-align:center;
+    background: linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  .cas-text { text-align:left; }
+  .cas-h { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.1rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.2rem; }
+  .cas-sub { font-size:.9rem; color:var(--text-dim); font-weight:300; }
+
+  .scroll-cue {
+    position:absolute; bottom:3rem; left:50%; transform:translateX(-50%);
+    font-family:'Share Tech Mono',monospace; font-size:.65rem;
+    color:var(--gold-champagne); letter-spacing:.4em; opacity:.55;
+    animation: pulseY 2.4s ease-in-out infinite;
+  }
+  @keyframes pulseY { 50% { opacity:1; transform:translateX(-50%) translateY(-10px); } }
+
+  /* Letterbox */
+  .letterbox-top, .letterbox-bottom { position:fixed; left:0; right:0; height:0; background:#000; z-index:50; pointer-events:none;
+    transition: height .6s cubic-bezier(.7,.15,.3,.95); }
+  .letterbox-top { top:0; }
+  .letterbox-bottom { bottom:0; }
+  body.cinema .letterbox-top, body.cinema .letterbox-bottom { height:50px; }
+
+  @media (max-width:768px) {
+    html, body { cursor:auto; }
+    .reticle, .chapter-nav { display:none; }
+    .hud { font-size:.55rem; }
+    .pillars, .tri, .leaders, .stats { grid-template-columns:1fr; }
+    .hud.tr { right:1.8rem; }
+    .cas-row { flex-direction:column; gap:.6rem; text-align:center; }
+    .cas-text { text-align:center; }
+  }
+</style>
+</head>
+<body>
+
+<div id="intro-seq">
+  <div class="intro-credit">A Houston Operation · Since 2005</div>
+  <div class="intro-credit">ATLAS GLINN · MAST SOLUTIONS</div>
+  <div class="intro-credit">Who · Why · How</div>
+</div>
+
+<canvas id="three-canvas"></canvas>
+<div class="grain"></div>
+<div class="vignette"></div>
+<div class="letterbox-top"></div>
+<div class="letterbox-bottom"></div>
+<div class="progress" id="progress"></div>
+
+<div class="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>
+
+<div class="hud tl">● ATLAS.MAST · LIVE</div>
+<div class="hud tr" id="hud-section">SECTION 01 / 08</div>
+<div class="hud bl">HOU · 29.7604°N · 95.3698°W</div>
+<div class="hud br">DETAILS MATTER</div>
+
+<!-- Chapter nav -->
+<nav class="chapter-nav" id="chapter-nav">
+  <a href="#s1" class="chap-link" data-chap="01">01 · OPENING</a>
+  <a href="#s2" class="chap-link" data-chap="02">02 · WHO</a>
+  <a href="#s3" class="chap-link" data-chap="03">03 · WHY</a>
+  <a href="#s4" class="chap-link" data-chap="04">04 · HOW</a>
+  <a href="#s5" class="chap-link" data-chap="05">05 · VERTICALS</a>
+  <a href="#s6" class="chap-link" data-chap="06">06 · LEADERSHIP</a>
+  <a href="#s7" class="chap-link" data-chap="07">07 · IMPACT</a>
+  <a href="#s8" class="chap-link" data-chap="08">08 · CONTACT</a>
+</nav>
+
+<div class="content">
+
+  <!-- 01 · OPENING -->
+  <section class="panel" id="s1" data-section="01">
+    <div>
+      <div class="eyebrow">STRATEGIC ALIGNMENT · EST. 2005 · HOUSTON</div>
+      <h1 class="mega"><span class="gold">Details</span> <span class="white">Matter.</span></h1>
+      <p class="sub">Atlas Glinn and MAST Solutions — uniting elite executive protection, tactical training, and mission-grade technology under one operational standard.</p>
+      <a href="#s2" class="cta">Begin</a>
+      <a href="#s8" class="secondary-cta">Contact</a>
+    </div>
+    <div class="scroll-cue">SCROLL ↓</div>
+  </section>
+
+  <!-- 02 · WHO -->
+  <section class="panel" id="s2" data-section="02">
+    <div>
+      <div class="eyebrow">WHO WE ARE</div>
+      <h2 class="section-h">A collective of <span class="gold">operators.</span></h2>
+      <p class="sub">Seasoned experts in executive protection, tactical training, and security technology. No theory, no filler. We've worked it, we teach it, we build it.</p>
+      <div class="tri">
+        <div class="pillar">
+          <div class="pillar-num">01</div>
+          <div class="pillar-h">Atlas Glinn</div>
+          <div class="pillar-body">Elite security solutions, risk management, executive protection, AI surveillance, and counter-UAS. Founded 2019.</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-num">02</div>
+          <div class="pillar-h">MAST Solutions</div>
+          <div class="pillar-body">Modern Application of Shooting and Tactics. 34 years of elite firearms, CQB, combatives, and leadership training. Founded 2005.</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-num">03</div>
+          <div class="pillar-h">SafeGuard EP</div>
+          <div class="pillar-body">AI-powered iOS protection platform. Real-time threat scoring, encrypted comms, covert emergency streaming. The technology arm.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 · WHY -->
+  <section class="panel" id="s3" data-section="03">
+    <div>
+      <div class="eyebrow">WHY IT MATTERS</div>
+      <h2 class="section-h">We empower those who <span class="gold">cannot be wrong.</span></h2>
+      <p class="sub">Federal agencies. Tier-1 law enforcement. Military units. High-net-worth principals. The people whose decisions have weight — and whose security cannot fail quietly.</p>
+      <div class="chips">
+        <span class="chip">U.S. Military</span>
+        <span class="chip">DEA</span>
+        <span class="chip">Houston SWAT</span>
+        <span class="chip">Homeland Security</span>
+        <span class="chip">Border Patrol</span>
+        <span class="chip">NASA SRT</span>
+        <span class="chip">Harris County DPU</span>
+        <span class="chip">Federal Agencies</span>
+        <span class="chip">HNW Principals</span>
+        <span class="chip">Corporate Boards</span>
+      </div>
+      <div class="badge" style="margin-top:2.5rem;">PRIVACY MATTERS</div>
+      <p class="sub" style="font-style:italic; color:var(--gold-champagne); max-width:700px; margin-top:.5rem;">"Details matter. Privacy matters. Unless publicly reported, we don't disclose."</p>
+    </div>
+  </section>
+
+  <!-- 04 · HOW -->
+  <section class="panel" id="s4" data-section="04">
+    <div>
+      <div class="eyebrow">HOW WE OPERATE</div>
+      <h2 class="section-h">Four <span class="gold">strategic imperatives.</span></h2>
+      <p class="sub">Our operational framework — how Atlas Glinn and MAST Solutions translate 34 years of experience into unprecedented client impact.</p>
+      <div class="pillars">
+        <div class="pillar">
+          <div class="pillar-num">01 · FOCUS</div>
+          <div class="pillar-h">Strategic Focus</div>
+          <div class="pillar-body">Clear alignment with overarching goals. Every effort contributes directly to outcomes.</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-num">02 · SYNERGY</div>
+          <div class="pillar-h">Cross-Functional Synergy</div>
+          <div class="pillar-body">Seamless collaboration across departments. Diverse expertise unlocks integrated solutions.</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-num">03 · EXECUTION</div>
+          <div class="pillar-h">Adaptive Execution</div>
+          <div class="pillar-body">Agility and iterative approaches. Rapid response to market shifts. Optimized impact.</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-num">04 · DELIVERY</div>
+          <div class="pillar-h">Precision Delivery</div>
+          <div class="pillar-body">Structured delegation. Clear accountability. Unstoppable execution at every level.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 · VERTICALS -->
+  <section class="panel" id="s5" data-section="05">
+    <div>
+      <div class="eyebrow">VERTICALS</div>
+      <h2 class="section-h">Four lanes. <span class="gold">One standard.</span></h2>
+      <p class="sub">High-impact verticals, each meticulously managed for precision in execution and sustainable expansion.</p>
+      <div class="pillars">
+        <div class="pillar">
+          <div class="pillar-num">VERTICAL 01</div>
+          <div class="pillar-h">Training & Development</div>
+          <div class="pillar-body">MAST Solutions firearms, CQB, combatives, fitness, emergency medical, leadership — delivered to federal agencies, military, LE.</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-num">VERTICAL 02</div>
+          <div class="pillar-h">Government</div>
+          <div class="pillar-body">SAM contracts. NAICS-aligned federal & state procurement. Defense initiatives. Harris County supplier since Feb 2023.</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-num">VERTICAL 03</div>
+          <div class="pillar-h">SaaS & Innovation</div>
+          <div class="pillar-body">SafeGuard EP platform. AI threat scoring. Encrypted mesh comms. Vercel-backed infrastructure for scale.</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-num">VERTICAL 04</div>
+          <div class="pillar-h">Sales & Markets</div>
+          <div class="pillar-body">Enterprise, HNW, and corporate board engagements. Integrated sales that wrap the brand — not chase it.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 · LEADERSHIP -->
+  <section class="panel" id="s6" data-section="06">
+    <div>
+      <div class="eyebrow">LEADERSHIP</div>
+      <h2 class="section-h">The operators <span class="gold">who run it.</span></h2>
+      <p class="sub">Hand-picked leadership across operations, government relations, SaaS, and digital innovation — each bringing deep domain authority.</p>
+
+      <div class="leaders">
+        <div class="leader">
+          <div class="leader-role">OPERATIONS LEAD</div>
+          <div class="leader-name">Antony Glover</div>
+          <div class="leader-title">Houston Market · Logistical & Scalable Delivery</div>
+          <div class="leader-bio">Meticulously designed operations ensuring efficient, high-quality agent deployment and the scalable delivery of services and products to market. Adaptable across demands, seamlessly expanding.</div>
+        </div>
+        <div class="leader">
+          <div class="leader-role">GOVERNMENT RELATIONS</div>
+          <div class="leader-name">J. Farris</div>
+          <div class="leader-title">Government Engagements · SAM Contracts</div>
+          <div class="leader-bio">Strategic approach to Government SAM contracts targeting specific industry NAICS codes. Precise alignment with federal and state procurement needs, alongside critical defense initiatives.</div>
+        </div>
+        <div class="leader">
+          <div class="leader-role">ACCOUNT EXECUTIVE</div>
+          <div class="leader-name">G. Hammack</div>
+          <div class="leader-title">Vercel · SaaS & Innovation</div>
+          <div class="leader-bio">Account Executive for Vercel — cultivating profound insights into intricate client requirements and operational landscapes. Translating insights into innovative, scalable Software-as-a-Service platforms.</div>
+        </div>
+        <div class="leader">
+          <div class="leader-role">IT & COMMUNITY</div>
+          <div class="leader-name">Bobby Fischer</div>
+          <div class="leader-title">Custom Value · Digital Innovation</div>
+          <div class="leader-bio">Crafting unique value propositions, strengthening community ties, and spearheading IT initiatives through strategic design and integrated digital frameworks. Community-driven, strategically executed.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 07 · IMPACT CASCADE -->
+  <section class="panel" id="s7" data-section="07">
+    <div>
+      <div class="eyebrow">TRUE IMPACT</div>
+      <h2 class="section-h">Beyond the <span class="gold">visible.</span></h2>
+      <p class="sub">Real impact goes deeper than easy metrics. It lives in the unseen forces that drive lasting change and exponential growth — for our organization and our clients.</p>
+      <div class="cascade">
+        <div class="cas-row">
+          <div class="cas-num">01</div>
+          <div class="cas-text">
+            <div class="cas-h">Visible Metrics</div>
+            <div class="cas-sub">Revenue, contracts won, students trained, deliverables shipped.</div>
+          </div>
+        </div>
+        <div class="cas-row">
+          <div class="cas-num">02</div>
+          <div class="cas-text">
+            <div class="cas-h">Observed Outcomes</div>
+            <div class="cas-sub">Operator performance under pressure. Principal safety. Team readiness.</div>
+          </div>
+        </div>
+        <div class="cas-row">
+          <div class="cas-num">03</div>
+          <div class="cas-text">
+            <div class="cas-h">Operational Drivers</div>
+            <div class="cas-sub">Processes, systems, technology stack that scale without degrading quality.</div>
+          </div>
+        </div>
+        <div class="cas-row">
+          <div class="cas-num">04</div>
+          <div class="cas-text">
+            <div class="cas-h">Behavioral Shifts</div>
+            <div class="cas-sub">Culture of ownership. Precision as default. Discretion as doctrine.</div>
+          </div>
+        </div>
+        <div class="cas-row">
+          <div class="cas-num">05</div>
+          <div class="cas-text">
+            <div class="cas-h">Core Intentions</div>
+            <div class="cas-sub">Why we do this. Protect what cannot be replaced. Train the operators who cannot be wrong.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats" style="margin-top:4rem;">
+        <div class="stat"><div class="stat-num" data-count="34">0</div><div class="stat-label">Years Operating</div></div>
+        <div class="stat"><div class="stat-num" data-count="12" data-suffix="+">0</div><div class="stat-label">Certified Programs</div></div>
+        <div class="stat"><div class="stat-num" data-count="0">0</div><div class="stat-label">Compromises</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 08 · CONTACT -->
+  <section class="panel" id="s8" data-section="08">
+    <div>
+      <div class="eyebrow">BEGIN THE ENGAGEMENT</div>
+      <h2 class="section-h"><span class="gold">Details</span> matter.</h2>
+      <p class="sub">Houston, TX · 2450 Fondren Rd, Suite 255 · matthew@atlasglinn.com<br>Atlas Glinn · MAST Solutions · Brockmann & Associates</p>
+      <a href="mailto:matthew@atlasglinn.com" class="cta">Contact</a>
+      <a href="https://www.atlasglinn.com" class="secondary-cta" target="_blank">Atlas Glinn →</a>
+    </div>
+  </section>
+
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+// Trailer intro
+setTimeout(() => {
+  document.getElementById('intro-seq').classList.add('done');
+  setTimeout(() => {
+    document.getElementById('intro-seq').remove();
+    document.body.classList.add('cinema');
+    setTimeout(() => document.body.classList.remove('cinema'), 2200);
+    document.querySelector('[data-section="01"] .eyebrow').classList.add('in');
+    setTimeout(() => document.querySelector('[data-section="01"] h1.mega').classList.add('in'), 300);
+    setTimeout(() => document.querySelector('[data-section="01"] .sub').classList.add('in'), 900);
+  }, 1000);
+}, 4200);
+
+// Reticle
+const reticle = document.querySelector('.reticle');
+let cx = innerWidth/2, cy = innerHeight/2, rx = cx, ry = cy;
+addEventListener('mousemove', e => { cx = e.clientX; cy = e.clientY; });
+
+// Three setup
+const canvas = document.getElementById('three-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050810);
+scene.fog = new THREE.FogExp2(0x0B1221, 0.03);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 1000);
+camera.position.set(0, 0, 9);
+
+// Lights — ALL warm (no blue rim)
+scene.add(new THREE.AmbientLight(0x1a1208, 0.5));
+const keyL = new THREE.DirectionalLight(0xC9A84C, 3.0);
+keyL.position.set(6, 10, 7);
+scene.add(keyL);
+const rimL = new THREE.DirectionalLight(0xB87333, 1.6); // copper rim (was blue)
+rimL.position.set(-7, -4, -5);
+scene.add(rimL);
+const fillL = new THREE.DirectionalLight(0xE8D27D, 0.9); // champagne fill (was steel blue)
+fillL.position.set(0, -8, 3);
+scene.add(fillL);
+const pt = new THREE.PointLight(0xFCF6BA, 3.5, 18);
+pt.position.set(0, 0, 4);
+scene.add(pt);
+
+// Reflective floor
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(140, 140, 40, 40),
+  new THREE.MeshStandardMaterial({ color:0x0B1221, metalness:.95, roughness:.28, emissive:0x080808, emissiveIntensity:.15 })
+);
+floor.rotation.x = -Math.PI/2; floor.position.y = -4.5;
+scene.add(floor);
+
+// Distant peaks
+const peaks = new THREE.Group();
+for (let i=0;i<11;i++) {
+  const m = new THREE.Mesh(
+    new THREE.ConeGeometry(2+Math.random()*2.2, 4.5+Math.random()*4, 5),
+    new THREE.MeshStandardMaterial({ color:0x0B1221, roughness:1, metalness:0 })
+  );
+  m.position.set(-34 + i*7 + Math.random()*3, -3.5, -23 - Math.random()*7);
+  m.rotation.y = Math.random()*Math.PI;
+  peaks.add(m);
+}
+scene.add(peaks);
+
+// Hero emblem — hexagonal shield, ALL GOLD (no blue gem)
+const emblem = new THREE.Group();
+const gold = new THREE.MeshStandardMaterial({ color:0xC9A84C, metalness:1, roughness:.12, emissive:0x2a1f08, emissiveIntensity:.4 });
+const copper = new THREE.MeshStandardMaterial({ color:0xB87333, metalness:1, roughness:.18, emissive:0x3a1a08, emissiveIntensity:.5 });
+const champagne = new THREE.MeshStandardMaterial({ color:0xE8D27D, metalness:1, roughness:.1, emissive:0x443311, emissiveIntensity:.8 });
+
+const shield = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.3, 0.4, 6), gold);
+shield.rotation.x = Math.PI/2; emblem.add(shield);
+const innerHex = new THREE.Mesh(new THREE.CylinderGeometry(1.75, 1.75, 0.45, 6),
+  new THREE.MeshStandardMaterial({ color:0x050810, metalness:.6, roughness:.4 }));
+innerHex.rotation.x = Math.PI/2; emblem.add(innerHex);
+
+// 3 orbital rings
+for (let i=0;i<3;i++) {
+  const mat = i===1 ? champagne : gold;
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.85+i*.18, .028, 16, 128), mat);
+  ring.rotation.x = i*.08; ring.rotation.z = i*.08;
+  emblem.add(ring);
+}
+
+// Crossed bars
+for (let i=0;i<3;i++) {
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(.12, 2.8, .12), gold);
+  bar.rotation.z = (Math.PI/3)*i; emblem.add(bar);
+}
+
+// Center gem — COPPER icosahedron (was blue — fixed per no-blue rule)
+const gem = new THREE.Mesh(new THREE.IcosahedronGeometry(.4, 1), copper);
+emblem.add(gem);
+
+// Floating shards — gold + champagne (was gold only)
+const shards = [];
+for (let i=0;i<10;i++) {
+  const mat = i%2 ? champagne : gold;
+  const s = new THREE.Mesh(new THREE.OctahedronGeometry(.08, 0), mat);
+  s.userData = { a: (Math.PI*2*i)/10, r: 2.6+Math.random()*.5, sp: .4+Math.random()*.3 };
+  emblem.add(s); shards.push(s);
+}
+scene.add(emblem);
+
+// God rays
+const rays = new THREE.Group();
+for (let i=0;i<14;i++) {
+  const r = new THREE.Mesh(
+    new THREE.ConeGeometry(.08, 16, 8, 1, true),
+    new THREE.MeshBasicMaterial({ color:0xC9A84C, transparent:true, opacity:.04, side:THREE.DoubleSide, blending:THREE.AdditiveBlending, depthWrite:false })
+  );
+  r.rotation.z = (Math.PI*2*i)/14; r.position.z = -2;
+  rays.add(r);
+}
+scene.add(rays);
+
+// Particles — gold dust + champagne sparks (no blue)
+function pts(count, color, size, range) {
+  const g = new THREE.BufferGeometry();
+  const p = new Float32Array(count*3), v = new Float32Array(count*3);
+  for (let i=0;i<count;i++) {
+    p[i*3]=(Math.random()-.5)*range; p[i*3+1]=(Math.random()-.5)*range*.7; p[i*3+2]=(Math.random()-.5)*range;
+    v[i*3]=(Math.random()-.5)*.002; v[i*3+1]=(Math.random()-.5)*.002; v[i*3+2]=(Math.random()-.5)*.002;
+  }
+  g.setAttribute('position', new THREE.BufferAttribute(p,3));
+  const m = new THREE.PointsMaterial({ color, size, transparent:true, opacity:.65, blending:THREE.AdditiveBlending, depthWrite:false });
+  const pts = new THREE.Points(g, m); pts.userData = { v }; return pts;
+}
+const gd = pts(600, 0xC9A84C, .035, 40);
+const ch = pts(150, 0xE8D27D, .028, 30);
+scene.add(gd); scene.add(ch);
+
+// Stars
+const sg = new THREE.BufferGeometry();
+const sp = new Float32Array(2200*3);
+for (let i=0;i<2200;i++) {
+  const r = 80 + Math.random()*40, th = Math.random()*Math.PI*2, ph = Math.acos(2*Math.random()-1);
+  sp[i*3]=r*Math.sin(ph)*Math.cos(th); sp[i*3+1]=r*Math.cos(ph); sp[i*3+2]=r*Math.sin(ph)*Math.sin(th);
+}
+sg.setAttribute('position', new THREE.BufferAttribute(sp,3));
+const stars = new THREE.Points(sg, new THREE.PointsMaterial({ color:0xF0F4FF, size:.15, transparent:true, opacity:.5 }));
+scene.add(stars);
+
+// Scroll camera
+const secs = document.querySelectorAll('section.panel');
+const chapLinks = document.querySelectorAll('.chap-link');
+let prog = 0;
+const lerp = (a,b,t) => a+(b-a)*t;
+
+function update() {
+  const total = document.body.scrollHeight - innerHeight;
+  prog = Math.max(0, Math.min(1, scrollY/total));
+  const t = prog;
+
+  // 8-keyframe camera path
+  const kf = [
+    { x:0, y:0, z:9, lx:0, ly:0, lz:0 },
+    { x:3, y:1, z:11, lx:0, ly:0, lz:0 },
+    { x:-3, y:2, z:13, lx:0, ly:-1, lz:0 },
+    { x:4, y:3, z:14, lx:0, ly:-.5, lz:0 },
+    { x:-4, y:1, z:12, lx:0, ly:0, lz:0 },
+    { x:0, y:-2, z:10, lx:0, ly:.5, lz:0 },
+    { x:2, y:-3, z:13, lx:0, ly:1, lz:0 },
+    { x:0, y:-4, z:18, lx:0, ly:2, lz:0 },
+  ];
+  const sc = t * (kf.length - 1);
+  const i = Math.floor(sc), f = sc - i;
+  const a = kf[i], b = kf[Math.min(i+1, kf.length-1)];
+  camera.position.set(lerp(a.x,b.x,f), lerp(a.y,b.y,f), lerp(a.z,b.z,f));
+  camera.lookAt(lerp(a.lx,b.lx,f), lerp(a.ly,b.ly,f), lerp(a.lz,b.lz,f));
+
+  emblem.rotation.y += 0.004;
+  emblem.rotation.x = Math.sin(Date.now()*.0004)*.14;
+  shards.forEach((s,i) => {
+    const ang = s.userData.a + Date.now()*.0002*s.userData.sp;
+    s.position.set(Math.cos(ang)*s.userData.r, Math.sin(ang*1.3)*.6, Math.sin(ang)*s.userData.r);
+    s.rotation.x += .02; s.rotation.y += .015;
+  });
+  rays.rotation.z += .001;
+  emblem.position.y = -t*2;
+  emblem.scale.setScalar(1 - t*.25);
+
+  [gd, ch].forEach(p => {
+    const pos = p.geometry.attributes.position.array, v = p.userData.v;
+    for (let i=0;i<pos.length;i++) pos[i] += v[i];
+    p.geometry.attributes.position.needsUpdate = true;
+  });
+  gd.rotation.y = t*.3; ch.rotation.y = -t*.2;
+  stars.rotation.y += .0002;
+  scene.fog.density = 0.03 + t*.025;
+
+  document.getElementById('progress').style.width = (t*100)+'%';
+  const idx = Math.min(7, Math.floor(t*8));
+  document.getElementById('hud-section').textContent = `SECTION 0${idx+1} / 08`;
+
+  chapLinks.forEach((l, i) => l.classList.toggle('active', i === idx));
+}
+addEventListener('scroll', update, { passive:true });
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+let mx=0, my=0;
+addEventListener('mousemove', e => { mx=(e.clientX/innerWidth-.5)*2; my=(e.clientY/innerHeight-.5)*2; });
+
+function animate() {
+  requestAnimationFrame(animate);
+  emblem.position.x += (mx*.4 - emblem.position.x)*.04;
+  rx = lerp(rx, cx, .22); ry = lerp(ry, cy, .22);
+  reticle.style.transform = `translate(${rx}px,${ry}px) translate(-50%,-50%)`;
+  update();
+  renderer.render(scene, camera);
+}
+animate();
+
+// Reveals + counters + trailer cuts
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      if (e.target.dataset.section !== '01') {
+        document.body.classList.add('cinema');
+        setTimeout(() => document.body.classList.remove('cinema'), 1600);
+      }
+      e.target.querySelectorAll('.eyebrow, h2.section-h, .sub, h1.mega').forEach(el => el.classList.add('in'));
+      e.target.querySelectorAll('.stat-num[data-count]').forEach(el => {
+        if (el.dataset.done) return;
+        el.dataset.done = '1';
+        const target = +el.dataset.count, duration = 1600, start = performance.now(), suffix = el.dataset.suffix || '';
+        const tick = now => {
+          const p = Math.min(1, (now-start)/duration);
+          const eased = 1 - Math.pow(1-p, 3);
+          el.textContent = Math.floor(target*eased) + suffix;
+          if (p<1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+    }
+  });
+}, { threshold:.3 });
+secs.forEach(s => io.observe(s));
+</script>
+
+</body>
+</html>
