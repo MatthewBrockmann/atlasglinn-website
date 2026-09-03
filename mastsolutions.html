@@ -972,6 +972,12 @@ let WEEKENDS = [
   ['2027-04-24','April — 4th weekend'],
 ].map(([saturday, label, status]) => ({ saturday, label, status: status || 'available' }));
 
+/* Go-live test: open the page with #test in the address to reveal a $1.00 seat
+   that runs the real Stripe pipeline. Remove after the first live order. */
+if (location.hash === '#test') {
+  COURSES.push({ sku:'MAST-TEST', cat:'Test', name:'Live payment test seat', hours:1, days:1, price_cents:100, seats:1, desc:'Owner-only $1.00 charge to verify the live payment pipeline. Refund after.' });
+}
+
 const $ = id => document.getElementById(id);
 const money = c => '$' + (c/100).toLocaleString('en-US', { minimumFractionDigits: c % 100 ? 2 : 0 });
 const metaFor = c => c.days ? `${c.hours} HRS · ${c.days} DAY${c.days > 1 ? 'S' : ''} · ${c.seats} SEATS MAX` : `CALL FOR DETAILS · ${c.seats} SEATS MAX`;
@@ -1169,22 +1175,28 @@ async function startCheckout(){
   }
   const btn = $('co-pay');
   btn.disabled = true; btn.textContent = 'Preparing secure checkout…';
-  const base = location.origin + location.pathname;
   const w = WEEKENDS[chosen];
+  // Return URLs: on the real site come back to this page with a status. On the
+  // review preview (htmlpreview) the query string IS the file address, so leave
+  // these out and let the Worker send you to the live site instead.
+  const onPreview = location.hostname === 'htmlpreview.github.io';
+  const base = location.origin + location.pathname;
+  const returns = onPreview ? {} : {
+    success_url: base + '?checkout=success&course=' + encodeURIComponent(calCourse.name) + '&date=' + encodeURIComponent(labelFor(w, calCourse.days)),
+    cancel_url: base + '?checkout=cancelled'
+  };
   try {
     const res = await fetch(BOOKING_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      body: JSON.stringify(Object.assign({
         sku: calCourse.sku,
         qty: qty,
         session_date: w.saturday,
         session_label: labelFor(w, calCourse.days),
         customer_email: email,
-        customer_name: $('co-name').value.trim(),
-        success_url: base + '?checkout=success&course=' + encodeURIComponent(calCourse.name) + '&date=' + encodeURIComponent(labelFor(w, calCourse.days)),
-        cancel_url: base + '?checkout=cancelled'
-      })
+        customer_name: $('co-name').value.trim()
+      }, returns))
     });
     const data = await res.json();
     if (!res.ok || !data.checkoutUrl) throw new Error(data.error || 'Checkout unavailable');

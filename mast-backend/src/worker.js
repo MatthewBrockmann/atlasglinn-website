@@ -125,6 +125,10 @@ const SEED_CLASSES = [
   { sku: 'MAST-GEAR',     name: 'Gear & Kit Considerations',               price_cents: 75000 },
   { sku: 'MAST-MOTOR-P1', name: 'Motorcade P1',                            price_cents: 0 },
   { sku: 'MAST-MOTOR-P2', name: 'Motorcade P2',                            price_cents: 0 },
+  // GO-LIVE TEST SEAT (owner, 2026-09-03). Not in D1 and not in the public
+  // catalog; reachable only by SKU from the page's #test mode. Remove after
+  // the first live payment has been verified in the roster.
+  { sku: 'MAST-TEST',     name: 'Live payment test seat ($1.00)',          price_cents: 100 },
 ];
 
 async function lookupClass(env, sku) {
