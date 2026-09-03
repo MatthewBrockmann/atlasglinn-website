@@ -1,0 +1,2 @@
+# Curated MAST site media. Plain files, not LFS, so GitHub Pages serves them.
+* -filter -diff -merge
