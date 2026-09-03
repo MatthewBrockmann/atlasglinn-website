@@ -192,6 +192,7 @@
         .cr-price { font-family: 'Orbitron', sans-serif; font-size: 1.35rem; font-weight: 900; color: #C9A84C; text-align: right; line-height: 1; }
         .cr-price small { display: block; font-family: 'Inconsolata', monospace; font-size: .62rem; letter-spacing: .14em; color: #888; margin-top: .35rem; font-weight: 400; }
         .cr-btn { padding: .65rem 1.2rem; font-size: .85rem; white-space: nowrap; }
+        .cat-note { padding: 1rem 1.5rem 0; color: #b0b0b0; font-size: .9rem; line-height: 1.65; }
         .catalog-note { text-align: center; margin-top: 2rem; color: #b0b0b0; font-size: .95rem; }
         .catalog-note a { color: #1A6BDE; text-decoration: none; }
         .catalog-note a:hover { color: #C9A84C; }
@@ -548,7 +549,7 @@
         <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M14 42V8h20v34"/><path d="M14 42h20M30 25h.01"/><path d="M4 24h14M14 19l5 5-5 5" stroke="#C9A84C"/></svg></div><h3>CQB.</h3><p>Close Quarters Battle.</p></div></div>
     <div class="bleed"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/OfXe_bdH6t4/hqdefault.jpg');background-position:center"></div>
         <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M16 24h16"/><rect x="8" y="17" width="6" height="14" rx="1.5"/><rect x="34" y="17" width="6" height="14" rx="1.5"/><path d="M4 20v8M44 20v8"/></svg></div><h3>Fitness.</h3><p>Conditioning for duty.</p></div></div>
-    <div class="bleed"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/mI7Ou5P-WHE/hqdefault.jpg')"></div>
+    <div class="bleed"><div class="bg" style="background-image:url('images/mast-medical-poster.jpg');background-position:center 35%"></div>
         <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="8" width="32" height="32" rx="6"/><path d="M24 16v16M16 24h16" stroke="#C9A84C" stroke-width="3"/></svg></div><h3>Medical.</h3><p>Emergency and trauma care.</p></div></div>
     <div class="bleed"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/pSGWdaDglZE/hqdefault.jpg');background-position:center top"></div>
         <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M10 18l14-8 14 8M10 27l14-8 14 8M10 36l14-8 14 8"/></svg></div><h3>Leadership.</h3><p>Command and decision-making.</p></div></div>
@@ -557,7 +558,7 @@
 <!-- ══════════ COURSE CATALOG ══════════ -->
 <div class="section-divider" id="courses">
     <h2>Course <span class="gold-shimmer">Catalog</span></h2>
-    <p>Twenty-one courses. Open a discipline, pick a course, pick your weekend.</p>
+    <p>Twenty-one courses. Open a discipline, pick a course, pick your weekend. Private instruction by arrangement.</p>
 </div>
 <section class="section" style="padding-top: 2rem;">
     <div class="catalog" id="catalog"></div>
@@ -970,6 +971,10 @@ const COURSES = [
   { sku:'MAST-VEH-P2',   cat:'Protective',      name:'Vehicular Tactics / Team Tactics P2', hours:16, days:2, price_cents:50000, seats:10, desc:'Vehicle work as a team over two days.' },
   { sku:'MAST-MOTOR-P1', cat:'Protective',      name:'Motorcade P1',                    hours:0,  days:0, price_cents:0,     seats:10, desc:'Motorcade operations, phase one. Call for pricing and dates.' },
   { sku:'MAST-MOTOR-P2', cat:'Protective',      name:'Motorcade P2',                    hours:0,  days:0, price_cents:0,     seats:10, desc:'Motorcade operations, phase two. Call for pricing and dates.' },
+  /* Private instruction — by arrangement, not on the weekend calendar. Priced per the owner's 2026-09 progression sheet. */
+  { sku:'MAST-PVT-2H',    cat:'Private Instruction', name:'Private Session',                    request:true, price_cents:35000,  meta:'2 HRS · ONE-ON-ONE · +$100 EACH ADDITIONAL HOUR', desc:'Two hours with a lead instructor on the phase you are in. Longer sessions by the hour.' },
+  { sku:'MAST-PVT-FOUND', cat:'Private Instruction', name:'Foundation Package — Phases 1–4',    request:true, price_cents:125000, meta:'4 PHASES · PREPAID · $1,400 À LA CARTE', desc:'Handgun Fundamentals, Medical, Concealment and Environmental Considerations, in order.' },
+  { sku:'MAST-PVT-FULL',  cat:'Private Instruction', name:'Full Progression — Phases 1–11',     request:true, price_cents:330000, meta:'11 PHASES · PREPAID · $3,850 À LA CARTE', desc:'The whole path, Handgun Fundamentals through the Low-Light and No-Light capstone.' },
   { sku:'MAST-GEAR',     cat:'Gear',            name:'Gear & Kit Considerations',       hours:24, days:3, price_cents:75000, seats:10, desc:'Go bag, shelter-in-place, urban movement, low-vis and high-vis, individual and team.' },
 ];
 
@@ -1002,21 +1007,27 @@ if (location.hash === '#test') {
 
 const $ = id => document.getElementById(id);
 const money = c => '$' + (c/100).toLocaleString('en-US', { minimumFractionDigits: c % 100 ? 2 : 0 });
-const metaFor = c => c.days ? `${c.hours} HRS · ${c.days} DAY${c.days > 1 ? 'S' : ''} · ${c.seats} SEATS MAX` : `CALL FOR DETAILS · ${c.seats} SEATS MAX`;
+const metaFor = c => c.meta ? c.meta : c.days ? `${c.hours} HRS · ${c.days} DAY${c.days > 1 ? 'S' : ''} · ${c.seats} SEATS MAX` : `CALL FOR DETAILS · ${c.seats} SEATS MAX`;
 
 /* ── Catalog: one drop-down per discipline ── */
 const CATS = [...new Set(COURSES.map(c => c.cat))];
+const CAT_NOTES = { 'Private Instruction': 'The path: Handgun Fundamentals &rarr; Medical &rarr; Concealment &rarr; Environmental Considerations &rarr; Kit &harr; Vehicle Bag &rarr; Carbine &harr; Shoot-house &rarr; Shotgun &harr; Vehicular &rarr; Low-Light + No-Light, the capstone. Paired phases run in either order. Sessions are scheduled by arrangement, not on the weekend calendar. Instruction only; ammunition, range fees and gear are separate.' };
 function renderCatalog(){
   $('catalog').innerHTML = CATS.map((cat, ci) => {
     const items = COURSES.map((c, i) => ({ c, i })).filter(x => x.c.cat === cat);
     return `<div class="cat${ci === 0 ? ' open' : ''}" id="cat-${ci}">
       <button class="cat-btn" aria-expanded="${ci === 0}" aria-controls="panel-${ci}" onclick="toggleCat(${ci})">
         <span class="cat-name">All ${cat}</span>
-        <span class="cat-count">${items.length} course${items.length > 1 ? 's' : ''}</span>
+        <span class="cat-count">${items.length} ${cat === 'Private Instruction' ? 'option' : 'course'}${items.length > 1 ? 's' : ''}</span>
         <span class="cat-chev" aria-hidden="true">&#9662;</span>
       </button>
-      <div class="cat-panel" id="panel-${ci}">` +
-      items.map(({ c, i }) => c.price_cents
+      <div class="cat-panel" id="panel-${ci}">` + (CAT_NOTES[cat] ? `<p class="cat-note">${CAT_NOTES[cat]}</p>` : '') +
+      items.map(({ c, i }) => c.request
+        ? `<div class="course-row call">
+            <div><div class="cr-name">${c.name}</div><div class="cr-meta">${metaFor(c)}</div><p class="cr-desc">${c.desc}</p></div>
+            <div class="cr-side"><div class="cr-price">${money(c.price_cents)}<small>INSTRUCTION ONLY</small></div><a class="cta-button cr-btn" href="${'mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent('Private instruction — ' + c.name)}">Request</a></div>
+          </div>`
+        : c.price_cents
         ? `<div class="course-row" role="button" tabindex="0" onclick="openCal(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCal(${i});}">
             <div><div class="cr-name">${c.name}</div><div class="cr-meta">${metaFor(c)}</div><p class="cr-desc">${c.desc}</p></div>
             <div class="cr-side"><div class="cr-price" data-sku="${c.sku}">${money(c.price_cents)}<small>PER SEAT</small></div><span class="cta-button cr-btn">Select Date</span></div>
@@ -1300,7 +1311,7 @@ const MEDIA = [
     { yt: 'mI7Ou5P-WHE', title: 'Disaster Recovery & Asset Protection', sub: 'Immediate deployment when the storm has passed' },
   ]},
   { group: 'From the Range', items: [
-    { title: 'MAST — Shotgun' }, { title: 'MAST — Action' }, { title: 'MAST — Medical' },
+    { title: 'MAST — Shotgun' }, { title: 'MAST — Action' }, { mp4: 'images/mast-medical.mp4', poster: 'images/mast-medical-poster.jpg', title: 'MAST — Medical', sub: 'Tourniquet under pressure. Trauma care is a core discipline.' },
     { title: 'Jason Castro — Testimonial' }, { title: 'CQB Phase 3' }, { title: 'MAST — SWAT' },
     { title: 'MAST — SWAT 2' }, { title: 'MAST — Training' }, { title: 'MAST VID WEB' },
     { title: 'MAST VID WEB 2' }, { title: 'MAST VID 1' }, { title: 'MAST VID 2' },
@@ -1315,7 +1326,7 @@ const MEDIA = [
     return `<div class="media-group"><div class="media-label"><span class="eyebrow">${esc(g.group)}</span></div><div class="media-grid">` +
       items.map(i => `<div class="video-card reveal">
         <div class="yt${i.mp4 ? ' mp4' : ''}" role="button" tabindex="0" aria-label="Play ${esc(i.title)}" ${i.yt ? `data-yt="${esc(i.yt)}"` : `data-mp4="${esc(i.mp4)}"`}>
-          ${i.yt ? `<img src="https://i.ytimg.com/vi/${esc(i.yt)}/hqdefault.jpg" alt="" loading="lazy" decoding="async">` : `<span class="lbl">MAST Solutions · Film</span>`}
+          ${i.yt ? `<img src="https://i.ytimg.com/vi/${esc(i.yt)}/hqdefault.jpg" alt="" loading="lazy" decoding="async">` : i.poster ? `<img src="${esc(i.poster)}" alt="" loading="lazy" decoding="async">` : `<span class="lbl">MAST Solutions · Film</span>`}
           <span class="play" aria-hidden="true"></span>
         </div>
         <div class="video-card-info"><h4>${esc(i.title)}</h4><p>${esc(i.sub || '')}</p></div>

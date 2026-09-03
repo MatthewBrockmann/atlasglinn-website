@@ -1,2 +1,5 @@
 *.mp4 filter=lfs diff=lfs merge=lfs -text
 *.mov filter=lfs diff=lfs merge=lfs -text
+
+# Web-encoded clips served directly by GitHub Pages (Pages does not serve LFS objects)
+images/mast-medical.mp4 -filter -diff -merge -text
