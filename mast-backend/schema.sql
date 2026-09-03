@@ -9,7 +9,10 @@ CREATE TABLE IF NOT EXISTS orders (
   stripe_session_id TEXT NOT NULL UNIQUE,   -- makes webhook retries idempotent
   stripe_event_id   TEXT,
   kind              TEXT NOT NULL,          -- 'class_booking' | 'membership'
-  sku               TEXT,                   -- class SKU or membership plan key
+  sku               TEXT,
+  session_id        INTEGER,                -- FK -> sessions.id
+  session_date      TEXT,                   -- Saturday of the chosen training weekend (YYYY-MM-DD)
+  session_label     TEXT,                   -- human label as shown at checkout, e.g. "Sat–Sun, Oct 10–11, 2026"
   item_name         TEXT,
   qty               INTEGER DEFAULT 1,
   amount_total      INTEGER DEFAULT 0,      -- cents, as charged by Stripe
@@ -19,42 +22,158 @@ CREATE TABLE IF NOT EXISTS orders (
   customer_phone    TEXT,
   organization      TEXT,
   notes             TEXT,
-  status            TEXT DEFAULT 'paid',    -- 'paid' | 'cancelled' | 'refunded'
+  status            TEXT DEFAULT 'paid',    -- paid | cancelled | refunded
+  -- consent + attribution (see ARCHITECTURE.md / DATA-AND-MARKETING.md)
+  refund_policy_version     TEXT,
+  refund_policy_accepted_at TEXT,
+  refund_policy_ip          TEXT,
+  utm_source        TEXT,
+  utm_medium        TEXT,
+  utm_campaign      TEXT,
+  first_touch_at    TEXT,
   created_at        TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_orders_sku     ON orders (sku);
+CREATE INDEX IF NOT EXISTS idx_orders_session ON orders (session_id);
 CREATE INDEX IF NOT EXISTS idx_orders_email   ON orders (customer_email);
 CREATE INDEX IF NOT EXISTS idx_orders_created ON orders (created_at DESC);
 
--- ── Offerings: server-authoritative class prices ────────────────────
+-- ── Offerings: server-authoritative course catalog ──────────────────
 -- The website never sends an amount; the Worker looks it up here.
 CREATE TABLE IF NOT EXISTS offerings (
   sku         TEXT PRIMARY KEY,
   name        TEXT NOT NULL,
-  price_cents INTEGER NOT NULL,
+  price_cents INTEGER NOT NULL,   -- 0 = "call for pricing", blocks online booking
+  hours       INTEGER,
+  days        INTEGER,
+  course_type TEXT DEFAULT 'fundamental',  -- fundamental | operator
+  category    TEXT,
+  capacity    INTEGER,            -- 16 one-day / 10 multi-day
+  blurb       TEXT,
   active      INTEGER DEFAULT 1,
   sort_order  INTEGER DEFAULT 0
 );
 
--- ⚠️ PLACEHOLDER PRICES — confirm every amount before taking live payments.
-INSERT OR IGNORE INTO offerings (sku, name, price_cents, sort_order) VALUES
-  ('MAST-HG-OP', 'Handgun Operator',           39500, 1),
-  ('MAST-AWO',   'Advanced Weapons Operation', 59500, 2),
-  ('MAST-FOF',   'Force on Force',             49500, 3),
-  ('MAST-DA',    'Direct Action',              69500, 4),
-  ('MAST-LLNO',  'Low-Light / Night Ops',      35000, 5),
-  ('MAST-LRR',   'Long Range Rifle',           49500, 6),
-  ('MAST-TMED',  'Tactical Medical Training',  29500, 7),
-  ('MAST-RSO',   'NRA Certified RSO',          15000, 8);
+-- Prices confirmed by owner 2026-09-01.
+-- Capacity rule (owner, 2026-09-01): fundamentals = 16, ANY P1/operator = 10.
+-- Owner will adjust individual courses upward later.
+INSERT OR IGNORE INTO offerings
+  (sku, name, price_cents, hours, days, course_type, category, capacity, blurb, sort_order) VALUES
+  -- Handgun
+  ('MAST-HG-FUND','Handgun Fundamentals',            22500,  8, 1, 'fundamental','Handgun',        16, 'Grip, stance, sights, trigger. The base every other course builds on.', 10),
+  ('MAST-HG-OP',  'Handgun Operator',                45000, 16, 2, 'operator',   'Handgun',        10, 'Two days past the fundamentals — movement, transitions, and fighting platforms.', 11),
+  -- Carbine
+  ('MAST-CAR-FUND','Carbine Fundamentals',           22500,  8, 1, 'fundamental','Carbine',        16, 'Zero, manipulation, and marksmanship with the carbine.', 20),
+  ('MAST-CAR-OP', 'Carbine Operator',                45000, 16, 2, 'operator',   'Carbine',        10, 'Two days of carbine work under movement and time pressure.', 21),
+  -- Shotgun
+  ('MAST-SG-FUND','Shotgun Fundamentals',            22500,  8, 1, 'fundamental','Shotgun',        16, 'Loading under stress, patterning, transitions, and structure work.', 30),
+  -- Sub-gun
+  ('MAST-SUB-FUND','Sub-Gun Fundamentals',           22500,  8, 1, 'fundamental','Sub-Gun',        16, 'MP5 and variants, 9mm carbine and variants.', 40),
+  ('MAST-SUB-P1', 'Sub-Gun P1',                      25000,  8, 1, 'operator',   'Sub-Gun',        10, 'Phase one sub-gun employment.', 41),
+  -- Select-fire
+  ('MAST-SF-P1',  'Select-Fire M4A1 / MK18 Operator P1', 50000, 8, 1, 'operator','Select-Fire',    10, 'Select-fire employment on the M4A1 / MK18 platform.', 50),
+  ('MAST-SF-P2',  'Select-Fire M4A1 / MK18 Operator P2', 95000, 16, 2, 'operator','Select-Fire',   10, 'Day one live-fire range. Day two CQB shoothouse. UTM rounds sold separately — bolts provided.', 51),
+  -- Low-light / NVG
+  ('MAST-LL-FUND','Low-Light Fundamentals',          22500,  8, 1, 'fundamental','Low-Light / NVG',16, 'Marksmanship and manipulation in the light you will actually have.', 60),
+  ('MAST-LL-P1',  'Low-Light Operator P1',           45000, 16, 2, 'operator',   'Low-Light / NVG',10, 'Two days working the transition from low light to no light.', 61),
+  ('MAST-NVG-P1', 'Low-Light / No-Light NVG Operator P1', 50000, 16, 2, 'operator','Low-Light / NVG',10, 'Night vision employment, phase one.', 62),
+  ('MAST-NVG-P2', 'NVG Operator P2',                 95000, 16, 2, 'operator',   'Low-Light / NVG',10, 'Advanced night vision employment.', 63),
+  -- Team tactics
+  ('MAST-TEAM-P1','Team Tactics P1',                 45000, 16, 2, 'operator',   'Team Tactics',   10, 'Working as an element rather than as individuals.', 70),
+  ('MAST-TEAM-P2','Team Tactics P2',                 47500, 16, 2, 'operator',   'Team Tactics',   10, 'Mechanics, movement, comms and signal.', 71),
+  -- Protective
+  ('MAST-HPP-P1', 'Home & Property Protection P1',   25000,  8, 1, 'fundamental','Protective',     10, 'Defending the place you live, phase one.', 80),
+  ('MAST-VEH-P1', 'Vehicular Tactics P1',            22500,  8, 1, 'fundamental','Protective',     10, 'Working in and around the vehicle.', 81),
+  ('MAST-VEH-P2', 'Vehicular Tactics / Team Tactics P2', 50000, 16, 2, 'operator','Protective',    10, 'Vehicle work as a team over two days.', 82),
+  ('MAST-MOTOR-P1','Motorcade P1',                       0, NULL, NULL,'operator','Protective',    10, 'Motorcade operations, phase one. Call for pricing.', 83),
+  ('MAST-MOTOR-P2','Motorcade P2',                       0, NULL, NULL,'operator','Protective',    10, 'Motorcade operations, phase two. Call for pricing.', 84),
+  -- Gear
+  ('MAST-GEAR',   'Gear & Kit Considerations',       75000, 24, 3, 'operator',   'Gear',           10, 'Go bag, shelter-in-place, urban movement, low-vis and high-vis, individual and team.', 90);
+
+
+-- ── Sessions: a course on a date ────────────────────────────────────
+CREATE TABLE IF NOT EXISTS sessions (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  course_sku   TEXT NOT NULL,
+  starts_at    TEXT NOT NULL,          -- ISO date, America/Chicago
+  ends_at      TEXT,
+  capacity     INTEGER NOT NULL,
+  seats_taken  INTEGER DEFAULT 0,
+  location     TEXT DEFAULT 'Wharton Range',   -- label only; address is private
+  status       TEXT DEFAULT 'open',    -- open | full | cancelled | done
+  notes        TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_course ON sessions (course_sku);
+CREATE INDEX IF NOT EXISTS idx_sessions_start  ON sessions (starts_at);
+
+-- ── Training weekends (owner, 2026-09-01) ───────────────────────────
+-- Sep last · Oct 2nd+4th · Nov 2nd · Dec 2nd · Jan-Apr 2nd+4th,
+-- PLUS the 5th weekend wherever a month has one (owner amendment).
+--
+-- Only two months in this window have five Saturdays: October 2026 and
+-- January 2027. Every other month has exactly four.
+--
+-- Courses are not yet assigned to weekends — the owner is organising that.
+CREATE TABLE IF NOT EXISTS training_weekends (
+  saturday TEXT PRIMARY KEY,
+  sunday   TEXT NOT NULL,
+  label    TEXT,
+  status   TEXT DEFAULT 'available',   -- available | scheduled | blocked
+  note     TEXT
+);
+INSERT OR IGNORE INTO training_weekends (saturday, sunday, label, note) VALUES
+  ('2026-09-26','2026-09-27','September — last weekend', NULL),
+  ('2026-10-10','2026-10-11','October — 2nd weekend', NULL),
+  ('2026-10-24','2026-10-25','October — 4th weekend', NULL),
+  ('2026-10-31','2026-11-01','October — 5th weekend',
+     'BLOCKED by owner — Halloween, and the weekend straddles the month.'),
+  ('2026-11-14','2026-11-15','November — 2nd weekend', NULL),
+  ('2026-12-12','2026-12-13','December — 2nd weekend', NULL),
+  ('2027-01-09','2027-01-10','January — 2nd weekend', NULL),
+  ('2027-01-23','2027-01-24','January — 4th weekend', NULL),
+  ('2027-01-30','2027-01-31','January — 5th weekend', NULL),
+  ('2027-02-13','2027-02-14','February — 2nd weekend', NULL),
+  ('2027-02-27','2027-02-28','February — 4th weekend', NULL),
+  ('2027-03-13','2027-03-14','March — 2nd weekend', NULL),
+  ('2027-03-27','2027-03-28','March — 4th weekend', NULL),
+  ('2027-04-10','2027-04-11','April — 2nd weekend', NULL),
+  ('2027-04-24','2027-04-25','April — 4th weekend', NULL);
+
+UPDATE training_weekends SET status = 'blocked' WHERE saturday = '2026-10-31';
+
+-- ── Seat holds: prevents two people buying the last seat ────────────
+CREATE TABLE IF NOT EXISTS seat_holds (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id  INTEGER NOT NULL,
+  email       TEXT NOT NULL,
+  seats       INTEGER NOT NULL DEFAULT 1,
+  expires_at  TEXT NOT NULL,          -- ~20 min, covers a Stripe checkout
+  consumed    INTEGER DEFAULT 0,
+  created_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_holds_session ON seat_holds (session_id, expires_at);
+
+-- ── Add-ons: ammunition and rentals (owner: "later") ────────────────
+-- Structure only. No rows until the owner supplies products and prices.
+CREATE TABLE IF NOT EXISTS addons (
+  sku          TEXT PRIMARY KEY,
+  name         TEXT NOT NULL,
+  price_cents  INTEGER NOT NULL,
+  kind         TEXT,                  -- ammunition | rental | consumable
+  applies_to   TEXT,                  -- course SKU, or NULL for any
+  active       INTEGER DEFAULT 0      -- OFF until priced
+);
+-- Known future add-ons, deliberately not priced:
+--   ammunition per course, firearm rentals, UTM rounds for MAST-SF-P2
+--   (bolts are provided; rounds sold separately).
 
 -- ── Memberships: plan key -> Stripe recurring Price ID ──────────────
--- Rows are added once the real tiers and Stripe Prices exist.
 CREATE TABLE IF NOT EXISTS memberships (
-  plan_key        TEXT PRIMARY KEY,        -- e.g. 'range_member'
+  plan_key        TEXT PRIMARY KEY,
   name            TEXT NOT NULL,
-  stripe_price_id TEXT NOT NULL,           -- e.g. 'price_1Abc...'
-  price_cents     INTEGER,                 -- display only
+  stripe_price_id TEXT NOT NULL,
+  price_cents     INTEGER,
   interval        TEXT DEFAULT 'month',
   active          INTEGER DEFAULT 1,
   sort_order      INTEGER DEFAULT 0

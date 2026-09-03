@@ -1,0 +1,77 @@
+{
+  "_how": "Edit `status` to `published` (and set `published_on`, YYYY-MM-DD), then run:  python3 articles/publish.py  — it sets noindex/index on each page, adds or removes the DRAFT banner, rebuilds the hub list, and rewrites the article entries in sitemap.xml. Drafts stay reachable by direct URL for review but are not listed, not indexed, and not in the sitemap.",
+  "articles": [
+    {
+      "file": "shooting-principles-marksmanship-fundamentals.html",
+      "title": "The Nine Shooting Principles",
+      "description": "The nine principles behind every MAST course, with an instructor note on each one.",
+      "read": "4 min read",
+      "source": "MAST_SOLUTIONS_SHOOTING_PRINCIPLES.docx",
+      "status": "draft",
+      "published_on": null
+    },
+    {
+      "file": "active-shooter-response-training-houston.html",
+      "title": "Active Shooter Response: What You Can Actually Do",
+      "description": "Run, hide, fight, what to do when officers arrive, and the preparation that happens months earlier.",
+      "read": "5 min read",
+      "source": "A_S_Instructor_Guide_MAST.docx (DHS framework)",
+      "status": "draft",
+      "published_on": null
+    },
+    {
+      "file": "situational-awareness-training-houston.html",
+      "title": "Situational Awareness Is a Habit, Not a Mood",
+      "description": "Why constant vigilance fails, what to build instead, and the day my own shortcut cost me my plan.",
+      "read": "4 min read",
+      "source": "Sit_awareness.pages",
+      "status": "draft",
+      "published_on": null
+    },
+    {
+      "file": "corporate-threat-assessment-methodology.html",
+      "title": "How a Corporate Threat Assessment Is Built",
+      "description": "The four macro threats, the five-level scale, three risk domains, and why overreaction is a failure.",
+      "read": "6 min read",
+      "source": "OCONUS_Threat_Assessment.pdf (methodology only)",
+      "status": "draft",
+      "published_on": null
+    },
+    {
+      "file": "executive-protection-combatives-mindset.html",
+      "title": "Protective Combatives Start With the Mindset",
+      "description": "Why protective work trains for control, not damage, and what the camera changes about every decision.",
+      "read": "4 min read",
+      "source": "Phase_I_Combative_s__PPO_Executive_Protection.pages",
+      "status": "draft",
+      "published_on": null
+    },
+    {
+      "file": "tactical-training-stages-of-competence.html",
+      "title": "The Four Stages of Competence",
+      "description": "Why most training plateaus are people practicing for a stage they already left.",
+      "read": "5 min read",
+      "source": "Advanced_High_Threat_Extraction.pdf (principles only)",
+      "status": "draft",
+      "published_on": null
+    },
+    {
+      "file": "armored-vehicle-operator-training-houston.html",
+      "title": "What a Protective Driver Learns First",
+      "description": "Vehicle dynamics, the slalom as a diagnostic tool, and threshold braking explained from the lesson plan.",
+      "read": "6 min read",
+      "source": "Armored_Vehicle_Operator_training_part_one.pages",
+      "status": "draft",
+      "published_on": null
+    },
+    {
+      "file": "mast-solutions-best-of-katy-awards.html",
+      "title": "Best of Katy Awards, 2018 and 2019",
+      "description": "Archive of the 2018 and 2019 Best of Katy Award press releases, kept as a record.",
+      "read": "3 min read",
+      "source": "Press_Release_2019.docx + Press_Release_MAST_Solutions.docx",
+      "status": "draft",
+      "published_on": null
+    }
+  ]
+}

@@ -54,14 +54,14 @@ const DB = {
 const env = {
   STRIPE_SECRET_KEY: 'sk_test_x',
   STRIPE_WEBHOOK_SECRET: 'whsec_testsecret',
-  ALLOWED_ORIGINS: 'https://www.mastsolutions.com,https://mastsolutions.com',
+  ALLOWED_ORIGINS: 'https://mastsolutions.com,https://mastsolutions.com',
   NOTIFY_EMAIL: 'hq@atlasglinn.com',
   RESEND_API_KEY: 're_test',
   ADMIN_KEY: 'super-secret-admin-key',
   DB,
 };
 const ctx = { waitUntil: (p) => p };
-const post = (path, body, origin = 'https://www.mastsolutions.com') =>
+const post = (path, body, origin = 'https://mastsolutions.com') =>
   worker.fetch(new Request('https://api.test' + path, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin }, body: JSON.stringify(body),
   }), env, ctx);
@@ -101,16 +101,49 @@ console.log('\n── Redirect allowlist ──');
   });
   const s = stripeCalls[0].get('success_url');
   ok('off-origin success_url rejected', !s.includes('evil.example.com'), 'got ' + s);
-  ok('falls back to allowlisted origin', s.startsWith('https://www.mastsolutions.com'), 'got ' + s);
+  ok('falls back to allowlisted origin', s.startsWith('https://mastsolutions.com'), 'got ' + s);
 }
 {
   stripeCalls.length = 0;
   await post('/create-booking', {
     sku: 'MAST-DA', customer_email: 'a@b.com',
-    success_url: 'https://www.mastsolutions.com/?checkout=success',
+    success_url: 'https://mastsolutions.com/?checkout=success',
   });
   ok('on-origin success_url accepted',
      stripeCalls[0].get('success_url').includes('mastsolutions.com/?checkout=success'));
+}
+
+console.log('\n── Training weekends (calendar) ──');
+{
+  const res = await worker.fetch(new Request('https://api.test/weekends', { headers: { Origin: 'https://mastsolutions.com' } }), env, ctx);
+  const body = await res.json();
+  ok('GET /weekends answers 200', res.status === 200);
+  ok('lists all 15 owner weekends', Array.isArray(body.weekends) && body.weekends.length === 15, 'got ' + (body.weekends || []).length);
+  ok('Oct 31 is blocked', body.weekends.some((w) => w.saturday === '2026-10-31' && w.status === 'blocked'));
+  ok('Jan 30 (5th weekend) is present', body.weekends.some((w) => w.saturday === '2027-01-30'));
+}
+{
+  stripeCalls.length = 0;
+  const res = await post('/create-booking', {
+    sku: 'MAST-DA', customer_email: 'a@b.com', session_date: '2026-10-10', session_label: 'Sat–Sun, Oct 10–11, 2026',
+  });
+  const sent = stripeCalls[0];
+  ok('valid weekend accepted', res.status === 200, await res.clone().text());
+  ok('session_date carried in Stripe metadata', sent && sent.get('metadata[session_date]') === '2026-10-10');
+  ok('date label appears on the Stripe line item',
+     sent && sent.get('line_items[0][price_data][product_data][description]').includes('Oct 10'));
+}
+{
+  const res = await post('/create-booking', { sku: 'MAST-DA', customer_email: 'a@b.com', session_date: '2026-10-31' });
+  ok('blocked weekend (Oct 31) rejected (409)', res.status === 409, 'got ' + res.status);
+}
+{
+  const res = await post('/create-booking', { sku: 'MAST-DA', customer_email: 'a@b.com', session_date: '2026-10-17' });
+  ok('non-training Saturday rejected (404)', res.status === 404, 'got ' + res.status);
+}
+{
+  const res = await post('/create-booking', { sku: 'MAST-DA', customer_email: 'a@b.com', session_date: 'next saturday' });
+  ok('malformed date rejected (400)', res.status === 400, 'got ' + res.status);
 }
 
 console.log('\n── Membership plan resolution ──');
@@ -171,7 +204,7 @@ const evt = JSON.stringify({
 }
 
 console.log('\n── Admin roster auth ──');
-const get = (path, origin = 'https://www.mastsolutions.com') =>
+const get = (path, origin = 'https://mastsolutions.com') =>
   worker.fetch(new Request('https://api.test' + path, { headers: { Origin: origin } }), env, ctx);
 {
   ok('no key rejected', (await get('/roster')).status === 401);

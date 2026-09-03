@@ -35,6 +35,9 @@ export default {
       if (url.pathname === '/catalog' && request.method === 'GET') {
         return await handleCatalog(env, cors);
       }
+      if (url.pathname === '/weekends' && request.method === 'GET') {
+        return await handleWeekends(env, cors);
+      }
       if (url.pathname === '/create-booking' && request.method === 'POST') {
         return await handleBooking(request, env, cors);
       }
@@ -94,18 +97,38 @@ function baseCors(origin) {
  * Rows live in D1 (table `offerings`) so they can be edited without a redeploy;
  * if the table is empty or D1 is unbound, these seeds are used.
  *
- * ⚠️ SEED PRICES ARE UNCONFIRMED PLACEHOLDERS. Stripe charges exactly these
- * amounts — verify every one before taking live payments.
+ * Prices confirmed by the owner 2026-09-01. A price_cents of 0 means "call for
+ * pricing" and makes handleBooking() return 409 rather than charging anything.
+ *
+ * SKUs must match schema.sql, mastsolutions.html, and the WP theme exactly —
+ * a mismatch returns 404 on Enroll.
  */
 const SEED_CLASSES = [
-  { sku: 'MAST-HG-OP', name: 'Handgun Operator', price_cents: 39500 },
-  { sku: 'MAST-AWO', name: 'Advanced Weapons Operation', price_cents: 59500 },
-  { sku: 'MAST-FOF', name: 'Force on Force', price_cents: 49500 },
-  { sku: 'MAST-DA', name: 'Direct Action', price_cents: 69500 },
-  { sku: 'MAST-LLNO', name: 'Low-Light / Night Ops', price_cents: 35000 },
-  { sku: 'MAST-LRR', name: 'Long Range Rifle', price_cents: 49500 },
-  { sku: 'MAST-TMED', name: 'Tactical Medical Training', price_cents: 29500 },
-  { sku: 'MAST-RSO', name: 'NRA Certified RSO', price_cents: 15000 },
+  { sku: 'MAST-HG-FUND',  name: 'Handgun Fundamentals',                    price_cents: 22500 },
+  { sku: 'MAST-HG-OP',    name: 'Handgun Operator',                        price_cents: 45000 },
+  { sku: 'MAST-CAR-FUND', name: 'Carbine Fundamentals',                    price_cents: 22500 },
+  { sku: 'MAST-CAR-OP',   name: 'Carbine Operator',                        price_cents: 45000 },
+  { sku: 'MAST-SG-FUND',  name: 'Shotgun Fundamentals',                    price_cents: 22500 },
+  { sku: 'MAST-SUB-FUND', name: 'Sub-Gun Fundamentals',                    price_cents: 22500 },
+  { sku: 'MAST-SUB-P1',   name: 'Sub-Gun P1',                              price_cents: 25000 },
+  { sku: 'MAST-SF-P1',    name: 'Select-Fire M4A1 / MK18 Operator P1',     price_cents: 50000 },
+  { sku: 'MAST-SF-P2',    name: 'Select-Fire M4A1 / MK18 Operator P2',     price_cents: 95000 },
+  { sku: 'MAST-LL-FUND',  name: 'Low-Light Fundamentals',                  price_cents: 22500 },
+  { sku: 'MAST-LL-P1',    name: 'Low-Light Operator P1',                   price_cents: 45000 },
+  { sku: 'MAST-NVG-P1',   name: 'Low-Light / No-Light NVG Operator P1',    price_cents: 50000 },
+  { sku: 'MAST-NVG-P2',   name: 'NVG Operator P2',                         price_cents: 95000 },
+  { sku: 'MAST-TEAM-P1',  name: 'Team Tactics P1',                         price_cents: 45000 },
+  { sku: 'MAST-TEAM-P2',  name: 'Team Tactics P2',                         price_cents: 47500 },
+  { sku: 'MAST-HPP-P1',   name: 'Home & Property Protection P1',           price_cents: 25000 },
+  { sku: 'MAST-VEH-P1',   name: 'Vehicular Tactics P1',                    price_cents: 22500 },
+  { sku: 'MAST-VEH-P2',   name: 'Vehicular Tactics / Team Tactics P2',     price_cents: 50000 },
+  { sku: 'MAST-GEAR',     name: 'Gear & Kit Considerations',               price_cents: 75000 },
+  { sku: 'MAST-MOTOR-P1', name: 'Motorcade P1',                            price_cents: 0 },
+  { sku: 'MAST-MOTOR-P2', name: 'Motorcade P2',                            price_cents: 0 },
+  // GO-LIVE TEST SEAT (owner, 2026-09-03). Not in D1 and not in the public
+  // catalog; reachable only by SKU from the page's #test mode. Remove after
+  // the first live payment has been verified in the roster.
+  { sku: 'MAST-TEST',     name: 'Live payment test seat ($1.00)',          price_cents: 100 },
 ];
 
 async function lookupClass(env, sku) {
@@ -138,6 +161,52 @@ async function handleCatalog(env, cors) {
   return json({ classes: SEED_CLASSES, source: 'seed' }, 200, cors);
 }
 
+/* ─────────────────────── Training weekends (calendar) ─────────────────────── */
+
+/**
+ * Owner's schedule (2026-09-01): Sep last · Oct 2nd+4th · Nov 2nd · Dec 2nd ·
+ * Jan–Apr 2nd+4th, plus any 5th weekend. Oct 31 blocked by owner.
+ *
+ * Mirrors schema.sql `training_weekends`. D1 wins when bound so the owner can
+ * block or open a weekend without a redeploy; these seeds are the fallback.
+ */
+const SEED_WEEKENDS = [
+  { saturday: '2026-09-26', sunday: '2026-09-27', label: 'September — last weekend', status: 'available' },
+  { saturday: '2026-10-10', sunday: '2026-10-11', label: 'October — 2nd weekend',    status: 'available' },
+  { saturday: '2026-10-24', sunday: '2026-10-25', label: 'October — 4th weekend',    status: 'available' },
+  { saturday: '2026-10-31', sunday: '2026-11-01', label: 'October — 5th weekend',    status: 'blocked' },
+  { saturday: '2026-11-14', sunday: '2026-11-15', label: 'November — 2nd weekend',   status: 'available' },
+  { saturday: '2026-12-12', sunday: '2026-12-13', label: 'December — 2nd weekend',   status: 'available' },
+  { saturday: '2027-01-09', sunday: '2027-01-10', label: 'January — 2nd weekend',    status: 'available' },
+  { saturday: '2027-01-23', sunday: '2027-01-24', label: 'January — 4th weekend',    status: 'available' },
+  { saturday: '2027-01-30', sunday: '2027-01-31', label: 'January — 5th weekend',    status: 'available' },
+  { saturday: '2027-02-13', sunday: '2027-02-14', label: 'February — 2nd weekend',   status: 'available' },
+  { saturday: '2027-02-27', sunday: '2027-02-28', label: 'February — 4th weekend',   status: 'available' },
+  { saturday: '2027-03-13', sunday: '2027-03-14', label: 'March — 2nd weekend',      status: 'available' },
+  { saturday: '2027-03-27', sunday: '2027-03-28', label: 'March — 4th weekend',      status: 'available' },
+  { saturday: '2027-04-10', sunday: '2027-04-11', label: 'April — 2nd weekend',      status: 'available' },
+  { saturday: '2027-04-24', sunday: '2027-04-25', label: 'April — 4th weekend',      status: 'available' },
+];
+
+async function listWeekends(env) {
+  if (env.DB) {
+    try {
+      const { results } = await env.DB.prepare(
+        'SELECT saturday, sunday, label, status FROM training_weekends ORDER BY saturday'
+      ).all();
+      if (results && results.length) return { weekends: results, source: 'd1' };
+    } catch (e) {
+      console.error('[Weekends] D1 list failed, falling back to seeds:', e.message);
+    }
+  }
+  return { weekends: SEED_WEEKENDS, source: 'seed' };
+}
+
+async function handleWeekends(env, cors) {
+  const { weekends, source } = await listWeekends(env);
+  return json({ weekends, source }, 200, cors);
+}
+
 /* ──────────────────────── Class booking (one-time) ──────────────────────── */
 
 async function handleBooking(request, env, cors) {
@@ -158,12 +227,32 @@ async function handleBooking(request, env, cors) {
     return json({ error: 'This class is not available for online booking. Please call to enroll.' }, 409, cors);
   }
 
+  // Training weekend. The page always sends one; validate it server-side so a
+  // crafted request cannot book a blocked or invented date.
+  let weekend = null;
+  if (body.session_date !== undefined && body.session_date !== null && body.session_date !== '') {
+    const wanted = String(body.session_date);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(wanted)) {
+      return json({ error: 'session_date must be YYYY-MM-DD' }, 400, cors);
+    }
+    const { weekends } = await listWeekends(env);
+    weekend = weekends.find((w) => w.saturday === wanted) || null;
+    if (!weekend) {
+      return json({ error: 'That date is not a MAST training weekend.' }, 404, cors);
+    }
+    if (weekend.status !== 'available' && weekend.status !== 'scheduled') {
+      return json({ error: 'That weekend is not available for booking.' }, 409, cors);
+    }
+  }
+  const sessionLabel = str(body.session_label) || (weekend ? weekend.label : '');
+
   const payload = new URLSearchParams({
     mode: 'payment',
     customer_email: body.customer_email,
     'line_items[0][price_data][currency]': 'usd',
     'line_items[0][price_data][product_data][name]': 'MAST Solutions — ' + offering.name,
-    'line_items[0][price_data][product_data][description]': 'SKU: ' + offering.sku,
+    'line_items[0][price_data][product_data][description]':
+      'SKU: ' + offering.sku + (weekend ? ' · ' + (sessionLabel || weekend.saturday) : ''),
     'line_items[0][price_data][unit_amount]': String(offering.price_cents),
     'line_items[0][quantity]': String(qty),
     success_url: safeUrl(body.success_url, env) || defaultUrl(env, '?checkout=success'),
@@ -175,6 +264,8 @@ async function handleBooking(request, env, cors) {
     'metadata[sku]': offering.sku,
     'metadata[class_name]': offering.name,
     'metadata[qty]': String(qty),
+    'metadata[session_date]': weekend ? weekend.saturday : '',
+    'metadata[session_label]': sessionLabel,
     'metadata[customer_name]': str(body.customer_name),
     'metadata[organization]': str(body.organization),
     'metadata[notes]': str(body.notes),
@@ -321,6 +412,8 @@ async function handleWebhook(request, env, ctx, cors) {
       kind: meta.kind || (session.mode === 'subscription' ? 'membership' : 'class_booking'),
       sku: meta.sku || meta.plan || '',
       item_name: meta.class_name || meta.plan_name || '',
+      session_date: meta.session_date || '',
+      session_label: meta.session_label || '',
       qty: parseInt(meta.qty || meta.seats || '1', 10) || 1,
       amount_total: session.amount_total || 0,
       currency: session.currency || 'usd',
@@ -365,14 +458,15 @@ async function storeOrder(env, r) {
   try {
     await env.DB.prepare(
       `INSERT INTO orders (
-         stripe_session_id, stripe_event_id, kind, sku, item_name, qty,
+         stripe_session_id, stripe_event_id, kind, sku, item_name, session_date, session_label, qty,
          amount_total, currency, customer_email, customer_name, customer_phone,
          organization, notes, status, created_at
-       ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'paid',?)
+       ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'paid',?)
        ON CONFLICT(stripe_session_id) DO NOTHING`
     )
       .bind(
-        r.stripe_session_id, r.stripe_event_id, r.kind, r.sku, r.item_name, r.qty,
+        r.stripe_session_id, r.stripe_event_id, r.kind, r.sku, r.item_name,
+        r.session_date || null, r.session_label || null, r.qty,
         r.amount_total, r.currency, r.customer_email, r.customer_name, r.customer_phone,
         r.organization, r.notes, r.created_at
       )
@@ -415,6 +509,7 @@ async function notify(env, r, stored) {
     '',
     'Item:      ' + (r.item_name || r.sku),
     'SKU/Plan:  ' + r.sku,
+    'Date:      ' + (r.session_label || r.session_date || '(not chosen — call customer)'),
     'Qty/Seats: ' + r.qty,
     'Paid:      ' + money(r.amount_total, r.currency),
     '',
@@ -559,7 +654,7 @@ function safeUrl(candidate, env) {
 }
 
 function defaultUrl(env, suffix) {
-  const base = allowedOrigins(env)[0] || env.SITE_URL || 'https://www.mastsolutions.com';
+  const base = allowedOrigins(env)[0] || env.SITE_URL || 'https://mastsolutions.com';
   return base.replace(/\/$/, '/') + suffix;
 }
 

@@ -3,6 +3,16 @@
 Static HTML site for atlasglinn.com (GitHub Pages — see `CNAME`). Pages are
 hand-authored HTML files in the repo root with shared assets under `images/`.
 
+## MAST Solutions page (decided by Brockmann 2026-09-03)
+
+`mastsolutions.html` is the cinematic Tier 3 trailer design and it is **generated**:
+edit `scripts/assemble-cinematic.py` and run `python3 scripts/assemble-cinematic.py`.
+Never hand-edit the HTML; the next run overwrites it. The assembler lifts the booking
+stack (catalog, calendar, checkout, quals modal, media strip) from
+`mastsolutions-tesla.html`, so booking changes go there first. `mastsolutions-atlas.html`
+is the earlier Atlas-frame build, kept noindex just in case; `mastsolutions-cinematic.html`
+is a redirect stub for the preview links that were shared.
+
 ## Claude SEO toolchain (vendored)
 
 This repo carries the [Claude SEO](https://github.com/AgriciDaniel/claude-seo)

@@ -1,0 +1,655 @@
+#!/usr/bin/env python3
+"""Assemble mastsolutions.html (the production MAST page): the Tier 3 trailer visual system
+(reference/desktop/mast_tier3_trailer.html + atlas_mast_landing_4d.html) carrying the real MAST site: catalog +
+calendar + Stripe checkout, instructors, media, capability, contact. Booking CSS/JS/modals are lifted verbatim from
+mastsolutions-tesla.html and recolored to the trailer palette, so the pages share one booking stack.
+
+Edit THIS FILE and re-run it; never hand-edit mastsolutions.html, the next run overwrites it."""
+import re, sys
+import os
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+tesla = open(f'{REPO}/mastsolutions-tesla.html', encoding='utf-8').read()
+
+def between(s, a, b, inclusive=False):
+    i = s.index(a); j = s.index(b, i + len(a))
+    return s[i:j + (len(b) if inclusive else 0)]
+
+# ── 1. Booking CSS from the Tesla page (catalog, video cards, modals, calendar, checkout, quals, banner) ──
+css_src = between(tesla, '<style>', '</style>')
+want = ('.catalog-panel', '.cat', '.course-row', '.cr-', '.video-card', '.yt', '.media-strip', '.modal', '.cal-', '.day',
+        '.sheet', 'label', 'input', '.qty', '.total', '.secure', '.err', '.quals', '.banner', '.legend')
+# keep each lifted rule inside the media query it came from (the Tesla page nests its phone sheet rules in @media)
+groups = {None: []}; media = None
+for line in css_src.splitlines():
+    t = line.strip()
+    if t.startswith('@media'):
+        media = t.rstrip('{').strip(); groups.setdefault(media, []); continue
+    if t == '}' and media: media = None; continue
+    if any(t.startswith(w) for w in want) and '{' in t:
+        groups[media].append(t)
+booking_css = '\n'.join(groups[None]) + ''.join('\n' + m + ' {\n' + '\n'.join(r) + '\n}' for m, r in groups.items() if m and r)
+assert '@media (max-width: 768px) {' in booking_css, 'phone modal rules lost their media wrapper'
+# recolor Atlas blue → trailer gold, Atlas surfaces → trailer surfaces, Inconsolata → Share Tech Mono
+rep = {'#1A6BDE': '#C9A84C', 'rgba(26,107,222,': 'rgba(201,168,76,', '#0f1622': '#0B1221', '#080C14': '#050810',
+       "'Inconsolata', monospace": "'Share Tech Mono', monospace", 'rgba(8,12,20,': 'rgba(5,8,16,'}
+for k, v in rep.items(): booking_css = booking_css.replace(k, v)
+assert '.modal-bd {' in booking_css and '.day.wk {' in booking_css and '.cat-btn {' in booking_css, 'booking css missing pieces'
+
+# ── 2. Modal + banner markup from the Tesla page ──
+banner = between(tesla, '<div id="banner"', '</div>', True)
+modals = between(tesla, '<!-- CALENDAR -->', '</ol>\n</div>', True)
+modals = modals.replace('style="color:#1A6BDE;text-decoration:none;"', 'style="color:#E8D27D;text-decoration:none;"')
+modals = modals.replace('<i style="background:#1A6BDE"></i>Selected', '<i style="background:#E8D27D"></i>Selected')
+
+# ── 3. Booking JS from the Tesla page: everything up to the hero loader, then MEDIA + the media strip renderer ──
+js = between(tesla, '<script>', '</script>')[len('<script>'):]
+a = js.index("(function(){\n  const box = $('hero-yt')")
+b = js.index('const MEDIA = [')
+c = js.index("(function(){\n  const io = new IntersectionObserver(en => en.forEach(x => { if (!x.isIntersecting) return;")
+js = js[:a] + js[b:c]
+# replace the MEDIA array with the curated set (local clips first, then the two YouTube films that are verifiably MAST)
+media = """const MEDIA = [
+  { mp4: 'images/mast/jason-castro-testimonial.mp4', poster: 'images/mast/jason-castro-testimonial-poster.jpg', title: 'Jason Castro', sub: 'Student testimonial' },
+  { mp4: 'images/mast/mast-vid-1.mp4', poster: 'images/mast/mast-vid-1-poster.jpg', title: 'MAST Solutions', sub: 'On the range' },
+  { mp4: 'images/mast/mast-vid-2.mp4', poster: 'images/mast/mast-vid-2-poster.jpg', title: 'MAST Solutions', sub: 'Training day' },
+  { mp4: 'images/mast/mast-medical.mp4', poster: 'images/mast/mast-medical-poster.jpg', title: 'Medical', sub: 'Tourniquet under pressure' },
+  { mp4: 'images/mast/mast-shotgun.mp4', poster: 'images/mast/mast-shotgun-poster.jpg', title: 'Shotgun', sub: 'Breaching and patterning' },
+  { mp4: 'images/mast/forge-ignition-orlando.mp4', poster: 'images/mast/forge-ignition-orlando-poster.jpg', title: 'Forge Ignition', sub: 'Orlando' },
+  { yt: 'pSGWdaDglZE', title: 'Modern Shooter TV', sub: 'Lance M / Castro / Ray Cash — MAST Solutions' },
+  { yt: 'jwQ5OyKEKwg', title: 'Training Reel', sub: 'The film behind the Training page' },
+];
+"""
+js = re.sub(r"const MEDIA = \[[\s\S]*?\n\];\n", media, js, count=1)
+assert 'function openCal' in js and 'function startCheckout' in js and "const host = $('media-strip')" in js, 'booking js missing pieces'
+assert 'hero-yt' not in js and 'REVIEWS' not in js, 'hero/reviews code leaked into booking js'
+
+# ── 4. Page ──
+CSS = r"""
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&family=Cinzel:wght@600;900&display=swap');
+  :root {
+    --midnight:#050810; --deep-navy:#0B1221; --gunmetal:#1E2A3A; --gunmetal-lt:#2C3845; --steel:#3A4A5C;
+    --gold:#C9A84C; --gold-antique:#D4AF37; --gold-champagne:#E8D27D; --gold-bright:#FCF6BA; --copper:#B87333;
+    --text:#F0F4FF; --text-dim:#8B95A8; --text-mute:#5B6474;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  html, body { background:var(--midnight); color:var(--text); font-family:'Rajdhani',sans-serif; overflow-x:hidden; cursor:none; }
+  a { color:inherit; }
+  .reticle { position:fixed; top:0; left:0; width:44px; height:44px; pointer-events:none; z-index:10000; transform:translate(-50%,-50%); mix-blend-mode:difference; }
+  .reticle::before, .reticle::after { content:''; position:absolute; background:var(--gold-champagne); }
+  .reticle::before { top:50%; left:0; width:100%; height:1px; transform:translateY(-50%); }
+  .reticle::after { left:50%; top:0; width:1px; height:100%; transform:translateX(-50%); }
+  .reticle-ring { position:absolute; inset:10px; border:1px solid var(--gold); border-radius:50%; opacity:.7; }
+  .reticle-dot { position:absolute; top:50%; left:50%; width:3px; height:3px; background:var(--gold-bright); border-radius:50%; transform:translate(-50%,-50%); }
+  #three-canvas { position:fixed; inset:0; width:100vw; height:100vh; z-index:1; pointer-events:none; }
+  /* Photography layer: one still per chapter, ghosted behind the 3D emblem and the grain */
+  #photos { position:fixed; inset:0; z-index:2; pointer-events:none; }
+  #photos .ph { position:absolute; inset:0; background:center/cover no-repeat; opacity:0; transition:opacity 1.4s ease; filter:saturate(.55) contrast(1.08); }
+  #photos .ph::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.55) 0%, rgba(5,8,16,.15) 45%, rgba(5,8,16,.8) 100%); }
+  #photos .ph.on { opacity:.34; }
+  .grain { position:fixed; inset:0; z-index:3; pointer-events:none; opacity:.035; background-image:repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(255,255,255,.3) 2px, rgba(255,255,255,.3) 3px); mix-blend-mode:overlay; }
+  .vignette { position:fixed; inset:0; z-index:4; pointer-events:none; background:radial-gradient(ellipse at center, transparent 0%, transparent 55%, rgba(5,8,16,.75) 100%); }
+  .letterbox-top, .letterbox-bottom { position:fixed; left:0; right:0; height:0; background:#000; z-index:50; pointer-events:none; transition:height .6s cubic-bezier(.7,.15,.3,.95); }
+  .letterbox-top { top:0; } .letterbox-bottom { bottom:0; }
+  body.cinema .letterbox-top, body.cinema .letterbox-bottom { height:50px; }
+  #intro-seq { position:fixed; inset:0; z-index:9000; background:#000; display:flex; align-items:center; justify-content:center; flex-direction:column; font-family:'Cinzel',serif; pointer-events:none; transition:opacity 1s ease-out; }
+  #intro-seq.done { opacity:0; }
+  .intro-credit { font-size:.75rem; letter-spacing:.6em; color:var(--text-dim); opacity:0; animation:introFade 2.8s ease-in-out forwards; text-transform:uppercase; }
+  .intro-credit:nth-child(1) { animation-delay:.3s; }
+  .intro-credit:nth-child(2) { animation-delay:1.2s; margin-top:1.8rem; color:var(--gold); font-weight:900; font-size:1.5rem; letter-spacing:.35em; }
+  .intro-credit:nth-child(3) { animation-delay:2.6s; margin-top:1.5rem; color:var(--gold-champagne); font-size:.85rem; letter-spacing:.5em; }
+  @keyframes shimmer { 0% { background-position:-1000px 0; } 100% { background-position:1000px 0; } }
+  .intro-credit.wordmark { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2rem,6.5vw,4.6rem); letter-spacing:.16em; line-height:1.1; margin-top:1.4rem; padding:0 1rem; background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; text-shadow:0 0 60px rgba(201,168,76,.35); animation:introFade 3.4s ease-in-out forwards, shimmer 2.6s linear infinite; animation-delay:1.1s, 1.1s; }
+  @keyframes introFade { 0% { opacity:0; transform:translateY(8px); } 18%, 75% { opacity:1; transform:translateY(0); } 100% { opacity:0; transform:translateY(-8px); } }
+  .chapter-nav { position:fixed; right:1.5rem; top:50%; transform:translateY(-50%); z-index:30; display:flex; flex-direction:column; gap:.5rem; font-family:'Share Tech Mono',monospace; font-size:.62rem; }
+  .chap-link { color:var(--text-mute); text-decoration:none; letter-spacing:.25em; padding:.35rem .8rem; border:1px solid transparent; transition:all .3s; text-transform:uppercase; cursor:none; display:flex; align-items:center; gap:.6rem; }
+  .chap-link::before { content:''; width:18px; height:1px; background:var(--text-mute); transition:all .3s; }
+  .chap-link:hover, .chap-link.active { color:var(--gold-champagne); border-color:rgba(201,168,76,.35); background:rgba(201,168,76,.04); }
+  .chap-link.active::before, .chap-link:hover::before { width:28px; background:var(--gold); }
+  .hud { position:fixed; z-index:20; font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.3em; opacity:.6; text-decoration:none; }
+  .hud.tl { top:1.2rem; left:1.8rem; color:var(--gold-champagne); }
+  .hud.tr { top:1.2rem; right:15rem; color:var(--text-mute); }
+  .hud.bl { bottom:1.2rem; left:1.8rem; color:var(--text-mute); }
+  .hud.br { bottom:1.2rem; right:1.8rem; color:var(--gold); }
+  .progress { position:fixed; top:0; left:0; height:2px; width:0; background:linear-gradient(90deg, var(--gold-antique), var(--gold-bright), var(--copper)); z-index:100; box-shadow:0 0 14px rgba(201,168,76,.7); transition:width .1s linear; }
+  .content { position:relative; z-index:5; }
+  section.panel { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:6rem 2rem; text-align:center; position:relative; }
+  section.panel > div { width:100%; max-width:1200px; }
+  .eyebrow { font-family:'Share Tech Mono',monospace; color:var(--gold-champagne); letter-spacing:.45em; font-size:.75rem; text-transform:uppercase; margin-bottom:1.6rem; opacity:0; transform:translateY(20px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
+  .eyebrow.in { opacity:1; transform:translateY(0); }
+  h1.mega { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(3rem,10vw,9rem); letter-spacing:.02em; line-height:.95; margin-bottom:2rem; opacity:0; filter:blur(20px); transform:scale(1.15); transition:opacity 1.2s cubic-bezier(.2,.7,.2,1), filter 1.2s cubic-bezier(.2,.7,.2,1), transform 1.4s cubic-bezier(.2,.7,.2,1); }
+  h1.mega.in { opacity:1; filter:blur(0); transform:scale(1); }
+  .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  h1.mega .gold { text-shadow:0 0 80px rgba(201,168,76,.3); }
+  h1.mega .white { color:var(--text); }
+  h2.section-h { font-family:'Orbitron',sans-serif; font-weight:700; font-size:clamp(2rem,5vw,4.5rem); letter-spacing:.03em; margin-bottom:1.4rem; opacity:0; filter:blur(12px); transform:translateY(24px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), filter 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
+  h2.section-h.in { opacity:1; filter:blur(0); transform:translateY(0); }
+  .sub { font-size:clamp(1rem,1.3vw,1.25rem); color:var(--text-dim); max-width:720px; margin:0 auto 2.5rem; line-height:1.55; font-weight:300; opacity:0; transform:translateY(16px); transition:opacity 1s ease-out .3s, transform 1s ease-out .3s; }
+  .sub.in { opacity:1; transform:translateY(0); }
+  .rise { opacity:0; transform:translateY(22px); transition:opacity 1s ease-out .35s, transform 1s ease-out .35s; }
+  .rise.in { opacity:1; transform:translateY(0); }
+  .cta, .cta-button { display:inline-block; padding:1.1rem 2.5rem; font-family:'Orbitron',sans-serif; font-weight:700; letter-spacing:.2em; font-size:.85rem; text-transform:uppercase; text-decoration:none; color:#000; background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border:1px solid var(--gold-champagne); cursor:none; transition:transform .35s, box-shadow .35s; position:relative; overflow:hidden; border-radius:0; }
+  .cta::before, .cta-button::before { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent); transition:left .7s; }
+  .cta:hover, .cta-button:hover { transform:translateY(-3px); box-shadow:0 14px 44px rgba(201,168,76,.5); }
+  .cta:hover::before, .cta-button:hover::before { left:100%; }
+  .cta-button[disabled] { opacity:.35; transform:none; box-shadow:none; }
+  .secondary-cta, .cta-button.ghost-button { display:inline-block; padding:1.1rem 2.5rem; font-family:'Orbitron',sans-serif; font-weight:700; letter-spacing:.2em; font-size:.85rem; text-transform:uppercase; text-decoration:none; color:var(--gold-champagne); background:transparent; border:1px solid var(--gold); cursor:none; transition:all .35s; margin-left:1rem; }
+  .secondary-cta:hover, .cta-button.ghost-button:hover { background:rgba(201,168,76,.08); border-color:var(--gold-bright); color:var(--gold-bright); transform:none; box-shadow:none; }
+  .ctas { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; }
+  .ctas .secondary-cta, .ctas .ghost-button { margin-left:0; }
+  .badge { display:inline-block; padding:.45rem 1rem; border:1px solid var(--gold); font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.4em; color:var(--gold-champagne); margin-bottom:1.5rem; background:rgba(201,168,76,.06); backdrop-filter:blur(8px); }
+  .chips { display:flex; flex-wrap:wrap; gap:.65rem; justify-content:center; max-width:1000px; margin:0 auto 2.5rem; }
+  .chip { padding:.55rem 1rem; border:1px solid rgba(201,168,76,.35); background:rgba(30,42,58,.55); backdrop-filter:blur(6px); font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.25em; color:var(--gold-champagne); text-transform:uppercase; }
+  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:1.8rem; max-width:980px; margin:3rem auto 0; }
+  .stat { text-align:center; padding:2rem 1.5rem; border:1px solid rgba(201,168,76,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.7) 100%); backdrop-filter:blur(12px); position:relative; overflow:hidden; transition:transform .4s, border-color .4s; }
+  .stat::before { content:''; position:absolute; top:0; left:0; width:100%; height:1px; background:linear-gradient(90deg, transparent, var(--gold), transparent); }
+  .stat:hover { transform:translateY(-6px); border-color:var(--gold); }
+  .stat-num { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2.8rem,5.5vw,4.5rem); background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; line-height:1; }
+  .stat-label { font-family:'Share Tech Mono',monospace; font-size:.7rem; letter-spacing:.35em; color:var(--text-dim); margin-top:1rem; text-transform:uppercase; }
+  /* Photo tiles: the trailer's glass pillars carrying the Federico and range photography */
+  .tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:1.2rem; max-width:1200px; margin:0 auto; }
+  .tiles.four { grid-template-columns:repeat(4,1fr); }
+  .tile { position:relative; min-height:300px; display:flex; align-items:flex-end; text-align:left; overflow:hidden; border:1px solid rgba(201,168,76,.22); background:var(--deep-navy); transition:transform .45s, border-color .45s; }
+  .tile .bg { position:absolute; inset:0; background:center/cover no-repeat; transform:scale(1.04); transition:transform 5s ease; filter:saturate(.8); }
+  .tile:hover .bg { transform:scale(1.12); }
+  .tile::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.05) 0%, rgba(5,8,16,.35) 50%, rgba(5,8,16,.92) 100%); }
+  .tile:hover { transform:translateY(-6px); border-color:var(--gold); }
+  .tile .txt { position:relative; z-index:2; padding:1.4rem 1.3rem; width:100%; }
+  .tile .num { font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.4em; color:var(--gold); margin-bottom:.5rem; }
+  .tile h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.15rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.35rem; }
+  .tile p { font-size:.92rem; color:var(--text-dim); line-height:1.5; font-weight:300; }
+  .tiles.four .tile { min-height:260px; }
+  /* Glass panel that carries the catalog */
+  .glass { border:1px solid rgba(201,168,76,.22); background:linear-gradient(180deg, rgba(30,42,58,.45) 0%, rgba(11,18,33,.78) 100%); backdrop-filter:blur(14px); padding:1.4rem; text-align:left; position:relative; }
+  .glass::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg, transparent, var(--gold), transparent); }
+  .catalog-wrap { max-width:960px; margin:0 auto; }
+  .catalog-panel { max-height:none; }
+  .cat { background:rgba(5,8,16,.35); }
+  .course-row { color:var(--text); }
+  .cr-btn { padding:.55rem 1rem; font-size:.72rem; }
+  .cat-count { color:var(--text-dim); }
+  .catalog-note { text-align:center; color:var(--text-dim); font-size:.92rem; margin-top:1.4rem; font-weight:300; }
+  .catalog-note a { color:var(--gold-champagne); text-decoration:none; }
+  /* Instructor */
+  .founder { display:grid; grid-template-columns:minmax(260px,420px) 1fr; gap:2.2rem; max-width:1150px; margin:0 auto; text-align:left; align-items:stretch; }
+  .founder .portrait { position:relative; min-height:460px; border:1px solid rgba(201,168,76,.3); background:center 20%/cover no-repeat; }
+  .founder .portrait::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, transparent 55%, rgba(5,8,16,.9) 100%); }
+  .founder .portrait .cap { position:absolute; left:1.2rem; bottom:1.1rem; z-index:2; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.35em; color:var(--gold-champagne); text-transform:uppercase; }
+  .founder .bio { border:1px solid rgba(201,168,76,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.75) 100%); backdrop-filter:blur(14px); padding:2rem 1.9rem; position:relative; }
+  .founder .bio::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:linear-gradient(180deg, var(--gold), var(--copper)); }
+  .founder .bio p { color:var(--text-dim); line-height:1.6; font-weight:300; font-size:1.05rem; margin-bottom:1.2rem; }
+  .founder .creds { list-style:none; margin:0 0 1.4rem; padding:0; }
+  .founder .creds li { padding:.45rem 0 .45rem 1.4rem; position:relative; color:var(--text); font-size:.98rem; line-height:1.5; border-top:1px solid rgba(201,168,76,.12); }
+  .founder .creds li::before { content:'◆'; position:absolute; left:0; top:.55rem; color:var(--gold); font-size:.6rem; }
+  .founder .creds b { color:var(--gold-champagne); font-weight:600; }
+  .founder .cadre { font-family:'Share Tech Mono',monospace; font-size:.72rem; letter-spacing:.08em; color:var(--text-dim); line-height:1.7; margin-bottom:1.4rem; }
+  .founder .ctas { justify-content:flex-start; }
+  .cert { max-width:1150px; margin:1.4rem auto 0; display:grid; grid-template-columns:minmax(220px,360px) 1fr; gap:1.4rem; align-items:center; text-align:left; }
+  .cert img { width:100%; border:1px solid rgba(201,168,76,.3); display:block; }
+  .cert p { color:var(--text-dim); font-weight:300; line-height:1.55; font-size:.98rem; }
+  /* Media strip */
+  .media-strip { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:1rem; padding:.5rem 0 1rem; scrollbar-width:thin; scrollbar-color:var(--gold) var(--deep-navy); max-width:1200px; margin:0 auto; }
+  .video-card { flex:0 0 min(82vw,480px); scroll-snap-align:start; background:rgba(11,18,33,.8); border:1px solid rgba(201,168,76,.22); overflow:hidden; text-align:left; }
+  .yt .play { border-color:var(--gold); background:rgba(5,8,16,.8); }
+  .yt:hover .play { background:var(--gold); border-color:var(--gold); }
+  .yt.mp4 { background:linear-gradient(135deg, var(--gunmetal), var(--midnight)); }
+  .yt.mp4 .lbl { color:var(--gold-champagne); font-family:'Share Tech Mono',monospace; }
+  .video-card-info h4 { color:var(--gold-champagne); }
+  .post { display:inline-block; margin-top:2rem; padding:1rem 1.8rem; border:1px solid var(--gold); background:rgba(201,168,76,.07); backdrop-filter:blur(8px); font-family:'Orbitron',sans-serif; font-weight:700; font-size:clamp(.85rem,1.2vw,1.05rem); letter-spacing:.14em; color:var(--gold-champagne); text-decoration:none; text-transform:uppercase; transition:all .35s; cursor:none; }
+  .post:hover { background:rgba(201,168,76,.16); border-color:var(--gold-bright); color:var(--gold-bright); transform:translateY(-3px); }
+  .post small { display:block; font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.62rem; letter-spacing:.35em; color:var(--text-dim); margin-bottom:.35rem; }
+  .quote { font-style:italic; color:var(--gold-champagne); max-width:700px; margin:.5rem auto 2rem; font-size:clamp(1.05rem,1.5vw,1.3rem); line-height:1.5; }
+  .quote.lead { max-width:820px; font-size:clamp(1.2rem,1.9vw,1.55rem); margin-top:.8rem; }
+  .contact-lines { font-family:'Share Tech Mono',monospace; font-size:.75rem; letter-spacing:.2em; color:var(--text-dim); line-height:2.1; margin-bottom:2.2rem; }
+  .contact-lines a { color:var(--gold-champagne); text-decoration:none; }
+  .foot { margin-top:4rem; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; color:var(--text-mute); text-transform:uppercase; line-height:2.2; }
+  .foot a { color:var(--text-mute); text-decoration:none; margin:0 .6rem; }
+  .foot a:hover { color:var(--gold-champagne); }
+  .scroll-cue { position:absolute; bottom:3rem; left:50%; transform:translateX(-50%); font-family:'Share Tech Mono',monospace; font-size:.65rem; color:var(--gold-champagne); letter-spacing:.4em; opacity:.55; animation:pulseY 2.4s ease-in-out infinite; }
+  @keyframes pulseY { 50% { opacity:1; transform:translateX(-50%) translateY(-10px); } }
+  /* Booking stack (lifted from the Atlas-frame pages, recolored to the trailer palette) */
+""" + booking_css + r"""
+  .modal { background:var(--deep-navy); border-color:rgba(201,168,76,.4); }
+  .modal .eyebrow { opacity:1; transform:none; margin-bottom:.6rem; }
+  .modal h3 { color:var(--text); }
+  .day.sel { background:var(--gold); border-color:var(--gold); color:#000; }
+  .day.wk:hover { background:rgba(201,168,76,.25); border-color:var(--gold); }
+  .cal-nav button:hover:not([disabled]) { background:var(--gold); color:#000; }
+  .cal-quick button.on, .cal-quick .on { background:var(--gold); color:#000; border-color:var(--gold); }
+  .qty button { cursor:none; }
+  .sheet-date button { color:var(--gold-champagne); }
+  input:focus { border-color:var(--gold) !important; }
+  .banner { background:var(--gold); color:#000; }
+  .quals-list li::marker, .quals-list li b { color:var(--gold-champagne); }
+  @media (max-width:900px) { .founder, .cert { grid-template-columns:1fr; } .founder .portrait { min-height:360px; } .tiles, .tiles.four { grid-template-columns:1fr 1fr; } }
+  @media (max-width:768px) {
+    html, body { cursor:auto; } .cta, .cta-button, .secondary-cta, .chap-link, .qty button { cursor:pointer; }
+    .reticle, .chapter-nav { display:none; }
+    .hud { font-size:.55rem; } .hud.tr { right:1.8rem; }
+    .stats { grid-template-columns:1fr; gap:1rem; }
+    .tiles, .tiles.four { grid-template-columns:1fr; } .tile, .tiles.four .tile { min-height:220px; }
+    section.panel { padding:5rem 1rem; }
+    .glass { padding:.8rem; }
+    .secondary-cta, .cta-button.ghost-button { margin-left:0; }
+    #photos .ph.on { opacity:.28; }
+  }
+  @media (prefers-reduced-motion: reduce) { .eyebrow, h1.mega, h2.section-h, .sub, .rise { transition:none; opacity:1; filter:none; transform:none; } }
+"""
+
+def tile(num, title, body, img, pos='center'):
+    return f'<div class="tile rise"><div class="bg" style="background-image:url(\'images/mast/{img}\');background-position:{pos}"></div><div class="txt"><div class="num">{num}</div><h3>{title}</h3><p>{body}</p></div></div>'
+
+BODY = f"""
+<div id="intro-seq">
+  <div class="intro-credit">A Houston Operation</div>
+  <div class="intro-credit wordmark">MAST SOLUTIONS</div>
+  <div class="intro-credit">Since 2005</div>
+</div>
+
+<canvas id="three-canvas"></canvas>
+<div id="photos">
+  <div class="ph" data-for="01" style="background-image:url('images/mast/hero-casualty-carry.jpg');background-position:center 40%"></div>
+  <div class="ph" data-for="02" style="background-image:url('images/mast/disc-firearms.jpg')"></div>
+  <div class="ph" data-for="03" style="background-image:url('images/mast/ship-deck-movement.jpg')"></div>
+  <div class="ph" data-for="04" style="background-image:url('images/mast/disc-cqb.jpg')"></div>
+  <div class="ph" data-for="05" style="background-image:url('images/mast/courses-low-light.jpg')"></div>
+  <div class="ph" data-for="06" style="background-image:url('images/mast/founder-ship.jpg');background-position:center 20%"></div>
+  <div class="ph" data-for="07" style="background-image:url('images/mast/vehicular.jpg')"></div>
+  <div class="ph" data-for="08" style="background-image:url('images/mast/privacy-aircraft.jpg')"></div>
+  <div class="ph" data-for="09" style="background-image:url('images/mast/contact-zodiac.jpg')"></div>
+</div>
+<div class="grain"></div>
+<div class="vignette"></div>
+<div class="letterbox-top"></div>
+<div class="letterbox-bottom"></div>
+<div class="progress" id="progress"></div>
+<div class="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>
+
+<a class="hud tl" href="index.html">&#9679; ATLAS GLINN &middot; MAST.SYS LIVE</a>
+<div class="hud tr" id="hud-section">SECTION 01 / 09</div>
+<div class="hud bl">HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W</div>
+<div class="hud br">DETAILS MATTER</div>
+
+<nav class="chapter-nav" id="chapter-nav" aria-label="Chapters">
+  <a href="#s1" class="chap-link">01 &middot; Opening</a>
+  <a href="#s2" class="chap-link">02 &middot; Standard</a>
+  <a href="#s3" class="chap-link">03 &middot; Who</a>
+  <a href="#s4" class="chap-link">04 &middot; Disciplines</a>
+  <a href="#s5" class="chap-link">05 &middot; Courses</a>
+  <a href="#s6" class="chap-link">06 &middot; Instructors</a>
+  <a href="#s7" class="chap-link">07 &middot; In Action</a>
+  <a href="#s8" class="chap-link">08 &middot; Privacy</a>
+  <a href="#s9" class="chap-link">09 &middot; Contact</a>
+</nav>
+
+{banner}
+
+<div class="content">
+
+  <section class="panel" id="s1" data-section="01">
+    <div>
+      <div class="eyebrow">34 Years &middot; Quiet &middot; Deliberate</div>
+      <h1 class="mega"><span class="gold">Details</span> <span class="white">Matter.</span></h1>
+      <p class="sub">Trusted by DEA, Houston SWAT, US Military, and Homeland Security. No fluff. No shortcuts. No compromise.</p>
+      <div class="ctas rise"><a href="#s5" class="cta">Enter The Range</a><a href="#s6" class="secondary-cta">The Instructors</a></div>
+    </div>
+    <div class="scroll-cue">SCROLL &darr;</div>
+  </section>
+
+  <section class="panel" id="s2" data-section="02">
+    <div>
+      <div class="eyebrow">Est. 2005 &middot; Houston, TX</div>
+      <h2 class="section-h">Trained to <span class="gold">Standard.</span></h2>
+      <p class="sub">No paint-ball courses dressed up as tactics. No cinema instructors. We teach what works when the silence is broken.</p>
+      <div class="stats rise">
+        <div class="stat"><div class="stat-num" data-count="1701" data-suffix="+">0</div><div class="stat-label">Students Trained</div></div>
+        <div class="stat"><div class="stat-num" data-count="21">0</div><div class="stat-label">Courses</div></div>
+        <div class="stat"><div class="stat-num" data-count="0">0</div><div class="stat-label">Shortcuts</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="s3" data-section="03">
+    <div>
+      <div class="eyebrow">Who Trains Here</div>
+      <h2 class="section-h">Federal. <span class="gold">SWAT.</span> Military.</h2>
+      <p class="sub">We train the operators who cannot be wrong. Federal agents, tier-1 law enforcement, military units, and private citizens who understand the difference between security and a show.</p>
+      <div class="chips rise">
+        <span class="chip">U.S. Military</span><span class="chip">DEA</span><span class="chip">Houston SWAT</span><span class="chip">Homeland Security</span>
+        <span class="chip">Border Patrol</span><span class="chip">NASA SRT</span><span class="chip">Harris County DPU</span><span class="chip">Federal Agencies</span>
+      </div>
+      <div class="tiles">
+        {tile('01', 'Military.', 'Special operations and conventional units. Live OpFor, UTM and Simunition, maritime VBSS.', 'who-military.jpg', 'center 30%')}
+        {tile('02', 'Law Enforcement.', 'SWAT, warrant teams and federal agencies. Small-unit tactics under time pressure.', 'who-law-enforcement.jpg')}
+        {tile('03', 'Civilian.', 'Private citizens who take the preservation of life seriously. Same standard, scaled.', 'who-civilian.jpg', 'left 40%')}
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="s4" data-section="04">
+    <div>
+      <div class="eyebrow">The Curriculum</div>
+      <h2 class="section-h">Seven Core <span class="gold">Disciplines.</span></h2>
+      <p class="sub">Every course sits inside one of seven disciplines. Master the fundamentals of each, then bring them together under pressure.</p>
+      <div class="tiles four">
+        {tile('01', 'Firearms.', 'Marksmanship and weapon handling.', 'disc-firearms.jpg')}
+        {tile('02', 'Hand Combat.', 'Close-quarters fighting.', 'disc-hand-combat.jpg')}
+        {tile('03', 'Knife Combat.', 'Defensive and tactical knife.', 'disc-knife-combat.jpg')}
+        {tile('04', 'CQB.', 'Close Quarters Battle.', 'disc-cqb.jpg', 'center 30%')}
+        {tile('05', 'Fitness.', 'Conditioning for duty.', 'disc-fitness.jpg')}
+        {tile('06', 'Medical.', 'Emergency and trauma care.', 'disc-medical.jpg')}
+        {tile('07', 'Leadership.', 'Command and decision-making.', 'disc-leadership.jpg', 'center 25%')}
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="s5" data-section="05">
+    <div>
+      <div class="eyebrow">Course Catalog</div>
+      <h2 class="section-h">Twenty-One <span class="gold">Courses.</span></h2>
+      <p class="sub">Open a discipline, pick a course, pick your weekend. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
+      <div class="catalog-wrap rise"><div class="glass"><div class="catalog-panel" id="catalog"></div></div>
+      <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p></div>
+    </div>
+  </section>
+
+  <section class="panel" id="s6" data-section="06">
+    <div>
+      <div class="eyebrow">Founder &amp; Lead Instructor</div>
+      <h2 class="section-h">Matthew <span class="gold">Brockmann.</span></h2>
+      <div class="founder rise">
+        <div class="portrait" style="background-image:url('images/mast/instructing-le.jpg')"><div class="cap">Instructing a federal team on the line</div></div>
+        <div class="bio">
+          <p>Founded MAST Solutions in 2005 and later Atlas Glinn, LLC. Former Head of Security for Senator Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named only where media coverage exists. Other high-profile and high-net-worth individuals follow our privacy standards. We do not do media; a name appears only where media captured it without our consent. Teaches on the range. Has trained Houston, Baytown, Galveston, and other SWAT teams, including TTPOA (TX Tactical Police Officers Association), VBSS (Visit, Board, Search, Seize), NASA SRT, Dept of Homeland Security, and other federal, state, and Military Units.</p>
+          <ul class="creds">
+            <li>Trained by <b>Paul Howe</b> (1st SFOD-D), <b>Bill Jeans</b> and <b>John Perretti</b></li>
+            <li><b>DPS Level III Firearms Instructor</b> &middot; <b>TTPOA Maritime VBSS</b> instructor</li>
+            <li>Featured on <b>Modern Shooter TV</b> and in <b>The Washington Post</b></li>
+          </ul>
+          <p class="cadre">Courses run with a lead instructor, assistant instructors, and RSOs (Range Safety Officers) on the line. Your instructors are named on the course confirmation.</p>
+          <div class="ctas"><button class="cta-button ghost-button" type="button" onclick="openQuals()">Qualifications &amp; Certifications</button><a href="#s5" class="cta-button">Train With Him</a></div>
+        </div>
+      </div>
+      <div class="cert rise">
+        <img src="images/mast/capitol-flag-certificate.jpg" alt="Certificate: a flag flown over the United States Capitol in honor of Matthew Brockmann, at the request of Senator Ted Cruz, December 1, 2021" loading="lazy">
+        <p>A flag flown over the United States Capitol at the request of Senator Ted Cruz, December 1, 2021, &ldquo;with gratitude for your steadfast vigilance, unwavering dedication, and heart of service.&rdquo; The task force is not named here. Details matter. Privacy matters.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="s7" data-section="07">
+    <div>
+      <div class="eyebrow">MAST Solutions In Action</div>
+      <h2 class="section-h">In <span class="gold">Action.</span></h2>
+      <p class="sub">Training, operations, and the people behind the mission. Tap to play. Nothing loads until you do.</p>
+      <div class="media-strip rise" id="media-strip"></div>
+      <a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener" class="post"><small>As featured in</small>The Washington Post &middot; Arming American Teachers &rarr;</a>
+    </div>
+  </section>
+
+  <section class="panel" id="s8" data-section="08">
+    <div>
+      <div class="badge">Privacy Matters</div>
+      <p class="sub quote lead">&ldquo;Details matter. Privacy matters. Unless publicly reported, we don&rsquo;t disclose.&rdquo;</p>
+      <p class="sub" style="font-size:.98rem;">Former Head of Security for Senator Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named only where media coverage exists. Other high-profile and high-net-worth individuals follow our privacy standards. We do not do media; a name appears only where media captured it without our consent. Pictured: Senators Hawley and Schmitt.</p>
+      <div class="eyebrow" style="margin-top:2.5rem;">For agencies, units and procurement officers</div>
+      <div class="ctas rise"><a href="mailto:atlasglinn.hq@atlasglinn.com?subject=MAST%20Solutions%20Capability%20Statement%20Request" class="cta">Email for the Capability Statement</a><a href="mast-capability-statement.html" class="secondary-cta">View One-Pager</a></div>
+    </div>
+  </section>
+
+  <section class="panel" id="s9" data-section="09">
+    <div>
+      <div class="eyebrow">Book a Course</div>
+      <h2 class="section-h"><span class="gold">Train</span> with MAST.</h2>
+      <p class="sub">Individual seats, team blocks, and agency instruction.</p>
+      <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div>
+      <div class="ctas rise"><a href="#s5" class="cta">Book a Course</a><a href="index.html" class="secondary-cta">Atlas Glinn &rarr;</a></div>
+      <div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions <br><a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.youtube.com/@mastsolutions" target="_blank" rel="noopener">YouTube</a></div>
+    </div>
+  </section>
+
+</div>
+
+{modals}
+"""
+
+THREE = r"""
+import * as THREE from './vendor/three.module.js';
+
+const SECTIONS = 9;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const mobile = matchMedia('(max-width: 768px)').matches;
+
+// ── Trailer intro ──
+const intro = document.getElementById('intro-seq');
+const openHero = () => {
+  intro.remove();
+  document.body.classList.add('cinema');
+  setTimeout(() => document.body.classList.remove('cinema'), 2200);
+  document.querySelector('[data-section="01"] .eyebrow').classList.add('in');
+  setTimeout(() => document.querySelector('[data-section="01"] h1.mega').classList.add('in'), 300);
+  setTimeout(() => document.querySelector('[data-section="01"] .sub').classList.add('in'), 900);
+  setTimeout(() => document.querySelector('[data-section="01"] .rise').classList.add('in'), 1200);
+  setPhoto(0);
+};
+if (reduce) { openHero(); } else {
+  setTimeout(() => { intro.classList.add('done'); setTimeout(openHero, 1000); }, 4800);
+}
+
+// ── Reticle ──
+const reticle = document.querySelector('.reticle');
+let cx = innerWidth / 2, cy = innerHeight / 2, rx = cx, ry = cy;
+addEventListener('mousemove', e => { cx = e.clientX; cy = e.clientY; });
+
+// ── Photography layer ──
+const phs = [...document.querySelectorAll('#photos .ph')];
+let photoIdx = -1;
+function setPhoto(i) { if (i === photoIdx) return; photoIdx = i; phs.forEach((p, k) => p.classList.toggle('on', k === i)); }
+
+// ── Three: the Tier 3 emblem scene ──
+const canvas = document.getElementById('three-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, alpha: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.5 : 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050810);
+scene.fog = new THREE.FogExp2(0x0B1221, 0.03);
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 1000);
+camera.position.set(0, 0, 9);
+
+// Lights — all warm
+scene.add(new THREE.AmbientLight(0x1a1208, 0.5));
+const keyL = new THREE.DirectionalLight(0xC9A84C, 3.0); keyL.position.set(6, 10, 7); scene.add(keyL);
+const rimL = new THREE.DirectionalLight(0xB87333, 1.6); rimL.position.set(-7, -4, -5); scene.add(rimL);
+const fillL = new THREE.DirectionalLight(0xE8D27D, 0.9); fillL.position.set(0, -8, 3); scene.add(fillL);
+const pt = new THREE.PointLight(0xFCF6BA, 3.5, 18); pt.position.set(0, 0, 4); scene.add(pt);
+
+// Reflective floor
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(140, 140, 40, 40),
+  new THREE.MeshStandardMaterial({ color: 0x0B1221, metalness: .95, roughness: .28, emissive: 0x080808, emissiveIntensity: .15 }));
+floor.rotation.x = -Math.PI / 2; floor.position.y = -4.5; scene.add(floor);
+
+// Distant peaks
+const peaks = new THREE.Group();
+for (let i = 0; i < 11; i++) {
+  const m = new THREE.Mesh(new THREE.ConeGeometry(2 + Math.random() * 2.2, 4.5 + Math.random() * 4, 5),
+    new THREE.MeshStandardMaterial({ color: 0x0B1221, roughness: 1, metalness: 0 }));
+  m.position.set(-34 + i * 7 + Math.random() * 3, -3.5, -23 - Math.random() * 7);
+  m.rotation.y = Math.random() * Math.PI; peaks.add(m);
+}
+scene.add(peaks);
+
+// Hero emblem: hexagonal shield, rings, bars, gem, shards
+const emblem = new THREE.Group();
+const gold = new THREE.MeshStandardMaterial({ color: 0xC9A84C, metalness: 1, roughness: .12, emissive: 0x2a1f08, emissiveIntensity: .4 });
+const copper = new THREE.MeshStandardMaterial({ color: 0xB87333, metalness: 1, roughness: .18, emissive: 0x3a1a08, emissiveIntensity: .5 });
+const champagne = new THREE.MeshStandardMaterial({ color: 0xE8D27D, metalness: 1, roughness: .1, emissive: 0x443311, emissiveIntensity: .8 });
+const shield = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.3, 0.4, 6), gold); shield.rotation.x = Math.PI / 2; emblem.add(shield);
+const innerHex = new THREE.Mesh(new THREE.CylinderGeometry(1.75, 1.75, 0.45, 6), new THREE.MeshStandardMaterial({ color: 0x050810, metalness: .6, roughness: .4 }));
+innerHex.rotation.x = Math.PI / 2; emblem.add(innerHex);
+for (let i = 0; i < 3; i++) { const ring = new THREE.Mesh(new THREE.TorusGeometry(1.85 + i * .18, .028, 16, 128), i === 1 ? champagne : gold); ring.rotation.x = i * .08; ring.rotation.z = i * .08; emblem.add(ring); }
+for (let i = 0; i < 3; i++) { const bar = new THREE.Mesh(new THREE.BoxGeometry(.12, 2.8, .12), gold); bar.rotation.z = (Math.PI / 3) * i; emblem.add(bar); }
+emblem.add(new THREE.Mesh(new THREE.IcosahedronGeometry(.4, 1), copper));
+const shards = [];
+for (let i = 0; i < 10; i++) {
+  const s = new THREE.Mesh(new THREE.OctahedronGeometry(.08, 0), i % 2 ? champagne : gold);
+  s.userData = { a: (Math.PI * 2 * i) / 10, r: 2.6 + Math.random() * .5, sp: .4 + Math.random() * .3 };
+  emblem.add(s); shards.push(s);
+}
+scene.add(emblem);
+
+// God rays
+const rays = new THREE.Group();
+for (let i = 0; i < 14; i++) {
+  const r = new THREE.Mesh(new THREE.ConeGeometry(.08, 16, 8, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xC9A84C, transparent: true, opacity: .04, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+  r.rotation.z = (Math.PI * 2 * i) / 14; r.position.z = -2; rays.add(r);
+}
+scene.add(rays);
+
+// Particles: gold dust + champagne sparks
+function pts(count, color, size, range) {
+  const g = new THREE.BufferGeometry(); const p = new Float32Array(count * 3), v = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) { p[i*3] = (Math.random() - .5) * range; p[i*3+1] = (Math.random() - .5) * range * .7; p[i*3+2] = (Math.random() - .5) * range; v[i*3] = (Math.random() - .5) * .002; v[i*3+1] = (Math.random() - .5) * .002; v[i*3+2] = (Math.random() - .5) * .002; }
+  g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  const o = new THREE.Points(g, new THREE.PointsMaterial({ color, size, transparent: true, opacity: .65, blending: THREE.AdditiveBlending, depthWrite: false }));
+  o.userData = { v }; return o;
+}
+const gd = pts(mobile ? 220 : 600, 0xC9A84C, .035, 40), ch = pts(mobile ? 60 : 150, 0xE8D27D, .028, 30);
+scene.add(gd); scene.add(ch);
+
+// Stars
+const sg = new THREE.BufferGeometry(); const sp = new Float32Array(2200 * 3);
+for (let i = 0; i < 2200; i++) { const r = 80 + Math.random() * 40, th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1); sp[i*3] = r * Math.sin(ph) * Math.cos(th); sp[i*3+1] = r * Math.cos(ph); sp[i*3+2] = r * Math.sin(ph) * Math.sin(th); }
+sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+const stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xF0F4FF, size: .15, transparent: true, opacity: .5 }));
+scene.add(stars);
+
+// Scroll-driven camera: one keyframe per chapter
+const secs = document.querySelectorAll('section.panel');
+const chapLinks = document.querySelectorAll('.chap-link');
+const lerp = (a, b, t) => a + (b - a) * t;
+const kf = [
+  { x: 0, y: 0, z: 9, lx: 0, ly: 0, lz: 0 },
+  { x: 3, y: 1, z: 11, lx: 0, ly: 0, lz: 0 },
+  { x: -3, y: 2, z: 13, lx: 0, ly: -1, lz: 0 },
+  { x: 4, y: 3, z: 14, lx: 0, ly: -.5, lz: 0 },
+  { x: -4, y: 1, z: 12, lx: 0, ly: 0, lz: 0 },
+  { x: 0, y: -2, z: 10, lx: 0, ly: .5, lz: 0 },
+  { x: 2, y: -3, z: 13, lx: 0, ly: 1, lz: 0 },
+  { x: -2, y: -3.5, z: 15, lx: 0, ly: 1.5, lz: 0 },
+  { x: 0, y: -4, z: 18, lx: 0, ly: 2, lz: 0 },
+];
+let activeIdx = 0;
+function sectionIndex() {
+  const mid = innerHeight * .45; let idx = 0;
+  secs.forEach((s, i) => { if (s.getBoundingClientRect().top <= mid) idx = i; });
+  return idx;
+}
+function update() {
+  const total = document.documentElement.scrollHeight - innerHeight;
+  const t = Math.max(0, Math.min(1, scrollY / Math.max(1, total)));
+  const sc = t * (kf.length - 1), i = Math.floor(sc), f = sc - i;
+  const a = kf[i], b = kf[Math.min(i + 1, kf.length - 1)];
+  camera.position.set(lerp(a.x, b.x, f), lerp(a.y, b.y, f), lerp(a.z, b.z, f));
+  camera.lookAt(lerp(a.lx, b.lx, f), lerp(a.ly, b.ly, f), lerp(a.lz, b.lz, f));
+  const now = performance.now();
+  emblem.rotation.y += 0.004; emblem.rotation.x = Math.sin(now * .0004) * .14;
+  shards.forEach(s => { const ang = s.userData.a + now * .0002 * s.userData.sp; s.position.set(Math.cos(ang) * s.userData.r, Math.sin(ang * 1.3) * .6, Math.sin(ang) * s.userData.r); s.rotation.x += .02; s.rotation.y += .015; });
+  rays.rotation.z += .001;
+  emblem.position.y = -t * 2; emblem.scale.setScalar(1 - t * .25);
+  [gd, ch].forEach(p => { const pos = p.geometry.attributes.position.array, v = p.userData.v; for (let k = 0; k < pos.length; k++) pos[k] += v[k]; p.geometry.attributes.position.needsUpdate = true; });
+  gd.rotation.y = t * .3; ch.rotation.y = -t * .2; stars.rotation.y += .0002;
+  scene.fog.density = 0.03 + t * .025;
+  document.getElementById('progress').style.width = (t * 100) + '%';
+  const idx = sectionIndex();
+  if (idx !== activeIdx) { activeIdx = idx; document.getElementById('hud-section').textContent = `SECTION 0${idx + 1} / 0${SECTIONS}`; chapLinks.forEach((l, k) => l.classList.toggle('active', k === idx)); }
+  if (!intro.isConnected) setPhoto(idx);
+}
+addEventListener('scroll', update, { passive: true });
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+let mx = 0;
+addEventListener('mousemove', e => { mx = (e.clientX / innerWidth - .5) * 2; });
+let paused = false;
+document.addEventListener('visibilitychange', () => { paused = document.hidden; if (!paused) animate(); });
+function animate() {
+  if (paused) return;
+  requestAnimationFrame(animate);
+  emblem.position.x += (mx * .4 - emblem.position.x) * .04;
+  rx = lerp(rx, cx, .22); ry = lerp(ry, cy, .22);
+  reticle.style.transform = `translate(${rx}px,${ry}px) translate(-50%,-50%)`;
+  update(); renderer.render(scene, camera);
+}
+animate();
+
+// Reveals, counters, trailer cuts
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    if (e.target.dataset.section !== '01' && !reduce) { document.body.classList.add('cinema'); setTimeout(() => document.body.classList.remove('cinema'), 1600); }
+    e.target.querySelectorAll('.eyebrow, h2.section-h, .sub, h1.mega, .rise').forEach(el => el.classList.add('in'));
+    e.target.querySelectorAll('.stat-num[data-count]').forEach(el => {
+      if (el.dataset.done) return; el.dataset.done = '1';
+      const target = +el.dataset.count, duration = 1600, start = performance.now(), suffix = el.dataset.suffix || '';
+      const tick = now => { const p = Math.min(1, (now - start) / duration); const eased = 1 - Math.pow(1 - p, 3); el.textContent = Math.floor(target * eased).toLocaleString('en-US') + suffix; if (p < 1) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    });
+  });
+}, { threshold: .25 });
+secs.forEach(s => io.observe(s));
+"""
+
+HEAD = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
+<meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
+<meta name="keywords" content="MAST Solutions, tactical training Houston, firearms training Houston TX, carbine course, select-fire training, NVG course, CQB course, team tactics, Atlas Glinn training, Matthew Brockmann">
+<link rel="canonical" href="https://atlasglinn.com/mastsolutions.html">
+<meta property="og:title" content="MAST Solutions | Details Matter | Tactical Training, Houston TX">
+<meta property="og:description" content="Twenty-one courses, one standard. Firearms through select-fire and night vision, CQB, combatives, medical, leadership. Houston, Texas since 2005. Book a weekend online.">
+<meta property="og:image" content="https://atlasglinn.com/images/mast/hero-casualty-carry.jpg">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://atlasglinn.com/mastsolutions.html">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Atlas Glinn, LLC">
+<meta name="theme-color" content="#050810">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": "MAST Solutions",
+  "description": "Tactical training division of Atlas Glinn, LLC. Firearms, CQB, combatives, medical, leadership, low-light and protective courses for military, law enforcement and private citizens. Houston, Texas since 2005.",
+  "parentOrganization": { "@type": "Organization", "name": "Atlas Glinn, LLC", "url": "https://atlasglinn.com/" },
+  "founder": { "@type": "Person", "name": "Matthew Brockmann", "jobTitle": "Founder", "url": "https://atlasglinn.com/about.html" },
+  "foundingDate": "2005",
+  "image": "https://atlasglinn.com/images/mast/hero-casualty-carry.jpg",
+  "address": { "@type": "PostalAddress", "streetAddress": "2450 Fondren Rd, Suite 255", "addressLocality": "Houston", "addressRegion": "TX", "postalCode": "77063", "addressCountry": "US" },
+  "telephone": "+1-281-654-8100",
+  "url": "https://atlasglinn.com/mastsolutions.html",
+  "sameAs": [
+    "https://www.instagram.com/atlasglinn_mastsolutions/",
+    "https://www.linkedin.com/in/mastsolutions1/",
+    "https://www.facebook.com/mastsolutions",
+    "https://www.youtube.com/@mastsolutions"
+  ]
+}
+</script>
+<style>""" + CSS + """</style>
+</head>
+<body>
+"""
+
+TAIL = '\n<script type="module">' + THREE + '</script>\n<script>' + js + '</script>\n</body>\n</html>\n'
+html = HEAD + BODY + TAIL
+# Brockmann picked this design as the page that ships (2026-09-03), so the assembler writes the production
+# mastsolutions.html. The Atlas-frame build lives on as mastsolutions-atlas.html; the old cinematic URL is a stub redirect.
+out = f'{REPO}/mastsolutions.html'
+open(out, 'w', encoding='utf-8').write(html)
+print('wrote', out, len(html), 'bytes')
