@@ -178,3 +178,76 @@ CREATE TABLE IF NOT EXISTS memberships (
   active          INTEGER DEFAULT 1,
   sort_order      INTEGER DEFAULT 0
 );
+
+-- ── Registrations: screening → agreement → refund consent, one row per booking attempt ──
+-- Written by POST /register before Stripe is ever called. status: pending (sent to Stripe)
+-- | review (a disqualifying answer; nothing charged) | paid | abandoned.
+-- The eligibility ANSWERS are not here: see eligibility_answers, which is purged on a schedule.
+CREATE TABLE IF NOT EXISTS registrations (
+  id                      TEXT PRIMARY KEY,        -- reg_<uuid>
+  created_at              TEXT NOT NULL,
+  status                  TEXT NOT NULL DEFAULT 'pending',
+  sku                     TEXT NOT NULL,
+  item_name               TEXT,
+  qty                     INTEGER DEFAULT 1,
+  session_date            TEXT,
+  session_label           TEXT,
+  customer_name           TEXT NOT NULL,
+  customer_email          TEXT NOT NULL,           -- normalised lowercase
+  customer_phone          TEXT,
+  organization            TEXT,
+  address1                TEXT,
+  address2                TEXT,
+  emergency_name          TEXT,
+  emergency_phone         TEXT,
+  emergency_relationship  TEXT,
+  eligibility_outcome_id  INTEGER,                 -- FK -> eligibility_outcomes.id
+  eligibility_status      TEXT,                    -- cleared | flagged
+  questions_version       TEXT,
+  agreement_version       TEXT,                    -- hash prefix of the PDF the participant saw
+  agreement_signed_name   TEXT,
+  agreement_initials      TEXT,
+  agreement_signed_at     TEXT,
+  agreement_ip            TEXT,
+  agreement_user_agent    TEXT,
+  refund_policy_version   TEXT,
+  refund_policy_accepted_at TEXT,
+  refund_policy_ip        TEXT,
+  newsletter_opt_in       INTEGER DEFAULT 0,       -- its own consent, unticked by default
+  newsletter_opted_in_at  TEXT,
+  stripe_session_id       TEXT,
+  paid_at                 TEXT,
+  documents_sent_at       TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_reg_email   ON registrations (customer_email);
+CREATE INDEX IF NOT EXISTS idx_reg_status  ON registrations (status);
+CREATE INDEX IF NOT EXISTS idx_reg_session ON registrations (stripe_session_id);
+
+-- ── Eligibility: the OUTCOME is kept, the ANSWERS are purged (RETENTION-POLICY.md) ──
+CREATE TABLE IF NOT EXISTS eligibility_outcomes (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  email             TEXT NOT NULL,                 -- normalised lowercase
+  full_name         TEXT,
+  profile_id        TEXT,                          -- null while a guest
+  registration_id   TEXT,
+  outcome           TEXT NOT NULL,                 -- cleared | flagged | declined
+  questions_version TEXT NOT NULL,
+  decided_at        TEXT NOT NULL,
+  expires_at        TEXT,                          -- cleared only; NULL = never expires
+  staff_note        TEXT,
+  reviewed_by       TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_outcomes_email ON eligibility_outcomes (email);
+
+-- Sensitive personal data (citizenship status, criminal history). Never emailed, never in an
+-- event payload, never synced anywhere. The daily cron deletes rows past purge_after and
+-- never touches eligibility_outcomes.
+CREATE TABLE IF NOT EXISTS eligibility_answers (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  outcome_id   INTEGER NOT NULL,
+  answers_json TEXT NOT NULL,
+  answered_ip  TEXT,
+  created_at   TEXT NOT NULL,
+  purge_after  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_answers_purge ON eligibility_answers (purge_after);

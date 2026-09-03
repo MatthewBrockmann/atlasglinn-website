@@ -17,7 +17,7 @@ def between(s, a, b, inclusive=False):
 # ── 1. Booking CSS from the Tesla page (catalog, video cards, modals, calendar, checkout, quals, banner) ──
 css_src = between(tesla, '<style>', '</style>')
 want = ('.catalog-panel', '.cat', '.course-row', '.cr-', '.video-card', '.yt', '.media-strip', '.modal', '.cal-', '.day',
-        '.sheet', 'label', 'input', '.qty', '.total', '.secure', '.err', '.quals', '.banner', '.legend')
+        '.sheet', 'label', 'input', '.qty', '.total', '.secure', '.err', '.quals', '.banner', '.legend', '.reg-', '.policy')
 # keep each lifted rule inside the media query it came from (the Tesla page nests its phone sheet rules in @media)
 groups = {None: []}; media = None
 for line in css_src.splitlines():
@@ -347,7 +347,7 @@ BODY = f"""
     <div>
       <div class="eyebrow">Course Catalog</div>
       <h2 class="section-h">Twenty-One <span class="gold">Courses.</span></h2>
-      <p class="sub">Open a discipline, pick a course, pick your weekend. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
+      <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">First time with MAST? Start with a Fundamentals course.</b> Operator and P1 courses build on it; P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
       <div class="catalog-wrap rise"><div class="glass"><div class="catalog-panel" id="catalog"></div></div>
       <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p></div>
     </div>

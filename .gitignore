@@ -10,3 +10,7 @@ __pycache__/
 .claude/**/client_secret*.json
 .claude/**/oauth-token.json
 .claude/**/service_account*.json
+
+# Worker dependencies (installed by npm install in mast-backend/)
+mast-backend/node_modules/
+mast-backend/package-lock.json
