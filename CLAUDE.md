@@ -57,6 +57,25 @@ at the egress proxy, so live crawls/audits need a session whose environment
 network policy allows general web access. The toolchain itself still loads,
 and its test suite runs offline.
 
+## Mac → cloud handoff (the only Terminal command)
+
+Cloud sessions run in a container and cannot see Brockmann's Mac; Cowork and a
+Terminal `claude` session can. Files cross that line with **one script and one
+command, never OneDrive**: `scripts/mac-handoff.sh` copies files/folders into
+`reference/desktop/` on branch `claude/desktop-assets` and pushes them.
+
+- Brockmann, from Terminal (always the same paste):
+  `curl -fsSL https://raw.githubusercontent.com/MatthewBrockmann/atlasglinn-website/main/scripts/mac-handoff.sh | bash`
+  (append `-s -- <paths>` to hand off something other than the default set)
+- A Mac session (Cowork / Claude Code CLI): run it itself via `/handoff` or the
+  `mac-handoff` skill. Do not hand Brockmann a step the session can run.
+- A cloud session: never invent a new paste. Ask for `mac-handoff.sh` by name,
+  then `git fetch origin claude/desktop-assets` and read `reference/desktop/`.
+
+Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
+`04-resources/agent-memory/reference_mac_handoff_command.md`. Address him as
+**Brockmann** in replies.
+
 ## Memory Rules
 
 ### Installation completeness (Matthew, 2026-07-18)
