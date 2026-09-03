@@ -348,7 +348,7 @@ An attachment someone never opened is no use on a dirt road with no bars.
 
 ### The range address is NOT public (owner, 2026-09-01)
 
-**Decided.** `4159 County Road 161, Wharton, TX 77488` (29.339959, -96.046542) is
+**Decided.** `[secret RANGE_ADDRESS]` (`[secret RANGE_COORDS]`) is
 released **only after a completed registration**, in the confirmation email.
 
 This has to be enforced in more places than the obvious one:
@@ -372,7 +372,7 @@ Recipients:
 
 | # | Name | Address |
 |---|---|---|
-| 1 | Alex Albert | `alexalbert308@gmail.com` |
+| 1 | Alex Albert (range host) | `[secret — first address in DOC_RECIPIENTS_AGREEMENT]` |
 | 2 | Atlas Glinn HQ | `atlasglinn.hq@atlasglinn.com` ⚠️ see note |
 | 3 | Matthew Brockmann | `Matthew@mastsolutions.com` |
 | 4 | Anthony Glover | `a.glover@atlasglinn.com` |
