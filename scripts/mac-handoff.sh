@@ -19,9 +19,9 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/MatthewBrockmann/atlasglinn-website/main/scripts/mac-handoff.sh | bash -s -- ~/Desktop/some-folder ~/Downloads/clip.mov
 #
-# What it does, in order: finds (or clones) the repo, fetches, checks out the
-# handoff branch in a throw-away worktree (your working copy is never touched),
-# copies each source into reference/desktop/ (folders keep their structure,
+# What it does, in order: finds (or clones) the repo, fetches, opens a throw-away
+# detached worktree on the handoff branch's tip (your working copy, your checkout
+# and your local branches are never touched), copies each source into reference/desktop/ (folders keep their structure,
 # HEIC becomes JPEG, Git LFS pointers are replaced by the real file via
 # `git lfs pull`, videos over HANDOFF_MAX_MB are compressed with the Mac's
 # built-in avconvert to 720p, then 480p, or listed if they still do not fit,
@@ -79,18 +79,23 @@ if [ "${HANDOFF_ONLY:-0}" = "1" ]; then SOURCES=("$@"); else SOURCES=("${DEFAULT
 
 # 2. Fetch. If the handoff branch already exists remotely, build on it.
 git fetch -q "$REMOTE" main || die "fetch (network or GitHub login)"
-git fetch -q "$REMOTE" "$BRANCH" 2>/dev/null && BASE="$REMOTE/$BRANCH" || BASE="$REMOTE/main"
+BASE="$(git rev-parse FETCH_HEAD)"
+# Build on the handoff branch when it already exists remotely (a failed fetch clobbers FETCH_HEAD, hence the order).
+if git fetch -q "$REMOTE" "$BRANCH" 2>/dev/null; then BASE="$(git rev-parse FETCH_HEAD)"; fi
 
-# 3. Throw-away worktree so the working copy is never touched.
-[ "$(git branch --show-current 2>/dev/null)" = "$BRANCH" ] && git checkout -q --detach
-# A worktree left behind by an earlier or interrupted run still holds the branch; drop it first.
-git worktree list --porcelain | awk -v b="refs/heads/$BRANCH" '$1=="worktree"{p=$2} $1=="branch"&&$2==b{print p}' | while IFS= read -r old; do
-  [ -n "$old" ] && [ "$old" != "$R" ] && { say "removing stale worktree $old"; git worktree remove --force "$old" >/dev/null 2>&1 || rm -rf "$old"; }
+# 3. Throw-away worktree on a detached HEAD: the working copy, its checkout and every local branch stay untouched.
+# Only worktrees this script (or the 2026-09-03 inline paste) created are cleaned up. Paths are read whole, never
+# word-split, and nothing outside those known locations is ever removed.
+git worktree list --porcelain | while IFS= read -r line; do
+  case "$line" in "worktree "*) old="${line#worktree }" ;; *) continue ;; esac
+  case "$old" in
+    */handoff-??????/wt|/tmp/wt-desktop-assets|/private/tmp/wt-desktop-assets)
+      [ "$old" != "$R" ] && { say "removing leftover handoff worktree $old"; git worktree remove --force "$old" >/dev/null 2>&1 || true; } ;;
+  esac
 done
 git worktree prune
 W="$(mktemp -d "${TMPDIR:-/tmp}/handoff-XXXXXX")/wt"
-git branch -D "$BRANCH" >/dev/null 2>&1
-git worktree add -q -B "$BRANCH" "$W" "$BASE" || die "worktree"
+git worktree add -q --detach "$W" "$BASE" || die "worktree"
 
 # 4. Copy.
 OUT="$W/$DEST"
@@ -138,8 +143,10 @@ copy_file() { # copy_file <source file> <destination directory>; returns 2 when 
     mov|mp4|m4v|avi|mkv)
       if [ "$s" -le $((MAX_MB * 1000000)) ]; then cp "$f" "$d/$b"; else
         web="$d/${b%.*}-web.mp4"
-        if [ -f "$web" ]; then :; # compressed on an earlier run, already on the branch
-        elif ! compress_video "$f" "$web"; then
+        # The sidecar records the source size, so an unchanged source is not recompressed and a changed one is.
+        if [ -f "$web" ] && [ "$(cat "$web.srcsize" 2>/dev/null)" = "$s" ]; then :
+        elif compress_video "$f" "$web"; then printf '%s\n' "$s" > "$web.srcsize"
+        else
           say "  too big for GitHub even after compression, listed instead: $b ($((s / 1000000)) MB)"
           list_skipped "$f" "$s bytes"; return 2
         fi
@@ -151,7 +158,15 @@ copy_file() { # copy_file <source file> <destination directory>; returns 2 when 
 for src in "${SOURCES[@]}"; do
   if is_url "$src"; then
     name="$(basename "$src")"
-    if [ -f "$OUT/$name" ] || [ -f "$OUT/${name%.*}-web.mp4" ]; then copied=$((copied + 1)); continue; fi
+    # Skip the download only when the server reports the same byte size as what the branch already holds
+    # (the file itself, or the recorded source size of its compressed copy); otherwise fetch it again.
+    have=""
+    if [ -f "$OUT/$name" ]; then have="$(fsize "$OUT/$name")"
+    elif [ -f "$OUT/${name%.*}-web.mp4.srcsize" ]; then have="$(cat "$OUT/${name%.*}-web.mp4.srcsize")"; fi
+    if [ -n "$have" ]; then
+      remote_size="$(curl -fsSIL "$src" 2>/dev/null | tr -d '\r' | awk 'tolower($1)=="content-length:"{s=$2} END{print s}')"
+      if [ -n "$remote_size" ] && [ "$remote_size" = "$have" ]; then copied=$((copied + 1)); continue; fi
+    fi
     say "url:    $src"
     dl="$(mktemp -d "${TMPDIR:-/tmp}/handoff-dl-XXXXXX")/$name"
     if curl -fsSL -o "$dl" "$src"; then
@@ -184,7 +199,7 @@ if [ "$new" = "0" ]; then
 else
   git -c user.name="Matthew Brockmann" -c user.email="matthew@atlasglinn.com" \
     commit -q -m "Hand off from Mac: $new file(s) on $(date '+%Y-%m-%d %H:%M')" || die "commit"
-  git push -q -u "$REMOTE" "$BRANCH" || die "push (network or GitHub login)"
+  git push -q "$REMOTE" "HEAD:refs/heads/$BRANCH" || die "push (network or GitHub login; if the branch moved meanwhile, just re-run)"
 fi
 total="$(git ls-files "$DEST" | wc -l | tr -d ' ')"
 say "DONE: $new new or changed, $copied handled, $skipped listed instead, $missing not found. $total files now on branch $BRANCH."
