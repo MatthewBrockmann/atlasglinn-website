@@ -83,6 +83,10 @@ git fetch -q "$REMOTE" "$BRANCH" 2>/dev/null && BASE="$REMOTE/$BRANCH" || BASE="
 
 # 3. Throw-away worktree so the working copy is never touched.
 [ "$(git branch --show-current 2>/dev/null)" = "$BRANCH" ] && git checkout -q --detach
+# A worktree left behind by an earlier or interrupted run still holds the branch; drop it first.
+git worktree list --porcelain | awk -v b="refs/heads/$BRANCH" '$1=="worktree"{p=$2} $1=="branch"&&$2==b{print p}' | while IFS= read -r old; do
+  [ -n "$old" ] && [ "$old" != "$R" ] && { say "removing stale worktree $old"; git worktree remove --force "$old" >/dev/null 2>&1 || rm -rf "$old"; }
+done
 git worktree prune
 W="$(mktemp -d "${TMPDIR:-/tmp}/handoff-XXXXXX")/wt"
 git branch -D "$BRANCH" >/dev/null 2>&1
