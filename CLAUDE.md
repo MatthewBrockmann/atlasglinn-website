@@ -66,7 +66,9 @@ command, never OneDrive**: `scripts/mac-handoff.sh` copies files/folders into
 
 - Brockmann, from Terminal (always the same paste):
   `curl -fsSL https://raw.githubusercontent.com/MatthewBrockmann/atlasglinn-website/main/scripts/mac-handoff.sh | bash`
-  (append `-s -- <paths>` to hand off something other than the default set)
+  (append `-s -- <paths or URLs>` to hand off more, on top of the default set;
+  videos over 90 MB are compressed on the Mac to fit GitHub, LFS pointers are
+  replaced by the real file)
 - A Mac session (Cowork / Claude Code CLI): run it itself via `/handoff` or the
   `mac-handoff` skill. Do not hand Brockmann a step the session can run.
 - A cloud session: never invent a new paste. Ask for `mac-handoff.sh` by name,

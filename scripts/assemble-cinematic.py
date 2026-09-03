@@ -389,7 +389,7 @@ BODY = f"""
     <div>
       <div class="badge">Privacy Matters</div>
       <p class="sub quote lead">&ldquo;Details matter. Privacy matters. Unless publicly reported, we don&rsquo;t disclose.&rdquo;</p>
-      <p class="sub" style="font-size:.98rem;">Former Head of Security and Dignitary Protection for U.S. Senators Ted Cruz and Eric &ldquo;Bulldog&rdquo; Schmitt, and other principals who prefer their names stay off websites.</p>
+      <p class="sub" style="font-size:.98rem;">Former Head of Security and Dignitary Protection for U.S. Senators, a former Vice President and other principals who prefer their names stay off websites. Pictured: Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt.</p>
       <div class="eyebrow" style="margin-top:2.5rem;">For agencies, units and procurement officers</div>
       <div class="ctas rise"><a href="mailto:atlasglinn.hq@atlasglinn.com?subject=MAST%20Solutions%20Capability%20Statement%20Request" class="cta">Email for the Capability Statement</a><a href="mast-capability-statement.html" class="secondary-cta">View One-Pager</a></div>
     </div>

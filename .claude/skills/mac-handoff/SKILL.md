@@ -18,11 +18,13 @@ From the repo root (any clone of atlasglinn-website on the Mac):
 bash scripts/mac-handoff.sh
 ```
 
-That hands off the default set: the desktop folder "MAST NEW WEB 2026" and the Tier 3 /
-Landing 4D trailer HTML files. To hand off other things, pass paths:
+That hands off the default set: the desktop folder "MAST NEW WEB 2026", the Tier 3 /
+Landing 4D trailer HTML files, the About-page hero video from the clone and the Atlas
+Glinn home-page video from atlasglinn.com. To hand off more, pass paths or URLs; they
+are added on top of the default set (`HANDOFF_ONLY=1` skips the defaults):
 
 ```
-bash scripts/mac-handoff.sh ~/Desktop/some-folder ~/Downloads/clip.mov
+bash scripts/mac-handoff.sh ~/Desktop/some-folder ~/Downloads/clip.mov https://example.com/clip.mp4
 ```
 
 If no clone exists yet, the script clones one to `~/atlasglinn-website` by itself.
@@ -36,8 +38,10 @@ curl -fsSL https://raw.githubusercontent.com/MatthewBrockmann/atlasglinn-website
 
 Finds or clones the repo, fetches, checks out the handoff branch in a throw-away worktree
 (the working copy is never touched), copies each source in (folders keep their structure,
-HEIC becomes JPEG, videos over 90 MB are listed instead of copied because GitHub rejects
-files over 100 MB), commits, pushes, prints `DONE:`. Re-running only adds what is new.
+HEIC becomes JPEG, Git LFS pointers are replaced by the real file, URLs are downloaded on
+the Mac, videos over 90 MB are compressed with the built-in `avconvert` to 720p or 480p
+because GitHub rejects files over 100 MB, and only a video that still does not fit is
+listed), commits, pushes, prints `DONE:`. Re-running only adds what is new.
 
 ## Report
 
