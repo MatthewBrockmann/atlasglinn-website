@@ -11,7 +11,10 @@ compatibility_date = "2026-01-15"
 # blocks checkout on the page's actual origin. mastsolutions.com entries are here
 # for when it gets real hosting; www.mastsolutions.com has no DNS record yet.
 # The FIRST entry is the fallback used for Stripe return URLs.
-ALLOWED_ORIGINS = "https://www.atlasglinn.com,https://atlasglinn.com,https://mastsolutions.com"
+# REVIEW ONLY: htmlpreview.github.io is the branch preview the owner reviews on.
+# Remove it before launch. (CORS only affects browsers; the API itself is public
+# and prices are server-side, so this widens nothing that matters.)
+ALLOWED_ORIGINS = "https://www.atlasglinn.com,https://atlasglinn.com,https://mastsolutions.com,https://htmlpreview.github.io"
 SITE_URL = "https://www.atlasglinn.com/mastsolutions.html"
 NOTIFY_FROM = "MAST Solutions <bookings@mastsolutions.com>"
 
