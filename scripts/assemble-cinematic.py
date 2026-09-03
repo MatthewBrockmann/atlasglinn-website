@@ -353,7 +353,7 @@ BODY = f"""
       <div class="founder rise">
         <div class="portrait" style="background-image:url('images/mast/instructing-le.jpg')"><div class="cap">Instructing a federal team on the line</div></div>
         <div class="bio">
-          <p>Founded MAST Solutions in 2005 and later Atlas Glinn, LLC. Head of Security and Dignitary Protection for U.S. Senators Ted Cruz and Eric &ldquo;Bulldog&rdquo; Schmitt. Teaches on the range.</p>
+          <p>Founded MAST Solutions in 2005 and later Atlas Glinn, LLC. Head of Security and Dignitary Protection for U.S. Senators Ted Cruz and Eric &ldquo;Bulldog&rdquo; Schmitt. Teaches on the range. Has trained Houston, Baytown, Galveston and other SWAT teams, including TTPOA (Texas Tactical Police Officers Association), VBSS (Visit, Board, Search and Seize), NASA SRT, the Department of Homeland Security, and other federal, state and military units.</p>
           <ul class="creds">
             <li>Trained by <b>Paul Howe</b> (1st SFOD-D), <b>Bill Jeans</b> and <b>John Perretti</b></li>
             <li><b>DPS Level III Firearms Instructor</b> &middot; <b>TTPOA Maritime VBSS</b> instructor</li>
