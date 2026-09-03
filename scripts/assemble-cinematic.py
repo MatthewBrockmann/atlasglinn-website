@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Assemble mastsolutions-cinematic.html: the Tier 3 trailer visual system (reference/desktop/mast_tier3_trailer.html
-+ atlas_mast_landing_4d.html) carrying the real MAST site: catalog + calendar + Stripe checkout, instructors, media,
-capability, contact. Booking CSS/JS/modals are lifted verbatim from mastsolutions-tesla.html and recolored to the
-trailer palette, so the three pages share one booking stack."""
+"""Assemble mastsolutions.html (the production MAST page): the Tier 3 trailer visual system
+(reference/desktop/mast_tier3_trailer.html + atlas_mast_landing_4d.html) carrying the real MAST site: catalog +
+calendar + Stripe checkout, instructors, media, capability, contact. Booking CSS/JS/modals are lifted verbatim from
+mastsolutions-tesla.html and recolored to the trailer palette, so the pages share one booking stack.
+
+Edit THIS FILE and re-run it; never hand-edit mastsolutions.html, the next run overwrites it."""
 import re, sys
 import os
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -605,10 +607,40 @@ HEAD = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>MAST Solutions | Details Matter | Tactical Training, Houston</title>
-<meta name="description" content="MAST Solutions: firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
-<meta name="robots" content="noindex, nofollow">
+<title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
+<meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
+<meta name="keywords" content="MAST Solutions, tactical training Houston, firearms training Houston TX, carbine course, select-fire training, NVG course, CQB course, team tactics, Atlas Glinn training, Matthew Brockmann">
+<link rel="canonical" href="https://atlasglinn.com/mastsolutions.html">
+<meta property="og:title" content="MAST Solutions | Details Matter | Tactical Training, Houston TX">
+<meta property="og:description" content="Twenty-one courses, one standard. Firearms through select-fire and night vision, CQB, combatives, medical, leadership. Houston, Texas since 2005. Book a weekend online.">
+<meta property="og:image" content="https://atlasglinn.com/images/mast/hero-casualty-carry.jpg">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://atlasglinn.com/mastsolutions.html">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Atlas Glinn, LLC">
 <meta name="theme-color" content="#050810">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": "MAST Solutions",
+  "description": "Tactical training division of Atlas Glinn, LLC. Firearms, CQB, combatives, medical, leadership, low-light and protective courses for military, law enforcement and private citizens. Houston, Texas since 2005.",
+  "parentOrganization": { "@type": "Organization", "name": "Atlas Glinn, LLC", "url": "https://atlasglinn.com/" },
+  "founder": { "@type": "Person", "name": "Matthew Brockmann", "jobTitle": "Founder", "url": "https://atlasglinn.com/about.html" },
+  "foundingDate": "2005",
+  "image": "https://atlasglinn.com/images/mast/hero-casualty-carry.jpg",
+  "address": { "@type": "PostalAddress", "streetAddress": "2450 Fondren Rd, Suite 255", "addressLocality": "Houston", "addressRegion": "TX", "postalCode": "77063", "addressCountry": "US" },
+  "telephone": "+1-281-654-8100",
+  "url": "https://atlasglinn.com/mastsolutions.html",
+  "sameAs": [
+    "https://www.instagram.com/atlasglinn_mastsolutions/",
+    "https://www.linkedin.com/in/mastsolutions1/",
+    "https://www.facebook.com/mastsolutions",
+    "https://www.youtube.com/@mastsolutions"
+  ]
+}
+</script>
 <style>""" + CSS + """</style>
 </head>
 <body>
@@ -616,6 +648,8 @@ HEAD = """<!DOCTYPE html>
 
 TAIL = '\n<script type="module">' + THREE + '</script>\n<script>' + js + '</script>\n</body>\n</html>\n'
 html = HEAD + BODY + TAIL
-out = f'{REPO}/mastsolutions-cinematic.html'
+# Brockmann picked this design as the page that ships (2026-09-03), so the assembler writes the production
+# mastsolutions.html. The Atlas-frame build lives on as mastsolutions-atlas.html; the old cinematic URL is a stub redirect.
+out = f'{REPO}/mastsolutions.html'
 open(out, 'w', encoding='utf-8').write(html)
 print('wrote', out, len(html), 'bytes')

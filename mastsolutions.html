@@ -1,921 +1,505 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MAST Solutions - Tactical Training Houston TX | Atlas Glinn</title>
-    <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Handgun, carbine, shotgun, sub-gun, select-fire, low-light and NVG, team tactics and protective courses in Houston, TX since 2005. Pick a course, pick a weekend, book online.">
-    <meta name="keywords" content="MAST Solutions, tactical training Houston, firearms training Houston TX, carbine course, select-fire training, NVG course, team tactics, Atlas Glinn training, Matthew Brockmann">
-    <link rel="canonical" href="https://atlasglinn.com/mastsolutions.html">
-    <meta property="og:title" content="MAST Solutions | Tactical Training Houston TX - Details Matter">
-    <meta property="og:description" content="Twenty-one courses, one standard. Handgun through select-fire and night vision. Houston, Texas since 2005. Book a weekend online.">
-    <meta property="og:image" content="https://atlasglinn.com/wp-content/uploads/2025/02/Atlas-Glinn-Logo-Rev1-1.png">
-    <meta property="og:type" content="website">
-    <meta name="robots" content="index, follow">
-    <meta name="author" content="Atlas Glinn, LLC">
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "LocalBusiness",
-      "name": "MAST Solutions",
-      "description": "Tactical training division of Atlas Glinn, LLC. Firearms, low-light, team tactics and protective courses for military, law enforcement and private citizens. Houston, Texas since 2005.",
-      "parentOrganization": { "@type": "Organization", "name": "Atlas Glinn, LLC", "url": "https://atlasglinn.com/" },
-      "founder": { "@type": "Person", "name": "Matthew Brockmann", "jobTitle": "Founder", "url": "https://atlasglinn.com/about.html" },
-      "foundingDate": "2005",
-      "image": "https://atlasglinn.com/wp-content/uploads/2025/02/Atlas-Glinn-Logo-Rev1-1.png",
-      "address": { "@type": "PostalAddress", "streetAddress": "2450 Fondren Rd, Suite 255", "addressLocality": "Houston", "addressRegion": "TX", "postalCode": "77063", "addressCountry": "US" },
-      "telephone": "+1-281-654-8100",
-      "url": "https://atlasglinn.com/mastsolutions.html",
-      "sameAs": [
-        "https://www.instagram.com/atlasglinn_mastsolutions/",
-        "https://www.linkedin.com/in/mastsolutions1/",
-        "https://www.facebook.com/mastsolutions",
-        "https://www.youtube.com/@mastsolutions"
-      ]
-    }
-    </script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;700&family=Inconsolata:wght@400;700&display=swap');
-
-        /* ══════════ ATLAS GLINN BASE (shared with every atlasglinn.com page) ══════════ */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html { scroll-behavior: smooth; scroll-padding-top: 88px; } /* anchor targets clear the fixed nav */
-        body {
-            font-family: 'Rajdhani', sans-serif;
-            color: #ffffff;
-            background: #080C14;
-            line-height: 1.6;
-            overflow-x: hidden;
-        }
-        img { max-width: 100%; }
-
-        @keyframes shimmer {
-            0% { background-position: -1000px 0; }
-            100% { background-position: 1000px 0; }
-        }
-        @keyframes goldShimmer {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        .gold-shimmer {
-            background: linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%);
-            background-size: 1000px 100%;
-            animation: shimmer 6s linear infinite;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        .eyebrow { font-family: 'Inconsolata', monospace; font-size: 0.75rem; letter-spacing: .22em; text-transform: uppercase; color: #C9A84C; }
-
-        /* NAVIGATION */
-        nav {
-            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
-            background: rgba(8, 12, 20, 0.95); backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(26, 107, 222, 0.2); padding: 1rem 2rem;
-        }
-        .nav-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
-        .nav-logo { display: flex; align-items: center; gap: 1rem; text-decoration: none; color: #1A6BDE; }
-        .nav-logo img { height: 40px; width: auto; }
-        .nav-logo-text { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.2rem; letter-spacing: .08em; color: #1A6BDE; }
-        .nav-logo-text span { color: #C9A84C; font-weight: 700; }
-        .nav-links { display: flex; gap: 2rem; align-items: center; list-style: none; }
-        .nav-links a { color: #ffffff; text-decoration: none; font-size: 0.9rem; transition: color 0.3s ease; text-transform: uppercase; letter-spacing: 0.05em; }
-        .nav-links a:hover { color: #1A6BDE; }
-        .mobile-menu-btn { display: none; background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; }
-
-        .cta-button {
-            background: #1A6BDE; color: white; padding: 0.75rem 1.5rem; border: none;
-            border-radius: 4px; cursor: pointer; font-family: 'Rajdhani', sans-serif; font-size: 1rem;
-            font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
-            transition: all 0.3s ease; text-decoration: none; display: inline-block;
-        }
-        .cta-button:hover { background: #155ac8; box-shadow: 0 0 20px rgba(26, 107, 222, 0.5); }
-        .cta-button[disabled] { opacity: .45; cursor: not-allowed; box-shadow: none; }
-        .secondary-button { background: transparent; border: 2px solid #1A6BDE; color: #1A6BDE; }
-        .secondary-button:hover { background: #1A6BDE; color: white; }
-        .gold-button { background: transparent; border: 2px solid #C9A84C; color: #C9A84C; }
-        .gold-button:hover { background: #C9A84C; color: #080C14; box-shadow: 0 0 20px rgba(201,168,76,.4); }
-
-        /* HERO */
-        .hero { position: relative; width: 100%; height: 100vh; min-height: 620px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        .hero-yt { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; overflow: hidden; }
-        .hero-yt iframe { position: absolute; top: 50%; left: 50%; width: 180%; height: 180%; transform: translate(-50%,-50%); border: none; pointer-events: none; }
-        .hero-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2;
-            background: radial-gradient(ellipse at center, rgba(8,12,20,0.35) 0%, rgba(8,12,20,0.8) 70%, #080C14 100%); }
-        .hero-content { position: relative; z-index: 3; text-align: center; max-width: 1100px; padding: 0 2rem; }
-        .hero-headline { font-family: 'Orbitron', sans-serif; font-size: clamp(1.8rem, 5vw, 3.2rem); font-weight: 900; margin: 1.2rem 0 1rem; letter-spacing: 0.02em; line-height: 1; }
-        .hero-subheading { font-size: 1.3rem; margin-bottom: 2rem; color: #b0b0b0; font-weight: 300; }
-        .hero-ctas { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
-        .hero-ctas .cta-button { padding: 1rem 2rem; font-size: 1rem; }
-
-        /* CREDENTIAL BAR */
-        .credential-bar { background: #0f1622; padding: 3rem 2rem; border-top: 1px solid rgba(201,168,76,.15); border-bottom: 1px solid rgba(201,168,76,.15); }
-        .credential-grid { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2rem; text-align: center; }
-        .credential-item h3 {
-            font-family: 'Orbitron', sans-serif; font-size: 2.5rem; margin-bottom: 0.5rem;
-            background: linear-gradient(135deg, #BF953F, #FCF6BA, #B38728, #FBF5B7, #AA771C);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            background-size: 200% 200%; animation: goldShimmer 4s ease infinite;
-        }
-        .credential-item p { color: #b0b0b0; font-size: 0.95rem; }
-
-        /* SECTIONS */
-        .section { max-width: 1400px; margin: 0 auto; padding: 4rem 2rem; }
-        .section-divider { background: #0f1622; padding: 1.5rem 2rem; border-top: 1px solid rgba(201,168,76,.15); border-bottom: 1px solid rgba(201,168,76,.15); text-align: center; margin: 0; max-width: 100%; }
-        .section-divider h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; font-weight: 900; letter-spacing: 0.02em; margin: 0; }
-        .section-divider p { font-size: 0.95rem; color: #b0b0b0; margin: 0.5rem 0 0; }
-        .body-content { max-width: 900px; margin: 0 auto; text-align: center; }
-        .body-content p { font-size: 1.15rem; color: #d0d0d0; line-height: 1.8; }
-
-        /* SERVICE CARDS (who we train) */
-        .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; }
-        .service-card {
-            background: rgba(26, 107, 222, 0.05); border: 1px solid rgba(201, 168, 76, 0.3);
-            padding: 2rem; border-radius: 4px; transition: all 0.4s ease; position: relative;
-            transform-style: preserve-3d; box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 15px rgba(201,168,76,0.08);
-        }
-        .service-card:hover { background: rgba(26, 107, 222, 0.1); border-color: rgba(201, 168, 76, 0.6); box-shadow: 0 15px 50px rgba(0,0,0,0.5), 0 0 40px rgba(201,168,76,0.2); transform: translateY(-4px); }
-        .service-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: linear-gradient(90deg, #1A6BDE, #C9A84C); transform: scaleX(0); transform-origin: left; transition: transform .4s; }
-        .service-card:hover::before { transform: scaleX(1); }
-        .service-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; color: #1A6BDE; margin-bottom: 1rem; }
-        .service-card p { color: #b0b0b0; font-size: 0.95rem; line-height: 1.6; }
-        .service-num { font-family: 'Orbitron', sans-serif; font-size: 2.4rem; font-weight: 900; color: rgba(201,168,76,.18); position: absolute; top: 1rem; right: 1.4rem; }
-
-        /* FULL-BLEED IMAGE PANELS (vault brief: Tesla-style, big word + one line) */
-        .bleed { position: relative; min-height: 72vh; display: flex; align-items: flex-end; overflow: hidden; background: #0f1622; }
-        .bleed .bg { position: absolute; inset: 0; background: #0f1622 center/cover no-repeat; transform: scale(1.04); transition: transform 6s ease; }
-        .bleed:hover .bg { transform: scale(1.12); }
-        .bleed::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8,12,20,.1) 0%, rgba(8,12,20,.45) 50%, #080C14 100%); }
-        .bleed .txt { position: relative; z-index: 2; padding: 2.5rem 2rem 2.8rem; width: 100%; }
-        .bleed h3 { font-family: 'Orbitron', sans-serif; font-size: clamp(1.3rem, 2.4vw, 2rem); font-weight: 900; line-height: 1.02; letter-spacing: .01em; }
-        .bleed p { color: #d0d0d0; font-size: 1.05rem; margin-top: .7rem; max-width: 420px; line-height: 1.6; }
-        .bleed .eyebrow { margin-bottom: .6rem; }
-        .who-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; background: #080C14; }
-        .strip { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 3px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: #1A6BDE #0f1622; }
-        .strip .bleed { flex: 0 0 min(78vw, 420px); min-height: 60vh; scroll-snap-align: start; }
-        .strip .bleed h3 { font-size: 1.3rem; }
-        .strip .bleed p { font-size: .95rem; }
-        .strip .disc-icon { margin-bottom: .9rem; justify-content: start; place-items: start; }
-        .strip .disc-icon svg { width: 40px; height: 40px; }
-
-        /* DISCIPLINES */
-        .disciplines-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1.5rem; }
-        .discipline-card { background: rgba(26, 107, 222, 0.05); border: 1px solid rgba(201, 168, 76, 0.3); padding: 2rem 1rem; border-radius: 4px; text-align: center; transition: all 0.4s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 15px rgba(201,168,76,0.08); }
-        .discipline-card:hover { background: rgba(26, 107, 222, 0.1); border-color: rgba(201, 168, 76, 0.6); transform: translateY(-5px); box-shadow: 0 15px 50px rgba(0,0,0,0.5), 0 0 40px rgba(201,168,76,0.2); }
-        .disc-icon { height: 48px; display: grid; place-items: center; }
-        .disc-icon svg { width: 44px; height: 44px; fill: none; stroke: #1A6BDE; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; transition: transform .4s; }
-        .discipline-card:hover .disc-icon svg, .bleed:hover .disc-icon svg { transform: scale(1.08); }
-        .discipline-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1rem; color: #1A6BDE; margin-top: 1rem; }
-        .discipline-card p { font-size: 0.85rem; color: #b0b0b0; margin-top: .5rem; }
-
-        /* ══════════ COURSE CATALOG — category drop-downs ══════════ */
-        .catalog { max-width: 1100px; margin: 0 auto; }
-        .cat { border: 1px solid rgba(201,168,76,.3); border-radius: 4px; background: rgba(26,107,222,.04); margin-bottom: 1rem; overflow: hidden; transition: border-color .3s, box-shadow .3s; }
-        .cat.open { border-color: rgba(201,168,76,.6); box-shadow: 0 10px 40px rgba(0,0,0,.4), 0 0 30px rgba(201,168,76,.08); }
-        .cat-btn { width: 100%; display: flex; align-items: center; gap: 1rem; padding: 1.2rem 1.5rem; background: none; border: none; color: #fff; cursor: pointer; text-align: left; font-family: 'Rajdhani', sans-serif; }
-        .cat-btn:hover { background: rgba(26,107,222,.08); }
-        .cat-name { font-family: 'Orbitron', sans-serif; font-size: 1.05rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #C9A84C; flex: 1; }
-        .cat-count { font-family: 'Inconsolata', monospace; font-size: .75rem; letter-spacing: .15em; color: #888; text-transform: uppercase; }
-        .cat-chev { width: 28px; height: 28px; border: 1px solid rgba(26,107,222,.5); border-radius: 50%; display: grid; place-items: center; color: #1A6BDE; font-size: 14px; transition: transform .3s; }
-        .cat.open .cat-chev { transform: rotate(180deg); background: #1A6BDE; color: #fff; }
-        .cat-panel { display: none; border-top: 1px solid rgba(201,168,76,.2); }
-        .cat.open .cat-panel { display: block; }
-        .course-row { display: grid; grid-template-columns: 1fr auto; gap: 1.5rem; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,.06); cursor: pointer; transition: background .25s; }
-        .course-row:last-child { border-bottom: none; }
-        .course-row:hover, .course-row:focus-visible { background: rgba(26,107,222,.1); outline: none; }
-        .course-row.call { cursor: default; }
-        .cr-name { font-family: 'Orbitron', sans-serif; font-size: 1.05rem; font-weight: 700; margin-bottom: .3rem; }
-        .cr-meta { font-family: 'Inconsolata', monospace; font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: #C9A84C; margin-bottom: .45rem; }
-        .cr-desc { font-size: .95rem; color: #b0b0b0; line-height: 1.55; }
-        .cr-side { display: flex; align-items: center; gap: 1.5rem; }
-        .cr-price { font-family: 'Orbitron', sans-serif; font-size: 1.35rem; font-weight: 900; color: #C9A84C; text-align: right; line-height: 1; }
-        .cr-price small { display: block; font-family: 'Inconsolata', monospace; font-size: .62rem; letter-spacing: .14em; color: #888; margin-top: .35rem; font-weight: 400; }
-        .cr-btn { padding: .65rem 1.2rem; font-size: .85rem; white-space: nowrap; }
-        .cat-note { padding: 1rem 1.5rem 0; color: #b0b0b0; font-size: .9rem; line-height: 1.65; }
-        .catalog-note { text-align: center; margin-top: 2rem; color: #b0b0b0; font-size: .95rem; }
-        .catalog-note a { color: #1A6BDE; text-decoration: none; }
-        .catalog-note a:hover { color: #C9A84C; }
-
-        /* ══════════ MODALS (calendar + checkout) ══════════ */
-        .modal-bd { position: fixed; inset: 0; background: rgba(8,12,20,.82); backdrop-filter: blur(4px); z-index: 3000; opacity: 0; visibility: hidden; transition: all .25s; }
-        .modal-bd.open { opacity: 1; visibility: visible; }
-        .modal { position: fixed; z-index: 3001; background: #0f1622; border: 1px solid rgba(201,168,76,.4); border-radius: 6px;
-            left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.97); width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow-y: auto;
-            padding: 2rem; opacity: 0; visibility: hidden; transition: all .25s; box-shadow: 0 30px 80px rgba(0,0,0,.7), 0 0 40px rgba(201,168,76,.08); }
-        .modal.open { opacity: 1; visibility: visible; transform: translate(-50%,-50%) scale(1); }
-        .modal-x { position: absolute; top: 10px; right: 14px; background: none; border: none; color: #888; font-size: 30px; cursor: pointer; line-height: 1; }
-        .modal-x:hover { color: #C9A84C; }
-        .modal h3 { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; font-weight: 700; padding-right: 2rem; margin: .35rem 0 .2rem; }
-        .modal-meta { font-family: 'Inconsolata', monospace; font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: #888; }
-        .modal-price { font-family: 'Orbitron', sans-serif; font-weight: 900; color: #C9A84C; font-size: 1.1rem; margin-top: .4rem; }
-
-        .cal-nav { display: flex; align-items: center; justify-content: space-between; margin: 1.4rem 0 .8rem; }
-        .cal-nav button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(26,107,222,.5); background: none; color: #1A6BDE; font-size: 20px; cursor: pointer; }
-        .cal-nav button:hover:not([disabled]) { background: #1A6BDE; color: #fff; }
-        .cal-nav button[disabled] { opacity: .25; cursor: default; }
-        .cal-month { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1rem; letter-spacing: .06em; }
-        .cal-dow, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-        .cal-dow div { font-family: 'Inconsolata', monospace; font-size: .68rem; letter-spacing: .12em; color: #888; text-align: center; padding-bottom: 4px; }
-        .day { height: 40px; display: grid; place-items: center; font-size: .95rem; font-weight: 500; color: #666; border-radius: 4px; border: 1px solid transparent; position: relative; }
-        .day.other { color: #333; }
-        .day.wk { color: #fff; border-color: rgba(201,168,76,.55); background: rgba(201,168,76,.08); cursor: pointer; font-weight: 700; }
-        .day.wk::after { content: ''; position: absolute; bottom: 4px; width: 4px; height: 4px; border-radius: 50%; background: #C9A84C; }
-        .day.wk:hover { background: rgba(26,107,222,.25); border-color: #1A6BDE; }
-        .day.sel { background: #1A6BDE; border-color: #1A6BDE; color: #fff; }
-        .day.sel::after { background: #fff; }
-        .day.blk { color: #555; text-decoration: line-through; border-color: rgba(255,255,255,.08); cursor: not-allowed; }
-        .day.past { opacity: .35; cursor: not-allowed; }
-        .cal-legend { display: flex; gap: 1.2rem; flex-wrap: wrap; font-family: 'Inconsolata', monospace; font-size: .68rem; letter-spacing: .1em; color: #888; margin-top: .8rem; text-transform: uppercase; }
-        .cal-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
-        .cal-quick { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
-        .chip { font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: .85rem; padding: .35rem .7rem; border-radius: 20px; border: 1px solid rgba(201,168,76,.4); color: #d0d0d0; background: none; cursor: pointer; }
-        .chip:hover { border-color: #1A6BDE; color: #fff; }
-        .chip.sel { background: #1A6BDE; border-color: #1A6BDE; color: #fff; }
-        .cal-foot { position: sticky; bottom: -2rem; background: #0f1622; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.4rem -2rem -2rem; padding: 1rem 2rem 1.2rem; border-top: 1px solid rgba(201,168,76,.2); flex-wrap: wrap; }
-        .cal-sel { font-size: .95rem; color: #b0b0b0; }
-        .cal-sel b { color: #fff; font-family: 'Orbitron', sans-serif; font-size: .85rem; }
-        .cal-hint { font-size: .85rem; color: #888; margin-top: 1rem; line-height: 1.5; }
-
-        .sheet label { display: block; font-family: 'Inconsolata', monospace; font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; color: #C9A84C; margin: 1rem 0 .4rem; }
-        .sheet input { width: 100%; padding: 13px 15px; font-size: 16px; font-family: 'Rajdhani', sans-serif; font-weight: 500; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); color: #fff; border-radius: 4px; }
-        .sheet input:focus { outline: none; border-color: #1A6BDE; }
-        .sheet-date { display: flex; justify-content: space-between; align-items: center; gap: 1rem; background: rgba(26,107,222,.08); border: 1px solid rgba(26,107,222,.3); border-radius: 4px; padding: .8rem 1rem; margin-top: 1rem; font-size: .95rem; }
-        .sheet-date button { background: none; border: none; color: #1A6BDE; font-family: 'Rajdhani', sans-serif; font-weight: 700; cursor: pointer; font-size: .85rem; letter-spacing: .05em; text-transform: uppercase; }
-        .qty { display: flex; align-items: center; gap: 1rem; }
-        .qty button { width: 42px; height: 42px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.12); color: #fff; font-size: 19px; cursor: pointer; border-radius: 4px; }
-        .qty button:hover { border-color: #1A6BDE; color: #1A6BDE; }
-        .qty .qv { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.2rem; min-width: 30px; text-align: center; }
-        .total { display: flex; justify-content: space-between; align-items: baseline; margin: 1.4rem 0 .4rem; padding-top: 1.1rem; border-top: 1px solid rgba(201,168,76,.2); font-family: 'Inconsolata', monospace; font-size: .72rem; letter-spacing: .14em; color: #888; text-transform: uppercase; }
-        .total .amt { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.5rem; color: #C9A84C; }
-        .sheet .cta-button { width: 100%; margin-top: .9rem; text-align: center; padding: 1rem; }
-        .secure { text-align: center; font-family: 'Inconsolata', monospace; font-size: .68rem; letter-spacing: .1em; color: #888; margin-top: .8rem; }
-        .err { display: none; font-size: .95rem; color: #FF6B5A; margin-top: .8rem; line-height: 1.5; }
-        .err.show { display: block; }
-        .banner { position: fixed; top: 84px; left: 50%; transform: translateX(-50%); z-index: 2500; background: #0f1622; border: 1px solid #C9A84C; color: #fff; font-size: .95rem; padding: .9rem 1.6rem; border-radius: 4px; box-shadow: 0 20px 50px rgba(0,0,0,.6); display: none; max-width: calc(100vw - 32px); text-align: center; }
-        .banner.show { display: block; }
-
-        /* FOUNDER */
-        .ep-container { display: grid; grid-template-columns: .9fr 1.1fr; gap: 4rem; align-items: center; }
-        .founder-img { position: relative; border-radius: 4px; overflow: hidden; aspect-ratio: 4/5; border: 1px solid rgba(201,168,76,.3); box-shadow: 0 20px 60px rgba(26, 107, 222, 0.2); background: #0f1622; }
-        .founder-img img { width: 100%; height: 100%; object-fit: cover; object-position: 86% 0%; display: block; transition: transform .6s; }
-        .founder-img:hover img { transform: scale(1.03); }
-        .founder-img::after { content: ''; position: absolute; inset: 12px; border: 1px solid rgba(201,168,76,.35); pointer-events: none; border-radius: 2px; }
-        .ep-text h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; margin: .6rem 0 1rem; line-height: 1.15; }
-        .ep-text .role { font-family: 'Inconsolata', monospace; font-size: .78rem; letter-spacing: .18em; text-transform: uppercase; color: #C9A84C; margin-bottom: 1.4rem; }
-        .ep-text p { font-size: 1.05rem; color: #d0d0d0; margin-bottom: 1.5rem; line-height: 1.8; }
-        .creds { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem 1.6rem; list-style: none; }
-        .creds li { font-size: .95rem; color: #b0b0b0; padding-left: 1.2rem; position: relative; line-height: 1.5; }
-        .creds li::before { content: ''; position: absolute; left: 0; top: .55em; width: 6px; height: 6px; background: #C9A84C; transform: rotate(45deg); }
-        .creds b { color: #fff; font-weight: 600; }
-
-        .cadre-intro { max-width: 820px; margin: 0 auto; text-align: center; color: #b0b0b0; font-size: 1.05rem; line-height: 1.7; }
-        .cadre-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1.5rem; max-width: 1100px; margin: 1.6rem auto 0; }
-        .cadre-grid:empty { display: none; }
-        .cadre-card { background: rgba(26,107,222,.05); border: 1px solid rgba(201,168,76,.3); border-radius: 4px; overflow: hidden; transition: all .4s; }
-        .cadre-card:hover { border-color: rgba(201,168,76,.6); transform: translateY(-4px); }
-        .cadre-card .ph { aspect-ratio: 1; background: #0f1622 center/cover no-repeat; border-bottom: 1px solid rgba(201,168,76,.2); }
-        .cadre-card .ph.none { display: grid; place-items: center; font-family: 'Orbitron', sans-serif; font-size: 2rem; color: rgba(201,168,76,.4); }
-        .cadre-card .body { padding: 1.1rem 1.2rem 1.3rem; }
-        .cadre-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: 700; margin-bottom: .3rem; }
-        .cadre-card .crole { font-family: 'Inconsolata', monospace; font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; color: #C9A84C; margin-bottom: .7rem; }
-        .cadre-card ul { list-style: none; }
-        .cadre-card li { font-size: .9rem; color: #b0b0b0; line-height: 1.5; padding: .15rem 0 .15rem 1rem; position: relative; }
-        .cadre-card li::before { content: ''; position: absolute; left: 0; top: .6em; width: 5px; height: 5px; background: #C9A84C; transform: rotate(45deg); }
-
-        .quals { max-width: 1100px; margin: 3rem auto 0; border: 1px solid rgba(201,168,76,.3); border-radius: 4px; background: rgba(26,107,222,.04); overflow: hidden; }
-        .quals.open { border-color: rgba(201,168,76,.6); }
-        .quals-btn { width: 100%; display: flex; align-items: center; gap: 1rem; padding: 1.2rem 1.5rem; background: none; border: none; color: #fff; cursor: pointer; text-align: left; font-family: 'Rajdhani', sans-serif; }
-        .quals-btn:hover { background: rgba(26,107,222,.08); }
-        .quals.open .cat-chev { transform: rotate(180deg); background: #1A6BDE; color: #fff; }
-        .quals-list { display: none; padding: 1.2rem 1.5rem 1.6rem 3rem; border-top: 1px solid rgba(201,168,76,.2); columns: 2; column-gap: 3rem; }
-        .quals.open .quals-list { display: block; }
-        .quals-list li { font-size: .95rem; color: #b0b0b0; line-height: 1.55; padding: .35rem .5rem .35rem .2rem; break-inside: avoid; }
-        .quals-list li::marker { color: #C9A84C; font-family: 'Inconsolata', monospace; font-size: .8rem; }
-
-        /* HERO VOLUME (as on atlasglinn.com) + phone poster */
-        .hero-yt.poster { background-position: center; background-size: cover; background-repeat: no-repeat; }
-        .vol { position: absolute; right: 28px; bottom: 28px; z-index: 4; width: 58px; height: 58px; border-radius: 50%; background: rgba(8,12,20,.85); border: 2px solid #C9A84C; color: #fff; display: grid; place-items: center; cursor: pointer; box-shadow: 0 8px 30px rgba(0,0,0,.5); transition: transform .2s, background .2s; }
-        .vol:hover { transform: scale(1.06); background: rgba(26,107,222,.85); }
-        .vol[aria-pressed="true"] { color: #C9A84C; }
-        .vol[aria-pressed="true"] .slash { display: none; }
-        .vol[hidden] { display: none; }
-
-        /* VIDEO FACADES — nothing heavy loads until tapped (LTE-safe) */
-        .yt { position: relative; aspect-ratio: 16/9; background: #000; cursor: pointer; overflow: hidden; }
-        .yt img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: .82; transition: opacity .3s, transform .6s; }
-        .yt:hover img { opacity: 1; transform: scale(1.03); }
-        .yt .play { position: absolute; inset: 0; margin: auto; width: 74px; height: 74px; border-radius: 50%; border: 2px solid #C9A84C; background: rgba(8,12,20,.8); cursor: pointer; display: grid; place-items: center; transition: background .2s, border-color .2s; }
-        .yt .play::after { content: ''; border-left: 22px solid #fff; border-top: 13px solid transparent; border-bottom: 13px solid transparent; margin-left: 6px; }
-        .yt:hover .play { background: #1A6BDE; border-color: #1A6BDE; }
-        .yt iframe, .yt video { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #000; }
-        .yt.mp4 { background: linear-gradient(135deg, #131c2b 0%, #080C14 100%); }
-        .yt.mp4::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(201,168,76,.12) 0%, transparent 60%); }
-        .yt .lbl { position: absolute; left: 16px; bottom: 14px; font-family: 'Inconsolata', monospace; font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; color: #C9A84C; }
-
-        /* INSTAGRAM */
-        .ig-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; justify-items: center; }
-        .ig-grid:empty { display: none; }
-        .ig-grid blockquote { margin: 0 !important; max-width: 400px !important; min-width: 0 !important; width: 100% !important; }
-        .ig-note { color: #888; font-size: .9rem; margin-top: 1rem; }
-
-        /* MEDIA / VIDEOS */
-        .media-group { margin-bottom: 2.5rem; }
-        .media-label { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.2rem; }
-        .media-label::after { content: ''; flex: 1; height: 1px; background: rgba(201,168,76,.2); }
-        .media-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2rem; }
-        .video-card { background: rgba(26, 107, 222, 0.05); border: 1px solid rgba(26, 107, 222, 0.2); border-radius: 4px; overflow: hidden; transition: all .4s; }
-        .video-card:hover { border-color: rgba(201,168,76,.4); transform: translateY(-2px); }
-        .video-card iframe, .video-card video { width: 100%; aspect-ratio: 16/9; border: none; display: block; background: #000; object-fit: cover; }
-        .video-card-info { padding: 16px 20px; }
-        .video-card-info h4 { font-family: 'Orbitron', sans-serif; font-size: 0.9rem; margin-bottom: 4px; }
-        .video-card-info p { font-size: 0.85rem; color: #b0b0b0; }
-        .press-card { display: block; max-width: 800px; margin: 0 auto; background: rgba(26,107,222,0.05); border: 1px solid rgba(26,107,222,0.2); border-radius: 4px; padding: 2.5rem; text-decoration: none; transition: all .3s; }
-        .press-card:hover { border-color: #C9A84C; transform: translateY(-2px); }
-        .press-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1.2rem; color: #fff; margin: .6rem 0 .3rem; }
-        .press-card h4 { font-size: 1.1rem; color: #1A6BDE; margin-bottom: 1rem; }
-        .press-card p { color: #b0b0b0; font-size: 0.95rem; line-height: 1.7; }
-        .press-card .more { display: inline-block; margin-top: 1rem; font-family: 'Orbitron', sans-serif; font-size: 0.8rem; letter-spacing: .1em; text-transform: uppercase; color: #C9A84C; }
-
-        /* TESTIMONIALS */
-        .testimonials-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; max-width: 1200px; margin: 0 auto; text-align: left; }
-        .testimonial { padding: 1.5rem; background: rgba(26,107,222,0.05); border: 1px solid rgba(201,168,76,0.3); border-radius: 4px; position: relative; }
-        .testimonial .who { font-size: 0.65rem; letter-spacing: .12em; text-transform: uppercase; color: #1A6BDE; margin-bottom: 0.8rem; }
-        .testimonial p { font-size: 0.9rem; color: rgba(255,255,255,0.7); font-style: italic; margin-bottom: 1rem; line-height: 1.7; }
-        .testimonial-author { font-size: 0.8rem; font-weight: 700; color: #C9A84C; letter-spacing: .06em; }
-
-        /* CAPABILITY STATEMENT */
-        .cap-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2rem; max-width: 1200px; margin: 0 auto; }
-        .cap-grid .service-card h3 { display: flex; align-items: center; gap: .6rem; }
-        .cap-grid .service-card h3 span { font-family: 'Inconsolata', monospace; font-size: .7rem; letter-spacing: .18em; color: #C9A84C; }
-        .cap-list { list-style: none; columns: 1; }
-        .cap-list li { font-size: .95rem; color: #b0b0b0; line-height: 1.55; padding: .3rem 0 .3rem 1.1rem; position: relative; border-bottom: 1px solid rgba(255,255,255,.05); }
-        .cap-list li:last-child { border-bottom: none; }
-        .cap-list li::before { content: ''; position: absolute; left: 0; top: .85em; width: 5px; height: 5px; background: #C9A84C; transform: rotate(45deg); }
-        .cap-list b { color: #fff; font-weight: 600; }
-        .cap-data { display: grid; grid-template-columns: auto 1fr; gap: .45rem 1.2rem; font-size: .95rem; }
-        .cap-data dt { font-family: 'Inconsolata', monospace; font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: #C9A84C; padding-top: .25rem; }
-        .cap-data dd { color: #d0d0d0; }
-        .cap-data dd a { color: #1A6BDE; text-decoration: none; }
-        .cap-data dd a:hover { color: #C9A84C; }
-        .cap-data dd.pending { color: #888; font-style: italic; }
-        .cap-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 2.5rem; }
-        .cap-form { max-width: 700px; margin: 3rem auto 0; background: rgba(26,107,222,0.05); border: 1px solid rgba(26,107,222,0.2); border-radius: 4px; padding: 3rem; }
-        .cap-form h3 { font-family: 'Orbitron', sans-serif; font-size: 1.5rem; text-align: center; margin-bottom: 0.5rem; }
-        .cap-form > p { text-align: center; color: #b0b0b0; margin-bottom: 2rem; font-size: 0.95rem; }
-        .cap-form form { display: flex; flex-direction: column; gap: 1rem; }
-        .cap-form input, .cap-form select { background: rgba(255,255,255,0.05); border: 1px solid rgba(26,107,222,0.3); color: #fff; padding: 0.8rem 1rem; border-radius: 4px; font-family: 'Rajdhani', sans-serif; font-size: 1rem; }
-        .cap-form select { color: #b0b0b0; }
-        .cap-form input:focus, .cap-form select:focus { outline: none; border-color: #1A6BDE; }
-
-        /* CTA SECTION */
-        .cta-section { background: linear-gradient(135deg, rgba(26, 107, 222, 0.1) 0%, rgba(26, 107, 222, 0.05) 100%); border: 1px solid rgba(26, 107, 222, 0.3); padding: 4rem 2rem; border-radius: 4px; text-align: center; }
-        .cta-section h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; margin-bottom: 1rem; font-weight: 900; }
-        .cta-section p { font-size: 1.1rem; color: #b0b0b0; margin-bottom: 2rem; }
-        .cta-info { margin-top: 2rem; display: flex; flex-wrap: wrap; gap: .5rem 2rem; justify-content: center; font-family: 'Inconsolata', monospace; font-size: .78rem; letter-spacing: .08em; color: #888; }
-        .cta-info a { color: #1A6BDE; text-decoration: none; }
-        .cta-info a:hover { color: #C9A84C; }
-
-        /* FOOTER */
-        footer { background: #0a0e17; border-top: 1px solid rgba(201,168,76,.1); padding: 3rem 2rem 1rem; }
-        .footer-container { max-width: 1400px; margin: 0 auto; }
-        .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
-        .footer-section h4 { font-family: 'Orbitron', sans-serif; color: #C9A84C; margin-bottom: 1rem; font-size: 0.9rem; }
-        .footer-section ul { list-style: none; }
-        .footer-section ul li { margin-bottom: 0.5rem; }
-        .footer-section a { color: #b0b0b0; text-decoration: none; transition: color 0.3s ease; font-size: 0.9rem; }
-        .footer-section a:hover { color: #1A6BDE; }
-        .footer-bottom { border-top: 1px solid rgba(201,168,76,.1); padding-top: 2rem; text-align: center; color: #888; font-size: 0.85rem; }
-        .social-links { display: flex; gap: 1.2rem; margin-top: 1rem; flex-wrap: wrap; }
-        .social-links a { color: #1A6BDE; text-decoration: none; transition: color 0.3s ease; }
-        .social-links a:hover { color: #C9A84C; }
-
-        /* REVEAL */
-        .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
-        .reveal.active { opacity: 1; transform: translateY(0); }
-
-        /* MOBILE NAV OVERLAY */
-        .mobile-nav { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; background: rgba(0,0,0,.95); backdrop-filter: blur(20px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; opacity: 0; visibility: hidden; transition: all .3s; }
-        .mobile-nav.open { opacity: 1; visibility: visible; }
-        .mobile-nav a { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: #fff; text-decoration: none; }
-        .mobile-nav-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: #fff; font-size: 32px; cursor: pointer; }
-
-        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } html { scroll-behavior: auto; } }
-
-        /* RESPONSIVE */
-        @media (max-width: 900px) {
-            .ep-container { grid-template-columns: 1fr; gap: 2rem; }
-            .founder-img { max-width: 420px; margin: 0 auto; }
-            .who-grid { grid-template-columns: 1fr; }
-            .who-grid .bleed { min-height: 58vh; }
-            .testimonials-row { grid-template-columns: 1fr 1fr; }
-            .cap-grid { grid-template-columns: 1fr; }
-        }
-        @media (max-width: 1150px) {
-            .nav-links { gap: 1.2rem; }
-            .nav-links a { font-size: 0.8rem; }
-        }
-        @media (max-width: 768px) {
-            .cap-form { padding: 1.6rem 1.2rem; }
-            .nav-links { display: none; }
-            .mobile-menu-btn { display: block; }
-            .hero { height: 78vh; min-height: 520px; }
-            .hero-headline { font-size: 2rem; }
-            .hero-subheading { font-size: 1.05rem; }
-            .credential-grid { grid-template-columns: repeat(2, 1fr); }
-            .section { padding: 3rem 1rem; }
-            .section-divider h2 { font-size: 1.5rem; }
-            .ep-text h2 { font-size: 2rem; }
-            .media-grid { grid-template-columns: 1fr; }
-            .testimonials-row { grid-template-columns: 1fr; }
-            .hero-ctas { flex-direction: column; align-items: center; }
-            .creds { grid-template-columns: 1fr; }
-            .quals-list { columns: 1; padding-left: 2.2rem; }
-            .course-row { grid-template-columns: 1fr; gap: .9rem; padding: 1.1rem 1.1rem; }
-            .cr-side { justify-content: space-between; }
-            .cat-btn { padding: 1rem 1.1rem; }
-            .cat-name { font-size: .9rem; }
-            .modal { top: auto; bottom: 0; left: 0; transform: translateY(14px); width: 100%; max-height: 92vh; border-radius: 12px 12px 0 0; padding: 1.4rem 1.2rem calc(1.4rem + env(safe-area-inset-bottom)); }
-            .modal.open { transform: translateY(0); }
-            .cal-foot { bottom: calc(-1.4rem - env(safe-area-inset-bottom)); margin: 1.2rem -1.2rem calc(-1.4rem - env(safe-area-inset-bottom)); padding: .9rem 1.2rem calc(1rem + env(safe-area-inset-bottom)); }
-            .day { height: 44px; }
-            .cal-foot .cta-button { width: 100%; text-align: center; }
-        }
-        @media (max-width: 480px) {
-            nav { padding: 0.75rem 1rem; }
-            .nav-logo img { height: 32px; }
-            .nav-logo-text { font-size: 1rem; }
-            .hero-headline { font-size: 1.8rem; }
-            .credential-item h3 { font-size: 1.8rem; }
-            .section-divider h2 { font-size: 1.3rem; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
+<meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
+<meta name="keywords" content="MAST Solutions, tactical training Houston, firearms training Houston TX, carbine course, select-fire training, NVG course, CQB course, team tactics, Atlas Glinn training, Matthew Brockmann">
+<link rel="canonical" href="https://atlasglinn.com/mastsolutions.html">
+<meta property="og:title" content="MAST Solutions | Details Matter | Tactical Training, Houston TX">
+<meta property="og:description" content="Twenty-one courses, one standard. Firearms through select-fire and night vision, CQB, combatives, medical, leadership. Houston, Texas since 2005. Book a weekend online.">
+<meta property="og:image" content="https://atlasglinn.com/images/mast/hero-casualty-carry.jpg">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://atlasglinn.com/mastsolutions.html">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Atlas Glinn, LLC">
+<meta name="theme-color" content="#050810">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": "MAST Solutions",
+  "description": "Tactical training division of Atlas Glinn, LLC. Firearms, CQB, combatives, medical, leadership, low-light and protective courses for military, law enforcement and private citizens. Houston, Texas since 2005.",
+  "parentOrganization": { "@type": "Organization", "name": "Atlas Glinn, LLC", "url": "https://atlasglinn.com/" },
+  "founder": { "@type": "Person", "name": "Matthew Brockmann", "jobTitle": "Founder", "url": "https://atlasglinn.com/about.html" },
+  "foundingDate": "2005",
+  "image": "https://atlasglinn.com/images/mast/hero-casualty-carry.jpg",
+  "address": { "@type": "PostalAddress", "streetAddress": "2450 Fondren Rd, Suite 255", "addressLocality": "Houston", "addressRegion": "TX", "postalCode": "77063", "addressCountry": "US" },
+  "telephone": "+1-281-654-8100",
+  "url": "https://atlasglinn.com/mastsolutions.html",
+  "sameAs": [
+    "https://www.instagram.com/atlasglinn_mastsolutions/",
+    "https://www.linkedin.com/in/mastsolutions1/",
+    "https://www.facebook.com/mastsolutions",
+    "https://www.youtube.com/@mastsolutions"
+  ]
+}
+</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&family=Cinzel:wght@600;900&display=swap');
+  :root {
+    --midnight:#050810; --deep-navy:#0B1221; --gunmetal:#1E2A3A; --gunmetal-lt:#2C3845; --steel:#3A4A5C;
+    --gold:#C9A84C; --gold-antique:#D4AF37; --gold-champagne:#E8D27D; --gold-bright:#FCF6BA; --copper:#B87333;
+    --text:#F0F4FF; --text-dim:#8B95A8; --text-mute:#5B6474;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  html, body { background:var(--midnight); color:var(--text); font-family:'Rajdhani',sans-serif; overflow-x:hidden; cursor:none; }
+  a { color:inherit; }
+  .reticle { position:fixed; top:0; left:0; width:44px; height:44px; pointer-events:none; z-index:10000; transform:translate(-50%,-50%); mix-blend-mode:difference; }
+  .reticle::before, .reticle::after { content:''; position:absolute; background:var(--gold-champagne); }
+  .reticle::before { top:50%; left:0; width:100%; height:1px; transform:translateY(-50%); }
+  .reticle::after { left:50%; top:0; width:1px; height:100%; transform:translateX(-50%); }
+  .reticle-ring { position:absolute; inset:10px; border:1px solid var(--gold); border-radius:50%; opacity:.7; }
+  .reticle-dot { position:absolute; top:50%; left:50%; width:3px; height:3px; background:var(--gold-bright); border-radius:50%; transform:translate(-50%,-50%); }
+  #three-canvas { position:fixed; inset:0; width:100vw; height:100vh; z-index:1; pointer-events:none; }
+  /* Photography layer: one still per chapter, ghosted behind the 3D emblem and the grain */
+  #photos { position:fixed; inset:0; z-index:2; pointer-events:none; }
+  #photos .ph { position:absolute; inset:0; background:center/cover no-repeat; opacity:0; transition:opacity 1.4s ease; filter:saturate(.55) contrast(1.08); }
+  #photos .ph::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.55) 0%, rgba(5,8,16,.15) 45%, rgba(5,8,16,.8) 100%); }
+  #photos .ph.on { opacity:.34; }
+  .grain { position:fixed; inset:0; z-index:3; pointer-events:none; opacity:.035; background-image:repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(255,255,255,.3) 2px, rgba(255,255,255,.3) 3px); mix-blend-mode:overlay; }
+  .vignette { position:fixed; inset:0; z-index:4; pointer-events:none; background:radial-gradient(ellipse at center, transparent 0%, transparent 55%, rgba(5,8,16,.75) 100%); }
+  .letterbox-top, .letterbox-bottom { position:fixed; left:0; right:0; height:0; background:#000; z-index:50; pointer-events:none; transition:height .6s cubic-bezier(.7,.15,.3,.95); }
+  .letterbox-top { top:0; } .letterbox-bottom { bottom:0; }
+  body.cinema .letterbox-top, body.cinema .letterbox-bottom { height:50px; }
+  #intro-seq { position:fixed; inset:0; z-index:9000; background:#000; display:flex; align-items:center; justify-content:center; flex-direction:column; font-family:'Cinzel',serif; pointer-events:none; transition:opacity 1s ease-out; }
+  #intro-seq.done { opacity:0; }
+  .intro-credit { font-size:.75rem; letter-spacing:.6em; color:var(--text-dim); opacity:0; animation:introFade 2.8s ease-in-out forwards; text-transform:uppercase; }
+  .intro-credit:nth-child(1) { animation-delay:.3s; }
+  .intro-credit:nth-child(2) { animation-delay:1.2s; margin-top:1.8rem; color:var(--gold); font-weight:900; font-size:1.5rem; letter-spacing:.35em; }
+  .intro-credit:nth-child(3) { animation-delay:2.6s; margin-top:1.5rem; color:var(--gold-champagne); font-size:.85rem; letter-spacing:.5em; }
+  @keyframes shimmer { 0% { background-position:-1000px 0; } 100% { background-position:1000px 0; } }
+  .intro-credit.wordmark { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2rem,6.5vw,4.6rem); letter-spacing:.16em; line-height:1.1; margin-top:1.4rem; padding:0 1rem; background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; text-shadow:0 0 60px rgba(201,168,76,.35); animation:introFade 3.4s ease-in-out forwards, shimmer 2.6s linear infinite; animation-delay:1.1s, 1.1s; }
+  @keyframes introFade { 0% { opacity:0; transform:translateY(8px); } 18%, 75% { opacity:1; transform:translateY(0); } 100% { opacity:0; transform:translateY(-8px); } }
+  .chapter-nav { position:fixed; right:1.5rem; top:50%; transform:translateY(-50%); z-index:30; display:flex; flex-direction:column; gap:.5rem; font-family:'Share Tech Mono',monospace; font-size:.62rem; }
+  .chap-link { color:var(--text-mute); text-decoration:none; letter-spacing:.25em; padding:.35rem .8rem; border:1px solid transparent; transition:all .3s; text-transform:uppercase; cursor:none; display:flex; align-items:center; gap:.6rem; }
+  .chap-link::before { content:''; width:18px; height:1px; background:var(--text-mute); transition:all .3s; }
+  .chap-link:hover, .chap-link.active { color:var(--gold-champagne); border-color:rgba(201,168,76,.35); background:rgba(201,168,76,.04); }
+  .chap-link.active::before, .chap-link:hover::before { width:28px; background:var(--gold); }
+  .hud { position:fixed; z-index:20; font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.3em; opacity:.6; text-decoration:none; }
+  .hud.tl { top:1.2rem; left:1.8rem; color:var(--gold-champagne); }
+  .hud.tr { top:1.2rem; right:15rem; color:var(--text-mute); }
+  .hud.bl { bottom:1.2rem; left:1.8rem; color:var(--text-mute); }
+  .hud.br { bottom:1.2rem; right:1.8rem; color:var(--gold); }
+  .progress { position:fixed; top:0; left:0; height:2px; width:0; background:linear-gradient(90deg, var(--gold-antique), var(--gold-bright), var(--copper)); z-index:100; box-shadow:0 0 14px rgba(201,168,76,.7); transition:width .1s linear; }
+  .content { position:relative; z-index:5; }
+  section.panel { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:6rem 2rem; text-align:center; position:relative; }
+  section.panel > div { width:100%; max-width:1200px; }
+  .eyebrow { font-family:'Share Tech Mono',monospace; color:var(--gold-champagne); letter-spacing:.45em; font-size:.75rem; text-transform:uppercase; margin-bottom:1.6rem; opacity:0; transform:translateY(20px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
+  .eyebrow.in { opacity:1; transform:translateY(0); }
+  h1.mega { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(3rem,10vw,9rem); letter-spacing:.02em; line-height:.95; margin-bottom:2rem; opacity:0; filter:blur(20px); transform:scale(1.15); transition:opacity 1.2s cubic-bezier(.2,.7,.2,1), filter 1.2s cubic-bezier(.2,.7,.2,1), transform 1.4s cubic-bezier(.2,.7,.2,1); }
+  h1.mega.in { opacity:1; filter:blur(0); transform:scale(1); }
+  .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  h1.mega .gold { text-shadow:0 0 80px rgba(201,168,76,.3); }
+  h1.mega .white { color:var(--text); }
+  h2.section-h { font-family:'Orbitron',sans-serif; font-weight:700; font-size:clamp(2rem,5vw,4.5rem); letter-spacing:.03em; margin-bottom:1.4rem; opacity:0; filter:blur(12px); transform:translateY(24px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), filter 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
+  h2.section-h.in { opacity:1; filter:blur(0); transform:translateY(0); }
+  .sub { font-size:clamp(1rem,1.3vw,1.25rem); color:var(--text-dim); max-width:720px; margin:0 auto 2.5rem; line-height:1.55; font-weight:300; opacity:0; transform:translateY(16px); transition:opacity 1s ease-out .3s, transform 1s ease-out .3s; }
+  .sub.in { opacity:1; transform:translateY(0); }
+  .rise { opacity:0; transform:translateY(22px); transition:opacity 1s ease-out .35s, transform 1s ease-out .35s; }
+  .rise.in { opacity:1; transform:translateY(0); }
+  .cta, .cta-button { display:inline-block; padding:1.1rem 2.5rem; font-family:'Orbitron',sans-serif; font-weight:700; letter-spacing:.2em; font-size:.85rem; text-transform:uppercase; text-decoration:none; color:#000; background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border:1px solid var(--gold-champagne); cursor:none; transition:transform .35s, box-shadow .35s; position:relative; overflow:hidden; border-radius:0; }
+  .cta::before, .cta-button::before { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent); transition:left .7s; }
+  .cta:hover, .cta-button:hover { transform:translateY(-3px); box-shadow:0 14px 44px rgba(201,168,76,.5); }
+  .cta:hover::before, .cta-button:hover::before { left:100%; }
+  .cta-button[disabled] { opacity:.35; transform:none; box-shadow:none; }
+  .secondary-cta, .cta-button.ghost-button { display:inline-block; padding:1.1rem 2.5rem; font-family:'Orbitron',sans-serif; font-weight:700; letter-spacing:.2em; font-size:.85rem; text-transform:uppercase; text-decoration:none; color:var(--gold-champagne); background:transparent; border:1px solid var(--gold); cursor:none; transition:all .35s; margin-left:1rem; }
+  .secondary-cta:hover, .cta-button.ghost-button:hover { background:rgba(201,168,76,.08); border-color:var(--gold-bright); color:var(--gold-bright); transform:none; box-shadow:none; }
+  .ctas { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; }
+  .ctas .secondary-cta, .ctas .ghost-button { margin-left:0; }
+  .badge { display:inline-block; padding:.45rem 1rem; border:1px solid var(--gold); font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.4em; color:var(--gold-champagne); margin-bottom:1.5rem; background:rgba(201,168,76,.06); backdrop-filter:blur(8px); }
+  .chips { display:flex; flex-wrap:wrap; gap:.65rem; justify-content:center; max-width:1000px; margin:0 auto 2.5rem; }
+  .chip { padding:.55rem 1rem; border:1px solid rgba(201,168,76,.35); background:rgba(30,42,58,.55); backdrop-filter:blur(6px); font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.25em; color:var(--gold-champagne); text-transform:uppercase; }
+  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:1.8rem; max-width:980px; margin:3rem auto 0; }
+  .stat { text-align:center; padding:2rem 1.5rem; border:1px solid rgba(201,168,76,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.7) 100%); backdrop-filter:blur(12px); position:relative; overflow:hidden; transition:transform .4s, border-color .4s; }
+  .stat::before { content:''; position:absolute; top:0; left:0; width:100%; height:1px; background:linear-gradient(90deg, transparent, var(--gold), transparent); }
+  .stat:hover { transform:translateY(-6px); border-color:var(--gold); }
+  .stat-num { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2.8rem,5.5vw,4.5rem); background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; line-height:1; }
+  .stat-label { font-family:'Share Tech Mono',monospace; font-size:.7rem; letter-spacing:.35em; color:var(--text-dim); margin-top:1rem; text-transform:uppercase; }
+  /* Photo tiles: the trailer's glass pillars carrying the Federico and range photography */
+  .tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:1.2rem; max-width:1200px; margin:0 auto; }
+  .tiles.four { grid-template-columns:repeat(4,1fr); }
+  .tile { position:relative; min-height:300px; display:flex; align-items:flex-end; text-align:left; overflow:hidden; border:1px solid rgba(201,168,76,.22); background:var(--deep-navy); transition:transform .45s, border-color .45s; }
+  .tile .bg { position:absolute; inset:0; background:center/cover no-repeat; transform:scale(1.04); transition:transform 5s ease; filter:saturate(.8); }
+  .tile:hover .bg { transform:scale(1.12); }
+  .tile::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.05) 0%, rgba(5,8,16,.35) 50%, rgba(5,8,16,.92) 100%); }
+  .tile:hover { transform:translateY(-6px); border-color:var(--gold); }
+  .tile .txt { position:relative; z-index:2; padding:1.4rem 1.3rem; width:100%; }
+  .tile .num { font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.4em; color:var(--gold); margin-bottom:.5rem; }
+  .tile h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.15rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.35rem; }
+  .tile p { font-size:.92rem; color:var(--text-dim); line-height:1.5; font-weight:300; }
+  .tiles.four .tile { min-height:260px; }
+  /* Glass panel that carries the catalog */
+  .glass { border:1px solid rgba(201,168,76,.22); background:linear-gradient(180deg, rgba(30,42,58,.45) 0%, rgba(11,18,33,.78) 100%); backdrop-filter:blur(14px); padding:1.4rem; text-align:left; position:relative; }
+  .glass::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg, transparent, var(--gold), transparent); }
+  .catalog-wrap { max-width:960px; margin:0 auto; }
+  .catalog-panel { max-height:none; }
+  .cat { background:rgba(5,8,16,.35); }
+  .course-row { color:var(--text); }
+  .cr-btn { padding:.55rem 1rem; font-size:.72rem; }
+  .cat-count { color:var(--text-dim); }
+  .catalog-note { text-align:center; color:var(--text-dim); font-size:.92rem; margin-top:1.4rem; font-weight:300; }
+  .catalog-note a { color:var(--gold-champagne); text-decoration:none; }
+  /* Instructor */
+  .founder { display:grid; grid-template-columns:minmax(260px,420px) 1fr; gap:2.2rem; max-width:1150px; margin:0 auto; text-align:left; align-items:stretch; }
+  .founder .portrait { position:relative; min-height:460px; border:1px solid rgba(201,168,76,.3); background:center 20%/cover no-repeat; }
+  .founder .portrait::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, transparent 55%, rgba(5,8,16,.9) 100%); }
+  .founder .portrait .cap { position:absolute; left:1.2rem; bottom:1.1rem; z-index:2; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.35em; color:var(--gold-champagne); text-transform:uppercase; }
+  .founder .bio { border:1px solid rgba(201,168,76,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.75) 100%); backdrop-filter:blur(14px); padding:2rem 1.9rem; position:relative; }
+  .founder .bio::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:linear-gradient(180deg, var(--gold), var(--copper)); }
+  .founder .bio p { color:var(--text-dim); line-height:1.6; font-weight:300; font-size:1.05rem; margin-bottom:1.2rem; }
+  .founder .creds { list-style:none; margin:0 0 1.4rem; padding:0; }
+  .founder .creds li { padding:.45rem 0 .45rem 1.4rem; position:relative; color:var(--text); font-size:.98rem; line-height:1.5; border-top:1px solid rgba(201,168,76,.12); }
+  .founder .creds li::before { content:'◆'; position:absolute; left:0; top:.55rem; color:var(--gold); font-size:.6rem; }
+  .founder .creds b { color:var(--gold-champagne); font-weight:600; }
+  .founder .cadre { font-family:'Share Tech Mono',monospace; font-size:.72rem; letter-spacing:.08em; color:var(--text-dim); line-height:1.7; margin-bottom:1.4rem; }
+  .founder .ctas { justify-content:flex-start; }
+  .cert { max-width:1150px; margin:1.4rem auto 0; display:grid; grid-template-columns:minmax(220px,360px) 1fr; gap:1.4rem; align-items:center; text-align:left; }
+  .cert img { width:100%; border:1px solid rgba(201,168,76,.3); display:block; }
+  .cert p { color:var(--text-dim); font-weight:300; line-height:1.55; font-size:.98rem; }
+  /* Media strip */
+  .media-strip { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:1rem; padding:.5rem 0 1rem; scrollbar-width:thin; scrollbar-color:var(--gold) var(--deep-navy); max-width:1200px; margin:0 auto; }
+  .video-card { flex:0 0 min(82vw,480px); scroll-snap-align:start; background:rgba(11,18,33,.8); border:1px solid rgba(201,168,76,.22); overflow:hidden; text-align:left; }
+  .yt .play { border-color:var(--gold); background:rgba(5,8,16,.8); }
+  .yt:hover .play { background:var(--gold); border-color:var(--gold); }
+  .yt.mp4 { background:linear-gradient(135deg, var(--gunmetal), var(--midnight)); }
+  .yt.mp4 .lbl { color:var(--gold-champagne); font-family:'Share Tech Mono',monospace; }
+  .video-card-info h4 { color:var(--gold-champagne); }
+  .post { display:inline-block; margin-top:2rem; padding:1rem 1.8rem; border:1px solid var(--gold); background:rgba(201,168,76,.07); backdrop-filter:blur(8px); font-family:'Orbitron',sans-serif; font-weight:700; font-size:clamp(.85rem,1.2vw,1.05rem); letter-spacing:.14em; color:var(--gold-champagne); text-decoration:none; text-transform:uppercase; transition:all .35s; cursor:none; }
+  .post:hover { background:rgba(201,168,76,.16); border-color:var(--gold-bright); color:var(--gold-bright); transform:translateY(-3px); }
+  .post small { display:block; font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.62rem; letter-spacing:.35em; color:var(--text-dim); margin-bottom:.35rem; }
+  .quote { font-style:italic; color:var(--gold-champagne); max-width:700px; margin:.5rem auto 2rem; font-size:clamp(1.05rem,1.5vw,1.3rem); line-height:1.5; }
+  .quote.lead { max-width:820px; font-size:clamp(1.2rem,1.9vw,1.55rem); margin-top:.8rem; }
+  .contact-lines { font-family:'Share Tech Mono',monospace; font-size:.75rem; letter-spacing:.2em; color:var(--text-dim); line-height:2.1; margin-bottom:2.2rem; }
+  .contact-lines a { color:var(--gold-champagne); text-decoration:none; }
+  .foot { margin-top:4rem; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; color:var(--text-mute); text-transform:uppercase; line-height:2.2; }
+  .foot a { color:var(--text-mute); text-decoration:none; margin:0 .6rem; }
+  .foot a:hover { color:var(--gold-champagne); }
+  .scroll-cue { position:absolute; bottom:3rem; left:50%; transform:translateX(-50%); font-family:'Share Tech Mono',monospace; font-size:.65rem; color:var(--gold-champagne); letter-spacing:.4em; opacity:.55; animation:pulseY 2.4s ease-in-out infinite; }
+  @keyframes pulseY { 50% { opacity:1; transform:translateX(-50%) translateY(-10px); } }
+  /* Booking stack (lifted from the Atlas-frame pages, recolored to the trailer palette) */
+.catalog-panel { max-height: 78vh; overflow-y: auto; padding-right: .5rem; scrollbar-width: thin; scrollbar-color: #C9A84C #0B1221; }
+.cat { border: 1px solid rgba(201,168,76,.3); border-radius: 4px; background: rgba(5,8,16,.72); backdrop-filter: blur(8px); margin-bottom: .8rem; overflow: hidden; transition: border-color .3s; }
+.cat.open { border-color: rgba(201,168,76,.6); }
+.cat-btn { width: 100%; display: flex; align-items: center; gap: 1rem; padding: 1.05rem 1.3rem; background: none; border: none; color: #fff; cursor: pointer; text-align: left; font-family: 'Rajdhani', sans-serif; }
+.cat-btn:hover { background: rgba(201,168,76,.08); }
+.cat-name { font-family: 'Orbitron', sans-serif; font-size: .95rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #C9A84C; flex: 1; }
+.cat-count { font-family: 'Share Tech Mono', monospace; font-size: .72rem; letter-spacing: .15em; color: #888; text-transform: uppercase; }
+.cat-chev { width: 26px; height: 26px; border: 1px solid rgba(201,168,76,.5); border-radius: 50%; display: grid; place-items: center; color: #C9A84C; font-size: 13px; transition: transform .3s; }
+.cat.open .cat-chev { transform: rotate(180deg); background: #C9A84C; color: #fff; }
+.cat-panel { display: none; border-top: 1px solid rgba(201,168,76,.2); }
+.cat-note { padding: 1rem 1.4rem 0; color: #b0b0b0; font-size: .88rem; line-height: 1.6; }
+.cat.open .cat-panel { display: block; }
+.course-row { display: grid; grid-template-columns: 1fr auto; gap: 1.2rem; align-items: center; padding: 1rem 1.3rem; border-bottom: 1px solid rgba(255,255,255,.06); cursor: pointer; transition: background .25s; }
+.course-row:last-child { border-bottom: none; }
+.course-row:hover, .course-row:focus-visible { background: rgba(201,168,76,.1); outline: none; }
+.course-row.call { cursor: default; }
+.cr-name { font-family: 'Orbitron', sans-serif; font-size: .95rem; font-weight: 700; margin-bottom: .25rem; }
+.cr-meta { font-family: 'Share Tech Mono', monospace; font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: #C9A84C; }
+.cr-desc { display: none; }
+.cr-side { display: flex; align-items: center; gap: 1.2rem; }
+.cr-price { font-family: 'Orbitron', sans-serif; font-size: 1.15rem; font-weight: 900; color: #C9A84C; text-align: right; line-height: 1; }
+.cr-price small { display: block; font-family: 'Share Tech Mono', monospace; font-size: .6rem; letter-spacing: .14em; color: #888; margin-top: .3rem; font-weight: 400; }
+.cr-btn { padding: .55rem 1rem; font-size: .8rem; white-space: nowrap; }
+.media-strip { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 1rem; padding: 1.5rem 0 .5rem; scrollbar-width: thin; scrollbar-color: #C9A84C #0B1221; }
+.video-card { flex: 0 0 min(82vw, 520px); scroll-snap-align: start; background: rgba(5,8,16,.7); border: 1px solid rgba(201,168,76,.25); border-radius: 4px; overflow: hidden; }
+.yt { position: relative; aspect-ratio: 16/9; background: #000; cursor: pointer; overflow: hidden; }
+.yt img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: .85; transition: opacity .3s; }
+.yt:hover img { opacity: 1; }
+.yt .play { position: absolute; inset: 0; margin: auto; width: 68px; height: 68px; border-radius: 50%; border: 2px solid #C9A84C; background: rgba(5,8,16,.8); display: grid; place-items: center; }
+.yt .play::after { content: ''; border-left: 20px solid #fff; border-top: 12px solid transparent; border-bottom: 12px solid transparent; margin-left: 5px; }
+.yt:hover .play { background: #C9A84C; border-color: #C9A84C; }
+.yt iframe, .yt video { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.yt.mp4 { background: linear-gradient(135deg, #0B1221, #050810); }
+.yt.mp4 .lbl { position: absolute; left: 16px; bottom: 14px; font-family: 'Share Tech Mono', monospace; font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; color: #C9A84C; }
+.video-card-info { padding: 14px 18px; }
+.video-card-info h4 { font-family: 'Orbitron', sans-serif; font-size: .85rem; margin-bottom: 3px; }
+.video-card-info p { font-size: .85rem; color: #b0b0b0; }
+.modal-bd { position: fixed; inset: 0; background: rgba(5,8,16,.82); backdrop-filter: blur(4px); z-index: 3000; opacity: 0; visibility: hidden; transition: all .25s; }
+.modal-bd.open { opacity: 1; visibility: visible; }
+.modal { position: fixed; z-index: 3001; background: #0B1221; border: 1px solid rgba(201,168,76,.4); border-radius: 6px; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.97); width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow-y: auto; padding: 2rem; opacity: 0; visibility: hidden; transition: all .25s; box-shadow: 0 30px 80px rgba(0,0,0,.7); }
+.modal.wide { width: min(1000px, calc(100vw - 32px)); }
+.modal.open { opacity: 1; visibility: visible; transform: translate(-50%,-50%) scale(1); }
+.modal-x { position: absolute; top: 10px; right: 14px; background: none; border: none; color: #888; font-size: 30px; cursor: pointer; line-height: 1; }
+.modal-x:hover { color: #C9A84C; }
+.modal h3 { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; font-weight: 700; padding-right: 2rem; margin: .35rem 0 .2rem; }
+.modal-meta { font-family: 'Share Tech Mono', monospace; font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: #888; }
+.modal-price { font-family: 'Orbitron', sans-serif; font-weight: 900; color: #C9A84C; font-size: 1.1rem; margin-top: .4rem; }
+.cal-nav { display: flex; align-items: center; justify-content: space-between; margin: 1.4rem 0 .8rem; }
+.cal-nav button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(201,168,76,.5); background: none; color: #C9A84C; font-size: 20px; cursor: pointer; }
+.cal-nav button:hover:not([disabled]) { background: #C9A84C; color: #fff; }
+.cal-nav button[disabled] { opacity: .25; cursor: default; }
+.cal-month { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1rem; letter-spacing: .06em; }
+.cal-dow, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-dow div { font-family: 'Share Tech Mono', monospace; font-size: .68rem; letter-spacing: .12em; color: #888; text-align: center; padding-bottom: 4px; }
+.day { height: 40px; display: grid; place-items: center; font-size: .95rem; font-weight: 500; color: #666; border-radius: 4px; border: 1px solid transparent; position: relative; }
+.day.other { color: #333; }
+.day.wk { color: #fff; border-color: rgba(201,168,76,.55); background: rgba(201,168,76,.08); cursor: pointer; font-weight: 700; }
+.day.wk::after { content: ''; position: absolute; bottom: 4px; width: 4px; height: 4px; border-radius: 50%; background: #C9A84C; }
+.day.wk:hover { background: rgba(201,168,76,.25); border-color: #C9A84C; }
+.day.sel { background: #C9A84C; border-color: #C9A84C; color: #fff; }
+.day.sel::after { background: #fff; }
+.day.blk { color: #555; text-decoration: line-through; border-color: rgba(255,255,255,.08); cursor: not-allowed; }
+.day.past { opacity: .35; cursor: not-allowed; }
+.cal-legend { display: flex; gap: 1.2rem; flex-wrap: wrap; font-family: 'Share Tech Mono', monospace; font-size: .68rem; letter-spacing: .1em; color: #888; margin-top: .8rem; text-transform: uppercase; }
+.cal-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
+.cal-quick { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+.cal-foot { position: sticky; bottom: -2rem; background: #0B1221; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.4rem -2rem -2rem; padding: 1rem 2rem 1.2rem; border-top: 1px solid rgba(201,168,76,.2); flex-wrap: wrap; }
+.cal-sel { font-size: .95rem; color: #b0b0b0; }
+.cal-sel b { color: #fff; font-family: 'Orbitron', sans-serif; font-size: .85rem; }
+.cal-hint { font-size: .85rem; color: #888; line-height: 1.5; }
+.sheet label { display: block; font-family: 'Share Tech Mono', monospace; font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; color: #C9A84C; margin: 1rem 0 .4rem; }
+.sheet input { width: 100%; padding: 13px 15px; font-size: 16px; font-family: 'Rajdhani', sans-serif; font-weight: 500; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); color: #fff; border-radius: 4px; }
+.sheet input:focus { outline: none; border-color: #C9A84C; }
+.sheet-date { display: flex; justify-content: space-between; align-items: center; gap: 1rem; background: rgba(201,168,76,.08); border: 1px solid rgba(201,168,76,.3); border-radius: 4px; padding: .8rem 1rem; margin-top: 1rem; font-size: .95rem; }
+.sheet-date button { background: none; border: none; color: #C9A84C; font-family: 'Rajdhani', sans-serif; font-weight: 700; cursor: pointer; font-size: .85rem; letter-spacing: .05em; text-transform: uppercase; }
+.qty { display: flex; align-items: center; gap: 1rem; }
+.qty button { width: 42px; height: 42px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.12); color: #fff; font-size: 19px; cursor: pointer; border-radius: 4px; }
+.qty .qv { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.2rem; min-width: 30px; text-align: center; }
+.total { display: flex; justify-content: space-between; align-items: baseline; margin: 1.4rem 0 .4rem; padding-top: 1.1rem; border-top: 1px solid rgba(201,168,76,.2); font-family: 'Share Tech Mono', monospace; font-size: .72rem; letter-spacing: .14em; color: #888; text-transform: uppercase; }
+.total .amt { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.5rem; color: #C9A84C; }
+.sheet .cta-button { width: 100%; margin-top: .9rem; text-align: center; padding: 1rem; }
+.secure { text-align: center; font-family: 'Share Tech Mono', monospace; font-size: .68rem; letter-spacing: .1em; color: #888; margin-top: .8rem; }
+.err { display: none; font-size: .95rem; color: #FF6B5A; margin-top: .8rem; line-height: 1.5; }
+.err.show { display: block; }
+.banner { position: fixed; top: 84px; left: 50%; transform: translateX(-50%); z-index: 2500; background: #0B1221; border: 1px solid #C9A84C; color: #fff; font-size: .95rem; padding: .9rem 1.6rem; border-radius: 4px; box-shadow: 0 20px 50px rgba(0,0,0,.6); display: none; max-width: calc(100vw - 32px); text-align: center; }
+.banner.show { display: block; }
+.quals-list { padding: .4rem 0 0 1.4rem; columns: 2; column-gap: 2.4rem; }
+.quals-list li { font-size: .92rem; color: #b0b0b0; line-height: 1.5; padding: .3rem .4rem .3rem .1rem; break-inside: avoid; }
+.quals-list li::marker { color: #C9A84C; font-family: 'Share Tech Mono', monospace; font-size: .78rem; }
+@media (max-width: 900px) {
+.catalog-panel { max-height: none; }
+.quals-list { columns: 1; }
+}
+@media (max-width: 768px) {
+.course-row { grid-template-columns: 1fr; gap: .8rem; padding: 1rem 1.1rem; }
+.cr-side { justify-content: space-between; }
+.modal, .modal.wide { top: auto; bottom: 0; left: 0; transform: translateY(14px); width: 100%; max-height: 92vh; border-radius: 12px 12px 0 0; padding: 1.4rem 1.2rem calc(1.4rem + env(safe-area-inset-bottom)); }
+.modal.open { transform: translateY(0); }
+.cal-foot { bottom: calc(-1.4rem - env(safe-area-inset-bottom)); margin: 1.2rem -1.2rem calc(-1.4rem - env(safe-area-inset-bottom)); padding: .9rem 1.2rem calc(1rem + env(safe-area-inset-bottom)); }
+.cal-foot .cta-button { width: 100%; text-align: center; }
+.day { height: 44px; }
+}
+  .modal { background:var(--deep-navy); border-color:rgba(201,168,76,.4); }
+  .modal .eyebrow { opacity:1; transform:none; margin-bottom:.6rem; }
+  .modal h3 { color:var(--text); }
+  .day.sel { background:var(--gold); border-color:var(--gold); color:#000; }
+  .day.wk:hover { background:rgba(201,168,76,.25); border-color:var(--gold); }
+  .cal-nav button:hover:not([disabled]) { background:var(--gold); color:#000; }
+  .cal-quick button.on, .cal-quick .on { background:var(--gold); color:#000; border-color:var(--gold); }
+  .qty button { cursor:none; }
+  .sheet-date button { color:var(--gold-champagne); }
+  input:focus { border-color:var(--gold) !important; }
+  .banner { background:var(--gold); color:#000; }
+  .quals-list li::marker, .quals-list li b { color:var(--gold-champagne); }
+  @media (max-width:900px) { .founder, .cert { grid-template-columns:1fr; } .founder .portrait { min-height:360px; } .tiles, .tiles.four { grid-template-columns:1fr 1fr; } }
+  @media (max-width:768px) {
+    html, body { cursor:auto; } .cta, .cta-button, .secondary-cta, .chap-link, .qty button { cursor:pointer; }
+    .reticle, .chapter-nav { display:none; }
+    .hud { font-size:.55rem; } .hud.tr { right:1.8rem; }
+    .stats { grid-template-columns:1fr; gap:1rem; }
+    .tiles, .tiles.four { grid-template-columns:1fr; } .tile, .tiles.four .tile { min-height:220px; }
+    section.panel { padding:5rem 1rem; }
+    .glass { padding:.8rem; }
+    .secondary-cta, .cta-button.ghost-button { margin-left:0; }
+    #photos .ph.on { opacity:.28; }
+  }
+  @media (prefers-reduced-motion: reduce) { .eyebrow, h1.mega, h2.section-h, .sub, .rise { transition:none; opacity:1; filter:none; transform:none; } }
+</style>
 </head>
 <body>
 
-<!-- ══════════ NAVIGATION (Atlas Glinn frame, MAST wordmark) ══════════ -->
-<nav id="main-nav">
-    <div class="nav-container">
-        <a href="#top" class="nav-logo" aria-label="MAST Solutions home">
-            <img src="https://atlasglinn.com/wp-content/uploads/2025/02/Atlas-Glinn-Logo-Rev1-2-e1744918824251.png" alt="Atlas Glinn">
-            <span class="nav-logo-text">MAST <span>SOLUTIONS</span></span>
-        </a>
-        <ul class="nav-links">
-            <li><a href="#courses">Courses</a></li>
-            <li><a href="#who">Who We Train</a></li>
-            <li><a href="#founder">Instructors</a></li>
-            <li><a href="#media">Media</a></li>
-            <li><a href="#reviews">Reviews</a></li>
-            <li><a href="#capability">Capability</a></li>
-            <li><a href="index.html">Atlas Glinn</a></li>
-            <li><a href="#courses" class="cta-button" style="padding:.6rem 1.2rem;font-size:.85rem;">Book</a></li>
-        </ul>
-        <button class="mobile-menu-btn" aria-label="Open navigation menu" aria-controls="mobile-nav" aria-expanded="false" onclick="document.getElementById('mobile-nav').classList.add('open');this.setAttribute('aria-expanded','true')">&#9776;</button>
-    </div>
-</nav>
-
-<!-- Mobile Nav Overlay -->
-<div id="mobile-nav" class="mobile-nav">
-    <button class="mobile-nav-close" aria-label="Close navigation menu" onclick="this.parentElement.classList.remove('open')">&times;</button>
-    <a href="#courses" onclick="this.parentElement.classList.remove('open')">Courses</a>
-    <a href="#who" onclick="this.parentElement.classList.remove('open')">Who We Train</a>
-    <a href="#founder" onclick="this.parentElement.classList.remove('open')">Instructors</a>
-    <a href="#media" onclick="this.parentElement.classList.remove('open')">Media</a>
-    <a href="#reviews" onclick="this.parentElement.classList.remove('open')">Reviews</a>
-    <a href="#capability" onclick="this.parentElement.classList.remove('open')">Capability</a>
-    <a href="index.html">Atlas Glinn</a>
-    <a href="#courses" onclick="this.parentElement.classList.remove('open')" style="color:#C9A84C">Book a Course</a>
+<div id="intro-seq">
+  <div class="intro-credit">A Houston Operation</div>
+  <div class="intro-credit wordmark">MAST SOLUTIONS</div>
+  <div class="intro-credit">Since 2005</div>
 </div>
+
+<canvas id="three-canvas"></canvas>
+<div id="photos">
+  <div class="ph" data-for="01" style="background-image:url('images/mast/hero-casualty-carry.jpg');background-position:center 40%"></div>
+  <div class="ph" data-for="02" style="background-image:url('images/mast/disc-firearms.jpg')"></div>
+  <div class="ph" data-for="03" style="background-image:url('images/mast/ship-deck-movement.jpg')"></div>
+  <div class="ph" data-for="04" style="background-image:url('images/mast/disc-cqb.jpg')"></div>
+  <div class="ph" data-for="05" style="background-image:url('images/mast/courses-low-light.jpg')"></div>
+  <div class="ph" data-for="06" style="background-image:url('images/mast/founder-ship.jpg');background-position:center 20%"></div>
+  <div class="ph" data-for="07" style="background-image:url('images/mast/vehicular.jpg')"></div>
+  <div class="ph" data-for="08" style="background-image:url('images/mast/privacy-aircraft.jpg')"></div>
+  <div class="ph" data-for="09" style="background-image:url('images/mast/contact-zodiac.jpg')"></div>
+</div>
+<div class="grain"></div>
+<div class="vignette"></div>
+<div class="letterbox-top"></div>
+<div class="letterbox-bottom"></div>
+<div class="progress" id="progress"></div>
+<div class="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>
+
+<a class="hud tl" href="index.html">&#9679; ATLAS GLINN &middot; MAST.SYS LIVE</a>
+<div class="hud tr" id="hud-section">SECTION 01 / 09</div>
+<div class="hud bl">HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W</div>
+<div class="hud br">DETAILS MATTER</div>
+
+<nav class="chapter-nav" id="chapter-nav" aria-label="Chapters">
+  <a href="#s1" class="chap-link">01 &middot; Opening</a>
+  <a href="#s2" class="chap-link">02 &middot; Standard</a>
+  <a href="#s3" class="chap-link">03 &middot; Who</a>
+  <a href="#s4" class="chap-link">04 &middot; Disciplines</a>
+  <a href="#s5" class="chap-link">05 &middot; Courses</a>
+  <a href="#s6" class="chap-link">06 &middot; Instructors</a>
+  <a href="#s7" class="chap-link">07 &middot; In Action</a>
+  <a href="#s8" class="chap-link">08 &middot; Privacy</a>
+  <a href="#s9" class="chap-link">09 &middot; Contact</a>
+</nav>
 
 <div id="banner" class="banner" role="status"></div>
 
-<!-- ══════════ HERO ══════════ -->
-<section class="hero" id="top">
-    <!-- Background film is injected by JS on desktop only. Phones get a still frame:
-         no autoplaying iframe over LTE. -->
-    <div class="hero-yt" id="hero-yt" data-id="jwQ5OyKEKwg"></div>
-    <div class="hero-overlay"></div>
-    <button class="vol" id="hero-vol" type="button" aria-label="Unmute video" aria-pressed="false" hidden>
-        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16 8.5a4.5 4.5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path class="slash" d="M3 3l18 18" fill="none" stroke="#e0483a" stroke-width="2.2" stroke-linecap="round"/></svg>
-    </button>
-    <div class="hero-content">
-        <div class="eyebrow">Tactical Training &middot; Houston, Texas &middot; Est. 2005</div>
-        <h1 class="hero-headline"><span class="gold-shimmer">Details Matter.</span></h1>
-        <p class="hero-subheading">Twenty years training the people who cannot afford to be wrong.</p>
-        <div class="hero-ctas">
-            <a href="#courses" class="cta-button">View Courses</a>
-            <a href="#founder" class="cta-button secondary-button">The Instructor</a>
+<div class="content">
+
+  <section class="panel" id="s1" data-section="01">
+    <div>
+      <div class="eyebrow">34 Years &middot; Quiet &middot; Deliberate</div>
+      <h1 class="mega"><span class="gold">Details</span> <span class="white">Matter.</span></h1>
+      <p class="sub">Trusted by DEA, Houston SWAT, US Military, and Homeland Security. No fluff. No shortcuts. No compromise.</p>
+      <div class="ctas rise"><a href="#s5" class="cta">Enter The Range</a><a href="#s6" class="secondary-cta">The Instructors</a></div>
+    </div>
+    <div class="scroll-cue">SCROLL &darr;</div>
+  </section>
+
+  <section class="panel" id="s2" data-section="02">
+    <div>
+      <div class="eyebrow">Est. 2005 &middot; Houston, TX</div>
+      <h2 class="section-h">Trained to <span class="gold">Standard.</span></h2>
+      <p class="sub">No paint-ball courses dressed up as tactics. No cinema instructors. We teach what works when the silence is broken.</p>
+      <div class="stats rise">
+        <div class="stat"><div class="stat-num" data-count="1701" data-suffix="+">0</div><div class="stat-label">Students Trained</div></div>
+        <div class="stat"><div class="stat-num" data-count="21">0</div><div class="stat-label">Courses</div></div>
+        <div class="stat"><div class="stat-num" data-count="0">0</div><div class="stat-label">Shortcuts</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="s3" data-section="03">
+    <div>
+      <div class="eyebrow">Who Trains Here</div>
+      <h2 class="section-h">Federal. <span class="gold">SWAT.</span> Military.</h2>
+      <p class="sub">We train the operators who cannot be wrong. Federal agents, tier-1 law enforcement, military units, and private citizens who understand the difference between security and a show.</p>
+      <div class="chips rise">
+        <span class="chip">U.S. Military</span><span class="chip">DEA</span><span class="chip">Houston SWAT</span><span class="chip">Homeland Security</span>
+        <span class="chip">Border Patrol</span><span class="chip">NASA SRT</span><span class="chip">Harris County DPU</span><span class="chip">Federal Agencies</span>
+      </div>
+      <div class="tiles">
+        <div class="tile rise"><div class="bg" style="background-image:url('images/mast/who-military.jpg');background-position:center 30%"></div><div class="txt"><div class="num">01</div><h3>Military.</h3><p>Special operations and conventional units. Live OpFor, UTM and Simunition, maritime VBSS.</p></div></div>
+        <div class="tile rise"><div class="bg" style="background-image:url('images/mast/who-law-enforcement.jpg');background-position:center"></div><div class="txt"><div class="num">02</div><h3>Law Enforcement.</h3><p>SWAT, warrant teams and federal agencies. Small-unit tactics under time pressure.</p></div></div>
+        <div class="tile rise"><div class="bg" style="background-image:url('images/mast/who-civilian.jpg');background-position:left 40%"></div><div class="txt"><div class="num">03</div><h3>Civilian.</h3><p>Private citizens who take the preservation of life seriously. Same standard, scaled.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="s4" data-section="04">
+    <div>
+      <div class="eyebrow">The Curriculum</div>
+      <h2 class="section-h">Seven Core <span class="gold">Disciplines.</span></h2>
+      <p class="sub">Every course sits inside one of seven disciplines. Master the fundamentals of each, then bring them together under pressure.</p>
+      <div class="tiles four">
+        <div class="tile rise"><div class="bg" style="background-image:url('images/mast/disc-firearms.jpg');background-position:center"></div><div class="txt"><div class="num">01</div><h3>Firearms.</h3><p>Marksmanship and weapon handling.</p></div></div>
+        <div class="tile rise"><div class="bg" style="background-image:url('images/mast/disc-hand-combat.jpg');background-position:center"></div><div class="txt"><div class="num">02</div><h3>Hand Combat.</h3><p>Close-quarters fighting.</p></div></div>
+        <div class="tile rise"><div class="bg" style="background-image:url('images/mast/disc-knife-combat.jpg');background-position:center"></div><div class="txt"><div class="num">03</div><h3>Knife Combat.</h3><p>Defensive and tactical knife.</p></div></div>
+        <div class="tile rise"><div class="bg" style="background-image:url('images/mast/disc-cqb.jpg');background-position:center 30%"></div><div class="txt"><div class="num">04</div><h3>CQB.</h3><p>Close Quarters Battle.</p></div></div>
+        <div class="tile rise"><div class="bg" style="background-image:url('images/mast/disc-fitness.jpg');background-position:center"></div><div class="txt"><div class="num">05</div><h3>Fitness.</h3><p>Conditioning for duty.</p></div></div>
+        <div class="tile rise"><div class="bg" style="background-image:url('images/mast/disc-medical.jpg');background-position:center"></div><div class="txt"><div class="num">06</div><h3>Medical.</h3><p>Emergency and trauma care.</p></div></div>
+        <div class="tile rise"><div class="bg" style="background-image:url('images/mast/disc-leadership.jpg');background-position:center 25%"></div><div class="txt"><div class="num">07</div><h3>Leadership.</h3><p>Command and decision-making.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="s5" data-section="05">
+    <div>
+      <div class="eyebrow">Course Catalog</div>
+      <h2 class="section-h">Twenty-One <span class="gold">Courses.</span></h2>
+      <p class="sub">Open a discipline, pick a course, pick your weekend. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
+      <div class="catalog-wrap rise"><div class="glass"><div class="catalog-panel" id="catalog"></div></div>
+      <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p></div>
+    </div>
+  </section>
+
+  <section class="panel" id="s6" data-section="06">
+    <div>
+      <div class="eyebrow">Founder &amp; Lead Instructor</div>
+      <h2 class="section-h">Matthew <span class="gold">Brockmann.</span></h2>
+      <div class="founder rise">
+        <div class="portrait" style="background-image:url('images/mast/instructing-le.jpg')"><div class="cap">Instructing a federal team on the line</div></div>
+        <div class="bio">
+          <p>Founded MAST Solutions in 2005 and later Atlas Glinn, LLC. Former Head of Security for Senator Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named only where media coverage exists. Other high-profile and high-net-worth individuals follow our privacy standards. We do not do media; a name appears only where media captured it without our consent. Teaches on the range. Has trained Houston, Baytown, Galveston, and other SWAT teams, including TTPOA (TX Tactical Police Officers Association), VBSS (Visit, Board, Search, Seize), NASA SRT, Dept of Homeland Security, and other federal, state, and Military Units.</p>
+          <ul class="creds">
+            <li>Trained by <b>Paul Howe</b> (1st SFOD-D), <b>Bill Jeans</b> and <b>John Perretti</b></li>
+            <li><b>DPS Level III Firearms Instructor</b> &middot; <b>TTPOA Maritime VBSS</b> instructor</li>
+            <li>Featured on <b>Modern Shooter TV</b> and in <b>The Washington Post</b></li>
+          </ul>
+          <p class="cadre">Courses run with a lead instructor, assistant instructors, and RSOs (Range Safety Officers) on the line. Your instructors are named on the course confirmation.</p>
+          <div class="ctas"><button class="cta-button ghost-button" type="button" onclick="openQuals()">Qualifications &amp; Certifications</button><a href="#s5" class="cta-button">Train With Him</a></div>
         </div>
+      </div>
+      <div class="cert rise">
+        <img src="images/mast/capitol-flag-certificate.jpg" alt="Certificate: a flag flown over the United States Capitol in honor of Matthew Brockmann, at the request of Senator Ted Cruz, December 1, 2021" loading="lazy">
+        <p>A flag flown over the United States Capitol at the request of Senator Ted Cruz, December 1, 2021, &ldquo;with gratitude for your steadfast vigilance, unwavering dedication, and heart of service.&rdquo; The task force is not named here. Details matter. Privacy matters.</p>
+      </div>
     </div>
-</section>
+  </section>
 
-<!-- ══════════ CREDENTIAL BAR ══════════ -->
-<section class="credential-bar">
-    <div class="credential-grid">
-        <div class="credential-item reveal"><h3>2005</h3><p>Training Since</p></div>
-        <div class="credential-item reveal"><h3>1,701+</h3><p>Students Trained</p></div>
-        <div class="credential-item reveal"><h3>21</h3><p>Courses</p></div>
-        <div class="credential-item reveal"><h3>5.0</h3><p>Google Rating</p></div>
+  <section class="panel" id="s7" data-section="07">
+    <div>
+      <div class="eyebrow">MAST Solutions In Action</div>
+      <h2 class="section-h">In <span class="gold">Action.</span></h2>
+      <p class="sub">Training, operations, and the people behind the mission. Tap to play. Nothing loads until you do.</p>
+      <div class="media-strip rise" id="media-strip"></div>
+      <a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener" class="post"><small>As featured in</small>The Washington Post &middot; Arming American Teachers &rarr;</a>
     </div>
-</section>
+  </section>
 
-<!-- ══════════ WHO WE TRAIN ══════════ -->
-<div class="section-divider" id="who">
-    <h2>Who We <span class="gold-shimmer">Train</span></h2>
-    <p>Three standards. One baseline.</p>
+  <section class="panel" id="s8" data-section="08">
+    <div>
+      <div class="badge">Privacy Matters</div>
+      <p class="sub quote lead">&ldquo;Details matter. Privacy matters. Unless publicly reported, we don&rsquo;t disclose.&rdquo;</p>
+      <p class="sub" style="font-size:.98rem;">Former Head of Security for Senator Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named only where media coverage exists. Other high-profile and high-net-worth individuals follow our privacy standards. We do not do media; a name appears only where media captured it without our consent. Pictured: Senators Hawley and Schmitt.</p>
+      <div class="eyebrow" style="margin-top:2.5rem;">For agencies, units and procurement officers</div>
+      <div class="ctas rise"><a href="mailto:atlasglinn.hq@atlasglinn.com?subject=MAST%20Solutions%20Capability%20Statement%20Request" class="cta">Email for the Capability Statement</a><a href="mast-capability-statement.html" class="secondary-cta">View One-Pager</a></div>
+    </div>
+  </section>
+
+  <section class="panel" id="s9" data-section="09">
+    <div>
+      <div class="eyebrow">Book a Course</div>
+      <h2 class="section-h"><span class="gold">Train</span> with MAST.</h2>
+      <p class="sub">Individual seats, team blocks, and agency instruction.</p>
+      <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div>
+      <div class="ctas rise"><a href="#s5" class="cta">Book a Course</a><a href="index.html" class="secondary-cta">Atlas Glinn &rarr;</a></div>
+      <div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions <br><a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.youtube.com/@mastsolutions" target="_blank" rel="noopener">YouTube</a></div>
+    </div>
+  </section>
+
 </div>
-<!-- Full-bleed image panels per the vault design brief (Tesla-style: big word,
-     one line, real footage). Stills come from the MAST films on YouTube today;
-     swap the URLs for range photos when the owner supplies them. -->
-<div class="who-grid">
-    <div class="bleed reveal"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/jwQ5OyKEKwg/maxresdefault.jpg');background-position:center 30%"></div>
-        <div class="txt"><div class="eyebrow">01</div><h3>Military.</h3><p>Special operations and conventional units. Live OpFor, UTM and Simunition, maritime VBSS.</p></div></div>
-    <div class="bleed reveal"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/pSGWdaDglZE/maxresdefault.jpg')"></div>
-        <div class="txt"><div class="eyebrow">02</div><h3>Law Enforcement.</h3><p>SWAT, warrant teams and federal agencies. Small-unit tactics under time pressure.</p></div></div>
-    <div class="bleed reveal"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/OfXe_bdH6t4/maxresdefault.jpg')"></div>
-        <div class="txt"><div class="eyebrow">03</div><h3>Civilian.</h3><p>Private citizens who take the preservation of life seriously. Same standard, scaled.</p></div></div>
-</div>
 
-<!-- ══════════ SEVEN CORE DISCIPLINES ══════════ -->
-<div class="section-divider">
-    <h2>Seven Core <span class="gold-shimmer">Disciplines</span></h2>
-    <p>Swipe or scroll sideways</p>
-</div>
-<div class="strip" id="disciplines">
-    <div class="bleed"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/jwQ5OyKEKwg/hqdefault.jpg');background-position:center top"></div>
-        <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="14"/><circle cx="24" cy="24" r="2.5" fill="#C9A84C" stroke="none"/><path d="M24 4v8M24 36v8M4 24h8M36 24h8"/></svg></div><h3>Firearms.</h3><p>Marksmanship and weapon handling.</p></div></div>
-    <div class="bleed"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/OfXe_bdH6t4/hqdefault.jpg');background-position:left center"></div>
-        <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 22v10a10 10 0 0 0 10 10h4a10 10 0 0 0 10-10v-6"/><rect x="12" y="14" width="6" height="9" rx="3"/><rect x="19" y="11" width="6" height="12" rx="3"/><rect x="26" y="12" width="6" height="11" rx="3"/><rect x="33" y="15" width="5" height="11" rx="2.5"/><path d="M12 26h10"/></svg></div><h3>Hand Combat.</h3><p>Close-quarters fighting.</p></div></div>
-    <div class="bleed"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/pSGWdaDglZE/hqdefault.jpg');background-position:right center"></div>
-        <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 40l6-6M14 34l-3-3 20-20a6 6 0 0 1 8 8L19 39l-5-5z"/><path d="M11 31l6 6" stroke="#C9A84C"/></svg></div><h3>Knife Combat.</h3><p>Defensive and tactical knife.</p></div></div>
-    <div class="bleed"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/jwQ5OyKEKwg/hqdefault.jpg');background-position:center bottom"></div>
-        <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M14 42V8h20v34"/><path d="M14 42h20M30 25h.01"/><path d="M4 24h14M14 19l5 5-5 5" stroke="#C9A84C"/></svg></div><h3>CQB.</h3><p>Close Quarters Battle.</p></div></div>
-    <div class="bleed"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/OfXe_bdH6t4/hqdefault.jpg');background-position:center"></div>
-        <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M16 24h16"/><rect x="8" y="17" width="6" height="14" rx="1.5"/><rect x="34" y="17" width="6" height="14" rx="1.5"/><path d="M4 20v8M44 20v8"/></svg></div><h3>Fitness.</h3><p>Conditioning for duty.</p></div></div>
-    <div class="bleed"><div class="bg" style="background-image:url('images/mast-medical-poster.jpg');background-position:center 35%"></div>
-        <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="8" width="32" height="32" rx="6"/><path d="M24 16v16M16 24h16" stroke="#C9A84C" stroke-width="3"/></svg></div><h3>Medical.</h3><p>Emergency and trauma care.</p></div></div>
-    <div class="bleed"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/pSGWdaDglZE/hqdefault.jpg');background-position:center top"></div>
-        <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M10 18l14-8 14 8M10 27l14-8 14 8M10 36l14-8 14 8"/></svg></div><h3>Leadership.</h3><p>Command and decision-making.</p></div></div>
-</div>
-
-<!-- ══════════ COURSE CATALOG ══════════ -->
-<div class="section-divider" id="courses">
-    <h2>Course <span class="gold-shimmer">Catalog</span></h2>
-    <p>Twenty-one courses. Open a discipline, pick a course, pick your weekend. Private instruction by arrangement.</p>
-</div>
-<section class="section" style="padding-top: 2rem;">
-    <div class="catalog" id="catalog"></div>
-    <p class="catalog-note">Ammunition, rentals and UTM rounds are added at a later step. Team blocks and agency instruction on request &mdash;
-        <a href="mailto:atlasglinn.hq@atlasglinn.com">email us</a> or call <a href="tel:+12816548100">(281) 654-8100</a>.</p>
-</section>
-
-<!-- ══════════ THE INSTRUCTOR ══════════ -->
-<div class="section-divider" id="founder">
-    <h2>The <span class="gold-shimmer">Instructors</span></h2>
-    <p>Courses are taught by a cadre, not one man.</p>
-</div>
-<section class="section" style="padding-top: 2rem;">
-    <div class="ep-container">
-        <div class="founder-img reveal">
-            <!-- Owner is sending the final founder shot; this is the 2026 About-page photo cropped to Matthew. -->
-            <img src="images/IMG_5949_2.jpg" alt="Matthew Brockmann, founder of MAST Solutions" loading="lazy">
-        </div>
-        <div class="ep-text reveal">
-            <div class="eyebrow">Founder &amp; Lead Instructor</div>
-            <h2>Matthew <span class="gold-shimmer">Brockmann</span></h2>
-            <div class="role">Founder, MAST Solutions and Atlas Glinn &middot; Houston, Texas</div>
-            <p>Matthew Brockmann founded MAST Solutions in 2005 and later Atlas Glinn, LLC. He served as Head of Security for Senator Ted Cruz and provided security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named only where media coverage exists. Other high-profile and high-net-worth individuals follow our privacy standards. We do not do media; a name appears only where media captured it without our consent. He has taught firearms and tactics to military, law enforcement and private citizens since 2005, and teaches on the range. Has trained Houston, Baytown, Galveston, and other SWAT teams, including TTPOA (TX Tactical Police Officers Association), VBSS (Visit, Board, Search, Seize), NASA SRT, Dept of Homeland Security, and other federal, state, and Military Units.</p>
-            <ul class="creds">
-                <li>Trained by <b>Paul Howe</b> (1st SFOD-D)</li>
-                <li>Trained by <b>Bill Jeans</b> and <b>John Perretti</b></li>
-                <li><b>DPS Level III Firearms Instructor</b></li>
-                <li><b>TTPOA Maritime VBSS</b> instructor &mdash; Houston Ship Channel</li>
-                <li><b>Harris County</b> approved supplier &mdash; February 2023</li>
-                <li>Featured on <b>Modern Shooter TV</b> and in <b>The Washington Post</b></li>
-            </ul>
-        </div>
-    </div>
-
-    <!-- Instructor cadre. Cards render from the INSTRUCTORS list in the script;
-         only owner-confirmed names go in. -->
-    <div class="cadre" id="cadre">
-        <div class="media-label" style="max-width:1100px;margin:3rem auto 1.2rem;"><span class="eyebrow">Instructor Cadre</span></div>
-        <p class="cadre-intro">Courses run with a lead instructor, assistant instructors, and RSOs (Range Safety Officers) on the line. Your instructors are named on the course confirmation.</p>
-        <div class="cadre-grid" id="cadre-grid"></div>
-    </div>
-
-    <!-- Qualifications & certifications — owner-supplied list, 2026-09-02 -->
-    <div class="quals reveal" id="quals">
-        <button class="quals-btn" aria-expanded="false" aria-controls="quals-list" onclick="toggleQuals()">
-            <span class="cat-name">Qualifications &amp; Certifications</span>
-            <span class="cat-count">32 items</span>
-            <span class="cat-chev" aria-hidden="true">&#9662;</span>
-        </button>
-        <ol class="quals-list" id="quals-list">
-            <li>Level II&ndash;IV training for PPO license through the DPS Private Security Bureau</li>
-            <li>Tested and passed by the Texas Department of Public Safety as Qualified Manager for a Class C private security and investigations company</li>
-            <li>Level III Firearms Instructor, qualified by DPS</li>
-            <li>NRA Firearms Instructor</li>
-            <li>Completed and passed aerosol weapons (OC) training</li>
-            <li>Completed and passed expandable tactical baton training for DPS</li>
-            <li>Completed and passed the Private Investigator course for PPO; tested with HPD P.I. Detective L.K. Fauster for certificate (2011)</li>
-            <li>Tested and passed the MMPI psychologist's declaration for personal protection officer authorization</li>
-            <li>Studied under John Perretti in unarmed offense and combatives: joint control, knife, and hand combatives</li>
-            <li>Completed and passed the Blackwater HTP weapons qualification course</li>
-            <li>Tactical rifle instructor for Brian Hoffner, 2004&ndash;2006</li>
-            <li>Studied urban carbine and gunfighting through Suarez International, 2006</li>
-            <li>Studied close-range gunfighting with Suarez International, 2006</li>
-            <li>Studied team tactics with an Arizona SWAT commander and former Gunsite instructor, 2005&ndash;2007</li>
-            <li>Advanced defensive pistol, Morgan Consulting, 2006</li>
-            <li>Advanced home defense, Morgan Consulting, 2007</li>
-            <li>CQC carbine, Morgan Consulting, 2007</li>
-            <li>Advanced rifle, Suarez International, 2007</li>
-            <li>Ultimate combative skills course, Suarez International, 2008</li>
-            <li>Texas Department of Public Safety concealed handgun instructor, 2009</li>
-            <li>State of Texas handgun training certificate of completion and proficiency under Chapter 411, Subchapter H, Texas Government Code</li>
-            <li>Studied under Sonny Puzikas (retired Spetsnaz, USSR MVD) in the AK-47/74 and combatives, 2006 and 2008</li>
-            <li>Tactical rifle instructor for CSAT (Combat Shooting and Tactics) with Paul Howe; certified 2009</li>
-            <li>Magpul Dynamics with Travis Haley and Chris Costa, 2010</li>
-            <li>Worked with Bruce Gray of SIG Arms Academy and Grayguns teaching a 7-day program, 2011</li>
-            <li>Completed and passed the SureFire Low-Light Institute instructor program for law enforcement</li>
-            <li>Completed and passed the Strategos International low-light instructor course, law enforcement</li>
-            <li>Worked with HPD SWAT in tactics training; details on request</li>
-            <li>Worked with Baytown SWAT in firearms and tactics; details on request</li>
-            <li>Multi-agency training including securing the Houston Ship Channel, boarding vessels (VBSS), and seizing and controlling persons, suspects, property and threat components</li>
-            <li>Trained the 856th Military Police Company in urban operations and close-quarter combat via the Department of the Army</li>
-            <li>Trained U.S. Army units for pre-deployment (101st CQB package)</li>
-        </ol>
-    </div>
-</section>
-
-<!-- ══════════ MAST SOLUTIONS IN ACTION — the Atlas "In Action" section, reversed ══════════ -->
-<div class="section-divider" id="media">
-    <h2>MAST Solutions <span class="gold-shimmer">In Action</span></h2>
-    <p>Training, operations, and the people behind the mission</p>
-</div>
-<section class="section" style="padding-top: 2rem;">
-    <!-- Groups are rendered from the MEDIA list in the script below. Every video is a
-         lightweight facade: a still frame and a play button. The player only loads when
-         tapped, so a phone on LTE never downloads a video it did not ask for. -->
-    <div id="media-groups"></div>
-
-    <a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener" class="press-card reveal">
-        <div class="eyebrow">Press Feature</div>
-        <h3>The Washington Post</h3>
-        <h4>Active Shooter: Arming American Teachers</h4>
-        <p>MAST Solutions featured in The Washington Post's coverage of active-shooter preparedness and school security training.</p>
-        <span class="more">Read The Feature &rarr;</span>
-    </a>
-</section>
-
-<!-- ══════════ INSTAGRAM ══════════ -->
-<div class="section-divider" id="instagram">
-    <h2>Follow <span class="gold-shimmer">@atlasglinn_mastsolutions</span></h2>
-    <p>Range days, details and the team, as they happen</p>
-</div>
-<section class="section" style="padding-top: 2rem; text-align:center;">
-    <div class="ig-grid" id="ig-grid"></div>
-    <a class="cta-button" href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Follow on Instagram</a>
-    <p class="ig-note" id="ig-note">Latest posts appear here once the feed is connected.</p>
-</section>
-
-<!-- ══════════ REVIEWS ══════════ -->
-<div class="section-divider" id="reviews">
-    <h2><span class="gold-shimmer">Reviews</span></h2>
-    <p>Google Reviews &amp; LinkedIn Recommendations</p>
-</div>
-<section class="section" style="text-align:center; padding-top:2rem;">
-    <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:2rem;">
-        <span style="color:#FFD700; font-size:1.5rem;">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
-        <span style="font-size:1.8rem; font-weight:900;">5.0</span>
-        <span style="color:rgba(255,255,255,0.5); font-size:0.9rem;">Google Reviews</span>
-    </div>
-    <div class="testimonials-row">
-        <div class="testimonial reveal"><div class="who">Law Enforcement</div>
-            <p>"Matthew is an expert in his field. He is highly motivated, knowledgeable and I highly recommend him for top-tier performance."</p>
-            <div class="testimonial-author">Kenny Upton — Deputy, Harris County Sheriff</div></div>
-        <div class="testimonial reveal"><div class="who">Navy SEAL / Former CIA</div>
-            <p>"His leadership, dedication, drive, and passion is second to none. A master at teamwork, problem-solving, leadership, and communication."</p>
-            <div class="testimonial-author">Ray Cash Care — Navy SEAL / Former CIA</div></div>
-        <div class="testimonial reveal"><div class="who">Reconnaissance Marine</div>
-            <p>"As a former Reconnaissance Marine, Matthew's teaching has not only made me a better shooter, he has made me a better team player."</p>
-            <div class="testimonial-author">Arthur Metcalfe — Recon Marine, 18yr O&amp;G</div></div>
-        <div class="testimonial reveal"><div class="who">Flight Paramedic</div>
-            <p>"Brockmann had hosted and taught some of the best classes I have been a part of. I can't recommend him enough."</p>
-            <div class="testimonial-author">William H. Miller BS, TP-C, FP-C, CPM — Flight Paramedic</div></div>
-        <div class="testimonial reveal"><div class="who">President &amp; CEO</div>
-            <p>"Extremely professional. In an extremely competitive industry Matt has never failed to provide exceptional guidance. I recommend him without hesitation."</p>
-            <div class="testimonial-author">Craig Etkin — President &amp; CEO, intelligence360</div></div>
-        <div class="testimonial reveal"><div class="who">CxO / Investor</div>
-            <p>"I've trained with some big-name national &amp; global self-defense trainers. I've always felt safe training with Matt — the #1 criterion for choosing a trainer."</p>
-            <div class="testimonial-author">Wayne Sadin — CxO/VP Investor</div></div>
-    </div>
-    <div style="display:flex; gap:1.5rem; justify-content:center; margin-top:2rem;">
-        <a href="https://www.google.com/search?q=Atlas+Glinn+Houston+reviews" target="_blank" rel="noopener" style="font-size:0.85rem; color:#1A6BDE; text-decoration:none;">Google Reviews &rarr;</a>
-        <a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener" style="font-size:0.85rem; color:#1A6BDE; text-decoration:none;">LinkedIn &rarr;</a>
-    </div>
-</section>
-
-<!-- ══════════ CAPABILITY STATEMENT ══════════ -->
-<div class="section-divider" id="capability">
-    <h2>Capability <span class="gold-shimmer">Statement</span></h2>
-    <p>For agencies, units, and procurement officers</p>
-</div>
-<section class="section" style="padding-top: 2rem;">
-    <div class="cap-grid">
-        <div class="service-card reveal">
-            <h3>Core Competencies</h3>
-            <ul class="cap-list">
-                <li><b>Firearms instruction</b> &mdash; handgun, carbine, shotgun, sub-gun, select-fire M4A1 / MK18</li>
-                <li><b>Low-light and NVG operations</b> &mdash; fundamentals through no-light operator</li>
-                <li><b>CQB, shoothouse and team tactics</b> &mdash; mechanics, movement, comms and signal</li>
-                <li><b>Force-on-force</b> &mdash; live OpFor with UTM and Simunition; bolts provided</li>
-                <li><b>Vehicle and motorcade operations</b> &mdash; individual and team</li>
-                <li><b>Maritime VBSS</b> &mdash; boarding, seizing and controlling vessels, persons and property</li>
-                <li><b>Dignitary and executive protection training</b>; home and property protection</li>
-                <li><b>Gear and kit</b> &mdash; go, shelter-in-place, urban movement, low-vis and high-vis</li>
-            </ul>
-        </div>
-        <div class="service-card reveal">
-            <h3>Past Performance</h3>
-            <ul class="cap-list">
-                <li><b>U.S. Senator Ted Cruz</b> &mdash; Head of Security and Dignitary Liaison for high-profile operations</li>
-                <li><b>U.S. Senators Josh Hawley and Eric Schmitt</b>, <b>a former Vice President</b> and <b>Ivanka Trump</b> &mdash; security details, named only where media coverage exists</li>
-                <li><b>Other high-profile and high-net-worth individuals</b> &mdash; follow our privacy standards; we do not do media, and a name appears only where media captured it without our consent</li>
-                <li><b>Vercel</b> &mdash; Head of Security; protective services for key personnel and assets</li>
-                <li><b>Executive protection and security liaison</b> &mdash; Jordan Peterson, Naval Ravikant, Matt Walsh and media executives</li>
-                <li><b>Harris County Courthouse</b> &mdash; security advisor and consultant; instructor for Precinct 3 and Harris County Constables and for Diplomatic Protection Teams; approved supplier, February 2023</li>
-                <li><b>TTPOA instructor</b> &mdash; maritime vessel boarding (VBSS); multi-agency Houston Ship Channel operations</li>
-                <li><b>856th Military Police Company</b> &mdash; urban operations and CQC via the Department of the Army; <b>U.S. Army</b> pre-deployment, 101st CQB package</li>
-                <li><b>HPD SWAT</b> and <b>Baytown SWAT</b> &mdash; firearms and tactics; details on request</li>
-            </ul>
-        </div>
-        <div class="service-card reveal">
-            <h3>Differentiators</h3>
-            <ul class="cap-list">
-                <li><b>Three-phase training and vetting pipeline</b> &mdash; a minimum score at every phase, from tangible performance metrics and instructor and advisory-committee assessment. Every Atlas Glinn agent on a protective or transportation assignment trains through it.</li>
-                <li><b>Founder-led instruction</b> on every course since 2005</li>
-                <li><b>DPS Level III Firearms Instructor</b>; NRA Firearms Instructor</li>
-                <li><b>CSAT tactical rifle instructor</b> under Paul Howe; trained by Bill Jeans and John Perretti</li>
-                <li><b>SureFire Low-Light Institute</b> and <b>Strategos International</b> low-light instructor programs, law enforcement</li>
-                <li><b>TTPOA Maritime VBSS</b> instructor, Houston Ship Channel</li>
-                <li><b>Small classes</b> &mdash; 16 seats for fundamentals, 10 for any P1 or operator course</li>
-                <li><b>Private range</b> near Houston; address issued on registration</li>
-                <li><b>5.0 Google rating</b>; Best of Business 2025; Chamber of Commerce verified member</li>
-            </ul>
-        </div>
-        <div class="service-card reveal">
-            <h3>Company Data</h3>
-            <dl class="cap-data">
-                <dt>Entity</dt><dd>MAST Solutions, training division of Atlas Glinn, LLC</dd>
-                <dt>Business size</dt><dd>Small</dd>
-                <dt>Established</dt><dd>2005 &middot; Houston, Texas</dd>
-                <dt>Approach</dt><dd>Assessment &middot; Strategy &middot; Implementation &middot; Monitoring</dd>
-                <dt>Address</dt><dd>2450 Fondren Rd, Suite 255, Houston, TX 77063</dd>
-                <dt>Phone</dt><dd><a href="tel:+12816548100">(281) 654-8100</a></dd>
-                <dt>Email</dt><dd><a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></dd>
-                <dt>Web</dt><dd><a href="https://atlasglinn.com/mastsolutions.html">atlasglinn.com/mastsolutions</a></dd>
-                <dt>UEI / CAGE</dt><dd class="pending">Provided on request</dd>
-                <dt>NAICS</dt><dd class="pending">Provided on request</dd>
-                <dt>Capacity</dt><dd>Individual seats, team blocks, agency and unit instruction; call for quote</dd>
-            </dl>
-        </div>
-    </div>
-    <div class="cap-actions">
-        <a href="mast-capability-statement.html" class="cta-button">View &amp; Print Capability Statement</a>
-        <a href="#cap-request" class="cta-button secondary-button">Request by Email</a>
-    </div>
-
-    <div class="cap-form reveal" id="cap-request">
-        <h3>Request <span class="gold-shimmer">Capability Statement</span></h3>
-        <p>Submit your request and we'll send the MAST Solutions capability statement directly to your email.</p>
-        <form action="mailto:atlasglinn.hq@atlasglinn.com?subject=MAST%20Solutions%20Capability%20Statement%20Request" method="post" enctype="text/plain">
-            <input type="text" name="Full Name" placeholder="Full Name" required autocomplete="name">
-            <input type="email" name="Email" placeholder="Email Address" required autocomplete="email">
-            <input type="text" name="Agency or Company" placeholder="Agency / Unit / Company" required autocomplete="organization">
-            <select name="Interest" required>
-                <option value="">What are you evaluating?</option>
-                <option value="Agency or unit training block">Agency or unit training block</option>
-                <option value="Individual course seats">Individual course seats</option>
-                <option value="RFP / RFQ">RFP / RFQ</option>
-                <option value="General inquiry">General inquiry</option>
-            </select>
-            <button type="submit" class="cta-button" style="width:100%; padding:1rem; font-size:1.1rem;">Request Capability Statement</button>
-        </form>
-    </div>
-</section>
-
-<!-- ══════════ CTA ══════════ -->
-<section class="section" id="contact">
-    <div class="cta-section reveal">
-        <div class="eyebrow">Houston, Texas</div>
-        <h2 style="margin-top:.6rem;">Train With <span class="gold-shimmer">MAST.</span></h2>
-        <p>Individual seats, team blocks, and agency instruction.</p>
-        <div class="hero-ctas">
-            <a href="#courses" class="cta-button">Book a Course</a>
-            <a href="tel:+12816548100" class="cta-button secondary-button">(281) 654-8100</a>
-        </div>
-        <div class="cta-info">
-            <span>2450 Fondren Rd, Suite 255, Houston, TX 77063</span>
-            <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a>
-        </div>
-    </div>
-</section>
-
-<!-- ══════════ FOOTER (Atlas Glinn) ══════════ -->
-<footer>
-    <div class="footer-container">
-        <div style="display:flex; align-items:center; justify-content:center; gap:4rem; padding-bottom:2.5rem; border-bottom:1px solid rgba(201,168,76,.15); margin-bottom:2.5rem; flex-wrap:wrap;">
-            <div style="text-align:center;">
-                <img src="https://atlasglinn.com/wp-content/uploads/2025/02/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" style="height:120px; filter:drop-shadow(0 0 15px rgba(201,168,76,.3));" loading="lazy">
-                <p style="font-family:'Orbitron',sans-serif; font-size:0.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#C9A84C; margin-top:0.8rem;">Best of Business 2025</p>
-            </div>
-            <div style="text-align:center;">
-                <img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" style="height:120px; filter:drop-shadow(0 0 15px rgba(201,168,76,.3));" loading="lazy">
-                <p style="font-family:'Orbitron',sans-serif; font-size:0.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#C9A84C; margin-top:0.8rem;">Chamber of Commerce</p>
-            </div>
-        </div>
-
-        <div class="footer-grid">
-            <div class="footer-section">
-                <h4>Atlas Glinn</h4>
-                <ul>
-                    <li><a href="index.html">Home</a></li>
-                    <li><a href="executive-protection.html">Executive Protection</a></li>
-                    <li><a href="residential-protection.html">Residential Protection</a></li>
-                    <li><a href="disaster-recovery.html">Disaster Recovery</a></li>
-                    <li><a href="technology.html">Technology</a></li>
-                    <li><a href="ep-app.html">Atlas EP App</a></li>
-                </ul>
-            </div>
-            <div class="footer-section">
-                <h4>MAST Solutions</h4>
-                <ul>
-                    <li><a href="#courses">Course Catalog</a></li>
-                    <li><a href="training.html">Training Programs</a></li>
-                    <li><a href="#founder">The Instructor</a></li>
-                    <li><a href="mast-capability-statement.html">Capability Statement</a></li>
-                    <li><a href="cuas-aerodefense.html">Counter-Drone Solutions</a></li>
-                </ul>
-            </div>
-            <div class="footer-section">
-                <h4>Company</h4>
-                <ul>
-                    <li><a href="about.html">About Us</a></li>
-                    <li><a href="careers.html">Careers</a></li>
-                    <li><a href="https://atlasglinn.com/blog/" target="_blank" rel="noopener">Resources</a></li>
-                    <li><a href="contact.html">Contact</a></li>
-                </ul>
-            </div>
-            <div class="footer-section">
-                <h4>Connect</h4>
-                <p style="color: #b0b0b0; margin-bottom: 1rem;">
-                    2450 Fondren Rd, Suite 255<br>Houston, TX 77063<br>
-                    <a href="tel:+12816548100" style="color: #1A6BDE;">(281) 654-8100</a><br>
-                    <a href="mailto:atlasglinn.hq@atlasglinn.com" style="color: #1A6BDE;">atlasglinn.hq@atlasglinn.com</a>
-                </p>
-                <div class="social-links">
-                    <a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>
-                    <a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>
-                    <a href="https://www.youtube.com/@mastsolutions" target="_blank" rel="noopener">YouTube</a>
-                    <a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>
-                    <a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a>
-                </div>
-            </div>
-        </div>
-        <div class="footer-bottom">
-            <p>&copy; 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved.</p>
-            <p>Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management</p>
-            <p style="margin-top:.6rem;"><a href="privacy.html" style="color:#888;">Privacy Policy</a> &nbsp;&bull;&nbsp; <a href="terms.html" style="color:#888;">Terms of Service</a></p>
-        </div>
-    </div>
-</footer>
-
-<!-- ══════════ CALENDAR MODAL ══════════ -->
+<!-- CALENDAR -->
 <div id="cal-bd" class="modal-bd" onclick="closeCal()"></div>
 <div id="cal" class="modal" role="dialog" aria-modal="true" aria-labelledby="cal-title">
     <button class="modal-x" aria-label="Close calendar" onclick="closeCal()">&times;</button>
-    <div class="eyebrow" id="cal-eyebrow">Choose your weekend</div>
+    <div class="eyebrow">Choose your weekend</div>
     <h3 id="cal-title"></h3>
     <div class="modal-meta" id="cal-meta"></div>
     <div class="modal-price" id="cal-price"></div>
-    <div class="cal-nav">
-        <button id="cal-prev" aria-label="Previous month" onclick="calShift(-1)">&#8249;</button>
-        <div class="cal-month" id="cal-month"></div>
-        <button id="cal-next" aria-label="Next month" onclick="calShift(1)">&#8250;</button>
-    </div>
+    <div class="cal-nav"><button id="cal-prev" aria-label="Previous month" onclick="calShift(-1)">&#8249;</button><div class="cal-month" id="cal-month"></div><button id="cal-next" aria-label="Next month" onclick="calShift(1)">&#8250;</button></div>
     <div class="cal-dow"><div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div></div>
     <div class="cal-grid" id="cal-grid"></div>
-    <div class="cal-legend"><span><i style="background:rgba(201,168,76,.5)"></i>Training weekend</span><span><i style="background:#1A6BDE"></i>Selected</span><span><i style="background:#333"></i>Unavailable</span></div>
+    <div class="cal-legend"><span><i style="background:rgba(201,168,76,.5)"></i>Training weekend</span><span><i style="background:#E8D27D"></i>Selected</span><span><i style="background:#333"></i>Unavailable</span></div>
     <div class="cal-quick" id="cal-quick"></div>
-    <div class="cal-foot">
-        <div class="cal-sel" id="cal-sel">Tap a highlighted date.</div>
-        <button class="cta-button" id="cal-go" disabled onclick="calContinue()">Continue &rarr;</button>
-    </div>
-    <div class="cal-hint" style="margin-top:0;padding-top:.9rem;">One-day courses run Saturday, two-day courses Saturday and Sunday. Range directions and gear list follow by email after booking.</div>
+    <div class="cal-hint" style="margin-top:1rem;">One-day courses run Saturday, two-day courses Saturday and Sunday. Range directions and gear list follow by email after booking.</div>
+    <div class="cal-foot"><div class="cal-sel" id="cal-sel">Tap a highlighted date.</div><button class="cta-button" id="cal-go" disabled onclick="calContinue()">Continue &rarr;</button></div>
 </div>
 
-<!-- ══════════ CHECKOUT SHEET ══════════ -->
+<!-- CHECKOUT -->
 <div id="sheet-bd" class="modal-bd" onclick="closeSheet()"></div>
 <div id="sheet" class="modal sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
     <button class="modal-x" aria-label="Close checkout" onclick="closeSheet()">&times;</button>
@@ -928,461 +512,375 @@
     <label for="co-name">Name <span style="color:#888">(optional)</span></label>
     <input type="text" id="co-name" placeholder="First Last" autocomplete="name">
     <label>Seats</label>
-    <div class="qty">
-        <button type="button" aria-label="Fewer seats" onclick="step(-1)">&minus;</button>
-        <span class="qv" id="co-qty">1</span>
-        <button type="button" aria-label="More seats" onclick="step(1)">+</button>
-    </div>
+    <div class="qty"><button type="button" aria-label="Fewer seats" onclick="step(-1)">&minus;</button><span class="qv" id="co-qty">1</span><button type="button" aria-label="More seats" onclick="step(1)">+</button></div>
     <div class="total"><span>Total</span><span class="amt" id="co-total">&mdash;</span></div>
     <button class="cta-button" id="co-pay" onclick="startCheckout()">Continue to Secure Checkout</button>
     <div class="secure">&#128274; PAYMENTS PROCESSED BY STRIPE</div>
-    <div class="secure" style="letter-spacing:.04em;text-transform:none;font-family:'Rajdhani',sans-serif;font-size:.85rem;">By continuing you agree to our <a href="privacy.html" target="_blank" rel="noopener" style="color:#1A6BDE;text-decoration:none;">Privacy Policy</a>. Your range address and gear list follow by email.</div>
+    <div class="secure" style="letter-spacing:.04em;text-transform:none;font-family:'Rajdhani',sans-serif;font-size:.85rem;">By continuing you agree to our <a href="privacy.html" target="_blank" rel="noopener" style="color:#E8D27D;text-decoration:none;">Privacy Policy</a>. Your range address and gear list follow by email.</div>
     <div class="err" id="co-err"></div>
 </div>
 
+<!-- QUALIFICATIONS -->
+<div id="quals-bd" class="modal-bd" onclick="closeQuals()"></div>
+<div id="quals" class="modal wide" role="dialog" aria-modal="true" aria-labelledby="quals-title">
+    <button class="modal-x" aria-label="Close" onclick="closeQuals()">&times;</button>
+    <div class="eyebrow">Matthew Brockmann</div>
+    <h3 id="quals-title">Qualifications &amp; Certifications</h3>
+    <ol class="quals-list">
+        <li>Level II&ndash;IV training for PPO license through the DPS Private Security Bureau</li>
+        <li>Tested and passed by the Texas Department of Public Safety as Qualified Manager for a Class C private security and investigations company</li>
+        <li>Level III Firearms Instructor, qualified by DPS</li>
+        <li>NRA Firearms Instructor</li>
+        <li>Completed and passed aerosol weapons (OC) training</li>
+        <li>Completed and passed expandable tactical baton training for DPS</li>
+        <li>Completed and passed the Private Investigator course for PPO; tested with HPD P.I. Detective L.K. Fauster for certificate (2011)</li>
+        <li>Tested and passed the MMPI psychologist's declaration for personal protection officer authorization</li>
+        <li>Studied under John Perretti in unarmed offense and combatives: joint control, knife, and hand combatives</li>
+        <li>Completed and passed the Blackwater HTP weapons qualification course</li>
+        <li>Tactical rifle instructor for Brian Hoffner, 2004&ndash;2006</li>
+        <li>Studied urban carbine and gunfighting through Suarez International, 2006</li>
+        <li>Studied close-range gunfighting with Suarez International, 2006</li>
+        <li>Studied team tactics with an Arizona SWAT commander and former Gunsite instructor, 2005&ndash;2007</li>
+        <li>Advanced defensive pistol, Morgan Consulting, 2006</li>
+        <li>Advanced home defense, Morgan Consulting, 2007</li>
+        <li>CQC carbine, Morgan Consulting, 2007</li>
+        <li>Advanced rifle, Suarez International, 2007</li>
+        <li>Ultimate combative skills course, Suarez International, 2008</li>
+        <li>Texas Department of Public Safety concealed handgun instructor, 2009</li>
+        <li>State of Texas handgun training certificate of completion and proficiency under Chapter 411, Subchapter H, Texas Government Code</li>
+        <li>Studied under Sonny Puzikas (retired Spetsnaz, USSR MVD) in the AK-47/74 and combatives, 2006 and 2008</li>
+        <li>Tactical rifle instructor for CSAT (Combat Shooting and Tactics) with Paul Howe; certified 2009</li>
+        <li>Magpul Dynamics with Travis Haley and Chris Costa, 2010</li>
+        <li>Worked with Bruce Gray of SIG Arms Academy and Grayguns teaching a 7-day program, 2011</li>
+        <li>Completed and passed the SureFire Low-Light Institute instructor program for law enforcement</li>
+        <li>Completed and passed the Strategos International low-light instructor course, law enforcement</li>
+        <li>Worked with HPD SWAT in tactics training; details on request</li>
+        <li>Worked with Baytown SWAT in firearms and tactics; details on request</li>
+        <li>Multi-agency training including securing the Houston Ship Channel, boarding vessels (VBSS), and seizing and controlling persons, suspects, property and threat components</li>
+        <li>Trained the 856th Military Police Company in urban operations and close-quarter combat via the Department of the Army</li>
+        <li>Trained U.S. Army units for pre-deployment (101st CQB package)</li>
+    </ol>
+</div>
+
+<script type="module">
+import * as THREE from './vendor/three.module.js';
+
+const SECTIONS = 9;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const mobile = matchMedia('(max-width: 768px)').matches;
+
+// ── Trailer intro ──
+const intro = document.getElementById('intro-seq');
+const openHero = () => {
+  intro.remove();
+  document.body.classList.add('cinema');
+  setTimeout(() => document.body.classList.remove('cinema'), 2200);
+  document.querySelector('[data-section="01"] .eyebrow').classList.add('in');
+  setTimeout(() => document.querySelector('[data-section="01"] h1.mega').classList.add('in'), 300);
+  setTimeout(() => document.querySelector('[data-section="01"] .sub').classList.add('in'), 900);
+  setTimeout(() => document.querySelector('[data-section="01"] .rise').classList.add('in'), 1200);
+  setPhoto(0);
+};
+if (reduce) { openHero(); } else {
+  setTimeout(() => { intro.classList.add('done'); setTimeout(openHero, 1000); }, 4800);
+}
+
+// ── Reticle ──
+const reticle = document.querySelector('.reticle');
+let cx = innerWidth / 2, cy = innerHeight / 2, rx = cx, ry = cy;
+addEventListener('mousemove', e => { cx = e.clientX; cy = e.clientY; });
+
+// ── Photography layer ──
+const phs = [...document.querySelectorAll('#photos .ph')];
+let photoIdx = -1;
+function setPhoto(i) { if (i === photoIdx) return; photoIdx = i; phs.forEach((p, k) => p.classList.toggle('on', k === i)); }
+
+// ── Three: the Tier 3 emblem scene ──
+const canvas = document.getElementById('three-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, alpha: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.5 : 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050810);
+scene.fog = new THREE.FogExp2(0x0B1221, 0.03);
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 1000);
+camera.position.set(0, 0, 9);
+
+// Lights — all warm
+scene.add(new THREE.AmbientLight(0x1a1208, 0.5));
+const keyL = new THREE.DirectionalLight(0xC9A84C, 3.0); keyL.position.set(6, 10, 7); scene.add(keyL);
+const rimL = new THREE.DirectionalLight(0xB87333, 1.6); rimL.position.set(-7, -4, -5); scene.add(rimL);
+const fillL = new THREE.DirectionalLight(0xE8D27D, 0.9); fillL.position.set(0, -8, 3); scene.add(fillL);
+const pt = new THREE.PointLight(0xFCF6BA, 3.5, 18); pt.position.set(0, 0, 4); scene.add(pt);
+
+// Reflective floor
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(140, 140, 40, 40),
+  new THREE.MeshStandardMaterial({ color: 0x0B1221, metalness: .95, roughness: .28, emissive: 0x080808, emissiveIntensity: .15 }));
+floor.rotation.x = -Math.PI / 2; floor.position.y = -4.5; scene.add(floor);
+
+// Distant peaks
+const peaks = new THREE.Group();
+for (let i = 0; i < 11; i++) {
+  const m = new THREE.Mesh(new THREE.ConeGeometry(2 + Math.random() * 2.2, 4.5 + Math.random() * 4, 5),
+    new THREE.MeshStandardMaterial({ color: 0x0B1221, roughness: 1, metalness: 0 }));
+  m.position.set(-34 + i * 7 + Math.random() * 3, -3.5, -23 - Math.random() * 7);
+  m.rotation.y = Math.random() * Math.PI; peaks.add(m);
+}
+scene.add(peaks);
+
+// Hero emblem: hexagonal shield, rings, bars, gem, shards
+const emblem = new THREE.Group();
+const gold = new THREE.MeshStandardMaterial({ color: 0xC9A84C, metalness: 1, roughness: .12, emissive: 0x2a1f08, emissiveIntensity: .4 });
+const copper = new THREE.MeshStandardMaterial({ color: 0xB87333, metalness: 1, roughness: .18, emissive: 0x3a1a08, emissiveIntensity: .5 });
+const champagne = new THREE.MeshStandardMaterial({ color: 0xE8D27D, metalness: 1, roughness: .1, emissive: 0x443311, emissiveIntensity: .8 });
+const shield = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.3, 0.4, 6), gold); shield.rotation.x = Math.PI / 2; emblem.add(shield);
+const innerHex = new THREE.Mesh(new THREE.CylinderGeometry(1.75, 1.75, 0.45, 6), new THREE.MeshStandardMaterial({ color: 0x050810, metalness: .6, roughness: .4 }));
+innerHex.rotation.x = Math.PI / 2; emblem.add(innerHex);
+for (let i = 0; i < 3; i++) { const ring = new THREE.Mesh(new THREE.TorusGeometry(1.85 + i * .18, .028, 16, 128), i === 1 ? champagne : gold); ring.rotation.x = i * .08; ring.rotation.z = i * .08; emblem.add(ring); }
+for (let i = 0; i < 3; i++) { const bar = new THREE.Mesh(new THREE.BoxGeometry(.12, 2.8, .12), gold); bar.rotation.z = (Math.PI / 3) * i; emblem.add(bar); }
+emblem.add(new THREE.Mesh(new THREE.IcosahedronGeometry(.4, 1), copper));
+const shards = [];
+for (let i = 0; i < 10; i++) {
+  const s = new THREE.Mesh(new THREE.OctahedronGeometry(.08, 0), i % 2 ? champagne : gold);
+  s.userData = { a: (Math.PI * 2 * i) / 10, r: 2.6 + Math.random() * .5, sp: .4 + Math.random() * .3 };
+  emblem.add(s); shards.push(s);
+}
+scene.add(emblem);
+
+// God rays
+const rays = new THREE.Group();
+for (let i = 0; i < 14; i++) {
+  const r = new THREE.Mesh(new THREE.ConeGeometry(.08, 16, 8, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xC9A84C, transparent: true, opacity: .04, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+  r.rotation.z = (Math.PI * 2 * i) / 14; r.position.z = -2; rays.add(r);
+}
+scene.add(rays);
+
+// Particles: gold dust + champagne sparks
+function pts(count, color, size, range) {
+  const g = new THREE.BufferGeometry(); const p = new Float32Array(count * 3), v = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) { p[i*3] = (Math.random() - .5) * range; p[i*3+1] = (Math.random() - .5) * range * .7; p[i*3+2] = (Math.random() - .5) * range; v[i*3] = (Math.random() - .5) * .002; v[i*3+1] = (Math.random() - .5) * .002; v[i*3+2] = (Math.random() - .5) * .002; }
+  g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  const o = new THREE.Points(g, new THREE.PointsMaterial({ color, size, transparent: true, opacity: .65, blending: THREE.AdditiveBlending, depthWrite: false }));
+  o.userData = { v }; return o;
+}
+const gd = pts(mobile ? 220 : 600, 0xC9A84C, .035, 40), ch = pts(mobile ? 60 : 150, 0xE8D27D, .028, 30);
+scene.add(gd); scene.add(ch);
+
+// Stars
+const sg = new THREE.BufferGeometry(); const sp = new Float32Array(2200 * 3);
+for (let i = 0; i < 2200; i++) { const r = 80 + Math.random() * 40, th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1); sp[i*3] = r * Math.sin(ph) * Math.cos(th); sp[i*3+1] = r * Math.cos(ph); sp[i*3+2] = r * Math.sin(ph) * Math.sin(th); }
+sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+const stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xF0F4FF, size: .15, transparent: true, opacity: .5 }));
+scene.add(stars);
+
+// Scroll-driven camera: one keyframe per chapter
+const secs = document.querySelectorAll('section.panel');
+const chapLinks = document.querySelectorAll('.chap-link');
+const lerp = (a, b, t) => a + (b - a) * t;
+const kf = [
+  { x: 0, y: 0, z: 9, lx: 0, ly: 0, lz: 0 },
+  { x: 3, y: 1, z: 11, lx: 0, ly: 0, lz: 0 },
+  { x: -3, y: 2, z: 13, lx: 0, ly: -1, lz: 0 },
+  { x: 4, y: 3, z: 14, lx: 0, ly: -.5, lz: 0 },
+  { x: -4, y: 1, z: 12, lx: 0, ly: 0, lz: 0 },
+  { x: 0, y: -2, z: 10, lx: 0, ly: .5, lz: 0 },
+  { x: 2, y: -3, z: 13, lx: 0, ly: 1, lz: 0 },
+  { x: -2, y: -3.5, z: 15, lx: 0, ly: 1.5, lz: 0 },
+  { x: 0, y: -4, z: 18, lx: 0, ly: 2, lz: 0 },
+];
+let activeIdx = 0;
+function sectionIndex() {
+  const mid = innerHeight * .45; let idx = 0;
+  secs.forEach((s, i) => { if (s.getBoundingClientRect().top <= mid) idx = i; });
+  return idx;
+}
+function update() {
+  const total = document.documentElement.scrollHeight - innerHeight;
+  const t = Math.max(0, Math.min(1, scrollY / Math.max(1, total)));
+  const sc = t * (kf.length - 1), i = Math.floor(sc), f = sc - i;
+  const a = kf[i], b = kf[Math.min(i + 1, kf.length - 1)];
+  camera.position.set(lerp(a.x, b.x, f), lerp(a.y, b.y, f), lerp(a.z, b.z, f));
+  camera.lookAt(lerp(a.lx, b.lx, f), lerp(a.ly, b.ly, f), lerp(a.lz, b.lz, f));
+  const now = performance.now();
+  emblem.rotation.y += 0.004; emblem.rotation.x = Math.sin(now * .0004) * .14;
+  shards.forEach(s => { const ang = s.userData.a + now * .0002 * s.userData.sp; s.position.set(Math.cos(ang) * s.userData.r, Math.sin(ang * 1.3) * .6, Math.sin(ang) * s.userData.r); s.rotation.x += .02; s.rotation.y += .015; });
+  rays.rotation.z += .001;
+  emblem.position.y = -t * 2; emblem.scale.setScalar(1 - t * .25);
+  [gd, ch].forEach(p => { const pos = p.geometry.attributes.position.array, v = p.userData.v; for (let k = 0; k < pos.length; k++) pos[k] += v[k]; p.geometry.attributes.position.needsUpdate = true; });
+  gd.rotation.y = t * .3; ch.rotation.y = -t * .2; stars.rotation.y += .0002;
+  scene.fog.density = 0.03 + t * .025;
+  document.getElementById('progress').style.width = (t * 100) + '%';
+  const idx = sectionIndex();
+  if (idx !== activeIdx) { activeIdx = idx; document.getElementById('hud-section').textContent = `SECTION 0${idx + 1} / 0${SECTIONS}`; chapLinks.forEach((l, k) => l.classList.toggle('active', k === idx)); }
+  if (!intro.isConnected) setPhoto(idx);
+}
+addEventListener('scroll', update, { passive: true });
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+let mx = 0;
+addEventListener('mousemove', e => { mx = (e.clientX / innerWidth - .5) * 2; });
+let paused = false;
+document.addEventListener('visibilitychange', () => { paused = document.hidden; if (!paused) animate(); });
+function animate() {
+  if (paused) return;
+  requestAnimationFrame(animate);
+  emblem.position.x += (mx * .4 - emblem.position.x) * .04;
+  rx = lerp(rx, cx, .22); ry = lerp(ry, cy, .22);
+  reticle.style.transform = `translate(${rx}px,${ry}px) translate(-50%,-50%)`;
+  update(); renderer.render(scene, camera);
+}
+animate();
+
+// Reveals, counters, trailer cuts
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    if (e.target.dataset.section !== '01' && !reduce) { document.body.classList.add('cinema'); setTimeout(() => document.body.classList.remove('cinema'), 1600); }
+    e.target.querySelectorAll('.eyebrow, h2.section-h, .sub, h1.mega, .rise').forEach(el => el.classList.add('in'));
+    e.target.querySelectorAll('.stat-num[data-count]').forEach(el => {
+      if (el.dataset.done) return; el.dataset.done = '1';
+      const target = +el.dataset.count, duration = 1600, start = performance.now(), suffix = el.dataset.suffix || '';
+      const tick = now => { const p = Math.min(1, (now - start) / duration); const eased = 1 - Math.pow(1 - p, 3); el.textContent = Math.floor(target * eased).toLocaleString('en-US') + suffix; if (p < 1) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    });
+  });
+}, { threshold: .25 });
+secs.forEach(s => io.observe(s));
+</script>
 <script>
 'use strict';
-
-/* ── Booking backend — Cloudflare Worker (mast-backend/). The page sends a SKU
-   and a training-weekend date; the Worker holds the authoritative price and
-   the weekend list, so a tampered request cannot set its own amount or book a
-   blocked weekend. ── */
 const API = 'https://mast-booking-backend.matthew-221.workers.dev';
-const BOOKING_ENDPOINT  = API + '/create-booking';
-const CATALOG_ENDPOINT  = API + '/catalog';
-const WEEKENDS_ENDPOINT = API + '/weekends';
+const BOOKING_ENDPOINT = API + '/create-booking', CATALOG_ENDPOINT = API + '/catalog', WEEKENDS_ENDPOINT = API + '/weekends';
 
-/* Twenty-one courses. price_cents is DISPLAY ONLY; the Worker's D1 `offerings`
-   table decides what Stripe charges. SKUs must match mast-backend/schema.sql. */
 const COURSES = [
-  { sku:'MAST-HG-FUND',  cat:'Handgun',         name:'Handgun Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16, desc:'Grip, stance, sights, trigger. The base every other course builds on.' },
-  { sku:'MAST-HG-OP',    cat:'Handgun',         name:'Handgun Operator',                hours:16, days:2, price_cents:45000, seats:10, desc:'Two days past the fundamentals — movement, transitions, and fighting platforms.' },
-  { sku:'MAST-CAR-FUND', cat:'Carbine',         name:'Carbine Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16, desc:'Zero, manipulation, and marksmanship with the carbine.' },
-  { sku:'MAST-CAR-OP',   cat:'Carbine',         name:'Carbine Operator',                hours:16, days:2, price_cents:45000, seats:10, desc:'Two days of carbine work under movement and time pressure.' },
-  { sku:'MAST-SG-FUND',  cat:'Shotgun',         name:'Shotgun Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16, desc:'Loading under stress, patterning, transitions, and structure work.' },
-  { sku:'MAST-SUB-FUND', cat:'Sub-Gun',         name:'Sub-Gun Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16, desc:'MP5 and variants, 9mm carbine and variants.' },
-  { sku:'MAST-SUB-P1',   cat:'Sub-Gun',         name:'Sub-Gun P1',                      hours:8,  days:1, price_cents:25000, seats:10, desc:'Phase one sub-gun employment.' },
-  { sku:'MAST-SF-P1',    cat:'Select-Fire',     name:'Select-Fire M4A1 / MK18 Operator P1', hours:8, days:1, price_cents:50000, seats:10, desc:'Select-fire employment on the M4A1 / MK18 platform.' },
-  { sku:'MAST-SF-P2',    cat:'Select-Fire',     name:'Select-Fire M4A1 / MK18 Operator P2', hours:16, days:2, price_cents:95000, seats:10, desc:'Day one live-fire range. Day two CQB shoothouse. UTM rounds sold separately — bolts provided.' },
-  { sku:'MAST-LL-FUND',  cat:'Low-Light / NVG', name:'Low-Light Fundamentals',          hours:8,  days:1, price_cents:22500, seats:16, desc:'Marksmanship and manipulation in the light you will actually have.' },
-  { sku:'MAST-LL-P1',    cat:'Low-Light / NVG', name:'Low-Light Operator P1',           hours:16, days:2, price_cents:45000, seats:10, desc:'Two days working the transition from low light to no light.' },
-  { sku:'MAST-NVG-P1',   cat:'Low-Light / NVG', name:'Low-Light / No-Light NVG Operator P1', hours:16, days:2, price_cents:50000, seats:10, desc:'Night vision employment, phase one.' },
-  { sku:'MAST-NVG-P2',   cat:'Low-Light / NVG', name:'NVG Operator P2',                 hours:16, days:2, price_cents:95000, seats:10, desc:'Advanced night vision employment.' },
-  { sku:'MAST-TEAM-P1',  cat:'Team Tactics',    name:'Team Tactics P1',                 hours:16, days:2, price_cents:45000, seats:10, desc:'Working as an element rather than as individuals.' },
-  { sku:'MAST-TEAM-P2',  cat:'Team Tactics',    name:'Team Tactics P2',                 hours:16, days:2, price_cents:47500, seats:10, desc:'Mechanics, movement, comms and signal.' },
-  { sku:'MAST-HPP-P1',   cat:'Protective',      name:'Home & Property Protection P1',   hours:8,  days:1, price_cents:25000, seats:10, desc:'Defending the place you live, phase one.' },
-  { sku:'MAST-VEH-P1',   cat:'Protective',      name:'Vehicular Tactics P1',            hours:8,  days:1, price_cents:22500, seats:10, desc:'Working in and around the vehicle.' },
-  { sku:'MAST-VEH-P2',   cat:'Protective',      name:'Vehicular Tactics / Team Tactics P2', hours:16, days:2, price_cents:50000, seats:10, desc:'Vehicle work as a team over two days.' },
-  { sku:'MAST-MOTOR-P1', cat:'Protective',      name:'Motorcade P1',                    hours:0,  days:0, price_cents:0,     seats:10, desc:'Motorcade operations, phase one. Call for pricing and dates.' },
-  { sku:'MAST-MOTOR-P2', cat:'Protective',      name:'Motorcade P2',                    hours:0,  days:0, price_cents:0,     seats:10, desc:'Motorcade operations, phase two. Call for pricing and dates.' },
+  { sku:'MAST-HG-FUND',  cat:'Handgun',         name:'Handgun Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16 },
+  { sku:'MAST-HG-OP',    cat:'Handgun',         name:'Handgun Operator',                hours:16, days:2, price_cents:45000, seats:10 },
+  { sku:'MAST-CAR-FUND', cat:'Carbine',         name:'Carbine Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16 },
+  { sku:'MAST-CAR-OP',   cat:'Carbine',         name:'Carbine Operator',                hours:16, days:2, price_cents:45000, seats:10 },
+  { sku:'MAST-SG-FUND',  cat:'Shotgun',         name:'Shotgun Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16 },
+  { sku:'MAST-SUB-FUND', cat:'Sub-Gun',         name:'Sub-Gun Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16 },
+  { sku:'MAST-SUB-P1',   cat:'Sub-Gun',         name:'Sub-Gun P1',                      hours:8,  days:1, price_cents:25000, seats:10 },
+  { sku:'MAST-SF-P1',    cat:'Select-Fire',     name:'Select-Fire M4A1 / MK18 Operator P1', hours:8, days:1, price_cents:50000, seats:10 },
+  { sku:'MAST-SF-P2',    cat:'Select-Fire',     name:'Select-Fire M4A1 / MK18 Operator P2', hours:16, days:2, price_cents:95000, seats:10 },
+  { sku:'MAST-LL-FUND',  cat:'Low-Light / NVG', name:'Low-Light Fundamentals',          hours:8,  days:1, price_cents:22500, seats:16 },
+  { sku:'MAST-LL-P1',    cat:'Low-Light / NVG', name:'Low-Light Operator P1',           hours:16, days:2, price_cents:45000, seats:10 },
+  { sku:'MAST-NVG-P1',   cat:'Low-Light / NVG', name:'Low-Light / No-Light NVG Operator P1', hours:16, days:2, price_cents:50000, seats:10 },
+  { sku:'MAST-NVG-P2',   cat:'Low-Light / NVG', name:'NVG Operator P2',                 hours:16, days:2, price_cents:95000, seats:10 },
+  { sku:'MAST-TEAM-P1',  cat:'Team Tactics',    name:'Team Tactics P1',                 hours:16, days:2, price_cents:45000, seats:10 },
+  { sku:'MAST-TEAM-P2',  cat:'Team Tactics',    name:'Team Tactics P2',                 hours:16, days:2, price_cents:47500, seats:10 },
+  { sku:'MAST-HPP-P1',   cat:'Protective',      name:'Home & Property Protection P1',   hours:8,  days:1, price_cents:25000, seats:10 },
+  { sku:'MAST-VEH-P1',   cat:'Protective',      name:'Vehicular Tactics P1',            hours:8,  days:1, price_cents:22500, seats:10 },
+  { sku:'MAST-VEH-P2',   cat:'Protective',      name:'Vehicular Tactics / Team Tactics P2', hours:16, days:2, price_cents:50000, seats:10 },
+  { sku:'MAST-MOTOR-P1', cat:'Protective',      name:'Motorcade P1',                    hours:0,  days:0, price_cents:0,     seats:10 },
+  { sku:'MAST-MOTOR-P2', cat:'Protective',      name:'Motorcade P2',                    hours:0,  days:0, price_cents:0,     seats:10 },
   /* Private instruction — by arrangement, not on the weekend calendar. Priced per the owner's 2026-09 progression sheet. */
-  { sku:'MAST-PVT-2H',    cat:'Private Instruction', name:'Private Session',                    request:true, price_cents:35000,  meta:'2 HRS · ONE-ON-ONE · +$100 EACH ADDITIONAL HOUR', desc:'Two hours with a lead instructor on the phase you are in. Longer sessions by the hour.' },
-  { sku:'MAST-PVT-FOUND', cat:'Private Instruction', name:'Foundation Package — Phases 1–4',    request:true, price_cents:125000, meta:'4 PHASES · PREPAID · $1,400 À LA CARTE', desc:'Handgun Fundamentals, Medical, Concealment and Environmental Considerations, in order.' },
-  { sku:'MAST-PVT-FULL',  cat:'Private Instruction', name:'Full Progression — Phases 1–11',     request:true, price_cents:330000, meta:'11 PHASES · PREPAID · $3,850 À LA CARTE', desc:'The whole path, Handgun Fundamentals through the Low-Light and No-Light capstone.' },
-  { sku:'MAST-GEAR',     cat:'Gear',            name:'Gear & Kit Considerations',       hours:24, days:3, price_cents:75000, seats:10, desc:'Go bag, shelter-in-place, urban movement, low-vis and high-vis, individual and team.' },
+  { sku:'MAST-PVT-2H',    cat:'Private Instruction', name:'Private Session',                 request:true, price_cents:35000,  meta:'2 HRS · ONE-ON-ONE · +$100 EACH ADDITIONAL HOUR' },
+  { sku:'MAST-PVT-FOUND', cat:'Private Instruction', name:'Foundation Package — Phases 1–4', request:true, price_cents:125000, meta:'4 PHASES · PREPAID · $1,400 À LA CARTE' },
+  { sku:'MAST-PVT-FULL',  cat:'Private Instruction', name:'Full Progression — Phases 1–11',  request:true, price_cents:330000, meta:'11 PHASES · PREPAID · $3,850 À LA CARTE' },
+  { sku:'MAST-GEAR',     cat:'Gear',            name:'Gear & Kit Considerations',       hours:24, days:3, price_cents:75000, seats:10 },
 ];
+if (location.hash === '#test') COURSES.push({ sku:'MAST-TEST', cat:'Test', name:'Live payment test seat', hours:1, days:1, price_cents:100, seats:1 });
 
-/* Training weekends — owner's 2026-27 schedule. Mirrors mast-backend/schema.sql.
-   The Worker's /weekends endpoint overrides this list when it answers, so the
-   owner can block or open a weekend without touching the page. */
 let WEEKENDS = [
-  ['2026-09-26','September — last weekend'],
-  ['2026-10-10','October — 2nd weekend'],
-  ['2026-10-24','October — 4th weekend'],
-  ['2026-10-31','October — 5th weekend','blocked'],
-  ['2026-11-14','November — 2nd weekend'],
-  ['2026-12-12','December — 2nd weekend'],
-  ['2027-01-09','January — 2nd weekend'],
-  ['2027-01-23','January — 4th weekend'],
-  ['2027-01-30','January — 5th weekend'],
-  ['2027-02-13','February — 2nd weekend'],
-  ['2027-02-27','February — 4th weekend'],
-  ['2027-03-13','March — 2nd weekend'],
-  ['2027-03-27','March — 4th weekend'],
-  ['2027-04-10','April — 2nd weekend'],
-  ['2027-04-24','April — 4th weekend'],
+  ['2026-09-26','September — last weekend'],['2026-10-10','October — 2nd weekend'],['2026-10-24','October — 4th weekend'],['2026-10-31','October — 5th weekend','blocked'],
+  ['2026-11-14','November — 2nd weekend'],['2026-12-12','December — 2nd weekend'],['2027-01-09','January — 2nd weekend'],['2027-01-23','January — 4th weekend'],['2027-01-30','January — 5th weekend'],
+  ['2027-02-13','February — 2nd weekend'],['2027-02-27','February — 4th weekend'],['2027-03-13','March — 2nd weekend'],['2027-03-27','March — 4th weekend'],['2027-04-10','April — 2nd weekend'],['2027-04-24','April — 4th weekend'],
 ].map(([saturday, label, status]) => ({ saturday, label, status: status || 'available' }));
-
-/* Go-live test: open the page with #test in the address to reveal a $1.00 seat
-   that runs the real Stripe pipeline. Remove after the first live order. */
-if (location.hash === '#test') {
-  COURSES.push({ sku:'MAST-TEST', cat:'Test', name:'Live payment test seat', hours:1, days:1, price_cents:100, seats:1, desc:'Owner-only $1.00 charge to verify the live payment pipeline. Refund after.' });
-}
 
 const $ = id => document.getElementById(id);
 const money = c => '$' + (c/100).toLocaleString('en-US', { minimumFractionDigits: c % 100 ? 2 : 0 });
-const metaFor = c => c.meta ? c.meta : c.days ? `${c.hours} HRS · ${c.days} DAY${c.days > 1 ? 'S' : ''} · ${c.seats} SEATS MAX` : `CALL FOR DETAILS · ${c.seats} SEATS MAX`;
+const metaFor = c => c.meta ? c.meta : c.days ? `${c.hours} HRS · ${c.days} DAY${c.days > 1 ? 'S' : ''} · ${c.seats} SEATS` : `CALL FOR DETAILS`;
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 
-/* ── Catalog: one drop-down per discipline ── */
+/* Catalog */
 const CATS = [...new Set(COURSES.map(c => c.cat))];
 const CAT_NOTES = { 'Private Instruction': 'The path: Handgun Fundamentals &rarr; Medical &rarr; Concealment &rarr; Environmental Considerations &rarr; Kit &harr; Vehicle Bag &rarr; Carbine &harr; Shoot-house &rarr; Shotgun &harr; Vehicular &rarr; Low-Light + No-Light, the capstone. Paired phases run in either order. Sessions are scheduled by arrangement, not on the weekend calendar. Instruction only; ammunition, range fees and gear are separate.' };
-function renderCatalog(){
-  $('catalog').innerHTML = CATS.map((cat, ci) => {
-    const items = COURSES.map((c, i) => ({ c, i })).filter(x => x.c.cat === cat);
-    return `<div class="cat${ci === 0 ? ' open' : ''}" id="cat-${ci}">
-      <button class="cat-btn" aria-expanded="${ci === 0}" aria-controls="panel-${ci}" onclick="toggleCat(${ci})">
-        <span class="cat-name">All ${cat}</span>
-        <span class="cat-count">${items.length} ${cat === 'Private Instruction' ? 'option' : 'course'}${items.length > 1 ? 's' : ''}</span>
-        <span class="cat-chev" aria-hidden="true">&#9662;</span>
-      </button>
-      <div class="cat-panel" id="panel-${ci}">` + (CAT_NOTES[cat] ? `<p class="cat-note">${CAT_NOTES[cat]}</p>` : '') +
-      items.map(({ c, i }) => c.request
-        ? `<div class="course-row call">
-            <div><div class="cr-name">${c.name}</div><div class="cr-meta">${metaFor(c)}</div><p class="cr-desc">${c.desc}</p></div>
-            <div class="cr-side"><div class="cr-price">${money(c.price_cents)}<small>INSTRUCTION ONLY</small></div><a class="cta-button cr-btn" href="${'mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent('Private instruction — ' + c.name)}">Request</a></div>
-          </div>`
-        : c.price_cents
-        ? `<div class="course-row" role="button" tabindex="0" onclick="openCal(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCal(${i});}">
-            <div><div class="cr-name">${c.name}</div><div class="cr-meta">${metaFor(c)}</div><p class="cr-desc">${c.desc}</p></div>
-            <div class="cr-side"><div class="cr-price" data-sku="${c.sku}">${money(c.price_cents)}<small>PER SEAT</small></div><span class="cta-button cr-btn">Select Date</span></div>
-          </div>`
-        : `<div class="course-row call">
-            <div><div class="cr-name">${c.name}</div><div class="cr-meta">${metaFor(c)}</div><p class="cr-desc">${c.desc}</p></div>
-            <div class="cr-side"><div class="cr-price">CALL<small>FOR PRICING</small></div><a class="cta-button gold-button cr-btn" href="tel:+12816548100">Call</a></div>
-          </div>`).join('') +
-      `</div></div>`;
-  }).join('');
-}
-function toggleCat(ci){
-  const el = $('cat-' + ci);
-  const open = el.classList.toggle('open');
-  el.querySelector('.cat-btn').setAttribute('aria-expanded', open);
-}
-function toggleQuals(){
-  const el = $('quals');
-  const open = el.classList.toggle('open');
-  el.querySelector('.quals-btn').setAttribute('aria-expanded', open);
-}
-renderCatalog();
+$('catalog').innerHTML = CATS.map((cat, ci) => {
+  const items = COURSES.map((c, i) => ({ c, i })).filter(x => x.c.cat === cat);
+  return `<div class="cat${ci === 0 ? ' open' : ''}" id="cat-${ci}"><button class="cat-btn" aria-expanded="${ci === 0}" onclick="toggleCat(${ci})"><span class="cat-name">All ${esc(cat)}</span><span class="cat-count">${items.length} ${cat === 'Private Instruction' ? 'option' : 'course'}${items.length > 1 ? 's' : ''}</span><span class="cat-chev" aria-hidden="true">&#9662;</span></button><div class="cat-panel">` + (CAT_NOTES[cat] ? `<p class="cat-note">${CAT_NOTES[cat]}</p>` : '') +
+    items.map(({ c, i }) => c.request
+      ? `<div class="course-row call"><div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaFor(c)}</div></div><div class="cr-side"><div class="cr-price">${money(c.price_cents)}<small>INSTRUCTION ONLY</small></div><a class="cta-button cr-btn" href="${'mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent('Private instruction — ' + c.name)}">Request</a></div></div>`
+      : c.price_cents
+      ? `<div class="course-row" role="button" tabindex="0" onclick="openCal(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCal(${i});}"><div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaFor(c)}</div></div><div class="cr-side"><div class="cr-price" data-sku="${c.sku}">${money(c.price_cents)}<small>PER SEAT</small></div><span class="cta-button cr-btn">Select Date</span></div></div>`
+      : `<div class="course-row call"><div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaFor(c)}</div></div><div class="cr-side"><div class="cr-price">CALL<small>FOR PRICING</small></div><a class="cta-button ghost-button cr-btn" href="tel:+12816548100">Call</a></div></div>`).join('') + `</div></div>`;
+}).join('');
+function toggleCat(ci){ const el = $('cat-' + ci); const open = el.classList.toggle('open'); el.querySelector('.cat-btn').setAttribute('aria-expanded', open); }
+fetch(CATALOG_ENDPOINT).then(r => r.ok ? r.json() : null).then(d => { if (!d || !d.classes) return; const by = Object.fromEntries(d.classes.map(c => [c.sku, c.price_cents])); COURSES.forEach(c => { if (by[c.sku]) { c.price_cents = by[c.sku]; const el = document.querySelector(`.cr-price[data-sku="${c.sku}"]`); if (el) el.innerHTML = money(c.price_cents) + '<small>PER SEAT</small>'; } }); }).catch(() => {});
+fetch(WEEKENDS_ENDPOINT).then(r => r.ok ? r.json() : null).then(d => { if (d && Array.isArray(d.weekends) && d.weekends.length) WEEKENDS = d.weekends.map(w => ({ saturday: w.saturday, label: w.label || '', status: w.status || 'available' })); }).catch(() => {});
 
-/* Live prices from the Worker so the page and Stripe never disagree. */
-fetch(CATALOG_ENDPOINT).then(r => r.ok ? r.json() : null).then(d => {
-  if (!d || !d.classes) return;
-  const bySku = Object.fromEntries(d.classes.map(c => [c.sku, c.price_cents]));
-  COURSES.forEach(c => {
-    if (bySku[c.sku]) {
-      c.price_cents = bySku[c.sku];
-      const el = document.querySelector(`.cr-price[data-sku="${c.sku}"]`);
-      if (el) el.innerHTML = money(c.price_cents) + '<small>PER SEAT</small>';
-    }
-  });
-}).catch(() => {});
-
-/* Live weekend list (owner can block/open weekends in D1). */
-fetch(WEEKENDS_ENDPOINT).then(r => r.ok ? r.json() : null).then(d => {
-  if (d && Array.isArray(d.weekends) && d.weekends.length) {
-    WEEKENDS = d.weekends.map(w => ({ saturday: w.saturday, label: w.label || '', status: w.status || 'available' }));
-  }
-}).catch(() => {});
-
-/* ── Calendar ── */
+/* Calendar */
 const parseISO = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
 const keyOf = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-let calCourse = null, calIdx = 0, calMonth = null, chosen = null, lastFocus = null;
-
-function weekendDates(w, days){
-  const sat = parseISO(w.saturday), out = [];
-  const start = days === 3 ? -1 : 0, n = days === 1 ? 1 : (days === 3 ? 3 : 2);
-  for (let k = 0; k < n; k++) { const d = new Date(sat); d.setDate(sat.getDate() + start + k); out.push(d); }
-  return out;
-}
-function labelFor(w, days){
-  const ds = weekendDates(w, days), a = ds[0], b = ds[ds.length - 1];
-  const mo = d => d.toLocaleDateString('en-US', { month: 'short' });
-  if (ds.length === 1) return a.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-  const wd = ds.length === 2 ? 'Sat–Sun' : 'Fri–Sun';
-  const range = a.getMonth() === b.getMonth() ? `${mo(a)} ${a.getDate()}–${b.getDate()}` : `${mo(a)} ${a.getDate()} – ${mo(b)} ${b.getDate()}`;
-  return `${wd}, ${range}, ${b.getFullYear()}`;
-}
+let calCourse = null, calMonth = null, chosen = null, lastFocus = null;
+function weekendDates(w, days){ const sat = parseISO(w.saturday), out = []; const start = days === 3 ? -1 : 0, n = days === 1 ? 1 : (days === 3 ? 3 : 2); for (let k = 0; k < n; k++) { const d = new Date(sat); d.setDate(sat.getDate() + start + k); out.push(d); } return out; }
+function labelFor(w, days){ const ds = weekendDates(w, days), a = ds[0], b = ds[ds.length - 1]; const mo = d => d.toLocaleDateString('en-US', { month: 'short' }); if (ds.length === 1) return a.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }); const wd = ds.length === 2 ? 'Sat–Sun' : 'Fri–Sun'; const range = a.getMonth() === b.getMonth() ? `${mo(a)} ${a.getDate()}–${b.getDate()}` : `${mo(a)} ${a.getDate()} – ${mo(b)} ${b.getDate()}`; return `${wd}, ${range}, ${b.getFullYear()}`; }
 function isPast(w){ const t = new Date(); t.setHours(0,0,0,0); return parseISO(w.saturday) < t; }
 function bookable(w){ return (w.status === 'available' || w.status === 'scheduled') && !isPast(w); }
-
-function openCal(i){
-  calCourse = COURSES[i]; calIdx = i; chosen = null;
-  lastFocus = document.activeElement;
-  $('cal-title').textContent = calCourse.name;
-  $('cal-meta').textContent = metaFor(calCourse);
-  $('cal-price').textContent = money(calCourse.price_cents) + ' per seat';
-  const first = WEEKENDS.find(bookable) || WEEKENDS[0];
-  const fd = parseISO(first.saturday);
-  calMonth = new Date(fd.getFullYear(), fd.getMonth(), 1);
-  renderCal();
-  $('cal-bd').classList.add('open'); $('cal').classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-function closeCal(){
-  $('cal-bd').classList.remove('open'); $('cal').classList.remove('open');
-  document.body.style.overflow = '';
-  if (lastFocus && lastFocus.focus) lastFocus.focus();
-}
-function calBounds(){
-  const a = parseISO(WEEKENDS[0].saturday), b = parseISO(WEEKENDS[WEEKENDS.length - 1].saturday);
-  return { min: new Date(a.getFullYear(), a.getMonth(), 1), max: new Date(b.getFullYear(), b.getMonth(), 1) };
-}
-function calShift(n){
-  const { min, max } = calBounds();
-  const next = new Date(calMonth.getFullYear(), calMonth.getMonth() + n, 1);
-  if (next < min || next > max) return;
-  calMonth = next; renderCal();
-}
+function openCal(i){ calCourse = COURSES[i]; chosen = null; lastFocus = document.activeElement; $('cal-title').textContent = calCourse.name; $('cal-meta').textContent = metaFor(calCourse); $('cal-price').textContent = money(calCourse.price_cents) + ' per seat'; const first = WEEKENDS.find(bookable) || WEEKENDS[0]; const fd = parseISO(first.saturday); calMonth = new Date(fd.getFullYear(), fd.getMonth(), 1); renderCal(); $('cal-bd').classList.add('open'); $('cal').classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeCal(){ $('cal-bd').classList.remove('open'); $('cal').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+function calBounds(){ const a = parseISO(WEEKENDS[0].saturday), b = parseISO(WEEKENDS[WEEKENDS.length - 1].saturday); return { min: new Date(a.getFullYear(), a.getMonth(), 1), max: new Date(b.getFullYear(), b.getMonth(), 1) }; }
+function calShift(n){ const { min, max } = calBounds(); const next = new Date(calMonth.getFullYear(), calMonth.getMonth() + n, 1); if (next < min || next > max) return; calMonth = next; renderCal(); }
 function renderCal(){
-  const { min, max } = calBounds();
-  $('cal-month').textContent = MONTHS[calMonth.getMonth()] + ' ' + calMonth.getFullYear();
-  $('cal-prev').disabled = calMonth <= min;
-  $('cal-next').disabled = calMonth >= max;
-
-  // Map every day that belongs to a weekend (for this course's length) to that weekend.
-  const dayMap = {};
-  WEEKENDS.forEach((w, wi) => weekendDates(w, calCourse.days).forEach(d => { dayMap[keyOf(d)] = wi; }));
-
-  const y = calMonth.getFullYear(), m = calMonth.getMonth();
-  const firstDow = new Date(y, m, 1).getDay();
-  const gridStart = new Date(y, m, 1 - firstDow);
-  let html = '';
-  for (let k = 0; k < 42; k++) {
-    const d = new Date(gridStart); d.setDate(gridStart.getDate() + k);
-    const key = keyOf(d), wi = dayMap[key];
-    const other = d.getMonth() !== m;
-    let cls = 'day' + (other ? ' other' : '');
-    let attrs = '';
-    if (wi !== undefined && !other) {
-      const w = WEEKENDS[wi];
-      if (bookable(w)) { cls += ' wk' + (chosen === wi ? ' sel' : ''); attrs = ` onclick="pick(${wi})" title="${w.label}"`; }
-      else { cls += ' blk' + (isPast(w) ? ' past' : ''); attrs = ` title="Unavailable"`; }
-    }
-    html += `<div class="${cls}"${attrs}>${d.getDate()}</div>`;
-  }
+  const { min, max } = calBounds(); $('cal-month').textContent = MONTHS[calMonth.getMonth()] + ' ' + calMonth.getFullYear(); $('cal-prev').disabled = calMonth <= min; $('cal-next').disabled = calMonth >= max;
+  const dayMap = {}; WEEKENDS.forEach((w, wi) => weekendDates(w, calCourse.days).forEach(d => { dayMap[keyOf(d)] = wi; }));
+  const y = calMonth.getFullYear(), m = calMonth.getMonth(); const gridStart = new Date(y, m, 1 - new Date(y, m, 1).getDay()); let html = '';
+  for (let k = 0; k < 42; k++) { const d = new Date(gridStart); d.setDate(gridStart.getDate() + k); const wi = dayMap[keyOf(d)]; const other = d.getMonth() !== m; let cls = 'day' + (other ? ' other' : ''), attrs = '';
+    if (wi !== undefined && !other) { const w = WEEKENDS[wi]; if (bookable(w)) { cls += ' wk' + (chosen === wi ? ' sel' : ''); attrs = ` onclick="pick(${wi})" title="${esc(w.label)}"`; } else { cls += ' blk' + (isPast(w) ? ' past' : ''); attrs = ' title="Unavailable"'; } }
+    html += `<div class="${cls}"${attrs}>${d.getDate()}</div>`; }
   $('cal-grid').innerHTML = html;
-
-  // Quick-pick chips: every bookable weekend, so a phone user never has to page months.
-  $('cal-quick').innerHTML = WEEKENDS.map((w, wi) => bookable(w)
-    ? `<button type="button" class="chip${chosen === wi ? ' sel' : ''}" onclick="pick(${wi})">${labelFor(w, calCourse.days).replace(/, \d{4}$/, '')}</button>`
-    : '').join('');
-
-  $('cal-sel').innerHTML = chosen === null ? 'Tap a highlighted date.' : `<b>${labelFor(WEEKENDS[chosen], calCourse.days)}</b>`;
-  $('cal-go').disabled = chosen === null;
+  $('cal-quick').innerHTML = WEEKENDS.map((w, wi) => bookable(w) ? `<button type="button" class="chip${chosen === wi ? ' sel' : ''}" onclick="pick(${wi})">${labelFor(w, calCourse.days).replace(/, \d{4}$/, '')}</button>` : '').join('');
+  $('cal-sel').innerHTML = chosen === null ? 'Tap a highlighted date.' : `<b>${labelFor(WEEKENDS[chosen], calCourse.days)}</b>`; $('cal-go').disabled = chosen === null;
 }
-function pick(wi){
-  chosen = wi;
-  const d = parseISO(WEEKENDS[wi].saturday);
-  calMonth = new Date(d.getFullYear(), d.getMonth(), 1);
-  renderCal();
-}
-function calContinue(){
-  if (chosen === null) return;
-  $('cal-bd').classList.remove('open'); $('cal').classList.remove('open');
-  openSheet();
-}
+function pick(wi){ chosen = wi; const d = parseISO(WEEKENDS[wi].saturday); calMonth = new Date(d.getFullYear(), d.getMonth(), 1); renderCal(); }
+function calContinue(){ if (chosen === null) return; $('cal-bd').classList.remove('open'); $('cal').classList.remove('open'); openSheet(); }
 
-/* ── Checkout sheet ── */
+/* Checkout */
 let qty = 1;
-function openSheet(){
-  qty = 1;
-  $('sheet-title').textContent = calCourse.name;
-  $('sheet-meta').textContent = metaFor(calCourse);
-  $('sheet-date-label').innerHTML = '&#128197; ' + labelFor(WEEKENDS[chosen], calCourse.days);
-  $('co-qty').textContent = '1';
-  $('co-err').classList.remove('show');
-  updateTotal();
-  $('sheet-bd').classList.add('open'); $('sheet').classList.add('open');
-  document.body.style.overflow = 'hidden';
-  setTimeout(() => $('co-email').focus(), 250);
-}
-function closeSheet(){
-  $('sheet-bd').classList.remove('open'); $('sheet').classList.remove('open');
-  document.body.style.overflow = '';
-  if (lastFocus && lastFocus.focus) lastFocus.focus();
-}
-function backToCal(){
-  $('sheet-bd').classList.remove('open'); $('sheet').classList.remove('open');
-  renderCal();
-  $('cal-bd').classList.add('open'); $('cal').classList.add('open');
-}
+function openSheet(){ qty = 1; $('sheet-title').textContent = calCourse.name; $('sheet-meta').textContent = metaFor(calCourse); $('sheet-date-label').innerHTML = '&#128197; ' + labelFor(WEEKENDS[chosen], calCourse.days); $('co-qty').textContent = '1'; $('co-err').classList.remove('show'); updateTotal(); $('sheet-bd').classList.add('open'); $('sheet').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('co-email').focus(), 250); }
+function closeSheet(){ $('sheet-bd').classList.remove('open'); $('sheet').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+function backToCal(){ $('sheet-bd').classList.remove('open'); $('sheet').classList.remove('open'); renderCal(); $('cal-bd').classList.add('open'); $('cal').classList.add('open'); }
 function step(d){ qty = Math.min(10, Math.max(1, qty + d)); $('co-qty').textContent = String(qty); updateTotal(); }
 function updateTotal(){ if (calCourse) $('co-total').textContent = money(calCourse.price_cents * qty); }
-
 async function startCheckout(){
-  const email = $('co-email').value.trim();
-  const err = $('co-err');
-  err.classList.remove('show');
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-    err.textContent = 'Enter a valid email address to receive your booking confirmation.';
-    err.classList.add('show'); $('co-email').focus(); return;
-  }
-  const btn = $('co-pay');
-  btn.disabled = true; btn.textContent = 'Preparing secure checkout…';
-  const w = WEEKENDS[chosen];
-  // Return URLs: on the real site come back to this page with a status. On the
-  // review preview (htmlpreview) the query string IS the file address, so leave
-  // these out and let the Worker send you to the live site instead.
-  const onPreview = location.hostname === 'htmlpreview.github.io';
-  const base = location.origin + location.pathname;
-  const returns = onPreview ? {} : {
-    success_url: base + '?checkout=success&course=' + encodeURIComponent(calCourse.name) + '&date=' + encodeURIComponent(labelFor(w, calCourse.days)),
-    cancel_url: base + '?checkout=cancelled'
-  };
+  const email = $('co-email').value.trim(), err = $('co-err'); err.classList.remove('show');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { err.textContent = 'Enter a valid email address to receive your booking confirmation.'; err.classList.add('show'); $('co-email').focus(); return; }
+  const btn = $('co-pay'); btn.disabled = true; btn.textContent = 'Preparing secure checkout…';
+  const w = WEEKENDS[chosen]; const onPreview = location.hostname === 'htmlpreview.github.io'; const base = location.origin + location.pathname;
+  const returns = onPreview ? {} : { success_url: base + '?checkout=success&course=' + encodeURIComponent(calCourse.name) + '&date=' + encodeURIComponent(labelFor(w, calCourse.days)), cancel_url: base + '?checkout=cancelled' };
   try {
-    const res = await fetch(BOOKING_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(Object.assign({
-        sku: calCourse.sku,
-        qty: qty,
-        session_date: w.saturday,
-        session_label: labelFor(w, calCourse.days),
-        customer_email: email,
-        customer_name: $('co-name').value.trim()
-      }, returns))
-    });
-    const data = await res.json();
-    if (!res.ok || !data.checkoutUrl) throw new Error(data.error || 'Checkout unavailable');
-    location.href = data.checkoutUrl;
-  } catch(e) {
-    btn.disabled = false; btn.textContent = 'Continue to Secure Checkout';
-    err.textContent = 'Could not start checkout (' + e.message + '). Please try again or call (281) 654-8100.';
-    err.classList.add('show');
-  }
+    const res = await fetch(BOOKING_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ sku: calCourse.sku, qty, session_date: w.saturday, session_label: labelFor(w, calCourse.days), customer_email: email, customer_name: $('co-name').value.trim() }, returns)) });
+    const data = await res.json(); if (!res.ok || !data.checkoutUrl) throw new Error(data.error || 'Checkout unavailable'); location.href = data.checkoutUrl;
+  } catch(e) { btn.disabled = false; btn.textContent = 'Continue to Secure Checkout'; err.textContent = 'Could not start checkout (' + e.message + '). Please try again or call (281) 654-8100.'; err.classList.add('show'); }
 }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheet(); closeCal(); } });
+function openQuals(){ lastFocus = document.activeElement; $('quals-bd').classList.add('open'); $('quals').classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeQuals(){ $('quals-bd').classList.remove('open'); $('quals').classList.remove('open'); document.body.style.overflow = ''; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheet(); closeCal(); closeQuals(); } });
+(function(){ const p = new URLSearchParams(location.search); const s = p.get('checkout'); if (!s) return; const b = $('banner'); b.textContent = s === 'success' ? "You're booked" + (p.get('course') ? ' — ' + p.get('course') : '') + (p.get('date') ? ' · ' + p.get('date') : '') + '. Check your email for the receipt; gear list and range directions follow.' : 'Checkout cancelled — your card was not charged.'; b.classList.add('show'); setTimeout(() => b.classList.remove('show'), 9000); history.replaceState(null, '', location.pathname); })();
 
-/* Return from Stripe */
-(function(){
-  const p = new URLSearchParams(location.search);
-  const s = p.get('checkout');
-  if (!s) return;
-  const b = $('banner');
-  b.textContent = s === 'success'
-    ? "You're booked" + (p.get('course') ? ' — ' + p.get('course') : '') + (p.get('date') ? ' · ' + p.get('date') : '') + '. Check your email for the receipt; gear list and range directions follow.'
-    : 'Checkout cancelled — your card was not charged.';
-  b.classList.add('show');
-  setTimeout(() => b.classList.remove('show'), 9000);
-  history.replaceState(null, '', location.pathname);
-})();
-
-/* ── Instructor cadre. Add owner-confirmed instructors only:
-   { name, role, photo (path or null), lines: ['one fact', ...] } ── */
-const INSTRUCTORS = [];
-(function(){
-  const g = $('cadre-grid'); if (!g || !INSTRUCTORS.length) return;
-  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-  g.innerHTML = INSTRUCTORS.map(p => `<div class="cadre-card reveal">
-      ${p.photo ? `<div class="ph" style="background-image:url('${esc(p.photo)}')"></div>` : `<div class="ph none">${esc((p.name||'?').split(' ').map(w=>w[0]).join('').slice(0,3))}</div>`}
-      <div class="body"><h3>${esc(p.name)}</h3><div class="crole">${esc(p.role||'Instructor')}</div>
-      <ul>${(p.lines||[]).map(l => `<li>${esc(l)}</li>`).join('')}</ul></div>
-    </div>`).join('');
-})();
-
-/* ── Hero film: desktop only, with the atlasglinn.com-style volume button ── */
-(function(){
-  const box = $('hero-yt'), vol = $('hero-vol'); if (!box) return;
-  const id = box.dataset.id;
-  const desktop = matchMedia('(min-width: 769px)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (!desktop) { box.classList.add('poster'); box.style.backgroundImage = `url(https://i.ytimg.com/vi/${id}/maxresdefault.jpg)`; return; }
-  const f = document.createElement('iframe');
-  f.src = `https://www.youtube.com/embed/${id}?autoplay=1&mute=1&loop=1&playlist=${id}&controls=0&showinfo=0&modestbranding=1&rel=0&playsinline=1&enablejsapi=1`;
-  f.title = 'MAST Solutions training'; f.allow = 'autoplay; encrypted-media'; f.setAttribute('allowfullscreen', '');
-  box.appendChild(f);
-  const cmd = (func, args) => { try { f.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args: args || '' }), '*'); } catch (e) {} };
-  let on = false;
-  vol.hidden = false;
-  vol.addEventListener('click', () => {
-    on = !on;
-    if (on) { cmd('unMute'); cmd('setVolume', [100]); } else { cmd('mute'); }
-    vol.setAttribute('aria-pressed', String(on));
-    vol.setAttribute('aria-label', on ? 'Mute video' : 'Unmute video');
-  });
-})();
-
-/* ── Media library. Facades only; the player loads on tap. ──
-   To add a film: give it a YouTube id (yt) or an MP4 URL (mp4). Entries with
-   neither are held and not rendered — the owner's range footage
-   (MAST-VID-WEB, WEB2, VID-1, VID-2, Shotgun, Action, Medical, Jason Castro
-   testimonial, CQB-P3, SWAT, SWAT2, Training) goes here once hosted. */
+/* Hero film + volume */
 const MEDIA = [
-  { group: 'MAST Solutions In Action', items: [
-    { mp4: 'images/forge-legend-mast.mp4', title: 'MAST Solutions — Forge & Legend', sub: 'Training excellence through MAST Solutions' },
-    { mp4: 'images/careers-gallery.mp4', title: 'Atlas Glinn Team', sub: 'Behind the scenes with the executive protection team' },
-    { mp4: 'https://atlasglinn.com/wp-content/uploads/2025/04/Atlas-Glinn-and-MAST-Solutions.mp4', title: 'Atlas Glinn & MAST Solutions', sub: 'The film behind the atlasglinn.com home page' },
-    { mp4: 'images/about-hero-new.mp4', title: 'About Atlas Glinn', sub: 'The film behind the About page hero' },
-  ]},
-  { group: 'Training', items: [
-    { yt: 'pSGWdaDglZE', title: 'Modern Shooter TV', sub: 'Lance M / Castro / Ray Cash — MAST Solutions' },
-    { yt: 'OfXe_bdH6t4', title: 'Modern Shooter TV', sub: 'Tactical Training Feature' },
-    { yt: 'jwQ5OyKEKwg', title: 'Training Reel', sub: 'The film behind the Training page hero' },
-  ]},
-  { group: 'Disaster Recovery', items: [
-    { yt: 'mI7Ou5P-WHE', title: 'Disaster Recovery & Asset Protection', sub: 'Immediate deployment when the storm has passed' },
-  ]},
-  { group: 'From the Range', items: [
-    { title: 'MAST — Shotgun' }, { title: 'MAST — Action' }, { mp4: 'images/mast-medical.mp4', poster: 'images/mast-medical-poster.jpg', title: 'MAST — Medical', sub: 'Tourniquet under pressure. Trauma care is a core discipline.' },
-    { title: 'Jason Castro — Testimonial' }, { title: 'CQB Phase 3' }, { title: 'MAST — SWAT' },
-    { title: 'MAST — SWAT 2' }, { title: 'MAST — Training' }, { title: 'MAST VID WEB' },
-    { title: 'MAST VID WEB 2' }, { title: 'MAST VID 1' }, { title: 'MAST VID 2' },
-  ]},
+  { mp4: 'images/mast/jason-castro-testimonial.mp4', poster: 'images/mast/jason-castro-testimonial-poster.jpg', title: 'Jason Castro', sub: 'Student testimonial' },
+  { mp4: 'images/mast/mast-vid-1.mp4', poster: 'images/mast/mast-vid-1-poster.jpg', title: 'MAST Solutions', sub: 'On the range' },
+  { mp4: 'images/mast/mast-vid-2.mp4', poster: 'images/mast/mast-vid-2-poster.jpg', title: 'MAST Solutions', sub: 'Training day' },
+  { mp4: 'images/mast/mast-medical.mp4', poster: 'images/mast/mast-medical-poster.jpg', title: 'Medical', sub: 'Tourniquet under pressure' },
+  { mp4: 'images/mast/mast-shotgun.mp4', poster: 'images/mast/mast-shotgun-poster.jpg', title: 'Shotgun', sub: 'Breaching and patterning' },
+  { mp4: 'images/mast/forge-ignition-orlando.mp4', poster: 'images/mast/forge-ignition-orlando-poster.jpg', title: 'Forge Ignition', sub: 'Orlando' },
+  { yt: 'pSGWdaDglZE', title: 'Modern Shooter TV', sub: 'Lance M / Castro / Ray Cash — MAST Solutions' },
+  { yt: 'jwQ5OyKEKwg', title: 'Training Reel', sub: 'The film behind the Training page' },
 ];
 (function(){
-  const host = $('media-groups'); if (!host) return;
-  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-  host.innerHTML = MEDIA.map(g => {
-    const items = g.items.filter(i => i.yt || i.mp4);
-    if (!items.length) return '';
-    return `<div class="media-group"><div class="media-label"><span class="eyebrow">${esc(g.group)}</span></div><div class="media-grid">` +
-      items.map(i => `<div class="video-card reveal">
-        <div class="yt${i.mp4 ? ' mp4' : ''}" role="button" tabindex="0" aria-label="Play ${esc(i.title)}" ${i.yt ? `data-yt="${esc(i.yt)}"` : `data-mp4="${esc(i.mp4)}"`}>
-          ${i.yt ? `<img src="https://i.ytimg.com/vi/${esc(i.yt)}/hqdefault.jpg" alt="" loading="lazy" decoding="async">` : i.poster ? `<img src="${esc(i.poster)}" alt="" loading="lazy" decoding="async">` : `<span class="lbl">MAST Solutions · Film</span>`}
-          <span class="play" aria-hidden="true"></span>
-        </div>
-        <div class="video-card-info"><h4>${esc(i.title)}</h4><p>${esc(i.sub || '')}</p></div>
-      </div>`).join('') + `</div></div>`;
-  }).join('');
-  const play = el => {
-    if (el.dataset.done) return; el.dataset.done = '1';
-    let node;
-    if (el.dataset.yt) {
-      node = document.createElement('iframe');
-      node.src = `https://www.youtube.com/embed/${el.dataset.yt}?autoplay=1&rel=0&modestbranding=1&playsinline=1`;
-      node.title = el.getAttribute('aria-label'); node.allow = 'accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture'; node.setAttribute('allowfullscreen', '');
-    } else {
-      node = document.createElement('video');
-      node.src = el.dataset.mp4; node.controls = true; node.autoplay = true; node.playsInline = true; node.preload = 'none';
-    }
-    el.innerHTML = ''; el.appendChild(node); el.style.cursor = 'default';
-  };
+  const host = $('media-strip');
+  host.innerHTML = MEDIA.filter(i => i.yt || i.mp4).map(i => `<div class="video-card"><div class="yt${i.mp4 ? ' mp4' : ''}" role="button" tabindex="0" aria-label="Play ${esc(i.title)}" ${i.yt ? `data-yt="${esc(i.yt)}"` : `data-mp4="${esc(i.mp4)}"`}>${i.yt ? `<img src="https://i.ytimg.com/vi/${esc(i.yt)}/hqdefault.jpg" alt="" loading="lazy" decoding="async">` : i.poster ? `<img src="${esc(i.poster)}" alt="" loading="lazy" decoding="async">` : `<span class="lbl">MAST Solutions · Film</span>`}<span class="play" aria-hidden="true"></span></div><div class="video-card-info"><h4>${esc(i.title)}</h4><p>${esc(i.sub || '')}</p></div></div>`).join('');
+  const play = el => { if (el.dataset.done) return; el.dataset.done = '1'; let node; if (el.dataset.yt) { node = document.createElement('iframe'); node.src = `https://www.youtube.com/embed/${el.dataset.yt}?autoplay=1&rel=0&modestbranding=1&playsinline=1`; node.title = el.getAttribute('aria-label'); node.allow = 'accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture'; node.setAttribute('allowfullscreen', ''); } else { node = document.createElement('video'); node.src = el.dataset.mp4; node.controls = true; node.autoplay = true; node.playsInline = true; node.preload = 'none'; } el.innerHTML = ''; el.appendChild(node); el.style.cursor = 'default'; };
   host.addEventListener('click', e => { const el = e.target.closest('.yt'); if (el) play(el); });
   host.addEventListener('keydown', e => { const el = e.target.closest('.yt'); if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); play(el); } });
 })();
 
-/* ── Instagram. Paste post permalinks below (https://www.instagram.com/p/XXXX/);
-   the official embed script loads only when the section scrolls into view. ── */
-const INSTAGRAM_POSTS = [];
-(function(){
-  const grid = $('ig-grid'), note = $('ig-note'); if (!grid || !INSTAGRAM_POSTS.length) return;
-  note.hidden = true;
-  grid.innerHTML = INSTAGRAM_POSTS.map(u => `<blockquote class="instagram-media" data-instgrm-permalink="${u}" data-instgrm-version="14" style="background:#0f1622;border:1px solid rgba(201,168,76,.3);border-radius:4px;"></blockquote>`).join('');
-  const io = new IntersectionObserver(en => { if (en.some(x => x.isIntersecting)) { io.disconnect(); const s = document.createElement('script'); s.src = 'https://www.instagram.com/embed.js'; s.async = true; document.body.appendChild(s); } }, { rootMargin: '400px' });
-  io.observe(grid);
-})();
-
-/* ── Atlas Glinn page behaviours ── */
-const revealObserver = new IntersectionObserver((entries) => { entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('active'); revealObserver.unobserve(e.target); } }); }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
-document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
-
-document.querySelectorAll('.service-card, .testimonial, .discipline-card').forEach(card => {
-    card.style.transition = 'transform 0.2s ease-out, box-shadow 0.3s ease';
-    card.style.transformStyle = 'preserve-3d';
-    card.addEventListener('mousemove', (e) => {
-        const rect = card.getBoundingClientRect();
-        const x = (e.clientX - rect.left) / rect.width - 0.5;
-        const y = (e.clientY - rect.top) / rect.height - 0.5;
-        card.style.transform = `perspective(800px) rotateY(${x * 12}deg) rotateX(${-y * 8}deg) translateY(-4px) scale(1.02)`;
-        card.style.boxShadow = '0 25px 60px rgba(0,0,0,0.6), 0 0 40px rgba(201,168,76,0.25), 0 0 80px rgba(201,168,76,0.1)';
-    });
-    card.addEventListener('mouseleave', () => {
-        card.style.transform = 'perspective(800px) rotateY(0) rotateX(0) translateY(0) scale(1)';
-        card.style.boxShadow = '';
-    });
-});
+/* Counters (animate on entry) */
 </script>
 </body>
 </html>
