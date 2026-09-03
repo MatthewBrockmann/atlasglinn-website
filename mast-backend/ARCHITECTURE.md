@@ -274,31 +274,34 @@ transferring firearms, so this is not a 4473 and must not be labelled one. It is
 4473-**derived** prohibited-person screening, which is a reasonable gate for a
 live-fire class.
 
-**Owner selected (2026-09-01): 11.b, 11.c, 11.d, 11.h, 11.i, and 12.a.**
-Deliberately excluded: 11.e (controlled substances), 11.f (mental adjudication /
-commitment), 11.g (dishonorable discharge).
+**Owner decided (2026-09-03): TWO questions only.** This supersedes the
+2026-09-01 selection of six 4473 items. His words: *"the only two questions are:
+1. Are you a US citizen? 2. Do you have a felony that would prevent you from
+using or handling a firearm? Check box Y/N."* Purpose, in his words earlier:
+*"this is for our safety — they can lie, and we are not running background
+checks. This protects us — not to deny."* Two attestations, read and answered,
+beat seven skimmed.
 
 **Order: this form comes FIRST, then the range waiver.** Screening before a
 signature means an ineligible applicant never signs anything and never pays.
 
-### The six questions, as they will appear
+### The two questions, as they will appear
 
-Numbered, Yes/No, wording carried from the 4473 because it is well-tested
-language. `expected` is the answer required to proceed.
+Numbered, Yes/No check boxes, both required. `expected` is the answer that
+lets the flow continue.
 
 | # | Question | Expected |
 |---|---|---|
-| 1 | Are you under indictment or information in any court for a felony, or any other crime for which the judge could imprison you for more than one year? | **No** |
-| 2 | Have you ever been convicted in any court of a felony, or any other crime for which the judge could have imprisoned you for more than one year, even if you received a shorter sentence including probation? | **No** |
-| 3 | Are you a fugitive from justice? | **No** |
-| 4 | Are you subject to a court order restraining you from harassing, stalking, or threatening your child or an intimate partner or child of such partner? | **No** |
-| 5 | Have you ever been convicted in any court of a misdemeanor crime of domestic violence? | **No** |
-| 6 | Are you a citizen of the United States of America? | **Yes** |
-| 7 | Are you 18 years of age or older? | **Yes** |
+| 1 | Are you a citizen of the United States? | **Yes** |
+| 2 | Do you have a felony conviction that prevents you from using or handling a firearm? | **No** |
 
-Question 7 is not from the 4473 — it is required by the agreement itself, which
-warrants the signer is "at least eighteen years of age". Asking it is not
-optional; the form must **enforce** it, not merely record it.
+Below the two boxes, one line of attestation the participant ticks:
+*"I confirm these answers are true. I understand MAST Solutions relies on them
+to admit me to a live-fire course."*
+
+**Age is not a question.** The agreement itself warrants the signer is "at
+least eighteen years of age", so the waiver step enforces 18+ (date of birth
+field, blocked under 18) rather than asking it here.
 
 ### Handling
 
@@ -526,7 +529,7 @@ Steps 1–6 are the minimum for a real booking. 7–10 are the compounding layer
 | 1b | Capacity | ✅ 16 fundamentals / **10 for any P1 or operator** — owner adjusting individually later | — |
 | 2 | Supabase vs hand-rolled auth | ⚠️ open — Supabase recommended | Profiles |
 | 3 | Signature method | ✅ typed attestation + timestamp + IP | — |
-| 4 | Eligibility questions | ✅ 4473 b/c/d/h/i + citizenship + 18+ | — |
+| 4 | Eligibility questions | ✅ **two only** (owner 2026-09-03): U.S. citizen Y/N, disqualifying felony Y/N. Age enforced at the waiver | — |
 | 5 | Range address public, or post-booking? | ⚠️ open | Site copy |
 | 6 | Six course prices | ⏳ owner listing with dates | Payment |
 | 7 | Refund / cancellation policy | ✅ **approved as drafted** — adjustable later | — |

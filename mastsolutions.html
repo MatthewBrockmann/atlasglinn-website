@@ -142,11 +142,30 @@
         .service-card p { color: #b0b0b0; font-size: 0.95rem; line-height: 1.6; }
         .service-num { font-family: 'Orbitron', sans-serif; font-size: 2.4rem; font-weight: 900; color: rgba(201,168,76,.18); position: absolute; top: 1rem; right: 1.4rem; }
 
+        /* FULL-BLEED IMAGE PANELS (vault brief: Tesla-style, big word + one line) */
+        .bleed { position: relative; min-height: 72vh; display: flex; align-items: flex-end; overflow: hidden; background: #0f1622; }
+        .bleed .bg { position: absolute; inset: 0; background: #0f1622 center/cover no-repeat; transform: scale(1.04); transition: transform 6s ease; }
+        .bleed:hover .bg { transform: scale(1.12); }
+        .bleed::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8,12,20,.1) 0%, rgba(8,12,20,.45) 50%, #080C14 100%); }
+        .bleed .txt { position: relative; z-index: 2; padding: 2.5rem 2rem 2.8rem; width: 100%; }
+        .bleed h3 { font-family: 'Orbitron', sans-serif; font-size: clamp(1.9rem, 3.4vw, 3rem); font-weight: 900; line-height: 1.02; letter-spacing: .01em; }
+        .bleed p { color: #d0d0d0; font-size: 1.05rem; margin-top: .7rem; max-width: 420px; line-height: 1.6; }
+        .bleed .eyebrow { margin-bottom: .6rem; }
+        .who-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; background: #080C14; }
+        .strip { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 3px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: #1A6BDE #0f1622; }
+        .strip .bleed { flex: 0 0 min(78vw, 420px); min-height: 60vh; scroll-snap-align: start; }
+        .strip .bleed h3 { font-size: 1.7rem; }
+        .strip .bleed p { font-size: .95rem; }
+        .strip .disc-icon { margin-bottom: .9rem; justify-content: start; place-items: start; }
+        .strip .disc-icon svg { width: 40px; height: 40px; }
+
         /* DISCIPLINES */
         .disciplines-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1.5rem; }
         .discipline-card { background: rgba(26, 107, 222, 0.05); border: 1px solid rgba(201, 168, 76, 0.3); padding: 2rem 1rem; border-radius: 4px; text-align: center; transition: all 0.4s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 15px rgba(201,168,76,0.08); }
         .discipline-card:hover { background: rgba(26, 107, 222, 0.1); border-color: rgba(201, 168, 76, 0.6); transform: translateY(-5px); box-shadow: 0 15px 50px rgba(0,0,0,0.5), 0 0 40px rgba(201,168,76,0.2); }
-        .discipline-card .disc-icon { font-size: 2.2rem; color: #1A6BDE; }
+        .discipline-card .disc-icon { height: 48px; display: grid; place-items: center; }
+        .discipline-card .disc-icon svg { width: 44px; height: 44px; fill: none; stroke: #1A6BDE; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; transition: transform .4s; }
+        .discipline-card:hover .disc-icon svg { transform: scale(1.08); }
         .discipline-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1rem; color: #1A6BDE; margin-top: 1rem; }
         .discipline-card p { font-size: 0.85rem; color: #b0b0b0; margin-top: .5rem; }
 
@@ -386,6 +405,8 @@
         @media (max-width: 900px) {
             .ep-container { grid-template-columns: 1fr; gap: 2rem; }
             .founder-img { max-width: 420px; margin: 0 auto; }
+            .who-grid { grid-template-columns: 1fr; }
+            .who-grid .bleed { min-height: 58vh; }
             .testimonials-row { grid-template-columns: 1fr 1fr; }
             .cap-grid { grid-template-columns: 1fr; }
         }
@@ -499,38 +520,39 @@
     <h2>Who We <span class="gold-shimmer">Train</span></h2>
     <p>Three standards. One baseline.</p>
 </div>
-<section class="section" style="padding-top: 2rem;">
-    <div class="services-grid" style="grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));">
-        <div class="service-card reveal"><div class="service-num">01</div>
-            <h3>Military</h3>
-            <p>Special operations and conventional units. Live OpFor, UTM and Simunition, maritime VBSS on the Houston Ship Channel.</p>
-        </div>
-        <div class="service-card reveal"><div class="service-num">02</div>
-            <h3>Law Enforcement</h3>
-            <p>SWAT, high-risk warrant teams and federal agencies. Small-unit tactics, urban and rural, under time pressure.</p>
-        </div>
-        <div class="service-card reveal"><div class="service-num">03</div>
-            <h3>Civilian</h3>
-            <p>Private citizens who take the preservation of life seriously. Same standard, scaled to the student.</p>
-        </div>
-    </div>
-</section>
+<!-- Full-bleed image panels per the vault design brief (Tesla-style: big word,
+     one line, real footage). Stills come from the MAST films on YouTube today;
+     swap the URLs for range photos when the owner supplies them. -->
+<div class="who-grid">
+    <div class="bleed reveal"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/jwQ5OyKEKwg/maxresdefault.jpg');background-position:center 30%"></div>
+        <div class="txt"><div class="eyebrow">01</div><h3>Military.</h3><p>Special operations and conventional units. Live OpFor, UTM and Simunition, maritime VBSS.</p></div></div>
+    <div class="bleed reveal"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/pSGWdaDglZE/maxresdefault.jpg')"></div>
+        <div class="txt"><div class="eyebrow">02</div><h3>Law Enforcement.</h3><p>SWAT, warrant teams and federal agencies. Small-unit tactics under time pressure.</p></div></div>
+    <div class="bleed reveal"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/OfXe_bdH6t4/maxresdefault.jpg')"></div>
+        <div class="txt"><div class="eyebrow">03</div><h3>Civilian.</h3><p>Private citizens who take the preservation of life seriously. Same standard, scaled.</p></div></div>
+</div>
 
 <!-- ══════════ SEVEN CORE DISCIPLINES ══════════ -->
 <div class="section-divider">
     <h2>Seven Core <span class="gold-shimmer">Disciplines</span></h2>
+    <p>Swipe or scroll sideways</p>
 </div>
-<section class="section" style="padding-top: 2rem;">
-    <div class="disciplines-grid">
-        <div class="discipline-card reveal"><div class="disc-icon">&#127919;</div><h3>Firearms</h3><p>Marksmanship and weapon handling</p></div>
-        <div class="discipline-card reveal"><div class="disc-icon">&#129354;</div><h3>Hand Combat</h3><p>Close-quarters fighting</p></div>
-        <div class="discipline-card reveal"><div class="disc-icon">&#128481;</div><h3>Knife Combat</h3><p>Defensive and tactical knife</p></div>
-        <div class="discipline-card reveal"><div class="disc-icon">&#9876;</div><h3>CQB</h3><p>Close Quarters Battle</p></div>
-        <div class="discipline-card reveal"><div class="disc-icon">&#128170;</div><h3>Fitness</h3><p>Conditioning for duty</p></div>
-        <div class="discipline-card reveal"><div class="disc-icon">&#9877;</div><h3>Medical</h3><p>Emergency and trauma care</p></div>
-        <div class="discipline-card reveal"><div class="disc-icon">&#11088;</div><h3>Leadership</h3><p>Command and decision-making</p></div>
-    </div>
-</section>
+<div class="strip" id="disciplines">
+    <div class="bleed"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/jwQ5OyKEKwg/hqdefault.jpg');background-position:center top"></div>
+        <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="14"/><circle cx="24" cy="24" r="2.5" fill="#C9A84C" stroke="none"/><path d="M24 4v8M24 36v8M4 24h8M36 24h8"/></svg></div><h3>Firearms.</h3><p>Marksmanship and weapon handling.</p></div></div>
+    <div class="bleed"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/OfXe_bdH6t4/hqdefault.jpg');background-position:left center"></div>
+        <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 22v10a10 10 0 0 0 10 10h4a10 10 0 0 0 10-10v-6"/><rect x="12" y="14" width="6" height="9" rx="3"/><rect x="19" y="11" width="6" height="12" rx="3"/><rect x="26" y="12" width="6" height="11" rx="3"/><rect x="33" y="15" width="5" height="11" rx="2.5"/><path d="M12 26h10"/></svg></div><h3>Hand Combat.</h3><p>Close-quarters fighting.</p></div></div>
+    <div class="bleed"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/pSGWdaDglZE/hqdefault.jpg');background-position:right center"></div>
+        <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 40l6-6M14 34l-3-3 20-20a6 6 0 0 1 8 8L19 39l-5-5z"/><path d="M11 31l6 6" stroke="#C9A84C"/></svg></div><h3>Knife Combat.</h3><p>Defensive and tactical knife.</p></div></div>
+    <div class="bleed"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/jwQ5OyKEKwg/hqdefault.jpg');background-position:center bottom"></div>
+        <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M14 42V8h20v34"/><path d="M14 42h20M30 25h.01"/><path d="M4 24h14M14 19l5 5-5 5" stroke="#C9A84C"/></svg></div><h3>CQB.</h3><p>Close Quarters Battle.</p></div></div>
+    <div class="bleed"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/OfXe_bdH6t4/hqdefault.jpg');background-position:center"></div>
+        <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M16 24h16"/><rect x="8" y="17" width="6" height="14" rx="1.5"/><rect x="34" y="17" width="6" height="14" rx="1.5"/><path d="M4 20v8M44 20v8"/></svg></div><h3>Fitness.</h3><p>Conditioning for duty.</p></div></div>
+    <div class="bleed"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/mI7Ou5P-WHE/hqdefault.jpg')"></div>
+        <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="8" width="32" height="32" rx="6"/><path d="M24 16v16M16 24h16" stroke="#C9A84C" stroke-width="3"/></svg></div><h3>Medical.</h3><p>Emergency and trauma care.</p></div></div>
+    <div class="bleed"><div class="bg" style="background-image:url('https://i.ytimg.com/vi/pSGWdaDglZE/hqdefault.jpg');background-position:center top"></div>
+        <div class="txt"><div class="disc-icon"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M10 18l14-8 14 8M10 27l14-8 14 8M10 36l14-8 14 8"/></svg></div><h3>Leadership.</h3><p>Command and decision-making.</p></div></div>
+</div>
 
 <!-- ══════════ COURSE CATALOG ══════════ -->
 <div class="section-divider" id="courses">
@@ -574,7 +596,7 @@
          only owner-confirmed names go in. -->
     <div class="cadre" id="cadre">
         <div class="media-label" style="max-width:1100px;margin:3rem auto 1.2rem;"><span class="eyebrow">Instructor Cadre</span></div>
-        <p class="cadre-intro">Courses run with a lead instructor and assistant instructors on the line. Your instructors are named on the course confirmation.</p>
+        <p class="cadre-intro">Courses run with a lead instructor, assistant instructors, and RSOs (Range Safety Officers) on the line. Your instructors are named on the course confirmation.</p>
         <div class="cadre-grid" id="cadre-grid"></div>
     </div>
 

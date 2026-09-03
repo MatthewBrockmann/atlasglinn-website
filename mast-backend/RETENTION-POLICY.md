@@ -19,9 +19,10 @@ the liability shifts to them — which is exactly the protection MAST needs give
 no background check is run. On-site judgment remains the real decision, and the
 refund policy already gives the instructor that latitude.
 
-The owner may also trim the questions to three: felony, U.S. citizen, and one
-other. Fewer well-chosen attestations are stronger than many — a short form gets
-read.
+**Decided 2026-09-03: two questions only.** (1) Are you a U.S. citizen? (2) Do you
+have a felony that would prevent you from using or handling a firearm? Yes/No
+check boxes. Two well-chosen attestations are stronger than seven — a short form
+gets read.
 
 Two goals that pull against each other, and one design that satisfies both.
 
