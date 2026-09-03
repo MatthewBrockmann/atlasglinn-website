@@ -95,7 +95,9 @@ CSS = r"""
   .intro-credit { font-size:.75rem; letter-spacing:.6em; color:var(--text-dim); opacity:0; animation:introFade 2.8s ease-in-out forwards; text-transform:uppercase; }
   .intro-credit:nth-child(1) { animation-delay:.3s; }
   .intro-credit:nth-child(2) { animation-delay:1.2s; margin-top:1.8rem; color:var(--gold); font-weight:900; font-size:1.5rem; letter-spacing:.35em; }
-  .intro-credit:nth-child(3) { animation-delay:2.3s; margin-top:1.5rem; color:var(--gold-champagne); font-size:.85rem; letter-spacing:.5em; }
+  .intro-credit:nth-child(3) { animation-delay:2.6s; margin-top:1.5rem; color:var(--gold-champagne); font-size:.85rem; letter-spacing:.5em; }
+  @keyframes shimmer { 0% { background-position:-1000px 0; } 100% { background-position:1000px 0; } }
+  .intro-credit.wordmark { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2rem,6.5vw,4.6rem); letter-spacing:.16em; line-height:1.1; margin-top:1.4rem; padding:0 1rem; background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; text-shadow:0 0 60px rgba(201,168,76,.35); animation:introFade 3.4s ease-in-out forwards, shimmer 2.6s linear infinite; animation-delay:1.1s, 1.1s; }
   @keyframes introFade { 0% { opacity:0; transform:translateY(8px); } 18%, 75% { opacity:1; transform:translateY(0); } 100% { opacity:0; transform:translateY(-8px); } }
   .chapter-nav { position:fixed; right:1.5rem; top:50%; transform:translateY(-50%); z-index:30; display:flex; flex-direction:column; gap:.5rem; font-family:'Share Tech Mono',monospace; font-size:.62rem; }
   .chap-link { color:var(--text-mute); text-decoration:none; letter-spacing:.25em; padding:.35rem .8rem; border:1px solid transparent; transition:all .3s; text-transform:uppercase; cursor:none; display:flex; align-items:center; gap:.6rem; }
@@ -191,8 +193,11 @@ CSS = r"""
   .yt.mp4 { background:linear-gradient(135deg, var(--gunmetal), var(--midnight)); }
   .yt.mp4 .lbl { color:var(--gold-champagne); font-family:'Share Tech Mono',monospace; }
   .video-card-info h4 { color:var(--gold-champagne); }
-  .post { display:inline-block; margin-top:1.6rem; font-family:'Share Tech Mono',monospace; font-size:.68rem; letter-spacing:.35em; color:var(--gold-champagne); text-decoration:none; text-transform:uppercase; }
+  .post { display:inline-block; margin-top:2rem; padding:1rem 1.8rem; border:1px solid var(--gold); background:rgba(201,168,76,.07); backdrop-filter:blur(8px); font-family:'Orbitron',sans-serif; font-weight:700; font-size:clamp(.85rem,1.2vw,1.05rem); letter-spacing:.14em; color:var(--gold-champagne); text-decoration:none; text-transform:uppercase; transition:all .35s; cursor:none; }
+  .post:hover { background:rgba(201,168,76,.16); border-color:var(--gold-bright); color:var(--gold-bright); transform:translateY(-3px); }
+  .post small { display:block; font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.62rem; letter-spacing:.35em; color:var(--text-dim); margin-bottom:.35rem; }
   .quote { font-style:italic; color:var(--gold-champagne); max-width:700px; margin:.5rem auto 2rem; font-size:clamp(1.05rem,1.5vw,1.3rem); line-height:1.5; }
+  .quote.lead { max-width:820px; font-size:clamp(1.2rem,1.9vw,1.55rem); margin-top:.8rem; }
   .contact-lines { font-family:'Share Tech Mono',monospace; font-size:.75rem; letter-spacing:.2em; color:var(--text-dim); line-height:2.1; margin-bottom:2.2rem; }
   .contact-lines a { color:var(--gold-champagne); text-decoration:none; }
   .foot { margin-top:4rem; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; color:var(--text-mute); text-transform:uppercase; line-height:2.2; }
@@ -235,7 +240,7 @@ def tile(num, title, body, img, pos='center'):
 BODY = f"""
 <div id="intro-seq">
   <div class="intro-credit">A Houston Operation</div>
-  <div class="intro-credit">M&middot;A&middot;S&middot;T SOLUTIONS</div>
+  <div class="intro-credit wordmark">MAST SOLUTIONS</div>
   <div class="intro-credit">Since 2005</div>
 </div>
 
@@ -376,18 +381,17 @@ BODY = f"""
       <h2 class="section-h">In <span class="gold">Action.</span></h2>
       <p class="sub">Training, operations, and the people behind the mission. Tap to play. Nothing loads until you do.</p>
       <div class="media-strip rise" id="media-strip"></div>
-      <a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener" class="post">The Washington Post &middot; Arming American Teachers &rarr;</a>
+      <a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener" class="post"><small>As featured in</small>The Washington Post &middot; Arming American Teachers &rarr;</a>
     </div>
   </section>
 
   <section class="panel" id="s8" data-section="08">
     <div>
       <div class="badge">Privacy Matters</div>
-      <h2 class="section-h">Unless Publicly <span class="gold">Reported.</span></h2>
-      <p class="sub quote">&ldquo;Details matter. Privacy matters. Unless publicly reported, we don&rsquo;t disclose.&rdquo;</p>
+      <p class="sub quote lead">&ldquo;Details matter. Privacy matters. Unless publicly reported, we don&rsquo;t disclose.&rdquo;</p>
       <p class="sub" style="font-size:.98rem;">Former Head of Security and Dignitary Protection for U.S. Senators Ted Cruz and Eric &ldquo;Bulldog&rdquo; Schmitt, and other principals who prefer their names stay off websites.</p>
       <div class="eyebrow" style="margin-top:2.5rem;">For agencies, units and procurement officers</div>
-      <div class="ctas rise"><a href="mast-capability-statement.html" class="cta">Capability Statement</a><a href="mailto:atlasglinn.hq@atlasglinn.com?subject=MAST%20Solutions%20Capability%20Statement%20Request" class="secondary-cta">Request by Email</a></div>
+      <div class="ctas rise"><a href="mailto:atlasglinn.hq@atlasglinn.com?subject=MAST%20Solutions%20Capability%20Statement%20Request" class="cta">Email for the Capability Statement</a><a href="mast-capability-statement.html" class="secondary-cta">View One-Pager</a></div>
     </div>
   </section>
 
@@ -427,7 +431,7 @@ const openHero = () => {
   setPhoto(0);
 };
 if (reduce) { openHero(); } else {
-  setTimeout(() => { intro.classList.add('done'); setTimeout(openHero, 1000); }, 4200);
+  setTimeout(() => { intro.classList.add('done'); setTimeout(openHero, 1000); }, 4800);
 }
 
 // ── Reticle ──

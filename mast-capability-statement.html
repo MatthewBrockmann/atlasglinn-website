@@ -100,7 +100,7 @@
 <body>
 
 <div class="bar">
-    <a class="back" href="mastsolutions.html">&larr; MAST Solutions</a>
+    <a class="back" href="mastsolutions.html" onclick="if(document.referrer&&document.referrer.indexOf(location.origin)===0){history.back();return false;}">&larr; Back</a>
     <span class="wordmark">MAST <span>SOLUTIONS</span></span>
     <button class="cta-button" onclick="window.print()">Print / Save as PDF</button>
 </div>
