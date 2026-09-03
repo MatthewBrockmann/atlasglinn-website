@@ -249,6 +249,20 @@
         .creds li::before { content: ''; position: absolute; left: 0; top: .55em; width: 6px; height: 6px; background: #C9A84C; transform: rotate(45deg); }
         .creds b { color: #fff; font-weight: 600; }
 
+        .cadre-intro { max-width: 820px; margin: 0 auto; text-align: center; color: #b0b0b0; font-size: 1.05rem; line-height: 1.7; }
+        .cadre-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1.5rem; max-width: 1100px; margin: 1.6rem auto 0; }
+        .cadre-grid:empty { display: none; }
+        .cadre-card { background: rgba(26,107,222,.05); border: 1px solid rgba(201,168,76,.3); border-radius: 4px; overflow: hidden; transition: all .4s; }
+        .cadre-card:hover { border-color: rgba(201,168,76,.6); transform: translateY(-4px); }
+        .cadre-card .ph { aspect-ratio: 1; background: #0f1622 center/cover no-repeat; border-bottom: 1px solid rgba(201,168,76,.2); }
+        .cadre-card .ph.none { display: grid; place-items: center; font-family: 'Orbitron', sans-serif; font-size: 2rem; color: rgba(201,168,76,.4); }
+        .cadre-card .body { padding: 1.1rem 1.2rem 1.3rem; }
+        .cadre-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: 700; margin-bottom: .3rem; }
+        .cadre-card .crole { font-family: 'Inconsolata', monospace; font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; color: #C9A84C; margin-bottom: .7rem; }
+        .cadre-card ul { list-style: none; }
+        .cadre-card li { font-size: .9rem; color: #b0b0b0; line-height: 1.5; padding: .15rem 0 .15rem 1rem; position: relative; }
+        .cadre-card li::before { content: ''; position: absolute; left: 0; top: .6em; width: 5px; height: 5px; background: #C9A84C; transform: rotate(45deg); }
+
         .quals { max-width: 1100px; margin: 3rem auto 0; border: 1px solid rgba(201,168,76,.3); border-radius: 4px; background: rgba(26,107,222,.04); overflow: hidden; }
         .quals.open { border-color: rgba(201,168,76,.6); }
         .quals-btn { width: 100%; display: flex; align-items: center; gap: 1rem; padding: 1.2rem 1.5rem; background: none; border: none; color: #fff; cursor: pointer; text-align: left; font-family: 'Rajdhani', sans-serif; }
@@ -531,7 +545,8 @@
 
 <!-- ══════════ THE INSTRUCTOR ══════════ -->
 <div class="section-divider" id="founder">
-    <h2>The <span class="gold-shimmer">Instructor</span></h2>
+    <h2>The <span class="gold-shimmer">Instructors</span></h2>
+    <p>Courses are taught by a cadre, not one man.</p>
 </div>
 <section class="section" style="padding-top: 2rem;">
     <div class="ep-container">
@@ -540,21 +555,27 @@
             <img src="images/IMG_5949_2.jpg" alt="Matthew Brockmann, founder of MAST Solutions" loading="lazy">
         </div>
         <div class="ep-text reveal">
-            <div class="eyebrow">Founder &amp; Chief Training Officer</div>
+            <div class="eyebrow">Founder &amp; Lead Instructor</div>
             <h2>Matthew <span class="gold-shimmer">Brockmann</span></h2>
             <div class="role">Founder, MAST Solutions and Atlas Glinn &middot; Houston, Texas</div>
-            <p>Matthew Brockmann founded MAST Solutions in 2005 and later Atlas Glinn, LLC. He served as Head of Security and Dignitary Protection for U.S. Senators Ted Cruz and Eric &ldquo;Bulldog&rdquo; Schmitt, and for other principals whose details are not publicly reported. Every MAST course runs on the same standard he was held to on those details.</p>
+            <p>Matthew Brockmann founded MAST Solutions in 2005 and later Atlas Glinn, LLC. He served as Head of Security and Dignitary Protection for U.S. Senators Ted Cruz and Eric &ldquo;Bulldog&rdquo; Schmitt. He has taught firearms and tactics to military, law enforcement and private citizens since 2005, and teaches on the range.</p>
             <ul class="creds">
                 <li>Trained by <b>Paul Howe</b> (1st SFOD-D)</li>
                 <li>Trained by <b>Bill Jeans</b> and <b>John Perretti</b></li>
-                <li><b>Texas Rangers</b> Chief Training Officer co-signed</li>
+                <li><b>DPS Level III Firearms Instructor</b></li>
                 <li><b>TTPOA Maritime VBSS</b> instructor &mdash; Houston Ship Channel</li>
-                <li><b>DPS Firearms Instructor</b></li>
-                <li><b>Tony Leal</b> CTO certification</li>
                 <li><b>Harris County</b> approved supplier &mdash; February 2023</li>
                 <li>Featured on <b>Modern Shooter TV</b> and in <b>The Washington Post</b></li>
             </ul>
         </div>
+    </div>
+
+    <!-- Instructor cadre. Cards render from the INSTRUCTORS list in the script;
+         only owner-confirmed names go in. -->
+    <div class="cadre" id="cadre">
+        <div class="media-label" style="max-width:1100px;margin:3rem auto 1.2rem;"><span class="eyebrow">Instructor Cadre</span></div>
+        <p class="cadre-intro">Courses run with a lead instructor and assistant instructors on the line. Your instructors are named on the course confirmation.</p>
+        <div class="cadre-grid" id="cadre-grid"></div>
     </div>
 
     <!-- Qualifications & certifications — owner-supplied list, 2026-09-02 -->
@@ -707,7 +728,7 @@
             <ul class="cap-list">
                 <li><b>Three-phase training and vetting pipeline</b> &mdash; a minimum score at every phase, from tangible performance metrics and instructor and advisory-committee assessment. Every Atlas Glinn agent on a protective or transportation assignment trains through it.</li>
                 <li><b>Founder-led instruction</b> on every course since 2005</li>
-                <li><b>DPS Level III Firearms Instructor</b>; Texas Rangers Chief Training Officer co-signed; Tony Leal CTO certification</li>
+                <li><b>DPS Level III Firearms Instructor</b>; NRA Firearms Instructor</li>
                 <li><b>CSAT tactical rifle instructor</b> under Paul Howe; trained by Bill Jeans and John Perretti</li>
                 <li><b>SureFire Low-Light Institute</b> and <b>Strategos International</b> low-light instructor programs, law enforcement</li>
                 <li><b>TTPOA Maritime VBSS</b> instructor, Houston Ship Channel</li>
@@ -1186,6 +1207,19 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheet
   b.classList.add('show');
   setTimeout(() => b.classList.remove('show'), 9000);
   history.replaceState(null, '', location.pathname);
+})();
+
+/* ── Instructor cadre. Add owner-confirmed instructors only:
+   { name, role, photo (path or null), lines: ['one fact', ...] } ── */
+const INSTRUCTORS = [];
+(function(){
+  const g = $('cadre-grid'); if (!g || !INSTRUCTORS.length) return;
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  g.innerHTML = INSTRUCTORS.map(p => `<div class="cadre-card reveal">
+      ${p.photo ? `<div class="ph" style="background-image:url('${esc(p.photo)}')"></div>` : `<div class="ph none">${esc((p.name||'?').split(' ').map(w=>w[0]).join('').slice(0,3))}</div>`}
+      <div class="body"><h3>${esc(p.name)}</h3><div class="crole">${esc(p.role||'Instructor')}</div>
+      <ul>${(p.lines||[]).map(l => `<li>${esc(l)}</li>`).join('')}</ul></div>
+    </div>`).join('');
 })();
 
 /* ── Hero film: desktop only, with the atlasglinn.com-style volume button ── */
