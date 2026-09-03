@@ -20,8 +20,9 @@
 # What it does, in order: finds (or clones) the repo, fetches, checks out the
 # handoff branch in a throw-away worktree (your working copy is never touched),
 # copies each source into reference/desktop/ (folders keep their structure,
-# HEIC becomes JPEG, videos over HANDOFF_MAX_MB are listed instead of copied
-# because GitHub rejects files over 100 MB), commits, pushes, prints DONE.
+# HEIC becomes JPEG, videos over HANDOFF_MAX_MB are compressed to 720p with the
+# Mac's built-in avconvert, or listed if they still do not fit, because GitHub
+# rejects files over 100 MB), commits, pushes, prints DONE.
 # Re-running only adds what is new. Safe to run repeatedly.
 #
 # Knobs (environment variables, all optional):
@@ -95,8 +96,15 @@ copy_file() { # copy_file <source file> <destination directory>
       if command -v sips >/dev/null 2>&1 && sips -s format jpeg "$f" --out "$d/${b%.*}.jpg" >/dev/null 2>&1; then :; else cp "$f" "$d/$b"; fi ;;
     mov|mp4|m4v|avi|mkv)
       if [ "$s" -le $((MAX_MB * 1000000)) ]; then cp "$f" "$d/$b"; else
-        say "  too big for GitHub, listed instead: $b ($((s / 1000000)) MB)"
-        printf '%s (%s bytes)\n' "$f" "$s" >> "$OUT/SKIPPED.txt"; return 2; fi ;;
+        # Over the GitHub limit: compress to 720p with macOS's built-in avconvert, then copy if it now fits.
+        local small="${TMPDIR:-/tmp}/handoff-${b%.*}-720p.mp4"
+        if command -v avconvert >/dev/null 2>&1 && avconvert --preset Preset1280x720 --source "$f" --output "$small" --replace >/dev/null 2>&1 && [ "$(fsize "$small")" -le $((MAX_MB * 1000000)) ]; then
+          cp "$small" "$d/${b%.*}-720p.mp4"; rm -f "$small"; say "  compressed to 720p to fit GitHub: $b -> ${b%.*}-720p.mp4"
+        else
+          rm -f "$small"; say "  too big for GitHub, listed instead: $b ($((s / 1000000)) MB)"
+          printf '%s (%s bytes)\n' "$f" "$s" >> "$OUT/SKIPPED.txt"; return 2
+        fi
+      fi ;;
     *) cp "$f" "$d/$b" ;;
   esac
 }
