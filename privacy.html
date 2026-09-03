@@ -3,14 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Privacy Policy — Atlas EP | Atlas Glinn LLC</title>
-<meta name="description" content="Atlas EP Privacy Policy — how Atlas Glinn LLC collects, uses, and protects your data.">
+<title>Privacy Policy | Atlas Glinn LLC and MAST Solutions</title>
+<meta name="description" content="How Atlas Glinn, LLC and its training division MAST Solutions collect, use, share and protect personal information across atlasglinn.com, MAST course registration, and the Atlas EP app.">
     <link rel="canonical" href="https://atlasglinn.com/privacy.html">
 <style>
   :root {
     --gold: #C9A84C;
-    --dark: #0a0a0a;
-    --surface: #111111;
+    --blue: #1A6BDE;
+    --dark: #080C14;
+    --surface: #0f1622;
     --border: rgba(201,168,76,0.18);
     --text: #d4d4d4;
     --muted: #888;
@@ -30,6 +31,7 @@
     display: flex;
     align-items: center;
     gap: 14px;
+    flex-wrap: wrap;
   }
   header .wordmark {
     font-family: 'SF Pro Display', -apple-system, sans-serif;
@@ -41,6 +43,9 @@
   }
   header .sep { color: var(--muted); margin: 0 4px; }
   header .submark { color: var(--muted); font-size: 13px; letter-spacing: 0.05em; }
+  header nav { margin-left: auto; display: flex; gap: 18px; font-size: 13px; }
+  header nav a { color: var(--muted); text-decoration: none; }
+  header nav a:hover { color: var(--gold); }
   main {
     max-width: 820px;
     margin: 0 auto;
@@ -63,6 +68,14 @@
     border-bottom: 1px solid var(--border);
   }
   .doc-meta span { color: var(--gold); }
+  .part {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin: 48px 0 -20px;
+  }
   h2 {
     font-size: 13px;
     font-weight: 700;
@@ -94,6 +107,14 @@
     border-radius: 4px;
   }
   .highlight-box p { margin-bottom: 0; font-size: 14px; }
+  .highlight-box p + p { margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  th { color: var(--gold); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; }
+  td { color: var(--text); }
+  .table-wrap { overflow-x: auto; }
+  .toc { columns: 2; column-gap: 32px; font-size: 14px; margin: 0 0 8px; }
+  .toc li { break-inside: avoid; }
   .contact-block {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -112,157 +133,246 @@
   }
   footer a { color: var(--muted); }
   footer a:hover { color: var(--gold); }
+  @media (max-width: 640px) {
+    main { padding: 32px 18px 60px; }
+    .toc { columns: 1; }
+    header nav { margin-left: 0; width: 100%; }
+  }
 </style>
 </head>
 <body>
 
 <header>
-  <span class="wordmark">Atlas EP</span>
+  <span class="wordmark">Atlas Glinn</span>
   <span class="sep">·</span>
-  <span class="submark">by Atlas Glinn LLC</span>
+  <span class="submark">MAST Solutions &nbsp;·&nbsp; Atlas EP</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="mastsolutions.html">MAST Solutions</a>
+    <a href="terms.html">Terms</a>
+  </nav>
 </header>
 
 <main>
   <h1 class="doc-title">Privacy Policy</h1>
-  <p class="doc-meta">Effective Date: <span>April 1, 2026</span> &nbsp;·&nbsp; Last Updated: <span>April 3, 2026</span></p>
+  <p class="doc-meta">Effective Date: <span>April 1, 2026</span> &nbsp;·&nbsp; Last Updated: <span>September 3, 2026</span></p>
 
   <div class="highlight-box">
-    <p>This Privacy Policy describes how Atlas Glinn, LLC ("Atlas Glinn," "we," "us," or "our") collects, uses, and protects your information when you use the <strong>Atlas EP</strong> iOS application ("App") and related services. By using Atlas EP, you agree to the practices described in this Policy.</p>
+    <p>This Privacy Policy describes how Atlas Glinn, LLC ("Atlas Glinn," "we," "us," or "our"), including its training division <strong>MAST Solutions</strong>, collects, uses, shares and protects personal information when you visit <strong>atlasglinn.com</strong> or <strong>mastsolutions.com</strong>, register for a MAST Solutions course, request a capability statement, subscribe to our newsletter, or use the <strong>Atlas EP</strong> iOS application.</p>
+    <p>It is written in plain language on purpose. Part A covers the websites and MAST course registration. Part B covers the Atlas EP app. Part C covers your rights and how to reach us. If anything here is unclear, write to <a href="mailto:privacy@atlasglinn.com">privacy@atlasglinn.com</a>.</p>
   </div>
 
-  <h2>1. Who We Are</h2>
-  <p>Atlas Glinn, LLC is a Houston, Texas–based security technology company. Atlas EP is our AI-powered executive protection platform built for professional security operators, protection agents, and high-value principals.</p>
-  <p><strong>Contact:</strong> privacy@atlasglinn.com | 2450 Fondren Rd, Suite 255, Houston, TX 77063</p>
+  <h2>Contents</h2>
+  <ol class="toc">
+    <li><a href="#who">Who we are</a></li>
+    <li><a href="#web">Website visitors</a></li>
+    <li><a href="#registration">MAST course registration</a></li>
+    <li><a href="#eligibility">Eligibility attestations</a></li>
+    <li><a href="#waiver">Range agreement and waiver</a></li>
+    <li><a href="#payments">Payments</a></li>
+    <li><a href="#email">Email: receipts, reminders, newsletter</a></li>
+    <li><a href="#sharing">Who we share information with</a></li>
+    <li><a href="#retention">How long we keep it</a></li>
+    <li><a href="#ai">Artificial intelligence</a></li>
+    <li><a href="#security">Security</a></li>
+    <li><a href="#app">Atlas EP app</a></li>
+    <li><a href="#rights">Your rights: Texas, California, everyone</a></li>
+    <li><a href="#children">Age requirements</a></li>
+    <li><a href="#changes">Changes and contact</a></li>
+  </ol>
 
-  <h2>2. Information We Collect</h2>
+  <p class="part">Part A &mdash; Websites and MAST Solutions</p>
 
-  <h3>2.1 Account Information</h3>
-  <p>When you create an Atlas EP account, we collect:</p>
+  <h2 id="who">1. Who We Are</h2>
+  <p>Atlas Glinn, LLC is a Houston, Texas security and training company. MAST Solutions is its tactical training division, operating since 2005. Atlas EP is its executive protection software platform. One company, one privacy team, one policy.</p>
+  <p><strong>Contact:</strong> privacy@atlasglinn.com &nbsp;|&nbsp; 2450 Fondren Rd, Suite 255, Houston, TX 77063 &nbsp;|&nbsp; (281) 654-8100</p>
+
+  <h2 id="web">2. Website Visitors</h2>
+  <p>When you browse our sites we collect very little, and none of it identifies you unless you choose to identify yourself.</p>
   <ul>
-    <li>Full name, email address, and phone number</li>
-    <li>Job title and organizational role (Agent, Operator, Command, etc.)</li>
-    <li>Profile photo (optional)</li>
-    <li>Team and organizational affiliations</li>
+    <li><strong>Server and hosting logs.</strong> Our static pages are served by GitHub Pages and our WordPress pages by GoDaddy, both behind Cloudflare. These providers record IP address, browser type, pages requested and time of request for security and reliability, under their own privacy policies.</li>
+    <li><strong>Traffic analytics.</strong> We use Cloudflare Web Analytics, which counts visits without cookies or cross-site tracking. We may also use PostHog to understand how the course catalog and checkout are used (pages viewed, buttons clicked, where a checkout was abandoned). Where PostHog is in use it is configured to honour the Global Privacy Control signal and browser "Do Not Track" settings.</li>
+    <li><strong>Campaign tags.</strong> If you arrive from a link carrying campaign parameters (for example utm_source), we keep those parameters with your session so we know which ad or email brought you. This is stored only against a booking you complete.</li>
+    <li><strong>Embedded media.</strong> Videos are hosted on YouTube and load only when you press play. Instagram posts load only when that section is on screen. When you activate them, Google or Meta may set their own cookies under their own policies. Nothing loads from them until you act.</li>
+    <li><strong>Forms.</strong> The capability statement and contact forms send us your name, email, organization and message by email. We use them to reply to you.</li>
+  </ul>
+  <p>We do not use advertising cookies, we do not run third-party ad networks on our sites, and we do not sell website visitor data.</p>
+
+  <h2 id="registration">3. MAST Course Registration</h2>
+  <p>To reserve a seat in a MAST Solutions course you provide, in this order:</p>
+  <ol>
+    <li>Course and training weekend selected</li>
+    <li>Name, email address and phone number</li>
+    <li>Eligibility attestations (see Section 4)</li>
+    <li>Signed Class Participation and Use of Property Agreement (see Section 5)</li>
+    <li>Acceptance of the refund and cancellation policy, recorded with the policy version, time and IP address</li>
+    <li>Payment through Stripe (see Section 6)</li>
+    <li>An optional newsletter opt-in, unticked by default</li>
+  </ol>
+  <p>You may register as a <strong>guest</strong> or create a <strong>profile</strong>. A profile lets you reuse your signed agreement and your eligibility attestations for 12 months so you do not repeat them for every course. A guest completes them for each booking. Both paths collect the same information; the difference is how long we keep it (Section 9).</p>
+  <p>We use registration information to run the course: confirming your seat, sending the receipt, gear list, directions and reminders, keeping the roster, and contacting you if a date changes.</p>
+
+  <div class="highlight-box">
+    <p><strong>The range address is not public.</strong> It is sent to you by email after your booking is confirmed, together with driving directions. Please do not repost it.</p>
+  </div>
+
+  <h2 id="eligibility">4. Eligibility Attestations</h2>
+  <p>Before payment, every participant answers a short set of yes-or-no questions drawn from the federal firearms transaction eligibility criteria, including whether you are a United States citizen and whether you have been convicted of a felony. You attest that your answers are true.</p>
+  <p><strong>Why we ask.</strong> These are live-fire courses. We do not run background checks. The attestation puts each participant on record, protects the other students and instructors, and gives our staff a basis to follow up or decline a booking. Answering "yes" to certain questions does not automatically decline you; it prompts a conversation.</p>
+  <p><strong>This is sensitive personal data</strong> under the Texas Data Privacy and Security Act (criminal history, citizenship status). We therefore handle it differently from everything else:</p>
+  <ul>
+    <li>Answers are stored in an access-controlled database that only designated MAST staff can read. Every read is logged.</li>
+    <li>Answers are <strong>never</strong> emailed, never included in any notification, and never sent to any marketing, analytics or AI system.</li>
+    <li>We <strong>do not sell</strong> sensitive personal data, and we do not process it for any purpose other than course safety and eligibility.</li>
+    <li>Raw answers are deleted on a schedule (Section 9). Only the outcome, cleared or flagged, is kept, so that a person who was declined cannot simply register again under the same identity.</li>
   </ul>
 
-  <h3>2.2 Location Data</h3>
-  <p>Atlas EP collects precise GPS location data to enable core features including Blue Force Tracker, route monitoring, and emergency response coordination. Location collection occurs:</p>
+  <h2 id="waiver">5. Range Agreement and Waiver</h2>
+  <p>Every participant signs the MAST Solutions Class Participation and Use of Property Agreement before payment. You complete it on our site by typing your name and the required fields; we record a typed attestation together with the date, time and IP address of signature, and generate the completed PDF.</p>
+  <p>The signed agreement is emailed to you and to the people who need it to run the course: MAST Solutions staff and the host of the range facility. The range host receives the signed agreement and nothing else about you. With a profile, your signed agreement is valid for 12 months and is not re-collected for later courses in that window.</p>
+
+  <h2 id="payments">6. Payments</h2>
+  <p>Payments are processed by Stripe, Inc. You enter your card on Stripe's secure checkout page; we never see or store full card numbers. Stripe sends us confirmation of payment, the amount, your billing name and address, and your phone number if you provide it, which we keep with your booking. Stripe's privacy policy is at <a href="https://stripe.com/privacy" target="_blank" rel="noopener">stripe.com/privacy</a>. Prices are set on our server; the amount you are charged is determined by the course and seat count you select, not by anything your browser sends.</p>
+
+  <h2 id="email">7. Email: Receipts, Reminders, Newsletter</h2>
+  <p>We send two kinds of email and keep them separate.</p>
   <ul>
-    <li><strong>In the foreground</strong> when the App is actively in use</li>
-    <li><strong>In the background</strong> during active operational deployments (requires explicit permission)</li>
+    <li><strong>Transactional</strong> (sent through Resend): your receipt, signed agreement, gear list, range directions, a reminder about a week before class, a reminder the day before, and a follow-up after. These are part of the service you bought and cannot be unsubscribed from while you hold a booking.</li>
+    <li><strong>Marketing</strong> (sent through Mailchimp): the newsletter, course announcements and offers. You receive these <strong>only if you opted in</strong>. Every marketing email has an unsubscribe link, and unsubscribing never affects your booking emails.</li>
   </ul>
-  <p>You may disable background location access at any time in iOS Settings; however, this will disable real-time team tracking features.</p>
+  <p>If you opt in, your name, email, the courses you have taken and your opt-in date are synced to Mailchimp so we can send relevant course news. Your eligibility answers, agreement and payment details are never synced to Mailchimp.</p>
 
-  <h3>2.3 Communications Data</h3>
-  <p>Atlas EP transmits encrypted operational messages, voice communications, and status updates between authorized team members. All communications are end-to-end encrypted using AES-256-GCM encryption. We do not read or analyze the content of your communications.</p>
+  <h2 id="sharing">8. Who We Share Information With</h2>
+  <p>We share personal information only with providers who help us run the service, and only the part each one needs.</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Provider</th><th>What they receive</th><th>Why</th></tr>
+    <tr><td>Stripe</td><td>Name, email, billing details, amount</td><td>Payment processing</td></tr>
+    <tr><td>Cloudflare</td><td>Booking records, IP address, request logs</td><td>Hosting the booking backend and database, security</td></tr>
+    <tr><td>Supabase</td><td>Profile, eligibility outcomes and answers, signed agreements</td><td>Access-controlled storage for registration data</td></tr>
+    <tr><td>Resend</td><td>Name, email, booking details, agreement PDF</td><td>Transactional email</td></tr>
+    <tr><td>Mailchimp</td><td>Name, email, course history, opt-in date (opt-in only)</td><td>Newsletter</td></tr>
+    <tr><td>PostHog and Cloudflare Web Analytics</td><td>Usage events, page views, device type</td><td>Understanding how the site is used</td></tr>
+    <tr><td>GitHub Pages and GoDaddy</td><td>Standard server logs</td><td>Web hosting</td></tr>
+    <tr><td>Range facility host</td><td>Your signed range agreement only</td><td>Access to the range on your course date</td></tr>
+  </table>
+  </div>
+  <p>Each provider is bound by its own privacy terms and our agreements with it, and may not use your information for its own purposes. We also disclose information when required by law, court order or governmental authority, or when necessary to protect the safety of people at our courses or facilities. In a merger, acquisition or sale of assets, information may transfer to the acquiring entity under these same protections.</p>
+  <p><strong>We do not sell personal information</strong>, and we do not share it for cross-context behavioural advertising.</p>
 
-  <h3>2.4 Device &amp; Technical Data</h3>
+  <h2 id="retention">9. How Long We Keep It</h2>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Information</th><th>Kept for</th></tr>
+    <tr><td>Booking and payment records</td><td>Seven years, for tax and accounting</td></tr>
+    <tr><td>Signed range agreement</td><td>Five years after your last course, for liability records</td></tr>
+    <tr><td>Eligibility answers, profile holder</td><td>12 months, then deleted and re-asked</td></tr>
+    <tr><td>Eligibility answers, guest, cleared</td><td>Deleted within 7 days after the course</td></tr>
+    <tr><td>Eligibility answers, flagged or declined</td><td>Deleted 30 days after staff review</td></tr>
+    <tr><td>Eligibility outcome (cleared or flagged, date, question set)</td><td>Cleared: 12 months. Flagged or declined: kept, so the decision is not lost</td></tr>
+    <tr><td>Newsletter subscription</td><td>Until you unsubscribe</td></tr>
+    <tr><td>Analytics events</td><td>Up to 24 months, then aggregated or deleted</td></tr>
+    <tr><td>Profile</td><td>Until you ask us to delete it</td></tr>
+  </table>
+  </div>
+  <p>Deletion runs on a schedule, not on memory. When you ask us to delete your profile we do so within 30 days, except for records we are required to keep by law and the flagged-or-declined outcome described in Section 4.</p>
+
+  <h2 id="ai">10. Artificial Intelligence</h2>
+  <p>We use AI tools and we say so.</p>
   <ul>
-    <li>Device model, iOS version, and unique device identifiers</li>
-    <li>App version and crash/diagnostic data</li>
-    <li>Network connectivity information</li>
-    <li>Push notification tokens</li>
+    <li><strong>Building the sites.</strong> We use Anthropic's Claude to help draft and edit website content, documents and code. Drafts are reviewed by our people before publication. Where an article is drafted with AI assistance from our own course material, the instructor remains responsible for its accuracy.</li>
+    <li><strong>Atlas EP.</strong> The app uses Anthropic's Claude for threat analysis features, described in Part B.</li>
+    <li><strong>What is never sent to AI systems.</strong> Your course registration, eligibility attestations, signed agreements, payment details and email address are processed by the systems in Section 8 only. They are not sent to Claude or to any other AI service, and we do not use them to train models.</li>
+    <li><strong>No automated decisions about you.</strong> Whether a flagged eligibility attestation leads to a follow-up or a declined booking is decided by a person at MAST Solutions, not by software.</li>
   </ul>
 
-  <h3>2.5 Health &amp; Biometric Data</h3>
-  <p>With your explicit permission, Atlas EP may access heart rate and motion data via Apple HealthKit and Apple Watch to support operator wellness monitoring. This data is processed on-device and is never transmitted to our servers without your consent.</p>
+  <h2 id="security">11. Security</h2>
+  <p>Registration data lives in access-controlled databases with row-level permissions; eligibility answers are readable only by designated staff, and every read is logged. Payment card data never touches our systems. Connections to our sites and backend are encrypted in transit. Our booking backend verifies the authenticity of every payment notification before recording an order and sets prices server-side. Secrets and keys are kept in managed secret stores, not in code.</p>
+  <p>No system is perfectly secure. If a breach affects your personal information we will notify you as required by Texas law and any other law that applies to you.</p>
 
-  <h3>2.6 Emergency &amp; Incident Data</h3>
-  <p>When SOS or emergency features are activated, Atlas EP collects and transmits your location, device status, and incident details to designated emergency contacts and team members as configured in your account.</p>
+  <p class="part">Part B &mdash; Atlas EP App</p>
 
-  <h2>3. How We Use Your Information</h2>
+  <h2 id="app">12. Atlas EP App</h2>
+  <p>Atlas EP is our executive protection platform for professional security operators, protection agents and principals. By using Atlas EP you agree to the practices in this section as well as Parts A and C.</p>
+
+  <h3>12.1 Information the app collects</h3>
   <ul>
-    <li><strong>Provide core services</strong> — team coordination, tracking, encrypted communications, threat monitoring</li>
-    <li><strong>Emergency response</strong> — transmitting location and status to your authorized team during SOS events</li>
-    <li><strong>Account management</strong> — authentication, profile management, team configuration</li>
-    <li><strong>Security</strong> — fraud prevention, abuse detection, and enforcement of our Terms of Service</li>
-    <li><strong>App improvement</strong> — anonymized crash reports and performance analytics</li>
-    <li><strong>Legal compliance</strong> — meeting our obligations under applicable law</li>
+    <li><strong>Account:</strong> full name, email, phone, job title and role (Agent, Operator, Command), optional profile photo, team affiliations.</li>
+    <li><strong>Location:</strong> precise GPS location for Blue Force Tracker, route monitoring and emergency coordination, in the foreground while the app is in use and, with explicit permission, in the background during active deployments. Background access can be disabled in iOS Settings; team tracking then stops.</li>
+    <li><strong>Communications:</strong> encrypted operational messages, voice and status updates between authorized team members, end-to-end encrypted with AES-256-GCM. We do not read or analyse their content.</li>
+    <li><strong>Device and technical:</strong> device model, iOS version, identifiers, app version, crash and diagnostic data, connectivity, push tokens.</li>
+    <li><strong>Health and biometric:</strong> with explicit permission, heart rate and motion data from Apple HealthKit and Apple Watch for operator wellness. Processed on device; not transmitted without your consent.</li>
+    <li><strong>Emergency and incident:</strong> when SOS features are activated, your location, device status and incident details are sent to the emergency contacts and team members configured in your account.</li>
   </ul>
-  <p>We do <strong>not</strong> use your data for advertising purposes. We do not sell your personal information to third parties.</p>
 
-  <h2>4. Data Sharing</h2>
-
-  <h3>4.1 Within Your Team</h3>
-  <p>Atlas EP is a collaborative platform. Your name, role, status, and location (when location sharing is enabled) are visible to other authorized members of your operational team.</p>
-
-  <h3>4.2 Service Providers</h3>
-  <p>We share data with trusted service providers who assist in operating the App, including:</p>
+  <h3>12.2 How the app uses it</h3>
   <ul>
-    <li>Google Firebase (authentication and real-time database infrastructure)</li>
+    <li>Team coordination, tracking, encrypted communications and threat monitoring</li>
+    <li>Emergency response to your authorized team during SOS events</li>
+    <li>Authentication, profile and team management</li>
+    <li>Fraud prevention, abuse detection and enforcement of our Terms</li>
+    <li>Anonymized crash reports and performance analytics</li>
+    <li>Legal compliance</li>
+  </ul>
+  <p>Your name, role, status and, when sharing is enabled, location are visible to other authorized members of your operational team. We do not use app data for advertising and do not sell it.</p>
+
+  <h3>12.3 App service providers</h3>
+  <ul>
+    <li>Google Firebase (authentication and real-time database)</li>
     <li>Cloudflare (network infrastructure and DDoS protection)</li>
-    <li>Apple (push notifications via APNs, HealthKit integration)</li>
-    <li>Stripe (payment processing — see Section 7)</li>
-    <li>Twilio (SMS and voice communications)</li>
-    <li>Anthropic (AI-powered threat analysis features)</li>
+    <li>Apple (push notifications, HealthKit)</li>
+    <li>Stripe (subscription payments; we never store full card numbers)</li>
+    <li>Twilio (SMS and voice)</li>
+    <li>Anthropic (AI threat analysis features; see Section 10)</li>
   </ul>
-  <p>All service providers are bound by confidentiality agreements and are prohibited from using your data for their own purposes.</p>
 
-  <h3>4.3 Legal Requirements</h3>
-  <p>We may disclose your information if required by law, court order, or governmental authority, or when necessary to protect the safety of individuals or prevent criminal activity.</p>
+  <h3>12.4 App retention and security</h3>
+  <p>We keep app account data while your account is active. Operational logs and communications are retained 90 days by default; you may set a shorter period in account settings. On account deletion we delete personal data within 30 days except where law requires retention. Data is encrypted at rest and in transit with AES-256-GCM, access is role-based and verified at every access point, and the platform is reviewed for security on an ongoing basis. Subscription payments are processed by Stripe; in-app purchases, if any, by Apple.</p>
+  <p>You can manage the app's access to location, camera, microphone, health data and notifications in <strong>iOS Settings &rarr; Atlas EP</strong>.</p>
 
-  <h3>4.4 Business Transfers</h3>
-  <p>In the event of a merger, acquisition, or sale of assets, your information may be transferred to the acquiring entity, subject to the same privacy protections described herein.</p>
+  <p class="part">Part C &mdash; Your Rights and Our Contact Details</p>
 
-  <h2>5. Data Retention</h2>
-  <p>We retain your personal information for as long as your account is active or as needed to provide services. Operational logs and communications are retained for 90 days by default; you may configure shorter retention periods in your account settings. Upon account deletion, we delete your personal data within 30 days, except where retention is required by law.</p>
-
-  <h2>6. Data Security</h2>
-  <p>Atlas EP implements industry-leading security measures including:</p>
+  <h2 id="rights">13. Your Rights</h2>
+  <p>Wherever you live, you can ask us to:</p>
   <ul>
-    <li>AES-256-GCM encryption for all data at rest and in transit</li>
-    <li>WireGuard VPN for secure network communications</li>
-    <li>Zero-trust architecture — data is verified at every access point</li>
-    <li>Role-based access controls limiting data access to authorized personnel</li>
-    <li>Regular security audits and penetration testing</li>
+    <li><strong>Access</strong> a copy of the personal information we hold about you</li>
+    <li><strong>Correct</strong> inaccurate or incomplete information</li>
+    <li><strong>Delete</strong> your personal information, subject to the legal retention in Section 9</li>
+    <li><strong>Receive</strong> your information in a portable format</li>
+    <li><strong>Opt out</strong> of marketing email at any time</li>
+    <li><strong>Withdraw consent</strong> you previously gave</li>
   </ul>
-  <p>While we take every precaution to protect your data, no system is 100% secure. We will notify affected users promptly in the event of a data breach as required by applicable law.</p>
+  <p>Email <a href="mailto:privacy@atlasglinn.com">privacy@atlasglinn.com</a> from the address on your booking or account, or write to the address below. We respond within 45 days, and we will tell you if we need longer. We will verify your identity before releasing or deleting anything. If we decline a request we will say why, and you may appeal by replying to our response.</p>
 
-  <h2>7. Payments</h2>
-  <p>Subscription payments are processed by Stripe, Inc. Atlas Glinn does not store your full payment card information. Stripe's privacy policy is available at <a href="https://stripe.com/privacy" target="_blank">stripe.com/privacy</a>. In-app purchases (if applicable) are processed by Apple and subject to Apple's privacy policy.</p>
+  <h3>Texas residents</h3>
+  <p>Under the Texas Data Privacy and Security Act you have the rights above, plus the right to opt out of targeted advertising, the sale of personal data, and profiling that produces legal or similarly significant effects. We do none of those three. Sensitive personal data, including the eligibility attestations in Section 4, is processed only with your consent, given when you complete the form, and is never sold. We honour the Global Privacy Control browser signal as an opt-out. If you believe we have not resolved a concern, you may contact the Texas Attorney General's Consumer Protection Division.</p>
 
-  <h2>8. Children's Privacy</h2>
-  <p>Atlas EP is intended for professional use by adults (18 years of age or older). We do not knowingly collect personal information from children under 13. If you believe we have inadvertently collected such information, please contact us at privacy@atlasglinn.com and we will delete it promptly.</p>
+  <h3>California residents</h3>
+  <p>Under the California Consumer Privacy Act you have the right to know the categories of personal information we collect and why, to delete it, to correct it, and to opt out of sale or sharing. We do not sell personal information and do not share it for cross-context behavioural advertising. We do not discriminate against you for exercising these rights.</p>
 
-  <h2>9. Your Rights &amp; Choices</h2>
-  <p>Depending on your location, you may have the following rights regarding your personal data:</p>
-  <ul>
-    <li><strong>Access</strong> — request a copy of the personal data we hold about you</li>
-    <li><strong>Correction</strong> — request correction of inaccurate or incomplete data</li>
-    <li><strong>Deletion</strong> — request deletion of your personal data ("right to be forgotten")</li>
-    <li><strong>Portability</strong> — receive your data in a portable format</li>
-    <li><strong>Opt-out</strong> — opt out of non-essential data processing</li>
-    <li><strong>Withdraw consent</strong> — withdraw previously granted consent at any time</li>
-  </ul>
-  <p>To exercise any of these rights, contact us at <a href="mailto:privacy@atlasglinn.com">privacy@atlasglinn.com</a>. We will respond within 30 days.</p>
+  <h3>Outside the United States</h3>
+  <p>Our services operate from the United States. If you use them from elsewhere your information is transferred to and processed in the United States and in the countries where our providers operate.</p>
 
-  <h3>iOS Permissions</h3>
-  <p>You may manage Atlas EP's access to device features (location, camera, microphone, health data, notifications) at any time in <strong>iOS Settings → Atlas EP</strong>.</p>
+  <h2 id="children">14. Age Requirements</h2>
+  <p>MAST Solutions courses are for adults aged 18 and over; some courses carry additional age requirements under applicable law, stated on the course. Atlas EP is for professional use by adults. We do not knowingly collect personal information from anyone under 18. If you believe we have, tell us at privacy@atlasglinn.com and we will delete it.</p>
 
-  <h2>10. California Privacy Rights (CCPA)</h2>
-  <p>California residents have additional rights under the California Consumer Privacy Act (CCPA). Atlas Glinn does not sell personal information. You have the right to know what categories of personal information we collect, request deletion, and opt out of any future sale. To submit a CCPA request, contact privacy@atlasglinn.com or write to us at the address below.</p>
-
-  <h2>11. International Users</h2>
-  <p>Atlas EP is operated from the United States. If you access the App from outside the United States, your information may be transferred to and processed in the United States or other countries where our service providers operate. By using Atlas EP, you consent to this transfer.</p>
-
-  <h2>12. Changes to This Policy</h2>
-  <p>We may update this Privacy Policy periodically. We will notify you of material changes by posting the new policy in the App and updating the "Last Updated" date at the top of this page. Your continued use of Atlas EP after changes are posted constitutes acceptance of the revised policy.</p>
-
-  <h2>13. Contact Us</h2>
+  <h2 id="changes">15. Changes to This Policy and Contact</h2>
+  <p>We update this policy when our practices change. The "Last Updated" date at the top moves, and for material changes affecting course registration or the app we notify you by email or in the app. Continued use after a change is posted means you accept the revised policy.</p>
   <div class="contact-block">
-    <p><strong>Atlas Glinn, LLC — Privacy Team</strong></p>
+    <p><strong>Atlas Glinn, LLC &mdash; Privacy Team</strong></p>
     <p>Email: <a href="mailto:privacy@atlasglinn.com">privacy@atlasglinn.com</a></p>
+    <p>Phone: (281) 654-8100</p>
     <p>Address: 2450 Fondren Rd, Suite 255, Houston, TX 77063</p>
-    <p>Website: <a href="https://atlasglinn.com">atlasglinn.com</a></p>
+    <p>Websites: <a href="https://atlasglinn.com">atlasglinn.com</a> &nbsp;·&nbsp; <a href="https://atlasglinn.com/mastsolutions.html">mastsolutions.com</a></p>
   </div>
 
 </main>
 
 <footer>
-  &copy; 2026 Atlas Glinn, LLC &nbsp;·&nbsp;
-  <a href="/terms">Terms of Service</a> &nbsp;·&nbsp;
-  <a href="/privacy">Privacy Policy</a> &nbsp;·&nbsp;
-  <a href="/">atlasglinn.com</a>
+  &copy; 2026 Atlas Glinn, LLC &nbsp;·&nbsp; MAST Solutions &nbsp;·&nbsp;
+  <a href="terms.html">Terms of Service</a> &nbsp;·&nbsp;
+  <a href="privacy.html">Privacy Policy</a> &nbsp;·&nbsp;
+  <a href="index.html">atlasglinn.com</a>
 </footer>
 
 </body>
