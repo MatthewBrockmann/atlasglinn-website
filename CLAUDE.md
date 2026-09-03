@@ -70,7 +70,11 @@ command, never OneDrive**: `scripts/mac-handoff.sh` copies files/folders into
 - A Mac session (Cowork / Claude Code CLI): run it itself via `/handoff` or the
   `mac-handoff` skill. Do not hand Brockmann a step the session can run.
 - A cloud session: never invent a new paste. Ask for `mac-handoff.sh` by name,
-  then `git fetch origin claude/desktop-assets` and read `reference/desktop/`.
+  then `git fetch origin claude/desktop-assets` and read the files from that ref
+  (a fetch never touches the working tree): `git ls-tree -r --name-only
+  origin/claude/desktop-assets -- reference/desktop` to list, `git show
+  origin/claude/desktop-assets:reference/desktop/<file> > <copy>` to read one.
+  Never merge the archive branch into a site branch.
 
 Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
 `04-resources/agent-memory/reference_mac_handoff_command.md`. Address him as
