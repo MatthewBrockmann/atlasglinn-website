@@ -33,13 +33,12 @@ DOC_RECIPIENTS_INTERNAL  = "atlasglinn.hq@atlasglinn.com,Matthew@mastsolutions.c
 RANGE_ADDRESS = "4159 County Road 161, Wharton, TX 77488"
 RANGE_COORDS  = "29.339959, -96.046542"
 
-# Order storage. Create with:
-#   wrangler d1 create mast_bookings
-# then paste the returned database_id below.
+# Order storage. Database created 2026-09-03 in the Atlas Glinn Cloudflare
+# account (region ENAM) and schema.sql applied to it.
 [[d1_databases]]
 binding = "DB"
 database_name = "mast_bookings"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "a510159f-a4f6-44fd-87d1-63db5ce27773"
 
 # ── Secrets (set with `wrangler secret put <NAME>`) ─────────────────
 #   STRIPE_SECRET_KEY       sk_live_... (or sk_test_... while testing)
