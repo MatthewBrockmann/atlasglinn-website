@@ -358,7 +358,7 @@ BODY = f"""
       <div class="founder rise">
         <div class="portrait" style="background-image:url('images/mast/instructing-le.jpg')"><div class="cap">Instructing a federal team on the line</div></div>
         <div class="bio">
-          <p>Founded MAST Solutions in 2005 and later Atlas Glinn, LLC. Head of Security and Dignitary Protection for U.S. Senators Ted Cruz and Eric &ldquo;Bulldog&rdquo; Schmitt. Teaches on the range. Has trained Houston, Baytown, Galveston, and other SWAT teams, including TTPOA (TX Tactical Police Officers Association), VBSS (Visit, Board, Search, Seize), NASA SRT, Dept of Homeland Security, and other federal, state, and Military Units.</p>
+          <p>Founded MAST Solutions in 2005 and later Atlas Glinn, LLC. Head of Security and Dignitary Protection for U.S. Senators Ted Cruz, Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump. Teaches on the range. Has trained Houston, Baytown, Galveston, and other SWAT teams, including TTPOA (TX Tactical Police Officers Association), VBSS (Visit, Board, Search, Seize), NASA SRT, Dept of Homeland Security, and other federal, state, and Military Units.</p>
           <ul class="creds">
             <li>Trained by <b>Paul Howe</b> (1st SFOD-D), <b>Bill Jeans</b> and <b>John Perretti</b></li>
             <li><b>DPS Level III Firearms Instructor</b> &middot; <b>TTPOA Maritime VBSS</b> instructor</li>
@@ -389,7 +389,7 @@ BODY = f"""
     <div>
       <div class="badge">Privacy Matters</div>
       <p class="sub quote lead">&ldquo;Details matter. Privacy matters. Unless publicly reported, we don&rsquo;t disclose.&rdquo;</p>
-      <p class="sub" style="font-size:.98rem;">Former Head of Security and Dignitary Protection for U.S. Senators, a former Vice President and other principals who prefer their names stay off websites. Pictured: Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt.</p>
+      <p class="sub" style="font-size:.98rem;">Former Head of Security and Dignitary Protection for U.S. Senators Ted Cruz, Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, Ivanka Trump, and other principals who prefer their names stay off websites. Pictured: Senators Hawley and Schmitt.</p>
       <div class="eyebrow" style="margin-top:2.5rem;">For agencies, units and procurement officers</div>
       <div class="ctas rise"><a href="mailto:atlasglinn.hq@atlasglinn.com?subject=MAST%20Solutions%20Capability%20Statement%20Request" class="cta">Email for the Capability Statement</a><a href="mast-capability-statement.html" class="secondary-cta">View One-Pager</a></div>
     </div>
