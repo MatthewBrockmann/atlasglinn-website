@@ -119,7 +119,7 @@ SECTIONS = f"""
     <div>
       <div class="eyebrow">Est. 2005 &middot; Houston, TX</div>
       <h2 class="section-h">Trained to <span class="gold">Standard.</span></h2>
-      <p class="sub">No paint-ball courses dressed up as tactics. No cinema instructors. Real-world doctrine, changing TTPs, tactics proven in real-world environments.</p>
+      <p class="sub">No paint-ball courses dressed up as tactics. No cinema instructors. Real-world doctrine, changing TTPs, evolving tactics proven in real-world environments.</p>
       <div class="stats rise">
         <div class="stat"><div class="stat-num" data-count="1701" data-suffix="+">0</div><div class="stat-label">Students Trained</div></div>
         <div class="stat"><div class="stat-num" data-count="21">0</div><div class="stat-label">Courses</div></div>
