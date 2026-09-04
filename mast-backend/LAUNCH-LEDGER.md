@@ -53,8 +53,8 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
   without consent." on the MAST page and the Atlas preview; the Jason Castro video sits in the Testimonials
   chapter, not the media strip.
 - Still to come from him: his new instructor portrait (JPG), the two-shooters photo for the gallery, the jumping
-  "hero" photo, the private-instruction PDF, the replacement MAST clip, the *A Long Recovery* link, more pictures
-  for the folder.
+  "hero" photo, the private-instruction PDF, the replacement MAST clip, more pictures for the folder. *A Long
+  Recovery* (YouTube `0IkEMH0LPC8`, link from him 2026-09-04) is embedded under Torrey Kramer's profile.
 
 ## B. Before launch — owner's hand, in order
 

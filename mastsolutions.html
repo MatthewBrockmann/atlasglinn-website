@@ -500,8 +500,9 @@
       </div>
       <div class="cert rise instructor">
         <img src="images/mast/torrey-kramer.jpg" alt="Torrey Kramer, MAST Solutions instructor" loading="lazy">
-        <p><b class="gold">Torrey Kramer</b> &middot; Instructor<br>Combat veteran. Injured by an IED on his second deployment; his return is the subject of the documentary <i>A Long Recovery</i>.<br><span id="long-recovery"><small>The film will be embedded here.</small></span></p>
+        <p><b class="gold">Torrey Kramer</b> &middot; Instructor<br>Combat veteran. Injured by an IED on his second deployment; his return is the subject of the documentary <i>A Long Recovery</i>, below.</p>
       </div>
+      <div class="media-strip rise" id="instructor-strip"></div>
       <div class="cert rise">
         <img src="images/mast/capitol-flag-certificate.jpg" alt="Certificate: a flag flown over the United States Capitol in honor of Matthew Brockmann, at the request of Senator Ted Cruz, December 1, 2021" loading="lazy">
         <p>A flag flown over the United States Capitol at the request of Senator Ted Cruz, December 1, 2021, &ldquo;with gratitude for your steadfast vigilance, unwavering dedication, and heart of service.&rdquo; The task force is not named here. Details matter. Privacy matters.</p>
@@ -1093,10 +1094,13 @@ const MEDIA = [
 const TESTIMONIALS = [
   { mp4: 'images/mast/jason-castro-testimonial.mp4', teaser: 'images/mast/jason-castro-testimonial-teaser.mp4', poster: 'images/mast/jason-castro-testimonial-poster.jpg', title: 'Jason Castro', sub: 'Student testimonial' },
 ];   // video testimonials; rendered into #testimonial-strip (the Testimonials chapter) where that exists
+const INSTRUCTOR_FILMS = [
+  { yt: '0IkEMH0LPC8', title: 'A Long Recovery', sub: 'The documentary following Torrey Kramer\u2019s return' },
+];   // films on the Instructors chapter (#instructor-strip), e.g. the documentary about an instructor
 (function(){
   const card = i => `<div class="video-card"><div class="yt${i.mp4 ? ' mp4' : ''}" role="button" tabindex="0" aria-label="Play ${esc(i.title)}" ${i.yt ? `data-yt="${esc(i.yt)}"` : `data-mp4="${esc(i.mp4)}"`}>${i.yt ? `<img src="https://i.ytimg.com/vi/${esc(i.yt)}/hqdefault.jpg" alt="" loading="lazy" decoding="async">` : i.teaser ? `<video class="teaser" muted loop playsinline preload="none" poster="${esc(i.poster || '')}" data-src="${esc(i.teaser)}" aria-hidden="true"></video>` : i.poster ? `<img src="${esc(i.poster)}" alt="" loading="lazy" decoding="async">` : `<span class="lbl">MAST Solutions · Film</span>`}<span class="play" aria-hidden="true"></span></div><div class="video-card-info"><h4>${esc(i.title)}</h4><p>${esc(i.sub || '')}</p></div></div>`;
   const play = el => { if (el.dataset.done) return; el.dataset.done = '1'; let node; if (el.dataset.yt) { node = document.createElement('iframe'); node.src = `https://www.youtube.com/embed/${el.dataset.yt}?autoplay=1&rel=0&modestbranding=1&playsinline=1`; node.title = el.getAttribute('aria-label'); node.allow = 'accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture'; node.setAttribute('allowfullscreen', ''); } else { node = document.createElement('video'); node.src = el.dataset.mp4; node.controls = true; node.autoplay = true; node.playsInline = true; node.preload = 'none'; } el.innerHTML = ''; el.appendChild(node); el.style.cursor = 'default'; };
-  for (const [id, list] of [['media-strip', MEDIA], ['testimonial-strip', TESTIMONIALS]]) {
+  for (const [id, list] of [['media-strip', MEDIA], ['testimonial-strip', TESTIMONIALS], ['instructor-strip', INSTRUCTOR_FILMS]]) {
     const host = $(id); if (!host) continue;
     host.innerHTML = list.filter(i => i.yt || i.mp4).map(card).join('');
     host.addEventListener('click', e => { const el = e.target.closest('.yt'); if (el) play(el); });

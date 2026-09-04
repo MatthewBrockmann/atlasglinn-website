@@ -77,6 +77,12 @@ testimonials = """const TESTIMONIALS = [
 ];"""
 assert js.count('const TESTIMONIALS = [];') == 1, 'tesla page lost its TESTIMONIALS hook'
 js = js.replace('const TESTIMONIALS = [];', testimonials, 1)
+# A Long Recovery: the documentary about instructor Torrey Kramer's return after his second deployment (link from Brockmann, 2026-09-04).
+instructor_films = """const INSTRUCTOR_FILMS = [
+  { yt: '0IkEMH0LPC8', title: 'A Long Recovery', sub: 'The documentary following Torrey Kramer\\u2019s return' },
+];"""
+assert js.count('const INSTRUCTOR_FILMS = [];') == 1, 'tesla page lost its INSTRUCTOR_FILMS hook'
+js = js.replace('const INSTRUCTOR_FILMS = [];', instructor_films, 1)
 assert 'function openCal' in js and 'function startCheckout' in js and "['testimonial-strip', TESTIMONIALS]" in js, 'booking js missing pieces'
 assert 'hero-yt' not in js and 'REVIEWS' not in js, 'hero/reviews code leaked into booking js'
 
@@ -184,8 +190,9 @@ SECTIONS = f"""
       </div>
       <div class="cert rise instructor">
         <img src="images/mast/torrey-kramer.jpg" alt="Torrey Kramer, MAST Solutions instructor" loading="lazy">
-        <p><b class="gold">Torrey Kramer</b> &middot; Instructor<br>Combat veteran. Injured by an IED on his second deployment; his return is the subject of the documentary <i>A Long Recovery</i>.<br><span id="long-recovery"><small>The film will be embedded here.</small></span></p>
+        <p><b class="gold">Torrey Kramer</b> &middot; Instructor<br>Combat veteran. Injured by an IED on his second deployment; his return is the subject of the documentary <i>A Long Recovery</i>, below.</p>
       </div>
+      <div class="media-strip rise" id="instructor-strip"></div>
       <div class="cert rise">
         <img src="images/mast/capitol-flag-certificate.jpg" alt="Certificate: a flag flown over the United States Capitol in honor of Matthew Brockmann, at the request of Senator Ted Cruz, December 1, 2021" loading="lazy">
         <p>A flag flown over the United States Capitol at the request of Senator Ted Cruz, December 1, 2021, &ldquo;with gratitude for your steadfast vigilance, unwavering dedication, and heart of service.&rdquo; The task force is not named here. Details matter. Privacy matters.</p>

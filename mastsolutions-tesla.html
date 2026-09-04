@@ -860,10 +860,11 @@ const MEDIA = [
   { mp4: 'images/film/about-atlas-glinn.mp4', poster: 'images/film/about-atlas-glinn-poster.jpg', title: 'About Atlas Glinn', sub: 'The film behind the About page hero' },
 ];
 const TESTIMONIALS = [];   // video testimonials; rendered into #testimonial-strip (the Testimonials chapter) where that exists
+const INSTRUCTOR_FILMS = [];   // films on the Instructors chapter (#instructor-strip), e.g. the documentary about an instructor
 (function(){
   const card = i => `<div class="video-card"><div class="yt${i.mp4 ? ' mp4' : ''}" role="button" tabindex="0" aria-label="Play ${esc(i.title)}" ${i.yt ? `data-yt="${esc(i.yt)}"` : `data-mp4="${esc(i.mp4)}"`}>${i.yt ? `<img src="https://i.ytimg.com/vi/${esc(i.yt)}/hqdefault.jpg" alt="" loading="lazy" decoding="async">` : i.teaser ? `<video class="teaser" muted loop playsinline preload="none" poster="${esc(i.poster || '')}" data-src="${esc(i.teaser)}" aria-hidden="true"></video>` : i.poster ? `<img src="${esc(i.poster)}" alt="" loading="lazy" decoding="async">` : `<span class="lbl">MAST Solutions · Film</span>`}<span class="play" aria-hidden="true"></span></div><div class="video-card-info"><h4>${esc(i.title)}</h4><p>${esc(i.sub || '')}</p></div></div>`;
   const play = el => { if (el.dataset.done) return; el.dataset.done = '1'; let node; if (el.dataset.yt) { node = document.createElement('iframe'); node.src = `https://www.youtube.com/embed/${el.dataset.yt}?autoplay=1&rel=0&modestbranding=1&playsinline=1`; node.title = el.getAttribute('aria-label'); node.allow = 'accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture'; node.setAttribute('allowfullscreen', ''); } else { node = document.createElement('video'); node.src = el.dataset.mp4; node.controls = true; node.autoplay = true; node.playsInline = true; node.preload = 'none'; } el.innerHTML = ''; el.appendChild(node); el.style.cursor = 'default'; };
-  for (const [id, list] of [['media-strip', MEDIA], ['testimonial-strip', TESTIMONIALS]]) {
+  for (const [id, list] of [['media-strip', MEDIA], ['testimonial-strip', TESTIMONIALS], ['instructor-strip', INSTRUCTOR_FILMS]]) {
     const host = $(id); if (!host) continue;
     host.innerHTML = list.filter(i => i.yt || i.mp4).map(card).join('');
     host.addEventListener('click', e => { const el = e.target.closest('.yt'); if (el) play(el); });
