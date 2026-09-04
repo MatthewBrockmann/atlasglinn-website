@@ -47,8 +47,9 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
 - **Forge Ignition removed** from the media strip; his actual MAST clip replaces it when handed off.
 - **Torrey Kramer** is on the Instructors chapter with his photo from the old site and a one-line profile drafted
   from the owner's words; the documentary *A Long Recovery* embeds once he sends the link (not in the old export).
-- Second round (same evening): the Gun Digest "Modern Shooter TV" cut is out of the strip ("SS1 = cut"); the gold
-  shimmer intro stays for MAST (he prefers it over the blue); the "0 Shortcuts" counter is now "34 Years of
+- Second round (same evening): the Gun Digest "Modern Shooter TV" cut is out of the strip ("SS1 = cut"); the MAST
+  page moved to the Atlas blue palette ("Use the blue like the Atlas Glinn intro", his later call over the gold);
+  "Over Two Decades" replaces 34 years on the MAST page (counter 20+, hero line); the "0 Shortcuts" counter is now "34 Years of
   Experience"; the media sentence reads "We don't do media. Names appear only where the media captured them
   without consent." on the MAST page and the Atlas preview; the Jason Castro video sits in the Testimonials
   chapter, not the media strip.

@@ -165,7 +165,7 @@ SECTIONS = f"""
     <div>
       <div class="eyebrow">Course Catalog</div>
       <h2 class="section-h">Twenty-One <span class="gold">Courses.</span></h2>
-      <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">First time with MAST? Start with a Fundamentals course.</b> Operator and P1 courses build on it; P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
+      <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Fundamentals first, unless you have taken it before. Level 2 and 3 courses ask you to confirm that at registration.</b> Operator and P1 courses build on it; P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
       <div class="catalog-wrap rise"><div class="glass"><div class="catalog-panel" id="catalog"></div></div>
       <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p></div>
     </div>
@@ -300,7 +300,12 @@ QUOTES_CSS = """
   @media (max-width:900px) { .quotes { grid-template-columns:1fr 1fr; } }
   @media (max-width:768px) { .quotes { grid-template-columns:1fr; } }
 """
-html = shell.head(META, shell.css(shell.MAST, booking_css + QUOTES_CSS)) + BODY + shell.tail(shell.three(10, shell.MAST), js)
+# Palette: Atlas blue for MAST as well (Brockmann, 2026-09-04: "Use the blue like the Atlas Glinn intro. I think it looks
+# better than MAST Solutions gold"). The shell, the lifted booking styles, the scene and any gold literal left in the
+# markup or booking JS all go through the same token map.
+PALETTE = shell.ATLAS
+html = shell.head(META, shell.css(PALETTE, booking_css + QUOTES_CSS)) + BODY + shell.tail(shell.three(10, PALETTE), js)
+html = shell._recolor(html, PALETTE)
 # Brockmann picked this design as the page that ships (2026-09-03), so the assembler writes the production
 # mastsolutions.html. The Atlas-frame build lives on as mastsolutions-atlas.html; the old cinematic URL is a stub redirect.
 out = f'{REPO}/mastsolutions.html'
