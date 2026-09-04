@@ -23,12 +23,11 @@ OUT = 'images/mast/range/'
 MAX_W = 1600
 
 # P.nnn numbers, in the order they appear on the chapter (the first twelve are the ones shown before "show all").
-PICKS = [78, 162, 111, 9, 1, 25, 59, 80, 133, 122, 17, 138,
-         2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 18, 20, 21, 22, 23, 24, 26, 28,
-         55, 56, 57, 58, 61, 62, 63, 64, 65, 66, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 79, 81, 82, 83, 84, 85, 86, 87, 88,
-         93, 94, 95, 96, 100, 101, 102, 103, 104, 105, 109, 110, 114, 115, 116, 118, 119, 123, 124, 125, 126, 127, 128, 130, 132, 134,
-         150, 151, 152, 153, 154, 155, 157, 159, 160, 163, 166, 167, 168, 169, 171, 172, 173, 176, 177, 178, 182, 185, 186, 188, 189,
-         191, 192, 194, 195, 196, 198]
+# 2026-09-04, owner: "The range photos are the ones that were posted on the old website, with the classroom, the range." The export
+# holds no classroom and its media stops at January 2015, so this is the facility set that exists: the private-session sign, the
+# shelter, the range with its tables, the tower, the flat range and berms, the indoor bays, the building. His set replaces it.
+PICKS = [9, 10, 111, 33, 35, 36, 37, 1, 2, 78, 79, 80,
+         162, 163, 178, 114, 115, 118, 116, 12, 25, 59, 73, 88]
 
 # Same listing and order as scripts/old-range-photos.py, so the P numbers match the sheets.
 MAST_RE = re.compile(r'(MAST|_FV_|^\d{4}-\d\d-\d\d |^DSCN|^IMG_|^IMG0|Low Light|Mil:|^PSD0|SWAT|Tactical_Training|Team.?Tac|^h-|^header-|^c-handgun|^carbine|^handgun|long.range|low.light|^medical|^shotgun|^weapon|^ladies|^direct|Recon_|^Gallery|Circle of trust|brockmann|chauvin|mccusker|kramer|^sl-|^slider-|^team\.jpg|video-poster|Firearms|KNife|Leadership|Carbine|^B-mast|^[0-9A-F]{8}-)', re.I)
