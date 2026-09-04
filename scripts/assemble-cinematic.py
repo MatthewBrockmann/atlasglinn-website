@@ -118,9 +118,9 @@ def tier(name, key, plan, fee, includes, slots):   # key is t-<team>: a bare 'go
 MEMBERSHIP = f"""
   <section class="panel" id="s6" data-section="06">
     <div>
-      <div class="eyebrow">Membership &middot; Four Teams &middot; Limited Slots</div>
+      <div class="eyebrow">Membership &middot; Six Teams &middot; Limited Slots</div>
       <h2 class="section-h">The <span class="gold">Teams.</span></h2>
-      <p class="sub">MAST offers membership in four teams. Each team holds a set number of slots, so the benefits and the class seats are always there for the members who hold them. When a team is full there is a waiting list. New memberships are vetted by the established team.</p>
+      <p class="sub">MAST offers membership in six teams: four open teams, plus Law Enforcement and Verified Teachers. Each team holds a set number of slots, so the benefits and the class seats are always there for the members who hold them. When a team is full there is a waiting list. New memberships are vetted by the established team.</p>
       <div class="teams rise">
         {tier('Red Team', 't-red', 'red_team', '$250', 'One class, plus 25% off any one class for you or one friend.', '10 memberships')}
         {tier('Blue Team', 't-blue', 'blue_team', '$450', 'Two classes, plus 35% off any two classes for you or two friends.', '5 memberships')}
