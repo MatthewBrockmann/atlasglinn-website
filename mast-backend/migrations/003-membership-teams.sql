@@ -4,9 +4,6 @@
 -- Idempotent (INSERT OR IGNORE). stripe_price_id starts empty on purpose: POST /create-membership provisions each plan's Stripe
 -- recurring Price on the first join (lookup_key mast_<plan_key>) and stores it on the row. Fees set by the owner 2026-09-04:
 -- Red 250, Blue 450, Gold 575, Black 600, Law Enforcement 195, Verified Teachers 195 per month.
-INSERT OR IGNORE). The rows are INACTIVE: POST /create-membership refuses a plan without a Stripe recurring Price.
--- When a Price exists in Stripe: UPDATE memberships SET stripe_price_id = 'price_…', active = 1 WHERE plan_key = 'red_team';
--- Fees confirmed by the owner 2026-09-04: Red 250, Blue 450, Gold 575, Black 600 per month.
 INSERT OR IGNORE INTO memberships (plan_key, name, stripe_price_id, price_cents, interval, active, sort_order) VALUES
   ('red_team',      'Red Team',          '', 25000, 'month', 1, 1),
   ('blue_team',     'Blue Team',         '', 45000, 'month', 1, 2),
