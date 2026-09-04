@@ -308,7 +308,7 @@ def build(path, title, desc, og_image, credits, chapters, photos, jsonld=''):
 CREDITS = ('Houston &middot; Texas', 'Executive Protection &middot; Intelligence &middot; Training')
 OG_DEFAULT = HERO_EP
 PRIVACY_LINE = ('Former Head of Security, Sen. Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, '
-                'named as media exist. Other high-profile and high-net-worth individuals follow our privacy standards. We don&rsquo;t do media unless media captures without consent.')
+                'named as media exist. Other high-profile and high-net-worth individuals follow our privacy standards. We don&rsquo;t do media. Names appear only where the media captured them without consent.')
 
 # ═══════════════════════════════ index.html ═══════════════════════════════
 build('index.html',

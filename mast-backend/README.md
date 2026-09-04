@@ -103,6 +103,7 @@ wrangler d1 create mast_bookings
 
 # 2. Create the tables and seed the class catalog (idempotent: CREATE TABLE IF NOT EXISTS)
 wrangler d1 execute mast_bookings --remote --file=schema.sql
+wrangler d1 execute mast_bookings --remote --file=migrations/001-prereq-attested.sql   # once, on a database created before 2026-09-04
 
 # 3. Secrets (never commit these)
 wrangler secret put STRIPE_SECRET_KEY        # sk_test_… first, sk_live_… when ready

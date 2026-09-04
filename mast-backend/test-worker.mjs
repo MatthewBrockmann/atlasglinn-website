@@ -43,7 +43,7 @@ const outcomes = [];               // eligibility_outcomes rows
 const answers = [];                // eligibility_answers rows
 const orderUpdates = [];           // UPDATE orders ... from completeRegistration
 const sqlLog = [];
-const REG_COLS = ['id','created_at','status','sku','item_name','qty','session_date','session_label','customer_name','customer_email','customer_phone','organization','address1','address2','emergency_name','emergency_phone','emergency_relationship','eligibility_outcome_id','eligibility_status','questions_version','agreement_version','agreement_signed_name','agreement_initials','agreement_signed_at','agreement_ip','agreement_user_agent','refund_policy_version','refund_policy_accepted_at','refund_policy_ip','newsletter_opt_in','newsletter_opted_in_at'];
+const REG_COLS = ['id','created_at','status','sku','item_name','qty','session_date','session_label','customer_name','customer_email','customer_phone','organization','address1','address2','emergency_name','emergency_phone','emergency_relationship','eligibility_outcome_id','eligibility_status','questions_version','agreement_version','agreement_signed_name','agreement_initials','agreement_signed_at','agreement_ip','agreement_user_agent','refund_policy_version','refund_policy_accepted_at','refund_policy_ip','newsletter_opt_in','newsletter_opted_in_at','prereq_attested'];
 
 const DB = {
   prepare(sql) {
@@ -59,7 +59,8 @@ const DB = {
               return { n };
             }
             if (sql.includes('FROM offerings')) {
-              const row = { 'MAST-DA': { sku: 'MAST-DA', name: 'Direct Action', price_cents: 69500, capacity: 10 } }[args[0]];
+              const row = { 'MAST-DA': { sku: 'MAST-DA', name: 'Direct Action', price_cents: 69500, capacity: 10 },
+                            'MAST-HG-OP': { sku: 'MAST-HG-OP', name: 'Handgun Operator', price_cents: 45000, capacity: 10 } }[args[0]];
               return row || null;
             }
             if (sql.includes('FROM memberships')) {
@@ -319,6 +320,20 @@ const reg = (body) => post('/register', body);
   ok('capacity: a block bigger than the seats left is refused and told how many remain', tooMany.status === 409 && tb.seats_left === 9, JSON.stringify(tb));
   // Release the seats this block took so the fixture weekend is open again for the tests that follow.
   for (const id of [r9.registration_id, r10.registration_id, ro.registration_id]) { const row = registrations.get(id); if (row) row.status = 'abandoned'; }
+}
+{
+  // Fundamentals gate: a level-2 course needs the prerequisite attestation; a Fundamentals-level course does not.
+  stripeCalls.length = 0;
+  const bare = await reg(goodReg({ sku: 'MAST-HG-OP' })); const bb = await bare.json();
+  ok('prerequisite: Handgun Operator without the attestation → 400 prerequisite', bare.status === 400 && bb.field === 'prerequisite' && bb.code === 'prerequisite', JSON.stringify(bb));
+  ok('prerequisite: Stripe not called without it', stripeCalls.length === 0);
+  const withIt = await reg(goodReg({ sku: 'MAST-HG-OP', prerequisite: { required: true, attested: true } })); const wb = await withIt.json();
+  ok('prerequisite: attested → reaches Stripe', withIt.status === 200, String(withIt.status));
+  const row = registrations.get(wb.registration_id);
+  ok('prerequisite: attestation recorded on the registration', row && row.prereq_attested === 1, JSON.stringify(row && row.prereq_attested));
+  const da = registrations.get((await (await reg(goodReg())).json()).registration_id);
+  ok('prerequisite: a course without one records 0 and does not ask', da && da.prereq_attested === 0);
+  for (const r of [row, da]) if (r) r.status = 'abandoned';
 }
 {
   stripeCalls.length = 0; emails.length = 0; const before = registrations.size;

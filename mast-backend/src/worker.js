@@ -307,6 +307,16 @@ async function handleBooking(request, env, cors) {
  * flagged outcome and stops BEFORE Stripe: nothing is charged, staff get a notice that
  * names the registration and never the answers.
  */
+/** Fundamentals is a gate (owner, 2026-09-04: "They MUST take Fundamentals first UNLESS they have taken it prior").
+ *  Mirrors levelOf() on the page: Fundamentals courses have no prerequisite, P2 needs P1, Operator/P1 need Fundamentals. */
+function prerequisiteFor(offering) {
+  const n = String((offering && offering.name) || '');
+  if (!n || /Fundamentals/i.test(n)) return null;
+  if (/\bP2\b/.test(n)) return 'a MAST P1 course';
+  if (/Operator|\bP1\b/.test(n)) return 'MAST Fundamentals';
+  return null;
+}
+
 async function handleRegister(request, env, cors) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== 'object') return json({ error: 'Bad request' }, 400, cors);
@@ -353,6 +363,12 @@ async function handleRegister(request, env, cors) {
         code: 'sold_out', seats_left: left, field: 'date',
       }, 409, cors);
     }
+  }
+  // 1c. Prerequisite attestation for level 2 and 3 courses.
+  const prereq = prerequisiteFor(offering);
+  const prereqAttested = !!(body.prerequisite && body.prerequisite.attested === true);
+  if (prereq && !prereqAttested) {
+    return json({ error: 'This course requires ' + prereq + ' first. Confirm you have completed it, or start with a Fundamentals course.', field: 'prerequisite', code: 'prerequisite' }, 400, cors);
   }
   const sessionLabel = str(body.session_label) || weekend.label || '';
 
@@ -409,6 +425,7 @@ async function handleRegister(request, env, cors) {
     agreement_signed_at: now, agreement_ip: ip, agreement_user_agent: ua,
     refund_policy_version: REFUND_POLICY_VERSION, refund_policy_accepted_at: now, refund_policy_ip: ip,
     newsletter_opt_in: optIn ? 1 : 0, newsletter_opted_in_at: optIn ? now : null,
+    prereq_attested: prereq && prereqAttested ? 1 : 0,
   };
 
   // 6. Persist: the outcome (kept), the answers (purged on schedule), the registration.
@@ -491,6 +508,7 @@ const REG_COLUMNS = [
   'agreement_version', 'agreement_signed_name', 'agreement_initials', 'agreement_signed_at', 'agreement_ip', 'agreement_user_agent',
   'refund_policy_version', 'refund_policy_accepted_at', 'refund_policy_ip',
   'newsletter_opt_in', 'newsletter_opted_in_at',
+  'prereq_attested',
 ];
 
 async function storeRegistration(env, reg) {

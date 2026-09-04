@@ -215,6 +215,7 @@ CREATE TABLE IF NOT EXISTS registrations (
   refund_policy_ip        TEXT,
   newsletter_opt_in       INTEGER DEFAULT 0,       -- its own consent, unticked by default
   newsletter_opted_in_at  TEXT,
+  prereq_attested         INTEGER NOT NULL DEFAULT 0,   -- level 2/3 courses: participant confirmed the prerequisite was completed before (migrations/001)
   stripe_session_id       TEXT,
   paid_at                 TEXT,
   documents_sent_at       TEXT

@@ -33,10 +33,34 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
   WordPress and on Pages.
 - `htmlpreview.github.io` removed from `ALLOWED_ORIGINS` (next deploy). `mast-review.py` thumbnail bug fixed.
 
+### A2. Applied 2026-09-04, evening corrections (his review of the page)
+
+- **Fundamentals is a gate.** Level 2 courses ask the participant to confirm at registration that they completed
+  MAST Fundamentals (or an instructor-approved equivalent) before; Level 3 asks for a P1 course. Unticked stops
+  the sheet at step 1; the Worker refuses without it (400 `prerequisite`) and records the attestation
+  (`registrations.prereq_attested`, migration `migrations/001-prereq-attested.sql`). Badges read "FUNDAMENTALS
+  REQUIRED" / "P1 REQUIRED"; the catalog intro says "Fundamentals first, unless you have taken it before."
+- **Private Instruction listed first**, no price ("BY ARRANGEMENT"), no dates, a picture on each row (the hero
+  shot until he chooses), and a slot for the private-instruction sheet PDF once he supplies the file.
+- **Every class can carry a picture** (`img` on the course row); he supplies them.
+- **Leadership tile** is the green-shirt beach drill from the About film (his "pushups, green shirts").
+- **Forge Ignition removed** from the media strip; his actual MAST clip replaces it when handed off.
+- **Torrey Kramer** is on the Instructors chapter with his photo from the old site and a one-line profile drafted
+  from the owner's words; the documentary *A Long Recovery* embeds once he sends the link (not in the old export).
+- Second round (same evening): the Gun Digest "Modern Shooter TV" cut is out of the strip ("SS1 = cut"); the gold
+  shimmer intro stays for MAST (he prefers it over the blue); the "0 Shortcuts" counter is now "34 Years of
+  Experience"; the media sentence reads "We don't do media. Names appear only where the media captured them
+  without consent." on the MAST page and the Atlas preview; the Jason Castro video sits in the Testimonials
+  chapter, not the media strip.
+- Still to come from him: his new instructor portrait (JPG), the two-shooters photo for the gallery, the jumping
+  "hero" photo, the private-instruction PDF, the replacement MAST clip, the *A Long Recovery* link, more pictures
+  for the folder.
+
 ## B. Before launch — owner's hand, in order
 
-1. **"merge 8"**, then **redeploy the Worker from main** (the deploy paste), then **run `scripts/wp-upload.sh`**.
-   The page on main and the Worker must match (refund policy version).
+1. **"merge 8"**, then **redeploy the Worker from main** (the deploy paste, which now also applies
+   `migrations/001-prereq-attested.sql` once), then **run `scripts/wp-upload.sh`**.
+   The page on main and the Worker must match (refund policy version, prerequisite field).
 2. **`RESEND_API_KEY`** — `wrangler secret put RESEND_API_KEY --name mast-booking-backend`. Sending as
    `bookings@mastsolutions.com` needs Resend's DNS records added at GoDaddy for mastsolutions.com. Until then no
    receipt, no agreement PDF, no range address, no staff alert goes out; all are logged.
