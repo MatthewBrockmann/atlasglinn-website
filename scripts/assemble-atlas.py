@@ -57,6 +57,17 @@ FILM_POSTER   = 'images/film/atlas-glinn-and-mast-solutions-poster.jpg'       # 
 ABOUT_POSTER  = 'images/film/about-atlas-glinn-poster.jpg'                    # frame of the About film
 # Pages whose current hero is a YouTube film keep that film as the first card of chapter 2.
 YT_RESIDENTIAL, YT_DISASTER, YT_TRAINING, YT_CUAS = 'bn2eWWJzlDY', 'mI7Ou5P-WHE', 'jwQ5OyKEKwg', 'fO8_EOUrSfg'
+def shimmer(t):
+    """The live site's hero wordmark: "Details" in the moving gold shimmer (atlasglinn.com .gold-shimmer), "Matter." in blue."""
+    return f'<span class="gold-shimmer">{t}</span>'
+
+# Appended after the palette recolor so the gold literals survive (the page is blue everywhere else).
+HERO_CSS = """
+  h1.mega .gold-shimmer { background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; animation:shimmer 6s linear infinite; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; text-shadow:0 0 80px rgba(201,168,76,.3); }
+  h1.mega .white { color:#1A6BDE; }
+  @media (prefers-reduced-motion: reduce) { h1.mega .gold-shimmer { animation:none; } }
+"""
+
 def yt_card(vid, title, sub, end=None):
     """end: stop the player at that second (the Training Reel's closing "2023" card is cut this way until the file is local)."""
     return (f'<div class="yt-grid one rise"><div class="yt-card"><div class="frame"><iframe src="https://www.youtube.com/embed/{vid}?rel=0&amp;modestbranding=1&amp;playsinline=1{"&amp;end=%d" % end if end else ""}" title="{title}" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>'
@@ -287,7 +298,7 @@ def build(path, title, desc, og_image, credits, chapters, photos, jsonld=''):
                           hud_bl='HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W', hud_br='DETAILS MATTER',
                           chapters=[(f's{k}', f'{k:02d} &middot; {label}') for k, (label, _) in enumerate(chapters, 1)])
     body = ('\n' + chrome + shell.sitenav(NAV, path, FOOT) + '\n<div class="content">\n' + ''.join(h for _, h in chapters) + '\n</div>\n')
-    css = shell.css(shell.ATLAS, '', shell._recolor(shell.SITENAV_CSS + EXTRA_CSS, shell.ATLAS))
+    css = shell.css(shell.ATLAS, '', shell._recolor(shell.SITENAV_CSS + EXTRA_CSS, shell.ATLAS)) + HERO_CSS
     html = shell.head(meta(title, desc, path, og_image, jsonld), css) + body + shell.tail(shell.three(n, shell.ATLAS), shell.SITENAV_JS + FORM_JS)
     for banned in ('images/mast/', 'images/gallery/', 'deep-sentinel', 'man-s-hand-holding-drone'):
         assert banned not in html, f'{path}: {banned} is not approved Atlas Glinn imagery'
@@ -309,7 +320,7 @@ build('index.html',
       'Elite security services by Atlas Glinn: dignitary and executive protection, residential security, secure transport, disaster recovery, AI surveillance and counter-drone solutions, and tactical training through MAST Solutions. Houston, Texas.',
       OG_DEFAULT, CREDITS, [
     ('Opening', opening('Executive Protection &middot; Intelligence &middot; Training',
-        f'{blue("Details")} <span class="white">Matter.</span>',
+        f'{shimmer("Details")} <span class="white">Matter.</span>',
         'Discreet, adaptive security for those who cannot afford a mistake. Executive and residential protection, disaster recovery, technology, and the training behind all of it. Houston, Texas.',
         cta('#s2', 'Our Services') + cta2('contact.html', 'Contact Us'))),
     ('Services', section(2, 'Our Services', f'Customized {blue("Security.")}', 'Customized Security Solutions Tailored to Every Client&rsquo;s Needs.',
@@ -364,7 +375,7 @@ build('executive-protection.html',
       'Executive & Dignitary Protection Houston TX | Atlas Glinn',
       'Expert dignitary protection services by Atlas Glinn. Discreet, adaptable security for U.S. Senators, Fortune 500 executives, dignitaries, and their families. Houston, TX.',
       OG_DEFAULT, CREDITS, [
-    ('Opening', opening('Executive Protection', f'{blue("Details")} <span class="white">Matter.</span>',
+    ('Opening', opening('Executive Protection', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'With unmatched precision, Atlas Glinn provides discreet, adaptable security&mdash;so you can focus on what matters most. Our team brings decades of combined experience protecting high-level executives, dignitaries, and their families.',
         cta('contact.html', 'Request a Consultation') + cta2('#s2', 'Our Services'))),
     ('Services', section(2, 'Our Services', f'Comprehensive {blue("Protection.")}', 'Comprehensive Dignitary Protection Tailored to Your Needs.',
@@ -418,7 +429,7 @@ build('residential-protection.html',
       'Residential Protection Houston TX | Atlas Glinn',
       'Unmatched residential security for your home. 24/7 trained guards, AI surveillance, and round-the-clock protection for your family and assets. Houston, TX.',
       CCTV, CREDITS, [
-    ('Opening', opening('Residential Protection', f'{blue("Details")} <span class="white">Matter.</span>',
+    ('Opening', opening('Residential Protection', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'Atlas Glinn provides comprehensive residential protection with highly trained security guards available 24/7, ensuring round-the-clock protection for your home and valuable assets. Whether you require an on-site presence or remote surveillance, we customize our protection to your exact needs &mdash; adapting to your lifestyle while maintaining an uncompromising security posture.',
         cta('contact.html', 'Request an Assessment') + cta2('#s2', 'Four Pillars'))),
     ('Four Pillars', section(2, 'Layered Defense', f'Four Pillars of {blue("Residential Defense.")}',
@@ -445,7 +456,7 @@ build('disaster-recovery.html',
       'Disaster Recovery & Asset Protection Houston TX | Atlas Glinn',
       'Disaster recovery and asset protection services by Atlas Glinn. Immediate response, asset safeguarding, and rapid recovery for floods, hurricanes, and crisis events. Houston, TX and the Gulf Coast.',
       SITE + 'images/disaster-hurricane.jpg', CREDITS, [
-    ('Opening', opening('Disaster Recovery &amp; Asset Protection', f'{blue("Details")} <span class="white">Matter.</span>',
+    ('Opening', opening('Disaster Recovery &amp; Asset Protection', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'Atlas Glinn offers comprehensive disaster recovery and asset protection services designed to help clients rebuild and protect assets following natural catastrophes, industrial incidents, and crisis events. From hurricanes and flooding to fire and power grid failures, we deploy rapidly to secure what matters most.',
         cta('contact.html', 'Plan Before the Storm') + cta2('#s2', 'Core Capabilities'))),
     ('Capabilities', section(2, 'Core Capabilities', f'Your Assets Don&rsquo;t Wait. {blue("Neither Do We.")}',
@@ -470,7 +481,7 @@ build('training.html',
       'Executive Protection & Security Training Houston TX | Atlas Glinn / MAST Solutions',
       'Elite tactical training by Atlas Glinn and MAST Solutions. Executive protection training, firearms, CQB, medical, and leadership programs for professionals.',
       TRAINING, CREDITS, [
-    ('Opening', opening('Dignitary Protection Training', f'{blue("Details")} <span class="white">Matter.</span>',
+    ('Opening', opening('Dignitary Protection Training', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'At Atlas Glinn, our lead instructor brings over 30 years of experience, safeguarding dignitaries globally. We offer unparalleled Dignitary Protection training for professionals seeking to excel in high-stakes environments.',
         cta('mastsolutions.html', 'Book a Course') + cta2('#s2', 'Focus Areas'))),
     ('Focus Areas', section(2, 'Core Training Focus Areas', f'What We {blue("Teach.")}', '',
@@ -501,7 +512,7 @@ build('technology.html',
       'Security Technology & AI Surveillance | Atlas Glinn',
       'Atlas Glinn technology solutions: the Atlas EP platform, AI surveillance with Rhombus, Deep Sentinel and LVT, counter-drone defense with AeroDefense, and autonomous UAS with Sunflower Labs.',
       AI_SURV, CREDITS, [
-    ('Opening', opening('Technology', f'{blue("Details")} <span class="white">Matter.</span>',
+    ('Opening', opening('Technology', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'Intelligence, surveillance, and airspace security &mdash; integrated into the same protective detail that runs on the ground.',
         cta('#s2', 'Atlas EP') + cta2('contact.html', 'Contact Us'))),
     ('Atlas EP', section(2, 'Built by Atlas Glinn', f'The Atlas EP {blue("Platform.")}', 'Our proprietary executive protection platform integrates AI threat analysis, Blue Force Tracking, encrypted comms, and covert emergency streaming &mdash; all in one secure iOS app.',
@@ -524,7 +535,7 @@ build('cuas-aerodefense.html',
       'Counter-Drone Solutions Houston TX | AirWarden cUAS — Atlas Glinn',
       'Counter-drone defense with AirWarden by AeroDefense. DHS SAFETY Act designated. Simultaneously locates drones AND pilots in real time. Atlas Glinn, Texas regional partner.',
       AERO, CREDITS, [
-    ('Opening', opening('Counter-Drone Solutions', f'{blue("Details")} <span class="white">Matter.</span>',
+    ('Opening', opening('Counter-Drone Solutions', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'AirWarden by AeroDefense &mdash; the system that simultaneously locates both drone and pilot. Atlas Glinn is the Texas regional partner for AeroDefense, bringing counter-drone technology to critical infrastructure, high-profile events, and security-sensitive facilities.',
         cta('contact.html', 'Protect Your Airspace') + cta2('#s2', 'Capabilities'))),
     ('Capabilities', section(2, 'System Capabilities', f'Drone {blue("and Pilot.")}',
@@ -555,7 +566,7 @@ build('uas.html',
       'Autonomous Drone Security Houston TX | Sunflower Labs — Atlas Glinn',
       'Fully autonomous drone surveillance by Sunflower Labs. Real-time intelligent monitoring, AI detection, and 24/7 property protection through Atlas Glinn.',
       WP + '2025/03/Technology-UAS-1.png', CREDITS, [
-    ('Opening', opening('Autonomous UAS', f'{blue("Details")} <span class="white">Matter.</span>',
+    ('Opening', opening('Autonomous UAS', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'Autonomous drones that never sleep. Atlas Glinn partners with Sunflower Labs to deliver cutting-edge autonomous drone technology integrated into complete security solutions. The Beehive system deploys The Bee &mdash; a fully autonomous drone &mdash; on demand or on schedule, with zero human intervention required.',
         cta('contact.html', 'Design a Solution') + cta2('#s2', 'How It Detects'))),
     ('Detection', section(2, 'Intelligent Detection', f'No Pilot Required. {blue("No Gaps in Coverage.")}', 'AI detection identifies people, vehicles, and animals with real-time tracking. The drone autonomously navigates, surveys, deters, and returns to base to recharge &mdash; all without a pilot. This is security that never takes a break.',
@@ -589,7 +600,7 @@ build('about.html',
       'About Atlas Glinn | Elite Security Leadership — Houston, TX',
       'Meet the Atlas Glinn leadership team. 34+ years of elite security, dignitary protection, and tactical training expertise led by Matthew Brockmann and Michael Cline.',
       FOUNDER, CREDITS, [
-    ('Opening', opening('About Atlas Glinn', f'{blue("Details")} <span class="white">Matter.</span>',
+    ('Opening', opening('About Atlas Glinn', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'Our mission is to provide you with unparalleled peace of mind, safeguarding what matters most &mdash; your safety, your assets, and your way of life. With a foundation built on elite expertise and a relentless pursuit of excellence, we deliver tailored protection solutions that blend seamlessly into your world.',
         cta('#s2', 'Meet the Team') + cta2('contact.html', 'Contact Us'))),
     ('Team', section(2, 'Meet the Team', f'Precision. Discretion. {blue("Commitment.")}', 'We redefine security with precision, discretion, and unwavering commitment.',
@@ -622,7 +633,7 @@ build('careers.html',
       'Careers in Executive Protection | Atlas Glinn — Houston, TX',
       'Join Atlas Glinn&rsquo;s elite security team. Open positions for Personal Protection Officers and Commissioned Security Guards in Houston, TX.',
       CAREERS_HERO, CREDITS, [
-    ('Opening', opening('Careers', f'{blue("Details")} <span class="white">Matter.</span>',
+    ('Opening', opening('Careers', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'Part-time, flexible details in Houston for licensed officers who hold themselves to the standard. Training through MAST Solutions comes with the job.',
         cta('#s2', 'Open Positions') + cta2('contact.html', 'Apply Now'))),
     ('Positions', section(2, 'Open Positions', f'Join the {blue("Detail.")}', '',
@@ -648,7 +659,7 @@ build('contact.html',
       'Contact Atlas Glinn | Security Consultation — Houston, TX',
       'Contact Atlas Glinn for a personalized security assessment. Executive protection, training, and risk management services in Houston, TX.',
       OG_DEFAULT, CREDITS, [
-    ('Opening', opening('Contact', f'{blue("Details")} <span class="white">Matter.</span>',
+    ('Opening', opening('Contact', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'Every engagement begins with a conversation. Tell us what you are protecting.',
         cta('#s2', 'Send a Message') + cta2(TEL, PHONE))),
     ('Message', section(2, 'Contact Information', f'Reach {blue("Us.")}',

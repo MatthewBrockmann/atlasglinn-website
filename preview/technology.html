@@ -292,6 +292,10 @@
   .partner .ctas { justify-content:flex-start; }
   @media (max-width:900px) { .cards, .cards.four, .steps, .quotes { grid-template-columns:1fr 1fr; } .partner { grid-template-columns:1fr; } }
   @media (max-width:768px) { .cards, .cards.two, .cards.four, .steps, .quotes, .yt-grid { grid-template-columns:1fr; } .stats.four { grid-template-columns:1fr 1fr; gap:.8rem; } .form { padding:1.1rem; } .form .row { grid-template-columns:1fr; } .badges img { height:64px; } .spec div { flex-direction:column; gap:.2rem; } .spec span { text-align:left; } }
+
+  h1.mega .gold-shimmer { background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; animation:shimmer 6s linear infinite; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; text-shadow:0 0 80px rgba(201,168,76,.3); }
+  h1.mega .white { color:#1A6BDE; }
+  @media (prefers-reduced-motion: reduce) { h1.mega .gold-shimmer { animation:none; } }
 </style>
 </head>
 <body>
@@ -361,7 +365,7 @@
   <section class="panel" id="s1" data-section="01">
     <div>
       <div class="eyebrow">Technology</div>
-      <h1 class="mega"><span class="gold">Details</span> <span class="white">Matter.</span></h1>
+      <h1 class="mega"><span class="gold-shimmer">Details</span> <span class="white">Matter.</span></h1>
       <p class="sub">Intelligence, surveillance, and airspace security &mdash; integrated into the same protective detail that runs on the ground.</p>
       <div class="ctas rise"><a href="#s2" class="cta">Atlas EP</a><a href="contact.html" class="secondary-cta">Contact Us</a></div>
     </div>

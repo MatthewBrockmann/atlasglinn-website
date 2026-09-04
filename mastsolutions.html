@@ -347,8 +347,14 @@
 .quals-list { columns: 1; }
 }
   #s5, #s6, .sheet, .sheet-bd, .modal, .modal-bd { --gold:#C9A84C; --gold-antique:#D4AF37; --gold-champagne:#E8D27D; --gold-bright:#FCF6BA; --copper:#B87333; }
-  #s5 .gold, #s6 .gold, h1.mega .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
-  h1.mega .gold { text-shadow:0 0 80px rgba(201,168,76,.3); }
+  #s5 .gold, #s6 .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  /* Hero wordmark as on the live atlasglinn.com ("look at details matter on the Atlas Glinn website and apply the same ... non-static"):
+     "Details" carries the moving gold shimmer, "Matter." is Atlas blue. */
+  h1.mega .gold { background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; animation:shimmer 6s linear infinite; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; text-shadow:0 0 80px rgba(201,168,76,.3); }
+  h1.mega .white { color:#1A6BDE; }
+  /* Owner, 2026-09-04: the wordmark "is too large and takes away from the main screen" — about a third smaller than the shell's size. */
+  h1.mega { font-size:clamp(2.2rem, 4.6vw, 4.4rem); letter-spacing:.03em; margin-bottom:1.6rem; }
+  @media (prefers-reduced-motion: reduce) { h1.mega .gold { animation:none; } }
   #s5 .cta-button, #s5 .cta, #s6 .cta-button, .sheet .cta-button, .modal .cta-button { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border-color:#E8D27D; }
   #s5 .cta-button:hover, #s5 .cta:hover, #s6 .cta-button:hover, .sheet .cta-button:hover, .modal .cta-button:hover { box-shadow:0 14px 44px rgba(201,168,76,.5); }
   #s5 .cta-button.ghost-button, .sheet .cta-button.ghost-button, .modal .cta-button.ghost-button { background:transparent; }
