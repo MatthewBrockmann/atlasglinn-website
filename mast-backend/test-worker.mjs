@@ -23,8 +23,17 @@ globalThis.fetch = async (url, init) => {
   return new Response('{}', { status: 200 });
 };
 
+// Registration tables (fake D1 keeps them in memory so the flow can be asserted end to end).
+const registrations = new Map();   // id -> row
+const outcomes = [];               // eligibility_outcomes rows
+const answers = [];                // eligibility_answers rows
+const orderUpdates = [];           // UPDATE orders ... from completeRegistration
+const sqlLog = [];
+const REG_COLS = ['id','created_at','status','sku','item_name','qty','session_date','session_label','customer_name','customer_email','customer_phone','organization','address1','address2','emergency_name','emergency_phone','emergency_relationship','eligibility_outcome_id','eligibility_status','questions_version','agreement_version','agreement_signed_name','agreement_initials','agreement_signed_at','agreement_ip','agreement_user_agent','refund_policy_version','refund_policy_accepted_at','refund_policy_ip','newsletter_opt_in','newsletter_opted_in_at'];
+
 const DB = {
   prepare(sql) {
+    sqlLog.push(sql);
     return {
       bind(...args) { return this._b(args); },
       _b(args) {
@@ -38,14 +47,32 @@ const DB = {
               const row = { range_member: { plan_key: 'range_member', name: 'Range Member', stripe_price_id: 'price_live_rm' } }[args[0]];
               return row || null;
             }
+            if (sql.includes('FROM registrations WHERE id')) return registrations.get(args[0]) || null;
             return null;
           },
-          async run() { if (sql.includes('INSERT INTO orders')) stored.push(args); return {}; },
-          async all() { return { results: [] }; },
+          async run() {
+            if (sql.includes('INSERT INTO orders')) stored.push(args);
+            if (sql.includes('INSERT INTO eligibility_outcomes')) { outcomes.push(args); return { meta: { last_row_id: outcomes.length, changes: 1 } }; }
+            if (sql.includes('INSERT INTO eligibility_answers')) { answers.push(args); return { meta: { last_row_id: answers.length, changes: 1 } }; }
+            if (sql.includes('INSERT INTO registrations')) { const row = Object.fromEntries(REG_COLS.map((c, i) => [c, args[i]])); registrations.set(row.id, row); return { meta: { changes: 1 } }; }
+            if (sql.includes("SET status = 'abandoned'")) { let n = 0; for (const r of registrations.values()) if (r.status === 'pending' && r.created_at < args[0]) { r.status = 'abandoned'; n++; } return { meta: { changes: n } }; }
+            if (sql.startsWith('UPDATE registrations SET')) {
+              const keys = [...sql.matchAll(/(\w+) = \?/g)].map((m) => m[1]); const id = args[args.length - 1]; const row = registrations.get(id);
+              if (row) keys.forEach((k, i) => { row[k] = args[i]; });
+              return { meta: { changes: row ? 1 : 0 } };
+            }
+            if (sql.startsWith('UPDATE orders SET refund_policy_version')) { orderUpdates.push(args); return { meta: { changes: 1 } }; }
+            if (sql.startsWith('DELETE FROM eligibility_answers')) { const before = answers.length; for (let i = answers.length - 1; i >= 0; i--) if (answers[i][4] < args[0]) answers.splice(i, 1); return { meta: { changes: before - answers.length } }; }
+            return { meta: { changes: 0 } };
+          },
+          async all() {
+            if (sql.includes('FROM registrations ORDER BY')) return { results: [...registrations.values()] };
+            return { results: [] };
+          },
         };
       },
       async first() { return null; },
-      async run() { return {}; },
+      async run() { return { meta: { changes: 0 } }; },
       async all() { return { results: [] }; },
     };
   },
@@ -219,6 +246,141 @@ console.log('\n── CORS ──');
   const bad = await get('/health', 'https://evil.example.com');
   ok('unknown origin NOT echoed', bad.headers.get('Access-Control-Allow-Origin') !== 'https://evil.example.com',
      'got ' + bad.headers.get('Access-Control-Allow-Origin'));
+}
+
+console.log('\n── Registration: screening → agreement → refund consent → Stripe ──');
+const { QUESTIONS_VERSION, REFUND_POLICY_VERSION, AGREEMENT_VERSION } = await import('/home/user/atlasglinn-website/mast-backend/src/worker.js');
+const FIRST_WEEKEND = '2026-10-10', BLOCKED_WEEKEND = '2026-10-31'; // from the seeded training_weekends
+const goodReg = (over = {}) => ({
+  sku: 'MAST-DA', qty: 1, session_date: FIRST_WEEKEND, session_label: 'Sat–Sun test',
+  customer: { name: 'Jane Doe', email: 'Student@Example.com', phone: '(713) 555-0100', organization: '' },
+  eligibility: { us_citizen: true, felony_prohibited: false, attested: true, questions_version: QUESTIONS_VERSION },
+  agreement: { version: AGREEMENT_VERSION, signed_name: 'Jane Doe', initials: 'jd', address1: '1 Main St', address2: 'Houston, TX 77002', emergency_name: 'John Doe', emergency_phone: '(713) 555-0199', emergency_relationship: 'Spouse', scrolled: true, agreed: true },
+  refund: { accepted: true, version: REFUND_POLICY_VERSION },
+  newsletter_opt_in: false,
+  success_url: 'https://mastsolutions.com/?checkout=success',
+  ...over,
+});
+const reg = (body) => post('/register', body);
+{
+  stripeCalls.length = 0; emails.length = 0;
+  const res = await reg(goodReg()); const body = await res.json();
+  ok('cleared participant reaches Stripe (200 + checkoutUrl)', res.status === 200 && body.checkoutUrl && body.registration_id.startsWith('reg_'), JSON.stringify(body));
+  const p = stripeCalls[0];
+  ok('Stripe amount is the server price', p && p.get('line_items[0][price_data][unit_amount]') === '69500');
+  ok('registration id rides in Stripe metadata', p && p.get('metadata[registration_id]') === body.registration_id);
+  const row = registrations.get(body.registration_id);
+  ok('registration persisted before Stripe, status pending', row && row.status === 'pending');
+  ok('email normalised to lowercase', row && row.customer_email === 'student@example.com');
+  ok('initials uppercased', row && row.agreement_initials === 'JD');
+  ok('agreement version + signed_at + ip recorded', row && row.agreement_version === AGREEMENT_VERSION && row.agreement_signed_at && 'agreement_ip' in row);
+  ok('refund policy version + accepted_at recorded', row && row.refund_policy_version === REFUND_POLICY_VERSION && row.refund_policy_accepted_at);
+  ok('newsletter NOT opted in by default', row && row.newsletter_opt_in === 0);
+  ok('outcome row written as cleared', outcomes.length === 1 && outcomes[0][3] === 'cleared');
+  ok('answers row written separately with a purge date', answers.length === 1 && answers[0][4] > row.created_at);
+  ok('stripe session id written back to the registration', row.stripe_session_id === 'cs_test_123');
+  ok('no email sent for a cleared registration before payment', emails.length === 0);
+}
+{
+  stripeCalls.length = 0; emails.length = 0; const before = registrations.size;
+  const res = await reg(goodReg({ eligibility: { us_citizen: true, felony_prohibited: true, attested: true, questions_version: QUESTIONS_VERSION } }));
+  const body = await res.json();
+  ok('disqualifying answer stops with 202 review, no checkoutUrl', res.status === 202 && body.review === true && !body.checkoutUrl, JSON.stringify(body));
+  ok('Stripe NOT called for a flagged registration', stripeCalls.length === 0);
+  const row = registrations.get(body.registration_id);
+  ok('flagged registration stored with status review', row && row.status === 'review' && row.eligibility_status === 'flagged' && registrations.size === before + 1);
+  ok('outcome kept as flagged', outcomes[outcomes.length - 1][3] === 'flagged');
+  await new Promise(r => setTimeout(r, 20));
+  ok('staff review notice sent', emails.length === 1 && emails[0].subject.startsWith('Eligibility review needed'));
+  const txt = emails.length ? emails[0].text + emails[0].subject : '';
+  ok('review notice never carries the answers or the question', emails.length === 1 && !/citizen|felony|yes|no\b/i.test(txt), txt.slice(0, 120));
+  ok('neutral message does not say which question', !/citizen|felony/i.test(body.message));
+}
+{
+  const cases = [
+    ['missing phone', goodReg({ customer: { name: 'Jane Doe', email: 'a@b.co', phone: '' } }), 400],
+    ['unticked eligibility attestation', goodReg({ eligibility: { us_citizen: true, felony_prohibited: false, attested: false, questions_version: QUESTIONS_VERSION } }), 400],
+    ['agreement not scrolled to the end', goodReg({ agreement: { ...goodReg().agreement, scrolled: false } }), 400],
+    ['agreement box unticked', goodReg({ agreement: { ...goodReg().agreement, agreed: false } }), 400],
+    ['missing emergency contact', goodReg({ agreement: { ...goodReg().agreement, emergency_phone: '' } }), 400],
+    ['refund policy unticked', goodReg({ refund: { accepted: false, version: REFUND_POLICY_VERSION } }), 400],
+    ['stale questions version', goodReg({ eligibility: { ...goodReg().eligibility, questions_version: 'old' } }), 409],
+    ['stale agreement version', goodReg({ agreement: { ...goodReg().agreement, version: 'old' } }), 409],
+    ['stale refund policy version', goodReg({ refund: { accepted: true, version: 'old' } }), 409],
+    ['blocked weekend', goodReg({ session_date: BLOCKED_WEEKEND }), 409],
+    ['unknown sku', goodReg({ sku: 'MAST-NOPE' }), 404],
+  ];
+  for (const [name, body, status] of cases) {
+    stripeCalls.length = 0;
+    const res = await reg(body);
+    ok(name + ' → ' + status + ', Stripe not called', res.status === status && stripeCalls.length === 0, 'got ' + res.status);
+  }
+}
+{
+  // Webhook for a registration: mark paid, copy refund consent onto the order, send the documents.
+  stripeCalls.length = 0; emails.length = 0; stored.length = 0;
+  const first = await (await reg(goodReg())).json();
+  const evt2 = JSON.stringify({ id: 'evt_2', type: 'checkout.session.completed', data: { object: { id: 'cs_test_123', mode: 'payment', amount_total: 69500, currency: 'usd',
+    customer_email: 'student@example.com', customer_details: { name: 'Jane Doe', phone: '' },
+    metadata: { kind: 'class_booking', registration_id: first.registration_id, sku: 'MAST-DA', class_name: 'Direct Action', qty: '1', customer_name: 'Jane Doe', session_date: FIRST_WEEKEND, session_label: 'Sat–Sun test' } } } });
+  const now = Math.floor(Date.now() / 1000);
+  const res = await hook(evt2, `t=${now},v1=${await sign(evt2, now)}`);
+  ok('webhook accepted for a registration', res.status === 200);
+  const row = registrations.get(first.registration_id);
+  ok('registration marked paid with paid_at', row.status === 'paid' && row.paid_at);
+  ok('refund consent copied onto the order row', orderUpdates.length === 1 && orderUpdates[0][0] === REFUND_POLICY_VERSION);
+  await new Promise(r => setTimeout(r, 300));
+  const subjects = emails.map(e => e.subject);
+  ok('internal roster notice + participant confirmation sent', subjects.some(s => s.startsWith('New MAST booking')) && subjects.some(s => s.startsWith("You're booked")), subjects.join(' | '));
+  const conf = emails.find(e => e.subject.startsWith("You're booked"));
+  ok('confirmation names the course, date and refund terms', conf && /Direct Action/.test(conf.text) && /Sat–Sun test/.test(conf.text) && /15 or more days/.test(conf.text));
+  ok('no email carries eligibility answers', emails.every(e => !/us_citizen|felony_prohibited|citizen of the United States/i.test(e.text)));
+  ok('documents_sent_at recorded', !!row.documents_sent_at);
+}
+{
+  // Retention cron: answers past purge_after go, pending registrations older than a day are abandoned.
+  answers.push([99, '{}', '', '2020-01-01T00:00:00Z', '2020-01-08T00:00:00Z']);
+  const keep = answers.length - 1;
+  registrations.set('reg_old', { id: 'reg_old', status: 'pending', created_at: '2020-01-01T00:00:00Z' });
+  let ran = null; await worker.scheduled({}, env, { waitUntil: (p) => { ran = p; } }); await ran;
+  ok('expired answers purged, current ones kept', answers.length === keep && !answers.some(a => a[4] < '2021'));
+  ok('stale pending registration marked abandoned', registrations.get('reg_old').status === 'abandoned');
+  ok('outcomes untouched by the purge', outcomes.length >= 2);
+}
+{
+  const res = await get('/roster?key=super-secret-admin-key&view=registrations'); const body = await res.json();
+  ok('roster view=registrations lists registrations', res.status === 200 && Array.isArray(body.registrations) && body.registrations.length >= 2);
+}
+
+console.log('\n── Site contact + capability requests ──');
+{
+  emails.length = 0;
+  const res = await post('/contact', { name: 'Jane Doe', email: 'Jane@Example.com', phone: '(713) 555-0100', message: 'Need a residential assessment.', page: 'contact.html' });
+  ok('contact form sends one email, 200', res.status === 200 && emails.length === 1, 'status=' + res.status + ' emails=' + emails.length);
+  ok('email has reply-to the sender and the message', emails[0] && emails[0].reply_to === 'jane@example.com' && /residential assessment/.test(emails[0].text));
+  emails.length = 0;
+  const cap = await post('/contact', { kind: 'capability', name: 'Jane Doe', email: 'jane@example.com', company: 'Acme', status: 'Need security', request_type: 'RFP' });
+  ok('capability request needs no message, subject names it', cap.status === 200 && emails.length === 1 && emails[0].subject.startsWith('Capability statement request'));
+  emails.length = 0;
+  const bot = await post('/contact', { name: 'Bot', email: 'bot@example.com', message: 'hi', website: 'http://spam' });
+  ok('honeypot filled → 200 and nothing sent', bot.status === 200 && emails.length === 0);
+  const bad = await post('/contact', { name: 'J', email: 'nope', message: '' });
+  ok('invalid contact rejected with 400', bad.status === 400);
+}
+
+console.log('\n── Agreement PDF fill (the real form, pdf-lib) ──');
+{
+  const { readFileSync } = await import('node:fs');
+  const { createHash } = await import('node:crypto');
+  const { fillAgreement } = await import('/home/user/atlasglinn-website/mast-backend/src/agreement.js');
+  const { PDFDocument } = await import('pdf-lib');
+  const src = readFileSync('/home/user/atlasglinn-website/mast-backend/assets/class-participation-agreement.pdf');
+  ok('AGREEMENT_VERSION is the hash prefix of the shipped PDF', createHash('sha256').update(src).digest('hex').startsWith(AGREEMENT_VERSION));
+  const out = await fillAgreement(src, { id: 'reg_test', customer_name: 'Jane Doe', customer_email: 'student@example.com', customer_phone: '(713) 555-0100', address1: '1 Main St', address2: 'Houston, TX 77002', emergency_name: 'John Doe', emergency_phone: '(713) 555-0199', emergency_relationship: 'Spouse', agreement_signed_name: 'Jane Doe', agreement_initials: 'JD', agreement_signed_at: '2026-09-03T22:40:11Z', agreement_ip: '203.0.113.7' });
+  ok('filled PDF produced', out && out.length > 100000, 'bytes=' + (out && out.length));
+  const back = await PDFDocument.load(out);
+  ok('form flattened: no editable fields remain', back.getForm().getFields().length === 0, 'fields=' + back.getForm().getFields().length);
+  ok('three pages preserved', back.getPageCount() === 3);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

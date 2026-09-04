@@ -1,7 +1,14 @@
 # MAST registration, waiver, and lifecycle — architecture
 
-Status: **proposal, nothing built.** Written 2026-09-01 from the owner's
-requirements. Decisions marked ⚠️ are his to make before build starts.
+Status: **v1 of the flow is BUILT (2026-09-03)** — `POST /register` in
+`src/worker.js`: details → two eligibility questions → agreement (scroll-gated,
+typed attestation, PDF filled and flattened by `src/agreement.js`) → refund-policy
+checkbox → Stripe → webhook links the registration, copies the consent onto the
+order, emails the participant (with the range address and the signed PDF) and the
+agreement recipients (PDF only). Daily cron purges answers. Guest checkout only:
+profiles, one-year reuse, Mailchimp and the T−7/T−1 emails are still unbuilt.
+Storage is **D1** (decision #2 below), not Supabase. Originally written 2026-09-01
+from the owner's requirements. Decisions marked ⚠️ are his to make.
 
 ---
 
@@ -527,7 +534,7 @@ Steps 1–6 are the minimum for a real booking. 7–10 are the compounding layer
 |---|---|---|---|
 | 1 | Class dates per course | ⏳ owner working on it | Everything downstream |
 | 1b | Capacity | ✅ 16 fundamentals / **10 for any P1 or operator** — owner adjusting individually later | — |
-| 2 | Supabase vs hand-rolled auth | ⚠️ open — Supabase recommended | Profiles |
+| 2 | Supabase vs hand-rolled auth | ⚠️ still open for **profiles/login**. For **eligibility storage** v1 uses **D1** (the Worker's existing database, the Worker is its only reader, answers split from outcomes and purged by cron) — the same isolation the Supabase paragraphs ask for, without a second vendor. Revisit only if profiles land on Supabase Auth. | Profiles |
 | 3 | Signature method | ✅ typed attestation + timestamp + IP | — |
 | 4 | Eligibility questions | ✅ **two only** (owner 2026-09-03): U.S. citizen Y/N, disqualifying felony Y/N. Age enforced at the waiver | — |
 | 5 | Range address public, or post-booking? | ⚠️ open | Site copy |

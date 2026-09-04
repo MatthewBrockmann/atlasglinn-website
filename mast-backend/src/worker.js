@@ -2,11 +2,13 @@
  * MAST Solutions — booking & membership backend.
  *
  * Cloudflare Worker handling Stripe Checkout for:
- *   - one-time class seats      POST /create-booking
+ *   - registration              POST /register   screening → agreement → refund consent → Stripe
+ *   - one-time class seats      POST /create-booking   (legacy path, no screening; kept for the WP theme)
  *   - recurring memberships     POST /create-membership
  *   - Stripe webhooks           POST /webhook
- *   - admin roster              GET  /roster?key=...
+ *   - admin roster              GET  /roster?key=...[&view=registrations]
  *   - health                    GET  /health
+ *   - daily cron                scheduled(): purge eligibility answers, expire abandoned registrations
  *
  * Design notes vs. the older safeguard-stripe-backend:
  *   1. PRICES ARE SERVER-SIDE. The client sends a SKU, never an amount, so a
@@ -15,9 +17,18 @@
  *      notification email is sent, so a paid booking is never only a log line.
  *   3. CORS IS AN ALLOWLIST, not "*".
  *   4. Webhook signatures use a constant-time compare plus a replay window.
+ *   5. ELIGIBILITY ANSWERS NEVER LEAVE D1. They are stored apart from the
+ *      outcome, purged on a schedule, and never emailed or put in an event.
  */
 
+import { AGREEMENT_VERSION, fillAgreement } from './agreement.js';
+
 const REPLAY_WINDOW_SECONDS = 300; // reject webhook timestamps older than 5 min
+
+/** Version stamps. The page sends what it showed; a mismatch means the participant saw stale terms. */
+export const QUESTIONS_VERSION = '2q-2026-09-03';        // the two questions as worded on the page
+export const REFUND_POLICY_VERSION = '2026-09-01-draft'; // REFUND-POLICY-DRAFT.md as rendered on the page
+export { AGREEMENT_VERSION };
 
 export default {
   async fetch(request, env, ctx) {
@@ -30,13 +41,19 @@ export default {
 
     try {
       if (url.pathname === '/health' && request.method === 'GET') {
-        return json({ status: 'MAST booking backend — ONLINE', version: '1.0.0' }, 200, cors);
+        return json({ status: 'MAST booking backend — ONLINE', version: '1.1.0' }, 200, cors);
       }
       if (url.pathname === '/catalog' && request.method === 'GET') {
         return await handleCatalog(env, cors);
       }
       if (url.pathname === '/weekends' && request.method === 'GET') {
         return await handleWeekends(env, cors);
+      }
+      if (url.pathname === '/register' && request.method === 'POST') {
+        return await handleRegister(request, env, cors);
+      }
+      if (url.pathname === '/contact' && request.method === 'POST') {
+        return await handleContact(request, env, cors);
       }
       if (url.pathname === '/create-booking' && request.method === 'POST') {
         return await handleBooking(request, env, cors);
@@ -55,6 +72,11 @@ export default {
       console.error('[Worker] Unhandled:', err.stack || err.message);
       return json({ error: 'Internal server error' }, 500, cors);
     }
+  },
+
+  /** Daily cron (wrangler.toml [triggers]). */
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runRetention(env).catch((e) => console.error('[Retention] failed:', e.message)));
   },
 };
 
@@ -275,6 +297,284 @@ async function handleBooking(request, env, cors) {
   return await createSession(payload, env, cors, 'Booking');
 }
 
+/* ─────────── Registration: screening → agreement → refund consent → Stripe ─────────── */
+
+/**
+ * POST /register — the full flow behind one seat (ARCHITECTURE.md §1, privacy.html §3–5).
+ *
+ * Order of truth: who and what → version stamps → eligibility → agreement → refund
+ * consent → persist → (review stop) → Stripe. A disqualifying answer is stored as a
+ * flagged outcome and stops BEFORE Stripe: nothing is charged, staff get a notice that
+ * names the registration and never the answers.
+ */
+async function handleRegister(request, env, cors) {
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== 'object') return json({ error: 'Bad request' }, 400, cors);
+  const cust = body.customer || {};
+  const elig = body.eligibility || {};
+  const agr = body.agreement || {};
+  const ref = body.refund || {};
+
+  // 1. Who and what.
+  const name = str(cust.name).trim();
+  const email = String(cust.email || '').trim().toLowerCase();
+  const phone = str(cust.phone).replace(/[^\d+()\-.\s]/g, '').trim();
+  if (name.length < 2) return json({ error: 'Enter your full name.', field: 'name' }, 400, cors);
+  if (!isEmail(email)) return json({ error: 'Enter a valid email address.', field: 'email' }, 400, cors);
+  if (phone.replace(/\D/g, '').length < 7) return json({ error: 'Enter a phone number we can reach you on.', field: 'phone' }, 400, cors);
+  const qty = clampInt(body.qty, 1, 10);
+  const offering = await lookupClass(env, String(body.sku || ''));
+  if (!offering) return json({ error: 'Unknown class: ' + str(body.sku) }, 404, cors);
+  if (!offering.price_cents || offering.price_cents < 100) {
+    return json({ error: 'This class is not available for online booking. Please call to enroll.' }, 409, cors);
+  }
+  const wanted = String(body.session_date || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(wanted)) return json({ error: 'Choose a training weekend.', field: 'date' }, 400, cors);
+  const { weekends } = await listWeekends(env);
+  const weekend = weekends.find((w) => w.saturday === wanted) || null;
+  if (!weekend) return json({ error: 'That date is not a MAST training weekend.', field: 'date' }, 404, cors);
+  if (weekend.status !== 'available' && weekend.status !== 'scheduled') {
+    return json({ error: 'That weekend is not available for booking.', field: 'date' }, 409, cors);
+  }
+  const sessionLabel = str(body.session_label) || weekend.label || '';
+
+  // 2. Version stamps: the participant must have seen the current questions, agreement and policy.
+  if (str(elig.questions_version) !== QUESTIONS_VERSION) {
+    return json({ error: 'The eligibility questions have been updated. Reload the page and try again.', code: 'stale_questions' }, 409, cors);
+  }
+  if (str(agr.version) !== AGREEMENT_VERSION) {
+    return json({ error: 'The participation agreement has been updated. Reload the page and try again.', code: 'stale_agreement' }, 409, cors);
+  }
+  if (str(ref.version) !== REFUND_POLICY_VERSION) {
+    return json({ error: 'The cancellation and refund policy has been updated. Reload the page and try again.', code: 'stale_policy' }, 409, cors);
+  }
+
+  // 3. Eligibility: two booleans and the attestation. Sensitive data; it is stored apart and never emailed.
+  if (typeof elig.us_citizen !== 'boolean' || typeof elig.felony_prohibited !== 'boolean') {
+    return json({ error: 'Answer both eligibility questions.', field: 'eligibility' }, 400, cors);
+  }
+  if (elig.attested !== true) return json({ error: 'Confirm that your eligibility answers are true.', field: 'eligibility' }, 400, cors);
+  const cleared = elig.us_citizen === true && elig.felony_prohibited === false;
+
+  // 4. Agreement: typed attestation with its evidence record (ARCHITECTURE.md §4).
+  const signedName = str(agr.signed_name).trim();
+  const initials = str(agr.initials).replace(/[^A-Za-z]/g, '').toUpperCase();
+  const address1 = str(agr.address1).trim();
+  const address2 = str(agr.address2).trim();
+  const emName = str(agr.emergency_name).trim();
+  const emPhone = str(agr.emergency_phone).trim();
+  const emRel = str(agr.emergency_relationship).trim();
+  if (agr.scrolled !== true) return json({ error: 'Read the participation agreement to the end before signing.', field: 'agreement' }, 400, cors);
+  if (agr.agreed !== true) return json({ error: 'Tick the box to accept the participation agreement.', field: 'agreement' }, 400, cors);
+  if (signedName.length < 2) return json({ error: 'Type your full name to sign the agreement.', field: 'signed_name' }, 400, cors);
+  if (initials.length < 2 || initials.length > 4) return json({ error: 'Enter your initials (2 to 4 letters).', field: 'initials' }, 400, cors);
+  if (!address1) return json({ error: 'Enter your address.', field: 'address1' }, 400, cors);
+  if (!emName || !emPhone || !emRel) {
+    return json({ error: 'Enter an emergency contact: name, number and relationship.', field: 'emergency' }, 400, cors);
+  }
+
+  // 5. Refund policy: unticked by default on the page, recorded here with version, time and IP.
+  if (ref.accepted !== true) return json({ error: 'Tick the box to accept the cancellation and refund policy.', field: 'refund' }, 400, cors);
+
+  const now = new Date().toISOString();
+  const ip = request.headers.get('CF-Connecting-IP') || (request.headers.get('X-Forwarded-For') || '').split(',')[0].trim() || '';
+  const ua = (request.headers.get('User-Agent') || '').slice(0, 300);
+  const id = 'reg_' + crypto.randomUUID();
+  const optIn = body.newsletter_opt_in === true;
+  const reg = {
+    id, created_at: now, status: cleared ? 'pending' : 'review',
+    sku: offering.sku, item_name: offering.name, qty, session_date: weekend.saturday, session_label: sessionLabel,
+    customer_name: name, customer_email: email, customer_phone: phone, organization: str(cust.organization).trim(),
+    address1, address2, emergency_name: emName, emergency_phone: emPhone, emergency_relationship: emRel,
+    eligibility_outcome_id: null, eligibility_status: cleared ? 'cleared' : 'flagged', questions_version: QUESTIONS_VERSION,
+    agreement_version: AGREEMENT_VERSION, agreement_signed_name: signedName, agreement_initials: initials,
+    agreement_signed_at: now, agreement_ip: ip, agreement_user_agent: ua,
+    refund_policy_version: REFUND_POLICY_VERSION, refund_policy_accepted_at: now, refund_policy_ip: ip,
+    newsletter_opt_in: optIn ? 1 : 0, newsletter_opted_in_at: optIn ? now : null,
+  };
+
+  // 6. Persist: the outcome (kept), the answers (purged on schedule), the registration.
+  try {
+    reg.eligibility_outcome_id = await storeEligibility(
+      env, reg, { us_citizen: elig.us_citizen, felony_prohibited: elig.felony_prohibited, attested: true }, ip, now
+    );
+    await storeRegistration(env, reg);
+  } catch (e) {
+    console.error('[Register] persist failed:', e.message);
+    return json({ error: 'We could not save your registration. Please try again or call (281) 654-8100.' }, 503, cors);
+  }
+
+  if (!cleared) {
+    await notifyReview(env, reg).catch((e) => console.error('[Review] notice failed:', e.message));
+    return json({
+      review: true, registration_id: id,
+      message: 'Thank you. A member of our staff will contact you before your booking continues. Nothing has been charged.',
+    }, 202, cors);
+  }
+
+  // 7. Stripe. The price is the server's; the registration id rides in metadata for the webhook.
+  const payload = new URLSearchParams({
+    mode: 'payment',
+    customer_email: email,
+    'line_items[0][price_data][currency]': 'usd',
+    'line_items[0][price_data][product_data][name]': 'MAST Solutions — ' + offering.name,
+    'line_items[0][price_data][product_data][description]': 'SKU: ' + offering.sku + ' · ' + (sessionLabel || weekend.saturday),
+    'line_items[0][price_data][unit_amount]': String(offering.price_cents),
+    'line_items[0][quantity]': String(qty),
+    success_url: safeUrl(body.success_url, env) || defaultUrl(env, '?checkout=success'),
+    cancel_url: safeUrl(body.cancel_url, env) || defaultUrl(env, '?checkout=cancelled'),
+    'payment_method_types[0]': 'card',
+    billing_address_collection: 'required',
+    'metadata[kind]': 'class_booking',
+    'metadata[registration_id]': id,
+    'metadata[sku]': offering.sku,
+    'metadata[class_name]': offering.name,
+    'metadata[qty]': String(qty),
+    'metadata[session_date]': weekend.saturday,
+    'metadata[session_label]': sessionLabel,
+    'metadata[customer_name]': name,
+    'metadata[organization]': reg.organization,
+    'metadata[notes]': '',
+    'metadata[source]': 'mastsolutions',
+  });
+  const result = await createStripeSession(payload, env, 'Register');
+  if (!result.ok) return json({ error: result.error }, result.status, cors);
+  await updateRegistration(env, id, { stripe_session_id: result.session.id }).catch((e) =>
+    console.error('[Register] session id write failed:', e.message)
+  );
+  return json({ checkoutUrl: result.session.url, sessionId: result.session.id, registration_id: id }, 200, cors);
+}
+
+/** Outcome row (kept) + answers row (purged). Returns the outcome id. Throws on a D1 failure. */
+async function storeEligibility(env, reg, answers, ip, now) {
+  if (!env.DB) throw new Error('D1 not bound');
+  const cleared = reg.eligibility_status === 'cleared';
+  const decided = new Date(now).getTime();
+  const expires = cleared ? new Date(decided + 365 * 86400000).toISOString() : null;
+  const purgeAfter = cleared
+    ? new Date(new Date(reg.session_date + 'T12:00:00Z').getTime() + 7 * 86400000).toISOString() // cleared guest: class date + 7 days
+    : new Date(decided + 30 * 86400000).toISOString();                                          // flagged: 30 days for the follow-up
+  const res = await env.DB.prepare(
+    `INSERT INTO eligibility_outcomes (email, full_name, registration_id, outcome, questions_version, decided_at, expires_at)
+     VALUES (?,?,?,?,?,?,?)`
+  ).bind(reg.customer_email, reg.customer_name, reg.id, reg.eligibility_status, reg.questions_version, now, expires).run();
+  const outcomeId = res && res.meta && res.meta.last_row_id !== undefined ? res.meta.last_row_id : null;
+  await env.DB.prepare(
+    `INSERT INTO eligibility_answers (outcome_id, answers_json, answered_ip, created_at, purge_after) VALUES (?,?,?,?,?)`
+  ).bind(outcomeId, JSON.stringify(answers), ip, now, purgeAfter).run();
+  return outcomeId;
+}
+
+const REG_COLUMNS = [
+  'id', 'created_at', 'status', 'sku', 'item_name', 'qty', 'session_date', 'session_label',
+  'customer_name', 'customer_email', 'customer_phone', 'organization',
+  'address1', 'address2', 'emergency_name', 'emergency_phone', 'emergency_relationship',
+  'eligibility_outcome_id', 'eligibility_status', 'questions_version',
+  'agreement_version', 'agreement_signed_name', 'agreement_initials', 'agreement_signed_at', 'agreement_ip', 'agreement_user_agent',
+  'refund_policy_version', 'refund_policy_accepted_at', 'refund_policy_ip',
+  'newsletter_opt_in', 'newsletter_opted_in_at',
+];
+
+async function storeRegistration(env, reg) {
+  if (!env.DB) throw new Error('D1 not bound');
+  await env.DB.prepare(
+    `INSERT INTO registrations (${REG_COLUMNS.join(', ')}) VALUES (${REG_COLUMNS.map(() => '?').join(',')})`
+  ).bind(...REG_COLUMNS.map((c) => (reg[c] === undefined ? null : reg[c]))).run();
+  console.log('[Register] Stored:', reg.id, reg.status, reg.item_name, reg.customer_email);
+}
+
+const REG_UPDATABLE = new Set(['status', 'stripe_session_id', 'paid_at', 'documents_sent_at', 'customer_phone']);
+
+async function updateRegistration(env, id, fields) {
+  if (!env.DB) return;
+  const keys = Object.keys(fields).filter((k) => REG_UPDATABLE.has(k));
+  if (!keys.length) return;
+  await env.DB.prepare(`UPDATE registrations SET ${keys.map((k) => k + ' = ?').join(', ')} WHERE id = ?`)
+    .bind(...keys.map((k) => fields[k]), id)
+    .run();
+}
+
+/** Staff notice for a flagged registration: who and what, never the answers or the question. */
+async function notifyReview(env, reg) {
+  const text = [
+    'ELIGIBILITY REVIEW NEEDED',
+    '',
+    'Registration: ' + reg.id,
+    'Name:         ' + reg.customer_name,
+    'Email:        ' + reg.customer_email,
+    'Phone:        ' + (reg.customer_phone || '(not given)'),
+    'Course:       ' + reg.item_name + ' (' + reg.sku + ')',
+    'Date:         ' + (reg.session_label || reg.session_date),
+    'Seats:        ' + reg.qty,
+    'Org:          ' + (reg.organization || '—'),
+    '',
+    'The participant answered the two eligibility questions and stopped before payment. Nothing was charged.',
+    'The answers are held in the database for 30 days and are not in this message; open the roster',
+    '(view=registrations) to follow up. Do not put the answers or the reason in any email.',
+  ].join('\n');
+  if (!env.NOTIFY_EMAIL || !env.RESEND_API_KEY) {
+    console.error('[Review] Email not configured (need NOTIFY_EMAIL + RESEND_API_KEY). Registration ' + reg.id + ' needs review.');
+    return;
+  }
+  await sendEmail(env, { to: list(env.NOTIFY_EMAIL), subject: 'Eligibility review needed: ' + reg.customer_name + ' · ' + reg.item_name, text });
+}
+
+/* ──────────────────────── Site contact + capability requests ──────────────────────── */
+
+/**
+ * POST /contact — the Atlas Glinn contact form and the capability-statement request.
+ * Replaces the mailto: forms, which delivered nothing when the visitor had no mail client and
+ * showed a success message anyway. Sends one email to NOTIFY_EMAIL with reply-to set to the
+ * sender. A filled honeypot field returns 200 and sends nothing.
+ */
+async function handleContact(request, env, cors) {
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== 'object') return json({ error: 'Bad request' }, 400, cors);
+  if (str(body.website)) return json({ ok: true }, 200, cors); // honeypot
+  const kind = str(body.kind) === 'capability' ? 'capability' : 'contact';
+  const name = str(body.name).trim();
+  const email = String(body.email || '').trim().toLowerCase();
+  const phone = str(body.phone).trim();
+  const message = String(body.message || '').slice(0, 4000).trim();
+  if (name.length < 2) return json({ error: 'Enter your name.', field: 'name' }, 400, cors);
+  if (!isEmail(email)) return json({ error: 'Enter a valid email address.', field: 'email' }, 400, cors);
+  if (kind === 'contact' && message.length < 2) return json({ error: 'Enter a message.', field: 'message' }, 400, cors);
+  const meta = {
+    company: str(body.company).trim(), status: str(body.status).trim(), request_type: str(body.request_type).trim(),
+    page: str(body.page).trim(), ip: request.headers.get('CF-Connecting-IP') || '',
+  };
+  const subject = kind === 'capability'
+    ? 'Capability statement request: ' + name + (meta.company ? ' · ' + meta.company : '')
+    : 'Website contact: ' + name;
+  const text = [
+    kind === 'capability' ? 'CAPABILITY STATEMENT REQUEST' : 'WEBSITE CONTACT',
+    '',
+    'Name:     ' + name,
+    'Email:    ' + email,
+    'Phone:    ' + (phone || '(not given)'),
+    meta.company ? 'Company:  ' + meta.company : null,
+    meta.status ? 'Status:   ' + meta.status : null,
+    meta.request_type ? 'Request:  ' + meta.request_type : null,
+    '',
+    message ? 'Message:\n' + message : null,
+    '',
+    'Page:     ' + (meta.page || '—'),
+    'Received: ' + new Date().toISOString(),
+  ].filter((l) => l !== null).join('\n');
+  if (!env.NOTIFY_EMAIL || !env.RESEND_API_KEY) {
+    console.error('[Contact] Email not configured (need NOTIFY_EMAIL + RESEND_API_KEY). Message:\n' + text);
+    return json({ error: 'The contact form is not connected yet. Please call (281) 654-8100 or email atlasglinn.hq@atlasglinn.com.' }, 503, cors);
+  }
+  try {
+    await sendEmail(env, { to: list(env.NOTIFY_EMAIL), reply_to: email, subject, text });
+  } catch (e) {
+    console.error('[Contact] send failed:', e.message);
+    return json({ error: 'We could not send your message. Please call (281) 654-8100.' }, 502, cors);
+  }
+  console.log('[Contact] Sent:', kind, email);
+  return json({ ok: true }, 200, cors);
+}
+
 /* ────────────────────── Membership (recurring) ────────────────────── */
 
 /**
@@ -362,10 +662,10 @@ async function handleMembership(request, env, cors) {
 
 /* ─────────────────────── Stripe session helper ─────────────────────── */
 
-async function createSession(payload, env, cors, label) {
+async function createStripeSession(payload, env, label) {
   if (!env.STRIPE_SECRET_KEY) {
     console.error('[' + label + '] STRIPE_SECRET_KEY not set');
-    return json({ error: 'Payments are not configured. Please call to book.' }, 503, cors);
+    return { ok: false, status: 503, error: 'Payments are not configured. Please call to book.' };
   }
 
   const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
@@ -381,11 +681,16 @@ async function createSession(payload, env, cors, label) {
   if (!res.ok) {
     console.error('[' + label + '] Stripe error:', JSON.stringify(session));
     // Don't leak Stripe internals to the browser.
-    return json({ error: 'Could not start checkout. Please try again or call us.' }, 502, cors);
+    return { ok: false, status: 502, error: 'Could not start checkout. Please try again or call us.' };
   }
 
   console.log('[' + label + '] Session created:', session.id);
-  return json({ checkoutUrl: session.url, sessionId: session.id }, 200, cors);
+  return { ok: true, session };
+}
+
+async function createSession(payload, env, cors, label) {
+  const r = await createStripeSession(payload, env, label);
+  return r.ok ? json({ checkoutUrl: r.session.url, sessionId: r.session.id }, 200, cors) : json({ error: r.error }, r.status, cors);
 }
 
 /* ────────────────────────────── Webhook ────────────────────────────── */
@@ -428,10 +733,25 @@ async function handleWebhook(request, env, ctx, cors) {
     // Persist first — a stored order is what makes the money recoverable.
     const stored = await storeOrder(env, record);
 
+    // A registration (screening + agreement + refund consent) rides in metadata: mark it paid,
+    // copy the refund consent onto the order, then send the participant and range documents.
+    const registration = meta.registration_id
+      ? await completeRegistration(env, meta.registration_id, record).catch((e) => {
+          console.error('[Register] link failed:', e.message);
+          return null;
+        })
+      : null;
+    if (registration && !record.customer_phone) record.customer_phone = registration.customer_phone || '';
+
     // Then notify. Never let a failing email lose the order.
     ctx.waitUntil(
       notify(env, record, stored).catch((e) => console.error('[Notify] failed:', e.message))
     );
+    if (registration) {
+      ctx.waitUntil(
+        sendRegistrationDocuments(env, registration, record).catch((e) => console.error('[Documents] failed:', e.message))
+      );
+    }
   }
 
   if (event.type === 'customer.subscription.deleted') {
@@ -530,6 +850,12 @@ async function notify(env, r, stored) {
     return;
   }
 
+  await sendEmail(env, { to: list(to), reply_to: r.customer_email || undefined, subject, text });
+  console.log('[Notify] Sent to', to, '—', subject);
+}
+
+/** One Resend call. Throws on a non-2xx so callers decide what a failed email means. */
+async function sendEmail(env, { to, subject, text, reply_to, attachments }) {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -538,18 +864,136 @@ async function notify(env, r, stored) {
     },
     body: JSON.stringify({
       from: env.NOTIFY_FROM || 'MAST Solutions <bookings@mastsolutions.com>',
-      to: to.split(',').map((s) => s.trim()),
-      reply_to: r.customer_email || undefined,
+      to,
+      reply_to,
       subject,
       text,
+      attachments: attachments && attachments.length ? attachments : undefined,
     }),
   });
-
   if (!res.ok) {
     const detail = await res.text();
     throw new Error('Resend ' + res.status + ': ' + detail);
   }
-  console.log('[Notify] Sent to', to, '—', subject);
+}
+
+function list(v) {
+  return String(v || '').split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+/* ───────────── Registration completion: link, documents, retention ───────────── */
+
+/** After payment: mark the registration paid and copy the refund consent onto the order row. */
+async function completeRegistration(env, id, record) {
+  if (!env.DB) return null;
+  const reg = await env.DB.prepare('SELECT * FROM registrations WHERE id = ? LIMIT 1').bind(id).first();
+  if (!reg) {
+    console.error('[Register] webhook names an unknown registration:', id);
+    return null;
+  }
+  const paidAt = new Date().toISOString();
+  await updateRegistration(env, id, { status: 'paid', paid_at: paidAt, stripe_session_id: record.stripe_session_id });
+  await env.DB.prepare(
+    `UPDATE orders SET refund_policy_version = ?, refund_policy_accepted_at = ?, refund_policy_ip = ?,
+       customer_phone = CASE WHEN customer_phone IS NULL OR customer_phone = '' THEN ? ELSE customer_phone END
+     WHERE stripe_session_id = ?`
+  ).bind(reg.refund_policy_version, reg.refund_policy_accepted_at, reg.refund_policy_ip, reg.customer_phone || '', record.stripe_session_id).run();
+  console.log('[Register] Paid:', id, reg.item_name, reg.customer_email);
+  return { ...reg, status: 'paid', paid_at: paidAt };
+}
+
+/**
+ * The documents behind a paid registration (ARCHITECTURE.md §7 routing):
+ *   - the participant: confirmation, what happens next, the range address (sent nowhere else),
+ *     the cancellation policy they accepted, and the signed agreement as a PDF;
+ *   - DOC_RECIPIENTS_AGREEMENT (range host + staff): the signed agreement and nothing else.
+ * The internal roster notice already went out via notify(). Eligibility answers appear in none of these.
+ */
+async function sendRegistrationDocuments(env, reg, record) {
+  if (!env.RESEND_API_KEY) {
+    console.error('[Documents] RESEND_API_KEY not set — confirmation and agreement NOT sent for', reg.id);
+    return;
+  }
+  let pdfB64 = null;
+  try {
+    const { default: blank } = await import('./agreement-asset.js');
+    pdfB64 = toBase64(await fillAgreement(blank, reg));
+  } catch (e) {
+    console.error('[Documents] agreement fill failed (sending confirmation without the PDF):', e.message);
+  }
+  const fileName = 'MAST-Participation-Agreement-' + String(reg.customer_name || 'participant').replace(/[^A-Za-z0-9]+/g, '-') + '.pdf';
+  const attachments = pdfB64 ? [{ filename: fileName, content: pdfB64 }] : [];
+  const when = reg.session_label || reg.session_date;
+  const seats = Number(reg.qty || 1);
+
+  const rangeLines = env.RANGE_ADDRESS
+    ? ['Range:       ' + env.RANGE_ADDRESS + (env.RANGE_COORDS ? ' (' + env.RANGE_COORDS + ')' : ''),
+       '             Rural range: your GPS will stop you short of it. Plan for the drive.']
+    : ['Range:       Directions follow by email before the class.'];
+  const customerText = [
+    "You're booked.",
+    '',
+    'Course:      ' + reg.item_name,
+    'Date:        ' + when,
+    'Seats:       ' + seats,
+    'Paid:        ' + money(record.amount_total, record.currency) + ' (Stripe sends its own receipt)',
+    'Booking ref: ' + reg.id,
+    '',
+    'WHAT HAPPENS NEXT',
+    '- Your signed Class Participation and Use of Property Agreement is attached. Keep a copy.',
+    '- Gear list arrives by separate email before the class.',
+    ...rangeLines,
+    '- Arrive 15 minutes early. Live-fire classes open with a mandatory safety brief; a student who misses it cannot be admitted to the range.',
+    seats > 1
+      ? '- Each additional attendee must complete the eligibility screening and sign the agreement before class. Reply with their names and emails and we will send each of them their own copy to complete.'
+      : '',
+    '',
+    'CANCELLATION AND REFUND POLICY (accepted ' + reg.refund_policy_accepted_at + ', version ' + reg.refund_policy_version + ')',
+    '- 15 or more days before class: full refund, or transfer to any future class at no charge.',
+    '- 7 to 14 days: transfer at no charge, or refund less 25%.',
+    '- 48 hours to 6 days: transfer once at no charge; no refund.',
+    '- Under 48 hours, or no-show: no refund and no transfer.',
+    '- Serious illness, injury, family emergency, or deployment: contact us and we will transfer your seat.',
+    '',
+    'Questions: (281) 654-8100 · atlasglinn.hq@atlasglinn.com',
+    'MAST Solutions · a division of Atlas Glinn, LLC · Houston, Texas',
+  ].filter((l) => l !== null).join('\n');
+
+  await sendEmail(env, { to: [reg.customer_email], subject: "You're booked: " + reg.item_name + ' · ' + when, text: customerText, attachments });
+
+  const agreementTo = list(env.DOC_RECIPIENTS_AGREEMENT);
+  if (agreementTo.length && pdfB64) {
+    await sendEmail(env, {
+      to: agreementTo,
+      subject: 'Signed participation agreement: ' + reg.customer_name + ' · ' + reg.item_name + ' · ' + when,
+      text: 'Attached: the Class Participation and Use of Property Agreement signed electronically by ' + reg.customer_name +
+        ' on ' + reg.agreement_signed_at + ' (agreement version ' + reg.agreement_version + ') for ' + reg.item_name + ', ' + when + '.\n\n' +
+        'This message carries the agreement only.',
+      attachments,
+    });
+  } else if (!agreementTo.length) {
+    console.warn('[Documents] DOC_RECIPIENTS_AGREEMENT not set — the range host did not receive the agreement for', reg.id);
+  }
+  await updateRegistration(env, reg.id, { documents_sent_at: new Date().toISOString() }).catch(() => {});
+  console.log('[Documents] Sent for', reg.id, pdfB64 ? 'with agreement PDF' : 'WITHOUT agreement PDF');
+}
+
+/** Daily: answers past purge_after go; registrations that never reached payment are marked abandoned. */
+async function runRetention(env) {
+  if (!env.DB) return { purged: 0, abandoned: 0 };
+  const now = new Date().toISOString();
+  const purged = await env.DB.prepare('DELETE FROM eligibility_answers WHERE purge_after < ?').bind(now).run();
+  const dayAgo = new Date(Date.now() - 86400000).toISOString();
+  const abandoned = await env.DB.prepare("UPDATE registrations SET status = 'abandoned' WHERE status = 'pending' AND created_at < ?").bind(dayAgo).run();
+  const out = { purged: purged?.meta?.changes ?? 0, abandoned: abandoned?.meta?.changes ?? 0 };
+  console.log('[Retention] answers purged:', out.purged, '· registrations abandoned:', out.abandoned);
+  return out;
+}
+
+function toBase64(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
 }
 
 /* ─────────────────────────── Admin roster ─────────────────────────── */
@@ -566,6 +1010,18 @@ async function handleRoster(request, env, cors) {
 
   const sku = url.searchParams.get('sku');
   const limit = clampInt(url.searchParams.get('limit'), 1, 500) || 100;
+
+  // view=registrations: the screening → agreement → payment records, review items first.
+  // Never joins eligibility_answers; staff read those in the D1 console, one row at a time.
+  if (url.searchParams.get('view') === 'registrations') {
+    const { results } = await env.DB.prepare(
+      `SELECT id, created_at, status, sku, item_name, qty, session_date, session_label, customer_name, customer_email,
+              customer_phone, organization, eligibility_status, agreement_version, agreement_signed_at,
+              refund_policy_version, refund_policy_accepted_at, stripe_session_id, paid_at, documents_sent_at
+       FROM registrations ORDER BY CASE status WHEN 'review' THEN 0 ELSE 1 END, created_at DESC LIMIT ?`
+    ).bind(limit).all();
+    return json({ count: results.length, registrations: results }, 200, cors);
+  }
 
   const query = sku
     ? env.DB.prepare(
