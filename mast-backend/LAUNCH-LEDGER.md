@@ -129,15 +129,18 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
 10. ~~"Fundamentals first" is a cue, not a gate~~ — settled 2026-09-04: each discipline's Fundamentals gates its other courses
     (badge on every row, a yes/no gate at Select Date, attestation at registration, Worker refuses without it). Still open: should
     disciplines without their own Fundamentals (Select-Fire, Team Tactics, Protective, Gear) require Handgun Fundamentals, as built?
-11. ~~Membership tiers~~ — from the old site's 2014 Membership sheet, built as chapter 06 "The Teams"; **fees set by him
-    2026-09-04**: Red Team $250 (10 slots; 1 class + 25% off any 1 class for you or 1 friend), Blue $450 (5; 2 classes + 35% off
-    2), Gold $575 (5; 3 classes + 45% off 3), Black $600 (5; unlimited + 50% off any class for you or 4 friends), monthly; waiting
-    list; vetted by the established team. **Still his:** slot counts are the 2014 figures; create the four Stripe recurring Prices
-    when he wants checkout instead of email applications (rows sit inactive in `memberships`; `migrations/003`).
-11a. The silent-auction certificate (his `displaysign007.pdf`, 2026-09-04) carries instructor credentials the page does not yet
-    show (Harris County Diplomatic Protection Unit instructor; Chief Training Officer certification co-signed by the Chief of
-    the Texas Rangers, Ret.; DPS Firearms Instructor, 12+ certified instructor programs; The Houstonian) and a phone and
-    suite address. His call whether the founder block adopts them.
+11. ~~Membership tiers~~ — chapter 06 "The Teams", six plans (2026-09-04): Red $250 (10 slots; 1 class + 25% off any 1 class for
+    you or 1 friend), Blue $450 (5; 2 classes + 35% off 2 for you or 2 friends), Gold $575 (5; 3 + 45% off 3), Black $600 (5;
+    unlimited + 50% off any class for you or 4 friends), **Law Enforcement $195** and **Verified Teachers $195** (Blue's benefits;
+    "verified status required"), monthly; waiting list; vetted by the established team. **Join → Stripe Checkout in subscription
+    mode** through `POST /create-membership`; the Worker provisions each plan's Stripe recurring Price on the first join
+    (lookup_key `mast_<plan>`) and stores it in `memberships` — his "2- you can do" — so no price id is handled by anyone. Needs
+    the next deploy plus `migrations/003`. **Still his:** slot counts for Red/Blue/Gold/Black are the 2014 figures; LE and
+    Teachers have none; how "verified" is checked; and the sequence — the page charges at join and says the team vets new
+    members, so decide whether a declined member is refunded or vetting comes first (then Join becomes an application).
+11a. ~~Certificate credentials~~ — on the founder block since 2026-09-04 ("not in MASTsolutions - if not add"): Harris County
+    Diplomatic Protection Unit instructor; Chief Training Officer certification co-signed by the Chief of the Texas Rangers
+    (Ret.); 12+ certified instructor programs; The Houstonian. The certificate's phone and suite address are not on the page.
 12. Private Instruction prices ($350 / $1,250 / $3,300) came from the progression PDF, not a message. Current?
 13. `NOTIFY_EMAIL` value: if the range host is in it, the "range host gets only the signed agreement" rule breaks.
 14. Mailchimp API key, audience id, server prefix. PostHog project key. DPAs with Stripe, Resend, Mailchimp.

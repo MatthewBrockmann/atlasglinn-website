@@ -105,15 +105,15 @@ CHROME = shell.chrome(
               ('s9', '09 &middot; Testimonials'), ('s10', '10 &middot; Privacy'), ('s11', '11 &middot; Contact')])
 
 
-# ── Membership: the four teams of the old site's Membership sheet (2014), applications by email (owner, 2026-09-04: "Add the 4
-#    Subscriptions = do u have them from old site info?"). Fees confirmed by him 2026-09-04 (Red 250, Blue 450, Gold 575, Black 600); Stripe subscription
-#    prices are not created yet, so Apply is a mailto and the plans sit inactive in the Worker's memberships table.
+# ── Membership: the four teams of the old site's Membership sheet (2014) plus Law Enforcement and Verified Teachers (owner,
+#    2026-09-04: "Add the 4 Subscriptions"; fees Red 250, Blue 450, Gold 575, Black 600, LE 195, Teachers 195). Join opens a short
+#    dialog (name, email) and hands off to Stripe Checkout in subscription mode through the Worker's POST /create-membership; the
+#    Worker provisions each plan's Stripe Price on first use ("2- you can do").
 import urllib.parse
-def tier(name, key, fee, includes, slots):   # key is t-<team>: a bare 'gold' class would take the page's gradient-text rule
-    subj = urllib.parse.quote(f'MAST Membership — {name}')
+def tier(name, key, plan, fee, includes, slots):   # key is t-<team>: a bare 'gold' class would take the page's gradient-text rule
     return (f'<div class="tier {key}"><div class="tier-name">{name}</div><div class="tier-fee">{fee}<small>per month</small></div>'
             f'<p class="tier-inc">{includes}</p><div class="tier-slots">{slots}</div>'
-            f'<a class="cta-button" href="mailto:matthew@atlasglinn.com?subject={subj}">Apply</a></div>')
+            f'<button class="cta-button" type="button" onclick="joinTeam(\'{plan}\', \'{name}\', \'{fee}\')">Join</button></div>')
 
 MEMBERSHIP = f"""
   <section class="panel" id="s6" data-section="06">
@@ -122,12 +122,14 @@ MEMBERSHIP = f"""
       <h2 class="section-h">The <span class="gold">Teams.</span></h2>
       <p class="sub">MAST offers membership in four teams. Each team holds a set number of slots, so the benefits and the class seats are always there for the members who hold them. When a team is full there is a waiting list. New memberships are vetted by the established team.</p>
       <div class="teams rise">
-        {tier('Red Team', 't-red', '$250', 'One class, plus 25% off any one class for you or one friend.', '10 memberships')}
-        {tier('Blue Team', 't-blue', '$450', 'Two classes, plus 35% off any two classes for you or two friends.', '5 memberships')}
-        {tier('Gold Team', 't-gold', '$575', 'Three classes, plus 45% off any three classes for you or three friends.', '5 memberships')}
-        {tier('Black Team', 't-black', '$600', 'Unlimited classes, plus 50% off any class for you or four friends.', '5 memberships')}
+        {tier('Red Team', 't-red', 'red_team', '$250', 'One class, plus 25% off any one class for you or one friend.', '10 memberships')}
+        {tier('Blue Team', 't-blue', 'blue_team', '$450', 'Two classes, plus 35% off any two classes for you or two friends.', '5 memberships')}
+        {tier('Gold Team', 't-gold', 'gold_team', '$575', 'Three classes, plus 45% off any three classes for you or three friends.', '5 memberships')}
+        {tier('Black Team', 't-black', 'black_team', '$600', 'Unlimited classes, plus 50% off any class for you or four friends.', '5 memberships')}
+        {tier('Law Enforcement', 't-le', 'le_team', '$195', 'Two classes, plus 35% off any two classes for you or two friends.', 'Verified status required')}
+        {tier('Verified Teachers', 't-teachers', 'teachers_team', '$195', 'Two classes, plus 35% off any two classes for you or two friends.', 'Verified status required')}
       </div>
-      <p class="teams-note">A slot is held while the monthly fee is paid; a lapsed slot goes to the waiting list. Apply by email &mdash; the team answers.</p>
+      <p class="teams-note">A slot is held while the monthly fee is paid; a lapsed slot goes to the waiting list. Membership is billed monthly by card; new memberships are vetted by the established team.</p>
     </div>
   </section>
 """
@@ -212,8 +214,10 @@ SECTIONS = f"""
           <p>Founded MAST Solutions in 2005 and later Atlas Glinn, LLC. Former Head of Security, Sen. Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named as media exist. Other high-profile and high-net-worth individuals follow our privacy standards. We don&rsquo;t do media. Names appear only where the media captured them. Teaches on the range. Has trained Houston, Baytown, Galveston, and other SWAT teams, including TTPOA (TX Tactical Police Officers Association), VBSS (Visit, Board, Search, Seize), NASA SRT, Dept of Homeland Security, and other federal, state, and Military Units.</p>
           <ul class="creds">
             <li>Trained by <b>Paul Howe</b> (1st SFOD-D), <b>Bill Jeans</b> and <b>John Perretti</b></li>
-            <li><b>DPS Level III Firearms Instructor</b> &middot; <b>TTPOA Maritime VBSS</b> instructor</li>
-            <li>Featured on <b>Modern Shooter TV</b> and in <b>The Washington Post</b></li>
+            <li><b>DPS Level III Firearms Instructor</b> &middot; <b>12+ certified instructor programs</b> &middot; <b>TTPOA Maritime VBSS</b> instructor</li>
+            <li>Law Enforcement Instructor, <b>Harris County Diplomatic Protection Unit</b></li>
+            <li><b>Chief Training Officer</b> certification co-signed by the Chief of the <b>Texas Rangers</b> (Ret.)</li>
+            <li>Featured on <b>Modern Shooter TV</b>, in <b>The Washington Post</b> and <b>The Houstonian</b></li>
           </ul>
           <p class="cadre">Courses run with a lead instructor, assistant instructors, and RSOs (Range Safety Officers) on the line. Your instructors are named on the course confirmation.</p>
           <div class="ctas"><button class="cta-button ghost-button" type="button" onclick="openQuals()">Qualifications &amp; Certifications</button><a href="#s5" class="cta-button">Train With Him</a></div>
@@ -295,7 +299,48 @@ SECTIONS = f"""
 
 """
 
-BODY = '\n' + CHROME + '\n' + banner + '\n\n<div class="content">\n' + SECTIONS + '</div>\n\n' + modals + '\n'
+
+JOIN_MODAL = """
+<!-- MEMBERSHIP JOIN: name + email, then Stripe Checkout in subscription mode through the Worker (POST /create-membership) -->
+<div id="join-bd" class="modal-bd" onclick="closeJoin()"></div>
+<div id="join" class="modal gate join" role="dialog" aria-modal="true" aria-labelledby="join-title">
+    <button class="modal-x" aria-label="Close" onclick="closeJoin()">&times;</button>
+    <div class="eyebrow">Membership</div>
+    <h3 id="join-title"></h3>
+    <div class="modal-meta" id="join-meta"></div>
+    <label class="join-field">Name<input id="join-name" type="text" autocomplete="name"></label>
+    <label class="join-field">Email<input id="join-email" type="email" autocomplete="email" required></label>
+    <div class="gate-actions"><button class="cta-button" id="join-go" type="button" onclick="joinGo()">Continue to Stripe</button></div>
+    <p class="gate-fine">Billed monthly by card through Stripe. New memberships are vetted by the established team.</p>
+    <p class="join-err" id="join-err" role="alert"></p>
+</div>
+"""
+JOIN_JS = """
+/* Membership join (owner, 2026-09-04): Join opens a short dialog for name and email, then Stripe Checkout in subscription mode via
+   POST /create-membership; the Worker provisions the plan's Stripe Price on first use. A failure offers the email route. */
+let joinPlan = null;
+function joinTeam(key, name, fee){ joinPlan = key; $('join-title').textContent = name; $('join-meta').textContent = fee + ' per month'; $('join-err').textContent = ''; const b = $('join-go'); b.disabled = false; b.textContent = 'Continue to Stripe'; $('join-bd').classList.add('open'); $('join').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('join-email').focus(), 150); }
+function closeJoin(){ $('join-bd').classList.remove('open'); $('join').classList.remove('open'); document.body.style.overflow = ''; }
+async function joinGo(){
+  const email = $('join-email').value.trim(), name = $('join-name').value.trim();
+  if (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)) { $('join-err').textContent = 'Enter the email address for your membership.'; $('join-email').focus(); return; }
+  const btn = $('join-go'); btn.disabled = true; btn.textContent = 'One moment\u2026'; const base = location.origin + location.pathname;
+  try {
+    const res = await fetch(API + '/create-membership', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, plan: joinPlan, customer_name: name, successUrl: base + '?membership=success', cancelUrl: base + '?membership=cancelled' }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.checkoutUrl) throw new Error(data.error || 'Could not start checkout.');
+    location.href = data.checkoutUrl;
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Continue to Stripe';
+    $('join-err').innerHTML = esc(e.message) + ' Or apply by email: <a href="mailto:matthew@atlasglinn.com?subject=' + encodeURIComponent('MAST Membership \u2014 ' + $('join-title').textContent) + '">matthew@atlasglinn.com</a>';
+  }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('join').classList.contains('open')) closeJoin(); });
+(function(){ const p = new URLSearchParams(location.search); const s = p.get('membership'); if (!s) return; const b = $('banner'); b.textContent = s === 'success' ? 'Welcome to the team \u2014 your membership is set up. The team will be in touch.' : 'Membership checkout cancelled \u2014 your card was not charged.'; b.classList.add('show'); setTimeout(() => b.classList.remove('show'), 9000); history.replaceState(null, '', location.pathname); })();
+"""
+
+BODY = '\n' + CHROME + '\n' + banner + '\n\n<div class="content">\n' + SECTIONS + '</div>\n\n' + modals + JOIN_MODAL + '\n'
+js = js + JOIN_JS
 
 META = """<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
@@ -367,10 +412,10 @@ GOLD_KEEP = """
   .chap-link.active::before, .chap-link:hover::before { background:#FCF6BA; }
   /* Membership chapter (owner, 2026-09-04: "elegance + exclusivity" — the silent-auction certificate's register: Cormorant serif,
      letter-spaced small caps, thin gold rules on black). */
-  .teams { display:grid; grid-template-columns:repeat(4, 1fr); gap:1.1rem; max-width:1200px; margin:0 auto 1.2rem; text-align:left; }
+  .teams { display:grid; grid-template-columns:repeat(3, 1fr); gap:1.1rem; max-width:1200px; margin:0 auto 1.2rem; text-align:left; }
   .tier { position:relative; padding:2rem 1.6rem 1.7rem; background:linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(5,8,16,.85) 100%); border:1px solid rgba(201,168,76,.35); backdrop-filter:blur(10px); display:flex; flex-direction:column; }
   .tier::before { content:''; position:absolute; top:0; left:1.6rem; right:1.6rem; height:2px; }
-  .tier.t-red::before { background:#9B1C1C; } .tier.t-blue::before { background:#1A6BDE; } .tier.t-gold::before { background:#C9A84C; } .tier.t-black::before { background:#F0F4FF; }
+  .tier.t-red::before { background:#9B1C1C; } .tier.t-blue::before { background:#1A6BDE; } .tier.t-gold::before { background:#C9A84C; } .tier.t-black::before { background:#F0F4FF; } .tier.t-le::before { background:#3A4A5C; } .tier.t-teachers::before { background:#CFE2FF; }
   .tier-name { font-family:'Cormorant Garamond',Georgia,serif; font-weight:600; font-size:1.7rem; letter-spacing:.08em; color:#E8D27D; margin-bottom:.9rem; }
   .tier-fee { font-family:'Cormorant Garamond',Georgia,serif; font-weight:700; font-size:2.6rem; line-height:1; color:#F0F4FF; }
   .tier-fee small { display:block; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; text-transform:uppercase; color:#8B95A8; margin-top:.5rem; }
@@ -379,6 +424,12 @@ GOLD_KEEP = """
   .tier .cta-button { align-self:flex-start; padding:.85rem 1.8rem; font-size:.75rem; }
   .tier.t-black { border-color:rgba(232,210,125,.6); box-shadow:0 0 60px rgba(201,168,76,.12); }
   .teams-note { font-family:'Cormorant Garamond',Georgia,serif; font-style:italic; font-size:1.1rem; color:#8B95A8; max-width:760px; margin:0 auto; text-align:center; }
+  .modal.join .join-field { display:block; font-family:'Share Tech Mono',monospace; font-size:.66rem; letter-spacing:.25em; text-transform:uppercase; color:#8B95A8; margin:.9rem 0 0; }
+  .modal.join input { display:block; width:100%; margin-top:.35rem; padding:.8rem .9rem; background:#0B1221; border:1px solid rgba(201,168,76,.35); color:#F0F4FF; font:1rem 'Rajdhani',sans-serif; letter-spacing:.02em; }
+  .modal.join input:focus { outline:none; border-color:#C9A84C; }
+  .modal.join .gate-actions { margin-top:1.3rem; }
+  .modal.join .join-err { color:#ff8a80; font-size:.9rem; line-height:1.45; margin-top:.8rem; min-height:1.2em; }
+  .modal.join .join-err a { color:#E8D27D; }
   @media (max-width:1100px) { .teams { grid-template-columns:1fr 1fr; } }
   @media (max-width:600px) { .teams { grid-template-columns:1fr; } .tier-fee { font-size:2.2rem; } }
 """

@@ -105,7 +105,7 @@ wrangler d1 create mast_bookings
 wrangler d1 execute mast_bookings --remote --file=schema.sql
 wrangler d1 execute mast_bookings --remote --file=migrations/001-prereq-attested.sql   # once, on a database created before 2026-09-04
 wrangler d1 execute mast_bookings --remote --file=migrations/002-ladies-handgun.sql    # once: the ladies-only Handgun class
-wrangler d1 execute mast_bookings --remote --file=migrations/003-membership-teams.sql  # once: the four membership teams (inactive until priced in Stripe)
+wrangler d1 execute mast_bookings --remote --file=migrations/003-membership-teams.sql  # once: the six membership teams (the Worker creates each plan's Stripe Price on the first join)
 wrangler d1 execute mast_bookings --remote --file=migrations/002-ladies-handgun.sql   # once: adds the ladies-only Handgun class (owner, 2026-09-04)
 
 # 3. Secrets (never commit these)

@@ -634,12 +634,13 @@ async function lookupPlan(env, planKey) {
   if (env.DB) {
     try {
       const row = await env.DB.prepare(
-        'SELECT plan_key, name, stripe_price_id FROM memberships WHERE plan_key = ? AND active = 1 LIMIT 1'
+        'SELECT plan_key, name, stripe_price_id, price_cents, interval FROM memberships WHERE plan_key = ? AND active = 1 LIMIT 1'
       )
         .bind(key)
         .first();
-      if (row && row.stripe_price_id) {
-        return { key, name: row.name, priceId: row.stripe_price_id };
+      if (row) {
+        const priceId = row.stripe_price_id || (await ensureMembershipPrice(env, row));
+        if (priceId) return { key, name: row.name, priceId };
       }
     } catch (e) {
       console.error('[Plan] D1 lookup failed:', e.message);
@@ -652,6 +653,51 @@ async function lookupPlan(env, planKey) {
     return { key, name: key, priceId };
   }
   return null;
+}
+
+/**
+ * Membership prices provision themselves (owner, 2026-09-04: "2- you can do"). The first time a plan is joined, the Worker
+ * finds the Stripe recurring Price by lookup_key (mast_<plan_key>) or creates it — a Product named after the plan and a
+ * monthly Price at the plan's price_cents — and stores the id on the D1 row. No price id is ever pasted anywhere; the Worker
+ * already holds the Stripe key. Returns null (and the join fails cleanly) if Stripe is not configured or refuses.
+ */
+async function ensureMembershipPrice(env, row) {
+  if (!env.STRIPE_SECRET_KEY || !row || !row.price_cents) return null;
+  const lookupKey = 'mast_' + row.plan_key;
+  const headers = { Authorization: 'Bearer ' + env.STRIPE_SECRET_KEY, 'Content-Type': 'application/x-www-form-urlencoded' };
+  let priceId = null;
+  try {
+    const found = await (await fetch('https://api.stripe.com/v1/prices?active=true&limit=1&lookup_keys[]=' + encodeURIComponent(lookupKey), { headers })).json();
+    if (found && Array.isArray(found.data) && found.data[0] && found.data[0].id) priceId = found.data[0].id;
+  } catch (e) {
+    console.error('[Plan] Stripe price lookup failed:', e.message);
+  }
+  if (!priceId) {
+    const body = new URLSearchParams({
+      currency: 'usd',
+      unit_amount: String(row.price_cents),
+      'recurring[interval]': row.interval || 'month',
+      lookup_key: lookupKey,
+      'product_data[name]': 'MAST Solutions Membership — ' + row.name,
+      'metadata[plan_key]': row.plan_key,
+    });
+    const res = await fetch('https://api.stripe.com/v1/prices', { method: 'POST', headers, body: body.toString() });
+    const created = await res.json().catch(() => null);
+    if (!res.ok || !created || !created.id) {
+      console.error('[Plan] could not create the Stripe price for ' + row.plan_key + ':', JSON.stringify(created));
+      return null;
+    }
+    priceId = created.id;
+  }
+  if (env.DB) {
+    try {
+      await env.DB.prepare('UPDATE memberships SET stripe_price_id = ? WHERE plan_key = ?').bind(priceId, row.plan_key).run();
+    } catch (e) {
+      console.error('[Plan] could not store the price id:', e.message);
+    }
+  }
+  console.log('[Plan] ' + row.plan_key + ' -> ' + priceId);
+  return priceId;
 }
 
 async function handleMembership(request, env, cors) {

@@ -25,8 +25,18 @@ const stripeCalls = [];
 const stored = [];
 const emails = [];
 
+const stripePriceCalls = [];   // GET /v1/prices?lookup_keys[] and POST /v1/prices (membership price provisioning)
+const fakePrices = [];         // prices "in Stripe" ({ id, lookup_key })
 globalThis.fetch = async (url, init) => {
-  if (String(url).includes('api.stripe.com')) {
+  const u = String(url);
+  if (u.includes('api.stripe.com/v1/prices')) {
+    const method = (init && init.method) || 'GET';
+    stripePriceCalls.push({ method, url: u, body: init && init.body ? new URLSearchParams(init.body) : null });
+    if (method === 'GET') return new Response(JSON.stringify({ data: fakePrices.filter(p => u.includes(encodeURIComponent(p.lookup_key))) }), { status: 200 });
+    const b = new URLSearchParams(init.body); const price = { id: 'price_new_' + b.get('lookup_key'), lookup_key: b.get('lookup_key') }; fakePrices.push(price);
+    return new Response(JSON.stringify(price), { status: 200 });
+  }
+  if (u.includes('api.stripe.com')) {
     stripeCalls.push(new URLSearchParams(init.body));
     return new Response(JSON.stringify({ id: 'cs_test_123', url: 'https://checkout.stripe.com/pay/cs_test_123' }), { status: 200 });
   }
@@ -42,6 +52,10 @@ const registrations = new Map();   // id -> row
 const outcomes = [];               // eligibility_outcomes rows
 const answers = [];                // eligibility_answers rows
 const orderUpdates = [];           // UPDATE orders ... from completeRegistration
+const fakePlans = {                // memberships rows; a plan without a stripe_price_id is provisioned on first join
+  range_member: { plan_key: 'range_member', name: 'Range Member', stripe_price_id: 'price_live_rm', price_cents: 9900, interval: 'month' },
+  red_team: { plan_key: 'red_team', name: 'Red Team', stripe_price_id: '', price_cents: 25000, interval: 'month' },
+};
 const sqlLog = [];
 const REG_COLS = ['id','created_at','status','sku','item_name','qty','session_date','session_label','customer_name','customer_email','customer_phone','organization','address1','address2','emergency_name','emergency_phone','emergency_relationship','eligibility_outcome_id','eligibility_status','questions_version','agreement_version','agreement_signed_name','agreement_initials','agreement_signed_at','agreement_ip','agreement_user_agent','refund_policy_version','refund_policy_accepted_at','refund_policy_ip','newsletter_opt_in','newsletter_opted_in_at','prereq_attested'];
 
@@ -67,10 +81,7 @@ const DB = {
                             'MAST-NVG-P2': { sku: 'MAST-NVG-P2', name: 'NVG Operator P2', price_cents: 95000, capacity: 10 } }[args[0]];
               return row || null;
             }
-            if (sql.includes('FROM memberships')) {
-              const row = { range_member: { plan_key: 'range_member', name: 'Range Member', stripe_price_id: 'price_live_rm' } }[args[0]];
-              return row || null;
-            }
+            if (sql.includes('FROM memberships')) return fakePlans[args[0]] || null;
             if (sql.includes('FROM registrations WHERE id')) return registrations.get(args[0]) || null;
             return null;
           },
@@ -86,6 +97,7 @@ const DB = {
               return { meta: { changes: row ? 1 : 0 } };
             }
             if (sql.startsWith('UPDATE orders SET refund_policy_version')) { orderUpdates.push(args); return { meta: { changes: 1 } }; }
+            if (sql.startsWith('UPDATE memberships SET stripe_price_id')) { if (fakePlans[args[1]]) fakePlans[args[1]].stripe_price_id = args[0]; return { meta: { changes: 1 } }; }
             if (sql.startsWith('DELETE FROM eligibility_answers')) { const before = answers.length; for (let i = answers.length - 1; i >= 0; i--) if (answers[i][4] < args[0]) answers.splice(i, 1); return { meta: { changes: before - answers.length } }; }
             return { meta: { changes: 0 } };
           },
@@ -209,6 +221,21 @@ console.log('\n── Membership plan resolution ──');
   const res = await post('/create-membership', { email: 'a@b.com', plan: 'nonexistent' });
   const body = await res.json();
   ok('unconfigured plan returns 400 with a hint', res.status === 400 && body.hint.includes('STRIPE_PRICE_NONEXISTENT'));
+}
+{
+  // Membership prices provision themselves (owner, 2026-09-04): the first join finds or creates the Stripe Price by lookup_key,
+  // stores it on the plan, and checks out with it; later joins reuse the stored id.
+  stripeCalls.length = 0; stripePriceCalls.length = 0;
+  const res = await post('/create-membership', { email: 'a@b.com', plan: 'red_team' });
+  ok('a plan without a price id still joins → 200', res.status === 200, String(res.status));
+  const [look, make] = stripePriceCalls;
+  ok('price looked up by lookup_key, then created', stripePriceCalls.length === 2 && look.method === 'GET' && look.url.includes('mast_red_team') && make.method === 'POST', JSON.stringify(stripePriceCalls.map(c => c.method)));
+  ok('created monthly at the plan price with the product named after it', make && make.body.get('unit_amount') === '25000' && make.body.get('recurring[interval]') === 'month' && make.body.get('lookup_key') === 'mast_red_team' && /Red Team/.test(make.body.get('product_data[name]')));
+  ok('the new price id is stored on the plan', fakePlans.red_team.stripe_price_id === 'price_new_mast_red_team', fakePlans.red_team.stripe_price_id);
+  ok('checkout uses it, in subscription mode', stripeCalls[0].get('line_items[0][price]') === 'price_new_mast_red_team' && stripeCalls[0].get('mode') === 'subscription');
+  stripePriceCalls.length = 0;
+  await post('/create-membership', { email: 'a@b.com', plan: 'red_team' });
+  ok('the second join reuses the stored id (no Stripe price calls)', stripePriceCalls.length === 0);
 }
 
 console.log('\n── Webhook signature ──');
