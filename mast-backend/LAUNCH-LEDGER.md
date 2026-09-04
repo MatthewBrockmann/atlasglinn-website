@@ -97,8 +97,10 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
 1. Instructor roster: Michael Cline is listed with his Atlas Glinn title (Chief Operating Officer) — his MAST title, if
    different. **Torrey Kramer's bio text**: not in the old-site export (only his photo), the Wayback Machine is blocked from
    the container — paste it, or hand off a file. Anyone else.
-1a. **His instructor portrait**: the new JPG is on the Mac, not yet on the handoff branch (last handoff 2026-09-03 22:52) — the
-   same paste sends it. **Private-row photos**: the three rows share one picture until his three arrive (each row takes its own).
+1a. ~~His instructor portrait~~ — received in chat 2026-09-04 (`images/mast/brockmann-instructor.jpg`, 1331×2000, photographer's
+   mark kept) and placed on the founder block. He is adding one more tactical photo "to match instructors" (the other two
+   portraits are "less tactical") — place it where he says when it lands. **Private-row photos**: the three rows share one
+   picture until his three arrive (each row takes its own).
 1b. **Ladies Only Handgun**: hours, price, seats (built as 8 h / $225 / 16 seats, mirroring Handgun Fundamentals).
 1c. **Instagram clips**: the post URLs (after the merge the handoff paste fetches them: `... | bash -s -- <urls>`), or the
    original files into the folder before then.
