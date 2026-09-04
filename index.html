@@ -274,6 +274,8 @@
   .yt-card .info { padding:.9rem 1rem; }
   .yt-card h4 { font-family:'Orbitron',sans-serif; font-size:.9rem; color:var(--gold-champagne); margin-bottom:.2rem; }
   .yt-card p { font-size:.88rem; color:var(--text-dim); }
+  .yt-card video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#000; }
+  .yt-grid.one { grid-template-columns:1fr; max-width:860px; }
   .badges { display:flex; gap:1.4rem; justify-content:center; align-items:center; flex-wrap:wrap; margin-top:2rem; }
   .badges img { height:84px; width:auto; border:0; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); }
   .lede { font-size:clamp(1.05rem,1.4vw,1.3rem); color:var(--text); max-width:820px; margin:0 auto 2rem; line-height:1.6; font-weight:300; }
@@ -299,10 +301,11 @@
   <div class="ph" data-for="01" style="background-image:url('images/mast/privacy-aircraft.jpg')"></div>
   <div class="ph" data-for="02" style="background-image:url('images/mast/who-law-enforcement.jpg')"></div>
   <div class="ph" data-for="03" style="background-image:url('images/mast/ship-deck-movement.jpg')"></div>
-  <div class="ph" data-for="04" style="background-image:url('images/gallery/IMG_2168.jpg')"></div>
-  <div class="ph" data-for="05" style="background-image:url('images/mast/founder-portrait.jpg');background-position:center 20%"></div>
-  <div class="ph" data-for="06" style="background-image:url('images/gallery/IMG_2174.jpg')"></div>
-  <div class="ph" data-for="07" style="background-image:url('images/mast/contact-zodiac.jpg')"></div>
+  <div class="ph" data-for="04" style="background-image:url('images/film/atlas-glinn-and-mast-solutions-poster.jpg')"></div>
+  <div class="ph" data-for="05" style="background-image:url('images/gallery/IMG_2168.jpg')"></div>
+  <div class="ph" data-for="06" style="background-image:url('images/mast/founder-portrait.jpg');background-position:center 20%"></div>
+  <div class="ph" data-for="07" style="background-image:url('images/gallery/IMG_2174.jpg')"></div>
+  <div class="ph" data-for="08" style="background-image:url('images/mast/contact-zodiac.jpg')"></div>
 </div>
 <div class="grain"></div>
 <div class="vignette"></div>
@@ -312,7 +315,7 @@
 <div class="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>
 
 <a class="hud tl" href="index.html">&#9679; ATLAS GLINN &middot; HOUSTON</a>
-<div class="hud tr" id="hud-section">SECTION 01 / 07</div>
+<div class="hud tr" id="hud-section">SECTION 01 / 08</div>
 <div class="hud bl">HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W</div>
 <div class="hud br">DETAILS MATTER</div>
 
@@ -320,10 +323,11 @@
   <a href="#s1" class="chap-link">01 &middot; Opening</a>
   <a href="#s2" class="chap-link">02 &middot; Services</a>
   <a href="#s3" class="chap-link">03 &middot; Standard</a>
-  <a href="#s4" class="chap-link">04 &middot; Atlas EP</a>
-  <a href="#s5" class="chap-link">05 &middot; No Press</a>
-  <a href="#s6" class="chap-link">06 &middot; Reviews</a>
-  <a href="#s7" class="chap-link">07 &middot; Contact</a>
+  <a href="#s4" class="chap-link">04 &middot; The Film</a>
+  <a href="#s5" class="chap-link">05 &middot; Atlas EP</a>
+  <a href="#s6" class="chap-link">06 &middot; No Press</a>
+  <a href="#s7" class="chap-link">07 &middot; Reviews</a>
+  <a href="#s8" class="chap-link">08 &middot; Contact</a>
 </nav>
 <button class="menu-btn" id="menu-btn" type="button" aria-controls="sitenav" aria-expanded="false">MENU &#8801;</button>
 <div class="sitenav" id="sitenav" role="dialog" aria-label="Site menu">
@@ -381,6 +385,15 @@
 
   <section class="panel" id="s4" data-section="04">
     <div>
+      <div class="eyebrow">Atlas Glinn &amp; MAST Solutions</div>
+      <h2 class="section-h">Watch the <span class="gold">Film.</span></h2>
+      <p class="sub">Twenty-seven seconds of the work: motorcade operations, the shoothouse, and the team behind both companies.</p>
+      <div class="yt-grid one rise"><div class="yt-card"><div class="frame"><video controls preload="none" playsinline poster="images/film/atlas-glinn-and-mast-solutions-poster.jpg" src="images/film/atlas-glinn-and-mast-solutions.mp4" title="Atlas Glinn &amp; MAST Solutions"></video></div><div class="info"><h4>Atlas Glinn &amp; MAST Solutions</h4><p>The film from the atlasglinn.com home page</p></div></div></div>
+    </div>
+  </section>
+
+  <section class="panel" id="s5" data-section="05">
+    <div>
       <div class="eyebrow">Built by Atlas Glinn</div>
       <h2 class="section-h">The Atlas EP <span class="gold">Platform.</span></h2>
       <p class="sub">We didn&rsquo;t just build a security company &mdash; we built the intelligence platform behind it. Powered by artificial intelligence, designed by a 34-year EP veteran.</p>
@@ -388,7 +401,7 @@
     </div>
   </section>
 
-  <section class="panel" id="s5" data-section="05">
+  <section class="panel" id="s6" data-section="06">
     <div>
       <div class="badge">We Don&rsquo;t Do Press.</div>
       
@@ -397,7 +410,7 @@
     </div>
   </section>
 
-  <section class="panel" id="s6" data-section="06">
+  <section class="panel" id="s7" data-section="07">
     <div>
       <div class="eyebrow">Google Reviews &middot; 5.0 &middot; Based on 10 reviews</div>
       <h2 class="section-h">What Clients <span class="gold">Say.</span></h2>
@@ -406,7 +419,7 @@
     </div>
   </section>
 
-  <section class="panel" id="s7" data-section="07">
+  <section class="panel" id="s8" data-section="08">
     <div>
       <div class="eyebrow">Get in Touch</div>
       <h2 class="section-h">Protecting What <span class="gold">Matters Most.</span></h2>
@@ -420,7 +433,7 @@
 <script type="module">
 import * as THREE from './vendor/three.module.js';
 
-const SECTIONS = 7;
+const SECTIONS = 8;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mobile = matchMedia('(max-width: 768px)').matches;
 
@@ -543,6 +556,7 @@ const kf = [
   { x: 4, y: 3, z: 14, lx: 0, ly: -.5, lz: 0 },
   { x: -4, y: 1, z: 12, lx: 0, ly: 0, lz: 0 },
   { x: 0, y: -2, z: 10, lx: 0, ly: .5, lz: 0 },
+  { x: 2, y: -3, z: 13, lx: 0, ly: 1, lz: 0 },
   { x: 0, y: -4, z: 18, lx: 0, ly: 2, lz: 0 },
 ];
 let activeIdx = 0;

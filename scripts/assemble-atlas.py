@@ -107,6 +107,8 @@ EXTRA_CSS = r"""
   .yt-card .info { padding:.9rem 1rem; }
   .yt-card h4 { font-family:'Orbitron',sans-serif; font-size:.9rem; color:var(--gold-champagne); margin-bottom:.2rem; }
   .yt-card p { font-size:.88rem; color:var(--text-dim); }
+  .yt-card video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#000; }
+  .yt-grid.one { grid-template-columns:1fr; max-width:860px; }
   .badges { display:flex; gap:1.4rem; justify-content:center; align-items:center; flex-wrap:wrap; margin-top:2rem; }
   .badges img { height:84px; width:auto; border:0; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); }
   .lede { font-size:clamp(1.05rem,1.4vw,1.3rem); color:var(--text); max-width:820px; margin:0 auto 2rem; line-height:1.6; font-weight:300; }
@@ -178,6 +180,11 @@ def cards(items, cls='cards', numbered=True):
     return f'<div class="{cls}">' + ''.join(out) + '</div>'
 
 def chips(items): return '<div class="chips rise">' + ''.join(f'<span class="chip">{c}</span>' for c in items) + '</div>'
+
+def film_card(mp4, poster, title, sub):
+    """A local film in the yt-card frame: poster until tapped, native controls, nothing loads before then."""
+    return (f'<div class="yt-card"><div class="frame"><video controls preload="none" playsinline poster="{poster}" src="{mp4}" title="{title}"></video></div>'
+            f'<div class="info"><h4>{title}</h4><p>{sub}</p></div></div>')
 
 def ltile(num, title, body, img, href, pos='center', more='Learn more &rarr;'):
     return (f'<div class="tile rise"><div class="bg" style="background-image:url(\'{img}\');background-position:{pos}"></div>'
@@ -281,7 +288,9 @@ build('index.html',
         '<div class="stats rise"><div class="stat"><div class="stat-num" data-count="34">0</div><div class="stat-label">Years in Protection</div></div>'
         '<div class="stat"><div class="stat-num" data-count="1701" data-suffix="+">0</div><div class="stat-label">Professionals Trained</div></div>'
         '<div class="stat"><div class="stat-num" data-count="17">0</div><div class="stat-label">Partnerships</div></div></div>')),
-    ('Atlas EP', section(4, 'Built by Atlas Glinn', f'The Atlas EP {blue("Platform.")}',
+    ('The Film', section(4, 'Atlas Glinn &amp; MAST Solutions', f'Watch the {blue("Film.")}', 'Twenty-seven seconds of the work: motorcade operations, the shoothouse, and the team behind both companies.',
+        '<div class="yt-grid one rise">' + film_card('images/film/atlas-glinn-and-mast-solutions.mp4', 'images/film/atlas-glinn-and-mast-solutions-poster.jpg', 'Atlas Glinn &amp; MAST Solutions', 'The film from the atlasglinn.com home page') + '</div>')),
+    ('Atlas EP', section(5, 'Built by Atlas Glinn', f'The Atlas EP {blue("Platform.")}',
         'We didn&rsquo;t just build a security company &mdash; we built the intelligence platform behind it. Powered by artificial intelligence, designed by a 34-year EP veteran.',
         cards([('AI Threat Analysis &amp; Scoring', 'Real-time threat intelligence powered by Anthropic Claude AI. Automated situation reports, risk scoring, and predictive threat modeling.'),
                ('Blue Force Tracking', 'Real-time GPS positioning of your entire protection team. Anti-spoofing technology ensures accurate, tamper-proof location data.'),
@@ -292,21 +301,21 @@ build('index.html',
                ('Counter-Surveillance Sweep', 'BLE + IR camera detection for room sweeps. Identify hidden surveillance devices before your principal arrives.'),
                ('Cyber Defense Suite', 'Evil twin WiFi detection, jailbreak monitoring, MITM protection. Your device security is part of the mission.')], 'cards four')
         + '<div class="ctas rise" style="margin-top:2rem">' + cta('signup.html', 'Explore Atlas EP') + cta2('technology.html', 'All Technology') + '</div>')),
-    ('No Press', section(5, '', '', '',
+    ('No Press', section(6, '', '', '',
         '<p class="sub quote lead">&ldquo;We don&rsquo;t do press. We let our work speak for itself.&rdquo;</p>'
         f'<p class="sub" style="font-size:.98rem;">{PRIVACY_LINE}</p>'
         '<div class="eyebrow" style="margin-top:2rem;">Request the Capability Statement</div>'
         '<p class="sub" style="margin-bottom:1.4rem">Submit your request and we&rsquo;ll send our capability statement directly to your email.</p>' + contact_form('capability'),
         badge='We Don&rsquo;t Do Press.')),
-    ('Reviews', section(6, 'Google Reviews &middot; 5.0 &middot; Based on 10 reviews', f'What Clients {blue("Say.")}', '',
+    ('Reviews', section(7, 'Google Reviews &middot; 5.0 &middot; Based on 10 reviews', f'What Clients {blue("Say.")}', '',
         quotes([('I&rsquo;ve worked with Matt and his team for several years. They are extremely professional, and their training and expertise is second to none.', 'Craig E. &middot; President &amp; CEO'),
                 ('Simply THE BEST hands on tactical training you can find local to Houston, TX.', 'Guadalupe A. &middot; Power Testing Specialist'),
                 ('Matthew is an expert in his field. I have had the privilege to train with and work alongside him on numerous occasions.', 'Kenny U. &middot; Deputy')])
         + '<div class="ctas rise" style="margin-top:2rem">' + cta2('https://www.google.com/search?q=Atlas+Glinn+Houston+reviews', 'View All Google Reviews') + '</div>'
         + f'<div class="badges rise"><img src="{WP}2025/02/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"></div>')),
-    ('Contact', contact_chapter(7, 'Get in Touch', f'Protecting What {blue("Matters Most.")}', 'From U.S. Senators to Fortune 500 executives &mdash; discreet, adaptive protection at the highest level.',
+    ('Contact', contact_chapter(8, 'Get in Touch', f'Protecting What {blue("Matters Most.")}', 'From U.S. Senators to Fortune 500 executives &mdash; discreet, adaptive protection at the highest level.',
         cta('contact.html', 'Contact Us') + cta2('mastsolutions.html', 'Book Training &rarr;'))),
-], photos=[(M + 'privacy-aircraft.jpg', None), (M + 'who-law-enforcement.jpg', None), (M + 'ship-deck-movement.jpg', None), ('images/gallery/IMG_2168.jpg', None),
+], photos=[(M + 'privacy-aircraft.jpg', None), (M + 'who-law-enforcement.jpg', None), (M + 'ship-deck-movement.jpg', None), ('images/film/atlas-glinn-and-mast-solutions-poster.jpg', None), ('images/gallery/IMG_2168.jpg', None),
            (M + 'founder-portrait.jpg', 'center 20%'), ('images/gallery/IMG_2174.jpg', None), (M + 'contact-zodiac.jpg', None)],
       jsonld=jsonld_org())
 
@@ -433,9 +442,9 @@ build('training.html',
                ('Crisis Management &amp; Emergency Response', 'Prepare for worst-case scenarios with crisis management protocols, evacuation procedures, medical response, and real-time coordination under pressure.')]))),
     ('Disciplines', section(3, 'Competence Standards', f'Seven Core {blue("Disciplines.")}', 'Every operator is measured against our Selection Baseline before they ever step on a detail. These seven disciplines are the foundation of every MAST Solutions program.',
         tiles([shell.tile('01', 'Firearms.', 'Advanced marksmanship and weapon handling.', M + 'disc-firearms.jpg'), shell.tile('02', 'Hand Combat.', 'Close-quarters fighting techniques.', M + 'disc-hand-combat.jpg'),
-               shell.tile('03', 'Knife Combat.', 'Defensive and tactical knife skills.', M + 'disc-knife-combat.jpg'), shell.tile('04', 'CQB.', 'Close Quarters Battle operations.', M + 'disc-cqb.jpg', 'center 30%'),
-               shell.tile('05', 'Fitness.', 'Peak physical conditioning for duty.', M + 'disc-fitness.jpg'), shell.tile('06', 'Medical.', 'Emergency medical and trauma care.', M + 'disc-medical.jpg'),
-               shell.tile('07', 'Leadership.', 'Command, decision-making, dynamics.', M + 'disc-leadership.jpg', 'center 25%')], four=True)
+               shell.tile('03', 'Knife Combat.', 'Defensive and tactical knife skills.', M + 'disc-knife-combat.jpg'), shell.tile('04', 'CQB.', 'Close Quarters Battle operations.', M + 'disc-cqb.jpg'),
+               shell.tile('05', 'Fitness.', 'Peak physical conditioning for duty.', M + 'disc-fitness.jpg', 'center 60%'), shell.tile('06', 'Medical.', 'Emergency medical and trauma care.', M + 'disc-medical.jpg'),
+               shell.tile('07', 'Leadership.', 'Command, decision-making, dynamics.', M + 'disc-leadership.jpg', 'center 40%')], four=True)
         + '<div class="ctas rise" style="margin-top:2rem">' + cta('mastsolutions.html', 'Explore MAST Solutions') + '</div>')),
     ('Media', section(4, 'Training Media', f'As {blue("Featured.")}', 'Featured on Modern Shooter TV and in The Washington Post.',
         '<div class="yt-grid rise">'
@@ -549,7 +558,8 @@ build('about.html',
         f'<div class="team rise"><div class="portrait" style="background-image:url(\'{M}founder-portrait.jpg\')"><div class="cap">Founder &amp; CEO</div></div><div class="bio"><h3>Matthew Brockmann</h3><div class="role">Founder &amp; CEO</div><p>{BROCKMANN_BIO}</p></div></div>'
         f'<div class="team rise"><div class="portrait" style="background-image:url(\'{WP}2025/03/Cline-Bio-Pic-1024x819.jpg\');background-position:center 15%"><div class="cap">Chief Operating Officer</div></div><div class="bio"><h3>Michael Cline</h3><div class="role">Chief Operating Officer</div><p>As the Chief Operating Officer at Atlas Glinn, Michael Cline brings a wealth of experience and a strategic vision to the company. With a distinguished 12-year career as a Navy SEAL, Michael has honed exceptional leadership, discipline, and problem-solving skills that are now pivotal in driving Atlas Glinn&rsquo;s operational excellence.</p></div></div>')),
     ('In Action', section(3, 'Atlas Glinn In Action', f'Behind the {blue("Mission.")}', 'Training, operations, and the people behind the mission.',
-        tiles([shell.tile('01', 'In the Field.', 'Casualty movement under pressure, trained the way it is done.', M + 'hero-casualty-carry.jpg', 'center 40%'), shell.tile('02', 'Maritime.', 'VBSS and ship-deck movement with MAST Solutions.', M + 'ship-deck-movement.jpg'),
+        '<div class="yt-grid one rise">' + film_card('images/film/about-atlas-glinn.mp4', 'images/film/about-atlas-glinn-poster.jpg', 'About Atlas Glinn', 'The film from the About page') + '</div>'
+        + tiles([shell.tile('01', 'In the Field.', 'Casualty movement under pressure, trained the way it is done.', M + 'hero-casualty-carry.jpg', 'center 40%'), shell.tile('02', 'Maritime.', 'VBSS and ship-deck movement with MAST Solutions.', M + 'ship-deck-movement.jpg'),
                shell.tile('03', 'On the Range.', 'Instructing a federal team on the line.', M + 'instructing-le.jpg', 'center 30%')]))),
     ('Clients', section(4, 'What Clients Say', f'In Their {blue("Words.")}', '',
         quotes([('I&rsquo;ve worked with Matt &amp; his team for several years. They are extremely professional, and their training &amp; expertise is second to none.', 'Craig E. &middot; President &amp; CEO'),

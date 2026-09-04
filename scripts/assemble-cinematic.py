@@ -56,6 +56,7 @@ js = js[:a] + js[b:c]
 # replace the MEDIA array with the curated set (local clips first, then the two YouTube films that are verifiably MAST)
 media = """const MEDIA = [
   { mp4: 'images/mast/jason-castro-testimonial.mp4', poster: 'images/mast/jason-castro-testimonial-poster.jpg', title: 'Jason Castro', sub: 'Student testimonial' },
+  { mp4: 'images/mast/mast-cqb.mp4', poster: 'images/mast/mast-cqb-poster.jpg', title: 'CQB', sub: 'Night-vision room clearing, then the range' },
   { mp4: 'images/mast/mast-vid-1.mp4', poster: 'images/mast/mast-vid-1-poster.jpg', title: 'MAST Solutions', sub: 'On the range' },
   { mp4: 'images/mast/mast-vid-2.mp4', poster: 'images/mast/mast-vid-2-poster.jpg', title: 'MAST Solutions', sub: 'Training day' },
   { mp4: 'images/mast/mast-medical.mp4', poster: 'images/mast/mast-medical-poster.jpg', title: 'Medical', sub: 'Tourniquet under pressure' },
@@ -136,10 +137,10 @@ SECTIONS = f"""
         {tile('01', 'Firearms.', 'Marksmanship and weapon handling.', 'disc-firearms.jpg')}
         {tile('02', 'Hand Combat.', 'Close-quarters fighting.', 'disc-hand-combat.jpg')}
         {tile('03', 'Knife Combat.', 'Defensive and tactical knife.', 'disc-knife-combat.jpg')}
-        {tile('04', 'CQB.', 'Close Quarters Battle.', 'disc-cqb.jpg', 'center 30%')}
-        {tile('05', 'Fitness.', 'Conditioning for duty.', 'disc-fitness.jpg')}
+        {tile('04', 'CQB.', 'Close Quarters Battle.', 'disc-cqb.jpg')}
+        {tile('05', 'Fitness.', 'Conditioning for duty.', 'disc-fitness.jpg', 'center 60%')}
         {tile('06', 'Medical.', 'Emergency and trauma care.', 'disc-medical.jpg')}
-        {tile('07', 'Leadership.', 'Command and decision-making.', 'disc-leadership.jpg', 'center 25%')}
+        {tile('07', 'Leadership.', 'Command and decision-making.', 'disc-leadership.jpg', 'center 40%')}
       </div>
     </div>
   </section>
@@ -191,7 +192,7 @@ SECTIONS = f"""
   <section class="panel" id="s8" data-section="08">
     <div>
       <div class="badge">Privacy Matters</div>
-      <p class="sub quote lead">&ldquo;Details matter. Privacy matters. Unless publicly reported, we don&rsquo;t disclose.&rdquo;</p>
+      <p class="sub quote lead">&ldquo;Details matter. Privacy matters. We don&rsquo;t disclose.&rdquo;</p>
       <p class="sub" style="font-size:.98rem;">Former Head of Security for Senator Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named only where media coverage exists. Other high-profile and high-net-worth individuals follow our privacy standards. We do not do media; a name appears only where media captured it without our consent. Pictured: Senators Hawley and Schmitt.</p>
       <div class="eyebrow" style="margin-top:2.5rem;">For agencies, units and procurement officers</div>
       <div class="ctas rise"><a href="mailto:atlasglinn.hq@atlasglinn.com?subject=MAST%20Solutions%20Capability%20Statement%20Request" class="cta">Email for the Capability Statement</a><a href="mast-capability-statement.html" class="secondary-cta">View One-Pager</a></div>
