@@ -107,7 +107,11 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
 1b. **Ladies Only Handgun**: hours, price, seats (built as 8 h / $225 / 16 seats, mirroring Handgun Fundamentals).
 1c. **Instagram clips**: the post URLs (after the merge the handoff paste fetches them: `... | bash -s -- <urls>`), or the
    original files into the folder before then.
-1d. ~~Old range photos~~ — chapter 05 **The Range** (2026-09-04, "look up the range photos that we had on the other site. That
+1d. **Range and classroom photographs** ("The range photos are the ones that were posted on the old website, with the classroom,
+   the range"): **not in the handoff**. The old-site export's media library holds only 2014/06, 2014/09, 2014/11 and 2015/01
+   plus the gallery plugin's folder (the 2012–2014 shoots) — no classroom, nothing posted after January 2015. He offered to
+   attach them: the folder and the paste, or this chat. Until then chapter 05 shows the 24 facility views that do exist.
+   Earlier note — chapter 05 **The Range** (2026-09-04, "look up the range photos that we had on the other site. That
    should be enter the range"): twelve photographs from the old site's own set on the handoff branch (P.078, P.162, P.111, P.009,
    P.001, P.025, P.059, P.080, P.133, P.122, P.017, P.138 on `preview/old-range-photos.html`), as skills tiles with a lightbox.
    The old site only kept 600-px versions of most of them; larger originals would have to come from his files. Swap by number.
