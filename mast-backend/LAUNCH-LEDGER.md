@@ -107,7 +107,12 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
 1b. **Ladies Only Handgun**: hours, price, seats (built as 8 h / $225 / 16 seats, mirroring Handgun Fundamentals).
 1c. **Instagram clips**: the post URLs (after the merge the handoff paste fetches them: `... | bash -s -- <urls>`), or the
    original files into the folder before then.
-1d. **Old range photos** ("Enter the Range"): pick numbers from `preview/old-range-photos.html`.
+1d. ~~Old range photos~~ — chapter 05 **The Range** (2026-09-04, "look up the range photos that we had on the other site. That
+   should be enter the range"): twelve photographs from the old site's own set on the handoff branch (P.078, P.162, P.111, P.009,
+   P.001, P.025, P.059, P.080, P.133, P.122, P.017, P.138 on `preview/old-range-photos.html`), as skills tiles with a lightbox.
+   The old site only kept 600-px versions of most of them; larger originals would have to come from his files. Swap by number.
+   Hero buttons: **Enter the Range** → chapter 05, **Classes** → chapter 06 ("Classes should be classes. Shouldn't have two
+   buttons for the same action"); chapters after it renumbered to 12.
 1e. **Doctrine notes** (his 2026-09-04 dump: 7 Skills, soft skills, three-year goals, five AG Leadership traits, ten Dignitary
    Protection attributes, movement / signals / smoke / PACE / loadout / DOPE / OCOKA / combat survival): "Keep this = this is
    background ... this will be separated as descriptors for certain classes." **Not committed** — this repository is public, and

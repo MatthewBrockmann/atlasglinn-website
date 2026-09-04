@@ -95,14 +95,14 @@ CHROME = shell.chrome(
     credits=('A Houston Operation', 'Since 2005'), wordmark='MAST SOLUTIONS',
     photos=[('01', 'images/mast/hero-casualty-carry.jpg', 'center 40%'), ('02', 'images/mast/disc-firearms.jpg', None),
             ('03', 'images/mast/ship-deck-movement.jpg', None), ('04', 'images/mast/disc-cqb.jpg', None),
-            ('05', 'images/mast/courses-low-light.jpg', None), ('06', 'images/mast/courses-low-light.jpg', 'center 60%'), ('07', 'images/mast/founder-ship.jpg', 'center 20%'),
-            ('08', 'images/mast/vehicular.jpg', None), ('09', 'images/mast/instructing-le.jpg', 'center 30%'),
-            ('10', 'images/mast/privacy-aircraft.jpg', None), ('11', 'images/mast/contact-zodiac.jpg', None)],
+            ('05', 'images/mast/range/r01.jpg', 'center 45%'), ('06', 'images/mast/courses-low-light.jpg', None), ('07', 'images/mast/courses-low-light.jpg', 'center 60%'), ('08', 'images/mast/founder-ship.jpg', 'center 20%'),
+            ('09', 'images/mast/vehicular.jpg', None), ('10', 'images/mast/instructing-le.jpg', 'center 30%'),
+            ('11', 'images/mast/privacy-aircraft.jpg', None), ('12', 'images/mast/contact-zodiac.jpg', None)],
     hud_tl='&#9679; ATLAS GLINN &middot; MAST.SYS LIVE', hud_tl_href='/',   # root, so it resolves on WordPress and on Pages alike
     hud_bl='HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W', hud_br='DETAILS MATTER',
-    chapters=[('s1', '01 &middot; Opening'), ('s2', '02 &middot; Standard'), ('s3', '03 &middot; Who'), ('s4', '04 &middot; Disciplines'),
-              ('s5', '05 &middot; Courses'), ('s6', '06 &middot; Team Memberships'), ('s7', '07 &middot; Instructors'), ('s8', '08 &middot; In Action'),
-              ('s9', '09 &middot; Testimonials'), ('s10', '10 &middot; Privacy'), ('s11', '11 &middot; Contact')])
+    chapters=[('s1', '01 &middot; Opening'), ('s2', '02 &middot; Standard'), ('s3', '03 &middot; Who'), ('s4', '04 &middot; Disciplines'), ('s5', '05 &middot; The Range'),
+              ('s6', '06 &middot; Classes'), ('s7', '07 &middot; Team Memberships'), ('s8', '08 &middot; Instructors'), ('s9', '09 &middot; In Action'),
+              ('s10', '10 &middot; Testimonials'), ('s11', '11 &middot; Privacy'), ('s12', '12 &middot; Contact')])
 
 
 # ── Membership: the four teams of the old site's Membership sheet (2014) plus Law Enforcement and Verified Teachers (owner,
@@ -118,7 +118,7 @@ def tier(name, key, plan, fee, includes, slots):
             f'<div class="bg"></div><div class="txt"><div class="num">{fee} &middot; per month &middot; {slots}</div><h3>{name}.</h3><p>{includes}</p></div></div>')
 
 MEMBERSHIP = f"""
-  <section class="panel" id="s6" data-section="06">
+  <section class="panel" id="s7" data-section="07">
     <div>
       <div class="eyebrow">Team Memberships &middot; Six Teams &middot; Limited Slots</div>
       <h2 class="section-h">Team <span class="gold">Memberships.</span></h2>
@@ -136,13 +136,41 @@ MEMBERSHIP = f"""
   </section>
 """
 
+# ── The Range: photographs of the range from the old site (handoff branch, the 2013–14 shoots and section headers; owner, 2026-09-04:
+#    "look up the range photos that we had on the other site. That should be enter the range"). Same tile as the skills; tap opens the
+#    photograph in a lightbox.
+RANGE_PHOTOS = [f'images/mast/range/r{i:02d}.jpg' for i in range(1, 13)]
+def photo_tile(i, src):
+    return (f'<div class="tile photo" role="button" tabindex="0" aria-label="Open photograph {i:02d}" onclick="openLb(\'{src}\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){{event.preventDefault();openLb(\'{src}\');}}">'
+            f'<div class="bg" style="background-image:url(\'{src}\')"></div><div class="txt"><div class="num">{i:02d}</div></div></div>')
+RANGE_SECTION = f"""
+  <section class="panel" id="s5" data-section="05">
+    <div>
+      <div class="eyebrow">Enter the Range</div>
+      <h2 class="section-h">The <span class="gold">Range.</span></h2>
+      <p class="sub">A private range. Flat range and berms, vehicle lanes, low light, and the shoothouse &mdash; the ground every class is run on. Tap a photograph to open it.</p>
+      <div class="tiles four rise">{''.join(photo_tile(i, src) for i, src in enumerate(RANGE_PHOTOS, 1))}</div>
+    </div>
+  </section>
+"""
+LIGHTBOX = """
+<!-- LIGHTBOX for the Range photographs -->
+<div id="lb-bd" class="modal-bd" onclick="closeLb()"></div>
+<div id="lb" class="modal wide lightbox" role="dialog" aria-modal="true" aria-label="Photograph"><button class="modal-x" aria-label="Close" onclick="closeLb()">&times;</button><img id="lb-img" alt=""></div>
+"""
+LIGHTBOX_JS = """
+function openLb(src){ $('lb-img').src = src; $('lb-bd').classList.add('open'); $('lb').classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeLb(){ $('lb-bd').classList.remove('open'); $('lb').classList.remove('open'); document.body.style.overflow = ''; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('lb').classList.contains('open')) closeLb(); });
+"""
+
 SECTIONS = f"""
   <section class="panel" id="s1" data-section="01">
     <div>
       <div class="eyebrow">Over Two Decades &middot; Quiet &middot; Deliberate</div>
       <h1 class="mega"><span class="gold">Details</span> <span class="white">Matter</span></h1>
       <p class="sub">Trusted by DEA, Houston SWAT, US Military, and Homeland Security. No fluff. No shortcuts. No compromise.</p>
-      <div class="ctas rise"><a href="#s5" class="cta">Enter The Range</a><a href="#s7" class="secondary-cta">The Instructors</a></div>
+      <div class="ctas rise"><a href="#s5" class="cta">Enter The Range</a><a href="#s6" class="secondary-cta">Classes</a></div>
     </div>
     <div class="scroll-cue">SCROLL &darr;</div>
   </section>
@@ -154,7 +182,7 @@ SECTIONS = f"""
       <p class="sub">No paint-ball courses dressed up as tactics. No cinema instructors. Real-world doctrine, changing TTPs, evolving tactics proven in real-world environments.</p>
       <div class="stats rise">
         <div class="stat"><div class="stat-num" data-count="1701" data-suffix="+">0</div><div class="stat-label">Students Trained</div></div>
-        <div class="stat"><div class="stat-num" data-count="21">0</div><div class="stat-label">Courses</div></div>
+        <div class="stat"><div class="stat-num" data-count="22">0</div><div class="stat-label">Classes</div></div>
         <div class="stat"><div class="stat-num" data-count="20" data-suffix="+">0</div><div class="stat-label">Years &middot; Over Two Decades</div></div>
       </div>
     </div>
@@ -194,10 +222,11 @@ SECTIONS = f"""
     </div>
   </section>
 
-  <section class="panel" id="s5" data-section="05">
+{RANGE_SECTION}
+  <section class="panel" id="s6" data-section="06">
     <div>
       <div class="eyebrow">Course Catalog</div>
-      <h2 class="section-h">Twenty-One <span class="gold">Courses.</span></h2>
+      <h2 class="section-h">The <span class="gold">Classes.</span></h2>
       <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Fundamentals first, unless you have taken it before. Each discipline&rsquo;s Fundamentals course opens its other courses, and Select Date asks before the calendar opens.</b> P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
       <div class="catalog-wrap rise"><div class="glass"><div class="catalog-panel" id="catalog"></div></div>
       <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p></div>
@@ -205,7 +234,7 @@ SECTIONS = f"""
   </section>
 
 {MEMBERSHIP}
-  <section class="panel" id="s7" data-section="07">
+  <section class="panel" id="s8" data-section="08">
     <div>
       <div class="eyebrow">Instructors</div>
       <h2 class="section-h">Meet The <span class="gold">Team.</span></h2>
@@ -222,7 +251,7 @@ SECTIONS = f"""
             <li>Featured on <b>Modern Shooter TV</b>, in <b>The Washington Post</b> and <b>The Houstonian</b></li>
           </ul>
           <p class="cadre">Courses run with a lead instructor, assistant instructors, and RSOs (Range Safety Officers) on the line. Your instructors are named on the course confirmation.</p>
-          <div class="ctas"><button class="cta-button ghost-button" type="button" onclick="openQuals()">Qualifications &amp; Certifications</button><a href="#s5" class="cta-button">Train With Him</a></div>
+          <div class="ctas"><button class="cta-button ghost-button" type="button" onclick="openQuals()">Qualifications &amp; Certifications</button><a href="#s6" class="cta-button">Train With Him</a></div>
         </div>
       </div>
       <!-- Team blocks in the Atlas Glinn "Meet the Team" format (owner, 2026-09-04: "add Mike Cline - Look at how ATLASGLINN list and emulate").
@@ -248,7 +277,7 @@ SECTIONS = f"""
     </div>
   </section>
 
-  <section class="panel" id="s8" data-section="08">
+  <section class="panel" id="s9" data-section="09">
     <div>
       <div class="eyebrow">MAST Solutions In Action</div>
       <h2 class="section-h">In <span class="gold">Action.</span></h2>
@@ -258,7 +287,7 @@ SECTIONS = f"""
     </div>
   </section>
 
-  <section class="panel" id="s9" data-section="09">
+  <section class="panel" id="s10" data-section="10">
     <div>
       <div class="eyebrow">Testimonials</div>
       <h2 class="section-h">In Their <span class="gold">Words.</span></h2>
@@ -274,7 +303,7 @@ SECTIONS = f"""
     </div>
   </section>
 
-  <section class="panel" id="s10" data-section="10">
+  <section class="panel" id="s11" data-section="11">
     <div>
       <div class="badge">Privacy Matters</div>
       <p class="sub quote lead">&ldquo;Details matter. Privacy matters. We don&rsquo;t disclose.&rdquo;</p>
@@ -288,13 +317,13 @@ SECTIONS = f"""
     </div>
   </section>
 
-  <section class="panel" id="s11" data-section="11">
+  <section class="panel" id="s12" data-section="12">
     <div>
       <div class="eyebrow">Book a Course</div>
       <h2 class="section-h"><span class="gold">Train</span> with MAST.</h2>
       <p class="sub">Individual seats, team blocks, and agency instruction.</p>
       <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div>
-      <div class="ctas rise"><a href="#s5" class="cta">Book a Course</a><a href="/" class="secondary-cta">Atlas Glinn &rarr;</a></div>
+      <div class="ctas rise"><a href="#s6" class="cta">Book a Course</a><a href="/" class="secondary-cta">Atlas Glinn &rarr;</a></div>
       <div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions <br><a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.youtube.com/@mastsolutions" target="_blank" rel="noopener">YouTube</a></div>
     </div>
   </section>
@@ -342,8 +371,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('join').
 (function(){ const p = new URLSearchParams(location.search); const s = p.get('membership'); if (!s) return; const b = $('banner'); b.textContent = s === 'success' ? 'Welcome to the team \u2014 your membership is set up. The team will be in touch.' : 'Membership checkout cancelled \u2014 your card was not charged.'; b.classList.add('show'); setTimeout(() => b.classList.remove('show'), 9000); history.replaceState(null, '', location.pathname); })();
 """
 
-BODY = '\n' + CHROME + '\n' + banner + '\n\n<div class="content">\n' + SECTIONS + '</div>\n\n' + modals + JOIN_MODAL + '\n'
-js = js + JOIN_JS
+BODY = '\n' + CHROME + '\n' + banner + '\n\n<div class="content">\n' + SECTIONS + '</div>\n\n' + modals + JOIN_MODAL + LIGHTBOX + '\n'
+js = js + JOIN_JS + LIGHTBOX_JS
 
 META = """<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
@@ -384,6 +413,10 @@ META = """<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><l
 
 # Six client testimonials (chapter 08) carried over from the earlier builds; they were dropped in the cinematic cut without an instruction.
 QUOTES_CSS = """
+  .tile.photo .txt { padding:1rem 1.1rem; }
+  .modal.lightbox { width:min(1200px, calc(100vw - 32px)); padding:.6rem; background:#050810; }
+  .modal.lightbox img { display:block; max-width:100%; max-height:84vh; margin:0 auto; }
+
   .quotes { display:grid; grid-template-columns:repeat(3,1fr); gap:1.1rem; max-width:1200px; margin:0 auto; text-align:left; }
   .quotes .q { border:1px solid rgba(201,168,76,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.7) 100%); padding:1.4rem 1.5rem; }
   .quotes .q p { font-style:italic; color:var(--text); line-height:1.55; font-size:1rem; font-weight:300; }
@@ -403,18 +436,19 @@ QUOTES_CSS = """
 # the page recolors to blue.
 PALETTE = shell.ATLAS
 GOLD_KEEP = """
-  #s5, #s6, .sheet, .sheet-bd, .modal, .modal-bd { --gold:#C9A84C; --gold-antique:#D4AF37; --gold-champagne:#E8D27D; --gold-bright:#FCF6BA; --copper:#B87333; }
-  #s5 .gold, #s6 .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  #s6, #s7, .sheet, .sheet-bd, .modal, .modal-bd { --gold:#C9A84C; --gold-antique:#D4AF37; --gold-champagne:#E8D27D; --gold-bright:#FCF6BA; --copper:#B87333; }
+  #s6 .gold, #s7 .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
   /* The live atlasglinn.com hero, verbatim (owner, 2026-09-04: "Grab the code from Atlas Glinn. Apply same font size and same code"):
      .hero-headline metrics, the .gold-shimmer rule on "Details", flat #1A6BDE on "Matter", no entrance effect. */
   h1.mega { font-family:'Orbitron',sans-serif; font-size:3.2rem; font-weight:900; margin-bottom:1rem; letter-spacing:.02em; line-height:1.1; opacity:1; filter:none; transform:none; transition:none; }
   h1.mega .gold { background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; animation:shimmer 6s linear infinite; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; text-shadow:none; }
   h1.mega .white { color:#1A6BDE; }
-  @media (max-width:768px) { h1.mega { font-size:2rem; } }
-  @media (max-width:480px) { h1.mega { font-size:1.8rem; } }
+  h2.section-h { font-size:3.2rem; }   /* every chapter heading at the hero's size (owner: "same font size for every section below") */
+  @media (max-width:768px) { h1.mega, h2.section-h { font-size:2rem; } }
+  @media (max-width:480px) { h1.mega, h2.section-h { font-size:1.8rem; } }
   @media (prefers-reduced-motion: reduce) { h1.mega .gold { animation:none; } }
-  #s5 .cta-button, #s5 .cta, #s6 .cta-button, .sheet .cta-button, .modal .cta-button { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border-color:#E8D27D; }
-  #s5 .cta-button:hover, #s5 .cta:hover, #s6 .cta-button:hover, .sheet .cta-button:hover, .modal .cta-button:hover { box-shadow:0 14px 44px rgba(201,168,76,.5); }
+  #s6 .cta-button, #s6 .cta, #s7 .cta-button, .sheet .cta-button, .modal .cta-button { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border-color:#E8D27D; }
+  #s6 .cta-button:hover, #s6 .cta:hover, #s7 .cta-button:hover, .sheet .cta-button:hover, .modal .cta-button:hover { box-shadow:0 14px 44px rgba(201,168,76,.5); }
   #s5 .cta-button.ghost-button, .sheet .cta-button.ghost-button, .modal .cta-button.ghost-button { background:transparent; }
   .chap-link { color:#E8D27D; }
   .chap-link::before { background:#C9A84C; }
@@ -443,7 +477,7 @@ GOLD_KEEP = """
   @media (max-width:900px) { .teams { grid-template-columns:1fr 1fr; } }
   @media (max-width:600px) { .teams { grid-template-columns:1fr; } .tier-fee { font-size:2.2rem; } }
 """
-html = shell.head(META, shell.css(PALETTE, '/*__BOOKING_CSS__*/' + QUOTES_CSS)) + BODY + shell.tail(shell.three(11, PALETTE), js)
+html = shell.head(META, shell.css(PALETTE, '/*__BOOKING_CSS__*/' + QUOTES_CSS)) + BODY + shell.tail(shell.three(12, PALETTE), js)
 # The video cards and the media strip are shared UI in the blue chapters, so those lifted rules recolor with the page.
 booking_css_kept = '\n'.join(shell._recolor(l, PALETTE) if l.lstrip().startswith(('.video-card', '.yt', '.media-strip')) else l for l in booking_css.splitlines())
 html = shell._recolor(html, PALETTE).replace('/*__BOOKING_CSS__*/', booking_css_kept + GOLD_KEEP, 1)
