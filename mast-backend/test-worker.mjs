@@ -263,7 +263,7 @@ console.log('\n── CORS ──');
 }
 
 console.log('\n── Registration: screening → agreement → refund consent → Stripe ──');
-const { QUESTIONS_VERSION, REFUND_POLICY_VERSION, AGREEMENT_VERSION } = await import('/home/user/atlasglinn-website/mast-backend/src/worker.js');
+const { QUESTIONS_VERSION, REFUND_POLICY_VERSION, AGREEMENT_VERSION } = await import('./src/worker.js');
 const FIRST_WEEKEND = '2026-10-10', BLOCKED_WEEKEND = '2026-10-31'; // from the seeded training_weekends
 const goodReg = (over = {}) => ({
   sku: 'MAST-DA', qty: 1, session_date: FIRST_WEEKEND, session_label: 'Sat–Sun test',
@@ -386,9 +386,9 @@ console.log('\n── Agreement PDF fill (the real form, pdf-lib) ──');
 {
   const { readFileSync } = await import('node:fs');
   const { createHash } = await import('node:crypto');
-  const { fillAgreement } = await import('/home/user/atlasglinn-website/mast-backend/src/agreement.js');
+  const { fillAgreement } = await import('./src/agreement.js');
   const { PDFDocument } = await import('pdf-lib');
-  const src = readFileSync('/home/user/atlasglinn-website/mast-backend/assets/class-participation-agreement.pdf');
+  const src = readFileSync(new URL('./assets/class-participation-agreement.pdf', import.meta.url));
   ok('AGREEMENT_VERSION is the hash prefix of the shipped PDF', createHash('sha256').update(src).digest('hex').startsWith(AGREEMENT_VERSION));
   const out = await fillAgreement(src, { id: 'reg_test', customer_name: 'Jane Doe', customer_email: 'student@example.com', customer_phone: '(713) 555-0100', address1: '1 Main St', address2: 'Houston, TX 77002', emergency_name: 'John Doe', emergency_phone: '(713) 555-0199', emergency_relationship: 'Spouse', agreement_signed_name: 'Jane Doe', agreement_initials: 'JD', agreement_signed_at: '2026-09-03T22:40:11Z', agreement_ip: '203.0.113.7' });
   ok('filled PDF produced', out && out.length > 100000, 'bytes=' + (out && out.length));
