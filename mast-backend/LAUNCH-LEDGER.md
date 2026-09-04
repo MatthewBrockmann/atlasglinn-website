@@ -74,6 +74,9 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
   `scripts/mac-handoff.sh` now fetches YouTube / Instagram / Vimeo pages as MP4 (yt-dlp) and `handoff-urls.txt` queues the
   Training Reel and Disaster Recovery films — both live after the merge, since the Mac reads the script from `main`.
   `preview/old-range-photos.html`: the old website's 2014–2015 uploads as numbered sheets, for him to pick from.
+  **Capability one-pager**: the Print / Save-as-PDF button is gone; the bar carries the email request instead, and printing
+  the page yields only the request line ("Capabilities statement cannot be printed. Remember?" — the 2026-09-03 "email, not
+  print" rule, now applied on the sheet as well as the MAST page).
 
 ## B. Before launch — owner's hand, in order
 
