@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
 <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
 <meta name="keywords" content="MAST Solutions, tactical training Houston, firearms training Houston TX, carbine course, select-fire training, NVG course, CQB course, team tactics, Atlas Glinn training, Matthew Brockmann">
@@ -345,16 +346,32 @@
 .catalog-panel { max-height: none; }
 .quals-list { columns: 1; }
 }
-  #s5, .sheet, .sheet-bd, .modal, .modal-bd { --gold:#C9A84C; --gold-antique:#D4AF37; --gold-champagne:#E8D27D; --gold-bright:#FCF6BA; --copper:#B87333; }
-  #s5 .gold, h1.mega .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  #s5, #s6, .sheet, .sheet-bd, .modal, .modal-bd { --gold:#C9A84C; --gold-antique:#D4AF37; --gold-champagne:#E8D27D; --gold-bright:#FCF6BA; --copper:#B87333; }
+  #s5 .gold, #s6 .gold, h1.mega .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
   h1.mega .gold { text-shadow:0 0 80px rgba(201,168,76,.3); }
-  #s5 .cta-button, #s5 .cta, .sheet .cta-button, .modal .cta-button { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border-color:#E8D27D; }
-  #s5 .cta-button:hover, #s5 .cta:hover, .sheet .cta-button:hover, .modal .cta-button:hover { box-shadow:0 14px 44px rgba(201,168,76,.5); }
+  #s5 .cta-button, #s5 .cta, #s6 .cta-button, .sheet .cta-button, .modal .cta-button { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border-color:#E8D27D; }
+  #s5 .cta-button:hover, #s5 .cta:hover, #s6 .cta-button:hover, .sheet .cta-button:hover, .modal .cta-button:hover { box-shadow:0 14px 44px rgba(201,168,76,.5); }
   #s5 .cta-button.ghost-button, .sheet .cta-button.ghost-button, .modal .cta-button.ghost-button { background:transparent; }
   .chap-link { color:#E8D27D; }
   .chap-link::before { background:#C9A84C; }
   .chap-link:hover, .chap-link.active { color:#FCF6BA; border-color:rgba(201,168,76,.5); background:rgba(201,168,76,.06); }
   .chap-link.active::before, .chap-link:hover::before { background:#FCF6BA; }
+  /* Membership chapter (owner, 2026-09-04: "elegance + exclusivity" — the silent-auction certificate's register: Cormorant serif,
+     letter-spaced small caps, thin gold rules on black). */
+  .teams { display:grid; grid-template-columns:repeat(4, 1fr); gap:1.1rem; max-width:1200px; margin:0 auto 1.2rem; text-align:left; }
+  .tier { position:relative; padding:2rem 1.6rem 1.7rem; background:linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(5,8,16,.85) 100%); border:1px solid rgba(201,168,76,.35); backdrop-filter:blur(10px); display:flex; flex-direction:column; }
+  .tier::before { content:''; position:absolute; top:0; left:1.6rem; right:1.6rem; height:2px; }
+  .tier.t-red::before { background:#9B1C1C; } .tier.t-blue::before { background:#1A6BDE; } .tier.t-gold::before { background:#C9A84C; } .tier.t-black::before { background:#F0F4FF; }
+  .tier-name { font-family:'Cormorant Garamond',Georgia,serif; font-weight:600; font-size:1.7rem; letter-spacing:.08em; color:#E8D27D; margin-bottom:.9rem; }
+  .tier-fee { font-family:'Cormorant Garamond',Georgia,serif; font-weight:700; font-size:2.6rem; line-height:1; color:#F0F4FF; }
+  .tier-fee small { display:block; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; text-transform:uppercase; color:#8B95A8; margin-top:.5rem; }
+  .tier-inc { font-family:'Cormorant Garamond',Georgia,serif; font-size:1.2rem; line-height:1.45; color:#F0F4FF; margin:1.2rem 0 1rem; flex:1; }
+  .tier-slots { font-family:'Share Tech Mono',monospace; font-size:.66rem; letter-spacing:.3em; text-transform:uppercase; color:#E8D27D; border-top:1px solid rgba(201,168,76,.25); padding-top:.9rem; margin-bottom:1.1rem; }
+  .tier .cta-button { align-self:flex-start; padding:.85rem 1.8rem; font-size:.75rem; }
+  .tier.t-black { border-color:rgba(232,210,125,.6); box-shadow:0 0 60px rgba(201,168,76,.12); }
+  .teams-note { font-family:'Cormorant Garamond',Georgia,serif; font-style:italic; font-size:1.1rem; color:#8B95A8; max-width:760px; margin:0 auto; text-align:center; }
+  @media (max-width:1100px) { .teams { grid-template-columns:1fr 1fr; } }
+  @media (max-width:600px) { .teams { grid-template-columns:1fr; } .tier-fee { font-size:2.2rem; } }
 
   .quotes { display:grid; grid-template-columns:repeat(3,1fr); gap:1.1rem; max-width:1200px; margin:0 auto; text-align:left; }
   .quotes .q { border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.7) 100%); padding:1.4rem 1.5rem; }
@@ -410,11 +427,12 @@
   <div class="ph" data-for="03" style="background-image:url('images/mast/ship-deck-movement.jpg')"></div>
   <div class="ph" data-for="04" style="background-image:url('images/mast/disc-cqb.jpg')"></div>
   <div class="ph" data-for="05" style="background-image:url('images/mast/courses-low-light.jpg')"></div>
-  <div class="ph" data-for="06" style="background-image:url('images/mast/founder-ship.jpg');background-position:center 20%"></div>
-  <div class="ph" data-for="07" style="background-image:url('images/mast/vehicular.jpg')"></div>
-  <div class="ph" data-for="08" style="background-image:url('images/mast/instructing-le.jpg');background-position:center 30%"></div>
-  <div class="ph" data-for="09" style="background-image:url('images/mast/privacy-aircraft.jpg')"></div>
-  <div class="ph" data-for="10" style="background-image:url('images/mast/contact-zodiac.jpg')"></div>
+  <div class="ph" data-for="06" style="background-image:url('images/mast/courses-low-light.jpg');background-position:center 60%"></div>
+  <div class="ph" data-for="07" style="background-image:url('images/mast/founder-ship.jpg');background-position:center 20%"></div>
+  <div class="ph" data-for="08" style="background-image:url('images/mast/vehicular.jpg')"></div>
+  <div class="ph" data-for="09" style="background-image:url('images/mast/instructing-le.jpg');background-position:center 30%"></div>
+  <div class="ph" data-for="10" style="background-image:url('images/mast/privacy-aircraft.jpg')"></div>
+  <div class="ph" data-for="11" style="background-image:url('images/mast/contact-zodiac.jpg')"></div>
 </div>
 <div class="grain"></div>
 <div class="vignette"></div>
@@ -424,7 +442,7 @@
 <div class="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>
 
 <a class="hud tl" href="/">&#9679; ATLAS GLINN &middot; MAST.SYS LIVE</a>
-<div class="hud tr" id="hud-section">SECTION 01 / 10</div>
+<div class="hud tr" id="hud-section">SECTION 01 / 11</div>
 <div class="hud bl">HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W</div>
 <div class="hud br">DETAILS MATTER</div>
 
@@ -434,11 +452,12 @@
   <a href="#s3" class="chap-link">03 &middot; Who</a>
   <a href="#s4" class="chap-link">04 &middot; Disciplines</a>
   <a href="#s5" class="chap-link">05 &middot; Courses</a>
-  <a href="#s6" class="chap-link">06 &middot; Instructors</a>
-  <a href="#s7" class="chap-link">07 &middot; In Action</a>
-  <a href="#s8" class="chap-link">08 &middot; Testimonials</a>
-  <a href="#s9" class="chap-link">09 &middot; Privacy</a>
-  <a href="#s10" class="chap-link">10 &middot; Contact</a>
+  <a href="#s6" class="chap-link">06 &middot; Membership</a>
+  <a href="#s7" class="chap-link">07 &middot; Instructors</a>
+  <a href="#s8" class="chap-link">08 &middot; In Action</a>
+  <a href="#s9" class="chap-link">09 &middot; Testimonials</a>
+  <a href="#s10" class="chap-link">10 &middot; Privacy</a>
+  <a href="#s11" class="chap-link">11 &middot; Contact</a>
 </nav>
 
 <div id="banner" class="banner" role="status"></div>
@@ -450,7 +469,7 @@
       <div class="eyebrow">Over Two Decades &middot; Quiet &middot; Deliberate</div>
       <h1 class="mega"><span class="gold">Details</span> <span class="white">Matter.</span></h1>
       <p class="sub">Trusted by DEA, Houston SWAT, US Military, and Homeland Security. No fluff. No shortcuts. No compromise.</p>
-      <div class="ctas rise"><a href="#s5" class="cta">Enter The Range</a><a href="#s6" class="secondary-cta">The Instructors</a></div>
+      <div class="ctas rise"><a href="#s5" class="cta">Enter The Range</a><a href="#s7" class="secondary-cta">The Instructors</a></div>
     </div>
     <div class="scroll-cue">SCROLL &darr;</div>
   </section>
@@ -512,7 +531,23 @@
     </div>
   </section>
 
+
   <section class="panel" id="s6" data-section="06">
+    <div>
+      <div class="eyebrow">Membership &middot; Four Teams &middot; Limited Slots</div>
+      <h2 class="section-h">The <span class="gold">Teams.</span></h2>
+      <p class="sub">MAST offers membership in four teams. Each team holds a set number of slots, so the benefits and the class seats are always there for the members who hold them. When a team is full there is a waiting list. New memberships are vetted by the established team.</p>
+      <div class="teams rise">
+        <div class="tier t-red"><div class="tier-name">Red Team</div><div class="tier-fee">$125<small>per month</small></div><p class="tier-inc">One class, plus 25% off any one class for you or one friend.</p><div class="tier-slots">10 memberships</div><a class="cta-button" href="mailto:matthew@atlasglinn.com?subject=MAST%20Membership%20%E2%80%94%20Red%20Team">Apply</a></div>
+        <div class="tier t-blue"><div class="tier-name">Blue Team</div><div class="tier-fee">$200<small>per month</small></div><p class="tier-inc">Two classes, plus 35% off any two classes for you or two friends.</p><div class="tier-slots">5 memberships</div><a class="cta-button" href="mailto:matthew@atlasglinn.com?subject=MAST%20Membership%20%E2%80%94%20Blue%20Team">Apply</a></div>
+        <div class="tier t-gold"><div class="tier-name">Gold Team</div><div class="tier-fee">$350<small>per month</small></div><p class="tier-inc">Three classes, plus 45% off any three classes for you or three friends.</p><div class="tier-slots">5 memberships</div><a class="cta-button" href="mailto:matthew@atlasglinn.com?subject=MAST%20Membership%20%E2%80%94%20Gold%20Team">Apply</a></div>
+        <div class="tier t-black"><div class="tier-name">Black Team</div><div class="tier-fee">$500<small>per month</small></div><p class="tier-inc">Unlimited classes, plus 50% off any class for you or four friends.</p><div class="tier-slots">5 memberships</div><a class="cta-button" href="mailto:matthew@atlasglinn.com?subject=MAST%20Membership%20%E2%80%94%20Black%20Team">Apply</a></div>
+      </div>
+      <p class="teams-note">A slot is held while the monthly fee is paid; a lapsed slot goes to the waiting list. Apply by email &mdash; the team answers.</p>
+    </div>
+  </section>
+
+  <section class="panel" id="s7" data-section="07">
     <div>
       <div class="eyebrow">Instructors</div>
       <h2 class="section-h">Meet The <span class="gold">Team.</span></h2>
@@ -553,7 +588,7 @@
     </div>
   </section>
 
-  <section class="panel" id="s7" data-section="07">
+  <section class="panel" id="s8" data-section="08">
     <div>
       <div class="eyebrow">MAST Solutions In Action</div>
       <h2 class="section-h">In <span class="gold">Action.</span></h2>
@@ -563,7 +598,7 @@
     </div>
   </section>
 
-  <section class="panel" id="s8" data-section="08">
+  <section class="panel" id="s9" data-section="09">
     <div>
       <div class="eyebrow">Testimonials</div>
       <h2 class="section-h">In Their <span class="gold">Words.</span></h2>
@@ -579,7 +614,7 @@
     </div>
   </section>
 
-  <section class="panel" id="s9" data-section="09">
+  <section class="panel" id="s10" data-section="10">
     <div>
       <div class="badge">Privacy Matters</div>
       <p class="sub quote lead">&ldquo;Details matter. Privacy matters. We don&rsquo;t disclose.&rdquo;</p>
@@ -593,7 +628,7 @@
     </div>
   </section>
 
-  <section class="panel" id="s10" data-section="10">
+  <section class="panel" id="s11" data-section="11">
     <div>
       <div class="eyebrow">Book a Course</div>
       <h2 class="section-h"><span class="gold">Train</span> with MAST.</h2>
@@ -777,7 +812,7 @@
 <script type="module">
 import * as THREE from './vendor/three.module.js';
 
-const SECTIONS = 10;
+const SECTIONS = 11;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mobile = matchMedia('(max-width: 768px)').matches;
 
@@ -928,6 +963,7 @@ const kf = [
   { x: 2, y: -3, z: 13, lx: 0, ly: 1, lz: 0 },
   { x: -2, y: -3.5, z: 15, lx: 0, ly: 1.5, lz: 0 },
   { x: 3, y: 1, z: 11, lx: 0, ly: 0, lz: 0 },
+  { x: -3, y: 2, z: 13, lx: 0, ly: -1, lz: 0 },
   { x: 0, y: -4, z: 18, lx: 0, ly: 2, lz: 0 },
 ];
 let activeIdx = 0;

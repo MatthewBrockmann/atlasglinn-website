@@ -129,7 +129,15 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
 10. ~~"Fundamentals first" is a cue, not a gate~~ — settled 2026-09-04: each discipline's Fundamentals gates its other courses
     (badge on every row, a yes/no gate at Select Date, attestation at registration, Worker refuses without it). Still open: should
     disciplines without their own Fundamentals (Select-Fire, Team Tactics, Protective, Gear) require Handgun Fundamentals, as built?
-11. Membership tiers: names, prices, intervals (promised, never sent).
+11. ~~Membership tiers~~ — found in the old site's 2014 Membership sheet and built as chapter 06 "The Teams" (2026-09-04): Red
+    Team $125 (10 slots; 1 class + 25% off any 1 class for you or 1 friend), Blue $200 (5; 2 classes + 35% off 2), Gold $350
+    (5; 3 classes + 45% off 3), Black $500 (5; unlimited + 50% off any class for you or 4 friends), monthly; waiting list;
+    vetted by the established team. **Still his:** confirm the 2014 fees and slot counts; create the four Stripe recurring
+    Prices when he wants checkout instead of email applications (rows sit inactive in `memberships`; `migrations/003`).
+11a. The silent-auction certificate (his `displaysign007.pdf`, 2026-09-04) carries instructor credentials the page does not yet
+    show (Harris County Diplomatic Protection Unit instructor; Chief Training Officer certification co-signed by the Chief of
+    the Texas Rangers, Ret.; DPS Firearms Instructor, 12+ certified instructor programs; The Houstonian) and a phone and
+    suite address. His call whether the founder block adopts them.
 12. Private Instruction prices ($350 / $1,250 / $3,300) came from the progression PDF, not a message. Current?
 13. `NOTIFY_EMAIL` value: if the range host is in it, the "range host gets only the signed agreement" rule breaks.
 14. Mailchimp API key, audience id, server prefix. PostHog project key. DPAs with Stripe, Resend, Mailchimp.

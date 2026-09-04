@@ -95,14 +95,42 @@ CHROME = shell.chrome(
     credits=('A Houston Operation', 'Since 2005'), wordmark='MAST SOLUTIONS',
     photos=[('01', 'images/mast/hero-casualty-carry.jpg', 'center 40%'), ('02', 'images/mast/disc-firearms.jpg', None),
             ('03', 'images/mast/ship-deck-movement.jpg', None), ('04', 'images/mast/disc-cqb.jpg', None),
-            ('05', 'images/mast/courses-low-light.jpg', None), ('06', 'images/mast/founder-ship.jpg', 'center 20%'),
-            ('07', 'images/mast/vehicular.jpg', None), ('08', 'images/mast/instructing-le.jpg', 'center 30%'),
-            ('09', 'images/mast/privacy-aircraft.jpg', None), ('10', 'images/mast/contact-zodiac.jpg', None)],
+            ('05', 'images/mast/courses-low-light.jpg', None), ('06', 'images/mast/courses-low-light.jpg', 'center 60%'), ('07', 'images/mast/founder-ship.jpg', 'center 20%'),
+            ('08', 'images/mast/vehicular.jpg', None), ('09', 'images/mast/instructing-le.jpg', 'center 30%'),
+            ('10', 'images/mast/privacy-aircraft.jpg', None), ('11', 'images/mast/contact-zodiac.jpg', None)],
     hud_tl='&#9679; ATLAS GLINN &middot; MAST.SYS LIVE', hud_tl_href='/',   # root, so it resolves on WordPress and on Pages alike
     hud_bl='HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W', hud_br='DETAILS MATTER',
     chapters=[('s1', '01 &middot; Opening'), ('s2', '02 &middot; Standard'), ('s3', '03 &middot; Who'), ('s4', '04 &middot; Disciplines'),
-              ('s5', '05 &middot; Courses'), ('s6', '06 &middot; Instructors'), ('s7', '07 &middot; In Action'),
-              ('s8', '08 &middot; Testimonials'), ('s9', '09 &middot; Privacy'), ('s10', '10 &middot; Contact')])
+              ('s5', '05 &middot; Courses'), ('s6', '06 &middot; Membership'), ('s7', '07 &middot; Instructors'), ('s8', '08 &middot; In Action'),
+              ('s9', '09 &middot; Testimonials'), ('s10', '10 &middot; Privacy'), ('s11', '11 &middot; Contact')])
+
+
+# ── Membership: the four teams of the old site's Membership sheet (2014), applications by email (owner, 2026-09-04: "Add the 4
+#    Subscriptions = do u have them from old site info?"). Fees are the 2014 figures pending his confirmation; Stripe subscription
+#    prices are not created yet, so Apply is a mailto and the plans sit inactive in the Worker's memberships table.
+import urllib.parse
+def tier(name, key, fee, includes, slots):   # key is t-<team>: a bare 'gold' class would take the page's gradient-text rule
+    subj = urllib.parse.quote(f'MAST Membership — {name}')
+    return (f'<div class="tier {key}"><div class="tier-name">{name}</div><div class="tier-fee">{fee}<small>per month</small></div>'
+            f'<p class="tier-inc">{includes}</p><div class="tier-slots">{slots}</div>'
+            f'<a class="cta-button" href="mailto:matthew@atlasglinn.com?subject={subj}">Apply</a></div>')
+
+MEMBERSHIP = f"""
+  <section class="panel" id="s6" data-section="06">
+    <div>
+      <div class="eyebrow">Membership &middot; Four Teams &middot; Limited Slots</div>
+      <h2 class="section-h">The <span class="gold">Teams.</span></h2>
+      <p class="sub">MAST offers membership in four teams. Each team holds a set number of slots, so the benefits and the class seats are always there for the members who hold them. When a team is full there is a waiting list. New memberships are vetted by the established team.</p>
+      <div class="teams rise">
+        {tier('Red Team', 't-red', '$125', 'One class, plus 25% off any one class for you or one friend.', '10 memberships')}
+        {tier('Blue Team', 't-blue', '$200', 'Two classes, plus 35% off any two classes for you or two friends.', '5 memberships')}
+        {tier('Gold Team', 't-gold', '$350', 'Three classes, plus 45% off any three classes for you or three friends.', '5 memberships')}
+        {tier('Black Team', 't-black', '$500', 'Unlimited classes, plus 50% off any class for you or four friends.', '5 memberships')}
+      </div>
+      <p class="teams-note">A slot is held while the monthly fee is paid; a lapsed slot goes to the waiting list. Apply by email &mdash; the team answers.</p>
+    </div>
+  </section>
+"""
 
 SECTIONS = f"""
   <section class="panel" id="s1" data-section="01">
@@ -110,7 +138,7 @@ SECTIONS = f"""
       <div class="eyebrow">Over Two Decades &middot; Quiet &middot; Deliberate</div>
       <h1 class="mega"><span class="gold">Details</span> <span class="white">Matter.</span></h1>
       <p class="sub">Trusted by DEA, Houston SWAT, US Military, and Homeland Security. No fluff. No shortcuts. No compromise.</p>
-      <div class="ctas rise"><a href="#s5" class="cta">Enter The Range</a><a href="#s6" class="secondary-cta">The Instructors</a></div>
+      <div class="ctas rise"><a href="#s5" class="cta">Enter The Range</a><a href="#s7" class="secondary-cta">The Instructors</a></div>
     </div>
     <div class="scroll-cue">SCROLL &darr;</div>
   </section>
@@ -172,7 +200,8 @@ SECTIONS = f"""
     </div>
   </section>
 
-  <section class="panel" id="s6" data-section="06">
+{MEMBERSHIP}
+  <section class="panel" id="s7" data-section="07">
     <div>
       <div class="eyebrow">Instructors</div>
       <h2 class="section-h">Meet The <span class="gold">Team.</span></h2>
@@ -213,7 +242,7 @@ SECTIONS = f"""
     </div>
   </section>
 
-  <section class="panel" id="s7" data-section="07">
+  <section class="panel" id="s8" data-section="08">
     <div>
       <div class="eyebrow">MAST Solutions In Action</div>
       <h2 class="section-h">In <span class="gold">Action.</span></h2>
@@ -223,7 +252,7 @@ SECTIONS = f"""
     </div>
   </section>
 
-  <section class="panel" id="s8" data-section="08">
+  <section class="panel" id="s9" data-section="09">
     <div>
       <div class="eyebrow">Testimonials</div>
       <h2 class="section-h">In Their <span class="gold">Words.</span></h2>
@@ -239,7 +268,7 @@ SECTIONS = f"""
     </div>
   </section>
 
-  <section class="panel" id="s9" data-section="09">
+  <section class="panel" id="s10" data-section="10">
     <div>
       <div class="badge">Privacy Matters</div>
       <p class="sub quote lead">&ldquo;Details matter. Privacy matters. We don&rsquo;t disclose.&rdquo;</p>
@@ -253,7 +282,7 @@ SECTIONS = f"""
     </div>
   </section>
 
-  <section class="panel" id="s10" data-section="10">
+  <section class="panel" id="s11" data-section="11">
     <div>
       <div class="eyebrow">Book a Course</div>
       <h2 class="section-h"><span class="gold">Train</span> with MAST.</h2>
@@ -268,7 +297,8 @@ SECTIONS = f"""
 
 BODY = '\n' + CHROME + '\n' + banner + '\n\n<div class="content">\n' + SECTIONS + '</div>\n\n' + modals + '\n'
 
-META = """<title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
+META = """<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
+<title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
 <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
 <meta name="keywords" content="MAST Solutions, tactical training Houston, firearms training Houston TX, carbine course, select-fire training, NVG course, CQB course, team tactics, Atlas Glinn training, Matthew Brockmann">
 <link rel="canonical" href="https://atlasglinn.com/mastsolutions.html">
@@ -325,18 +355,34 @@ QUOTES_CSS = """
 # the page recolors to blue.
 PALETTE = shell.ATLAS
 GOLD_KEEP = """
-  #s5, .sheet, .sheet-bd, .modal, .modal-bd { --gold:#C9A84C; --gold-antique:#D4AF37; --gold-champagne:#E8D27D; --gold-bright:#FCF6BA; --copper:#B87333; }
-  #s5 .gold, h1.mega .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  #s5, #s6, .sheet, .sheet-bd, .modal, .modal-bd { --gold:#C9A84C; --gold-antique:#D4AF37; --gold-champagne:#E8D27D; --gold-bright:#FCF6BA; --copper:#B87333; }
+  #s5 .gold, #s6 .gold, h1.mega .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
   h1.mega .gold { text-shadow:0 0 80px rgba(201,168,76,.3); }
-  #s5 .cta-button, #s5 .cta, .sheet .cta-button, .modal .cta-button { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border-color:#E8D27D; }
-  #s5 .cta-button:hover, #s5 .cta:hover, .sheet .cta-button:hover, .modal .cta-button:hover { box-shadow:0 14px 44px rgba(201,168,76,.5); }
+  #s5 .cta-button, #s5 .cta, #s6 .cta-button, .sheet .cta-button, .modal .cta-button { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border-color:#E8D27D; }
+  #s5 .cta-button:hover, #s5 .cta:hover, #s6 .cta-button:hover, .sheet .cta-button:hover, .modal .cta-button:hover { box-shadow:0 14px 44px rgba(201,168,76,.5); }
   #s5 .cta-button.ghost-button, .sheet .cta-button.ghost-button, .modal .cta-button.ghost-button { background:transparent; }
   .chap-link { color:#E8D27D; }
   .chap-link::before { background:#C9A84C; }
   .chap-link:hover, .chap-link.active { color:#FCF6BA; border-color:rgba(201,168,76,.5); background:rgba(201,168,76,.06); }
   .chap-link.active::before, .chap-link:hover::before { background:#FCF6BA; }
+  /* Membership chapter (owner, 2026-09-04: "elegance + exclusivity" — the silent-auction certificate's register: Cormorant serif,
+     letter-spaced small caps, thin gold rules on black). */
+  .teams { display:grid; grid-template-columns:repeat(4, 1fr); gap:1.1rem; max-width:1200px; margin:0 auto 1.2rem; text-align:left; }
+  .tier { position:relative; padding:2rem 1.6rem 1.7rem; background:linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(5,8,16,.85) 100%); border:1px solid rgba(201,168,76,.35); backdrop-filter:blur(10px); display:flex; flex-direction:column; }
+  .tier::before { content:''; position:absolute; top:0; left:1.6rem; right:1.6rem; height:2px; }
+  .tier.t-red::before { background:#9B1C1C; } .tier.t-blue::before { background:#1A6BDE; } .tier.t-gold::before { background:#C9A84C; } .tier.t-black::before { background:#F0F4FF; }
+  .tier-name { font-family:'Cormorant Garamond',Georgia,serif; font-weight:600; font-size:1.7rem; letter-spacing:.08em; color:#E8D27D; margin-bottom:.9rem; }
+  .tier-fee { font-family:'Cormorant Garamond',Georgia,serif; font-weight:700; font-size:2.6rem; line-height:1; color:#F0F4FF; }
+  .tier-fee small { display:block; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; text-transform:uppercase; color:#8B95A8; margin-top:.5rem; }
+  .tier-inc { font-family:'Cormorant Garamond',Georgia,serif; font-size:1.2rem; line-height:1.45; color:#F0F4FF; margin:1.2rem 0 1rem; flex:1; }
+  .tier-slots { font-family:'Share Tech Mono',monospace; font-size:.66rem; letter-spacing:.3em; text-transform:uppercase; color:#E8D27D; border-top:1px solid rgba(201,168,76,.25); padding-top:.9rem; margin-bottom:1.1rem; }
+  .tier .cta-button { align-self:flex-start; padding:.85rem 1.8rem; font-size:.75rem; }
+  .tier.t-black { border-color:rgba(232,210,125,.6); box-shadow:0 0 60px rgba(201,168,76,.12); }
+  .teams-note { font-family:'Cormorant Garamond',Georgia,serif; font-style:italic; font-size:1.1rem; color:#8B95A8; max-width:760px; margin:0 auto; text-align:center; }
+  @media (max-width:1100px) { .teams { grid-template-columns:1fr 1fr; } }
+  @media (max-width:600px) { .teams { grid-template-columns:1fr; } .tier-fee { font-size:2.2rem; } }
 """
-html = shell.head(META, shell.css(PALETTE, '/*__BOOKING_CSS__*/' + QUOTES_CSS)) + BODY + shell.tail(shell.three(10, PALETTE), js)
+html = shell.head(META, shell.css(PALETTE, '/*__BOOKING_CSS__*/' + QUOTES_CSS)) + BODY + shell.tail(shell.three(11, PALETTE), js)
 # The video cards and the media strip are shared UI in the blue chapters, so those lifted rules recolor with the page.
 booking_css_kept = '\n'.join(shell._recolor(l, PALETTE) if l.lstrip().startswith(('.video-card', '.yt', '.media-strip')) else l for l in booking_css.splitlines())
 html = shell._recolor(html, PALETTE).replace('/*__BOOKING_CSS__*/', booking_css_kept + GOLD_KEEP, 1)
