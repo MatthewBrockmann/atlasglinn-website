@@ -30,6 +30,12 @@ builds as `*-atlas.html` (noindex, canonical to the new page) in the same commit
 `preview/`. `ep-app.html`, `signup.html`, `privacy.html`, `terms.html` and the articles are
 hand-authored. Rebuilt forms post JSON to the booking Worker's `POST /contact`.
 
+**Imagery rule (Brockmann, 2026-09-04):** an Atlas page uses only what the current
+atlasglinn.com page uses in that section (the approved list at the top of
+`assemble-atlas.py`). No MAST range photos, nothing from `images/mast/` or `images/gallery/`;
+`build()` asserts it. `scripts/compare-atlas.py` writes `preview/compare.html`, the
+section-by-section "as is vs new" sheet he reviews from.
+
 ## Claude SEO toolchain (vendored)
 
 This repo carries the [Claude SEO](https://github.com/AgriciDaniel/claude-seo)
