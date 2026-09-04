@@ -92,7 +92,7 @@ def tile(num, title, body, img, pos='center'):
     return shell.tile(num, title, body, 'images/mast/' + img, pos)
 
 CHROME = shell.chrome(
-    credits=('A Houston Operation', 'Since 2005'), wordmark='MAST SOLUTIONS',
+    credits=('A Houston Operation', 'Since 2005'), wordmark='MAST Solutions',
     photos=[('01', 'images/mast/hero-casualty-carry.jpg', 'center 40%'), ('02', 'images/mast/disc-firearms.jpg', None),
             ('03', 'images/mast/ship-deck-movement.jpg', None), ('04', 'images/mast/disc-cqb.jpg', None),
             ('05', 'images/mast/range/r01.jpg', 'center 45%'), ('06', 'images/mast/courses-low-light.jpg', None), ('07', 'images/mast/courses-low-light.jpg', 'center 60%'), ('08', 'images/mast/founder-ship.jpg', 'center 20%'),
@@ -139,9 +139,13 @@ MEMBERSHIP = f"""
 # ── The Range: photographs of the range from the old site (handoff branch, the 2013–14 shoots and section headers; owner, 2026-09-04:
 #    "look up the range photos that we had on the other site. That should be enter the range"). Same tile as the skills; tap opens the
 #    photograph in a lightbox.
-RANGE_PHOTOS = [f'images/mast/range/r{i:02d}.jpg' for i in range(1, 13)]
+import glob as _glob
+RANGE_PHOTOS = sorted(_glob.glob(f'{REPO}/images/mast/range/r*.jpg'))
+RANGE_PHOTOS = ['images/mast/range/' + os.path.basename(x) for x in RANGE_PHOTOS]   # every range picture from the old site (scripts/range-photos.py); the first twelve show, the rest behind "show all"
+SHOWN = 12
 def photo_tile(i, src):
-    return (f'<div class="tile photo" role="button" tabindex="0" aria-label="Open photograph {i:02d}" onclick="openLb(\'{src}\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){{event.preventDefault();openLb(\'{src}\');}}">'
+    more = ' more' if i > SHOWN else ''
+    return (f'<div class="tile photo{more}" role="button" tabindex="0" aria-label="Open photograph {i:02d}" onclick="openLb(\'{src}\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){{event.preventDefault();openLb(\'{src}\');}}">'
             f'<div class="bg" style="background-image:url(\'{src}\')"></div><div class="txt"><div class="num">{i:02d}</div></div></div>')
 RANGE_SECTION = f"""
   <section class="panel" id="s5" data-section="05">
@@ -149,7 +153,8 @@ RANGE_SECTION = f"""
       <div class="eyebrow">Enter the Range</div>
       <h2 class="section-h">The <span class="gold">Range.</span></h2>
       <p class="sub">A private range. Flat range and berms, vehicle lanes, low light, and the shoothouse &mdash; the ground every class is run on. Tap a photograph to open it.</p>
-      <div class="tiles four rise">{''.join(photo_tile(i, src) for i, src in enumerate(RANGE_PHOTOS, 1))}</div>
+      <div class="tiles four rise" id="range-tiles">{''.join(photo_tile(i, src) for i, src in enumerate(RANGE_PHOTOS, 1))}</div>
+      <div class="ctas rise"><button class="secondary-cta" type="button" id="range-more" onclick="showRange()">Show all {len(RANGE_PHOTOS)} photographs</button></div>
     </div>
   </section>
 """
@@ -159,6 +164,7 @@ LIGHTBOX = """
 <div id="lb" class="modal wide lightbox" role="dialog" aria-modal="true" aria-label="Photograph"><button class="modal-x" aria-label="Close" onclick="closeLb()">&times;</button><img id="lb-img" alt=""></div>
 """
 LIGHTBOX_JS = """
+function showRange(){ document.getElementById('range-tiles').classList.add('all'); const b = document.getElementById('range-more'); if (b) b.remove(); }
 function openLb(src){ $('lb-img').src = src; $('lb-bd').classList.add('open'); $('lb').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeLb(){ $('lb-bd').classList.remove('open'); $('lb').classList.remove('open'); document.body.style.overflow = ''; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('lb').classList.contains('open')) closeLb(); });
@@ -414,6 +420,8 @@ META = """<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><l
 # Six client testimonials (chapter 08) carried over from the earlier builds; they were dropped in the cinematic cut without an instruction.
 QUOTES_CSS = """
   .tile.photo .txt { padding:1rem 1.1rem; }
+  #range-tiles .tile.more { display:none; }
+  #range-tiles.all .tile.more { display:flex; }
   .modal.lightbox { width:min(1200px, calc(100vw - 32px)); padding:.6rem; background:#050810; }
   .modal.lightbox img { display:block; max-width:100%; max-height:84vh; margin:0 auto; }
 
@@ -450,6 +458,10 @@ GOLD_KEEP = """
   #s6 .cta-button, #s6 .cta, #s7 .cta-button, .sheet .cta-button, .modal .cta-button { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border-color:#E8D27D; }
   #s6 .cta-button:hover, #s6 .cta:hover, #s7 .cta-button:hover, .sheet .cta-button:hover, .modal .cta-button:hover { box-shadow:0 14px 44px rgba(201,168,76,.5); }
   #s5 .cta-button.ghost-button, .sheet .cta-button.ghost-button, .modal .cta-button.ghost-button { background:transparent; }
+  /* Splash wordmark (owner, 2026-09-04: "Use this font for the splash intro. But space correctly." — the HUD's monospace — then
+     "MAST Solutions", "Strong Font"): Share Tech Mono in a strong weight, mixed case, tracked and optically centred (the leading
+     padding balances the tracking after the last letter). The blue shimmer stays. */
+  .intro-credit.wordmark { font-family:'Share Tech Mono',monospace; font-weight:700; text-transform:none; letter-spacing:.26em; padding-left:.26em; word-spacing:.15em; font-size:clamp(1.9rem, 5.8vw, 4.2rem); text-shadow:0 0 30px rgba(26,107,222,.35); }
   .chap-link { color:#E8D27D; }
   .chap-link::before { background:#C9A84C; }
   .chap-link:hover, .chap-link.active { color:#FCF6BA; border-color:rgba(201,168,76,.5); background:rgba(201,168,76,.06); }
