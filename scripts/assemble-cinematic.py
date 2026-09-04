@@ -101,7 +101,7 @@ CHROME = shell.chrome(
     hud_tl='&#9679; ATLAS GLINN &middot; MAST.SYS LIVE', hud_tl_href='/',   # root, so it resolves on WordPress and on Pages alike
     hud_bl='HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W', hud_br='DETAILS MATTER',
     chapters=[('s1', '01 &middot; Opening'), ('s2', '02 &middot; Standard'), ('s3', '03 &middot; Who'), ('s4', '04 &middot; Disciplines'),
-              ('s5', '05 &middot; Courses'), ('s6', '06 &middot; Membership'), ('s7', '07 &middot; Instructors'), ('s8', '08 &middot; In Action'),
+              ('s5', '05 &middot; Courses'), ('s6', '06 &middot; Team Memberships'), ('s7', '07 &middot; Instructors'), ('s8', '08 &middot; In Action'),
               ('s9', '09 &middot; Testimonials'), ('s10', '10 &middot; Privacy'), ('s11', '11 &middot; Contact')])
 
 
@@ -118,8 +118,8 @@ def tier(name, key, plan, fee, includes, slots):   # key is t-<team>: a bare 'go
 MEMBERSHIP = f"""
   <section class="panel" id="s6" data-section="06">
     <div>
-      <div class="eyebrow">Membership &middot; Six Teams &middot; Limited Slots</div>
-      <h2 class="section-h">The <span class="gold">Teams.</span></h2>
+      <div class="eyebrow">Team Memberships &middot; Six Teams &middot; Limited Slots</div>
+      <h2 class="section-h">Team <span class="gold">Memberships.</span></h2>
       <p class="sub">MAST offers membership in six teams: four open teams, plus Law Enforcement and Verified Teachers. Each team holds a set number of slots, so the benefits and the class seats are always there for the members who hold them. When a team is full there is a waiting list. New memberships are vetted by the established team.</p>
       <div class="teams rise">
         {tier('Red Team', 't-red', 'red_team', '$250', 'One class, plus 25% off any one class for you or one friend.', '10 memberships')}
