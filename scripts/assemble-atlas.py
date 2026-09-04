@@ -9,10 +9,24 @@ where the repo has them and WordPress-hosted where it does not (scripts/handoff-
 Edit THIS FILE and re-run it; never hand-edit the generated pages, the next run overwrites them:
   index.html, executive-protection.html, residential-protection.html, disaster-recovery.html, training.html,
   technology.html, cuas-aerodefense.html, uas.html, about.html, careers.html, contact.html
-The previous builds live on as *-atlas.html (noindex). ep-app.html and signup.html are not generated here.
+ep-app.html and signup.html are not generated here.
+
+Preview vs publish (Brockmann, 2026-09-04: "let me review it before we publish"):
+  python3 scripts/assemble-atlas.py             writes preview/<page>.html  (noindex, assets via ../, live pages untouched)
+  python3 scripts/assemble-atlas.py --publish   writes <page>.html at the site root: the real thing, only on his word
 """
-import os, sys
+import os, re, sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PUBLISH = '--publish' in sys.argv
+OUT_DIR = '' if PUBLISH else 'preview/'
+# Preview pages sit one folder down, so root-level assets and the hand-authored pages need a ../ in front. The eleven
+# rebuilt pages link to each other by bare name and stay inside preview/.
+_ROOT_REFS = re.compile(r'''((?:src|href|poster)=")(images/|mastsolutions|privacy\.html|terms\.html|signup\.html|ep-app\.html|mast-capability)''')
+def _previewize(html):
+    html = _ROOT_REFS.sub(r'\1../\2', html).replace("url('images/", "url('../images/")
+    html = html.replace("from './vendor/three.module.js'", "from '../vendor/three.module.js'")   # the shell's three.js import
+    assert "'./" not in html and '"./' not in html, 'a ./ reference survived previewizing'
+    return html.replace('<meta name="robots" content="index, follow">', '<meta name="robots" content="noindex, nofollow">', 1)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cinematic_shell as shell
 
@@ -256,9 +270,11 @@ def build(path, title, desc, og_image, credits, chapters, photos, jsonld=''):
     body = ('\n' + chrome + shell.sitenav(NAV, path, FOOT) + '\n<div class="content">\n' + ''.join(h for _, h in chapters) + '\n</div>\n')
     css = shell.css(shell.ATLAS, '', shell._recolor(shell.SITENAV_CSS + EXTRA_CSS, shell.ATLAS))
     html = shell.head(meta(title, desc, path, og_image, jsonld), css) + body + shell.tail(shell.three(n, shell.ATLAS), shell.SITENAV_JS + FORM_JS)
-    out = os.path.join(REPO, path)
+    if not PUBLISH: html = _previewize(html)
+    out = os.path.join(REPO, OUT_DIR, path)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
     open(out, 'w', encoding='utf-8').write(html)
-    print('wrote', path, len(html.encode('utf-8')), 'bytes,', n, 'chapters')
+    print('wrote', OUT_DIR + path, len(html.encode('utf-8')), 'bytes,', n, 'chapters')
 
 M = 'images/mast/'
 CREDITS = ('Houston &middot; Texas', 'Executive Protection &middot; Intelligence &middot; Training')
