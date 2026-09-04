@@ -36,6 +36,16 @@ atlasglinn.com page uses in that section (the approved list at the top of
 `build()` asserts it. `scripts/compare-atlas.py` writes `preview/compare.html`, the
 section-by-section "as is vs new" sheet he reviews from.
 
+## Site consistency rule (Brockmann, 2026-09-04)
+
+"For any card or any function on the site itself, when adding another product or membership, we don't lose the
+consistency in the site." Concretely: every card on either site takes the shared hover in `scripts/cinematic_shell.py`
+(the `.tile, .tier` rules: 0.45 s transition, 6 px lift) — add a new card class to those two selectors rather than writing
+a new hover; a card's own rules set only its colours (membership borders carry the team colour). New chapters take the
+shell's `panel` / `eyebrow` / `section-h` / `sub` structure and the chapter nav, HUD and backdrop entries in the assembler;
+new booking or checkout pieces go into `mastsolutions-tesla.html` first, so the MAST page lifts them. Gold on the MAST page
+lives in `GOLD_KEEP` (spliced after the palette recolor); everything else recolors to blue.
+
 ## Claude SEO toolchain (vendored)
 
 This repo carries the [Claude SEO](https://github.com/AgriciDaniel/claude-seo)

@@ -419,16 +419,18 @@ GOLD_KEEP = """
   /* Membership chapter (owner, 2026-09-04: "elegance + exclusivity" — the silent-auction certificate's register: Cormorant serif,
      letter-spaced small caps, thin gold rules on black). */
   .teams { display:grid; grid-template-columns:repeat(3, 1fr); gap:1.1rem; max-width:1200px; margin:0 auto 1.2rem; text-align:left; }
-  .tier { position:relative; padding:2rem 1.6rem 1.7rem; background:linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(5,8,16,.85) 100%); border:1px solid rgba(201,168,76,.35); backdrop-filter:blur(10px); display:flex; flex-direction:column; }
-  .tier::before { content:''; position:absolute; top:0; left:1.6rem; right:1.6rem; height:2px; }
-  .tier.t-red::before { background:#9B1C1C; } .tier.t-blue::before { background:#1A6BDE; } .tier.t-gold::before { background:#C9A84C; } .tier.t-black::before { background:#F0F4FF; } .tier.t-le::before { background:#3A4A5C; } .tier.t-teachers::before { background:#CFE2FF; }
+  /* Each card's border is its team colour (owner: "if it's a red team, then the exterior border should be a deep blood red, carried
+     for all of the other memberships"); the hover lift itself is the shell's shared card rule (.tile, .tier). */
+  .tier { --tc:#C9A84C; position:relative; padding:2rem 1.6rem 1.7rem; background:linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(5,8,16,.85) 100%); border:1px solid var(--tc); border-color:color-mix(in srgb, var(--tc) 72%, transparent); backdrop-filter:blur(10px); display:flex; flex-direction:column; }
+  .tier:hover { border-color:var(--tc); box-shadow:0 22px 60px rgba(0,0,0,.5), 0 0 0 1px var(--tc); }
+  .tier::before { content:''; position:absolute; top:0; left:1.6rem; right:1.6rem; height:2px; background:var(--tc); }
+  .tier.t-red { --tc:#7A0F14; } .tier.t-blue { --tc:#1A6BDE; } .tier.t-gold { --tc:#C9A84C; } .tier.t-black { --tc:#F0F4FF; } .tier.t-le { --tc:#3A4A5C; } .tier.t-teachers { --tc:#CFE2FF; }
   .tier-name { font-family:'Cormorant Garamond',Georgia,serif; font-weight:600; font-size:1.7rem; letter-spacing:.08em; color:#E8D27D; margin-bottom:.9rem; }
   .tier-fee { font-family:'Cormorant Garamond',Georgia,serif; font-weight:700; font-size:2.6rem; line-height:1; color:#F0F4FF; }
   .tier-fee small { display:block; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; text-transform:uppercase; color:#8B95A8; margin-top:.5rem; }
   .tier-inc { font-family:'Cormorant Garamond',Georgia,serif; font-size:1.2rem; line-height:1.45; color:#F0F4FF; margin:1.2rem 0 1rem; flex:1; }
   .tier-slots { font-family:'Share Tech Mono',monospace; font-size:.66rem; letter-spacing:.3em; text-transform:uppercase; color:#E8D27D; border-top:1px solid rgba(201,168,76,.25); padding-top:.9rem; margin-bottom:1.1rem; }
   .tier .cta-button { align-self:flex-start; padding:.85rem 1.8rem; font-size:.75rem; }
-  .tier.t-black { border-color:rgba(232,210,125,.6); box-shadow:0 0 60px rgba(201,168,76,.12); }
   .teams-note { font-family:'Cormorant Garamond',Georgia,serif; font-style:italic; font-size:1.1rem; color:#8B95A8; max-width:760px; margin:0 auto; text-align:center; }
   .modal.join .join-field { display:block; font-family:'Share Tech Mono',monospace; font-size:.66rem; letter-spacing:.25em; text-transform:uppercase; color:#8B95A8; margin:.9rem 0 0; }
   .modal.join input { display:block; width:100%; margin-top:.35rem; padding:.8rem .9rem; background:#0B1221; border:1px solid rgba(201,168,76,.35); color:#F0F4FF; font:1rem 'Rajdhani',sans-serif; letter-spacing:.02em; }
