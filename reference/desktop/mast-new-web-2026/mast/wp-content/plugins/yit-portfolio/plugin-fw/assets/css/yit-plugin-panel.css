@@ -1,0 +1,166 @@
+/*
+ * This file belongs to the YIT Plugin Framework.
+ *
+ * This source file is subject to the GNU GENERAL PUBLIC LICENSE (GPL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://www.gnu.org/licenses/gpl-3.0.txt
+ */
+
+/* onoff */
+.rm_onoff input {
+    display: none;
+}
+
+.rm_onoff input + span {
+    cursor: pointer;
+    text-indent: -9999px;
+    display: block;
+    width: 85px;
+    height: 37px;
+    background: transparent url(../images/off.png);
+}
+
+.rm_onoff input:checked + span {
+    background: transparent url(../images/on.png);
+}
+
+.rm_onoff input.onoffchecked + span {
+    background: transparent url(../images/on.png);
+}
+
+/* slider */
+/*numbers*/
+.ui-slider .maxCaption, .ui-slider .minCaption {
+    margin-bottom: 5px;
+}
+.ui-slider .feedback {
+    background: url(../images/slider/tooltip.png) no-repeat center top;
+    position: absolute;
+    top: -25px;
+    width: 35px;
+    height: 43px;
+    text-align: center;
+    width: 100%;
+    display: block;
+}
+.ui-slider .feedback strong {
+    display: inline-block;
+    padding-top: 4px;
+    top: -30px;
+}
+/*handle*/
+.yit-options .ui-slider-horizontal .ui-slider-handle {
+    background: transparent url(../images/slider/handle.png) no-repeat left top !important;
+    border: 0px !important;
+    top: -.35em !important;
+    width: 18px !important;
+    height: 19px !important;
+}
+
+/*bg on the left:grey*/
+.yit-options .ui-slider.ui-widget-content {
+    background: url(../images/slider/grey.gif) repeat-x left center !important;
+    border-color: #c1c1c0 !important;
+    height: 10px !important;
+}
+
+.iris-slider-offset.ui-slider.ui-widget-content {
+    background: transparent!important;
+    height: auto!important;
+}
+
+/*bg on the right:orange*/
+.ui-slider.ui-widget-content .ui-widget-header {
+    background: url(../images/slider/orange.gif) repeat-x left center !important;
+    left: 2px !important;
+    -webkit-border-radius: 15px;
+    -moz-border-radius: 15px;
+    -khtml-border-radius: 15px;
+    border-radius: 15px;
+}
+
+.plugin-option tr{
+    border-bottom: 1px solid #ccc;
+}
+.plugin-option .yit_options{
+    border-bottom: 0px;
+}
+.plugin-option .yit_options .option {
+    width: 600px;
+    float: left;
+}
+
+.plugin-option .form-table td{
+    padding: 25px 10px;
+}
+
+.yit-options .select_wrapper {
+    background: url("../images/select.png") no-repeat scroll right center #FAFAFA;
+    border-color: #CCCCCC #EEEEEE #EEEEEE #CCCCCC;
+    border-radius: 4px 4px 4px 4px;
+    border-style: solid;
+    border-width: 1px;
+    color: #555555;
+    display: block;
+    float: left;
+    font-family: sans-serif;
+    font-size: 12px;
+    height: 26px;
+    margin-bottom: 9px !important;
+    margin-left: 0;
+    margin-right: 5px;
+    margin-top: 0;
+    width: 400px;
+}
+.chosen .select_wrapper {
+    background: none;
+    border: none;
+}
+.chosen .select_wrapper .chosen-container{
+    width: 338px!important;
+}
+.chosen .select_wrapper .chosen-container .search-field input{
+    height: 27px!important;
+    color: #333;
+}
+.chosen .select_wrapper .chosen-container .chosen-choices{
+    border: 1px solid #ddd;
+    box-shadow: none;
+}
+.chosen .select_wrapper .chosen-container .chosen-choices li.search-choice{
+    height: 15px!important;
+    min-width: 105px;
+}
+.chosen .select_wrapper .chosen-container .chosen-choices li.search-choice span{
+    line-height: 15px;
+    height: 15px;
+    padding-top: 2px;
+}
+.chosen .select_wrapper .chosen-container .chosen-choices li.search-choice a.search-choice-close{
+    top: 5px;
+}
+.chosen .select_wrapper .chosen-container .chosen-drop .chosen-search input{
+    width: 100%!important;
+}
+.select_wrapper span {
+    height: 26px;
+    line-height: 26px;
+    padding-left: 6px;
+    position: absolute;
+    z-index: 2;
+}
+.ie8 .yit_options select {
+    height: 26px;
+}
+.yit_options select, .the-metabox .select_wrapper select {
+    cursor: pointer;
+    height: 28px;
+    margin: 0;
+    opacity: 0;
+    padding: 0;
+    position: relative;
+    width: inherit;
+    z-index: 4;
+    background-color: #FAFAFA;
+}

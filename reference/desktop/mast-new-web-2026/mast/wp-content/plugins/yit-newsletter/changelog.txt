@@ -1,0 +1,13 @@
+=== 1.0.3 ===
+Added: Option 'Form Border' in Widget Newsletter Form
+Fixed: Support to non YiThemes themes
+
+=== 1.0.2 ===
+Fixed: Ajax submit for mailchimp, madmimi and mailpoet form when in popup
+
+=== 1.0.1 ===
+Added: Filter for placeholder
+Fixed: Minor Bug
+
+=== 1.0.0 ===
+Initial Release

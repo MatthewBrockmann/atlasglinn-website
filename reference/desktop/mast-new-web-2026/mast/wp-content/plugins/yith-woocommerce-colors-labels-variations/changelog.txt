@@ -1,0 +1,17 @@
+=== 1.1.2 ===
+
+Added: Support to WooCommerce 2.2.2
+Updated: Plugin Core Framework
+Fixed: name parameter not defined
+
+=== 1.1.1 ===
+
+Updated: Plugin core framework
+
+=== 1.1.0 ===
+
+Added: Support to WooCommerce 2.1.x
+Fixed: Various bugs
+
+=== 1.0.0 ===
+Initial Release

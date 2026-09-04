@@ -1,0 +1,7 @@
+=== 1.0.1 ===
+
+Fixed: Empty Cache folder and Restore default value don't work on child theme
+
+=== 1.0.0 ===
+
+Initial Release
