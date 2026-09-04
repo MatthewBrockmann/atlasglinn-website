@@ -310,14 +310,18 @@ async function handleBooking(request, env, cors) {
  */
 /** Fundamentals is a gate (owner, 2026-09-04: "They MUST take Fundamentals first UNLESS they have taken it prior").
  *  Mirrors levelOf() on the page: Fundamentals courses have no prerequisite, P2 needs P1, Operator/P1 need Fundamentals. */
-// Progression (owner, 2026-09-04: "For all of the selections, you have to take the fundamentals class first"): Handgun
-// Fundamentals — or its ladies-only class — is the qualifier for every other course; a P2 course also needs the P1 before it.
-// The page shows the same rule on every row (levelOf in mastsolutions-tesla.html).
+// Progression (owner, 2026-09-04: "first-time students HAVE to take Fundamentals in all courses that have fundamentals first"):
+// a course requires its discipline's Fundamentals (Handgun — or its ladies-only class —, Carbine, Sub-Gun, Low-Light / NVG;
+// Shotgun has only the Fundamentals); disciplines without their own fall back to Handgun Fundamentals ("For all of the
+// selections, you have to take the fundamentals class first"); a P2 course also needs the P1. The page shows and asks the
+// same rule (levelOf / selectCourse in mastsolutions-tesla.html). The discipline is read from the course name so D1 rows
+// and the seeds behave the same.
 function prerequisiteFor(offering) {
   const n = String((offering && offering.name) || '');
-  if (!n || /Handgun Fundamentals/i.test(n)) return null;
-  if (/\bP2\b/.test(n)) return 'MAST Handgun Fundamentals and a MAST P1 course';
-  return 'MAST Handgun Fundamentals';
+  if (!n || /Fundamentals/i.test(n)) return null;
+  const disc = /Carbine/i.test(n) ? 'Carbine' : /Sub-Gun/i.test(n) ? 'Sub-Gun' : /Low-Light|NVG/i.test(n) ? 'Low-Light' : 'Handgun';
+  const fund = 'MAST ' + disc + ' Fundamentals';
+  return /\bP2\b/.test(n) ? fund + ' and a MAST P1 course' : fund;
 }
 
 async function handleRegister(request, env, cors) {
@@ -371,7 +375,7 @@ async function handleRegister(request, env, cors) {
   const prereq = prerequisiteFor(offering);
   const prereqAttested = !!(body.prerequisite && body.prerequisite.attested === true);
   if (prereq && !prereqAttested) {
-    return json({ error: 'This course requires ' + prereq + ' first. Confirm you have completed it, or start with Handgun Fundamentals.', field: 'prerequisite', code: 'prerequisite' }, 400, cors);
+    return json({ error: 'This course requires ' + prereq + ' first. Confirm you have completed it, or book that Fundamentals course instead.', field: 'prerequisite', code: 'prerequisite' }, 400, cors);
   }
   const sessionLabel = str(body.session_label) || weekend.label || '';
 

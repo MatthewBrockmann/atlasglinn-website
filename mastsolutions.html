@@ -67,7 +67,9 @@
   body.cinema .letterbox-top, body.cinema .letterbox-bottom { height:50px; }
   #intro-seq { position:fixed; inset:0; z-index:9000; background:#000; display:flex; align-items:center; justify-content:center; flex-direction:column; font-family:'Cinzel',serif; pointer-events:none; transition:opacity 1s ease-out; }
   #intro-seq.done { opacity:0; }
-  .intro-credit { font-size:.75rem; letter-spacing:.6em; color:var(--text-dim); opacity:0; animation:introFade 2.8s ease-in-out forwards; text-transform:uppercase; }
+  .intro-credit { position:relative; z-index:1; font-size:.75rem; letter-spacing:.6em; color:var(--text-dim); opacity:0; animation:introFade 2.8s ease-in-out forwards; text-transform:uppercase; }
+  /* The gold sparkle ring from the atlasglinn.com intro, drawn around the wordmark; the script fades it in after the wordmark and out before the splash ends. */
+  .intro-ring { position:absolute; inset:0; width:100%; height:100%; z-index:0; opacity:0; pointer-events:none; }
   .intro-credit:nth-child(1) { animation-delay:.3s; }
   .intro-credit:nth-child(2) { animation-delay:1.2s; margin-top:1.8rem; color:var(--gold); font-weight:900; font-size:1.5rem; letter-spacing:.35em; }
   .intro-credit:nth-child(3) { animation-delay:2.6s; margin-top:1.5rem; color:var(--gold-champagne); font-size:.85rem; letter-spacing:.5em; }
@@ -237,6 +239,12 @@
 .modal.open { opacity: 1; visibility: visible; transform: translate(-50%,-50%) scale(1); }
 .modal-x { position: absolute; top: 10px; right: 14px; background: none; border: none; color: #888; font-size: 30px; cursor: pointer; line-height: 1; }
 .modal-x:hover { color: #C9A84C; }
+.modal.gate .gate-text { color: #d8dce6; line-height: 1.6; margin: .8rem 0 1.1rem; font-size: 1rem; }
+.modal.gate .gate-text b { color: #C9A84C; }
+.modal.gate .gate-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+.modal.gate .gate-actions .cta-button { margin: 0; }
+.modal.gate .gate-fine { margin-top: 1rem; font-size: .8rem; color: #888; line-height: 1.5; }
+.course-row.flash { box-shadow: inset 0 0 0 2px #C9A84C; }
 .modal h3 { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; font-weight: 700; padding-right: 2rem; margin: .35rem 0 .2rem; }
 .modal-meta { font-family: 'Share Tech Mono', monospace; font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: #888; }
 .modal-price { font-family: 'Orbitron', sans-serif; font-weight: 900; color: #C9A84C; font-size: 1.1rem; margin-top: .4rem; }
@@ -340,14 +348,9 @@
   #s5, .sheet, .sheet-bd, .modal, .modal-bd { --gold:#C9A84C; --gold-antique:#D4AF37; --gold-champagne:#E8D27D; --gold-bright:#FCF6BA; --copper:#B87333; }
   #s5 .gold, h1.mega .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
   h1.mega .gold { text-shadow:0 0 80px rgba(201,168,76,.3); }
-  #s5 .cta-button, #s5 .cta, .sheet .cta-button { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border-color:#E8D27D; }
-  #s5 .cta-button:hover, #s5 .cta:hover, .sheet .cta-button:hover { box-shadow:0 14px 44px rgba(201,168,76,.5); }
-  #s5 .cta-button.ghost-button, .sheet .cta-button.ghost-button { background:transparent; }
-  /* Intro splash (owner: "take some of the Atlas Glinn gold shimmer and add it to the existing intro ... not full-screen; just accents
-     come into MAST Solutions as it flashes"): the wordmark stays blue and a gold band sweeps through it on each pass of the shimmer;
-     the tagline under it is gold. */
-  .intro-credit.wordmark { background-image:linear-gradient(90deg, #1558B8 0%, #DCEBFF 16%, #1558B8 30%, #FCF6BA 42%, #BF953F 48%, #FCF6BA 54%, #0F4AA8 66%, #CFE2FF 82%, #1558B8 100%); text-shadow:0 0 60px rgba(201,168,76,.28); }
-  #intro-seq .intro-credit:nth-child(3) { color:#E8D27D; }
+  #s5 .cta-button, #s5 .cta, .sheet .cta-button, .modal .cta-button { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border-color:#E8D27D; }
+  #s5 .cta-button:hover, #s5 .cta:hover, .sheet .cta-button:hover, .modal .cta-button:hover { box-shadow:0 14px 44px rgba(201,168,76,.5); }
+  #s5 .cta-button.ghost-button, .sheet .cta-button.ghost-button, .modal .cta-button.ghost-button { background:transparent; }
   .chap-link { color:#E8D27D; }
   .chap-link::before { background:#C9A84C; }
   .chap-link:hover, .chap-link.active { color:#FCF6BA; border-color:rgba(201,168,76,.5); background:rgba(201,168,76,.06); }
@@ -397,6 +400,7 @@
   <div class="intro-credit">A Houston Operation</div>
   <div class="intro-credit wordmark">MAST SOLUTIONS</div>
   <div class="intro-credit">Since 2005</div>
+  <canvas class="intro-ring" id="intro-ring" aria-hidden="true"></canvas>
 </div>
 
 <canvas id="three-canvas"></canvas>
@@ -502,7 +506,7 @@
     <div>
       <div class="eyebrow">Course Catalog</div>
       <h2 class="section-h">Twenty-One <span class="gold">Courses.</span></h2>
-      <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Handgun Fundamentals first, unless you have taken it before. Every other course asks you to confirm that at registration.</b> P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
+      <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Fundamentals first, unless you have taken it before. Each discipline&rsquo;s Fundamentals course opens its other courses, and Select Date asks before the calendar opens.</b> P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
       <div class="catalog-wrap rise"><div class="glass"><div class="catalog-panel" id="catalog"></div></div>
       <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p></div>
     </div>
@@ -619,6 +623,17 @@
     <div class="cal-foot"><div class="cal-sel" id="cal-sel">Tap a highlighted date.</div><button class="cta-button" id="cal-go" disabled onclick="calContinue()">Continue &rarr;</button></div>
 </div>
 
+<!-- PREREQUISITE GATE: asked at Select Date for every course with a prerequisite (owner, 2026-09-04) -->
+<div id="gate-bd" class="modal-bd" onclick="closeGate()"></div>
+<div id="gate" class="modal gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+    <button class="modal-x" aria-label="Close" onclick="closeGate()">&times;</button>
+    <div class="eyebrow">Before you pick a date</div>
+    <h3 id="gate-title"></h3>
+    <p class="gate-text" id="gate-text"></p>
+    <div class="gate-actions"><button class="cta-button" id="gate-yes" type="button" onclick="gateYes()">Yes &mdash; I have completed it</button><button class="cta-button ghost-button" id="gate-no" type="button" onclick="gateNo()"></button></div>
+    <p class="gate-fine">First time with MAST? Start with Fundamentals. It is the base every other course builds on.</p>
+</div>
+
 <!-- CHECKOUT -->
 <div id="sheet-bd" class="modal-bd" onclick="closeSheet()"></div>
 <div id="sheet" class="modal sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
@@ -641,7 +656,7 @@
         <label>Seats</label>
         <div class="qty"><button type="button" aria-label="Fewer seats" onclick="step(-1)">&minus;</button><span class="qv" id="co-qty">1</span><button type="button" aria-label="More seats" onclick="step(1)">+</button></div>
         <p class="reg-note">One seat per person. You answer the eligibility questions and sign the agreement for yourself; additional attendees complete their own before class.</p>
-        <label class="reg-check" id="co-prereq-wrap" hidden><input type="checkbox" id="co-prereq"><span id="co-prereq-text">I have completed MAST Handgun Fundamentals, or an instructor-approved equivalent, before this course.</span></label>
+        <label class="reg-check" id="co-prereq-wrap" hidden><input type="checkbox" id="co-prereq"><span id="co-prereq-text">I have completed the prerequisite Fundamentals course, or an instructor-approved equivalent, before this course.</span></label>
         <label class="reg-check"><input type="checkbox" id="co-news"><span>Email me about new courses and training weekends. Optional, and separate from your booking emails.</span></label>
         <div class="total"><span>Total</span><span class="amt" id="co-total-1">&mdash;</span></div>
         <button class="cta-button" onclick="regNext(1)">Continue &rarr;</button>
@@ -780,6 +795,31 @@ const openHero = () => {
 };
 if (reduce) { openHero(); } else {
   setTimeout(() => { intro.classList.add('done'); setTimeout(openHero, 1000); }, 4800);
+}
+// Gold ring (Brockmann, 2026-09-04: "the gold around the Atlas Glinn is what I was talking about ... take some of the gold shimmer
+// and fade it in and fade it out"): the sparkle ring of the current atlasglinn.com intro — a tilted, slowly turning, pulsing ring
+// of gold points — drawn in 2D around the wordmark. It fades in after the wordmark appears and out before the splash ends; the
+// wordmark itself keeps the page palette. Always gold, on both sites.
+const ring = document.getElementById('intro-ring');
+if (ring && !reduce) {
+  // rgb() on purpose: the ring is gold on every page, so these must not match the palette recolor's hex and rgba( tokens
+  const g = ring.getContext('2d'), P = [], gold = ['rgb(201 168 76)', 'rgb(232 210 125)', 'rgb(252 246 186)', 'rgb(191 149 63)', 'rgb(212 175 55)'];
+  const N = mobile ? 260 : 520;
+  const pick = () => gold[Math.floor(Math.random() * gold.length)];
+  for (let i = 0; i < N; i++) P.push({ a: Math.random() * Math.PI * 2, r: 1 + (Math.random() - .5) * .22, y: (Math.random() - .5) * .18, s: 1 + Math.random() * 2.2, c: pick(), o: .35 + Math.random() * .65, w: 1 + Math.random() * 2 });
+  for (let i = 0; i < N / 3; i++) P.push({ a: Math.random() * Math.PI * 2, r: 1.15 + Math.random() * .6, y: (Math.random() - .5) * .5, s: 1 + Math.random() * 1.5, c: pick(), o: .15 + Math.random() * .4, w: 1 + Math.random() * 2 });
+  const t0 = performance.now();
+  const fade = t => t < .9 ? 0 : t < 1.9 ? t - .9 : t < 3.6 ? 1 : t < 4.6 ? 1 - (t - 3.6) : 0;
+  const draw = () => {
+    if (!ring.isConnected) return;
+    const t = (performance.now() - t0) / 1000, W = ring.width = innerWidth, H = ring.height = innerHeight, k = fade(t);
+    ring.style.opacity = k; g.clearRect(0, 0, W, H);
+    if (t > 4.6) return;
+    const R = Math.min(W, H) * (mobile ? .42 : .34), cx = W / 2, cy = H / 2, rot = t * .3, pulse = 1 + Math.sin(t * 3) * .02, tilt = .62 + Math.sin(t) * .06;
+    for (const p of P) { const a = p.a + rot, x = cx + Math.cos(a) * R * p.r * pulse * 1.35, y = cy + Math.sin(a) * R * p.r * pulse * tilt + p.y * R; g.globalAlpha = p.o * (.7 + .3 * Math.sin(t * p.w * 2 + p.a * 7)); g.fillStyle = p.c; g.fillRect(x, y, p.s, p.s); }
+    requestAnimationFrame(draw);
+  };
+  requestAnimationFrame(draw);
 }
 
 // ── Reticle ──
@@ -992,10 +1032,16 @@ let WEEKENDS = [
 
 const $ = id => document.getElementById(id);
 const money = c => '$' + (c/100).toLocaleString('en-US', { minimumFractionDigits: c % 100 ? 2 : 0 });
-/* Progression (owner, 2026-09-04: "For all of the selections, you have to take the fundamentals class first"): Handgun Fundamentals — or its
-   ladies-only class — is the qualifier for every other course, shown on every row and confirmed at registration; a P2 course also needs the P1
-   before it. By-arrangement private instruction carries no badge. The Worker applies the same rule (prerequisiteFor). */
-const levelOf = c => c.request ? null : /Handgun Fundamentals/.test(c.name) ? { n: 1, tag: 'START HERE' } : /\bP2\b/.test(c.name) ? { n: 3, tag: 'HANDGUN FUNDAMENTALS + P1 REQUIRED' } : { n: 2, tag: 'HANDGUN FUNDAMENTALS REQUIRED' };
+/* Progression (owner, 2026-09-04: "first-time students HAVE to take Fundamentals in all courses that have fundamentals first"): every
+   course in a discipline that has a Fundamentals course requires that Fundamentals first — Handgun Operator ← Handgun Fundamentals (or its
+   ladies-only class), Carbine Operator ← Carbine Fundamentals, Sub-Gun P1 ← Sub-Gun Fundamentals, Low-Light / NVG ← Low-Light Fundamentals.
+   Disciplines without their own fall back to Handgun Fundamentals ("For all of the selections, you have to take the fundamentals class
+   first"). A P2 course also needs the P1 before it. The gate is asked at Select Date (selectCourse) and again as the attestation in the
+   sheet; by-arrangement private instruction carries no badge. The Worker applies the same rule (prerequisiteFor). */
+const FUND_SKU = { 'Handgun': 'MAST-HG-FUND', 'Carbine': 'MAST-CAR-FUND', 'Shotgun': 'MAST-SG-FUND', 'Sub-Gun': 'MAST-SUB-FUND', 'Low-Light / NVG': 'MAST-LL-FUND' };
+const fundFor = c => COURSES.find(x => x.sku === (FUND_SKU[c.cat] || 'MAST-HG-FUND'));
+const levelOf = c => { if (c.request) return null; if (/Fundamentals/.test(c.name)) return { n: 1, tag: 'START HERE' }; const f = fundFor(c), disc = f.name.replace(/ Fundamentals$/, '').toUpperCase(); return /\bP2\b/.test(c.name) ? { n: 3, tag: disc + ' FUNDAMENTALS + P1 REQUIRED', fund: f } : { n: 2, tag: disc + ' FUNDAMENTALS REQUIRED', fund: f }; };
+const fundLabel = f => f.name + (f.sku === 'MAST-HG-FUND' ? ' (or the Ladies Only class)' : '');
 const metaBase = c => c.meta ? c.meta : c.days ? `${c.hours} HRS · ${c.days} DAY${c.days > 1 ? 'S' : ''} · ${c.seats} SEATS` : `CALL FOR DETAILS`;
 const metaFor = c => { const l = levelOf(c); return metaBase(c) + (l ? ' · ' + l.tag : ''); };
 const metaHtml = c => { const l = levelOf(c); return esc(metaBase(c)) + (l ? ` · <b class="cr-lvl lvl-${l.n}">${l.tag}</b>` : ''); };
@@ -1011,7 +1057,7 @@ $('catalog').innerHTML = CATS.map((cat, ci) => {
     items.map(({ c, i }) => c.request
       ? `<div class="course-row call">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div>${c.pdf ? `<a class="cr-pdf" href="${esc(c.pdf)}" target="_blank" rel="noopener">Private instruction sheet (PDF) &rarr;</a>` : ''}</div><div class="cr-side"><div class="cr-price">BY<small>ARRANGEMENT</small></div><a class="cta-button cr-btn" href="${'mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent('Private instruction — ' + c.name)}">Request</a></div></div>`
       : c.price_cents
-      ? `<div class="course-row" role="button" tabindex="0" onclick="openCal(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCal(${i});}">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price" data-sku="${c.sku}">${money(c.price_cents)}<small>PER SEAT</small></div><span class="cta-button cr-btn">Select Date</span></div></div>`
+      ? `<div class="course-row" role="button" tabindex="0" onclick="selectCourse(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectCourse(${i});}">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price" data-sku="${c.sku}">${money(c.price_cents)}<small>PER SEAT</small></div><span class="cta-button cr-btn">Select Date</span></div></div>`
       : `<div class="course-row call">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price">CALL<small>FOR PRICING</small></div><a class="cta-button ghost-button cr-btn" href="tel:+12816548100">Call</a></div></div>`).join('') + `</div></div>`;
 }).join('');
 function toggleCat(ci){ const el = $('cat-' + ci); const open = el.classList.toggle('open'); el.querySelector('.cat-btn').setAttribute('aria-expanded', open); }
@@ -1027,6 +1073,17 @@ function weekendDates(w, days){ const sat = parseISO(w.saturday), out = []; cons
 function labelFor(w, days){ const ds = weekendDates(w, days), a = ds[0], b = ds[ds.length - 1]; const mo = d => d.toLocaleDateString('en-US', { month: 'short' }); if (ds.length === 1) return a.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }); const wd = ds.length === 2 ? 'Sat–Sun' : 'Fri–Sun'; const range = a.getMonth() === b.getMonth() ? `${mo(a)} ${a.getDate()}–${b.getDate()}` : `${mo(a)} ${a.getDate()} – ${mo(b)} ${b.getDate()}`; return `${wd}, ${range}, ${b.getFullYear()}`; }
 function isPast(w){ const t = new Date(); t.setHours(0,0,0,0); return parseISO(w.saturday) < t; }
 function bookable(w){ return (w.status === 'available' || w.status === 'scheduled') && !isPast(w); }
+/* The gate (owner, 2026-09-04: "Still no gate to make sure that first-time students HAVE to take Fundamentals ... first"): before the
+   calendar opens for a course with a prerequisite, the student answers whether they have completed it. "Yes" opens the calendar and
+   pre-ticks the attestation in the sheet (still shown, still recorded); "No" takes them to the Fundamentals row and opens ITS calendar.
+   Nothing is checked against a roster: students from before this system are not in it ("UNLESS they have taken it prior"). */
+const attested = {};   // sku → true once the student has answered yes on this visit
+let gateIdx = null;
+function selectCourse(i){ const c = COURSES[i], lv = levelOf(c); if (!lv || lv.n < 2 || attested[c.sku]) return openCal(i); gateIdx = i; const f = lv.fund; $('gate-title').textContent = c.name; $('gate-text').innerHTML = `<b>${esc(fundLabel(f))}</b>${lv.n === 3 ? ' and a MAST P1 course' : ''} comes first. Have you completed it with MAST, or an instructor-approved equivalent?`; $('gate-no').textContent = 'No — book ' + f.name + ' first'; lastFocus = document.activeElement; $('gate-bd').classList.add('open'); $('gate').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('gate-yes').focus(), 150); }
+function closeGate(){ $('gate-bd').classList.remove('open'); $('gate').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+function gateYes(){ const c = COURSES[gateIdx]; attested[c.sku] = true; closeGate(); openCal(gateIdx); }
+function gateNo(){ const f = levelOf(COURSES[gateIdx]).fund, fi = COURSES.indexOf(f), ci = CATS.indexOf(f.cat); closeGate(); const cat = $('cat-' + ci); if (cat && !cat.classList.contains('open')) toggleCat(ci); const row = document.querySelector(`.cr-price[data-sku="${f.sku}"]`); const rowEl = row && row.closest('.course-row'); if (rowEl) { rowEl.scrollIntoView({ block: 'center' }); rowEl.classList.add('flash'); setTimeout(() => rowEl.classList.remove('flash'), 2400); } openCal(fi); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('gate').classList.contains('open')) closeGate(); });
 function openCal(i){ calCourse = COURSES[i]; chosen = null; lastFocus = document.activeElement; $('cal-title').textContent = calCourse.name; $('cal-meta').textContent = metaFor(calCourse); $('cal-price').textContent = money(calCourse.price_cents) + ' per seat'; const first = WEEKENDS.find(bookable) || WEEKENDS[0]; const fd = parseISO(first.saturday); calMonth = new Date(fd.getFullYear(), fd.getMonth(), 1); renderCal(); $('cal-bd').classList.add('open'); $('cal').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeCal(){ $('cal-bd').classList.remove('open'); $('cal').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
 function calBounds(){ const a = parseISO(WEEKENDS[0].saturday), b = parseISO(WEEKENDS[WEEKENDS.length - 1].saturday); return { min: new Date(a.getFullYear(), a.getMonth(), 1), max: new Date(b.getFullYear(), b.getMonth(), 1) }; }
@@ -1050,9 +1107,9 @@ const REGISTER_ENDPOINT = API + '/register';
 const QUESTIONS_VERSION = '2q-2026-09-03', AGREEMENT_VERSION = '81961f2a07675eff', REFUND_POLICY_VERSION = '2026-09-01'; // must match the Worker
 let qty = 1, regStep = 1, docScrolled = false;
 function openSheet(){ qty = 1; docScrolled = false;
-  // Handgun Fundamentals is the gate (owner, 2026-09-04): every other course requires the participant to confirm it was completed before; P2 also needs the P1.
-  const lv = levelOf(calCourse), gate = !!(lv && lv.n >= 2); $('co-prereq-wrap').hidden = !gate; $('co-prereq').checked = false;
-  if (gate) $('co-prereq-text').textContent = lv.n === 3 ? 'I have completed MAST Handgun Fundamentals and a MAST P1 course, or an instructor-approved equivalent, before this course.' : 'I have completed MAST Handgun Fundamentals, or an instructor-approved equivalent, before this course.';
+  // The attestation (owner, 2026-09-04): the discipline's Fundamentals gates every other course in it; P2 also needs the P1. Pre-ticked when the student answered yes at Select Date.
+  const lv = levelOf(calCourse), gate = !!(lv && lv.n >= 2); $('co-prereq-wrap').hidden = !gate; $('co-prereq').checked = gate && !!attested[calCourse.sku];
+  if (gate) $('co-prereq-text').textContent = 'I have completed MAST ' + fundLabel(lv.fund) + (lv.n === 3 ? ' and a MAST P1 course' : '') + ', or an instructor-approved equivalent, before this course.';
   $('sheet-title').textContent = calCourse.name; $('sheet-meta').textContent = metaFor(calCourse); $('sheet-date-label').innerHTML = '&#128197; ' + labelFor(WEEKENDS[chosen], calCourse.days); $('co-qty').textContent = '1'; $('reg-review').hidden = true; $('reg-sign').hidden = true; $('reg-3-go').disabled = true; const h = $('reg-doc-hint'); h.textContent = 'Scroll to the end of page 3 to continue.'; h.classList.remove('ok'); $('reg-doc').scrollTop = 0; showStep(1); updateTotal(); $('sheet-bd').classList.add('open'); $('sheet').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('co-name').focus(), 250); }
 function showStep(n){ regStep = n; for (let i = 1; i <= 4; i++) $('reg-' + i).hidden = i !== n; document.querySelectorAll('.reg-steps li').forEach(li => { const s = +li.dataset.step; li.classList.toggle('on', s === n); li.classList.toggle('done', s < n); }); $('co-err').classList.remove('show'); $('sheet').scrollTop = 0; }
 function fail(msg, el){ const err = $('co-err'); err.textContent = msg; err.classList.add('show'); if (el && el.focus) el.focus(); }
@@ -1062,7 +1119,7 @@ function regNext(n){
     if ($('co-name').value.trim().length < 2) return fail('Enter your full name.', $('co-name'));
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test($('co-email').value.trim())) return fail('Enter a valid email address to receive your booking confirmation.', $('co-email'));
     if ($('co-phone').value.replace(/\D/g, '').length < 7) return fail('Enter a mobile number we can reach you on.', $('co-phone'));
-    if (!$('co-prereq-wrap').hidden && !$('co-prereq').checked) return fail('Handgun Fundamentals comes first. Tick the box if you have completed it, or start with Handgun Fundamentals.', $('co-prereq'));
+    if (!$('co-prereq-wrap').hidden && !$('co-prereq').checked) return fail(levelOf(calCourse).fund.name + ' comes first. Tick the box if you have completed it, or book ' + levelOf(calCourse).fund.name + ' instead.', $('co-prereq'));
     return showStep(2);
   }
   if (n === 2) {

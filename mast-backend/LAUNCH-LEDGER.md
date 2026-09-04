@@ -56,9 +56,14 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
 - Still to come from him: his new instructor portrait (JPG), the two-shooters photo for the gallery, the jumping
   "hero" photo, the private-instruction PDF, the replacement MAST clip, more pictures for the folder. *A Long
   Recovery* (YouTube `0IkEMH0LPC8`, link from him 2026-09-04) is embedded under Torrey Kramer's profile.
-- Third round (same evening): **Handgun Fundamentals is the qualifier for every course** ("For all of the selections, you have to
-  take the fundamentals class first. Where is the qualifier?"): every bookable row but Handgun Fundamentals carries the badge,
-  the sheet asks for the attestation, and the Worker refuses without it (P2 also needs the P1). **Ladies Only Handgun
+- Third round (same evening): **Fundamentals is the gate, per discipline** ("For all of the selections, you have to take the
+  fundamentals class first. Where is the qualifier?" then "Still no gate to make sure that first-time students HAVE to take
+  Fundamentals in all courses that have fundamentals first"): every course in a discipline with a Fundamentals course requires
+  that Fundamentals (Handgun — or the ladies-only class —, Carbine, Sub-Gun, Low-Light / NVG); disciplines without their own fall
+  back to Handgun Fundamentals; P2 also needs the P1. **Select Date now stops at a gate** before the calendar: "Yes, I have
+  completed it" opens the calendar and pre-ticks the attestation in the sheet; "No" takes the student to the Fundamentals row and
+  opens its calendar. The Worker refuses without the attestation. Nothing is checked against a roster (pre-system students are
+  not in it). **Ladies Only Handgun
   Fundamentals** added (`MAST-HG-LADIES`, mirrors Handgun Fundamentals' hours, price and seats until he sets them; live DB
   via `migrations/002-ladies-handgun.sql`). **Instructors chapter in the Atlas "Meet the Team" format** with Michael Cline
   (his atlasglinn.com portrait and bio) and Torrey Kramer as portrait + bio blocks. **Training Reel first** in the strip,
@@ -98,6 +103,14 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
 1c. **Instagram clips**: the post URLs (after the merge the handoff paste fetches them: `... | bash -s -- <urls>`), or the
    original files into the folder before then.
 1d. **Old range photos** ("Enter the Range"): pick numbers from `preview/old-range-photos.html`.
+1e. **Doctrine notes** (his 2026-09-04 dump: 7 Skills, soft skills, three-year goals, five AG Leadership traits, ten Dignitary
+   Protection attributes, movement / signals / smoke / PACE / loadout / DOPE / OCOKA / combat survival): "Keep this = this is
+   background ... this will be separated as descriptors for certain classes." **Not committed** — this repository is public, and
+   the notes are internal training doctrine. They sit in the session record; file them in the brain vault (private) or hand the
+   text off, then split them into course descriptors. The 7 Skills already match the seven Disciplines tiles on the page.
+1f. **"Where is the blogs"**: the eight rebuilt articles live under `articles/` (index at `articles/index.html`); the live
+   WordPress blog at `/blog` is one of the ten WordPress-only URLs that must be rebuilt before the DNS cutover (§D). Neither
+   the MAST page nor the Atlas preview links to the articles yet — his call where.
 2. Founder shot: is `founder-portrait.jpg` it, or is another photo coming?
 3. Instagram: which posts, or an embedded feed?
 4. Capability cards: "have it here and bring back to front" — move up the MAST page, put on the Atlas home, or
@@ -108,8 +121,9 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
 8. `handcuffs.jpg` slot. "Forge Legend" vs "Forge Ignition". Better discipline photos ("I can send some later").
 9. Question order: the build asks name/email/phone before the two eligibility questions so a flagged person can be
    called; he said the questions come first. Confirm the build's order is acceptable.
-10. ~~"Fundamentals first" is a cue, not a gate~~ — settled 2026-09-04: Handgun Fundamentals gates every other course
-    (badge on every row, attestation at registration, Worker refuses without it).
+10. ~~"Fundamentals first" is a cue, not a gate~~ — settled 2026-09-04: each discipline's Fundamentals gates its other courses
+    (badge on every row, a yes/no gate at Select Date, attestation at registration, Worker refuses without it). Still open: should
+    disciplines without their own Fundamentals (Select-Fire, Team Tactics, Protective, Gear) require Handgun Fundamentals, as built?
 11. Membership tiers: names, prices, intervals (promised, never sent).
 12. Private Instruction prices ($350 / $1,250 / $3,300) came from the progression PDF, not a message. Current?
 13. `NOTIFY_EMAIL` value: if the range host is in it, the "range host gets only the signed agreement" rule breaks.

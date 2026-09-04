@@ -62,7 +62,9 @@ const DB = {
               const row = { 'MAST-DA': { sku: 'MAST-DA', name: 'Direct Action', price_cents: 69500, capacity: 10 },
                             'MAST-HG-OP': { sku: 'MAST-HG-OP', name: 'Handgun Operator', price_cents: 45000, capacity: 10 },
                             'MAST-HG-FUND': { sku: 'MAST-HG-FUND', name: 'Handgun Fundamentals', price_cents: 22500, capacity: 16 },
-                            'MAST-HG-LADIES': { sku: 'MAST-HG-LADIES', name: 'Ladies Only Handgun Fundamentals', price_cents: 22500, capacity: 16 } }[args[0]];
+                            'MAST-HG-LADIES': { sku: 'MAST-HG-LADIES', name: 'Ladies Only Handgun Fundamentals', price_cents: 22500, capacity: 16 },
+                            'MAST-CAR-OP': { sku: 'MAST-CAR-OP', name: 'Carbine Operator', price_cents: 45000, capacity: 10 },
+                            'MAST-NVG-P2': { sku: 'MAST-NVG-P2', name: 'NVG Operator P2', price_cents: 95000, capacity: 10 } }[args[0]];
               return row || null;
             }
             if (sql.includes('FROM memberships')) {
@@ -325,15 +327,19 @@ const reg = (body) => post('/register', body);
   for (const id of [r9.registration_id, r10.registration_id, ro.registration_id]) { const row = registrations.get(id); if (row) row.status = 'abandoned'; }
 }
 {
-  // Progression gate (owner, 2026-09-04): every course but Handgun Fundamentals needs the attestation; Handgun Fundamentals
-  // and its ladies-only class never ask.
+  // Progression gate (owner, 2026-09-04): a course needs its discipline's Fundamentals (Handgun Fundamentals for disciplines
+  // without their own); P2 also needs the P1; Fundamentals courses never ask.
   stripeCalls.length = 0;
   const bare = await reg(goodReg({ sku: 'MAST-HG-OP', prerequisite: undefined })); const bb = await bare.json();
   ok('prerequisite: Handgun Operator without the attestation → 400 prerequisite', bare.status === 400 && bb.field === 'prerequisite' && bb.code === 'prerequisite', JSON.stringify(bb));
   ok('prerequisite: the refusal names Handgun Fundamentals', /Handgun Fundamentals/.test(bb.error || ''), bb.error);
   ok('prerequisite: Stripe not called without it', stripeCalls.length === 0);
-  const daBare = await reg(goodReg({ prerequisite: undefined }));
-  ok('prerequisite: any other course (Direct Action) without it → 400 too', daBare.status === 400, String(daBare.status));
+  const carb = await (await reg(goodReg({ sku: 'MAST-CAR-OP', prerequisite: undefined }))).json();
+  ok('prerequisite: Carbine Operator names Carbine Fundamentals', /MAST Carbine Fundamentals/.test(carb.error || '') && !/P1/.test(carb.error || ''), carb.error);
+  const nvg = await (await reg(goodReg({ sku: 'MAST-NVG-P2', prerequisite: undefined }))).json();
+  ok('prerequisite: NVG Operator P2 names Low-Light Fundamentals and a P1 course', /MAST Low-Light Fundamentals and a MAST P1 course/.test(nvg.error || ''), nvg.error);
+  const daBare = await reg(goodReg({ prerequisite: undefined })); const dab = await daBare.json();
+  ok('prerequisite: a discipline without its own Fundamentals (Direct Action) falls back to Handgun Fundamentals → 400', daBare.status === 400 && /Handgun Fundamentals/.test(dab.error || ''), String(daBare.status));
   const withIt = await reg(goodReg({ sku: 'MAST-HG-OP' })); const wb = await withIt.json();
   ok('prerequisite: attested → reaches Stripe', withIt.status === 200, String(withIt.status));
   const row = registrations.get(wb.registration_id);

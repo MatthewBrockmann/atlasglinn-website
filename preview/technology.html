@@ -57,7 +57,9 @@
   body.cinema .letterbox-top, body.cinema .letterbox-bottom { height:50px; }
   #intro-seq { position:fixed; inset:0; z-index:9000; background:#000; display:flex; align-items:center; justify-content:center; flex-direction:column; font-family:'Cinzel',serif; pointer-events:none; transition:opacity 1s ease-out; }
   #intro-seq.done { opacity:0; }
-  .intro-credit { font-size:.75rem; letter-spacing:.6em; color:var(--text-dim); opacity:0; animation:introFade 2.8s ease-in-out forwards; text-transform:uppercase; }
+  .intro-credit { position:relative; z-index:1; font-size:.75rem; letter-spacing:.6em; color:var(--text-dim); opacity:0; animation:introFade 2.8s ease-in-out forwards; text-transform:uppercase; }
+  /* The gold sparkle ring from the atlasglinn.com intro, drawn around the wordmark; the script fades it in after the wordmark and out before the splash ends. */
+  .intro-ring { position:absolute; inset:0; width:100%; height:100%; z-index:0; opacity:0; pointer-events:none; }
   .intro-credit:nth-child(1) { animation-delay:.3s; }
   .intro-credit:nth-child(2) { animation-delay:1.2s; margin-top:1.8rem; color:var(--gold); font-weight:900; font-size:1.5rem; letter-spacing:.35em; }
   .intro-credit:nth-child(3) { animation-delay:2.6s; margin-top:1.5rem; color:var(--gold-champagne); font-size:.85rem; letter-spacing:.5em; }
@@ -298,6 +300,7 @@
   <div class="intro-credit">Houston &middot; Texas</div>
   <div class="intro-credit wordmark">ATLAS GLINN</div>
   <div class="intro-credit">Executive Protection &middot; Intelligence &middot; Training</div>
+  <canvas class="intro-ring" id="intro-ring" aria-hidden="true"></canvas>
 </div>
 
 <canvas id="three-canvas"></canvas>
@@ -433,6 +436,31 @@ const openHero = () => {
 };
 if (reduce) { openHero(); } else {
   setTimeout(() => { intro.classList.add('done'); setTimeout(openHero, 1000); }, 4800);
+}
+// Gold ring (Brockmann, 2026-09-04: "the gold around the Atlas Glinn is what I was talking about ... take some of the gold shimmer
+// and fade it in and fade it out"): the sparkle ring of the current atlasglinn.com intro — a tilted, slowly turning, pulsing ring
+// of gold points — drawn in 2D around the wordmark. It fades in after the wordmark appears and out before the splash ends; the
+// wordmark itself keeps the page palette. Always gold, on both sites.
+const ring = document.getElementById('intro-ring');
+if (ring && !reduce) {
+  // rgb() on purpose: the ring is gold on every page, so these must not match the palette recolor's hex and rgba( tokens
+  const g = ring.getContext('2d'), P = [], gold = ['rgb(201 168 76)', 'rgb(232 210 125)', 'rgb(252 246 186)', 'rgb(191 149 63)', 'rgb(212 175 55)'];
+  const N = mobile ? 260 : 520;
+  const pick = () => gold[Math.floor(Math.random() * gold.length)];
+  for (let i = 0; i < N; i++) P.push({ a: Math.random() * Math.PI * 2, r: 1 + (Math.random() - .5) * .22, y: (Math.random() - .5) * .18, s: 1 + Math.random() * 2.2, c: pick(), o: .35 + Math.random() * .65, w: 1 + Math.random() * 2 });
+  for (let i = 0; i < N / 3; i++) P.push({ a: Math.random() * Math.PI * 2, r: 1.15 + Math.random() * .6, y: (Math.random() - .5) * .5, s: 1 + Math.random() * 1.5, c: pick(), o: .15 + Math.random() * .4, w: 1 + Math.random() * 2 });
+  const t0 = performance.now();
+  const fade = t => t < .9 ? 0 : t < 1.9 ? t - .9 : t < 3.6 ? 1 : t < 4.6 ? 1 - (t - 3.6) : 0;
+  const draw = () => {
+    if (!ring.isConnected) return;
+    const t = (performance.now() - t0) / 1000, W = ring.width = innerWidth, H = ring.height = innerHeight, k = fade(t);
+    ring.style.opacity = k; g.clearRect(0, 0, W, H);
+    if (t > 4.6) return;
+    const R = Math.min(W, H) * (mobile ? .42 : .34), cx = W / 2, cy = H / 2, rot = t * .3, pulse = 1 + Math.sin(t * 3) * .02, tilt = .62 + Math.sin(t) * .06;
+    for (const p of P) { const a = p.a + rot, x = cx + Math.cos(a) * R * p.r * pulse * 1.35, y = cy + Math.sin(a) * R * p.r * pulse * tilt + p.y * R; g.globalAlpha = p.o * (.7 + .3 * Math.sin(t * p.w * 2 + p.a * 7)); g.fillStyle = p.c; g.fillRect(x, y, p.s, p.s); }
+    requestAnimationFrame(draw);
+  };
+  requestAnimationFrame(draw);
 }
 
 // ── Reticle ──

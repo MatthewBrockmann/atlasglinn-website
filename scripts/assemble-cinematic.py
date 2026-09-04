@@ -166,7 +166,7 @@ SECTIONS = f"""
     <div>
       <div class="eyebrow">Course Catalog</div>
       <h2 class="section-h">Twenty-One <span class="gold">Courses.</span></h2>
-      <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Handgun Fundamentals first, unless you have taken it before. Every other course asks you to confirm that at registration.</b> P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
+      <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Fundamentals first, unless you have taken it before. Each discipline&rsquo;s Fundamentals course opens its other courses, and Select Date asks before the calendar opens.</b> P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
       <div class="catalog-wrap rise"><div class="glass"><div class="catalog-panel" id="catalog"></div></div>
       <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p></div>
     </div>
@@ -319,21 +319,18 @@ QUOTES_CSS = """
 # Palette (Brockmann, 2026-09-04): the page is Atlas blue ("blue is a color that is more trusted ... consistent where it
 # matters"), and the MAST gold stays where he named it: the hero wordmark ("This stays gold. shimmer as it was."), the class
 # selections ("keep the class selections in gold": the catalog chapter, the calendar and the registration sheet) and the
-# chapter menu ("gold ... bold + should be accented"). The booking CSS is spliced in after the recolor so its gold literals
-# survive, and the gold containers re-declare the gold tokens; everything else on the page recolors to blue.
+# chapter menu ("gold ... bold + should be accented"). The intro splash keeps the blue wordmark "as it was"; the gold that
+# comes in there is the shell's sparkle ring from the Atlas Glinn intro, fading in and out. The booking CSS is spliced in
+# after the recolor so its gold literals survive, and the gold containers re-declare the gold tokens; everything else on
+# the page recolors to blue.
 PALETTE = shell.ATLAS
 GOLD_KEEP = """
   #s5, .sheet, .sheet-bd, .modal, .modal-bd { --gold:#C9A84C; --gold-antique:#D4AF37; --gold-champagne:#E8D27D; --gold-bright:#FCF6BA; --copper:#B87333; }
   #s5 .gold, h1.mega .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
   h1.mega .gold { text-shadow:0 0 80px rgba(201,168,76,.3); }
-  #s5 .cta-button, #s5 .cta, .sheet .cta-button { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border-color:#E8D27D; }
-  #s5 .cta-button:hover, #s5 .cta:hover, .sheet .cta-button:hover { box-shadow:0 14px 44px rgba(201,168,76,.5); }
-  #s5 .cta-button.ghost-button, .sheet .cta-button.ghost-button { background:transparent; }
-  /* Intro splash (owner: "take some of the Atlas Glinn gold shimmer and add it to the existing intro ... not full-screen; just accents
-     come into MAST Solutions as it flashes"): the wordmark stays blue and a gold band sweeps through it on each pass of the shimmer;
-     the tagline under it is gold. */
-  .intro-credit.wordmark { background-image:linear-gradient(90deg, #1558B8 0%, #DCEBFF 16%, #1558B8 30%, #FCF6BA 42%, #BF953F 48%, #FCF6BA 54%, #0F4AA8 66%, #CFE2FF 82%, #1558B8 100%); text-shadow:0 0 60px rgba(201,168,76,.28); }
-  #intro-seq .intro-credit:nth-child(3) { color:#E8D27D; }
+  #s5 .cta-button, #s5 .cta, .sheet .cta-button, .modal .cta-button { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border-color:#E8D27D; }
+  #s5 .cta-button:hover, #s5 .cta:hover, .sheet .cta-button:hover, .modal .cta-button:hover { box-shadow:0 14px 44px rgba(201,168,76,.5); }
+  #s5 .cta-button.ghost-button, .sheet .cta-button.ghost-button, .modal .cta-button.ghost-button { background:transparent; }
   .chap-link { color:#E8D27D; }
   .chap-link::before { background:#C9A84C; }
   .chap-link:hover, .chap-link.active { color:#FCF6BA; border-color:rgba(201,168,76,.5); background:rgba(201,168,76,.06); }
