@@ -53,8 +53,13 @@ const DB = {
       _b(args) {
         return {
           async first() {
+            if (sql.includes('SUM(qty)') && sql.includes('FROM registrations')) {
+              let n = 0;
+              for (const r of registrations.values()) if (r.sku === args[0] && r.session_date === args[1] && (r.status === 'paid' || (r.status === 'pending' && r.created_at > args[2]))) n += Number(r.qty || 1);
+              return { n };
+            }
             if (sql.includes('FROM offerings')) {
-              const row = { 'MAST-DA': { sku: 'MAST-DA', name: 'Direct Action', price_cents: 69500 } }[args[0]];
+              const row = { 'MAST-DA': { sku: 'MAST-DA', name: 'Direct Action', price_cents: 69500, capacity: 10 } }[args[0]];
               return row || null;
             }
             if (sql.includes('FROM memberships')) {
@@ -294,6 +299,26 @@ const reg = (body) => post('/register', body);
   ok('answers row written separately with a purge date', answers.length === 1 && answers[0][4] > row.created_at);
   ok('stripe session id written back to the registration', row.stripe_session_id === 'cs_test_123');
   ok('no email sent for a cleared registration before payment', emails.length === 0);
+}
+{
+  // Capacity: MAST-DA is a 10-seat course in the fake catalog. Fill the first weekend, then the 11th seat is refused.
+  stripeCalls.length = 0;
+  const already = [...registrations.values()].filter((r) => r.sku === 'MAST-DA' && r.session_date === FIRST_WEEKEND && r.status === 'pending').reduce((s, r) => s + Number(r.qty || 1), 0);
+  const SECOND_WEEKEND = '2026-10-24';   // seeded fortnightly: 09-26, 10-10, 10-24 …
+  const upTo9 = await reg(goodReg({ qty: 9 - already })); const r9 = await upTo9.json();
+  ok('capacity: booking up to one seat short still reaches Stripe', upTo9.status === 200, String(upTo9.status));
+  const tenth = await reg(goodReg({ qty: 1 })); const r10 = await tenth.json();
+  ok('capacity: the last seat still sells', tenth.status === 200, String(tenth.status));
+  const over = await reg(goodReg({ qty: 1 })); const ob = await over.json();
+  ok('capacity: the 11th seat is refused with 409 sold_out and 0 left', over.status === 409 && ob.code === 'sold_out' && ob.seats_left === 0, JSON.stringify(ob));
+  ok('capacity: no Stripe session for the refused seat', stripeCalls.length === 2);
+  const other = await reg(goodReg({ qty: 1, session_date: SECOND_WEEKEND })); const ro = await other.json();
+  ok('capacity: another weekend of the same course is unaffected', other.status === 200, String(other.status));
+  const tooMany = await reg(goodReg({ qty: 10, session_date: SECOND_WEEKEND }));   // 1 taken, 9 left, 10 asked
+  const tb = await tooMany.json();
+  ok('capacity: a block bigger than the seats left is refused and told how many remain', tooMany.status === 409 && tb.seats_left === 9, JSON.stringify(tb));
+  // Release the seats this block took so the fixture weekend is open again for the tests that follow.
+  for (const id of [r9.registration_id, r10.registration_id, ro.registration_id]) { const row = registrations.get(id); if (row) row.status = 'abandoned'; }
 }
 {
   stripeCalls.length = 0; emails.length = 0; const before = registrations.size;
