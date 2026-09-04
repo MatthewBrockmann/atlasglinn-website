@@ -106,7 +106,7 @@ CHROME = shell.chrome(
 SECTIONS = f"""
   <section class="panel" id="s1" data-section="01">
     <div>
-      <div class="eyebrow">34 Years &middot; Quiet &middot; Deliberate</div>
+      <div class="eyebrow">Over Two Decades &middot; Quiet &middot; Deliberate</div>
       <h1 class="mega"><span class="gold">Details</span> <span class="white">Matter.</span></h1>
       <p class="sub">Trusted by DEA, Houston SWAT, US Military, and Homeland Security. No fluff. No shortcuts. No compromise.</p>
       <div class="ctas rise"><a href="#s5" class="cta">Enter The Range</a><a href="#s6" class="secondary-cta">The Instructors</a></div>
@@ -122,7 +122,7 @@ SECTIONS = f"""
       <div class="stats rise">
         <div class="stat"><div class="stat-num" data-count="1701" data-suffix="+">0</div><div class="stat-label">Students Trained</div></div>
         <div class="stat"><div class="stat-num" data-count="21">0</div><div class="stat-label">Courses</div></div>
-        <div class="stat"><div class="stat-num" data-count="34">0</div><div class="stat-label">Years of Experience</div></div>
+        <div class="stat"><div class="stat-num" data-count="20" data-suffix="+">0</div><div class="stat-label">Years &middot; Over Two Decades</div></div>
       </div>
     </div>
   </section>
