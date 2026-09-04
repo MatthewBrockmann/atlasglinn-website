@@ -173,6 +173,10 @@
   .banner { background:var(--gold); color:#000; }
   .quals-list li::marker, .quals-list li b { color:var(--gold-champagne); }
   @media (max-width:900px) { .founder, .cert { grid-template-columns:1fr; } .founder .portrait { min-height:360px; } .tiles, .tiles.four { grid-template-columns:1fr 1fr; } }
+  /* The fixed chapter nav on the right needs its own lane: at laptop widths keep the labels and give the panels a right
+     margin; on tablets collapse the nav to its tick marks so the content keeps most of the width. */
+  @media (min-width:1025px) and (max-width:1600px) { section.panel { padding-right:16.5rem; } }
+  @media (min-width:769px) and (max-width:1024px) { section.panel { padding-right:4.5rem; } .chapter-nav { right:.8rem; gap:.35rem; } .chap-link { font-size:0; padding:.3rem .4rem; gap:0; } .chap-link::before { width:16px; } .chap-link.active::before, .chap-link:hover::before { width:22px; } }
   @media (max-width:768px) {
     html, body { cursor:auto; } .cta, .cta-button, .secondary-cta, .chap-link, .qty button { cursor:pointer; }
     .reticle, .chapter-nav { display:none; }

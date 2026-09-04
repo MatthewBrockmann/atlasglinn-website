@@ -328,12 +328,14 @@ build('index.html',
             ltile('05', 'AI Surveillance', 'AI-powered intelligence gathering, threat assessment, and real-time analytics.', CCTV, 'technology.html'),
             ltile('06', 'Disaster Recovery', 'Rapid response and asset protection during crisis situations.', AG3, 'disaster-recovery.html'),
         ]))),
-    # The four counters exactly as the current home page carries them (approved copy; the senator count is his to change).
+    # Brockmann, 2026-09-04: "Hours of experience is wrong, and number of US senators is wrong" (the current site said
+    # 1,500 hours / 2 senators). 34 years is the figure in his approved bio; three senators are named in the protectee
+    # line; the trained count rolls to an odd number ("seven twenty nine or something like that") until he has the exact one.
     ('By the Numbers', section(3, 'Atlas Glinn &middot; Houston', f'By the {blue("Numbers.")}', '',
-        '<div class="stats four rise"><div class="stat"><div class="stat-num" data-count="1500">0</div><div class="stat-label">Hours of Experience</div></div>'
-        '<div class="stat"><div class="stat-num" data-count="2">0</div><div class="stat-label">U.S. Senators Protected</div></div>'
+        '<div class="stats four rise"><div class="stat"><div class="stat-num" data-count="34">0</div><div class="stat-label">Years of Experience</div></div>'
+        '<div class="stat"><div class="stat-num" data-count="3">0</div><div class="stat-label">U.S. Senators Protected</div></div>'
         '<div class="stat"><div class="stat-num" data-count="17">0</div><div class="stat-label">Partnerships</div></div>'
-        '<div class="stat"><div class="stat-num" data-count="700">0</div><div class="stat-label">Professionals Trained</div></div></div>')),
+        '<div class="stat"><div class="stat-num" data-count="729">0</div><div class="stat-label">Professionals Trained</div></div></div>')),
     ('The Film', section(4, 'Atlas Glinn &amp; MAST Solutions', f'Watch the {blue("Film.")}', 'Twenty-seven seconds of the work: motorcade operations, the shoothouse, and the team behind both companies.',
         '<div class="yt-grid one rise">' + film_card('images/film/atlas-glinn-and-mast-solutions.mp4', 'images/film/atlas-glinn-and-mast-solutions-poster.jpg', 'Atlas Glinn &amp; MAST Solutions', 'The film from the atlasglinn.com home page') + '</div>')),
     ('Atlas EP', section(5, 'Built by Atlas Glinn', f'The Atlas EP {blue("Platform.")}',

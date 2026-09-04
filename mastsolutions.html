@@ -213,6 +213,7 @@
 .yt .play::after { content: ''; border-left: 20px solid #fff; border-top: 12px solid transparent; border-bottom: 12px solid transparent; margin-left: 5px; }
 .yt:hover .play { background: #C9A84C; border-color: #C9A84C; }
 .yt iframe, .yt video { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.yt video.teaser { object-fit: cover; opacity: .92; pointer-events: none; }
 .yt.mp4 { background: linear-gradient(135deg, #0B1221, #050810); }
 .yt.mp4 .lbl { position: absolute; left: 16px; bottom: 14px; font-family: 'Share Tech Mono', monospace; font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; color: #C9A84C; }
 .video-card-info { padding: 14px 18px; }
@@ -334,6 +335,10 @@
   .banner { background:var(--gold); color:#000; }
   .quals-list li::marker, .quals-list li b { color:var(--gold-champagne); }
   @media (max-width:900px) { .founder, .cert { grid-template-columns:1fr; } .founder .portrait { min-height:360px; } .tiles, .tiles.four { grid-template-columns:1fr 1fr; } }
+  /* The fixed chapter nav on the right needs its own lane: at laptop widths keep the labels and give the panels a right
+     margin; on tablets collapse the nav to its tick marks so the content keeps most of the width. */
+  @media (min-width:1025px) and (max-width:1600px) { section.panel { padding-right:16.5rem; } }
+  @media (min-width:769px) and (max-width:1024px) { section.panel { padding-right:4.5rem; } .chapter-nav { right:.8rem; gap:.35rem; } .chap-link { font-size:0; padding:.3rem .4rem; gap:0; } .chap-link::before { width:16px; } .chap-link.active::before, .chap-link:hover::before { width:22px; } }
   @media (max-width:768px) {
     html, body { cursor:auto; } .cta, .cta-button, .secondary-cta, .chap-link, .qty button { cursor:pointer; }
     .reticle, .chapter-nav { display:none; }
@@ -1025,22 +1030,25 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('pol
 
 /* Hero film + volume */
 const MEDIA = [
-  { mp4: 'images/mast/jason-castro-testimonial.mp4', poster: 'images/mast/jason-castro-testimonial-poster.jpg', title: 'Jason Castro', sub: 'Student testimonial' },
-  { mp4: 'images/mast/mast-cqb.mp4', poster: 'images/mast/mast-cqb-poster.jpg', title: 'CQB', sub: 'Night-vision room clearing, then the range' },
-  { mp4: 'images/mast/mast-vid-1.mp4', poster: 'images/mast/mast-vid-1-poster.jpg', title: 'MAST Solutions', sub: 'On the range' },
-  { mp4: 'images/mast/mast-vid-2.mp4', poster: 'images/mast/mast-vid-2-poster.jpg', title: 'MAST Solutions', sub: 'Training day' },
-  { mp4: 'images/mast/mast-medical.mp4', poster: 'images/mast/mast-medical-poster.jpg', title: 'Medical', sub: 'Tourniquet under pressure' },
-  { mp4: 'images/mast/mast-shotgun.mp4', poster: 'images/mast/mast-shotgun-poster.jpg', title: 'Shotgun', sub: 'Breaching and patterning' },
-  { mp4: 'images/mast/forge-ignition-orlando.mp4', poster: 'images/mast/forge-ignition-orlando-poster.jpg', title: 'Forge Ignition', sub: 'Orlando' },
+  { mp4: 'images/mast/jason-castro-testimonial.mp4', teaser: 'images/mast/jason-castro-testimonial-teaser.mp4', poster: 'images/mast/jason-castro-testimonial-poster.jpg', title: 'Jason Castro', sub: 'Student testimonial' },
+  { mp4: 'images/mast/mast-cqb.mp4', teaser: 'images/mast/mast-cqb-teaser.mp4', poster: 'images/mast/mast-cqb-poster.jpg', title: 'CQB', sub: 'Night-vision room clearing, then the range' },
+  { mp4: 'images/mast/mast-vid-1.mp4', teaser: 'images/mast/mast-vid-1-teaser.mp4', poster: 'images/mast/mast-vid-1-poster.jpg', title: 'MAST Solutions', sub: 'On the range' },
+  { mp4: 'images/mast/mast-vid-2.mp4', teaser: 'images/mast/mast-vid-2-teaser.mp4', poster: 'images/mast/mast-vid-2-poster.jpg', title: 'MAST Solutions', sub: 'Training day' },
+  { mp4: 'images/mast/mast-medical.mp4', teaser: 'images/mast/mast-medical-teaser.mp4', poster: 'images/mast/mast-medical-poster.jpg', title: 'Medical', sub: 'Tourniquet under pressure' },
+  { mp4: 'images/mast/mast-shotgun.mp4', teaser: 'images/mast/mast-shotgun-teaser.mp4', poster: 'images/mast/mast-shotgun-poster.jpg', title: 'Shotgun', sub: 'Breaching and patterning' },
+  { mp4: 'images/mast/forge-ignition-orlando.mp4', teaser: 'images/mast/forge-ignition-orlando-teaser.mp4', poster: 'images/mast/forge-ignition-orlando-poster.jpg', title: 'Forge Ignition', sub: 'Orlando' },
   { yt: 'pSGWdaDglZE', title: 'Modern Shooter TV', sub: 'Lance M / Castro / Ray Cash — MAST Solutions' },
   { yt: 'jwQ5OyKEKwg', title: 'Training Reel', sub: 'The film behind the Training page' },
 ];
 (function(){
   const host = $('media-strip');
-  host.innerHTML = MEDIA.filter(i => i.yt || i.mp4).map(i => `<div class="video-card"><div class="yt${i.mp4 ? ' mp4' : ''}" role="button" tabindex="0" aria-label="Play ${esc(i.title)}" ${i.yt ? `data-yt="${esc(i.yt)}"` : `data-mp4="${esc(i.mp4)}"`}>${i.yt ? `<img src="https://i.ytimg.com/vi/${esc(i.yt)}/hqdefault.jpg" alt="" loading="lazy" decoding="async">` : i.poster ? `<img src="${esc(i.poster)}" alt="" loading="lazy" decoding="async">` : `<span class="lbl">MAST Solutions · Film</span>`}<span class="play" aria-hidden="true"></span></div><div class="video-card-info"><h4>${esc(i.title)}</h4><p>${esc(i.sub || '')}</p></div></div>`).join('');
+  host.innerHTML = MEDIA.filter(i => i.yt || i.mp4).map(i => `<div class="video-card"><div class="yt${i.mp4 ? ' mp4' : ''}" role="button" tabindex="0" aria-label="Play ${esc(i.title)}" ${i.yt ? `data-yt="${esc(i.yt)}"` : `data-mp4="${esc(i.mp4)}"`}>${i.yt ? `<img src="https://i.ytimg.com/vi/${esc(i.yt)}/hqdefault.jpg" alt="" loading="lazy" decoding="async">` : i.teaser ? `<video class="teaser" muted loop playsinline preload="none" poster="${esc(i.poster || '')}" data-src="${esc(i.teaser)}" aria-hidden="true"></video>` : i.poster ? `<img src="${esc(i.poster)}" alt="" loading="lazy" decoding="async">` : `<span class="lbl">MAST Solutions · Film</span>`}<span class="play" aria-hidden="true"></span></div><div class="video-card-info"><h4>${esc(i.title)}</h4><p>${esc(i.sub || '')}</p></div></div>`).join('');
   const play = el => { if (el.dataset.done) return; el.dataset.done = '1'; let node; if (el.dataset.yt) { node = document.createElement('iframe'); node.src = `https://www.youtube.com/embed/${el.dataset.yt}?autoplay=1&rel=0&modestbranding=1&playsinline=1`; node.title = el.getAttribute('aria-label'); node.allow = 'accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture'; node.setAttribute('allowfullscreen', ''); } else { node = document.createElement('video'); node.src = el.dataset.mp4; node.controls = true; node.autoplay = true; node.playsInline = true; node.preload = 'none'; } el.innerHTML = ''; el.appendChild(node); el.style.cursor = 'default'; };
   host.addEventListener('click', e => { const el = e.target.closest('.yt'); if (el) play(el); });
   host.addEventListener('keydown', e => { const el = e.target.closest('.yt'); if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); play(el); } });
+  // Teasers (Brockmann, 2026-09-04: "each video should have a small snippet play"): a six-second muted loop runs while the
+  // card is on screen and pauses off screen; nothing downloads before then. The tap still plays the full film in place.
+  if ('IntersectionObserver' in window) { const tio = new IntersectionObserver(en => en.forEach(x => { const v = x.target; if (x.isIntersecting) { if (!v.getAttribute('src')) v.src = v.dataset.src; v.play().catch(() => {}); } else if (v.getAttribute('src')) v.pause(); }), { threshold: .5 }); host.querySelectorAll('video.teaser').forEach(v => tio.observe(v)); }
 })();
 
 /* Counters (animate on entry) */

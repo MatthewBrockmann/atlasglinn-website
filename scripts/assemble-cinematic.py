@@ -55,13 +55,13 @@ c = js.index("(function(){\n  const io = new IntersectionObserver(en => en.forEa
 js = js[:a] + js[b:c]
 # replace the MEDIA array with the curated set (local clips first, then the two YouTube films that are verifiably MAST)
 media = """const MEDIA = [
-  { mp4: 'images/mast/jason-castro-testimonial.mp4', poster: 'images/mast/jason-castro-testimonial-poster.jpg', title: 'Jason Castro', sub: 'Student testimonial' },
-  { mp4: 'images/mast/mast-cqb.mp4', poster: 'images/mast/mast-cqb-poster.jpg', title: 'CQB', sub: 'Night-vision room clearing, then the range' },
-  { mp4: 'images/mast/mast-vid-1.mp4', poster: 'images/mast/mast-vid-1-poster.jpg', title: 'MAST Solutions', sub: 'On the range' },
-  { mp4: 'images/mast/mast-vid-2.mp4', poster: 'images/mast/mast-vid-2-poster.jpg', title: 'MAST Solutions', sub: 'Training day' },
-  { mp4: 'images/mast/mast-medical.mp4', poster: 'images/mast/mast-medical-poster.jpg', title: 'Medical', sub: 'Tourniquet under pressure' },
-  { mp4: 'images/mast/mast-shotgun.mp4', poster: 'images/mast/mast-shotgun-poster.jpg', title: 'Shotgun', sub: 'Breaching and patterning' },
-  { mp4: 'images/mast/forge-ignition-orlando.mp4', poster: 'images/mast/forge-ignition-orlando-poster.jpg', title: 'Forge Ignition', sub: 'Orlando' },
+  { mp4: 'images/mast/jason-castro-testimonial.mp4', teaser: 'images/mast/jason-castro-testimonial-teaser.mp4', poster: 'images/mast/jason-castro-testimonial-poster.jpg', title: 'Jason Castro', sub: 'Student testimonial' },
+  { mp4: 'images/mast/mast-cqb.mp4', teaser: 'images/mast/mast-cqb-teaser.mp4', poster: 'images/mast/mast-cqb-poster.jpg', title: 'CQB', sub: 'Night-vision room clearing, then the range' },
+  { mp4: 'images/mast/mast-vid-1.mp4', teaser: 'images/mast/mast-vid-1-teaser.mp4', poster: 'images/mast/mast-vid-1-poster.jpg', title: 'MAST Solutions', sub: 'On the range' },
+  { mp4: 'images/mast/mast-vid-2.mp4', teaser: 'images/mast/mast-vid-2-teaser.mp4', poster: 'images/mast/mast-vid-2-poster.jpg', title: 'MAST Solutions', sub: 'Training day' },
+  { mp4: 'images/mast/mast-medical.mp4', teaser: 'images/mast/mast-medical-teaser.mp4', poster: 'images/mast/mast-medical-poster.jpg', title: 'Medical', sub: 'Tourniquet under pressure' },
+  { mp4: 'images/mast/mast-shotgun.mp4', teaser: 'images/mast/mast-shotgun-teaser.mp4', poster: 'images/mast/mast-shotgun-poster.jpg', title: 'Shotgun', sub: 'Breaching and patterning' },
+  { mp4: 'images/mast/forge-ignition-orlando.mp4', teaser: 'images/mast/forge-ignition-orlando-teaser.mp4', poster: 'images/mast/forge-ignition-orlando-poster.jpg', title: 'Forge Ignition', sub: 'Orlando' },
   { yt: 'pSGWdaDglZE', title: 'Modern Shooter TV', sub: 'Lance M / Castro / Ray Cash — MAST Solutions' },
   { yt: 'jwQ5OyKEKwg', title: 'Training Reel', sub: 'The film behind the Training page' },
 ];
