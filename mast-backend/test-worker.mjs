@@ -1,10 +1,24 @@
-import worker from '/home/user/atlasglinn-website/mast-backend/src/worker.js';
+import worker from './src/worker.js';
+import { execFileSync } from 'node:child_process';
+import { readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 
 let pass = 0, fail = 0;
 const ok = (name, cond, extra = '') => {
   if (cond) { pass++; console.log('  ✓', name); }
   else { fail++; console.log('  ✗', name, extra); }
 };
+
+// ── every source file must parse ──
+// The tests never import agreement-asset.js (it carries a .pdf Data module Node cannot load), so a syntax error there
+// reached `wrangler deploy` once (a star-slash inside a block comment). `node --check` parses each file without running it.
+const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), 'src');
+for (const f of readdirSync(SRC).filter(n => n.endsWith('.js')).sort()) {
+  let err = '';
+  try { execFileSync(process.execPath, ['--check', path.join(SRC, f)], { stdio: ['ignore', 'ignore', 'pipe'] }); } catch (e) { err = String(e.stderr || e.message).split('\n').slice(0, 3).join(' | '); }
+  ok(`parses: src/${f}`, !err, err);
+}
 
 // ── fake env ──
 const stripeCalls = [];
