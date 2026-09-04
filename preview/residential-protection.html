@@ -47,7 +47,10 @@
   #three-canvas { position:fixed; inset:0; width:100vw; height:100vh; z-index:1; pointer-events:none; }
   /* Photography layer: one still per chapter, ghosted behind the 3D emblem and the grain */
   #photos { position:fixed; inset:0; z-index:2; pointer-events:none; }
-  #photos .ph { position:absolute; inset:0; background:center/cover no-repeat; opacity:0; transition:opacity 1.4s ease; filter:saturate(.55) contrast(1.08); }
+  /* Backdrop crossfade: the outgoing photograph leaves faster than the incoming one arrives, so the two never stack to a brighter
+     frame mid-switch (Brockmann, 2026-09-04: "the background pulled forward"). */
+  #photos .ph { position:absolute; inset:0; background:center/cover no-repeat; opacity:0; transition:opacity .6s ease; filter:saturate(.55) contrast(1.08); }
+  #photos .ph.on { transition:opacity 1.6s ease .3s; }
   #photos .ph::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.55) 0%, rgba(5,8,16,.15) 45%, rgba(5,8,16,.8) 100%); }
   #photos .ph.on { opacity:.34; }
   .grain { position:fixed; inset:0; z-index:3; pointer-events:none; opacity:.035; background-image:repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(255,255,255,.3) 2px, rgba(255,255,255,.3) 3px); mix-blend-mode:overlay; }
