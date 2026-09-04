@@ -52,6 +52,9 @@ export default {
       if (url.pathname === '/register' && request.method === 'POST') {
         return await handleRegister(request, env, cors);
       }
+      if (url.pathname === '/contact' && request.method === 'POST') {
+        return await handleContact(request, env, cors);
+      }
       if (url.pathname === '/create-booking' && request.method === 'POST') {
         return await handleBooking(request, env, cors);
       }
@@ -514,6 +517,62 @@ async function notifyReview(env, reg) {
     return;
   }
   await sendEmail(env, { to: list(env.NOTIFY_EMAIL), subject: 'Eligibility review needed: ' + reg.customer_name + ' · ' + reg.item_name, text });
+}
+
+/* ──────────────────────── Site contact + capability requests ──────────────────────── */
+
+/**
+ * POST /contact — the Atlas Glinn contact form and the capability-statement request.
+ * Replaces the mailto: forms, which delivered nothing when the visitor had no mail client and
+ * showed a success message anyway. Sends one email to NOTIFY_EMAIL with reply-to set to the
+ * sender. A filled honeypot field returns 200 and sends nothing.
+ */
+async function handleContact(request, env, cors) {
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== 'object') return json({ error: 'Bad request' }, 400, cors);
+  if (str(body.website)) return json({ ok: true }, 200, cors); // honeypot
+  const kind = str(body.kind) === 'capability' ? 'capability' : 'contact';
+  const name = str(body.name).trim();
+  const email = String(body.email || '').trim().toLowerCase();
+  const phone = str(body.phone).trim();
+  const message = String(body.message || '').slice(0, 4000).trim();
+  if (name.length < 2) return json({ error: 'Enter your name.', field: 'name' }, 400, cors);
+  if (!isEmail(email)) return json({ error: 'Enter a valid email address.', field: 'email' }, 400, cors);
+  if (kind === 'contact' && message.length < 2) return json({ error: 'Enter a message.', field: 'message' }, 400, cors);
+  const meta = {
+    company: str(body.company).trim(), status: str(body.status).trim(), request_type: str(body.request_type).trim(),
+    page: str(body.page).trim(), ip: request.headers.get('CF-Connecting-IP') || '',
+  };
+  const subject = kind === 'capability'
+    ? 'Capability statement request: ' + name + (meta.company ? ' · ' + meta.company : '')
+    : 'Website contact: ' + name;
+  const text = [
+    kind === 'capability' ? 'CAPABILITY STATEMENT REQUEST' : 'WEBSITE CONTACT',
+    '',
+    'Name:     ' + name,
+    'Email:    ' + email,
+    'Phone:    ' + (phone || '(not given)'),
+    meta.company ? 'Company:  ' + meta.company : null,
+    meta.status ? 'Status:   ' + meta.status : null,
+    meta.request_type ? 'Request:  ' + meta.request_type : null,
+    '',
+    message ? 'Message:\n' + message : null,
+    '',
+    'Page:     ' + (meta.page || '—'),
+    'Received: ' + new Date().toISOString(),
+  ].filter((l) => l !== null).join('\n');
+  if (!env.NOTIFY_EMAIL || !env.RESEND_API_KEY) {
+    console.error('[Contact] Email not configured (need NOTIFY_EMAIL + RESEND_API_KEY). Message:\n' + text);
+    return json({ error: 'The contact form is not connected yet. Please call (281) 654-8100 or email atlasglinn.hq@atlasglinn.com.' }, 503, cors);
+  }
+  try {
+    await sendEmail(env, { to: list(env.NOTIFY_EMAIL), reply_to: email, subject, text });
+  } catch (e) {
+    console.error('[Contact] send failed:', e.message);
+    return json({ error: 'We could not send your message. Please call (281) 654-8100.' }, 502, cors);
+  }
+  console.log('[Contact] Sent:', kind, email);
+  return json({ ok: true }, 200, cors);
 }
 
 /* ────────────────────── Membership (recurring) ────────────────────── */

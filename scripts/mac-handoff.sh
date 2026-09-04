@@ -75,6 +75,10 @@ DEFAULT_SOURCES=(
   "$R/images/about-hero-new.mp4"
   "https://atlasglinn.com/wp-content/uploads/2025/04/Atlas-Glinn-and-MAST-Solutions.mp4"
 )
+# A cloud session can queue more URLs for the Mac to fetch by adding them to scripts/handoff-urls.txt on main
+# (one per line, # comments allowed). The Mac has open internet; the cloud container does not.
+URL_LIST="$(curl -fsSL "https://raw.githubusercontent.com/MatthewBrockmann/atlasglinn-website/main/scripts/handoff-urls.txt" 2>/dev/null | grep -E '^https?://' || true)"
+if [ -n "$URL_LIST" ]; then while IFS= read -r u; do [ -n "$u" ] && DEFAULT_SOURCES+=("$u"); done <<< "$URL_LIST"; fi
 if [ "${HANDOFF_ONLY:-0}" = "1" ]; then SOURCES=("$@"); else SOURCES=("${DEFAULT_SOURCES[@]}" "$@"); fi
 
 # 2. Fetch. If the handoff branch already exists remotely, build on it.

@@ -13,6 +13,17 @@ stack (catalog, calendar, checkout, quals modal, media strip) from
 is the earlier Atlas-frame build, kept noindex just in case; `mastsolutions-cinematic.html`
 is a redirect stub for the preview links that were shared.
 
+## Atlas Glinn pages (decided by Brockmann 2026-09-03: "SAME front end", mobile first)
+
+`index.html`, `executive-protection.html`, `residential-protection.html`, `disaster-recovery.html`,
+`training.html`, `technology.html`, `cuas-aerodefense.html`, `uas.html`, `about.html`,
+`careers.html` and `contact.html` are **generated** by `scripts/assemble-atlas.py` on the
+same cinematic shell as the MAST page (`scripts/cinematic_shell.py`, ATLAS blue palette,
+site menu overlay). Edit the assembler and re-run it; never hand-edit those files. The
+previous builds are kept as `*-atlas.html` (noindex). `ep-app.html`, `signup.html`,
+`privacy.html`, `terms.html` and the articles are still hand-authored. Forms post JSON to
+the booking Worker's `POST /contact`; nothing uses `mailto:` any more.
+
 ## Claude SEO toolchain (vendored)
 
 This repo carries the [Claude SEO](https://github.com/AgriciDaniel/claude-seo)

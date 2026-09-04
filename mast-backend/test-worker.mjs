@@ -352,6 +352,22 @@ const reg = (body) => post('/register', body);
   ok('roster view=registrations lists registrations', res.status === 200 && Array.isArray(body.registrations) && body.registrations.length >= 2);
 }
 
+console.log('\n── Site contact + capability requests ──');
+{
+  emails.length = 0;
+  const res = await post('/contact', { name: 'Jane Doe', email: 'Jane@Example.com', phone: '(713) 555-0100', message: 'Need a residential assessment.', page: 'contact.html' });
+  ok('contact form sends one email, 200', res.status === 200 && emails.length === 1, 'status=' + res.status + ' emails=' + emails.length);
+  ok('email has reply-to the sender and the message', emails[0] && emails[0].reply_to === 'jane@example.com' && /residential assessment/.test(emails[0].text));
+  emails.length = 0;
+  const cap = await post('/contact', { kind: 'capability', name: 'Jane Doe', email: 'jane@example.com', company: 'Acme', status: 'Need security', request_type: 'RFP' });
+  ok('capability request needs no message, subject names it', cap.status === 200 && emails.length === 1 && emails[0].subject.startsWith('Capability statement request'));
+  emails.length = 0;
+  const bot = await post('/contact', { name: 'Bot', email: 'bot@example.com', message: 'hi', website: 'http://spam' });
+  ok('honeypot filled → 200 and nothing sent', bot.status === 200 && emails.length === 0);
+  const bad = await post('/contact', { name: 'J', email: 'nope', message: '' });
+  ok('invalid contact rejected with 400', bad.status === 400);
+}
+
 console.log('\n── Agreement PDF fill (the real form, pdf-lib) ──');
 {
   const { readFileSync } = await import('node:fs');

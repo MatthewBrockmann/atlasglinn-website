@@ -177,7 +177,7 @@ CSS_B = r"""
   @media (max-width:768px) {
     html, body { cursor:auto; } .cta, .cta-button, .secondary-cta, .chap-link, .qty button { cursor:pointer; }
     .reticle, .chapter-nav { display:none; }
-    .hud { font-size:.55rem; } .hud.tr { right:1.8rem; }
+    .hud { font-size:.55rem; } .hud.tr { right:1.8rem; } .hud.bl, .hud.br { display:none; }
     .stats { grid-template-columns:1fr; gap:1rem; }
     .tiles, .tiles.four { grid-template-columns:1fr; } .tile, .tiles.four .tile { min-height:220px; }
     section.panel { padding:5rem 1rem; }
@@ -461,3 +461,41 @@ def tile(num, title, body, img, pos='center'):
 def tail(three_js, classic_js=''):
     return ('\n<script type="module">' + three_js + '</script>\n'
             + ('<script>' + classic_js + '</script>\n' if classic_js else '') + '</body>\n</html>\n')
+
+
+# ── Site navigation for the multi-page Atlas Glinn build: a MENU control in the HUD row and a full-screen overlay. ──
+# Mobile first: the overlay is a single column of large targets; on desktop it is a two-column grid.
+SITENAV_CSS = r"""
+  .menu-btn { position:fixed; top:.95rem; right:1.8rem; z-index:9500; font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.35em; color:var(--gold-champagne); background:rgba(5,8,16,.55); border:1px solid rgba(201,168,76,.4); padding:.5rem .9rem .5rem 1.1rem; cursor:none; backdrop-filter:blur(8px); text-transform:uppercase; }
+  .menu-btn:hover { background:rgba(201,168,76,.12); border-color:var(--gold); }
+  .sitenav { position:fixed; inset:0; z-index:9400; background:rgba(5,8,16,.94); backdrop-filter:blur(14px); display:flex; align-items:center; justify-content:center; opacity:0; visibility:hidden; transition:opacity .35s, visibility .35s; }
+  .sitenav.open { opacity:1; visibility:visible; }
+  .sitenav-in { width:min(920px, 100%); padding:5rem 1.5rem 3rem; text-align:left; }
+  .sitenav .eyebrow { opacity:1; transform:none; margin-bottom:1.2rem; }
+  .sitenav ul { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:1fr 1fr; gap:.4rem 2rem; }
+  .sitenav a { display:block; padding:.75rem 0; font-family:'Orbitron',sans-serif; font-weight:700; font-size:clamp(1rem,1.6vw,1.25rem); letter-spacing:.06em; color:var(--text); text-decoration:none; border-bottom:1px solid rgba(201,168,76,.15); cursor:none; transition:color .25s, padding-left .25s; }
+  .sitenav a small { display:block; font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.6rem; letter-spacing:.3em; color:var(--text-mute); text-transform:uppercase; margin-top:.2rem; }
+  .sitenav a:hover, .sitenav a.here { color:var(--gold-champagne); padding-left:.4rem; }
+  .sitenav .foot { margin-top:2rem; text-align:left; }
+  .hud.tr { right:8.5rem; }
+  @media (max-width:768px) { .menu-btn { top:.8rem; right:1rem; cursor:pointer; } .sitenav a { cursor:pointer; padding:.85rem 0; } .sitenav ul { grid-template-columns:1fr; gap:0; } .sitenav-in { padding:4.5rem 1.2rem 2rem; max-height:100vh; overflow-y:auto; } .hud.tr { display:none; } }
+"""
+
+SITENAV_JS = r"""
+(function(){
+  const nav = document.getElementById('sitenav'), btn = document.getElementById('menu-btn');
+  if (!nav || !btn) return;
+  const set = open => { nav.classList.toggle('open', open); btn.textContent = open ? 'CLOSE ×' : 'MENU ≡'; btn.setAttribute('aria-expanded', open); document.body.style.overflow = open ? 'hidden' : ''; };
+  btn.addEventListener('click', () => set(!nav.classList.contains('open')));
+  nav.addEventListener('click', e => { if (e.target === nav || e.target.closest('a')) set(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && nav.classList.contains('open')) set(false); });
+})();
+"""
+
+
+def sitenav(links, here, foot_html=''):
+    """links: [(href, label, sublabel)]; here: the current page href (marked)."""
+    items = '\n'.join('      <li><a href="%s"%s>%s<small>%s</small></a></li>' % (h, ' class="here"' if h == here else '', l, s) for h, l, s in links)
+    return ('<button class="menu-btn" id="menu-btn" type="button" aria-controls="sitenav" aria-expanded="false">MENU &#8801;</button>\n'
+            '<div class="sitenav" id="sitenav" role="dialog" aria-label="Site menu">\n  <div class="sitenav-in">\n    <div class="eyebrow">Atlas Glinn, LLC &middot; Houston</div>\n    <ul>\n'
+            + items + '\n    </ul>\n' + ('    <div class="foot">' + foot_html + '</div>\n' if foot_html else '') + '  </div>\n</div>\n')

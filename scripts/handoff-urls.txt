@@ -1,0 +1,27 @@
+# URLs the Mac fetches on every handoff run (scripts/mac-handoff.sh reads this file from main).
+# The cloud container cannot reach atlasglinn.com; the Mac can. Each lands in reference/desktop/ by file name.
+# Added 2026-09-04: every WordPress-hosted asset the Atlas Glinn pages still depend on, so the cinematic
+# rebuild can serve them from images/ on GitHub Pages instead of the WordPress uploads folder.
+https://atlasglinn.com/wp-content/uploads/2025/04/Atlas-Glinn-and-MAST-Solutions.mp4
+https://atlasglinn.com/wp-content/uploads/2025/02/AI-surveillance-1.png
+https://atlasglinn.com/wp-content/uploads/2025/02/Atlas-Glinn-Logo-Rev1-1.png
+https://atlasglinn.com/wp-content/uploads/2025/02/Atlas-Glinn-Logo-Rev1-2-e1744918824251.png
+https://atlasglinn.com/wp-content/uploads/2025/02/BEST_OF_BusinessRate_2025_Atlas_Glinn.png
+https://atlasglinn.com/wp-content/uploads/2025/03/AeroDefense-Partner-Atlas-Glinn.jpeg
+https://atlasglinn.com/wp-content/uploads/2025/03/Cline-Bio-Pic-1024x819.jpg
+https://atlasglinn.com/wp-content/uploads/2025/03/IMG_0396-e1742749164806.jpg
+https://atlasglinn.com/wp-content/uploads/2025/03/IMG_1837-1024x751.jpeg
+https://atlasglinn.com/wp-content/uploads/2025/03/Matthew-Brockmann-Atlas-glenn-security-ceo-protection1-scaled-e1741887403903.jpeg
+https://atlasglinn.com/wp-content/uploads/2025/03/Screen-Shot-2025-03-25-at-12.41.58-PM.png
+https://atlasglinn.com/wp-content/uploads/2025/03/Technology-UAS-1.png
+https://atlasglinn.com/wp-content/uploads/2025/03/cover-images-4.png
+https://atlasglinn.com/wp-content/uploads/2025/04/closeup-cctv-camera-wall-min-1024x683.jpg
+https://atlasglinn.com/wp-content/uploads/2025/04/man-s-hand-holding-drone-outdoors-min-scaled.jpg
+https://atlasglinn.com/wp-content/uploads/2025/05/Atlas-Glinn-3.jpg
+https://atlasglinn.com/wp-content/uploads/2025/05/Atlas-Glinn-Executive-Protection-scaled.jpeg
+https://atlasglinn.com/wp-content/uploads/2025/05/Atlas-Glinn-Protection.png
+https://atlasglinn.com/wp-content/uploads/2025/05/Atlas-Glinn-Training-1024x951.jpeg
+https://atlasglinn.com/wp-content/uploads/2025/05/Executive-Protection.jpg
+https://atlasglinn.com/wp-content/uploads/atlas-ep-og-image.jpg
+https://atlasglinn.com/wp-content/uploads/atlas-ep-screenshot.jpg
+https://atlasglinn.com/wp-content/uploads/atlas-glinn-logo.png
