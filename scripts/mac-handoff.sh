@@ -15,7 +15,8 @@
 # With no arguments it hands off the default set (see DEFAULT_SOURCES below).
 # Anything passed after `--` is handed off IN ADDITION to the default set — a
 # file, a folder, or an http(s) URL (downloaded on the Mac, then handled like a
-# file):
+# file; a YouTube, Instagram, Vimeo, TikTok or Facebook video page is fetched as
+# an MP4 with yt-dlp, installed into ~/.cache/mac-handoff on first use):
 #
 #   curl -fsSL https://raw.githubusercontent.com/MatthewBrockmann/atlasglinn-website/main/scripts/mac-handoff.sh | bash -s -- ~/Desktop/some-folder ~/Downloads/clip.mov
 #
@@ -49,6 +50,29 @@ say() { printf '%s\n' "$*"; }
 die() { say "FAILED: $*"; exit 1; }
 fsize() { stat -f%z "$1" 2>/dev/null || stat -c%s "$1"; }
 is_url() { case "$1" in http://*|https://*) return 0 ;; *) return 1 ;; esac; }
+# Video pages are not files: yt-dlp fetches the MP4 (added 2026-09-04 for the Training Reel, the Disaster Recovery film
+# and the Instagram clips the owner wants embedded on the site). yt-dlp goes into a private venv on first use — macOS
+# ships python3 with the Xcode command-line tools that git already needs — and nothing else on the Mac changes.
+is_media_url() { case "$1" in *youtube.com/*|*youtu.be/*|*instagram.com/*|*vimeo.com/*|*tiktok.com/*|*facebook.com/*|*fb.watch/*) return 0 ;; *) return 1 ;; esac; }
+media_id() { printf '%s' "$1" | sed -E 's#.*(v=|youtu\.be/|/reel/|/reels/|/p/|/shorts/|/video/|/videos/)([A-Za-z0-9_-]+).*#\2#'; }
+YTDLP=""
+ensure_ytdlp() {
+  [ -n "$YTDLP" ] && return 0
+  if command -v yt-dlp >/dev/null 2>&1; then YTDLP="$(command -v yt-dlp)"; return 0; fi
+  local v="$HOME/.cache/mac-handoff/venv"
+  if [ ! -x "$v/bin/yt-dlp" ]; then
+    say "installing yt-dlp (one time, into $v)"
+    { python3 -m venv "$v" && "$v/bin/pip" -q install --upgrade yt-dlp; } >/dev/null 2>&1 || return 1
+  fi
+  YTDLP="$v/bin/yt-dlp"
+}
+fetch_media() {   # $1 = url, $2 = empty directory to download into; prints the file name
+  ensure_ytdlp || return 1
+  local fmt='b[ext=mp4]/b'
+  command -v ffmpeg >/dev/null 2>&1 && fmt='bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4]/b'
+  "$YTDLP" -q --no-warnings --no-playlist -f "$fmt" --merge-output-format mp4 -o "$2/%(title).80s [%(id)s].%(ext)s" "$1" >/dev/null 2>&1 || return 1
+  ls -1 "$2" | head -1
+}
 is_lfs_pointer() { [ -f "$1" ] && [ "$(fsize "$1")" -lt 400 ] && head -c 40 "$1" 2>/dev/null | grep -q '^version https://git-lfs'; }
 
 # 1. Locate or clone the repo.
@@ -160,7 +184,19 @@ copy_file() { # copy_file <source file> <destination directory>; returns 2 when 
 }
 
 for src in "${SOURCES[@]}"; do
-  if is_url "$src"; then
+  if is_url "$src" && is_media_url "$src"; then
+    id="$(media_id "$src")"
+    # Already on the branch (the file, or its compressed copy) — the id sits in square brackets in the name.
+    if [ -n "$id" ] && [ "$id" != "$src" ] && ls "$OUT"/*"[$id]"* >/dev/null 2>&1; then copied=$((copied + 1)); continue; fi
+    say "video:  $src"
+    d="$(mktemp -d "${TMPDIR:-/tmp}/handoff-dl-XXXXXX")"
+    if f="$(fetch_media "$src" "$d")" && [ -n "$f" ] && [ -f "$d/$f" ]; then
+      if copy_file "$d/$f" "$OUT"; then copied=$((copied + 1)); else skipped=$((skipped + 1)); fi
+    else
+      say "video download failed, skipping (save the file into 'MAST NEW WEB 2026' instead): $src"; missing=$((missing + 1))
+    fi
+    rm -rf "$d"
+  elif is_url "$src"; then
     name="$(basename "$src")"
     # Skip the download only when the server reports the same byte size as what the branch already holds
     # (the file itself, or the recorded source size of its compressed copy); otherwise fetch it again.

@@ -53,8 +53,10 @@ a = js.index("(function(){\n  const box = $('hero-yt')")
 b = js.index('const MEDIA = [')
 c = js.index("(function(){\n  const io = new IntersectionObserver(en => en.forEach(x => { if (!x.isIntersecting) return;")
 js = js[:a] + js[b:c]
-# replace the MEDIA array with the curated set (local clips first, then the two YouTube films that are verifiably MAST)
+# replace the MEDIA array with the curated set: the Training Reel first (owner, 2026-09-04: "put first then the others"), its
+# closing "2023" card cut by the end mark until the file is local; then the local clips; then the other YouTube films.
 media = """const MEDIA = [
+  { yt: 'jwQ5OyKEKwg', end: 36, title: 'Training Reel', sub: 'The film behind the Training page' },
   { mp4: 'images/mast/mast-cqb.mp4', teaser: 'images/mast/mast-cqb-teaser.mp4', poster: 'images/mast/mast-cqb-poster.jpg', title: 'CQB', sub: 'Night-vision room clearing, then the range' },
   { mp4: 'images/mast/mast-vid-3.mp4', teaser: 'images/mast/mast-vid-3-teaser.mp4', poster: 'images/mast/mast-vid-3-poster.jpg', title: 'Behind the Scenes', sub: 'Filming the Modern Shooter TV feature' },
   { mp4: 'images/mast/mast-vid-web2.mp4', teaser: 'images/mast/mast-vid-web2-teaser.mp4', poster: 'images/mast/mast-vid-web2-poster.jpg', title: 'Vehicle Tactics', sub: 'Mounted movement through smoke' },
@@ -66,7 +68,6 @@ media = """const MEDIA = [
   { mp4: 'images/film/about-atlas-glinn.mp4', teaser: 'images/film/about-atlas-glinn-teaser.mp4', poster: 'images/film/about-atlas-glinn-poster.jpg', title: 'Leadership Course', sub: 'MAST Solutions and Atlas Glinn' },
   { yt: 'pSGWdaDglZE', title: 'Modern Shooter TV', sub: 'Lance M / Castro / Ray Cash — MAST Solutions, full episode' },
   { yt: 'OfXe_bdH6t4', title: 'Modern Shooter TV', sub: 'Tactical Training Feature' },
-  { yt: 'jwQ5OyKEKwg', title: 'Training Reel', sub: 'The film behind the Training page' },
   { yt: 'mI7Ou5P-WHE', title: 'Disaster Recovery & Asset Protection', sub: 'Immediate deployment when the storm has passed' },
 ];
 """
@@ -101,7 +102,7 @@ CHROME = shell.chrome(
     hud_bl='HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W', hud_br='DETAILS MATTER',
     chapters=[('s1', '01 &middot; Opening'), ('s2', '02 &middot; Standard'), ('s3', '03 &middot; Who'), ('s4', '04 &middot; Disciplines'),
               ('s5', '05 &middot; Courses'), ('s6', '06 &middot; Instructors'), ('s7', '07 &middot; In Action'),
-              ('s8', '08 &middot; Words'), ('s9', '09 &middot; Privacy'), ('s10', '10 &middot; Contact')])
+              ('s8', '08 &middot; Testimonials'), ('s9', '09 &middot; Privacy'), ('s10', '10 &middot; Contact')])
 
 SECTIONS = f"""
   <section class="panel" id="s1" data-section="01">
@@ -165,7 +166,7 @@ SECTIONS = f"""
     <div>
       <div class="eyebrow">Course Catalog</div>
       <h2 class="section-h">Twenty-One <span class="gold">Courses.</span></h2>
-      <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Fundamentals first, unless you have taken it before. Level 2 and 3 courses ask you to confirm that at registration.</b> Operator and P1 courses build on it; P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
+      <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Handgun Fundamentals first, unless you have taken it before. Every other course asks you to confirm that at registration.</b> P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
       <div class="catalog-wrap rise"><div class="glass"><div class="catalog-panel" id="catalog"></div></div>
       <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p></div>
     </div>
@@ -173,12 +174,13 @@ SECTIONS = f"""
 
   <section class="panel" id="s6" data-section="06">
     <div>
-      <div class="eyebrow">Founder &amp; Lead Instructor</div>
-      <h2 class="section-h">Matthew <span class="gold">Brockmann.</span></h2>
+      <div class="eyebrow">Instructors</div>
+      <h2 class="section-h">Meet The <span class="gold">Team.</span></h2>
       <div class="founder rise">
         <div class="portrait" style="background-image:url('images/mast/instructing-le.jpg')"><div class="cap">Instructing a federal team on the line</div></div>
         <div class="bio">
-          <p>Founded MAST Solutions in 2005 and later Atlas Glinn, LLC. Former Head of Security, Sen. Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named as media exist. Other high-profile and high-net-worth individuals follow our privacy standards. We don&rsquo;t do media. Names appear only where the media captured them without consent. Teaches on the range. Has trained Houston, Baytown, Galveston, and other SWAT teams, including TTPOA (TX Tactical Police Officers Association), VBSS (Visit, Board, Search, Seize), NASA SRT, Dept of Homeland Security, and other federal, state, and Military Units.</p>
+          <h3>Matthew Brockmann</h3><div class="role">Founder &amp; Lead Instructor</div>
+          <p>Founded MAST Solutions in 2005 and later Atlas Glinn, LLC. Former Head of Security, Sen. Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named as media exist. Other high-profile and high-net-worth individuals follow our privacy standards. We don&rsquo;t do media. Names appear only where the media captured them. Teaches on the range. Has trained Houston, Baytown, Galveston, and other SWAT teams, including TTPOA (TX Tactical Police Officers Association), VBSS (Visit, Board, Search, Seize), NASA SRT, Dept of Homeland Security, and other federal, state, and Military Units.</p>
           <ul class="creds">
             <li>Trained by <b>Paul Howe</b> (1st SFOD-D), <b>Bill Jeans</b> and <b>John Perretti</b></li>
             <li><b>DPS Level III Firearms Instructor</b> &middot; <b>TTPOA Maritime VBSS</b> instructor</li>
@@ -188,9 +190,20 @@ SECTIONS = f"""
           <div class="ctas"><button class="cta-button ghost-button" type="button" onclick="openQuals()">Qualifications &amp; Certifications</button><a href="#s5" class="cta-button">Train With Him</a></div>
         </div>
       </div>
-      <div class="cert rise instructor">
-        <img src="images/mast/torrey-kramer.jpg" alt="Torrey Kramer, MAST Solutions instructor" loading="lazy">
-        <p><b class="gold">Torrey Kramer</b> &middot; Instructor<br>Combat veteran. Injured by an IED on his second deployment; his return is the subject of the documentary <i>A Long Recovery</i>, below.</p>
+      <!-- Team blocks in the Atlas Glinn "Meet the Team" format (owner, 2026-09-04: "add Mike Cline - Look at how ATLASGLINN list and emulate").
+           Cline's portrait and bio are the ones on atlasglinn.com/about; his MAST title is the owner's to set. Torrey Kramer's bio is a
+           one-line draft until the owner supplies the text (not in the old-site export). -->
+      <div class="team rise">
+        <div class="portrait" style="background-image:url('https://atlasglinn.com/wp-content/uploads/2025/03/Cline-Bio-Pic-1024x819.jpg');background-position:center 15%"><div class="cap">Chief Operating Officer</div></div>
+        <div class="bio"><h3>Michael Cline</h3><div class="role">Chief Operating Officer &middot; Atlas Glinn</div>
+          <p>As the Chief Operating Officer at Atlas Glinn, Michael Cline brings a wealth of experience and a strategic vision to the company. With a distinguished 12-year career as a Navy SEAL, Michael has honed exceptional leadership, discipline, and problem-solving skills that are now pivotal in driving Atlas Glinn&rsquo;s operational excellence.</p>
+        </div>
+      </div>
+      <div class="team rise">
+        <div class="portrait" style="background-image:url('images/mast/torrey-kramer.jpg');background-position:center 20%"><div class="cap">Instructor</div></div>
+        <div class="bio"><h3>Torrey Kramer</h3><div class="role">Instructor</div>
+          <p>Combat veteran. Injured by an IED on his second deployment; his return is the subject of the documentary <i>A Long Recovery</i>, below.</p>
+        </div>
       </div>
       <div class="media-strip rise" id="instructor-strip"></div>
       <div class="cert rise">
@@ -230,7 +243,7 @@ SECTIONS = f"""
     <div>
       <div class="badge">Privacy Matters</div>
       <p class="sub quote lead">&ldquo;Details matter. Privacy matters. We don&rsquo;t disclose.&rdquo;</p>
-      <p class="sub" style="font-size:.98rem;">Former Head of Security, Sen. Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named as media exist. Other high-profile and high-net-worth individuals follow our privacy standards. We don&rsquo;t do media. Names appear only where the media captured them without consent.</p>
+      <p class="sub" style="font-size:.98rem;">Former Head of Security, Sen. Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named as media exist. Other high-profile and high-net-worth individuals follow our privacy standards. We don&rsquo;t do media. Names appear only where the media captured them.</p>
       <div class="cert rise">
         <img src="images/mast/privacy-aircraft.jpg" alt="U.S. Senators Josh Hawley and Eric Schmitt aboard an aircraft, seen through the cabin windows" loading="lazy">
         <p>Pictured: Senators Hawley and Schmitt.</p>
@@ -303,9 +316,35 @@ QUOTES_CSS = """
 # Palette: Atlas blue for MAST as well (Brockmann, 2026-09-04: "Use the blue like the Atlas Glinn intro. I think it looks
 # better than MAST Solutions gold"). The shell, the lifted booking styles, the scene and any gold literal left in the
 # markup or booking JS all go through the same token map.
+# Palette (Brockmann, 2026-09-04): the page is Atlas blue ("blue is a color that is more trusted ... consistent where it
+# matters"), and the MAST gold stays where he named it: the hero wordmark ("This stays gold. shimmer as it was."), the class
+# selections ("keep the class selections in gold": the catalog chapter, the calendar and the registration sheet) and the
+# chapter menu ("gold ... bold + should be accented"). The booking CSS is spliced in after the recolor so its gold literals
+# survive, and the gold containers re-declare the gold tokens; everything else on the page recolors to blue.
 PALETTE = shell.ATLAS
-html = shell.head(META, shell.css(PALETTE, booking_css + QUOTES_CSS)) + BODY + shell.tail(shell.three(10, PALETTE), js)
-html = shell._recolor(html, PALETTE)
+GOLD_KEEP = """
+  #s5, .sheet, .sheet-bd, .modal, .modal-bd { --gold:#C9A84C; --gold-antique:#D4AF37; --gold-champagne:#E8D27D; --gold-bright:#FCF6BA; --copper:#B87333; }
+  #s5 .gold, h1.mega .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  h1.mega .gold { text-shadow:0 0 80px rgba(201,168,76,.3); }
+  #s5 .cta-button, #s5 .cta, .sheet .cta-button { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border-color:#E8D27D; }
+  #s5 .cta-button:hover, #s5 .cta:hover, .sheet .cta-button:hover { box-shadow:0 14px 44px rgba(201,168,76,.5); }
+  #s5 .cta-button.ghost-button, .sheet .cta-button.ghost-button { background:transparent; }
+  /* Intro splash (owner: "take some of the Atlas Glinn gold shimmer and add it to the existing intro ... not full-screen; just accents
+     come into MAST Solutions as it flashes"): the wordmark stays blue and a gold band sweeps through it on each pass of the shimmer;
+     the tagline under it is gold. */
+  .intro-credit.wordmark { background-image:linear-gradient(90deg, #1558B8 0%, #DCEBFF 16%, #1558B8 30%, #FCF6BA 42%, #BF953F 48%, #FCF6BA 54%, #0F4AA8 66%, #CFE2FF 82%, #1558B8 100%); text-shadow:0 0 60px rgba(201,168,76,.28); }
+  #intro-seq .intro-credit:nth-child(3) { color:#E8D27D; }
+  .chap-link { color:#E8D27D; }
+  .chap-link::before { background:#C9A84C; }
+  .chap-link:hover, .chap-link.active { color:#FCF6BA; border-color:rgba(201,168,76,.5); background:rgba(201,168,76,.06); }
+  .chap-link.active::before, .chap-link:hover::before { background:#FCF6BA; }
+"""
+html = shell.head(META, shell.css(PALETTE, '/*__BOOKING_CSS__*/' + QUOTES_CSS)) + BODY + shell.tail(shell.three(10, PALETTE), js)
+# The video cards and the media strip are shared UI in the blue chapters, so those lifted rules recolor with the page.
+booking_css_kept = '\n'.join(shell._recolor(l, PALETTE) if l.lstrip().startswith(('.video-card', '.yt', '.media-strip')) else l for l in booking_css.splitlines())
+html = shell._recolor(html, PALETTE).replace('/*__BOOKING_CSS__*/', booking_css_kept + GOLD_KEEP, 1)
+assert html.count('__BOOKING_CSS__') == 0 and '.cat-btn {' in html and 'h1.mega .gold { text-shadow' in html, 'booking css / gold keep not spliced'
+
 # Brockmann picked this design as the page that ships (2026-09-03), so the assembler writes the production
 # mastsolutions.html. The Atlas-frame build lives on as mastsolutions-atlas.html; the old cinematic URL is a stub redirect.
 out = f'{REPO}/mastsolutions.html'

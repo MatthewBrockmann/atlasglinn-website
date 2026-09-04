@@ -414,7 +414,7 @@
             <div>
                 <div class="eyebrow">Course Catalog</div>
                 <h2 class="h-big">Twenty-One<br>Courses.</h2>
-                <p class="h-line">Open a discipline, pick a course, pick your weekend. <b>Fundamentals first, unless you have taken it before.</b> Level 2 and 3 courses ask you to confirm that at registration. Operator and P1 courses build on it; P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
+                <p class="h-line">Open a discipline, pick a course, pick your weekend. <b>Handgun Fundamentals first, unless you have taken it before.</b> Every other course asks you to confirm that at registration; P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
                 <p class="h-line" style="font-size:.95rem;margin-top:1rem;">Team blocks and agency instruction: <a href="tel:+12816548100" style="color:#1A6BDE;text-decoration:none;">(281) 654-8100</a></p>
             </div>
             <div class="catalog-panel" id="catalog"></div>
@@ -552,7 +552,7 @@
         <label>Seats</label>
         <div class="qty"><button type="button" aria-label="Fewer seats" onclick="step(-1)">&minus;</button><span class="qv" id="co-qty">1</span><button type="button" aria-label="More seats" onclick="step(1)">+</button></div>
         <p class="reg-note">One seat per person. You answer the eligibility questions and sign the agreement for yourself; additional attendees complete their own before class.</p>
-        <label class="reg-check" id="co-prereq-wrap" hidden><input type="checkbox" id="co-prereq"><span id="co-prereq-text">I have completed MAST Fundamentals, or an instructor-approved equivalent, before this course.</span></label>
+        <label class="reg-check" id="co-prereq-wrap" hidden><input type="checkbox" id="co-prereq"><span id="co-prereq-text">I have completed MAST Handgun Fundamentals, or an instructor-approved equivalent, before this course.</span></label>
         <label class="reg-check"><input type="checkbox" id="co-news"><span>Email me about new courses and training weekends. Optional, and separate from your booking emails.</span></label>
         <div class="total"><span>Total</span><span class="amt" id="co-total-1">&mdash;</span></div>
         <button class="cta-button" onclick="regNext(1)">Continue &rarr;</button>
@@ -681,6 +681,8 @@ const COURSES = [
   { sku:'MAST-PVT-FOUND', cat:'Private Instruction', img:'images/mast/hero-casualty-carry.jpg', name:'Foundation Package — Phases 1–4', request:true, price_cents:125000, meta:'4 PHASES · PREPAID · $1,400 À LA CARTE' },
   { sku:'MAST-PVT-FULL',  cat:'Private Instruction', img:'images/mast/hero-casualty-carry.jpg', name:'Full Progression — Phases 1–11',  request:true, price_cents:330000, meta:'11 PHASES · PREPAID · $3,850 À LA CARTE' },
   { sku:'MAST-HG-FUND',  cat:'Handgun',         name:'Handgun Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16 },
+  /* Ladies-only Handgun (owner, 2026-09-04: "add one selection, ladies only. Handgun."). Mirrors Handgun Fundamentals until he sets its hours, price and seats; it is a qualifier for the other courses like Handgun Fundamentals. */
+  { sku:'MAST-HG-LADIES', cat:'Handgun',        name:'Ladies Only Handgun Fundamentals', hours:8, days:1, price_cents:22500, seats:16 },
   { sku:'MAST-HG-OP',    cat:'Handgun',         name:'Handgun Operator',                hours:16, days:2, price_cents:45000, seats:10 },
   { sku:'MAST-CAR-FUND', cat:'Carbine',         name:'Carbine Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16 },
   { sku:'MAST-CAR-OP',   cat:'Carbine',         name:'Carbine Operator',                hours:16, days:2, price_cents:45000, seats:10 },
@@ -712,8 +714,10 @@ let WEEKENDS = [
 
 const $ = id => document.getElementById(id);
 const money = c => '$' + (c/100).toLocaleString('en-US', { minimumFractionDigits: c % 100 ? 2 : 0 });
-/* Progression: most students do not know the order. Fundamentals first; Operator and P1 build on it; P2 follows P1. */
-const levelOf = c => c.request || c.cat === 'Gear' ? null : /Fundamentals/.test(c.name) ? { n: 1, tag: 'START HERE' } : /P2/.test(c.name) ? { n: 3, tag: 'LEVEL 3 · P1 REQUIRED' } : /Operator|P1/.test(c.name) ? { n: 2, tag: 'LEVEL 2 · FUNDAMENTALS REQUIRED' } : null;
+/* Progression (owner, 2026-09-04: "For all of the selections, you have to take the fundamentals class first"): Handgun Fundamentals — or its
+   ladies-only class — is the qualifier for every other course, shown on every row and confirmed at registration; a P2 course also needs the P1
+   before it. By-arrangement private instruction carries no badge. The Worker applies the same rule (prerequisiteFor). */
+const levelOf = c => c.request ? null : /Handgun Fundamentals/.test(c.name) ? { n: 1, tag: 'START HERE' } : /\bP2\b/.test(c.name) ? { n: 3, tag: 'HANDGUN FUNDAMENTALS + P1 REQUIRED' } : { n: 2, tag: 'HANDGUN FUNDAMENTALS REQUIRED' };
 const metaBase = c => c.meta ? c.meta : c.days ? `${c.hours} HRS · ${c.days} DAY${c.days > 1 ? 'S' : ''} · ${c.seats} SEATS` : `CALL FOR DETAILS`;
 const metaFor = c => { const l = levelOf(c); return metaBase(c) + (l ? ' · ' + l.tag : ''); };
 const metaHtml = c => { const l = levelOf(c); return esc(metaBase(c)) + (l ? ` · <b class="cr-lvl lvl-${l.n}">${l.tag}</b>` : ''); };
@@ -768,9 +772,9 @@ const REGISTER_ENDPOINT = API + '/register';
 const QUESTIONS_VERSION = '2q-2026-09-03', AGREEMENT_VERSION = '81961f2a07675eff', REFUND_POLICY_VERSION = '2026-09-01'; // must match the Worker
 let qty = 1, regStep = 1, docScrolled = false;
 function openSheet(){ qty = 1; docScrolled = false;
-  // Fundamentals is a gate (owner, 2026-09-04): level 2 and 3 courses require the participant to confirm the prerequisite was completed before.
+  // Handgun Fundamentals is the gate (owner, 2026-09-04): every other course requires the participant to confirm it was completed before; P2 also needs the P1.
   const lv = levelOf(calCourse), gate = !!(lv && lv.n >= 2); $('co-prereq-wrap').hidden = !gate; $('co-prereq').checked = false;
-  if (gate) $('co-prereq-text').textContent = lv.n === 3 ? 'I have completed a MAST P1 course, or an instructor-approved equivalent, before this course.' : 'I have completed MAST Fundamentals, or an instructor-approved equivalent, before this course.';
+  if (gate) $('co-prereq-text').textContent = lv.n === 3 ? 'I have completed MAST Handgun Fundamentals and a MAST P1 course, or an instructor-approved equivalent, before this course.' : 'I have completed MAST Handgun Fundamentals, or an instructor-approved equivalent, before this course.';
   $('sheet-title').textContent = calCourse.name; $('sheet-meta').textContent = metaFor(calCourse); $('sheet-date-label').innerHTML = '&#128197; ' + labelFor(WEEKENDS[chosen], calCourse.days); $('co-qty').textContent = '1'; $('reg-review').hidden = true; $('reg-sign').hidden = true; $('reg-3-go').disabled = true; const h = $('reg-doc-hint'); h.textContent = 'Scroll to the end of page 3 to continue.'; h.classList.remove('ok'); $('reg-doc').scrollTop = 0; showStep(1); updateTotal(); $('sheet-bd').classList.add('open'); $('sheet').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('co-name').focus(), 250); }
 function showStep(n){ regStep = n; for (let i = 1; i <= 4; i++) $('reg-' + i).hidden = i !== n; document.querySelectorAll('.reg-steps li').forEach(li => { const s = +li.dataset.step; li.classList.toggle('on', s === n); li.classList.toggle('done', s < n); }); $('co-err').classList.remove('show'); $('sheet').scrollTop = 0; }
 function fail(msg, el){ const err = $('co-err'); err.textContent = msg; err.classList.add('show'); if (el && el.focus) el.focus(); }
@@ -780,7 +784,7 @@ function regNext(n){
     if ($('co-name').value.trim().length < 2) return fail('Enter your full name.', $('co-name'));
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test($('co-email').value.trim())) return fail('Enter a valid email address to receive your booking confirmation.', $('co-email'));
     if ($('co-phone').value.replace(/\D/g, '').length < 7) return fail('Enter a mobile number we can reach you on.', $('co-phone'));
-    if (!$('co-prereq-wrap').hidden && !$('co-prereq').checked) return fail('This course requires the prerequisite first. Tick the box if you have completed it, or start with a Fundamentals course.', $('co-prereq'));
+    if (!$('co-prereq-wrap').hidden && !$('co-prereq').checked) return fail('Handgun Fundamentals comes first. Tick the box if you have completed it, or start with Handgun Fundamentals.', $('co-prereq'));
     return showStep(2);
   }
   if (n === 2) {
@@ -862,8 +866,12 @@ const MEDIA = [
 const TESTIMONIALS = [];   // video testimonials; rendered into #testimonial-strip (the Testimonials chapter) where that exists
 const INSTRUCTOR_FILMS = [];   // films on the Instructors chapter (#instructor-strip), e.g. the documentary about an instructor
 (function(){
-  const card = i => `<div class="video-card"><div class="yt${i.mp4 ? ' mp4' : ''}" role="button" tabindex="0" aria-label="Play ${esc(i.title)}" ${i.yt ? `data-yt="${esc(i.yt)}"` : `data-mp4="${esc(i.mp4)}"`}>${i.yt ? `<img src="https://i.ytimg.com/vi/${esc(i.yt)}/hqdefault.jpg" alt="" loading="lazy" decoding="async">` : i.teaser ? `<video class="teaser" muted loop playsinline preload="none" poster="${esc(i.poster || '')}" data-src="${esc(i.teaser)}" aria-hidden="true"></video>` : i.poster ? `<img src="${esc(i.poster)}" alt="" loading="lazy" decoding="async">` : `<span class="lbl">MAST Solutions · Film</span>`}<span class="play" aria-hidden="true"></span></div><div class="video-card-info"><h4>${esc(i.title)}</h4><p>${esc(i.sub || '')}</p></div></div>`;
-  const play = el => { if (el.dataset.done) return; el.dataset.done = '1'; let node; if (el.dataset.yt) { node = document.createElement('iframe'); node.src = `https://www.youtube.com/embed/${el.dataset.yt}?autoplay=1&rel=0&modestbranding=1&playsinline=1`; node.title = el.getAttribute('aria-label'); node.allow = 'accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture'; node.setAttribute('allowfullscreen', ''); } else { node = document.createElement('video'); node.src = el.dataset.mp4; node.controls = true; node.autoplay = true; node.playsInline = true; node.preload = 'none'; } el.innerHTML = ''; el.appendChild(node); el.style.cursor = 'default'; };
+  const card = i => `<div class="video-card"><div class="yt${i.mp4 ? ' mp4' : ''}" role="button" tabindex="0" aria-label="Play ${esc(i.title)}" ${i.yt ? `data-yt="${esc(i.yt)}"${i.end ? ` data-end="${+i.end}"` : ''}` : `data-mp4="${esc(i.mp4)}"`}>${i.yt ? `<img src="https://i.ytimg.com/vi/${esc(i.yt)}/hqdefault.jpg" alt="" loading="lazy" decoding="async">` : i.teaser ? `<video class="teaser" muted loop playsinline preload="none" poster="${esc(i.poster || '')}" data-src="${esc(i.teaser)}" aria-hidden="true"></video>` : i.poster ? `<img src="${esc(i.poster)}" alt="" loading="lazy" decoding="async">` : `<span class="lbl">MAST Solutions · Film</span>`}<span class="play" aria-hidden="true"></span></div><div class="video-card-info"><h4>${esc(i.title)}</h4><p>${esc(i.sub || '')}</p></div></div>`;
+  // A YouTube film with an end mark (data-end, seconds) loops back to its start at that second, so the card never reaches a closing
+  // title card or YouTube's end screen (Brockmann, 2026-09-04: the Training Reel's "2023" card). The IFrame API loads on first use;
+  // the player's own end= parameter, one second later, is the fallback if the API cannot load.
+  const loopBefore = (frame, end) => { const arm = () => { const p = new YT.Player(frame, { events: { onReady: () => setInterval(() => { try { if (p.getCurrentTime() >= end) p.seekTo(0, true); } catch (e) {} }, 250), onStateChange: e => { if (e.data === YT.PlayerState.ENDED) { p.seekTo(0, true); p.playVideo(); } } } }); }; if (window.YT && YT.Player) return arm(); const prev = window.onYouTubeIframeAPIReady; window.onYouTubeIframeAPIReady = () => { if (prev) prev(); arm(); }; if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) { const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s); } };
+  const play = el => { if (el.dataset.done) return; el.dataset.done = '1'; let node; const end = +el.dataset.end || 0; if (el.dataset.yt) { node = document.createElement('iframe'); node.src = `https://www.youtube.com/embed/${el.dataset.yt}?autoplay=1&rel=0&modestbranding=1&playsinline=1` + (end ? `&end=${Math.ceil(end) + 1}&enablejsapi=1` + (/^https?:$/.test(location.protocol) ? `&origin=${encodeURIComponent(location.origin)}` : '') : ''); node.title = el.getAttribute('aria-label'); node.allow = 'accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture'; node.setAttribute('allowfullscreen', ''); } else { node = document.createElement('video'); node.src = el.dataset.mp4; node.controls = true; node.autoplay = true; node.playsInline = true; node.preload = 'none'; } el.innerHTML = ''; el.appendChild(node); el.style.cursor = 'default'; if (end && el.dataset.yt) loopBefore(node, end); };
   for (const [id, list] of [['media-strip', MEDIA], ['testimonial-strip', TESTIMONIALS], ['instructor-strip', INSTRUCTOR_FILMS]]) {
     const host = $(id); if (!host) continue;
     host.innerHTML = list.filter(i => i.yt || i.mp4).map(card).join('');

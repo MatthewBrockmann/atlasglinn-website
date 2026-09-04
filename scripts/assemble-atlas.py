@@ -57,8 +57,9 @@ FILM_POSTER   = 'images/film/atlas-glinn-and-mast-solutions-poster.jpg'       # 
 ABOUT_POSTER  = 'images/film/about-atlas-glinn-poster.jpg'                    # frame of the About film
 # Pages whose current hero is a YouTube film keep that film as the first card of chapter 2.
 YT_RESIDENTIAL, YT_DISASTER, YT_TRAINING, YT_CUAS = 'bn2eWWJzlDY', 'mI7Ou5P-WHE', 'jwQ5OyKEKwg', 'fO8_EOUrSfg'
-def yt_card(vid, title, sub):
-    return (f'<div class="yt-grid one rise"><div class="yt-card"><div class="frame"><iframe src="https://www.youtube.com/embed/{vid}?rel=0&amp;modestbranding=1&amp;playsinline=1" title="{title}" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>'
+def yt_card(vid, title, sub, end=None):
+    """end: stop the player at that second (the Training Reel's closing "2023" card is cut this way until the file is local)."""
+    return (f'<div class="yt-grid one rise"><div class="yt-card"><div class="frame"><iframe src="https://www.youtube.com/embed/{vid}?rel=0&amp;modestbranding=1&amp;playsinline=1{"&amp;end=%d" % end if end else ""}" title="{title}" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>'
             f'<div class="info"><h4>{title}</h4><p>{sub}</p></div></div></div>')
 
 NAV = [
@@ -130,15 +131,7 @@ EXTRA_CSS = r"""
   .form-msg.ok { color:#7fd4a1; } .form-msg.err { color:#ff8a80; }
   .form .fine { font-size:.82rem; color:var(--text-dim); margin-top:.9rem; line-height:1.5; }
   .form .fine a { color:var(--gold-champagne); text-decoration:none; }
-  .team { display:grid; grid-template-columns:minmax(240px,380px) 1fr; gap:1.6rem; max-width:1150px; margin:0 auto 1.6rem; text-align:left; align-items:stretch; }
-  .team .portrait { min-height:380px; border:1px solid rgba(201,168,76,.3); background:center 20%/cover no-repeat; position:relative; }
-  .team .portrait::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, transparent 60%, rgba(5,8,16,.9) 100%); }
-  .team .portrait .cap { position:absolute; left:1.1rem; bottom:1rem; z-index:2; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; color:var(--gold-champagne); text-transform:uppercase; }
-  .team .bio { border:1px solid rgba(201,168,76,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.75) 100%); backdrop-filter:blur(14px); padding:1.8rem; position:relative; }
-  .team .bio::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:linear-gradient(180deg, var(--gold), var(--copper)); }
-  .team .bio h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.25rem; color:var(--gold-champagne); margin-bottom:.2rem; }
-  .team .bio .role { font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.3em; text-transform:uppercase; color:var(--text-dim); margin-bottom:1rem; }
-  .team .bio p { color:var(--text-dim); line-height:1.6; font-weight:300; font-size:1.02rem; }
+  /* .team blocks (portrait + name, role, bio) live in the shell, shared with the MAST Instructors chapter. */
   .yt-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.1rem; max-width:1100px; margin:0 auto 1.6rem; text-align:left; }
   .yt-card { border:1px solid rgba(201,168,76,.22); background:rgba(11,18,33,.8); overflow:hidden; }
   .yt-card .frame { position:relative; aspect-ratio:16/9; background:#000; }
@@ -157,7 +150,7 @@ EXTRA_CSS = r"""
   .partner img { width:100%; border:1px solid rgba(201,168,76,.3); display:block; }
   .partner p { color:var(--text-dim); line-height:1.6; font-weight:300; font-size:1.02rem; margin-bottom:1rem; }
   .partner .ctas { justify-content:flex-start; }
-  @media (max-width:900px) { .cards, .cards.four, .steps, .quotes { grid-template-columns:1fr 1fr; } .team, .partner { grid-template-columns:1fr; } .team .portrait { min-height:320px; } }
+  @media (max-width:900px) { .cards, .cards.four, .steps, .quotes { grid-template-columns:1fr 1fr; } .partner { grid-template-columns:1fr; } }
   @media (max-width:768px) { .cards, .cards.two, .cards.four, .steps, .quotes, .yt-grid { grid-template-columns:1fr; } .stats.four { grid-template-columns:1fr 1fr; gap:.8rem; } .form { padding:1.1rem; } .form .row { grid-template-columns:1fr; } .badges img { height:64px; } .spec div { flex-direction:column; gap:.2rem; } .spec span { text-align:left; } }
 """
 
@@ -308,7 +301,7 @@ def build(path, title, desc, og_image, credits, chapters, photos, jsonld=''):
 CREDITS = ('Houston &middot; Texas', 'Executive Protection &middot; Intelligence &middot; Training')
 OG_DEFAULT = HERO_EP
 PRIVACY_LINE = ('Former Head of Security, Sen. Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, '
-                'named as media exist. Other high-profile and high-net-worth individuals follow our privacy standards. We don&rsquo;t do media. Names appear only where the media captured them without consent.')
+                'named as media exist. Other high-profile and high-net-worth individuals follow our privacy standards. We don&rsquo;t do media. Names appear only where the media captured them.')
 
 # ═══════════════════════════════ index.html ═══════════════════════════════
 build('index.html',
@@ -481,7 +474,7 @@ build('training.html',
         'At Atlas Glinn, our lead instructor brings over 30 years of experience, safeguarding dignitaries globally. We offer unparalleled Dignitary Protection training for professionals seeking to excel in high-stakes environments.',
         cta('mastsolutions.html', 'Book a Course') + cta2('#s2', 'Focus Areas'))),
     ('Focus Areas', section(2, 'Core Training Focus Areas', f'What We {blue("Teach.")}', '',
-        yt_card(YT_TRAINING, 'Training Reel', 'The film from the current Training page') + cards([('Advanced Threat Assessment &amp; Risk Management', 'Learn to identify, evaluate, and mitigate threats before they materialize. Comprehensive risk analysis methodologies used by top-tier protection teams worldwide.'),
+        yt_card(YT_TRAINING, 'Training Reel', 'The film from the current Training page', end=37) + cards([('Advanced Threat Assessment &amp; Risk Management', 'Learn to identify, evaluate, and mitigate threats before they materialize. Comprehensive risk analysis methodologies used by top-tier protection teams worldwide.'),
                ('Tactical Driving &amp; Motorcade Operations', 'Master evasive driving techniques, route planning, and multi-vehicle motorcade coordination for secure ground transportation in any environment.'),
                ('Strategic Mission Planning &amp; Execution', 'Develop operational plans from advance work through mission completion. Intelligence gathering, contingency planning, and real-time decision making.'),
                ('Close Protection Techniques &amp; Body Man Duties', 'Hands-on training in personal protection formations, crowd management, venue security, and the art of seamless close-proximity security.'),

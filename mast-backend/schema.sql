@@ -62,7 +62,9 @@ INSERT OR IGNORE INTO offerings
   (sku, name, price_cents, hours, days, course_type, category, capacity, blurb, sort_order) VALUES
   -- Handgun
   ('MAST-HG-FUND','Handgun Fundamentals',            22500,  8, 1, 'fundamental','Handgun',        16, 'Grip, stance, sights, trigger. The base every other course builds on.', 10),
-  ('MAST-HG-OP',  'Handgun Operator',                45000, 16, 2, 'operator',   'Handgun',        10, 'Two days past the fundamentals — movement, transitions, and fighting platforms.', 11),
+  -- Ladies-only Handgun (owner, 2026-09-04). Mirrors Handgun Fundamentals until he sets its hours, price and seats. Live DB: migrations/002-ladies-handgun.sql.
+  ('MAST-HG-LADIES','Ladies Only Handgun Fundamentals', 22500, 8, 1, 'fundamental','Handgun',      16, 'The same fundamentals, taught in a ladies-only class.', 11),
+  ('MAST-HG-OP',  'Handgun Operator',                45000, 16, 2, 'operator',   'Handgun',        10, 'Two days past the fundamentals — movement, transitions, and fighting platforms.', 12),
   -- Carbine
   ('MAST-CAR-FUND','Carbine Fundamentals',           22500,  8, 1, 'fundamental','Carbine',        16, 'Zero, manipulation, and marksmanship with the carbine.', 20),
   ('MAST-CAR-OP', 'Carbine Operator',                45000, 16, 2, 'operator',   'Carbine',        10, 'Two days of carbine work under movement and time pressure.', 21),

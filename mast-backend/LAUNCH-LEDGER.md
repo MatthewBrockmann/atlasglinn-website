@@ -56,12 +56,25 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
 - Still to come from him: his new instructor portrait (JPG), the two-shooters photo for the gallery, the jumping
   "hero" photo, the private-instruction PDF, the replacement MAST clip, more pictures for the folder. *A Long
   Recovery* (YouTube `0IkEMH0LPC8`, link from him 2026-09-04) is embedded under Torrey Kramer's profile.
+- Third round (same evening): **Handgun Fundamentals is the qualifier for every course** ("For all of the selections, you have to
+  take the fundamentals class first. Where is the qualifier?"): every bookable row but Handgun Fundamentals carries the badge,
+  the sheet asks for the attestation, and the Worker refuses without it (P2 also needs the P1). **Ladies Only Handgun
+  Fundamentals** added (`MAST-HG-LADIES`, mirrors Handgun Fundamentals' hours, price and seats until he sets them; live DB
+  via `migrations/002-ladies-handgun.sql`). **Instructors chapter in the Atlas "Meet the Team" format** with Michael Cline
+  (his atlasglinn.com portrait and bio) and Torrey Kramer as portrait + bio blocks. **Training Reel first** in the strip,
+  looping back before its closing "2023" card (end mark at 0:36) until the file is local. "without consent" removed from the
+  media sentence. Chapter menu bold in gold; nav reads "Testimonials". **Palette settled**: blue page, gold kept on the hero
+  wordmark ("This stays gold. shimmer as it was."), the class selections (catalog, calendar, registration sheet) and the
+  chapter menu; the intro splash stays blue with a gold band sweeping through the wordmark. Hero wordmark ~28% smaller.
+  `scripts/mac-handoff.sh` now fetches YouTube / Instagram / Vimeo pages as MP4 (yt-dlp) and `handoff-urls.txt` queues the
+  Training Reel and Disaster Recovery films — both live after the merge, since the Mac reads the script from `main`.
+  `preview/old-range-photos.html`: the old website's 2014–2015 uploads as numbered sheets, for him to pick from.
 
 ## B. Before launch — owner's hand, in order
 
 1. **"merge 8"**, then **redeploy the Worker from main** (the deploy paste, which now also applies
-   `migrations/001-prereq-attested.sql` once), then **run `scripts/wp-upload.sh`**.
-   The page on main and the Worker must match (refund policy version, prerequisite field).
+   `migrations/001-prereq-attested.sql` and `migrations/002-ladies-handgun.sql` once), then **run `scripts/wp-upload.sh`**.
+   The page on main and the Worker must match (refund policy version, prerequisite rule, the ladies-only SKU).
 2. **`RESEND_API_KEY`** — `wrangler secret put RESEND_API_KEY --name mast-booking-backend`. Sending as
    `bookings@mastsolutions.com` needs Resend's DNS records added at GoDaddy for mastsolutions.com. Until then no
    receipt, no agreement PDF, no range address, no staff alert goes out; all are logged.
@@ -76,18 +89,27 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
 
 ## C. Open questions only he can answer
 
-1. Instructor roster beyond himself ("add INSTRUCTORS more than Me"): names and titles.
+1. Instructor roster: Michael Cline is listed with his Atlas Glinn title (Chief Operating Officer) — his MAST title, if
+   different. **Torrey Kramer's bio text**: not in the old-site export (only his photo), the Wayback Machine is blocked from
+   the container — paste it, or hand off a file. Anyone else.
+1a. **His instructor portrait**: the new JPG is on the Mac, not yet on the handoff branch (last handoff 2026-09-03 22:52) — the
+   same paste sends it. **Private-row photos**: the three rows share one picture until his three arrive (each row takes its own).
+1b. **Ladies Only Handgun**: hours, price, seats (built as 8 h / $225 / 16 seats, mirroring Handgun Fundamentals).
+1c. **Instagram clips**: the post URLs (after the merge the handoff paste fetches them: `... | bash -s -- <urls>`), or the
+   original files into the folder before then.
+1d. **Old range photos** ("Enter the Range"): pick numbers from `preview/old-range-photos.html`.
 2. Founder shot: is `founder-portrait.jpg` it, or is another photo coming?
 3. Instagram: which posts, or an embedded feed?
 4. Capability cards: "have it here and bring back to front" — move up the MAST page, put on the Atlas home, or
    change the content? The cards are currently absent.
-5. MAST wordmark colour: blue (2026-09-02) or the gold of the cinematic design he then chose?
+5. ~~MAST wordmark colour~~ — settled 2026-09-04: blue page, gold on the hero wordmark, the class selections and the menu.
 6. Training count: MAST says 1,701+; the Atlas preview says 729. Same metric?
 7. Replacement hero copy for "34+ Years · Security, Training, Dignitary Protection" ("I'll have to send it").
 8. `handcuffs.jpg` slot. "Forge Legend" vs "Forge Ignition". Better discipline photos ("I can send some later").
 9. Question order: the build asks name/email/phone before the two eligibility questions so a flagged person can be
    called; he said the questions come first. Confirm the build's order is acceptable.
-10. "Fundamentals first" is a cue (badges and an intro line), not a gate. Enough?
+10. ~~"Fundamentals first" is a cue, not a gate~~ — settled 2026-09-04: Handgun Fundamentals gates every other course
+    (badge on every row, attestation at registration, Worker refuses without it).
 11. Membership tiers: names, prices, intervals (promised, never sent).
 12. Private Instruction prices ($350 / $1,250 / $3,300) came from the progression PDF, not a message. Current?
 13. `NOTIFY_EMAIL` value: if the range host is in it, the "range host gets only the signed agreement" rule breaks.

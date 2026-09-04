@@ -127,6 +127,7 @@ function baseCors(origin) {
  */
 const SEED_CLASSES = [
   { sku: 'MAST-HG-FUND',  name: 'Handgun Fundamentals',                    price_cents: 22500 },
+  { sku: 'MAST-HG-LADIES', name: 'Ladies Only Handgun Fundamentals',        price_cents: 22500 },
   { sku: 'MAST-HG-OP',    name: 'Handgun Operator',                        price_cents: 45000 },
   { sku: 'MAST-CAR-FUND', name: 'Carbine Fundamentals',                    price_cents: 22500 },
   { sku: 'MAST-CAR-OP',   name: 'Carbine Operator',                        price_cents: 45000 },
@@ -309,12 +310,14 @@ async function handleBooking(request, env, cors) {
  */
 /** Fundamentals is a gate (owner, 2026-09-04: "They MUST take Fundamentals first UNLESS they have taken it prior").
  *  Mirrors levelOf() on the page: Fundamentals courses have no prerequisite, P2 needs P1, Operator/P1 need Fundamentals. */
+// Progression (owner, 2026-09-04: "For all of the selections, you have to take the fundamentals class first"): Handgun
+// Fundamentals — or its ladies-only class — is the qualifier for every other course; a P2 course also needs the P1 before it.
+// The page shows the same rule on every row (levelOf in mastsolutions-tesla.html).
 function prerequisiteFor(offering) {
   const n = String((offering && offering.name) || '');
-  if (!n || /Fundamentals/i.test(n)) return null;
-  if (/\bP2\b/.test(n)) return 'a MAST P1 course';
-  if (/Operator|\bP1\b/.test(n)) return 'MAST Fundamentals';
-  return null;
+  if (!n || /Handgun Fundamentals/i.test(n)) return null;
+  if (/\bP2\b/.test(n)) return 'MAST Handgun Fundamentals and a MAST P1 course';
+  return 'MAST Handgun Fundamentals';
 }
 
 async function handleRegister(request, env, cors) {
@@ -368,7 +371,7 @@ async function handleRegister(request, env, cors) {
   const prereq = prerequisiteFor(offering);
   const prereqAttested = !!(body.prerequisite && body.prerequisite.attested === true);
   if (prereq && !prereqAttested) {
-    return json({ error: 'This course requires ' + prereq + ' first. Confirm you have completed it, or start with a Fundamentals course.', field: 'prerequisite', code: 'prerequisite' }, 400, cors);
+    return json({ error: 'This course requires ' + prereq + ' first. Confirm you have completed it, or start with Handgun Fundamentals.', field: 'prerequisite', code: 'prerequisite' }, 400, cors);
   }
   const sessionLabel = str(body.session_label) || weekend.label || '';
 

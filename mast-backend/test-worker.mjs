@@ -60,7 +60,9 @@ const DB = {
             }
             if (sql.includes('FROM offerings')) {
               const row = { 'MAST-DA': { sku: 'MAST-DA', name: 'Direct Action', price_cents: 69500, capacity: 10 },
-                            'MAST-HG-OP': { sku: 'MAST-HG-OP', name: 'Handgun Operator', price_cents: 45000, capacity: 10 } }[args[0]];
+                            'MAST-HG-OP': { sku: 'MAST-HG-OP', name: 'Handgun Operator', price_cents: 45000, capacity: 10 },
+                            'MAST-HG-FUND': { sku: 'MAST-HG-FUND', name: 'Handgun Fundamentals', price_cents: 22500, capacity: 16 },
+                            'MAST-HG-LADIES': { sku: 'MAST-HG-LADIES', name: 'Ladies Only Handgun Fundamentals', price_cents: 22500, capacity: 16 } }[args[0]];
               return row || null;
             }
             if (sql.includes('FROM memberships')) {
@@ -277,6 +279,7 @@ const goodReg = (over = {}) => ({
   eligibility: { us_citizen: true, felony_prohibited: false, attested: true, questions_version: QUESTIONS_VERSION },
   agreement: { version: AGREEMENT_VERSION, signed_name: 'Jane Doe', initials: 'jd', address1: '1 Main St', address2: 'Houston, TX 77002', emergency_name: 'John Doe', emergency_phone: '(713) 555-0199', emergency_relationship: 'Spouse', scrolled: true, agreed: true },
   refund: { accepted: true, version: REFUND_POLICY_VERSION },
+  prerequisite: { required: true, attested: true },   // every course but Handgun Fundamentals asks (owner, 2026-09-04)
   newsletter_opt_in: false,
   success_url: 'https://mastsolutions.com/?checkout=success',
   ...over,
@@ -322,18 +325,27 @@ const reg = (body) => post('/register', body);
   for (const id of [r9.registration_id, r10.registration_id, ro.registration_id]) { const row = registrations.get(id); if (row) row.status = 'abandoned'; }
 }
 {
-  // Fundamentals gate: a level-2 course needs the prerequisite attestation; a Fundamentals-level course does not.
+  // Progression gate (owner, 2026-09-04): every course but Handgun Fundamentals needs the attestation; Handgun Fundamentals
+  // and its ladies-only class never ask.
   stripeCalls.length = 0;
-  const bare = await reg(goodReg({ sku: 'MAST-HG-OP' })); const bb = await bare.json();
+  const bare = await reg(goodReg({ sku: 'MAST-HG-OP', prerequisite: undefined })); const bb = await bare.json();
   ok('prerequisite: Handgun Operator without the attestation → 400 prerequisite', bare.status === 400 && bb.field === 'prerequisite' && bb.code === 'prerequisite', JSON.stringify(bb));
+  ok('prerequisite: the refusal names Handgun Fundamentals', /Handgun Fundamentals/.test(bb.error || ''), bb.error);
   ok('prerequisite: Stripe not called without it', stripeCalls.length === 0);
-  const withIt = await reg(goodReg({ sku: 'MAST-HG-OP', prerequisite: { required: true, attested: true } })); const wb = await withIt.json();
+  const daBare = await reg(goodReg({ prerequisite: undefined }));
+  ok('prerequisite: any other course (Direct Action) without it → 400 too', daBare.status === 400, String(daBare.status));
+  const withIt = await reg(goodReg({ sku: 'MAST-HG-OP' })); const wb = await withIt.json();
   ok('prerequisite: attested → reaches Stripe', withIt.status === 200, String(withIt.status));
   const row = registrations.get(wb.registration_id);
   ok('prerequisite: attestation recorded on the registration', row && row.prereq_attested === 1, JSON.stringify(row && row.prereq_attested));
-  const da = registrations.get((await (await reg(goodReg())).json()).registration_id);
-  ok('prerequisite: a course without one records 0 and does not ask', da && da.prereq_attested === 0);
-  for (const r of [row, da]) if (r) r.status = 'abandoned';
+  const fund = await reg(goodReg({ sku: 'MAST-HG-FUND', prerequisite: undefined })); const fb = await fund.json();
+  ok('prerequisite: Handgun Fundamentals never asks', fund.status === 200, String(fund.status));
+  const fr = registrations.get(fb.registration_id);
+  ok('prerequisite: Handgun Fundamentals records 0', fr && fr.prereq_attested === 0);
+  const ladies = await reg(goodReg({ sku: 'MAST-HG-LADIES', prerequisite: undefined })); const lb = await ladies.json();
+  ok('prerequisite: the ladies-only Handgun Fundamentals class is a qualifier too (no attestation asked)', ladies.status === 200, String(ladies.status));
+  const lr = registrations.get(lb.registration_id);
+  for (const r of [row, fr, lr]) if (r) r.status = 'abandoned';
 }
 {
   stripeCalls.length = 0; emails.length = 0; const before = registrations.size;
