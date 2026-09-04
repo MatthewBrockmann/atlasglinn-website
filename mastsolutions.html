@@ -368,29 +368,27 @@
   .chap-link::before { background:#C9A84C; }
   .chap-link:hover, .chap-link.active { color:#FCF6BA; border-color:rgba(201,168,76,.5); background:rgba(201,168,76,.06); }
   .chap-link.active::before, .chap-link:hover::before { background:#FCF6BA; }
-  /* Membership chapter (owner, 2026-09-04: "elegance + exclusivity" — the silent-auction certificate's register: Cormorant serif,
-     letter-spaced small caps, thin gold rules on black). */
-  .teams { display:grid; grid-template-columns:repeat(3, 1fr); gap:1.1rem; max-width:1200px; margin:0 auto 1.2rem; text-align:left; }
-  /* Each card's border is its team colour (owner: "if it's a red team, then the exterior border should be a deep blood red, carried
-     for all of the other memberships"); the hover lift itself is the shell's shared card rule (.tile, .tier). */
-  .tier { --tc:#C9A84C; position:relative; padding:2rem 1.6rem 1.7rem; background:linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(5,8,16,.85) 100%); border:1px solid var(--tc); border-color:color-mix(in srgb, var(--tc) 72%, transparent); backdrop-filter:blur(10px); display:flex; flex-direction:column; }
-  .tier:hover { border-color:var(--tc); box-shadow:0 22px 60px rgba(0,0,0,.5), 0 0 0 1px var(--tc); }
-  .tier::before { content:''; position:absolute; top:0; left:1.6rem; right:1.6rem; height:2px; background:var(--tc); }
-  .tier.t-red { --tc:#7A0F14; } .tier.t-blue { --tc:#1A6BDE; } .tier.t-gold { --tc:#C9A84C; } .tier.t-black { --tc:#F0F4FF; } .tier.t-le { --tc:#3A4A5C; } .tier.t-teachers { --tc:#CFE2FF; }
-  .tier-name { font-family:'Cormorant Garamond',Georgia,serif; font-weight:600; font-size:1.7rem; letter-spacing:.08em; color:#E8D27D; margin-bottom:.9rem; }
-  .tier-fee { font-family:'Cormorant Garamond',Georgia,serif; font-weight:700; font-size:2.6rem; line-height:1; color:#F0F4FF; }
-  .tier-fee small { display:block; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; text-transform:uppercase; color:#8B95A8; margin-top:.5rem; }
-  .tier-inc { font-family:'Cormorant Garamond',Georgia,serif; font-size:1.2rem; line-height:1.45; color:#F0F4FF; margin:1.2rem 0 1rem; flex:1; }
-  .tier-slots { font-family:'Share Tech Mono',monospace; font-size:.66rem; letter-spacing:.3em; text-transform:uppercase; color:#E8D27D; border-top:1px solid rgba(201,168,76,.25); padding-top:.9rem; margin-bottom:1.1rem; }
-  .tier .cta-button { align-self:flex-start; padding:.85rem 1.8rem; font-size:.75rem; }
-  .teams-note { font-family:'Cormorant Garamond',Georgia,serif; font-style:italic; font-size:1.1rem; color:#8B95A8; max-width:760px; margin:0 auto; text-align:center; }
+  /* Membership tiles: the seven-skills tile (shell .tile / .tiles.four, shared hover) in the team colour — border, top rule and a wash
+     behind the text (owner, 2026-09-04: "the cards should match the seven skills ... not only in function, but in size"). The benefit line
+     shows on hover / focus; a tap opens the join dialog. */
+  .team-tile { --tc:#C9A84C; border-color:color-mix(in srgb, var(--tc) 72%, transparent); cursor:pointer; }
+  .team-tile:hover, .team-tile:focus-visible { border-color:var(--tc); box-shadow:0 22px 60px rgba(0,0,0,.5), 0 0 0 1px var(--tc); outline:none; }
+  .team-tile .bg { background:radial-gradient(120% 90% at 22% 18%, color-mix(in srgb, var(--tc) 38%, #050810) 0%, #050810 72%); }
+  .team-tile::before { content:''; position:absolute; top:0; left:1.3rem; right:1.3rem; height:2px; background:var(--tc); z-index:2; }
+  .team-tile .num { color:var(--gold-champagne); }
+  .team-tile h3 { font-family:'Cormorant Garamond',Georgia,serif; font-weight:600; font-size:1.55rem; letter-spacing:.06em; }
+  .team-tile p { font-family:'Cormorant Garamond',Georgia,serif; font-size:1.08rem; line-height:1.4; color:var(--text); max-height:0; opacity:0; overflow:hidden; transition:max-height .45s, opacity .45s, margin .45s; margin-top:0; }
+  .team-tile:hover p, .team-tile:focus-visible p, .team-tile:focus-within p { max-height:6rem; opacity:1; margin-top:.35rem; }
+  .team-tile.t-red { --tc:#7A0F14; } .team-tile.t-blue { --tc:#1A6BDE; } .team-tile.t-gold { --tc:#C9A84C; } .team-tile.t-black { --tc:#F0F4FF; } .team-tile.t-le { --tc:#3A4A5C; } .team-tile.t-teachers { --tc:#CFE2FF; }
+  .teams-note { font-family:'Cormorant Garamond',Georgia,serif; font-style:italic; font-size:1.05rem; color:#8B95A8; max-width:760px; margin:1.2rem auto 0; text-align:center; }
+  .modal.join .join-inc { font-family:'Cormorant Garamond',Georgia,serif; font-size:1.1rem; line-height:1.45; color:#F0F4FF; margin:.6rem 0 0; }
   .modal.join .join-field { display:block; font-family:'Share Tech Mono',monospace; font-size:.66rem; letter-spacing:.25em; text-transform:uppercase; color:#8B95A8; margin:.9rem 0 0; }
   .modal.join input { display:block; width:100%; margin-top:.35rem; padding:.8rem .9rem; background:#0B1221; border:1px solid rgba(201,168,76,.35); color:#F0F4FF; font:1rem 'Rajdhani',sans-serif; letter-spacing:.02em; }
   .modal.join input:focus { outline:none; border-color:#C9A84C; }
   .modal.join .gate-actions { margin-top:1.3rem; }
   .modal.join .join-err { color:#ff8a80; font-size:.9rem; line-height:1.45; margin-top:.8rem; min-height:1.2em; }
   .modal.join .join-err a { color:#E8D27D; }
-  @media (max-width:1100px) { .teams { grid-template-columns:1fr 1fr; } }
+  @media (max-width:900px) { .teams { grid-template-columns:1fr 1fr; } }
   @media (max-width:600px) { .teams { grid-template-columns:1fr; } .tier-fee { font-size:2.2rem; } }
 
   .quotes { display:grid; grid-template-columns:repeat(3,1fr); gap:1.1rem; max-width:1200px; margin:0 auto; text-align:left; }
@@ -557,15 +555,15 @@
       <div class="eyebrow">Team Memberships &middot; Six Teams &middot; Limited Slots</div>
       <h2 class="section-h">Team <span class="gold">Memberships.</span></h2>
       <p class="sub">MAST offers membership in six teams: four open teams, plus Law Enforcement and Verified Teachers. Each team holds a set number of slots, so the benefits and the class seats are always there for the members who hold them. When a team is full there is a waiting list. New memberships are vetted by the established team.</p>
-      <div class="teams rise">
-        <div class="tier t-red"><div class="tier-name">Red Team</div><div class="tier-fee">$250<small>per month</small></div><p class="tier-inc">One class, plus 25% off any one class for you or one friend.</p><div class="tier-slots">10 memberships</div><button class="cta-button" type="button" onclick="joinTeam('red_team', 'Red Team', '$250')">Join</button></div>
-        <div class="tier t-blue"><div class="tier-name">Blue Team</div><div class="tier-fee">$450<small>per month</small></div><p class="tier-inc">Two classes, plus 35% off any two classes for you or two friends.</p><div class="tier-slots">5 memberships</div><button class="cta-button" type="button" onclick="joinTeam('blue_team', 'Blue Team', '$450')">Join</button></div>
-        <div class="tier t-gold"><div class="tier-name">Gold Team</div><div class="tier-fee">$575<small>per month</small></div><p class="tier-inc">Three classes, plus 45% off any three classes for you or three friends.</p><div class="tier-slots">5 memberships</div><button class="cta-button" type="button" onclick="joinTeam('gold_team', 'Gold Team', '$575')">Join</button></div>
-        <div class="tier t-black"><div class="tier-name">Black Team</div><div class="tier-fee">$600<small>per month</small></div><p class="tier-inc">Unlimited classes, plus 50% off any class for you or four friends.</p><div class="tier-slots">5 memberships</div><button class="cta-button" type="button" onclick="joinTeam('black_team', 'Black Team', '$600')">Join</button></div>
-        <div class="tier t-le"><div class="tier-name">Law Enforcement</div><div class="tier-fee">$195<small>per month</small></div><p class="tier-inc">Two classes, plus 35% off any two classes for you or two friends.</p><div class="tier-slots">Verified status required</div><button class="cta-button" type="button" onclick="joinTeam('le_team', 'Law Enforcement', '$195')">Join</button></div>
-        <div class="tier t-teachers"><div class="tier-name">Verified Teachers</div><div class="tier-fee">$195<small>per month</small></div><p class="tier-inc">Two classes, plus 35% off any two classes for you or two friends.</p><div class="tier-slots">Verified status required</div><button class="cta-button" type="button" onclick="joinTeam('teachers_team', 'Verified Teachers', '$195')">Join</button></div>
+      <div class="tiles four rise">
+        <div class="tile team-tile t-red" role="button" tabindex="0" onclick="joinTeam('red_team', 'Red Team', '$250', 'One class, plus 25% off any one class for you or one friend.')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();joinTeam('red_team', 'Red Team', '$250', 'One class, plus 25% off any one class for you or one friend.');}"><div class="bg"></div><div class="txt"><div class="num">$250 &middot; per month &middot; 10 memberships</div><h3>Red Team.</h3><p>One class, plus 25% off any one class for you or one friend.</p></div></div>
+        <div class="tile team-tile t-blue" role="button" tabindex="0" onclick="joinTeam('blue_team', 'Blue Team', '$450', 'Two classes, plus 35% off any two classes for you or two friends.')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();joinTeam('blue_team', 'Blue Team', '$450', 'Two classes, plus 35% off any two classes for you or two friends.');}"><div class="bg"></div><div class="txt"><div class="num">$450 &middot; per month &middot; 5 memberships</div><h3>Blue Team.</h3><p>Two classes, plus 35% off any two classes for you or two friends.</p></div></div>
+        <div class="tile team-tile t-gold" role="button" tabindex="0" onclick="joinTeam('gold_team', 'Gold Team', '$575', 'Three classes, plus 45% off any three classes for you or three friends.')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();joinTeam('gold_team', 'Gold Team', '$575', 'Three classes, plus 45% off any three classes for you or three friends.');}"><div class="bg"></div><div class="txt"><div class="num">$575 &middot; per month &middot; 5 memberships</div><h3>Gold Team.</h3><p>Three classes, plus 45% off any three classes for you or three friends.</p></div></div>
+        <div class="tile team-tile t-black" role="button" tabindex="0" onclick="joinTeam('black_team', 'Black Team', '$600', 'Unlimited classes, plus 50% off any class for you or four friends.')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();joinTeam('black_team', 'Black Team', '$600', 'Unlimited classes, plus 50% off any class for you or four friends.');}"><div class="bg"></div><div class="txt"><div class="num">$600 &middot; per month &middot; 5 memberships</div><h3>Black Team.</h3><p>Unlimited classes, plus 50% off any class for you or four friends.</p></div></div>
+        <div class="tile team-tile t-le" role="button" tabindex="0" onclick="joinTeam('le_team', 'Law Enforcement', '$195', 'Two classes, plus 35% off any two classes for you or two friends.')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();joinTeam('le_team', 'Law Enforcement', '$195', 'Two classes, plus 35% off any two classes for you or two friends.');}"><div class="bg"></div><div class="txt"><div class="num">$195 &middot; per month &middot; Verified status required</div><h3>Law Enforcement.</h3><p>Two classes, plus 35% off any two classes for you or two friends.</p></div></div>
+        <div class="tile team-tile t-teachers" role="button" tabindex="0" onclick="joinTeam('teachers_team', 'Verified Teachers', '$195', 'Two classes, plus 35% off any two classes for you or two friends.')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();joinTeam('teachers_team', 'Verified Teachers', '$195', 'Two classes, plus 35% off any two classes for you or two friends.');}"><div class="bg"></div><div class="txt"><div class="num">$195 &middot; per month &middot; Verified status required</div><h3>Verified Teachers.</h3><p>Two classes, plus 35% off any two classes for you or two friends.</p></div></div>
       </div>
-      <p class="teams-note">A slot is held while the monthly fee is paid; a lapsed slot goes to the waiting list. Membership is billed monthly by card; new memberships are vetted by the established team.</p>
+      <p class="teams-note">Hover a team for what it includes; tap it to join. A slot is held while the monthly fee is paid; a lapsed slot goes to the waiting list. Membership is billed monthly by card; new memberships are vetted by the established team.</p>
     </div>
   </section>
 
@@ -839,6 +837,7 @@
     <div class="eyebrow">Membership</div>
     <h3 id="join-title"></h3>
     <div class="modal-meta" id="join-meta"></div>
+    <p class="join-inc" id="join-inc"></p>
     <label class="join-field">Name<input id="join-name" type="text" autocomplete="name"></label>
     <label class="join-field">Email<input id="join-email" type="email" autocomplete="email" required></label>
     <div class="gate-actions"><button class="cta-button" id="join-go" type="button" onclick="joinGo()">Continue to Stripe</button></div>
@@ -1296,7 +1295,7 @@ const INSTRUCTOR_FILMS = [
 /* Membership join (owner, 2026-09-04): Join opens a short dialog for name and email, then Stripe Checkout in subscription mode via
    POST /create-membership; the Worker provisions the plan's Stripe Price on first use. A failure offers the email route. */
 let joinPlan = null;
-function joinTeam(key, name, fee){ joinPlan = key; $('join-title').textContent = name; $('join-meta').textContent = fee + ' per month'; $('join-err').textContent = ''; const b = $('join-go'); b.disabled = false; b.textContent = 'Continue to Stripe'; $('join-bd').classList.add('open'); $('join').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('join-email').focus(), 150); }
+function joinTeam(key, name, fee, includes){ joinPlan = key; $('join-title').textContent = name; $('join-meta').textContent = fee + ' per month'; $('join-inc').textContent = includes || ''; $('join-err').textContent = ''; const b = $('join-go'); b.disabled = false; b.textContent = 'Continue to Stripe'; $('join-bd').classList.add('open'); $('join').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('join-email').focus(), 150); }
 function closeJoin(){ $('join-bd').classList.remove('open'); $('join').classList.remove('open'); document.body.style.overflow = ''; }
 async function joinGo(){
   const email = $('join-email').value.trim(), name = $('join-name').value.trim();
