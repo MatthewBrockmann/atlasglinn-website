@@ -11,7 +11,7 @@
 # Steps: 1) fetch REF into a detached worktree  2) list mastsolutions.html + every local file it and its linked
 # hand-authored pages reference  3) upload  4) confirm the live page is the new one (registration flow present).
 set -euo pipefail
-HOST="${WP_SFTP_HOST:-hp6.9a2.myftpupload.com}"
+HOST="${WP_SFTP_HOST:-1127220.us12.ssh.myftpupload.com}"   # GoDaddy moved the site 2026-09-03; hp6.9a2 is the old host
 REF="${REF:-origin/main}"
 PAGES="${PAGES:-mastsolutions.html privacy.html terms.html mast-capability-statement.html}"
 say() { printf '\033[1;36m%s\033[0m\n' "$*"; }

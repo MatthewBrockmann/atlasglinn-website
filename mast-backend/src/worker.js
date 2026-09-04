@@ -27,7 +27,7 @@ const REPLAY_WINDOW_SECONDS = 300; // reject webhook timestamps older than 5 min
 
 /** Version stamps. The page sends what it showed; a mismatch means the participant saw stale terms. */
 export const QUESTIONS_VERSION = '2q-2026-09-03';        // the two questions as worded on the page
-export const REFUND_POLICY_VERSION = '2026-09-01-draft'; // REFUND-POLICY-DRAFT.md as rendered on the page
+export const REFUND_POLICY_VERSION = '2026-09-01'; // REFUND-POLICY-DRAFT.md as rendered on the page; approved by the owner 2026-09-02
 export { AGREEMENT_VERSION };
 
 export default {
@@ -157,7 +157,7 @@ async function lookupClass(env, sku) {
   if (env.DB) {
     try {
       const row = await env.DB.prepare(
-        'SELECT sku, name, price_cents FROM offerings WHERE sku = ? AND active = 1 LIMIT 1'
+        'SELECT sku, name, price_cents, capacity FROM offerings WHERE sku = ? AND active = 1 LIMIT 1'
       )
         .bind(sku)
         .first();
@@ -335,6 +335,24 @@ async function handleRegister(request, env, cors) {
   if (!weekend) return json({ error: 'That date is not a MAST training weekend.', field: 'date' }, 404, cors);
   if (weekend.status !== 'available' && weekend.status !== 'scheduled') {
     return json({ error: 'That weekend is not available for booking.', field: 'date' }, 409, cors);
+  }
+  // 1b. Capacity (owner: 16 on one-day fundamentals, 10 on two-day operator courses). A course stops selling on a
+  // weekend at offerings.capacity: paid seats count, and a pending registration holds its seats for 30 minutes while
+  // its Stripe Checkout is open. A live-fire class oversold is a safety problem, so this is checked before Stripe.
+  const capacity = Number(offering.capacity || 0);
+  if (capacity > 0) {
+    const holdCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const takenRow = await env.DB.prepare(
+      "SELECT COALESCE(SUM(qty), 0) AS n FROM registrations WHERE sku = ? AND session_date = ? AND (status = 'paid' OR (status = 'pending' AND created_at > ?))"
+    ).bind(offering.sku, wanted, holdCutoff).first();
+    const taken = Number((takenRow && takenRow.n) || 0);
+    if (taken + qty > capacity) {
+      const left = Math.max(0, capacity - taken);
+      return json({
+        error: left === 0 ? 'This weekend is sold out for this course. Choose another weekend.' : `Only ${left} seat${left === 1 ? '' : 's'} left on this weekend for this course.`,
+        code: 'sold_out', seats_left: left, field: 'date',
+      }, 409, cors);
+    }
   }
   const sessionLabel = str(body.session_label) || weekend.label || '';
 

@@ -46,7 +46,7 @@ def main():
                        for i, (k, u) in enumerate(c['items'], 1))
         subs = f'<p class="subs">{H.escape(" · ".join(c["subs"]))}</p>' if c['subs'] else ''
         secs.append(f'<section class="page"><h2>Chapter {c["n"]} · {H.escape(c["title"])}</h2>{subs}<div class="thumbs">{figs or "<p class=subs>text only</p>"}</div></section>')
-    strip = ''.join(f'<figure><img src="../{H.escape(t)}" loading="lazy" alt=""><figcaption>M.{i:02d} · {H.escape(title)}<br>{H.escape(sub)}<br>{H.escape(f)}{" · teaser" if tz else ""}</figcaption></figure>'
+    strip = ''.join(f'<figure><img src="{H.escape(t if t.startswith("http") else "../" + t)}" loading="lazy" alt=""><figcaption>M.{i:02d} · {H.escape(title)}<br>{H.escape(sub)}<br>{H.escape(f)}{" · teaser" if tz else ""}</figcaption></figure>'
                     for i, (title, sub, f, t, tz) in enumerate(media_strip(src), 1))
     secs.append(f'<section class="page"><h2>Media strip, in order (chapter 07)</h2><div class="thumbs">{strip}</div></section>')
     doc = ('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex, nofollow">'

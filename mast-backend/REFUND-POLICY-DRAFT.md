@@ -1,8 +1,9 @@
-# Cancellation and Refund Policy — DRAFT
+# Cancellation and Refund Policy
 
-**Status: draft for owner review. Not legal advice — have counsel read it before
-it goes on the site.** Written 2026-09-01 at the owner's request, benchmarked
-against the industry.
+**Status: approved by the owner 2026-09-02 ("Refund approved and can fix if needed
+later"); published on the MAST page as policy version `2026-09-01`. Not legal
+advice — have counsel read it.** Written 2026-09-01 at the owner's request,
+benchmarked against the industry. The file keeps its historical name.
 
 ---
 

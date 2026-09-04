@@ -322,6 +322,13 @@
 .cal-foot .cta-button { width: 100%; text-align: center; }
 .day { height: 44px; }
 }
+  .quotes { display:grid; grid-template-columns:repeat(3,1fr); gap:1.1rem; max-width:1200px; margin:0 auto; text-align:left; }
+  .quotes .q { border:1px solid rgba(201,168,76,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.7) 100%); padding:1.4rem 1.5rem; }
+  .quotes .q p { font-style:italic; color:var(--text); line-height:1.55; font-size:1rem; font-weight:300; }
+  .quotes .q .by { margin-top:.8rem; font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.25em; color:var(--gold-champagne); text-transform:uppercase; }
+  @media (max-width:900px) { .quotes { grid-template-columns:1fr 1fr; } }
+  @media (max-width:768px) { .quotes { grid-template-columns:1fr; } }
+
   .modal { background:var(--deep-navy); border-color:rgba(201,168,76,.4); }
   .modal .eyebrow { opacity:1; transform:none; margin-bottom:.6rem; }
   .modal h3 { color:var(--text); }
@@ -370,8 +377,9 @@
   <div class="ph" data-for="05" style="background-image:url('images/mast/courses-low-light.jpg')"></div>
   <div class="ph" data-for="06" style="background-image:url('images/mast/founder-ship.jpg');background-position:center 20%"></div>
   <div class="ph" data-for="07" style="background-image:url('images/mast/vehicular.jpg')"></div>
-  <div class="ph" data-for="08" style="background-image:url('images/mast/privacy-aircraft.jpg')"></div>
-  <div class="ph" data-for="09" style="background-image:url('images/mast/contact-zodiac.jpg')"></div>
+  <div class="ph" data-for="08" style="background-image:url('images/mast/instructing-le.jpg');background-position:center 30%"></div>
+  <div class="ph" data-for="09" style="background-image:url('images/mast/privacy-aircraft.jpg')"></div>
+  <div class="ph" data-for="10" style="background-image:url('images/mast/contact-zodiac.jpg')"></div>
 </div>
 <div class="grain"></div>
 <div class="vignette"></div>
@@ -380,8 +388,8 @@
 <div class="progress" id="progress"></div>
 <div class="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>
 
-<a class="hud tl" href="index.html">&#9679; ATLAS GLINN &middot; MAST.SYS LIVE</a>
-<div class="hud tr" id="hud-section">SECTION 01 / 09</div>
+<a class="hud tl" href="/">&#9679; ATLAS GLINN &middot; MAST.SYS LIVE</a>
+<div class="hud tr" id="hud-section">SECTION 01 / 10</div>
 <div class="hud bl">HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W</div>
 <div class="hud br">DETAILS MATTER</div>
 
@@ -393,8 +401,9 @@
   <a href="#s5" class="chap-link">05 &middot; Courses</a>
   <a href="#s6" class="chap-link">06 &middot; Instructors</a>
   <a href="#s7" class="chap-link">07 &middot; In Action</a>
-  <a href="#s8" class="chap-link">08 &middot; Privacy</a>
-  <a href="#s9" class="chap-link">09 &middot; Contact</a>
+  <a href="#s8" class="chap-link">08 &middot; Words</a>
+  <a href="#s9" class="chap-link">09 &middot; Privacy</a>
+  <a href="#s10" class="chap-link">10 &middot; Contact</a>
 </nav>
 
 <div id="banner" class="banner" role="status"></div>
@@ -475,7 +484,7 @@
       <div class="founder rise">
         <div class="portrait" style="background-image:url('images/mast/instructing-le.jpg')"><div class="cap">Instructing a federal team on the line</div></div>
         <div class="bio">
-          <p>Founded MAST Solutions in 2005 and later Atlas Glinn, LLC. Former Head of Security for Senator Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named only where media coverage exists. Other high-profile and high-net-worth individuals follow our privacy standards. We do not do media; a name appears only where media captured it without our consent. Teaches on the range. Has trained Houston, Baytown, Galveston, and other SWAT teams, including TTPOA (TX Tactical Police Officers Association), VBSS (Visit, Board, Search, Seize), NASA SRT, Dept of Homeland Security, and other federal, state, and Military Units.</p>
+          <p>Founded MAST Solutions in 2005 and later Atlas Glinn, LLC. Former Head of Security, Sen. Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named as media exist. Other high-profile and high-net-worth individuals follow our privacy standards. We don&rsquo;t do media unless media captures without consent. Teaches on the range. Has trained Houston, Baytown, Galveston, and other SWAT teams, including TTPOA (TX Tactical Police Officers Association), VBSS (Visit, Board, Search, Seize), NASA SRT, Dept of Homeland Security, and other federal, state, and Military Units.</p>
           <ul class="creds">
             <li>Trained by <b>Paul Howe</b> (1st SFOD-D), <b>Bill Jeans</b> and <b>John Perretti</b></li>
             <li><b>DPS Level III Firearms Instructor</b> &middot; <b>TTPOA Maritime VBSS</b> instructor</li>
@@ -504,21 +513,40 @@
 
   <section class="panel" id="s8" data-section="08">
     <div>
-      <div class="badge">Privacy Matters</div>
-      <p class="sub quote lead">&ldquo;Details matter. Privacy matters. We don&rsquo;t disclose.&rdquo;</p>
-      <p class="sub" style="font-size:.98rem;">Former Head of Security for Senator Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named only where media coverage exists. Other high-profile and high-net-worth individuals follow our privacy standards. We do not do media; a name appears only where media captured it without our consent. Pictured: Senators Hawley and Schmitt.</p>
-      <div class="eyebrow" style="margin-top:2.5rem;">For agencies, units and procurement officers</div>
-      <div class="ctas rise"><a href="mailto:atlasglinn.hq@atlasglinn.com?subject=MAST%20Solutions%20Capability%20Statement%20Request" class="cta">Email for the Capability Statement</a><a href="mast-capability-statement.html" class="secondary-cta">View One-Pager</a></div>
+      <div class="eyebrow">What They Say</div>
+      <h2 class="section-h">In Their <span class="gold">Words.</span></h2>
+      <div class="quotes rise">
+        <div class="q"><p>&ldquo;Matthew is an expert in his field. He is highly motivated, knowledgeable and I highly recommend him for top-tier performance.&rdquo;</p><div class="by">Kenny Upton &middot; Deputy, Harris County Sheriff</div></div>
+        <div class="q"><p>&ldquo;His leadership, dedication, drive, and passion is second to none. A master at teamwork, problem-solving, leadership, and communication.&rdquo;</p><div class="by">Ray Cash Care &middot; Navy SEAL / Former CIA</div></div>
+        <div class="q"><p>&ldquo;As a former Reconnaissance Marine, Matthew&rsquo;s teaching has not only made me a better shooter, he has made me a better team player.&rdquo;</p><div class="by">Arthur Metcalfe &middot; Recon Marine</div></div>
+        <div class="q"><p>&ldquo;Brockmann had hosted and taught some of the best classes I have been a part of. I can&rsquo;t recommend him enough.&rdquo;</p><div class="by">William H. Miller &middot; Flight Paramedic</div></div>
+        <div class="q"><p>&ldquo;Extremely professional. In an extremely competitive industry Matt has never failed to provide exceptional guidance. I recommend him without hesitation.&rdquo;</p><div class="by">Craig Etkin &middot; President &amp; CEO, intelligence360</div></div>
+        <div class="q"><p>&ldquo;I&rsquo;ve trained with some big-name national and global self-defense trainers. I&rsquo;ve always felt safe training with Matt, the #1 criterion for choosing a trainer.&rdquo;</p><div class="by">Wayne Sadin &middot; CxO / Investor</div></div>
+      </div>
     </div>
   </section>
 
   <section class="panel" id="s9" data-section="09">
     <div>
+      <div class="badge">Privacy Matters</div>
+      <p class="sub quote lead">&ldquo;Details matter. Privacy matters. We don&rsquo;t disclose.&rdquo;</p>
+      <p class="sub" style="font-size:.98rem;">Former Head of Security, Sen. Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named as media exist. Other high-profile and high-net-worth individuals follow our privacy standards. We don&rsquo;t do media unless media captures without consent.</p>
+      <div class="cert rise">
+        <img src="images/mast/privacy-aircraft.jpg" alt="U.S. Senators Josh Hawley and Eric Schmitt aboard an aircraft, seen through the cabin windows" loading="lazy">
+        <p>Pictured: Senators Hawley and Schmitt.</p>
+      </div>
+      <div class="eyebrow" style="margin-top:2.5rem;">For agencies, units and procurement officers</div>
+      <div class="ctas rise"><a href="mailto:atlasglinn.hq@atlasglinn.com?subject=MAST%20Solutions%20Capability%20Statement%20Request" class="cta">Email for the Capability Statement</a><a href="mast-capability-statement.html" class="secondary-cta">View One-Pager</a></div>
+    </div>
+  </section>
+
+  <section class="panel" id="s10" data-section="10">
+    <div>
       <div class="eyebrow">Book a Course</div>
       <h2 class="section-h"><span class="gold">Train</span> with MAST.</h2>
       <p class="sub">Individual seats, team blocks, and agency instruction.</p>
       <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div>
-      <div class="ctas rise"><a href="#s5" class="cta">Book a Course</a><a href="index.html" class="secondary-cta">Atlas Glinn &rarr;</a></div>
+      <div class="ctas rise"><a href="#s5" class="cta">Book a Course</a><a href="/" class="secondary-cta">Atlas Glinn &rarr;</a></div>
       <div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions <br><a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.youtube.com/@mastsolutions" target="_blank" rel="noopener">YouTube</a></div>
     </div>
   </section>
@@ -634,7 +662,7 @@
         <p>Serious illness, injury, family emergency, or military or law-enforcement deployment: contact us. We will transfer your seat to a future class at no charge, whatever the notice. We may ask for documentation for a deployment.</p>
         <h4>How refunds are issued</h4>
         <p>Refunds go back to the original payment method within 5 to 10 business days of approval. We do not refund to a different card or by cash.</p>
-        <p class="policy-version">Policy version 2026-09-01-draft &middot; your acceptance is recorded with this version, the time and your IP address.</p>
+        <p class="policy-version">Policy version 2026-09-01 &middot; your acceptance is recorded with this version, the time and your IP address.</p>
     </div>
     <button class="cta-button" onclick="closePolicy()" style="margin-top:1rem">Close</button>
 </div>
@@ -684,7 +712,7 @@
 <script type="module">
 import * as THREE from './vendor/three.module.js';
 
-const SECTIONS = 9;
+const SECTIONS = 10;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mobile = matchMedia('(max-width: 768px)').matches;
 
@@ -809,6 +837,7 @@ const kf = [
   { x: 0, y: -2, z: 10, lx: 0, ly: .5, lz: 0 },
   { x: 2, y: -3, z: 13, lx: 0, ly: 1, lz: 0 },
   { x: -2, y: -3.5, z: 15, lx: 0, ly: 1.5, lz: 0 },
+  { x: 3, y: 1, z: 11, lx: 0, ly: 0, lz: 0 },
   { x: 0, y: -4, z: 18, lx: 0, ly: 2, lz: 0 },
 ];
 let activeIdx = 0;
@@ -834,7 +863,7 @@ function update() {
   scene.fog.density = 0.03 + t * .025;
   document.getElementById('progress').style.width = (t * 100) + '%';
   const idx = sectionIndex();
-  if (idx !== activeIdx) { activeIdx = idx; document.getElementById('hud-section').textContent = `SECTION 0${idx + 1} / 0${SECTIONS}`; chapLinks.forEach((l, k) => l.classList.toggle('active', k === idx)); }
+  if (idx !== activeIdx) { activeIdx = idx; document.getElementById('hud-section').textContent = `SECTION ${String(idx + 1).padStart(2, '0')} / ${String(SECTIONS).padStart(2, '0')}`; chapLinks.forEach((l, k) => l.classList.toggle('active', k === idx)); }
   if (!intro.isConnected) setPhoto(idx);
 }
 addEventListener('scroll', update, { passive: true });
@@ -963,7 +992,7 @@ function calContinue(){ if (chosen === null) return; $('cal-bd').classList.remov
 
 /* Checkout — registration: details → eligibility → agreement → refund consent → Stripe (privacy.html §3) */
 const REGISTER_ENDPOINT = API + '/register';
-const QUESTIONS_VERSION = '2q-2026-09-03', AGREEMENT_VERSION = '81961f2a07675eff', REFUND_POLICY_VERSION = '2026-09-01-draft'; // must match the Worker
+const QUESTIONS_VERSION = '2q-2026-09-03', AGREEMENT_VERSION = '81961f2a07675eff', REFUND_POLICY_VERSION = '2026-09-01'; // must match the Worker
 let qty = 1, regStep = 1, docScrolled = false;
 function openSheet(){ qty = 1; docScrolled = false; $('sheet-title').textContent = calCourse.name; $('sheet-meta').textContent = metaFor(calCourse); $('sheet-date-label').innerHTML = '&#128197; ' + labelFor(WEEKENDS[chosen], calCourse.days); $('co-qty').textContent = '1'; $('reg-review').hidden = true; $('reg-sign').hidden = true; $('reg-3-go').disabled = true; const h = $('reg-doc-hint'); h.textContent = 'Scroll to the end of page 3 to continue.'; h.classList.remove('ok'); $('reg-doc').scrollTop = 0; showStep(1); updateTotal(); $('sheet-bd').classList.add('open'); $('sheet').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('co-name').focus(), 250); }
 function showStep(n){ regStep = n; for (let i = 1; i <= 4; i++) $('reg-' + i).hidden = i !== n; document.querySelectorAll('.reg-steps li').forEach(li => { const s = +li.dataset.step; li.classList.toggle('on', s === n); li.classList.toggle('done', s < n); }); $('co-err').classList.remove('show'); $('sheet').scrollTop = 0; }
@@ -1032,13 +1061,20 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('pol
 const MEDIA = [
   { mp4: 'images/mast/jason-castro-testimonial.mp4', teaser: 'images/mast/jason-castro-testimonial-teaser.mp4', poster: 'images/mast/jason-castro-testimonial-poster.jpg', title: 'Jason Castro', sub: 'Student testimonial' },
   { mp4: 'images/mast/mast-cqb.mp4', teaser: 'images/mast/mast-cqb-teaser.mp4', poster: 'images/mast/mast-cqb-poster.jpg', title: 'CQB', sub: 'Night-vision room clearing, then the range' },
+  { mp4: 'images/mast/mast-vid-4.mp4', teaser: 'images/mast/mast-vid-4-teaser.mp4', poster: 'images/mast/mast-vid-4-poster.jpg', title: 'Modern Shooter TV', sub: 'Gun Digest feature with Jason Castro and Lance McCullers' },
+  { mp4: 'images/mast/mast-vid-3.mp4', teaser: 'images/mast/mast-vid-3-teaser.mp4', poster: 'images/mast/mast-vid-3-poster.jpg', title: 'Behind the Scenes', sub: 'Filming the Modern Shooter TV feature' },
+  { mp4: 'images/mast/mast-vid-web2.mp4', teaser: 'images/mast/mast-vid-web2-teaser.mp4', poster: 'images/mast/mast-vid-web2-poster.jpg', title: 'Vehicle Tactics', sub: 'Mounted movement through smoke' },
   { mp4: 'images/mast/mast-vid-1.mp4', teaser: 'images/mast/mast-vid-1-teaser.mp4', poster: 'images/mast/mast-vid-1-poster.jpg', title: 'MAST Solutions', sub: 'On the range' },
   { mp4: 'images/mast/mast-vid-2.mp4', teaser: 'images/mast/mast-vid-2-teaser.mp4', poster: 'images/mast/mast-vid-2-poster.jpg', title: 'MAST Solutions', sub: 'Training day' },
   { mp4: 'images/mast/mast-medical.mp4', teaser: 'images/mast/mast-medical-teaser.mp4', poster: 'images/mast/mast-medical-poster.jpg', title: 'Medical', sub: 'Tourniquet under pressure' },
   { mp4: 'images/mast/mast-shotgun.mp4', teaser: 'images/mast/mast-shotgun-teaser.mp4', poster: 'images/mast/mast-shotgun-poster.jpg', title: 'Shotgun', sub: 'Breaching and patterning' },
   { mp4: 'images/mast/forge-ignition-orlando.mp4', teaser: 'images/mast/forge-ignition-orlando-teaser.mp4', poster: 'images/mast/forge-ignition-orlando-poster.jpg', title: 'Forge Ignition', sub: 'Orlando' },
-  { yt: 'pSGWdaDglZE', title: 'Modern Shooter TV', sub: 'Lance M / Castro / Ray Cash — MAST Solutions' },
+  { mp4: 'images/film/atlas-glinn-and-mast-solutions.mp4', teaser: 'images/film/atlas-glinn-and-mast-solutions-teaser.mp4', poster: 'images/film/atlas-glinn-and-mast-solutions-poster.jpg', title: 'Atlas Glinn & MAST Solutions', sub: 'The film from the Atlas Glinn home page' },
+  { mp4: 'images/film/about-atlas-glinn.mp4', teaser: 'images/film/about-atlas-glinn-teaser.mp4', poster: 'images/film/about-atlas-glinn-poster.jpg', title: 'About Atlas Glinn', sub: 'The film from the About page' },
+  { yt: 'pSGWdaDglZE', title: 'Modern Shooter TV', sub: 'Lance M / Castro / Ray Cash — MAST Solutions, full episode' },
+  { yt: 'OfXe_bdH6t4', title: 'Modern Shooter TV', sub: 'Tactical Training Feature' },
   { yt: 'jwQ5OyKEKwg', title: 'Training Reel', sub: 'The film behind the Training page' },
+  { yt: 'mI7Ou5P-WHE', title: 'Disaster Recovery & Asset Protection', sub: 'Immediate deployment when the storm has passed' },
 ];
 (function(){
   const host = $('media-strip');

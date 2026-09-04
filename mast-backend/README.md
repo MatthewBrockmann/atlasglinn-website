@@ -61,7 +61,7 @@ request is refused with 409 (stale terms):
                  "address1": "1 Main St", "address2": "Houston, TX 77002",
                  "emergency_name": "John Doe", "emergency_phone": "(713) 555-0199", "emergency_relationship": "Spouse",
                  "scrolled": true, "agreed": true },
-  "refund": { "accepted": true, "version": "2026-09-01-draft" },
+  "refund": { "accepted": true, "version": "2026-09-01" },
   "newsletter_opt_in": false, "success_url": "…", "cancel_url": "…" }
 ```
 

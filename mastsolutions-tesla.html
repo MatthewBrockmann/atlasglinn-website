@@ -616,7 +616,7 @@
         <p>Serious illness, injury, family emergency, or military or law-enforcement deployment: contact us. We will transfer your seat to a future class at no charge, whatever the notice. We may ask for documentation for a deployment.</p>
         <h4>How refunds are issued</h4>
         <p>Refunds go back to the original payment method within 5 to 10 business days of approval. We do not refund to a different card or by cash.</p>
-        <p class="policy-version">Policy version 2026-09-01-draft &middot; your acceptance is recorded with this version, the time and your IP address.</p>
+        <p class="policy-version">Policy version 2026-09-01 &middot; your acceptance is recorded with this version, the time and your IP address.</p>
     </div>
     <button class="cta-button" onclick="closePolicy()" style="margin-top:1rem">Close</button>
 </div>
@@ -757,7 +757,7 @@ function calContinue(){ if (chosen === null) return; $('cal-bd').classList.remov
 
 /* Checkout — registration: details → eligibility → agreement → refund consent → Stripe (privacy.html §3) */
 const REGISTER_ENDPOINT = API + '/register';
-const QUESTIONS_VERSION = '2q-2026-09-03', AGREEMENT_VERSION = '81961f2a07675eff', REFUND_POLICY_VERSION = '2026-09-01-draft'; // must match the Worker
+const QUESTIONS_VERSION = '2q-2026-09-03', AGREEMENT_VERSION = '81961f2a07675eff', REFUND_POLICY_VERSION = '2026-09-01'; // must match the Worker
 let qty = 1, regStep = 1, docScrolled = false;
 function openSheet(){ qty = 1; docScrolled = false; $('sheet-title').textContent = calCourse.name; $('sheet-meta').textContent = metaFor(calCourse); $('sheet-date-label').innerHTML = '&#128197; ' + labelFor(WEEKENDS[chosen], calCourse.days); $('co-qty').textContent = '1'; $('reg-review').hidden = true; $('reg-sign').hidden = true; $('reg-3-go').disabled = true; const h = $('reg-doc-hint'); h.textContent = 'Scroll to the end of page 3 to continue.'; h.classList.remove('ok'); $('reg-doc').scrollTop = 0; showStep(1); updateTotal(); $('sheet-bd').classList.add('open'); $('sheet').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('co-name').focus(), 250); }
 function showStep(n){ regStep = n; for (let i = 1; i <= 4; i++) $('reg-' + i).hidden = i !== n; document.querySelectorAll('.reg-steps li').forEach(li => { const s = +li.dataset.step; li.classList.toggle('on', s === n); li.classList.toggle('done', s < n); }); $('co-err').classList.remove('show'); $('sheet').scrollTop = 0; }
