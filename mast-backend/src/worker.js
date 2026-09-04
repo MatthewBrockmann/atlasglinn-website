@@ -41,7 +41,7 @@ export default {
 
     try {
       if (url.pathname === '/health' && request.method === 'GET') {
-        return json({ status: 'MAST booking backend — ONLINE', version: '1.0.0' }, 200, cors);
+        return json({ status: 'MAST booking backend — ONLINE', version: '1.1.0' }, 200, cors);
       }
       if (url.pathname === '/catalog' && request.method === 'GET') {
         return await handleCatalog(env, cors);
