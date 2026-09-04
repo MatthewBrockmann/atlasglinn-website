@@ -106,7 +106,7 @@ CHROME = shell.chrome(
 
 
 # ── Membership: the four teams of the old site's Membership sheet (2014), applications by email (owner, 2026-09-04: "Add the 4
-#    Subscriptions = do u have them from old site info?"). Fees are the 2014 figures pending his confirmation; Stripe subscription
+#    Subscriptions = do u have them from old site info?"). Fees confirmed by him 2026-09-04 (Red 250, Blue 450, Gold 575, Black 600); Stripe subscription
 #    prices are not created yet, so Apply is a mailto and the plans sit inactive in the Worker's memberships table.
 import urllib.parse
 def tier(name, key, fee, includes, slots):   # key is t-<team>: a bare 'gold' class would take the page's gradient-text rule
@@ -122,10 +122,10 @@ MEMBERSHIP = f"""
       <h2 class="section-h">The <span class="gold">Teams.</span></h2>
       <p class="sub">MAST offers membership in four teams. Each team holds a set number of slots, so the benefits and the class seats are always there for the members who hold them. When a team is full there is a waiting list. New memberships are vetted by the established team.</p>
       <div class="teams rise">
-        {tier('Red Team', 't-red', '$125', 'One class, plus 25% off any one class for you or one friend.', '10 memberships')}
-        {tier('Blue Team', 't-blue', '$200', 'Two classes, plus 35% off any two classes for you or two friends.', '5 memberships')}
-        {tier('Gold Team', 't-gold', '$350', 'Three classes, plus 45% off any three classes for you or three friends.', '5 memberships')}
-        {tier('Black Team', 't-black', '$500', 'Unlimited classes, plus 50% off any class for you or four friends.', '5 memberships')}
+        {tier('Red Team', 't-red', '$250', 'One class, plus 25% off any one class for you or one friend.', '10 memberships')}
+        {tier('Blue Team', 't-blue', '$450', 'Two classes, plus 35% off any two classes for you or two friends.', '5 memberships')}
+        {tier('Gold Team', 't-gold', '$575', 'Three classes, plus 45% off any three classes for you or three friends.', '5 memberships')}
+        {tier('Black Team', 't-black', '$600', 'Unlimited classes, plus 50% off any class for you or four friends.', '5 memberships')}
       </div>
       <p class="teams-note">A slot is held while the monthly fee is paid; a lapsed slot goes to the waiting list. Apply by email &mdash; the team answers.</p>
     </div>
