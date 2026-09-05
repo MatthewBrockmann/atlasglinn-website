@@ -140,6 +140,14 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    ("Fix the visibility of the contact"); the splash wordmark is the hero's Orbitron ("Keep this font for the splash opener — need
    the consistency"). "The Range = 'SHOW ALL' delete … just what we have for the range is good": the twelve that showed stay,
    no button; r004, r013–r015, r017, r021–r024 leave the chapter.
+   **01:55–02:10:** "Wrong photo, replace with this" → Ladies Only takes the pistol-on-the-berm photograph he sent
+   (`images/mast/ladies-handgun.jpg`). The combatives frame (no caption) → gallery g13, app chrome cropped. "Collapse all the
+   photos … with a close open button. I'm trying to limit how much scrolling there is" → both photo grids (The Range, the
+   gallery under In Action) start closed behind a "Click to View / Click to Close" button (`fold_button`, `.fold`, `toggleFold`).
+   "The hero pictures are all jacked up, not all the same size. Go back to my original hero picture for instructor" → every
+   portrait (founder, Cline, Kramer) is one 4:5 frame in the same column, no longer stretching with the bio (shell `.founder`,
+   `.team`); the founder block is back on `brockmann-instructor.jpg` (the skyline photograph as sent), framed 66% across.
+   "Put the Washington Post article right above the videos" → the Post line sits between the In Action sub and the film strip.
    His **shotgun clip** (`SHOTGUN gallery vids.mp4`, 7 s) is cut together with the existing 6 s take as one Shotgun film in
    In Action (`images/mast/mast-shotgun.mp4`, new take first; poster and teaser from it).
    Earlier note — chapter 05 **The Range** (2026-09-04, "look up the range photos that we had on the other site. That

@@ -163,6 +163,11 @@ def photo_tile(i, src, shown):
     more = ' more' if i > shown else ''
     return (f'<div class="tile photo{more}" role="button" tabindex="0" aria-label="Open photograph {i:02d}" onclick="openLb(\'{src}\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){{event.preventDefault();openLb(\'{src}\');}}">'
             f'<div class="bg" style="background-image:url(\'{src}\')"></div><div class="txt"><div class="num">{i:02d}</div></div></div>')
+def fold_button(fold_id, open_text, close_text):
+    """The open/close button for a folded photo grid (owner, 2026-09-05: "collapse all the photos … with a close open button. I'm trying
+    to limit how much scrolling there is"). The grid starts closed; the button toggles it and swaps its own label."""
+    return (f'<div class="ctas rise"><button class="secondary-cta" type="button" id="{fold_id}-btn" aria-expanded="false" aria-controls="{fold_id}" '
+            f'onclick="toggleFold(\'{fold_id}\', \'{open_text}\', \'{close_text}\')">{open_text}</button></div>')
 def photo_grid(gid, photos):
     """Skills-tile grid of photographs. Up to four rows show outright; a longer set shows twelve and puts the rest behind "Show all"."""
     shown = len(photos) if len(photos) <= 16 else 12
@@ -174,8 +179,9 @@ RANGE_SECTION = f"""
     <div>
       <div class="eyebrow">Enter the Range</div>
       <h2 class="section-h">The <span class="gold">Range.</span></h2>
-      <p class="sub">A private range. Flat range and berms, vehicle lanes, low light, and the shoothouse &mdash; the ground every class is run on. Tap a photograph to open it.</p>
-      {photo_grid('range-tiles', RANGE_PHOTOS)}
+      <p class="sub">A private range. Flat range and berms, vehicle lanes, low light, and the shoothouse &mdash; the ground every class is run on.</p>
+      {fold_button('range-fold', 'Click to View', 'Click to Close')}
+      <div class="fold" id="range-fold">{photo_grid('range-tiles', RANGE_PHOTOS)}</div>
     </div>
   </section>
 """
@@ -186,6 +192,7 @@ LIGHTBOX = """
 """
 LIGHTBOX_JS = """
 function showAll(id){ document.getElementById(id).classList.add('all'); const b = document.getElementById(id + '-more'); if (b) b.remove(); }
+function toggleFold(id, openText, closeText){ const f = $(id), b = $(id + '-btn'); const open = !f.classList.contains('open'); f.classList.toggle('open', open); b.textContent = open ? closeText : openText; b.setAttribute('aria-expanded', open ? 'true' : 'false'); if (!open) b.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 function openLb(src){ $('lb-img').src = src; $('lb-bd').classList.add('open'); $('lb').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeLb(){ $('lb-bd').classList.remove('open'); $('lb').classList.remove('open'); document.body.style.overflow = ''; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('lb').classList.contains('open')) closeLb(); });
@@ -266,7 +273,7 @@ SECTIONS = f"""
       <div class="eyebrow">Instructors</div>
       <h2 class="section-h">Meet The <span class="gold">Team.</span></h2>
       <div class="founder rise">
-        <div class="portrait" style="background-image:url('images/mast/brockmann-portrait.jpg');background-position:center 35%"><div class="cap">Founder &amp; Lead Instructor</div></div>
+        <div class="portrait" style="background-image:url('images/mast/brockmann-instructor.jpg');background-position:66% 50%"><div class="cap">Founder &amp; Lead Instructor</div></div>
         <div class="bio">
           <h3>Matthew Brockmann</h3><div class="role">Founder &amp; Lead Instructor</div>
           <p>Founded MAST Solutions in 2005 and later Atlas Glinn, LLC. Former Head of Security, Sen. Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named as media exist. Other high-profile and high-net-worth individuals follow our privacy standards. We don&rsquo;t do media. Names appear only where the media captured them. Teaches on the range. Has trained Houston, Baytown, Galveston, and other SWAT teams, including TTPOA (TX Tactical Police Officers Association), VBSS (Visit, Board, Search, Seize), NASA SRT, Dept of Homeland Security, and other federal, state, and Military Units.</p>
@@ -309,10 +316,12 @@ SECTIONS = f"""
       <div class="eyebrow">MAST Solutions In Action</div>
       <h2 class="section-h">In <span class="gold">Action.</span></h2>
       <p class="sub">Training, operations, and the people behind the mission. Tap to play. Nothing loads until you do.</p>
+      <a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener" class="post rise"><small>As featured in</small>The Washington Post &middot; Arming American Teachers &rarr;</a>
+      <!-- The Washington Post feature sits above the films (owner, 2026-09-05: "the videos will draw attention, so put it right above the videos") -->
       <div class="media-strip rise" id="media-strip"></div>
       <div class="eyebrow gallery-eyebrow rise">Photographs</div>
-      {photo_grid('gallery-tiles', GALLERY_PHOTOS)}
-      <a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener" class="post"><small>As featured in</small>The Washington Post &middot; Arming American Teachers &rarr;</a>
+      {fold_button('gallery-fold', 'Click to View', 'Click to Close')}
+      <div class="fold" id="gallery-fold">{photo_grid('gallery-tiles', GALLERY_PHOTOS)}</div>
     </div>
   </section>
 
@@ -446,6 +455,10 @@ QUOTES_CSS = """
   .photo-tiles .tile.more { display:none; }
   .photo-tiles.all .tile.more { display:flex; }
   .gallery-eyebrow { margin-top:2.6rem; }
+  #s9 .post { margin-top:.2rem; margin-bottom:1.8rem; }   /* above the films (owner, 2026-09-05) */
+  /* Folded photo grids: closed until the button opens them, then they unfold downward. The padding keeps the tiles' hover lift clear of the clip. */
+  .fold { max-height:0; overflow:hidden; opacity:0; padding:10px 10px 0; margin:-10px -10px 0; transition:max-height .8s cubic-bezier(.2,.7,.2,1), opacity .45s; }
+  .fold.open { max-height:6000px; opacity:1; padding-bottom:12px; transition:max-height 1.2s cubic-bezier(.2,.7,.2,1), opacity .5s .1s; }
   /* The contact chapter's line over the water backdrop (owner, 2026-09-05: "Fix the visibility of the contact"); the contact lines themselves are handled in the shell for both sites. */
   #s12 .sub { text-shadow:0 1px 6px rgba(0,0,0,.9), 0 0 18px rgba(0,0,0,.6); }
   .modal.lightbox { width:min(1200px, calc(100vw - 32px)); padding:.6rem; background:#050810; }
