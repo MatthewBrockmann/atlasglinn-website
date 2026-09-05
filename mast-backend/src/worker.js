@@ -1618,9 +1618,15 @@ function safeUrl(candidate, env) {
   }
 }
 
+// Where Stripe sends people back when the page did not say (or said somewhere off-origin): the MAST page itself.
+// SITE_URL is the page's full address; the old fallback used the first allowed ORIGIN alone, which dropped the
+// /mastsolutions.html path and landed paid customers on the Atlas Glinn home page (owner, 2026-09-05: "correct
+// the payment link in the back end").
 function defaultUrl(env, suffix) {
-  const base = allowedOrigins(env)[0] || env.SITE_URL || 'https://mastsolutions.com';
-  return base.replace(/\/$/, '/') + suffix;
+  const page = env.SITE_URL || ((allowedOrigins(env)[0] || 'https://atlasglinn.com') + '/mastsolutions.html');
+  const [path, query = ''] = page.split('?');
+  const q = suffix.replace(/^\?/, '');
+  return path + '?' + (query ? query + '&' + q : q);
 }
 
 function isEmail(v) {
