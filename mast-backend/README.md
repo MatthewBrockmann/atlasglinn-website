@@ -96,7 +96,9 @@ roster notice at `NOTIFY_EMAIL`.
 > **Automatic since 2026-09-05:** `.github/workflows/deploy-worker.yml` runs the tests and `wrangler deploy` on every
 > push to `main` that touches `mast-backend/`, once the repository secrets `CLOUDFLARE_API_TOKEN` and
 > `CLOUDFLARE_ACCOUNT_ID` exist (Settings → Secrets and variables → Actions). Until they do, the job runs the tests and
-> stops with a notice. Worker secrets and D1 migrations (steps 2 and 3 below) stay manual.
+> stops with a notice. A repository secret named `WORKER_RESEND_API_KEY`, `WORKER_ACCOUNT_SECRET` or `WORKER_NOTIFY_EMAIL`
+> is pushed to the Worker after each deploy (rotate a key from a phone: set the repository secret, run the workflow).
+> Other Worker secrets and D1 migrations (steps 2 and 3 below) stay manual.
 
 > **YOU RUN THIS — copy-paste into Terminal.** Steps 1, 3 (the first five
 > secrets) and 5 were run on 2026-09-03 for v1.0. For v1.1 (registration) run

@@ -58,6 +58,10 @@
   #photos .ph video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:inherit; opacity:0; transition:opacity 1.2s ease; }
   #photos .ph video.playing { opacity:1; }
   #photos .ph.film.on { opacity:.58; }
+  /* A YouTube film as the backdrop, the way the current Atlas pages embed their hero films (autoplay, muted, loop,
+     no controls): the frame is oversized to cover the viewport at 16:9 and cannot be clicked. */
+  #photos .ph.yt iframe { position:absolute; top:50%; left:50%; width:100vw; height:56.25vw; min-height:100%; min-width:177.78vh; transform:translate(-50%,-50%); border:0; pointer-events:none; opacity:0; transition:opacity 1.2s ease; }
+  #photos .ph.yt iframe.playing { opacity:1; }
   /* Backdrop presence (Brockmann, 2026-09-05: pull the background forward, keep the layers; then "Reduce background brightness by
      20%"): the photograph sits at .42 (.52 less a fifth), the scene and the text layers stay above it. */
   #photos .ph.on { opacity:.42; }
@@ -103,6 +107,7 @@
   h2.section-h.in { opacity:1; filter:blur(0); transform:translateY(0); }
   .sub { font-size:clamp(1rem,1.3vw,1.25rem); color:var(--text-dim); max-width:720px; margin:0 auto 2.5rem; line-height:1.55; font-weight:300; opacity:0; transform:translateY(16px); transition:opacity 1s ease-out .3s, transform 1s ease-out .3s; }
   .sub.in { opacity:1; transform:translateY(0); }
+  .sub, .eyebrow { text-shadow:0 1px 2px rgba(5,8,16,.7); }   /* over a photograph the descriptors need an edge at every size */
   .rise { opacity:0; transform:translateY(22px); transition:opacity 1s ease-out .35s, transform 1s ease-out .35s; }
   .rise.in { opacity:1; transform:translateY(0); }
   .cta, .cta-button { display:inline-block; padding:1.1rem 2.5rem; font-family:'Orbitron',sans-serif; font-weight:700; letter-spacing:.2em; font-size:.85rem; text-transform:uppercase; text-decoration:none; color:#000; background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); border:1px solid var(--gold-champagne); cursor:none; transition:transform .35s, box-shadow .35s; position:relative; overflow:hidden; border-radius:0; }
@@ -232,6 +237,11 @@
     .secondary-cta, .cta-button.ghost-button { margin-left:0; }
     #photos .ph.on { opacity:.35; }
     #photos .ph.film.on { opacity:.5; }
+    /* Phone legibility (Brockmann, 2026-09-05, iPhone screenshot of the MAST opening: "Text descriptors need to be fixed…
+       hard to read"): full-strength text with a shadow, and a soft scrim behind each chapter's text block. */
+    .sub { color:var(--text); font-weight:400; text-shadow:0 1px 3px rgba(5,8,16,.95), 0 0 18px rgba(5,8,16,.8); }
+    h1.mega, h2.section-h, .eyebrow { text-shadow:0 2px 14px rgba(5,8,16,.9); }
+    section.panel > div { padding:1.4rem .6rem; background:radial-gradient(ellipse at center, rgba(5,8,16,.62) 0%, rgba(5,8,16,.38) 55%, rgba(5,8,16,0) 80%); }
   }
   @media (prefers-reduced-motion: reduce) { .eyebrow, h1.mega, h2.section-h, .sub, .rise { transition:none; opacity:1; filter:none; transform:none; } }
 
@@ -259,6 +269,11 @@
   .card::before { content:''; position:absolute; top:0; left:0; width:100%; height:1px; background:linear-gradient(90deg, transparent, var(--gold), transparent); }
   .card:hover { transform:translateY(-5px); border-color:var(--gold); }
   .card .num { font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.4em; color:var(--gold); margin-bottom:.6rem; }
+  /* The current site's emoji icon on a card or tile, in the number's place (Brockmann, 2026-09-05: same content, same way). */
+  .card .ico, .tile .txt .num.ico { font-size:1.5rem; line-height:1; letter-spacing:0; margin-bottom:.6rem; }
+  /* A section photograph in the flow of the page, where the current page shows it. */
+  img.figure { display:block; width:100%; max-width:900px; margin:2rem auto 0; border:1px solid rgba(26,107,222,.22); }
+  .quotes .card .meta { margin-bottom:.4rem; }
   .card h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.55rem; line-height:1.35; }
   .card p { font-size:.95rem; color:var(--text-dim); line-height:1.55; font-weight:300; }
   .card ul { margin:.4rem 0 0 1rem; color:var(--text-dim); font-size:.92rem; line-height:1.6; }
@@ -329,11 +344,15 @@
 
 <canvas id="three-canvas"></canvas>
 <div id="photos">
-  <div class="ph" data-for="01" style="background-image:url('../images/atlas/AeroDefense-Partner-Atlas-Glinn.jpeg')"></div>
+  <div class="ph film yt" data-for="01" style="background-image:url('https://i.ytimg.com/vi/fO8_EOUrSfg/maxresdefault.jpg')"><iframe data-src="https://www.youtube.com/embed/fO8_EOUrSfg?autoplay=1&amp;mute=1&amp;loop=1&amp;playlist=fO8_EOUrSfg&amp;controls=0&amp;showinfo=0&amp;modestbranding=1&amp;rel=0&amp;playsinline=1&amp;iv_load_policy=3&amp;disablekb=1" title="" tabindex="-1" aria-hidden="true" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
   <div class="ph" data-for="02" style="background-image:url('../images/atlas/AeroDefense-Partner-Atlas-Glinn.jpeg')"></div>
-  <div class="ph" data-for="03" style="background-image:url('../images/atlas/Technology-UAS-1.png')"></div>
-  <div class="ph" data-for="04" style="background-image:url('../images/atlas/AeroDefense-Partner-Atlas-Glinn.jpeg')"></div>
+  <div class="ph" data-for="03" style="background-image:url('../images/atlas/AeroDefense-Partner-Atlas-Glinn.jpeg')"></div>
+  <div class="ph" data-for="04" style="background-image:url('../images/atlas/Technology-UAS-1.png')"></div>
   <div class="ph" data-for="05" style="background-image:url('../images/atlas/AeroDefense-Partner-Atlas-Glinn.jpeg')"></div>
+  <div class="ph" data-for="06" style="background-image:url('../images/atlas/Technology-UAS-1.png')"></div>
+  <div class="ph" data-for="07" style="background-image:url('../images/atlas/AeroDefense-Partner-Atlas-Glinn.jpeg')"></div>
+  <div class="ph" data-for="08" style="background-image:url('../images/atlas/AeroDefense-Partner-Atlas-Glinn.jpeg')"></div>
+  <div class="ph" data-for="09" style="background-image:url('../images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg')"></div>
 </div>
 <div class="grain"></div>
 <div class="vignette"></div>
@@ -343,16 +362,20 @@
 <div class="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>
 
 <a class="hud tl" href="index.html">&#9679; ATLAS GLINN &middot; HOUSTON</a>
-<div class="hud tr" id="hud-section">SECTION 01 / 05</div>
+<div class="hud tr" id="hud-section">SECTION 01 / 09</div>
 <div class="hud bl">HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W</div>
 <div class="hud br">DETAILS MATTER</div>
 
 <nav class="chapter-nav" id="chapter-nav" aria-label="Chapters">
   <a href="#s1" class="chap-link">01 &middot; Opening</a>
   <a href="#s2" class="chap-link">02 &middot; Capabilities</a>
-  <a href="#s3" class="chap-link">03 &middot; Threats</a>
-  <a href="#s4" class="chap-link">04 &middot; Proven</a>
-  <a href="#s5" class="chap-link">05 &middot; Contact</a>
+  <a href="#s3" class="chap-link">03 &middot; SAFETY Act</a>
+  <a href="#s4" class="chap-link">04 &middot; Threats</a>
+  <a href="#s5" class="chap-link">05 &middot; Proven</a>
+  <a href="#s6" class="chap-link">06 &middot; Integration</a>
+  <a href="#s7" class="chap-link">07 &middot; Stay Ahead</a>
+  <a href="#s8" class="chap-link">08 &middot; Contact</a>
+  <a href="#s9" class="chap-link">09 &middot; Reviews</a>
 </nav>
 <button class="menu-btn" id="menu-btn" type="button" aria-controls="sitenav" aria-expanded="false">MENU &#8801;</button>
 <div class="sitenav" id="sitenav" role="dialog" aria-label="Site menu">
@@ -384,45 +407,81 @@
     <div>
       <div class="eyebrow">Counter-Drone Solutions</div>
       <h1 class="mega"><span class="gold-shimmer">Details</span> <span class="white">Matter.</span></h1>
-      <p class="sub">AirWarden by AeroDefense &mdash; the system that simultaneously locates both drone and pilot. Atlas Glinn is the Texas regional partner for AeroDefense, bringing counter-drone technology to critical infrastructure, high-profile events, and security-sensitive facilities.</p>
-      <div class="ctas rise"><a href="https://atlasglinn.com/contact/" class="cta">Protect Your Airspace</a><a href="#s2" class="secondary-cta">Capabilities</a></div>
+      <p class="sub">AirWarden by AeroDefense &mdash; The Only System That Simultaneously Locates Both Drone AND Pilot</p>
+      <div class="ctas rise"><a href="https://atlasglinn.com/contact/" class="cta">Contact Us</a><a href="#s2" class="secondary-cta">System Capabilities</a></div>
     </div>
     <div class="scroll-cue">SCROLL &darr;</div>
   </section>
 
   <section class="panel" id="s2" data-section="02">
     <div>
-      <div class="eyebrow">System Capabilities</div>
-      <h2 class="section-h">Drone <span class="gold">and Pilot.</span></h2>
-      <p class="sub">AirWarden simultaneously locates both the drone and its pilot, enabling security and law enforcement personnel to quickly address the source of potential threats &mdash; not just the drone in the air. Made in the USA, AirWarden provides real-time early warning and situational awareness for critical infrastructure, public safety, and national security applications. All solutions are FAA-compliant, ensuring lawful and effective deployment.</p>
-      <div class="yt-grid one rise"><div class="yt-card"><div class="frame"><iframe src="https://www.youtube.com/embed/fO8_EOUrSfg?rel=0&amp;modestbranding=1&amp;playsinline=1" title="Counter-Drone Solutions" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen></iframe></div><div class="info"><h4>Counter-Drone Solutions</h4><p>The film from the current Counter-Drone page</p></div></div></div><div class="cards"><div class="card rise"><div class="num">01</div><h3>Dual Detection</h3><p>Simultaneously locates both drones and their operators in real time &mdash; the only way to truly neutralize the threat at its source. Know where the pilot is hiding, not just where the drone is flying.</p></div><div class="card rise"><div class="num">02</div><h3>Real-Time Early Warning</h3><p>Instant alerting and situational awareness. Know about drone incursions before they reach your protected airspace, giving your team critical response time.</p></div><div class="card rise"><div class="num">03</div><h3>DHS SAFETY Act Designated</h3><p>AirWarden has received the Department of Homeland Security SAFETY Act Designation, providing important legal liability protections for providers of qualified anti-terrorism technologies.</p></div><div class="card rise"><div class="num">04</div><h3>Made in the USA</h3><p>Designed and manufactured in the United States. No foreign dependencies. Trusted by government agencies and critical infrastructure operators nationwide.</p></div><div class="card rise"><div class="num">05</div><h3>FAA Compliant</h3><p>All Atlas Glinn counter-drone solutions are fully FAA-compliant, ensuring lawful deployment without regulatory risk. Protect your airspace within the bounds of federal aviation law.</p></div><div class="card rise"><div class="num">06</div><h3>Scalable Architecture</h3><p>From single-site protection to enterprise-wide deployments, AirWarden scales to meet the demands of any environment &mdash; stadiums, campuses, industrial facilities, and more.</p></div></div>
+      <div class="eyebrow">AirWarden by AeroDefense</div>
+      <h2 class="section-h">System <span class="gold">Capabilities.</span></h2>
+      <p class="sub">Atlas Glinn is the Texas regional partner for AeroDefense, bringing cutting-edge counter-drone technology to critical infrastructure, high-profile events, and security-sensitive facilities. AirWarden simultaneously locates both the drone and its pilot, enabling security and law enforcement personnel to quickly address the source of potential threats &mdash; not just the drone in the air. Made in the USA, AirWarden provides real-time early warning and situational awareness for critical infrastructure, public safety, and national security applications. All solutions are FAA-compliant, ensuring lawful and effective deployment.</p>
+      <div class="cards"><div class="card rise"><div class="num">01</div><h3>Dual Detection</h3><p>Simultaneously locates both drones and their operators in real time &mdash; the only way to truly neutralize the threat at its source. Know where the pilot is hiding, not just where the drone is flying.</p></div><div class="card rise"><div class="num">02</div><h3>Real-Time Early Warning</h3><p>Instant alerting and situational awareness. Know about drone incursions before they reach your protected airspace, giving your team critical response time.</p></div><div class="card rise"><div class="num">03</div><h3>DHS SAFETY Act Designated</h3><p>AirWarden has received the Department of Homeland Security SAFETY Act Designation, providing important legal liability protections for providers of qualified anti-terrorism technologies.</p></div><div class="card rise"><div class="num">04</div><h3>Made in the USA</h3><p>Designed and manufactured in the United States. No foreign dependencies. Trusted by government agencies and critical infrastructure operators nationwide.</p></div><div class="card rise"><div class="num">05</div><h3>FAA Compliant</h3><p>All Atlas Glinn counter-drone solutions are fully FAA-compliant, ensuring lawful deployment without regulatory risk. Protect your airspace within the bounds of federal aviation law.</p></div><div class="card rise"><div class="num">06</div><h3>Scalable Architecture</h3><p>From single-site protection to enterprise-wide deployments, AirWarden scales to meet the demands of any environment &mdash; stadiums, campuses, industrial facilities, and more.</p></div></div>
     </div>
   </section>
 
   <section class="panel" id="s3" data-section="03">
     <div>
-      <div class="eyebrow">Countering Drone Threats</div>
-      <h2 class="section-h">The <span class="gold">Threat.</span></h2>
-      <p class="sub">Malicious drone operations are growing. AirWarden detects and locates threats before damage is done.</p>
-      <div class="cards four"><div class="card rise"><div class="num">01</div><h3>Espionage</h3><p>Corporate and government surveillance via unauthorized drones over sensitive facilities and executive residences.</p></div><div class="card rise"><div class="num">02</div><h3>Contraband Delivery</h3><p>Drone-based delivery of contraband to correctional facilities, secure sites, and restricted zones.</p></div><div class="card rise"><div class="num">03</div><h3>Criminal Warning</h3><p>Drones used as early warning systems for criminal operations, providing real-time surveillance of law enforcement movements.</p></div><div class="card rise"><div class="num">04</div><h3>Infrastructure Attacks</h3><p>Direct attacks on critical infrastructure &mdash; power grids, water systems, communications networks, and transportation hubs.</p></div></div>
+      <div class="eyebrow">Department of Homeland Security</div>
+      <h2 class="section-h">SAFETY Act <span class="gold">Designated.</span></h2>
+      <p class="sub">AirWarden has received the DHS SAFETY Act Designation &mdash; providing important legal liability protections for providers of Qualified Anti-Terrorism Technologies deployed in the defense of critical infrastructure.</p>
+      
     </div>
   </section>
 
   <section class="panel" id="s4" data-section="04">
     <div>
-      <div class="eyebrow">Proven in the Field</div>
-      <h2 class="section-h">Real-World <span class="gold">Deployment.</span></h2>
-      
-      <p class="sub quote lead">&ldquo;Recently, we protected a high-profile event from a potential drone threat, ensuring safety without disruption. Our team deployed AirWarden to establish a secure airspace perimeter, detecting and locating an unauthorized drone and its operator within minutes &mdash; allowing law enforcement to respond before any incident occurred.&rdquo;</p><div class="eyebrow in" style="margin-top:2rem">Autonomous Drone Integration</div><p class="sub">Atlas Glinn integrates AirWarden counter-drone detection with Sunflower Labs autonomous drone systems for comprehensive perimeter protection. When a threat is detected, autonomous response drones can be deployed to visually verify and track incursions in real time. This layered approach combines passive RF detection with active autonomous response &mdash; Detection &rarr; Alert &rarr; Autonomous Response.</p><div class="ctas rise"><a href="https://atlasglinn.com/uas/" class="secondary-cta">Learn About UAS Drones</a></div>
+      <div class="eyebrow">Countering Drone Threats</div>
+      <h2 class="section-h">The <span class="gold">Threat.</span></h2>
+      <p class="sub">Malicious drone operations are growing. AirWarden detects and locates threats before damage is done.</p>
+      <div class="cards four"><div class="card rise"><div class="ico" aria-hidden="true">🕵</div><h3>Espionage</h3><p>Corporate and government surveillance via unauthorized drones over sensitive facilities and executive residences.</p></div><div class="card rise"><div class="ico" aria-hidden="true">📦</div><h3>Contraband Delivery</h3><p>Drone-based delivery of contraband to correctional facilities, secure sites, and restricted zones.</p></div><div class="card rise"><div class="ico" aria-hidden="true">⚠</div><h3>Criminal Warning</h3><p>Drones used as early warning systems for criminal operations, providing real-time surveillance of law enforcement movements.</p></div><div class="card rise"><div class="ico" aria-hidden="true">🏭</div><h3>Infrastructure Attacks</h3><p>Direct attacks on critical infrastructure &mdash; power grids, water systems, communications networks, and transportation hubs.</p></div></div>
     </div>
   </section>
 
   <section class="panel" id="s5" data-section="05">
     <div>
-      <div class="eyebrow">Is Your Airspace Protected?</div>
+      <div class="eyebrow">Proven in the Field</div>
+      <h2 class="section-h">Real-World <span class="gold">Deployment.</span></h2>
+      
+      <p class="sub quote lead">&ldquo;Recently, we protected a high-profile event from a potential drone threat, ensuring safety without disruption. Our team deployed AirWarden to establish a secure airspace perimeter, detecting and locating an unauthorized drone and its operator within minutes &mdash; allowing law enforcement to respond before any incident occurred.&rdquo;</p><p class="sub" style="font-family:'Share Tech Mono',monospace;font-size:.7rem;letter-spacing:.25em;text-transform:uppercase">Atlas Glinn &mdash; Real-World Deployment</p>
+    </div>
+  </section>
+
+  <section class="panel" id="s6" data-section="06">
+    <div>
+      <div class="eyebrow">Autonomous Drone Integration</div>
+      <h2 class="section-h">Detection &rarr; Alert &rarr; <span class="gold">Autonomous Response.</span></h2>
+      <p class="sub">Atlas Glinn integrates AirWarden counter-drone detection with Sunflower Labs autonomous drone systems for comprehensive perimeter protection. When a threat is detected, autonomous response drones can be deployed to visually verify and track incursions in real time.</p>
+      <p class="sub">This layered approach combines passive RF detection with active autonomous response &mdash; delivering a complete airspace security solution that stays ahead of evolving threats.</p><div class="ctas rise"><a href="https://atlasglinn.com/uas/" class="secondary-cta">Learn About UAS Drones</a></div><p class="sub" style="margin-top:1.4rem;font-family:'Share Tech Mono',monospace;font-size:.7rem;letter-spacing:.25em;text-transform:uppercase">Layered Airspace Security</p>
+    </div>
+  </section>
+
+  <section class="panel" id="s7" data-section="07">
+    <div>
+      <div class="eyebrow">Stay Ahead</div>
       <h2 class="section-h">Stay <span class="gold">Ahead.</span></h2>
       <p class="sub">Stay ahead of drone-related risks with Atlas Glinn&rsquo;s expertise in counter-drone strategies. Our team brings decades of security experience to every deployment, ensuring your airspace remains secure and your operations uninterrupted.</p>
-      <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div><div class="ctas rise"><a href="https://atlasglinn.com/contact/" class="cta">Contact Us</a><a href="https://atlasglinn.com/counter-drone-solutions/how-cuas-aerodefense-stops-drone-threats-in-their-tracks/" class="secondary-cta">From Our Blog &rarr;</a></div><div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions &middot; Executive Protection &middot; Training &middot; AI Surveillance &middot; Counter-Drone &middot; Risk Management<br><a href="../privacy.html">Privacy Policy</a>&middot;<a href="../terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a></div>
+      <div class="eyebrow in" style="margin-top:2rem">From Our Blog</div><div class="cards two"><div class="card rise"><h3>How cUAS Aerodefense Stops Drone Threats</h3><p>Learn how counter-UAS technology is transforming airspace security for critical infrastructure and high-profile events.</p><a class="secondary-cta" href="https://atlasglinn.com/counter-drone-solutions/how-cuas-aerodefense-stops-drone-threats-in-their-tracks/">Read &rarr;</a></div></div>
+    </div>
+  </section>
+
+  <section class="panel" id="s8" data-section="08">
+    <div>
+      <div class="eyebrow">Is Your Airspace Protected?</div>
+      <h2 class="section-h">Assess Your <span class="gold">Vulnerability.</span></h2>
+      <p class="sub">Drone threats are real and growing. Contact Atlas Glinn to assess your facility&rsquo;s vulnerability and deploy AirWarden protection.</p>
+      <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div><div class="ctas rise"><a href="https://atlasglinn.com/contact/" class="cta">Contact Us</a><a href="tel:+12816548100" class="secondary-cta">Phone: (281) 654-8100</a></div><div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions &middot; Executive Protection &middot; Training &middot; AI Surveillance &middot; Counter-Drone &middot; Risk Management<br><a href="../privacy.html">Privacy Policy</a>&middot;<a href="../terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a></div>
+    </div>
+  </section>
+
+  <section class="panel" id="s9" data-section="09">
+    <div>
+      <div class="eyebrow">Reviews</div>
+      <h2 class="section-h">Google Reviews &amp; LinkedIn <span class="gold">Recommendations.</span></h2>
+      <p class="sub"><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span> 5.0 &middot; Google Reviews</p>
+      <div class="quotes"><div class="card rise"><div class="meta">Law Enforcement</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Matthew is an expert in his field. He is highly motivated, knowledgeable and I highly recommend him for top-tier performance.&rdquo;</p><div class="by">Kenny Upton &mdash; Deputy, Harris County Sheriff</div></div><div class="card rise"><div class="meta">Navy SEAL / Former CIA</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;His leadership, dedication, drive, and passion is second to none. A master at teamwork, problem-solving, leadership, and communication.&rdquo;</p><div class="by">Ray Cash Care &mdash; Navy SEAL / Former CIA</div></div><div class="card rise"><div class="meta">Reconnaissance Marine</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;As a former Reconnaissance Marine, Matthew&rsquo;s teaching has not only made me a better shooter, he has made me a better team player.&rdquo;</p><div class="by">Arthur Metcalfe &mdash; Recon Marine, 18yr O&amp;G</div></div><div class="card rise"><div class="meta">Flight Paramedic</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Brockmann had hosted and taught some of the best classes I have been a part of. I can&rsquo;t recommend him enough.&rdquo;</p><div class="by">William H. Miller BS, TP-C, FP-C, CPM &mdash; Flight Paramedic</div></div><div class="card rise"><div class="meta">President &amp; CEO</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Extremely professional. In an extremely competitive industry Matt has never failed to provide exceptional guidance. I recommend him without hesitation.&rdquo;</p><div class="by">Craig Etkin &mdash; President &amp; CEO, intelligence360</div></div><div class="card rise"><div class="meta">CxO / Investor</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;I&rsquo;ve trained with some big-name national &amp; global self-defense trainers. I&rsquo;ve always felt safe training with Matt &mdash; the #1 criterion for choosing a trainer.&rdquo;</p><div class="by">Wayne Sadin &mdash; CxO/VP Investor</div></div></div><div class="ctas rise" style="margin-top:2rem"><a href="https://www.google.com/search?q=Atlas+Glinn+Houston+reviews" class="secondary-cta">Google Reviews &rarr;</a><a href="https://www.linkedin.com/in/mastsolutions1/" class="secondary-cta">LinkedIn &rarr;</a></div><div class="badges rise"><img src="../images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><img src="../images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"></div>
     </div>
   </section>
 
@@ -431,7 +490,7 @@
 <script type="module">
 import * as THREE from '../vendor/three.module.js';
 
-const SECTIONS = 5;
+const SECTIONS = 9;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mobile = matchMedia('(max-width: 768px)').matches;
 
@@ -488,8 +547,13 @@ function setPhoto(i) {
   if (i === photoIdx) return; photoIdx = i;
   phs.forEach((p, k) => {
     const on = k === i; p.classList.toggle('on', on);
-    const v = p.querySelector('video'); if (!v) return;          // film backdrops play only while their chapter is on screen
-    if (on && !reduce) v.play().catch(() => {}); else v.pause();
+    const v = p.querySelector('video');                            // film backdrops play only while their chapter is on screen
+    if (v) { if (on && !reduce) v.play().catch(() => {}); else v.pause(); }
+    const f = p.querySelector('iframe[data-src]');                 // YouTube backdrops load when their chapter arrives, unload when it leaves
+    if (f) {
+      if (on && !reduce) { if (!f.getAttribute('src')) { f.addEventListener('load', () => f.classList.add('playing'), { once: true }); f.src = f.dataset.src; } }
+      else if (f.getAttribute('src')) { f.classList.remove('playing'); f.removeAttribute('src'); }
+    }
   });
 }
 document.querySelectorAll('#photos video').forEach(v => {
@@ -589,6 +653,10 @@ const kf = [
   { x: 3, y: 1, z: 11, lx: 0, ly: 0, lz: 0 },
   { x: -3, y: 2, z: 13, lx: 0, ly: -1, lz: 0 },
   { x: 4, y: 3, z: 14, lx: 0, ly: -.5, lz: 0 },
+  { x: -4, y: 1, z: 12, lx: 0, ly: 0, lz: 0 },
+  { x: 0, y: -2, z: 10, lx: 0, ly: .5, lz: 0 },
+  { x: 2, y: -3, z: 13, lx: 0, ly: 1, lz: 0 },
+  { x: -2, y: -3.5, z: 15, lx: 0, ly: 1.5, lz: 0 },
   { x: 0, y: -4, z: 18, lx: 0, ly: 2, lz: 0 },
 ];
 let activeIdx = 0;
@@ -614,7 +682,7 @@ function update() {
   scene.fog.density = 0.03 + t * .025;
   document.getElementById('progress').style.width = (t * 100) + '%';
   const idx = sectionIndex();
-  if (idx !== activeIdx) { activeIdx = idx; document.getElementById('hud-section').textContent = `SECTION ${String(idx + 1).padStart(2, '0')} / ${String(SECTIONS).padStart(2, '0')}`; chapLinks.forEach((l, k) => l.classList.toggle('active', k === idx)); }
+  if (idx !== activeIdx) { activeIdx = idx; document.getElementById('hud-section').textContent = `SECTION 0${idx + 1} / 0${SECTIONS}`; chapLinks.forEach((l, k) => l.classList.toggle('active', k === idx)); }
   if (!intro.isConnected) setPhoto(idx);
 }
 addEventListener('scroll', update, { passive: true });

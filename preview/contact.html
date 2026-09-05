@@ -62,6 +62,10 @@
   #photos .ph video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:inherit; opacity:0; transition:opacity 1.2s ease; }
   #photos .ph video.playing { opacity:1; }
   #photos .ph.film.on { opacity:.58; }
+  /* A YouTube film as the backdrop, the way the current Atlas pages embed their hero films (autoplay, muted, loop,
+     no controls): the frame is oversized to cover the viewport at 16:9 and cannot be clicked. */
+  #photos .ph.yt iframe { position:absolute; top:50%; left:50%; width:100vw; height:56.25vw; min-height:100%; min-width:177.78vh; transform:translate(-50%,-50%); border:0; pointer-events:none; opacity:0; transition:opacity 1.2s ease; }
+  #photos .ph.yt iframe.playing { opacity:1; }
   /* Backdrop presence (Brockmann, 2026-09-05: pull the background forward, keep the layers; then "Reduce background brightness by
      20%"): the photograph sits at .42 (.52 less a fifth), the scene and the text layers stay above it. */
   #photos .ph.on { opacity:.42; }
@@ -107,6 +111,7 @@
   h2.section-h.in { opacity:1; filter:blur(0); transform:translateY(0); }
   .sub { font-size:clamp(1rem,1.3vw,1.25rem); color:var(--text-dim); max-width:720px; margin:0 auto 2.5rem; line-height:1.55; font-weight:300; opacity:0; transform:translateY(16px); transition:opacity 1s ease-out .3s, transform 1s ease-out .3s; }
   .sub.in { opacity:1; transform:translateY(0); }
+  .sub, .eyebrow { text-shadow:0 1px 2px rgba(5,8,16,.7); }   /* over a photograph the descriptors need an edge at every size */
   .rise { opacity:0; transform:translateY(22px); transition:opacity 1s ease-out .35s, transform 1s ease-out .35s; }
   .rise.in { opacity:1; transform:translateY(0); }
   .cta, .cta-button { display:inline-block; padding:1.1rem 2.5rem; font-family:'Orbitron',sans-serif; font-weight:700; letter-spacing:.2em; font-size:.85rem; text-transform:uppercase; text-decoration:none; color:#000; background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); border:1px solid var(--gold-champagne); cursor:none; transition:transform .35s, box-shadow .35s; position:relative; overflow:hidden; border-radius:0; }
@@ -236,6 +241,11 @@
     .secondary-cta, .cta-button.ghost-button { margin-left:0; }
     #photos .ph.on { opacity:.35; }
     #photos .ph.film.on { opacity:.5; }
+    /* Phone legibility (Brockmann, 2026-09-05, iPhone screenshot of the MAST opening: "Text descriptors need to be fixed…
+       hard to read"): full-strength text with a shadow, and a soft scrim behind each chapter's text block. */
+    .sub { color:var(--text); font-weight:400; text-shadow:0 1px 3px rgba(5,8,16,.95), 0 0 18px rgba(5,8,16,.8); }
+    h1.mega, h2.section-h, .eyebrow { text-shadow:0 2px 14px rgba(5,8,16,.9); }
+    section.panel > div { padding:1.4rem .6rem; background:radial-gradient(ellipse at center, rgba(5,8,16,.62) 0%, rgba(5,8,16,.38) 55%, rgba(5,8,16,0) 80%); }
   }
   @media (prefers-reduced-motion: reduce) { .eyebrow, h1.mega, h2.section-h, .sub, .rise { transition:none; opacity:1; filter:none; transform:none; } }
 
@@ -263,6 +273,11 @@
   .card::before { content:''; position:absolute; top:0; left:0; width:100%; height:1px; background:linear-gradient(90deg, transparent, var(--gold), transparent); }
   .card:hover { transform:translateY(-5px); border-color:var(--gold); }
   .card .num { font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.4em; color:var(--gold); margin-bottom:.6rem; }
+  /* The current site's emoji icon on a card or tile, in the number's place (Brockmann, 2026-09-05: same content, same way). */
+  .card .ico, .tile .txt .num.ico { font-size:1.5rem; line-height:1; letter-spacing:0; margin-bottom:.6rem; }
+  /* A section photograph in the flow of the page, where the current page shows it. */
+  img.figure { display:block; width:100%; max-width:900px; margin:2rem auto 0; border:1px solid rgba(26,107,222,.22); }
+  .quotes .card .meta { margin-bottom:.4rem; }
   .card h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.55rem; line-height:1.35; }
   .card p { font-size:.95rem; color:var(--text-dim); line-height:1.55; font-weight:300; }
   .card ul { margin:.4rem 0 0 1rem; color:var(--text-dim); font-size:.92rem; line-height:1.6; }
@@ -470,8 +485,13 @@ function setPhoto(i) {
   if (i === photoIdx) return; photoIdx = i;
   phs.forEach((p, k) => {
     const on = k === i; p.classList.toggle('on', on);
-    const v = p.querySelector('video'); if (!v) return;          // film backdrops play only while their chapter is on screen
-    if (on && !reduce) v.play().catch(() => {}); else v.pause();
+    const v = p.querySelector('video');                            // film backdrops play only while their chapter is on screen
+    if (v) { if (on && !reduce) v.play().catch(() => {}); else v.pause(); }
+    const f = p.querySelector('iframe[data-src]');                 // YouTube backdrops load when their chapter arrives, unload when it leaves
+    if (f) {
+      if (on && !reduce) { if (!f.getAttribute('src')) { f.addEventListener('load', () => f.classList.add('playing'), { once: true }); f.src = f.dataset.src; } }
+      else if (f.getAttribute('src')) { f.classList.remove('playing'); f.removeAttribute('src'); }
+    }
   });
 }
 document.querySelectorAll('#photos video').forEach(v => {

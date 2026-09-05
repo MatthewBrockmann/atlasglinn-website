@@ -58,6 +58,10 @@
   #photos .ph video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:inherit; opacity:0; transition:opacity 1.2s ease; }
   #photos .ph video.playing { opacity:1; }
   #photos .ph.film.on { opacity:.58; }
+  /* A YouTube film as the backdrop, the way the current Atlas pages embed their hero films (autoplay, muted, loop,
+     no controls): the frame is oversized to cover the viewport at 16:9 and cannot be clicked. */
+  #photos .ph.yt iframe { position:absolute; top:50%; left:50%; width:100vw; height:56.25vw; min-height:100%; min-width:177.78vh; transform:translate(-50%,-50%); border:0; pointer-events:none; opacity:0; transition:opacity 1.2s ease; }
+  #photos .ph.yt iframe.playing { opacity:1; }
   /* Backdrop presence (Brockmann, 2026-09-05: pull the background forward, keep the layers; then "Reduce background brightness by
      20%"): the photograph sits at .42 (.52 less a fifth), the scene and the text layers stay above it. */
   #photos .ph.on { opacity:.42; }
@@ -103,6 +107,7 @@
   h2.section-h.in { opacity:1; filter:blur(0); transform:translateY(0); }
   .sub { font-size:clamp(1rem,1.3vw,1.25rem); color:var(--text-dim); max-width:720px; margin:0 auto 2.5rem; line-height:1.55; font-weight:300; opacity:0; transform:translateY(16px); transition:opacity 1s ease-out .3s, transform 1s ease-out .3s; }
   .sub.in { opacity:1; transform:translateY(0); }
+  .sub, .eyebrow { text-shadow:0 1px 2px rgba(5,8,16,.7); }   /* over a photograph the descriptors need an edge at every size */
   .rise { opacity:0; transform:translateY(22px); transition:opacity 1s ease-out .35s, transform 1s ease-out .35s; }
   .rise.in { opacity:1; transform:translateY(0); }
   .cta, .cta-button { display:inline-block; padding:1.1rem 2.5rem; font-family:'Orbitron',sans-serif; font-weight:700; letter-spacing:.2em; font-size:.85rem; text-transform:uppercase; text-decoration:none; color:#000; background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); border:1px solid var(--gold-champagne); cursor:none; transition:transform .35s, box-shadow .35s; position:relative; overflow:hidden; border-radius:0; }
@@ -232,6 +237,11 @@
     .secondary-cta, .cta-button.ghost-button { margin-left:0; }
     #photos .ph.on { opacity:.35; }
     #photos .ph.film.on { opacity:.5; }
+    /* Phone legibility (Brockmann, 2026-09-05, iPhone screenshot of the MAST opening: "Text descriptors need to be fixed…
+       hard to read"): full-strength text with a shadow, and a soft scrim behind each chapter's text block. */
+    .sub { color:var(--text); font-weight:400; text-shadow:0 1px 3px rgba(5,8,16,.95), 0 0 18px rgba(5,8,16,.8); }
+    h1.mega, h2.section-h, .eyebrow { text-shadow:0 2px 14px rgba(5,8,16,.9); }
+    section.panel > div { padding:1.4rem .6rem; background:radial-gradient(ellipse at center, rgba(5,8,16,.62) 0%, rgba(5,8,16,.38) 55%, rgba(5,8,16,0) 80%); }
   }
   @media (prefers-reduced-motion: reduce) { .eyebrow, h1.mega, h2.section-h, .sub, .rise { transition:none; opacity:1; filter:none; transform:none; } }
 
@@ -259,6 +269,11 @@
   .card::before { content:''; position:absolute; top:0; left:0; width:100%; height:1px; background:linear-gradient(90deg, transparent, var(--gold), transparent); }
   .card:hover { transform:translateY(-5px); border-color:var(--gold); }
   .card .num { font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.4em; color:var(--gold); margin-bottom:.6rem; }
+  /* The current site's emoji icon on a card or tile, in the number's place (Brockmann, 2026-09-05: same content, same way). */
+  .card .ico, .tile .txt .num.ico { font-size:1.5rem; line-height:1; letter-spacing:0; margin-bottom:.6rem; }
+  /* A section photograph in the flow of the page, where the current page shows it. */
+  img.figure { display:block; width:100%; max-width:900px; margin:2rem auto 0; border:1px solid rgba(26,107,222,.22); }
+  .quotes .card .meta { margin-bottom:.4rem; }
   .card h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.55rem; line-height:1.35; }
   .card p { font-size:.95rem; color:var(--text-dim); line-height:1.55; font-weight:300; }
   .card ul { margin:.4rem 0 0 1rem; color:var(--text-dim); font-size:.92rem; line-height:1.6; }
@@ -329,9 +344,9 @@
 
 <canvas id="three-canvas"></canvas>
 <div id="photos">
-  <div class="ph" data-for="01" style="background-image:url('../images/atlas/Atlas-Glinn-Training-1024x951.jpeg')"></div>
-  <div class="ph" data-for="02" style="background-image:url('../images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg')"></div>
-  <div class="ph" data-for="03" style="background-image:url('../images/atlas/Atlas-Glinn-Training-1024x951.jpeg')"></div>
+  <div class="ph film yt" data-for="01" style="background-image:url('https://i.ytimg.com/vi/jwQ5OyKEKwg/maxresdefault.jpg')"><iframe data-src="https://www.youtube.com/embed/jwQ5OyKEKwg?autoplay=1&amp;mute=1&amp;loop=1&amp;playlist=jwQ5OyKEKwg&amp;controls=0&amp;showinfo=0&amp;modestbranding=1&amp;rel=0&amp;playsinline=1&amp;iv_load_policy=3&amp;disablekb=1" title="" tabindex="-1" aria-hidden="true" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+  <div class="ph" data-for="02" style="background-image:url('../images/atlas/Atlas-Glinn-Training-1024x951.jpeg')"></div>
+  <div class="ph" data-for="03" style="background-image:url('../images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg')"></div>
   <div class="ph" data-for="04" style="background-image:url('../images/atlas/Executive-Protection.jpg')"></div>
   <div class="ph" data-for="05" style="background-image:url('../images/atlas/Atlas-Glinn-Training-1024x951.jpeg')"></div>
 </div>
@@ -352,7 +367,7 @@
   <a href="#s2" class="chap-link">02 &middot; Focus Areas</a>
   <a href="#s3" class="chap-link">03 &middot; Disciplines</a>
   <a href="#s4" class="chap-link">04 &middot; Media</a>
-  <a href="#s5" class="chap-link">05 &middot; Contact</a>
+  <a href="#s5" class="chap-link">05 &middot; Reviews</a>
 </nav>
 <button class="menu-btn" id="menu-btn" type="button" aria-controls="sitenav" aria-expanded="false">MENU &#8801;</button>
 <div class="sitenav" id="sitenav" role="dialog" aria-label="Site menu">
@@ -385,17 +400,17 @@
       <div class="eyebrow">Dignitary Protection Training</div>
       <h1 class="mega"><span class="gold-shimmer">Details</span> <span class="white">Matter.</span></h1>
       <p class="sub">At Atlas Glinn, our lead instructor brings over 30 years of experience, safeguarding dignitaries globally. We offer unparalleled Dignitary Protection training for professionals seeking to excel in high-stakes environments.</p>
-      <div class="ctas rise"><a href="../mastsolutions.html" class="cta">Book a Course</a><a href="#s2" class="secondary-cta">Focus Areas</a></div>
+      <div class="ctas rise"><a href="../mastsolutions.html" class="cta">Explore MAST Solutions</a><a href="#s2" class="secondary-cta">Focus Areas</a></div>
     </div>
     <div class="scroll-cue">SCROLL &darr;</div>
   </section>
 
   <section class="panel" id="s2" data-section="02">
     <div>
-      <div class="eyebrow">Core Training Focus Areas</div>
-      <h2 class="section-h">What We <span class="gold">Teach.</span></h2>
+      <div class="eyebrow">Training</div>
+      <h2 class="section-h">Core Training <span class="gold">Focus Areas.</span></h2>
       
-      <div class="yt-grid one rise"><div class="yt-card"><div class="frame"><iframe src="https://www.youtube.com/embed/jwQ5OyKEKwg?rel=0&amp;modestbranding=1&amp;playsinline=1&amp;end=37" title="Training Reel" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen></iframe></div><div class="info"><h4>Training Reel</h4><p>The film from the current Training page</p></div></div></div><div class="cards"><div class="card rise"><div class="num">01</div><h3>Advanced Threat Assessment &amp; Risk Management</h3><p>Learn to identify, evaluate, and mitigate threats before they materialize. Comprehensive risk analysis methodologies used by top-tier protection teams worldwide.</p></div><div class="card rise"><div class="num">02</div><h3>Tactical Driving &amp; Motorcade Operations</h3><p>Master evasive driving techniques, route planning, and multi-vehicle motorcade coordination for secure ground transportation in any environment.</p></div><div class="card rise"><div class="num">03</div><h3>Strategic Mission Planning &amp; Execution</h3><p>Develop operational plans from advance work through mission completion. Intelligence gathering, contingency planning, and real-time decision making.</p></div><div class="card rise"><div class="num">04</div><h3>Close Protection Techniques &amp; Body Man Duties</h3><p>Hands-on training in personal protection formations, crowd management, venue security, and the art of seamless close-proximity security.</p></div><div class="card rise"><div class="num">05</div><h3>Crisis Management &amp; Emergency Response</h3><p>Prepare for worst-case scenarios with crisis management protocols, evacuation procedures, medical response, and real-time coordination under pressure.</p></div></div>
+      <div class="cards"><div class="card rise"><div class="ico" aria-hidden="true">🔎</div><h3>Advanced Threat Assessment &amp; Risk Management</h3><p>Learn to identify, evaluate, and mitigate threats before they materialize. Comprehensive risk analysis methodologies used by top-tier protection teams worldwide.</p></div><div class="card rise"><div class="ico" aria-hidden="true">🚗</div><h3>Tactical Driving &amp; Motorcade Operations</h3><p>Master evasive driving techniques, route planning, and multi-vehicle motorcade coordination for secure ground transportation in any environment.</p></div><div class="card rise"><div class="ico" aria-hidden="true">📋</div><h3>Strategic Mission Planning &amp; Execution</h3><p>Develop operational plans from advance work through mission completion. Intelligence gathering, contingency planning, and real-time decision making.</p></div><div class="card rise"><div class="ico" aria-hidden="true">🛡</div><h3>Close Protection Techniques &amp; Body Man Duties</h3><p>Hands-on training in personal protection formations, crowd management, venue security, and the art of seamless close-proximity security.</p></div><div class="card rise"><div class="ico" aria-hidden="true">⚠</div><h3>Crisis Management &amp; Emergency Response</h3><p>Prepare for worst-case scenarios with crisis management protocols, evacuation procedures, medical response, and real-time coordination under pressure.</p></div></div>
     </div>
   </section>
 
@@ -403,26 +418,26 @@
     <div>
       <div class="eyebrow">Competence Standards</div>
       <h2 class="section-h">Seven Core <span class="gold">Disciplines.</span></h2>
-      <p class="sub">Every operator is measured against our Selection Baseline before they ever step on a detail. These seven disciplines are the foundation of every MAST Solutions program.</p>
-      <div class="cards four"><div class="card rise"><div class="num">01</div><h3>Firearms</h3><p>Advanced marksmanship and weapon handling.</p></div><div class="card rise"><div class="num">02</div><h3>Hand Combat</h3><p>Close-quarters fighting techniques.</p></div><div class="card rise"><div class="num">03</div><h3>Knife Combat</h3><p>Defensive and tactical knife skills.</p></div><div class="card rise"><div class="num">04</div><h3>CQB</h3><p>Close Quarters Battle operations.</p></div><div class="card rise"><div class="num">05</div><h3>Fitness</h3><p>Peak physical conditioning for duty.</p></div><div class="card rise"><div class="num">06</div><h3>Medical</h3><p>Emergency medical and trauma care.</p></div><div class="card rise"><div class="num">07</div><h3>Leadership</h3><p>Command, decision-making, dynamics.</p></div></div><div class="ctas rise" style="margin-top:2rem"><a href="../mastsolutions.html" class="cta">Explore MAST Solutions</a></div>
+      <p class="sub">Every operator is measured against our Selection Baseline before they ever step on a detail.</p>
+      <div class="cards four"><div class="card rise"><div class="ico" aria-hidden="true">🎯</div><h3>Firearms</h3><p>Advanced marksmanship and weapon handling</p></div><div class="card rise"><div class="ico" aria-hidden="true">🥊</div><h3>Hand Combat</h3><p>Close-quarters fighting techniques</p></div><div class="card rise"><div class="ico" aria-hidden="true">🗡</div><h3>Knife Combat</h3><p>Defensive and tactical knife skills</p></div><div class="card rise"><div class="ico" aria-hidden="true">⚔</div><h3>CQB</h3><p>Close Quarters Battle operations</p></div><div class="card rise"><div class="ico" aria-hidden="true">💪</div><h3>Fitness</h3><p>Peak physical conditioning for duty</p></div><div class="card rise"><div class="ico" aria-hidden="true">⚕</div><h3>Medical</h3><p>Emergency medical &amp; trauma care</p></div><div class="card rise"><div class="ico" aria-hidden="true">⭐</div><h3>Leadership</h3><p>Command, decision-making, dynamics</p></div></div><p class="sub" style="margin-top:1.6rem">These seven disciplines are the foundation of every MAST Solutions program.</p><div class="ctas rise"><a href="../mastsolutions.html" class="cta">Explore MAST Solutions</a></div>
     </div>
   </section>
 
   <section class="panel" id="s4" data-section="04">
     <div>
       <div class="eyebrow">Training Media</div>
-      <h2 class="section-h">As <span class="gold">Featured.</span></h2>
-      <p class="sub">Featured on Modern Shooter TV and in The Washington Post.</p>
-      <div class="yt-grid rise"><div class="yt-card"><div class="frame"><iframe src="https://www.youtube.com/embed/pSGWdaDglZE?rel=0&amp;modestbranding=1" title="Modern Shooter TV — MAST Solutions" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen></iframe></div><div class="info"><h4>Modern Shooter TV</h4><p>Lance M / Castro / Ray Cash &mdash; MAST Solutions</p></div></div><div class="yt-card"><div class="frame"><iframe src="https://www.youtube.com/embed/OfXe_bdH6t4?rel=0&amp;modestbranding=1" title="Modern Shooter TV — Tactical Training Feature" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen></iframe></div><div class="info"><h4>Modern Shooter TV</h4><p>Tactical Training Feature</p></div></div></div><a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener" class="post"><small>Press feature &middot; The Washington Post</small>Active Shooter: Arming American Teachers &rarr;</a><p class="sub" style="margin-top:1.4rem;font-size:.95rem">MAST Solutions featured in The Washington Post&rsquo;s coverage on active shooter preparedness and school security training.</p>
+      <h2 class="section-h">Featured on Modern Shooter TV and <span class="gold">The Washington Post.</span></h2>
+      
+      <div class="yt-grid rise"><div class="yt-card"><div class="frame"><iframe src="https://www.youtube.com/embed/pSGWdaDglZE?rel=0&amp;modestbranding=1" title="Modern Shooter TV — MAST Solutions" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen></iframe></div><div class="info"><h4>Modern Shooter TV</h4><p>Lance M / Castro / Ray Cash &mdash; MAST Solutions</p></div></div><div class="yt-card"><div class="frame"><iframe src="https://www.youtube.com/embed/OfXe_bdH6t4?rel=0&amp;modestbranding=1" title="Modern Shooter TV — Tactical Training Feature" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen></iframe></div><div class="info"><h4>Modern Shooter TV</h4><p>Tactical Training Feature</p></div></div></div><a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener" class="post"><small>The Washington Post</small>Active Shooter: Arming American Teachers</a><p class="sub" style="margin-top:1.4rem;font-size:.95rem">MAST Solutions featured in The Washington Post&rsquo;s coverage on active shooter preparedness and school security training. An in-depth look at how Atlas Glinn&rsquo;s training programs prepare educators and security professionals for real-world threats. <a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener">Read The Feature &rarr;</a></p>
     </div>
   </section>
 
   <section class="panel" id="s5" data-section="05">
     <div>
-      <div class="eyebrow">Train With Us</div>
-      <h2 class="section-h">Book a <span class="gold">Course.</span></h2>
-      <p class="sub">Individual seats, team blocks, and agency instruction through MAST Solutions.</p>
-      <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div><div class="ctas rise"><a href="../mastsolutions.html" class="cta">Book a Course</a><a href="https://atlasglinn.com/contact/" class="secondary-cta">Contact Us</a></div><div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions &middot; Executive Protection &middot; Training &middot; AI Surveillance &middot; Counter-Drone &middot; Risk Management<br><a href="../privacy.html">Privacy Policy</a>&middot;<a href="../terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a></div>
+      <div class="eyebrow">Reviews</div>
+      <h2 class="section-h">Google Reviews &amp; LinkedIn <span class="gold">Recommendations.</span></h2>
+      <p class="sub"><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span> 5.0 &middot; Google Reviews</p>
+      <div class="quotes"><div class="card rise"><div class="meta">Law Enforcement</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Matthew is an expert in his field. He is highly motivated, knowledgeable and I highly recommend him for top-tier performance.&rdquo;</p><div class="by">Kenny Upton &mdash; Deputy, Harris County Sheriff</div></div><div class="card rise"><div class="meta">Navy SEAL / Former CIA</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;His leadership, dedication, drive, and passion is second to none. A master at teamwork, problem-solving, leadership, and communication.&rdquo;</p><div class="by">Ray Cash Care &mdash; Navy SEAL / Former CIA</div></div><div class="card rise"><div class="meta">Reconnaissance Marine</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;As a former Reconnaissance Marine, Matthew&rsquo;s teaching has not only made me a better shooter, he has made me a better team player.&rdquo;</p><div class="by">Arthur Metcalfe &mdash; Recon Marine, 18yr O&amp;G</div></div><div class="card rise"><div class="meta">Flight Paramedic</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Brockmann had hosted and taught some of the best classes I have been a part of. I can&rsquo;t recommend him enough.&rdquo;</p><div class="by">William H. Miller BS, TP-C, FP-C, CPM &mdash; Flight Paramedic</div></div><div class="card rise"><div class="meta">President &amp; CEO</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Extremely professional. In an extremely competitive industry Matt has never failed to provide exceptional guidance. I recommend him without hesitation.&rdquo;</p><div class="by">Craig Etkin &mdash; President &amp; CEO, intelligence360</div></div><div class="card rise"><div class="meta">CxO / Investor</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;I&rsquo;ve trained with some big-name national &amp; global self-defense trainers. I&rsquo;ve always felt safe training with Matt &mdash; the #1 criterion for choosing a trainer.&rdquo;</p><div class="by">Wayne Sadin &mdash; CxO/VP Investor</div></div></div><div class="ctas rise" style="margin-top:2rem"><a href="https://www.google.com/search?q=Atlas+Glinn+Houston+reviews" class="secondary-cta">Google Reviews &rarr;</a><a href="https://www.linkedin.com/in/mastsolutions1/" class="secondary-cta">LinkedIn &rarr;</a></div><div class="badges rise"><img src="../images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><img src="../images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"></div>
     </div>
   </section>
 
@@ -488,8 +503,13 @@ function setPhoto(i) {
   if (i === photoIdx) return; photoIdx = i;
   phs.forEach((p, k) => {
     const on = k === i; p.classList.toggle('on', on);
-    const v = p.querySelector('video'); if (!v) return;          // film backdrops play only while their chapter is on screen
-    if (on && !reduce) v.play().catch(() => {}); else v.pause();
+    const v = p.querySelector('video');                            // film backdrops play only while their chapter is on screen
+    if (v) { if (on && !reduce) v.play().catch(() => {}); else v.pause(); }
+    const f = p.querySelector('iframe[data-src]');                 // YouTube backdrops load when their chapter arrives, unload when it leaves
+    if (f) {
+      if (on && !reduce) { if (!f.getAttribute('src')) { f.addEventListener('load', () => f.classList.add('playing'), { once: true }); f.src = f.dataset.src; } }
+      else if (f.getAttribute('src')) { f.classList.remove('playing'); f.removeAttribute('src'); }
+    }
   });
 }
 document.querySelectorAll('#photos video').forEach(v => {

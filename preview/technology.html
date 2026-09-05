@@ -58,6 +58,10 @@
   #photos .ph video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:inherit; opacity:0; transition:opacity 1.2s ease; }
   #photos .ph video.playing { opacity:1; }
   #photos .ph.film.on { opacity:.58; }
+  /* A YouTube film as the backdrop, the way the current Atlas pages embed their hero films (autoplay, muted, loop,
+     no controls): the frame is oversized to cover the viewport at 16:9 and cannot be clicked. */
+  #photos .ph.yt iframe { position:absolute; top:50%; left:50%; width:100vw; height:56.25vw; min-height:100%; min-width:177.78vh; transform:translate(-50%,-50%); border:0; pointer-events:none; opacity:0; transition:opacity 1.2s ease; }
+  #photos .ph.yt iframe.playing { opacity:1; }
   /* Backdrop presence (Brockmann, 2026-09-05: pull the background forward, keep the layers; then "Reduce background brightness by
      20%"): the photograph sits at .42 (.52 less a fifth), the scene and the text layers stay above it. */
   #photos .ph.on { opacity:.42; }
@@ -103,6 +107,7 @@
   h2.section-h.in { opacity:1; filter:blur(0); transform:translateY(0); }
   .sub { font-size:clamp(1rem,1.3vw,1.25rem); color:var(--text-dim); max-width:720px; margin:0 auto 2.5rem; line-height:1.55; font-weight:300; opacity:0; transform:translateY(16px); transition:opacity 1s ease-out .3s, transform 1s ease-out .3s; }
   .sub.in { opacity:1; transform:translateY(0); }
+  .sub, .eyebrow { text-shadow:0 1px 2px rgba(5,8,16,.7); }   /* over a photograph the descriptors need an edge at every size */
   .rise { opacity:0; transform:translateY(22px); transition:opacity 1s ease-out .35s, transform 1s ease-out .35s; }
   .rise.in { opacity:1; transform:translateY(0); }
   .cta, .cta-button { display:inline-block; padding:1.1rem 2.5rem; font-family:'Orbitron',sans-serif; font-weight:700; letter-spacing:.2em; font-size:.85rem; text-transform:uppercase; text-decoration:none; color:#000; background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); border:1px solid var(--gold-champagne); cursor:none; transition:transform .35s, box-shadow .35s; position:relative; overflow:hidden; border-radius:0; }
@@ -232,6 +237,11 @@
     .secondary-cta, .cta-button.ghost-button { margin-left:0; }
     #photos .ph.on { opacity:.35; }
     #photos .ph.film.on { opacity:.5; }
+    /* Phone legibility (Brockmann, 2026-09-05, iPhone screenshot of the MAST opening: "Text descriptors need to be fixed…
+       hard to read"): full-strength text with a shadow, and a soft scrim behind each chapter's text block. */
+    .sub { color:var(--text); font-weight:400; text-shadow:0 1px 3px rgba(5,8,16,.95), 0 0 18px rgba(5,8,16,.8); }
+    h1.mega, h2.section-h, .eyebrow { text-shadow:0 2px 14px rgba(5,8,16,.9); }
+    section.panel > div { padding:1.4rem .6rem; background:radial-gradient(ellipse at center, rgba(5,8,16,.62) 0%, rgba(5,8,16,.38) 55%, rgba(5,8,16,0) 80%); }
   }
   @media (prefers-reduced-motion: reduce) { .eyebrow, h1.mega, h2.section-h, .sub, .rise { transition:none; opacity:1; filter:none; transform:none; } }
 
@@ -259,6 +269,11 @@
   .card::before { content:''; position:absolute; top:0; left:0; width:100%; height:1px; background:linear-gradient(90deg, transparent, var(--gold), transparent); }
   .card:hover { transform:translateY(-5px); border-color:var(--gold); }
   .card .num { font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.4em; color:var(--gold); margin-bottom:.6rem; }
+  /* The current site's emoji icon on a card or tile, in the number's place (Brockmann, 2026-09-05: same content, same way). */
+  .card .ico, .tile .txt .num.ico { font-size:1.5rem; line-height:1; letter-spacing:0; margin-bottom:.6rem; }
+  /* A section photograph in the flow of the page, where the current page shows it. */
+  img.figure { display:block; width:100%; max-width:900px; margin:2rem auto 0; border:1px solid rgba(26,107,222,.22); }
+  .quotes .card .meta { margin-bottom:.4rem; }
   .card h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.55rem; line-height:1.35; }
   .card p { font-size:.95rem; color:var(--text-dim); line-height:1.55; font-weight:300; }
   .card ul { margin:.4rem 0 0 1rem; color:var(--text-dim); font-size:.92rem; line-height:1.6; }
@@ -332,9 +347,10 @@
   <div class="ph" data-for="01" style="background-image:url('../images/atlas/AI-surveillance-1.png')"></div>
   <div class="ph" data-for="02" style="background-image:url('../images/atlas/closeup-cctv-camera-wall-min-1024x683.jpg')"></div>
   <div class="ph" data-for="03" style="background-image:url('../images/atlas/AI-surveillance-1.png')"></div>
-  <div class="ph" data-for="04" style="background-image:url('../images/atlas/AeroDefense-Partner-Atlas-Glinn.jpeg')"></div>
-  <div class="ph" data-for="05" style="background-image:url('../images/atlas/Technology-UAS-1.png')"></div>
-  <div class="ph" data-for="06" style="background-image:url('https://atlasglinn.com/wp-content/uploads/2025/03/IMG_1837-1024x751.jpeg')"></div>
+  <div class="ph" data-for="04" style="background-image:url('../images/atlas/AI-surveillance-1.png')"></div>
+  <div class="ph" data-for="05" style="background-image:url('../images/atlas/AeroDefense-Partner-Atlas-Glinn.jpeg')"></div>
+  <div class="ph" data-for="06" style="background-image:url('../images/atlas/Technology-UAS-1.png')"></div>
+  <div class="ph" data-for="07" style="background-image:url('../images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg')"></div>
 </div>
 <div class="grain"></div>
 <div class="vignette"></div>
@@ -344,7 +360,7 @@
 <div class="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>
 
 <a class="hud tl" href="index.html">&#9679; ATLAS GLINN &middot; HOUSTON</a>
-<div class="hud tr" id="hud-section">SECTION 01 / 06</div>
+<div class="hud tr" id="hud-section">SECTION 01 / 07</div>
 <div class="hud bl">HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W</div>
 <div class="hud br">DETAILS MATTER</div>
 
@@ -352,9 +368,10 @@
   <a href="#s1" class="chap-link">01 &middot; Opening</a>
   <a href="#s2" class="chap-link">02 &middot; Atlas EP</a>
   <a href="#s3" class="chap-link">03 &middot; AI Surveillance</a>
-  <a href="#s4" class="chap-link">04 &middot; Counter-Drone</a>
-  <a href="#s5" class="chap-link">05 &middot; UAS</a>
-  <a href="#s6" class="chap-link">06 &middot; Contact</a>
+  <a href="#s4" class="chap-link">04 &middot; Deep Sentinel</a>
+  <a href="#s5" class="chap-link">05 &middot; Counter-Drone</a>
+  <a href="#s6" class="chap-link">06 &middot; Advanced UAS</a>
+  <a href="#s7" class="chap-link">07 &middot; Reviews</a>
 </nav>
 <button class="menu-btn" id="menu-btn" type="button" aria-controls="sitenav" aria-expanded="false">MENU &#8801;</button>
 <div class="sitenav" id="sitenav" role="dialog" aria-label="Site menu">
@@ -386,54 +403,63 @@
     <div>
       <div class="eyebrow">Technology</div>
       <h1 class="mega"><span class="gold-shimmer">Details</span> <span class="white">Matter.</span></h1>
-      <p class="sub">Intelligence, surveillance, and airspace security &mdash; integrated into the same protective detail that runs on the ground.</p>
-      <div class="ctas rise"><a href="#s2" class="cta">Atlas EP</a><a href="https://atlasglinn.com/contact/" class="secondary-cta">Contact Us</a></div>
+      <p class="sub"></p>
+      <div class="ctas rise"><a href="../ep-app.html" class="cta">Explore Atlas EP</a><a href="#s2" class="secondary-cta">Atlas EP Platform</a></div>
     </div>
     <div class="scroll-cue">SCROLL &darr;</div>
   </section>
 
   <section class="panel" id="s2" data-section="02">
     <div>
-      <div class="eyebrow">Built by Atlas Glinn</div>
+      <div class="eyebrow">Atlas EP Platform</div>
       <h2 class="section-h">The Atlas EP <span class="gold">Platform.</span></h2>
       <p class="sub">Our proprietary executive protection platform integrates AI threat analysis, Blue Force Tracking, encrypted comms, and covert emergency streaming &mdash; all in one secure iOS app.</p>
-      <div class="ctas rise"><a href="../signup.html" class="cta">Explore Atlas EP</a></div>
+      <div class="ctas rise"><a href="../ep-app.html" class="cta">Explore Atlas EP</a></div>
     </div>
   </section>
 
   <section class="panel" id="s3" data-section="03">
     <div>
       <div class="eyebrow">AI Surveillance</div>
-      <h2 class="section-h">Watched by <span class="gold">Intelligence.</span></h2>
+      <h2 class="section-h">AI <span class="gold">Surveillance.</span></h2>
       <p class="sub">Atlas Glinn offers cutting-edge AI surveillance technology through our exclusive partnerships with Rhombus, Deep Sentinel &amp; LVT.</p>
-      <div class="cards"><div class="card rise"><h3>Rhombus</h3><p>Physical security shouldn&rsquo;t be stressful. With Rhombus, you can make your spaces safer and smarter. Built by cybersecurity experts, Rhombus delivers a cloud-based platform with built-in AI analytics.</p><a class="secondary-cta" href="https://www.rhombus.com/" target="_blank" rel="noopener">Learn More &rarr;</a></div><div class="card rise"><h3>Deep Sentinel</h3><p>At Atlas Glinn, we are proud to be an authorized partner with Deep Sentinel, offering 24/7 live agent monitoring with AI-driven analytics. Deep Sentinel describes its cameras as the only video surveillance with live security guards that prevent crime.</p><a class="secondary-cta" href="https://www.deepsentinel.com/" target="_blank" rel="noopener">Learn More &rarr;</a></div><div class="card rise"><h3>LVT (Live View Technologies)</h3><p>Atlas Glinn partners with Live View Technologies. Solar-powered, wireless surveillance with advanced cameras, analytics, and real-time monitoring.</p><a class="secondary-cta" href="https://www.lvt.com/partner/atlas-glinn" target="_blank" rel="noopener">Learn More &rarr;</a></div></div>
+      <div class="cards"><div class="card rise"><h3>Rhombus</h3><p>Physical security shouldn&rsquo;t be stressful. With Rhombus, you can make your spaces safer and smarter. Built by cybersecurity experts, Rhombus delivers a cloud-based platform with built-in AI analytics.</p><a class="secondary-cta" href="https://www.rhombus.com/" target="_blank" rel="noopener">Learn More &rarr;</a></div><div class="card rise"><h3>Deep Sentinel</h3><p>At Atlas Glinn, we are proud to be an authorized partner with Deep Sentinel, offering 24/7 live agent monitoring with AI-driven analytics.</p><a class="secondary-cta" href="https://www.deepsentinel.com/" target="_blank" rel="noopener">Learn More &rarr;</a></div><div class="card rise"><h3>LVT (Live View Technologies)</h3><p>Atlas Glinn partners with Live View Technologies. Solar-powered, wireless surveillance with advanced cameras, analytics, and real-time monitoring.</p><a class="secondary-cta" href="https://www.lvt.com/partner/atlas-glinn" target="_blank" rel="noopener">Learn More &rarr;</a></div></div>
     </div>
   </section>
 
   <section class="panel" id="s4" data-section="04">
     <div>
-      <div class="eyebrow">Counter-Drone Solutions</div>
-      <h2 class="section-h">Airspace <span class="gold">Defended.</span></h2>
-      
-      <div class="partner rise"><div><p>Atlas Glinn, in partnership with AeroDefense, delivers advanced drone detection solutions to safeguard critical infrastructure, public safety, &amp; national security &mdash; locating both drones &amp; their operators in real time.</p><p>AeroDefense&rsquo;s Made-in-the-USA system simultaneously locates both the drone and its pilot. DHS SAFETY Act Designated.</p><div class="ctas"><a href="https://atlasglinn.com/cuas-aerodefense/" class="cta">Counter-Drone Solutions</a></div></div><img src="../images/atlas/AeroDefense-Partner-Atlas-Glinn.jpeg" alt="AeroDefense partnership" loading="lazy"></div>
+      <div class="eyebrow">Deep Sentinel</div>
+      <h2 class="section-h">Deep <span class="gold">Sentinel.</span></h2>
+      <p class="sub">The only video surveillance cameras with live security guards that prevent crime. AI-driven analytics with 24/7 live agent monitoring.</p>
+      <div class="ctas rise"><a href="https://www.deepsentinel.com/" class="secondary-cta">Learn More</a></div><img class="figure rise" src="../images/atlas/AI-surveillance-1.png" alt="Deep Sentinel AI surveillance" loading="lazy">
     </div>
   </section>
 
   <section class="panel" id="s5" data-section="05">
     <div>
-      <div class="eyebrow">Advanced UAS Solutions</div>
-      <h2 class="section-h">Autonomous <span class="gold">Eyes.</span></h2>
+      <div class="eyebrow">Counter-Drone Solutions</div>
+      <h2 class="section-h">Counter-Drone <span class="gold">Solutions.</span></h2>
       
-      <div class="partner rise"><div><p>Through elite partnership with Sunflower Labs, Atlas Glinn delivers autonomous drones for real-time surveillance, instant threat response, and seamless security integration.</p><p>Sunflower Labs&rsquo; fully autonomous drones provide real-time, intelligent surveillance. These drones fly without human intervention, responding instantly to alarms and security system triggers.</p><div class="ctas"><a href="https://atlasglinn.com/uas/" class="cta">Autonomous UAS</a><a href="https://atlasglinn.com/contact/" class="secondary-cta">Inquire About UAS</a></div></div><img src="../images/atlas/Technology-UAS-1.png" alt="Autonomous UAS drone" loading="lazy"></div>
+      <div class="partner rise"><div><p>Atlas Glinn, in partnership with AeroDefense, delivers advanced drone detection solutions to safeguard critical infrastructure, public safety, &amp; national security &mdash; locating both drones &amp; their operators in real time.</p><p>AeroDefense&rsquo;s Made-in-the-USA system simultaneously locates both the drone and its pilot. DHS Safety Act Designated.</p><div class="ctas"><a href="https://atlasglinn.com/cuas-aerodefense/" class="secondary-cta">Learn More</a></div></div><img src="../images/atlas/AeroDefense-Partner-Atlas-Glinn.jpeg" alt="AeroDefense partner — Atlas Glinn" loading="lazy"></div>
     </div>
   </section>
 
   <section class="panel" id="s6" data-section="06">
     <div>
-      <div class="eyebrow">Integrate</div>
-      <h2 class="section-h">One <span class="gold">Picture.</span></h2>
-      <p class="sub">Technology only matters when it feeds the people on the detail. Talk to us about the whole system.</p>
-      <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div><div class="ctas rise"><a href="https://atlasglinn.com/contact/" class="cta">Contact Us</a><a href="../signup.html" class="secondary-cta">Atlas EP App &rarr;</a></div><div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions &middot; Executive Protection &middot; Training &middot; AI Surveillance &middot; Counter-Drone &middot; Risk Management<br><a href="../privacy.html">Privacy Policy</a>&middot;<a href="../terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a></div>
+      <div class="eyebrow">Advanced UAS Solutions</div>
+      <h2 class="section-h">Advanced UAS <span class="gold">Solutions.</span></h2>
+      
+      <div class="partner rise"><div><p>Through elite partnership with Sunflower Labs, Atlas Glinn delivers autonomous drones for real-time surveillance, instant threat response, and seamless security integration.</p><p>Sunflower Labs&rsquo; fully autonomous drones provide real-time, intelligent surveillance. These drones fly without human intervention, responding instantly to alarms and security system triggers.</p><div class="ctas"><a href="https://atlasglinn.com/contact/" class="secondary-cta">Inquire About UAS</a></div></div><img src="../images/atlas/Technology-UAS-1.png" alt="Sunflower Labs autonomous UAS" loading="lazy"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="s7" data-section="07">
+    <div>
+      <div class="eyebrow">Reviews</div>
+      <h2 class="section-h">Google Reviews &amp; LinkedIn <span class="gold">Recommendations.</span></h2>
+      <p class="sub"><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span> 5.0 &middot; Google Reviews</p>
+      <div class="quotes"><div class="card rise"><div class="meta">Law Enforcement</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Matthew is an expert in his field. He is highly motivated, knowledgeable and I highly recommend him for top-tier performance.&rdquo;</p><div class="by">Kenny Upton &mdash; Deputy, Harris County Sheriff</div></div><div class="card rise"><div class="meta">Navy SEAL / Former CIA</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;His leadership, dedication, drive, and passion is second to none. A master at teamwork, problem-solving, leadership, and communication.&rdquo;</p><div class="by">Ray Cash Care &mdash; Navy SEAL / Former CIA</div></div><div class="card rise"><div class="meta">Reconnaissance Marine</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;As a former Reconnaissance Marine, Matthew&rsquo;s teaching has not only made me a better shooter, he has made me a better team player.&rdquo;</p><div class="by">Arthur Metcalfe &mdash; Recon Marine, 18yr O&amp;G</div></div><div class="card rise"><div class="meta">Flight Paramedic</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Brockmann had hosted and taught some of the best classes I have been a part of. I can&rsquo;t recommend him enough.&rdquo;</p><div class="by">William H. Miller BS, TP-C, FP-C, CPM &mdash; Flight Paramedic</div></div><div class="card rise"><div class="meta">President &amp; CEO</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Extremely professional. In an extremely competitive industry Matt has never failed to provide exceptional guidance. I recommend him without hesitation.&rdquo;</p><div class="by">Craig Etkin &mdash; President &amp; CEO, intelligence360</div></div><div class="card rise"><div class="meta">CxO / Investor</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;I&rsquo;ve trained with some big-name national &amp; global self-defense trainers. I&rsquo;ve always felt safe training with Matt &mdash; the #1 criterion for choosing a trainer.&rdquo;</p><div class="by">Wayne Sadin &mdash; CxO/VP Investor</div></div></div><div class="ctas rise" style="margin-top:2rem"><a href="https://www.google.com/search?q=Atlas+Glinn+Houston+reviews" class="secondary-cta">Google Reviews &rarr;</a><a href="https://www.linkedin.com/in/mastsolutions1/" class="secondary-cta">LinkedIn &rarr;</a></div><div class="badges rise"><img src="../images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><img src="../images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"></div>
     </div>
   </section>
 
@@ -442,7 +468,7 @@
 <script type="module">
 import * as THREE from '../vendor/three.module.js';
 
-const SECTIONS = 6;
+const SECTIONS = 7;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mobile = matchMedia('(max-width: 768px)').matches;
 
@@ -499,8 +525,13 @@ function setPhoto(i) {
   if (i === photoIdx) return; photoIdx = i;
   phs.forEach((p, k) => {
     const on = k === i; p.classList.toggle('on', on);
-    const v = p.querySelector('video'); if (!v) return;          // film backdrops play only while their chapter is on screen
-    if (on && !reduce) v.play().catch(() => {}); else v.pause();
+    const v = p.querySelector('video');                            // film backdrops play only while their chapter is on screen
+    if (v) { if (on && !reduce) v.play().catch(() => {}); else v.pause(); }
+    const f = p.querySelector('iframe[data-src]');                 // YouTube backdrops load when their chapter arrives, unload when it leaves
+    if (f) {
+      if (on && !reduce) { if (!f.getAttribute('src')) { f.addEventListener('load', () => f.classList.add('playing'), { once: true }); f.src = f.dataset.src; } }
+      else if (f.getAttribute('src')) { f.classList.remove('playing'); f.removeAttribute('src'); }
+    }
   });
 }
 document.querySelectorAll('#photos video').forEach(v => {
@@ -601,6 +632,7 @@ const kf = [
   { x: -3, y: 2, z: 13, lx: 0, ly: -1, lz: 0 },
   { x: 4, y: 3, z: 14, lx: 0, ly: -.5, lz: 0 },
   { x: -4, y: 1, z: 12, lx: 0, ly: 0, lz: 0 },
+  { x: 0, y: -2, z: 10, lx: 0, ly: .5, lz: 0 },
   { x: 0, y: -4, z: 18, lx: 0, ly: 2, lz: 0 },
 ];
 let activeIdx = 0;

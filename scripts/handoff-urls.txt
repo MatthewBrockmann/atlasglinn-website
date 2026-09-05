@@ -25,6 +25,11 @@ https://atlasglinn.com/wp-content/uploads/2025/05/Executive-Protection.jpg
 https://atlasglinn.com/wp-content/uploads/atlas-ep-og-image.jpg
 https://atlasglinn.com/wp-content/uploads/atlas-ep-screenshot.jpg
 https://atlasglinn.com/wp-content/uploads/atlas-glinn-logo.png
+# Added 2026-09-05: the hero films of the current Technology, UAS and Contact pages are Git LFS pointers in this repo (no
+# bytes); if the live site serves them, the Mac brings the real files over and the rebuilt pages open on them like the
+# current ones do (scripts/assemble-atlas.py, film backdrops).
+https://atlasglinn.com/images/technology-hero.mp4
+https://atlasglinn.com/images/corporate_buildings.mp4
 # Added 2026-09-04 (owner: the Training Reel and the Disaster Recovery film as true embeds, no YouTube chrome). The Mac
 # fetches each as an MP4 with yt-dlp; the cloud session then trims the Training Reel's closing "2023" card, makes the
 # six-second teasers and posters, and swaps the YouTube cards for local files.
