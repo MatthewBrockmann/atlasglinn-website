@@ -89,8 +89,9 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    `bookings@mastsolutions.com` needs Resend's DNS records added at GoDaddy for mastsolutions.com. Until then no
    receipt, no agreement PDF, no range address, no staff alert goes out; all are logged.
 3. **Rotate the Atlas EP leads key** on the `atlas-ep-signup` Worker. It was public on `main` until today.
-4. **One live test registration** with the $1 `MAST-TEST` seat, then `curl "…/roster?key=<ADMIN_KEY>"` to see it
-   in D1, refund it in Stripe, and say so: the test seat and its `#test` hook are removed after that.
+4. ~~One live test registration with the $1 `MAST-TEST` seat~~ — **2026-09-05 ("Remove test hook")**: the `#test` page hook
+   and the Worker's `MAST-TEST` fallback entry are removed (PR #10); there is no $1 seat any more. A live check now means a
+   real seat and a Stripe refund, or Stripe test mode.
 5. **Course → weekend map**, or accept that any course sells on any of the 15 weekends for now (he said "I will
    organize what classes on what weekends later"). Accepted hole for launch night per his 2026-09-04 message.
 6. **Security pass over both sites**: Mullvad and pentAI, or an equivalent (his instruction, 2026-09-04).
