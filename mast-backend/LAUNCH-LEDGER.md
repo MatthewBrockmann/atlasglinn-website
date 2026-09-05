@@ -103,7 +103,9 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    real seat and a Stripe refund. **Stripe is on the live key** (Brockmann, 2026-09-05: "stripe answered yesterday real go
    live key - we tested"); the 2026-09-04 test went through on it. `wrangler secret list` on 2026-09-05 16:46 UTC showed
    `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ACCOUNT_SECRET`, `ADMIN_KEY`, `NOTIFY_EMAIL`, `RANGE_*`, `DOC_RECIPIENTS_*`
-   present and **`RESEND_API_KEY` absent** (item 2 above is the one thing between the Worker and a sent email).
+   present and **`RESEND_API_KEY` absent**. Two things stand between the Worker and a sent email, both in item 2 above:
+   the key, **and** mastsolutions.com verified at Resend (its DNS records added at GoDaddy), because every email goes out
+   as bookings@mastsolutions.com. The key alone is not enough.
 5. **Course → weekend map**, or accept that any course sells on any of the 15 weekends for now (he said "I will
    organize what classes on what weekends later"). Accepted hole for launch night per his 2026-09-04 message.
 6. **Security pass over both sites**: Mullvad and pentAI, or an equivalent (his instruction, 2026-09-04).
