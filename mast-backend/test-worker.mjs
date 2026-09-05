@@ -26,6 +26,8 @@ const stored = [];
 const emails = [];
 
 const stripePriceCalls = [];   // GET /v1/prices?lookup_keys[] and POST /v1/prices (membership price provisioning)
+const stripeCustomerCalls = [];   // /v1/customers (account cards)
+let fakeDefaultCard = null;         // what GET /v1/customers/<id>?expand=... returns as the default payment method
 const fakePrices = [];         // prices "in Stripe" ({ id, lookup_key })
 globalThis.fetch = async (url, init) => {
   const u = String(url);
@@ -36,6 +38,14 @@ globalThis.fetch = async (url, init) => {
     const b = new URLSearchParams(init.body); const price = { id: 'price_new_' + b.get('lookup_key'), lookup_key: b.get('lookup_key') }; fakePrices.push(price);
     return new Response(JSON.stringify(price), { status: 200 });
   }
+  if (u.includes('api.stripe.com/v1/customers')) {
+    const method = (init && init.method) || 'GET';
+    stripeCustomerCalls.push({ method, url: u, body: init && init.body ? new URLSearchParams(init.body) : null });
+    if (method === 'POST' && /\/v1\/customers$/.test(u)) return new Response(JSON.stringify({ id: 'cus_test_1' }), { status: 200 });
+    if (method === 'GET') return new Response(JSON.stringify({ id: 'cus_test_1', invoice_settings: { default_payment_method: fakeDefaultCard } }), { status: 200 });
+    return new Response(JSON.stringify({ id: 'cus_test_1' }), { status: 200 });
+  }
+  if (u.includes('api.stripe.com/v1/setup_intents')) return new Response(JSON.stringify({ id: 'seti_1', payment_method: 'pm_saved_1' }), { status: 200 });
   if (u.includes('api.stripe.com')) {
     stripeCalls.push(new URLSearchParams(init.body));
     return new Response(JSON.stringify({ id: 'cs_test_123', url: 'https://checkout.stripe.com/pay/cs_test_123' }), { status: 200 });
@@ -49,6 +59,7 @@ globalThis.fetch = async (url, init) => {
 
 // Registration tables (fake D1 keeps them in memory so the flow can be asserted end to end).
 const registrations = new Map();   // id -> row
+const accounts = new Map();        // id -> row (student accounts)
 const outcomes = [];               // eligibility_outcomes rows
 const answers = [];                // eligibility_answers rows
 const orderUpdates = [];           // UPDATE orders ... from completeRegistration
@@ -87,12 +98,16 @@ const DB = {
             }
             if (sql.includes('FROM memberships')) return fakePlans[args[0]] || null;
             if (sql.includes('FROM registrations WHERE id')) return registrations.get(args[0]) || null;
+            if (sql.includes('FROM accounts WHERE email')) { for (const a of accounts.values()) if (a.email === args[0]) return { ...a }; return null; }
+            if (sql.includes('FROM accounts WHERE id')) return accounts.has(args[0]) ? { ...accounts.get(args[0]) } : null;
             return null;
           },
           async run() {
             if (sql.includes('INSERT INTO orders')) stored.push(args);
             if (sql.includes('INSERT INTO eligibility_outcomes')) { outcomes.push(args); return { meta: { last_row_id: outcomes.length, changes: 1 } }; }
             if (sql.includes('INSERT INTO eligibility_answers')) { answers.push(args); return { meta: { last_row_id: answers.length, changes: 1 } }; }
+            if (sql.startsWith('INSERT INTO accounts')) { const cols = sql.slice(sql.indexOf('(') + 1, sql.indexOf(')')).split(',').map(c => c.trim()); const row = Object.fromEntries(cols.map((c, i) => [c, args[i]])); accounts.set(row.id, row); return { meta: { changes: 1 } }; }
+            if (sql.startsWith('UPDATE accounts SET')) { const keys = [...sql.matchAll(/(\w+) = \?/g)].map((m) => m[1]); const id = args[args.length - 1]; const row = accounts.get(id); if (row) keys.forEach((k, i) => { row[k] = args[i]; }); return { meta: { changes: row ? 1 : 0 } }; }
             if (sql.includes('INSERT INTO registrations')) { const row = Object.fromEntries(REG_COLS.map((c, i) => [c, args[i]])); registrations.set(row.id, row); return { meta: { changes: 1 } }; }
             if (sql.includes("SET status = 'abandoned'")) { let n = 0; for (const r of registrations.values()) if (r.status === 'pending' && r.created_at < args[0]) { r.status = 'abandoned'; n++; } return { meta: { changes: n } }; }
             if (sql.startsWith('UPDATE registrations SET')) {
@@ -107,6 +122,7 @@ const DB = {
           },
           async all() {
             if (sql.includes('FROM registrations ORDER BY')) return { results: [...registrations.values()] };
+            if (sql.includes('FROM registrations WHERE customer_email')) return { results: [...registrations.values()].filter(r => r.customer_email === args[0] && (r.status === 'paid' || r.status === 'completed')) };
             return { results: [] };
           },
         };
@@ -125,6 +141,7 @@ const env = {
   NOTIFY_EMAIL: 'hq@atlasglinn.com',
   RESEND_API_KEY: 're_test',
   ADMIN_KEY: 'super-secret-admin-key',
+  ACCOUNT_SECRET: 'account-secret-test',
   DB,
 };
 const ctx = { waitUntil: (p) => p };
@@ -509,6 +526,79 @@ console.log('\n── Agreement PDF fill (the real form, pdf-lib) ──');
   const back = await PDFDocument.load(out);
   ok('form flattened: no editable fields remain', back.getForm().getFields().length === 0, 'fields=' + back.getForm().getFields().length);
   ok('three pages preserved', back.getPageCount() === 3);
+}
+
+console.log('\n── Student accounts (owner, 2026-09-05) ──');
+{
+  const get = (path, token) => worker.fetch(new Request('https://api.test' + path, { method: 'GET', headers: Object.assign({ Origin: 'https://mastsolutions.com' }, token ? { Authorization: 'Bearer ' + token } : {}) }), env, ctx);
+  const postAuth = (path, body, token) => worker.fetch(new Request('https://api.test' + path, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', Authorization: 'Bearer ' + token }, body: JSON.stringify(body) }), env, ctx);
+  // CORS lets the bearer token through
+  const pre = await worker.fetch(new Request('https://api.test/account/me', { method: 'OPTIONS', headers: { Origin: 'https://mastsolutions.com' } }), env, ctx);
+  ok('CORS preflight allows the Authorization header', /Authorization/.test(pre.headers.get('Access-Control-Allow-Headers') || ''), pre.headers.get('Access-Control-Allow-Headers'));
+  // register
+  const short = await post('/account/register', { email: 'student@example.com', password: 'short' });
+  ok('register: a short password → 400', short.status === 400);
+  const reg1 = await post('/account/register', { email: 'Student@Example.com', password: 'correct horse battery', name: 'Jane Doe', phone: '(713) 555-0100' }); const r1 = await reg1.json();
+  ok('register → 200 with a token and the account (email normalised)', reg1.status === 200 && typeof r1.token === 'string' && r1.token.includes('.') && r1.account.email === 'student@example.com' && r1.account.name === 'Jane Doe', JSON.stringify(r1).slice(0, 160));
+  const stored = accounts.get(r1.account.id);
+  ok('the password is stored as a PBKDF2 hash, never in clear', stored && /^pbkdf2-sha256\$100000\$/.test(stored.password_hash) && !stored.password_hash.includes('correct horse'), stored && stored.password_hash.slice(0, 30));
+  const dup = await post('/account/register', { email: 'student@example.com', password: 'another long password' });
+  ok('register twice → 409', dup.status === 409 && (await dup.json()).code === 'exists');
+  // login
+  const bad = await post('/account/login', { email: 'student@example.com', password: 'wrong password here' });
+  ok('login with the wrong password → 401', bad.status === 401);
+  const nobody = await post('/account/login', { email: 'nobody@example.com', password: 'wrong password here' });
+  ok('login for an unknown email → the same 401', nobody.status === 401);
+  const login = await post('/account/login', { email: 'student@example.com', password: 'correct horse battery' }); const l1 = await login.json();
+  ok('login → 200 with a token', login.status === 200 && typeof l1.token === 'string');
+  const token = l1.token;
+  // me: profile, classes taken by email, no card yet
+  const anon = await get('/account/me');
+  ok('me without a token → 401', anon.status === 401);
+  const forged = await get('/account/me', token.split('.')[0] + '.forgedsignature');
+  ok('me with a forged token → 401', forged.status === 401);
+  registrations.set('reg_paid_1', { id: 'reg_paid_1', created_at: '2026-09-01T00:00:00Z', status: 'paid', sku: 'MAST-HG-FUND', item_name: 'Handgun Fundamentals', qty: 1, session_date: '2026-09-26', session_label: 'Sat, Sep 26, 2026', customer_email: 'student@example.com' });
+  registrations.set('reg_pending_1', { id: 'reg_pending_1', created_at: '2026-09-02T00:00:00Z', status: 'pending', sku: 'MAST-HG-OP', item_name: 'Handgun Operator', qty: 1, session_date: '2026-10-10', session_label: 'Sat–Sun, Oct 10–11, 2026', customer_email: 'student@example.com' });
+  const me = await get('/account/me', token); const m1 = await me.json();
+  ok('me → 200 with the profile, the paid classes only, no card', me.status === 200 && m1.account.email === 'student@example.com' && m1.classes.some(c => c.sku === 'MAST-HG-FUND' && c.status === 'paid') && m1.classes.every(c => c.status === 'paid' || c.status === 'completed') && !m1.classes.some(c => c.sku === 'MAST-HG-OP') && m1.payment_method === null && Array.isArray(m1.account.standards_passed), JSON.stringify(m1).slice(0, 200));
+  // update
+  const upd = await postAuth('/account/update', { phone: '(713) 555-0199', address1: '1 Main St', address2: 'Houston, TX 77002', emergency_name: 'John Doe', emergency_phone: '(713) 555-0101', emergency_relationship: 'Spouse', password_hash: 'ignored' }, token); const u1 = await upd.json();
+  ok('update saves the profile fields and ignores anything else', upd.status === 200 && u1.account.address1 === '1 Main St' && u1.account.emergency_name === 'John Doe' && accounts.get(r1.account.id).phone === '(713) 555-0199' && /^pbkdf2/.test(accounts.get(r1.account.id).password_hash), JSON.stringify(u1).slice(0, 160));
+  // saved card: setup session on the account's Stripe Customer, then the webhook makes it the default, then me shows it
+  stripeCalls.length = 0; stripeCustomerCalls.length = 0;
+  const setup = await postAuth('/account/setup-payment', { successUrl: 'https://mastsolutions.com/mastsolutions.html?account=card-saved' }, token); const s1 = await setup.json();
+  ok('setup-payment creates the Stripe Customer once and a Checkout session in setup mode on it', setup.status === 200 && s1.checkoutUrl && stripeCustomerCalls.some(c => c.method === 'POST' && /\/v1\/customers$/.test(c.url)) && stripeCalls[0].get('mode') === 'setup' && stripeCalls[0].get('customer') === 'cus_test_1', JSON.stringify({ status: setup.status, mode: stripeCalls[0] && stripeCalls[0].get('mode') }));
+  ok('the customer id is stored on the account', accounts.get(r1.account.id).stripe_customer_id === 'cus_test_1');
+  const setupEvent = JSON.stringify({ id: 'evt_setup_1', type: 'checkout.session.completed', data: { object: { id: 'cs_setup_1', mode: 'setup', customer: 'cus_test_1', setup_intent: 'seti_1', metadata: { kind: 'account_card' } } } });
+  const ts = String(Math.floor(Date.now() / 1000)); const sig = await sign(setupEvent, ts);
+  stripeCustomerCalls.length = 0; const before = stored.length;
+  const bg = []; const bgCtx = { waitUntil: (p) => { bg.push(p); } };   // the card work runs after the 200 goes back to Stripe
+  const wh = await worker.fetch(new Request('https://api.test/webhook', { method: 'POST', headers: { 'stripe-signature': 't=' + ts + ',v1=' + sig }, body: setupEvent }), env, bgCtx);
+  await Promise.all(bg);
+  ok('webhook: a setup-mode session sets the customer default payment method and stores no order', wh.status === 200 && stripeCustomerCalls.some(c => c.method === 'POST' && c.body && c.body.get('invoice_settings[default_payment_method]') === 'pm_saved_1') && stored.length === before, JSON.stringify(stripeCustomerCalls.map(c => c.method + ' ' + c.url.replace(/.*v1/, ''))));
+  fakeDefaultCard = { type: 'card', card: { brand: 'visa', last4: '4242', exp_month: 12, exp_year: 2030 } };
+  const me2 = await (await get('/account/me', token)).json();
+  ok('me shows the saved card (brand and last four only)', me2.payment_method && me2.payment_method.brand === 'visa' && me2.payment_method.last4 === '4242' && !JSON.stringify(me2).includes('pm_saved'), JSON.stringify(me2.payment_method));
+  // a signed-in booking goes through the Stripe Customer
+  stripeCalls.length = 0;
+  const booked = await reg(goodReg({ sku: 'MAST-HG-FUND', prerequisite: undefined, account_token: token }));
+  ok('a signed-in registration checks out against the Stripe Customer with the saved card offered', booked.status === 200 && stripeCalls[0].get('customer') === 'cus_test_1' && !stripeCalls[0].has('customer_email') && stripeCalls[0].get('saved_payment_method_options[payment_method_save]') === 'enabled' && stripeCalls[0].get('metadata[account_id]') === r1.account.id, String(booked.status) + ' ' + JSON.stringify([...stripeCalls[0].entries()].filter(([k]) => /customer|account/.test(k))));
+  stripeCalls.length = 0;
+  const guest = await reg(goodReg({ sku: 'MAST-HG-FUND', prerequisite: undefined }));
+  ok('a guest registration still checks out by email', guest.status === 200 && stripeCalls[0].get('customer_email') === 'student@example.com' && !stripeCalls[0].has('customer'));
+  // password change kills the old token
+  const pw = await postAuth('/account/password', { current: 'correct horse battery', password: 'a brand new long password' }, token); const p1 = await pw.json();
+  ok('password change → 200 with a fresh token', pw.status === 200 && typeof p1.token === 'string' && p1.token !== token);
+  ok('the old token is dead after a password change', (await get('/account/me', token)).status === 401);
+  ok('the new token works', (await get('/account/me', p1.token)).status === 200);
+  const relog = await post('/account/login', { email: 'student@example.com', password: 'a brand new long password' });
+  ok('login with the new password → 200', relog.status === 200);
+  // accounts off without the secret
+  const saved = env.ACCOUNT_SECRET; delete env.ACCOUNT_SECRET;
+  const off = await post('/account/login', { email: 'student@example.com', password: 'a brand new long password' });
+  ok('without ACCOUNT_SECRET the account endpoints answer 503', off.status === 503 && (await off.json()).code === 'accounts_off');
+  env.ACCOUNT_SECRET = saved;
+  emails.length = 0;
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

@@ -204,10 +204,18 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
      `rel=0`, `modestbranding=1`, `iv_load_policy=3`, `cc_load_policy=0`, `disablekb=1`, the end mark on the Training Reel.
      Ads on a monetised video are YouTube's and cannot be removed by an embed; only a local file removes them (he declined).
    - **Account** ("Contact first + ADD ACCOUNT = account info to include payment method + save + classes taken + placeholder for
-     Standards Passed + other details + account email + password"): **not built yet** — a real feature on the Worker and D1:
-     accounts table (email, password hash, name, phone), sign-in (session token), Stripe Customer per account with a saved
-     payment method (SetupIntent / Customer Portal), classes taken from `registrations` by email, `standards_passed` placeholder,
-     profile details; the page gets Sign in / Create account and an Account panel. Scoped in chat; build next.
+     Standards Passed + other details + account email + password"): **built 2026-09-05 ("build account"), on the branch after
+     PR #9** — needs merge, `migrations/004-accounts.sql`, the `ACCOUNT_SECRET` secret, a Worker deploy and the page upload:
+     - Worker: `accounts` table (email, PBKDF2-SHA256 password hash, profile, emergency contact, `stripe_customer_id`,
+       `standards_passed` JSON placeholder); `POST /account/register|login|update|password|setup-payment`, `GET /account/me`;
+       30-day HMAC sign-in tokens that die on a password change; one Stripe Customer per account; **payment method saved through
+       Stripe Checkout in setup mode** (the webhook makes it the customer's default; the site sees brand and last four only);
+       **classes taken** = paid/completed `registrations` rows by the account email; a signed-in registration checks out against the
+       Customer, so the saved card is offered and a new card can be saved. Without `ACCOUNT_SECRET` every account route answers 503.
+     - Page: "Sign in" in the HUD (top right) and the chapter menu; one dialog with Sign in / Create account tabs; the Account
+       panel: details (name, phone, organization, address, emergency contact) with Save, the saved card with Add/Replace card,
+       Classes taken, **Standards passed (placeholder, "recorded by your instructor")**, change password, sign out. Signing in
+       prefills the registration sheet. 146/146 Worker tests pass.
 2. Founder shot: is `founder-portrait.jpg` it, or is another photo coming?
 3. Instagram: which posts, or an embedded feed?
 4. Capability cards: "have it here and bring back to front" — move up the MAST page, put on the Atlas home, or

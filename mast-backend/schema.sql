@@ -264,3 +264,28 @@ CREATE TABLE IF NOT EXISTS eligibility_answers (
   purge_after  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_answers_purge ON eligibility_answers (purge_after);
+
+-- ── Student accounts (owner, 2026-09-05; migrations/004-accounts.sql on a live database) ──
+-- Email + password (PBKDF2-SHA256, nothing reversible stored), profile details, a Stripe Customer for the saved card,
+-- and a placeholder list of standards passed. Classes taken are read from registrations by email; nothing is copied.
+CREATE TABLE IF NOT EXISTS accounts (
+  id                     TEXT PRIMARY KEY,             -- acct_<uuid>
+  email                  TEXT NOT NULL UNIQUE,         -- normalised lowercase
+  password_hash          TEXT NOT NULL,                -- pbkdf2-sha256$<iterations>$<salt b64>$<hash b64>
+  token_version          INTEGER NOT NULL DEFAULT 1,   -- bumped on password change: every issued session token dies
+  name                   TEXT,
+  phone                  TEXT,
+  organization           TEXT,
+  address1               TEXT,
+  address2               TEXT,
+  emergency_name         TEXT,
+  emergency_phone        TEXT,
+  emergency_relationship TEXT,
+  stripe_customer_id     TEXT,                         -- the saved card lives on this Stripe Customer, never here
+  standards_passed       TEXT NOT NULL DEFAULT '[]',   -- placeholder: JSON list the instructor fills in later
+  notes                  TEXT,
+  created_at             TEXT NOT NULL,
+  updated_at             TEXT NOT NULL,
+  last_login_at          TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email);

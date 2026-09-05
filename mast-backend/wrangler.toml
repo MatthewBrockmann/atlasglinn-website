@@ -44,6 +44,7 @@ database_id = "a510159f-a4f6-44fd-87d1-63db5ce27773"
 #   RESEND_API_KEY          re_...      for booking notification, confirmation and agreement emails
 #   NOTIFY_EMAIL            where booking alerts and eligibility-review notices are sent (comma-separated ok)
 #   ADMIN_KEY               long random string guarding GET /roster
+#   ACCOUNT_SECRET          long random string signing student sign-in tokens (/account/*); rotate = everyone signed out
 #
 # Private routing and location — SECRETS, never in this file (the repo is public):
 #   RANGE_ADDRESS           street address of the range; emailed only after booking
