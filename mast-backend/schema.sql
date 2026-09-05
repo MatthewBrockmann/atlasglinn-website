@@ -62,7 +62,9 @@ INSERT OR IGNORE INTO offerings
   (sku, name, price_cents, hours, days, course_type, category, capacity, blurb, sort_order) VALUES
   -- Handgun
   ('MAST-HG-FUND','Handgun Fundamentals',            22500,  8, 1, 'fundamental','Handgun',        16, 'Grip, stance, sights, trigger. The base every other course builds on.', 10),
-  ('MAST-HG-OP',  'Handgun Operator',                45000, 16, 2, 'operator',   'Handgun',        10, 'Two days past the fundamentals — movement, transitions, and fighting platforms.', 11),
+  -- Ladies-only Handgun (owner, 2026-09-04). Mirrors Handgun Fundamentals until he sets its hours, price and seats. Live DB: migrations/002-ladies-handgun.sql.
+  ('MAST-HG-LADIES','Ladies Only Handgun Fundamentals', 22500, 8, 1, 'fundamental','Handgun',      16, 'The same fundamentals, taught in a ladies-only class.', 11),
+  ('MAST-HG-OP',  'Handgun Operator',                45000, 16, 2, 'operator',   'Handgun',        10, 'Two days past the fundamentals — movement, transitions, and fighting platforms.', 12),
   -- Carbine
   ('MAST-CAR-FUND','Carbine Fundamentals',           22500,  8, 1, 'fundamental','Carbine',        16, 'Zero, manipulation, and marksmanship with the carbine.', 20),
   ('MAST-CAR-OP', 'Carbine Operator',                45000, 16, 2, 'operator',   'Carbine',        10, 'Two days of carbine work under movement and time pressure.', 21),
@@ -178,6 +180,16 @@ CREATE TABLE IF NOT EXISTS memberships (
   active          INTEGER DEFAULT 1,
   sort_order      INTEGER DEFAULT 0
 );
+-- Membership teams (owner, 2026-09-04): the four teams of the old site's 2014 sheet plus Law Enforcement and Verified Teachers.
+-- Fees set by the owner 2026-09-04. stripe_price_id starts empty: the Worker provisions each plan's Stripe recurring Price on the
+-- first join (lookup_key mast_<plan_key>) and stores it here — nothing is pasted. Live DB: migrations/003-membership-teams.sql.
+INSERT OR IGNORE INTO memberships (plan_key, name, stripe_price_id, price_cents, interval, active, sort_order) VALUES
+  ('red_team',      'Red Team',          '', 25000, 'month', 1, 1),
+  ('blue_team',     'Blue Team',         '', 45000, 'month', 1, 2),
+  ('gold_team',     'Gold Team',         '', 57500, 'month', 1, 3),
+  ('black_team',    'Black Team',        '', 60000, 'month', 1, 4),
+  ('le_team',       'Law Enforcement',   '', 19500, 'month', 1, 5),
+  ('teachers_team', 'Verified Teachers', '', 19500, 'month', 1, 6);
 
 -- ── Registrations: screening → agreement → refund consent, one row per booking attempt ──
 -- Written by POST /register before Stripe is ever called. status: pending (sent to Stripe)
@@ -215,6 +227,7 @@ CREATE TABLE IF NOT EXISTS registrations (
   refund_policy_ip        TEXT,
   newsletter_opt_in       INTEGER DEFAULT 0,       -- its own consent, unticked by default
   newsletter_opted_in_at  TEXT,
+  prereq_attested         INTEGER NOT NULL DEFAULT 0,   -- level 2/3 courses: participant confirmed the prerequisite was completed before (migrations/001)
   stripe_session_id       TEXT,
   paid_at                 TEXT,
   documents_sent_at       TEXT

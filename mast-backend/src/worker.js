@@ -27,7 +27,7 @@ const REPLAY_WINDOW_SECONDS = 300; // reject webhook timestamps older than 5 min
 
 /** Version stamps. The page sends what it showed; a mismatch means the participant saw stale terms. */
 export const QUESTIONS_VERSION = '2q-2026-09-03';        // the two questions as worded on the page
-export const REFUND_POLICY_VERSION = '2026-09-01-draft'; // REFUND-POLICY-DRAFT.md as rendered on the page
+export const REFUND_POLICY_VERSION = '2026-09-01'; // REFUND-POLICY-DRAFT.md as rendered on the page; approved by the owner 2026-09-02
 export { AGREEMENT_VERSION };
 
 export default {
@@ -127,6 +127,7 @@ function baseCors(origin) {
  */
 const SEED_CLASSES = [
   { sku: 'MAST-HG-FUND',  name: 'Handgun Fundamentals',                    price_cents: 22500 },
+  { sku: 'MAST-HG-LADIES', name: 'Ladies Only Handgun Fundamentals',        price_cents: 22500 },
   { sku: 'MAST-HG-OP',    name: 'Handgun Operator',                        price_cents: 45000 },
   { sku: 'MAST-CAR-FUND', name: 'Carbine Fundamentals',                    price_cents: 22500 },
   { sku: 'MAST-CAR-OP',   name: 'Carbine Operator',                        price_cents: 45000 },
@@ -157,7 +158,7 @@ async function lookupClass(env, sku) {
   if (env.DB) {
     try {
       const row = await env.DB.prepare(
-        'SELECT sku, name, price_cents FROM offerings WHERE sku = ? AND active = 1 LIMIT 1'
+        'SELECT sku, name, price_cents, capacity FROM offerings WHERE sku = ? AND active = 1 LIMIT 1'
       )
         .bind(sku)
         .first();
@@ -307,6 +308,26 @@ async function handleBooking(request, env, cors) {
  * flagged outcome and stops BEFORE Stripe: nothing is charged, staff get a notice that
  * names the registration and never the answers.
  */
+/** Fundamentals is a gate (owner, 2026-09-04: "They MUST take Fundamentals first UNLESS they have taken it prior").
+ *  Mirrors levelOf() on the page: Fundamentals courses have no prerequisite, P2 needs P1, Operator/P1 need Fundamentals. */
+// Progression (owner, 2026-09-04: "first-time students HAVE to take Fundamentals in all courses that have fundamentals first"):
+// a course requires its discipline's Fundamentals (Handgun — or its ladies-only class —, Carbine, Sub-Gun, Low-Light / NVG;
+// Shotgun has only the Fundamentals); of the disciplines without their own, only Team Tactics requires one, Handgun
+// Fundamentals (owner, 2026-09-05); a P2 course also needs the P1. The page shows and asks the
+// same rule (levelOf / selectCourse in mastsolutions-tesla.html). The discipline is read from the course name so D1 rows
+// and the seeds behave the same.
+function prerequisiteFor(offering) {
+  const n = String((offering && offering.name) || '');
+  if (!n || /Fundamentals/i.test(n)) return null;
+  const disc = /Carbine/i.test(n) ? 'Carbine' : /Sub-Gun/i.test(n) ? 'Sub-Gun' : /Low-Light|NVG/i.test(n) ? 'Low-Light' : /Shotgun/i.test(n) ? 'Shotgun'
+    : /Handgun|^Team Tactics/i.test(n) ? 'Handgun' : null;
+  // Select-Fire, Protective (Home, Vehicular, Motorcade — including "Vehicular Tactics / Team Tactics P2") and Gear carry no prerequisite
+  // (owner, 2026-09-05: "Only Team Tactics = Handgun Fun 1st"). The page's levelOf applies the same rule by category.
+  if (!disc) return null;
+  const fund = 'MAST ' + disc + ' Fundamentals';
+  return /\bP2\b/.test(n) ? fund + ' and a MAST P1 course' : fund;
+}
+
 async function handleRegister(request, env, cors) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== 'object') return json({ error: 'Bad request' }, 400, cors);
@@ -335,6 +356,30 @@ async function handleRegister(request, env, cors) {
   if (!weekend) return json({ error: 'That date is not a MAST training weekend.', field: 'date' }, 404, cors);
   if (weekend.status !== 'available' && weekend.status !== 'scheduled') {
     return json({ error: 'That weekend is not available for booking.', field: 'date' }, 409, cors);
+  }
+  // 1b. Capacity (owner: 16 on one-day fundamentals, 10 on two-day operator courses). A course stops selling on a
+  // weekend at offerings.capacity: paid seats count, and a pending registration holds its seats for 30 minutes while
+  // its Stripe Checkout is open. A live-fire class oversold is a safety problem, so this is checked before Stripe.
+  const capacity = Number(offering.capacity || 0);
+  if (capacity > 0) {
+    const holdCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const takenRow = await env.DB.prepare(
+      "SELECT COALESCE(SUM(qty), 0) AS n FROM registrations WHERE sku = ? AND session_date = ? AND (status = 'paid' OR (status = 'pending' AND created_at > ?))"
+    ).bind(offering.sku, wanted, holdCutoff).first();
+    const taken = Number((takenRow && takenRow.n) || 0);
+    if (taken + qty > capacity) {
+      const left = Math.max(0, capacity - taken);
+      return json({
+        error: left === 0 ? 'This weekend is sold out for this course. Choose another weekend.' : `Only ${left} seat${left === 1 ? '' : 's'} left on this weekend for this course.`,
+        code: 'sold_out', seats_left: left, field: 'date',
+      }, 409, cors);
+    }
+  }
+  // 1c. Prerequisite attestation for level 2 and 3 courses.
+  const prereq = prerequisiteFor(offering);
+  const prereqAttested = !!(body.prerequisite && body.prerequisite.attested === true);
+  if (prereq && !prereqAttested) {
+    return json({ error: 'This course requires ' + prereq + ' first. Confirm you have completed it, or book that Fundamentals course instead.', field: 'prerequisite', code: 'prerequisite' }, 400, cors);
   }
   const sessionLabel = str(body.session_label) || weekend.label || '';
 
@@ -391,6 +436,7 @@ async function handleRegister(request, env, cors) {
     agreement_signed_at: now, agreement_ip: ip, agreement_user_agent: ua,
     refund_policy_version: REFUND_POLICY_VERSION, refund_policy_accepted_at: now, refund_policy_ip: ip,
     newsletter_opt_in: optIn ? 1 : 0, newsletter_opted_in_at: optIn ? now : null,
+    prereq_attested: prereq && prereqAttested ? 1 : 0,
   };
 
   // 6. Persist: the outcome (kept), the answers (purged on schedule), the registration.
@@ -473,6 +519,7 @@ const REG_COLUMNS = [
   'agreement_version', 'agreement_signed_name', 'agreement_initials', 'agreement_signed_at', 'agreement_ip', 'agreement_user_agent',
   'refund_policy_version', 'refund_policy_accepted_at', 'refund_policy_ip',
   'newsletter_opt_in', 'newsletter_opted_in_at',
+  'prereq_attested',
 ];
 
 async function storeRegistration(env, reg) {
@@ -545,7 +592,7 @@ async function handleContact(request, env, cors) {
   };
   const subject = kind === 'capability'
     ? 'Capability statement request: ' + name + (meta.company ? ' · ' + meta.company : '')
-    : 'Website contact: ' + name;
+    : (meta.request_type === 'private' ? 'Private instruction request: ' : 'Website contact: ') + name;   // the page's Request dialog (2026-09-05)
   const text = [
     kind === 'capability' ? 'CAPABILITY STATEMENT REQUEST' : 'WEBSITE CONTACT',
     '',
@@ -591,12 +638,13 @@ async function lookupPlan(env, planKey) {
   if (env.DB) {
     try {
       const row = await env.DB.prepare(
-        'SELECT plan_key, name, stripe_price_id FROM memberships WHERE plan_key = ? AND active = 1 LIMIT 1'
+        'SELECT plan_key, name, stripe_price_id, price_cents, interval FROM memberships WHERE plan_key = ? AND active = 1 LIMIT 1'
       )
         .bind(key)
         .first();
-      if (row && row.stripe_price_id) {
-        return { key, name: row.name, priceId: row.stripe_price_id };
+      if (row) {
+        const priceId = row.stripe_price_id || (await ensureMembershipPrice(env, row));
+        if (priceId) return { key, name: row.name, priceId };
       }
     } catch (e) {
       console.error('[Plan] D1 lookup failed:', e.message);
@@ -609,6 +657,51 @@ async function lookupPlan(env, planKey) {
     return { key, name: key, priceId };
   }
   return null;
+}
+
+/**
+ * Membership prices provision themselves (owner, 2026-09-04: "2- you can do"). The first time a plan is joined, the Worker
+ * finds the Stripe recurring Price by lookup_key (mast_<plan_key>) or creates it — a Product named after the plan and a
+ * monthly Price at the plan's price_cents — and stores the id on the D1 row. No price id is ever pasted anywhere; the Worker
+ * already holds the Stripe key. Returns null (and the join fails cleanly) if Stripe is not configured or refuses.
+ */
+async function ensureMembershipPrice(env, row) {
+  if (!env.STRIPE_SECRET_KEY || !row || !row.price_cents) return null;
+  const lookupKey = 'mast_' + row.plan_key;
+  const headers = { Authorization: 'Bearer ' + env.STRIPE_SECRET_KEY, 'Content-Type': 'application/x-www-form-urlencoded' };
+  let priceId = null;
+  try {
+    const found = await (await fetch('https://api.stripe.com/v1/prices?active=true&limit=1&lookup_keys[]=' + encodeURIComponent(lookupKey), { headers })).json();
+    if (found && Array.isArray(found.data) && found.data[0] && found.data[0].id) priceId = found.data[0].id;
+  } catch (e) {
+    console.error('[Plan] Stripe price lookup failed:', e.message);
+  }
+  if (!priceId) {
+    const body = new URLSearchParams({
+      currency: 'usd',
+      unit_amount: String(row.price_cents),
+      'recurring[interval]': row.interval || 'month',
+      lookup_key: lookupKey,
+      'product_data[name]': 'MAST Solutions Membership — ' + row.name,
+      'metadata[plan_key]': row.plan_key,
+    });
+    const res = await fetch('https://api.stripe.com/v1/prices', { method: 'POST', headers, body: body.toString() });
+    const created = await res.json().catch(() => null);
+    if (!res.ok || !created || !created.id) {
+      console.error('[Plan] could not create the Stripe price for ' + row.plan_key + ':', JSON.stringify(created));
+      return null;
+    }
+    priceId = created.id;
+  }
+  if (env.DB) {
+    try {
+      await env.DB.prepare('UPDATE memberships SET stripe_price_id = ? WHERE plan_key = ?').bind(priceId, row.plan_key).run();
+    } catch (e) {
+      console.error('[Plan] could not store the price id:', e.message);
+    }
+  }
+  console.log('[Plan] ' + row.plan_key + ' -> ' + priceId);
+  return priceId;
 }
 
 async function handleMembership(request, env, cors) {

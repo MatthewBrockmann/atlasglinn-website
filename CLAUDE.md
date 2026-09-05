@@ -30,6 +30,33 @@ builds as `*-atlas.html` (noindex, canonical to the new page) in the same commit
 `preview/`. `ep-app.html`, `signup.html`, `privacy.html`, `terms.html` and the articles are
 hand-authored. Rebuilt forms post JSON to the booking Worker's `POST /contact`.
 
+**Imagery rule (Brockmann, 2026-09-04):** an Atlas page uses only what the current
+atlasglinn.com page uses in that section (the approved list at the top of
+`assemble-atlas.py`). No MAST range photos, nothing from `images/mast/` or `images/gallery/`;
+`build()` asserts it. `scripts/compare-atlas.py` writes `preview/compare.html`, the
+section-by-section "as is vs new" sheet he reviews from.
+
+## Privacy statement rule (Brockmann, 2026-09-03; repeated 2026-09-05)
+
+`privacy.html` is his text, confirmed 2026-09-03 and carried on both sites. It **never names infrastructure, hosting,
+analytics or security tooling** (no Cloudflare, Workers, D1, Supabase, PostHog, GitHub Pages, GoDaddy, no "how we stop
+brute force"): "this is an invite to be hacked". Providers that receive a customer's data (payments, email, the app's
+SMS) stay named in §8 and §12.3 as he confirmed them. On 2026-09-03 he ordered the security-posture paragraph, the
+hosting-logs paragraph, the traffic-analytics bullet and the campaign-tags bullet **deleted**; the 2026-09-04 session
+misread the last two as additions and put them back, and he had to say it again. Do not add tooling to the policy
+without his words; when he pastes policy text with "Delete" in front, everything in the paste goes, and only the items
+he marks as new (the AI section, "We do not run background checks") get added.
+
+## Site consistency rule (Brockmann, 2026-09-04)
+
+"For any card or any function on the site itself, when adding another product or membership, we don't lose the
+consistency in the site." Concretely: every card on either site takes the shared hover in `scripts/cinematic_shell.py`
+(the `.tile, .tier` rules: 0.45 s transition, 6 px lift) — add a new card class to those two selectors rather than writing
+a new hover; a card's own rules set only its colours (membership borders carry the team colour). New chapters take the
+shell's `panel` / `eyebrow` / `section-h` / `sub` structure and the chapter nav, HUD and backdrop entries in the assembler;
+new booking or checkout pieces go into `mastsolutions-tesla.html` first, so the MAST page lifts them. Gold on the MAST page
+lives in `GOLD_KEEP` (spliced after the palette recolor); everything else recolors to blue.
+
 ## Claude SEO toolchain (vendored)
 
 This repo carries the [Claude SEO](https://github.com/AgriciDaniel/claude-seo)

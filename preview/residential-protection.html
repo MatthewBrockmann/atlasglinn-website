@@ -8,7 +8,7 @@
 <link rel="canonical" href="https://atlasglinn.com/residential-protection.html">
 <meta property="og:title" content="Residential Protection Houston TX | Atlas Glinn">
 <meta property="og:description" content="Unmatched residential security for your home. 24/7 trained guards, AI surveillance, and round-the-clock protection for your family and assets. Houston, TX.">
-<meta property="og:image" content="https://atlasglinn.com/images/gallery/IMG_2174.jpg">
+<meta property="og:image" content="https://atlasglinn.com/wp-content/uploads/2025/04/closeup-cctv-camera-wall-min-1024x683.jpg">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://atlasglinn.com/residential-protection.html">
 <meta name="twitter:card" content="summary_large_image">
@@ -47,9 +47,14 @@
   #three-canvas { position:fixed; inset:0; width:100vw; height:100vh; z-index:1; pointer-events:none; }
   /* Photography layer: one still per chapter, ghosted behind the 3D emblem and the grain */
   #photos { position:fixed; inset:0; z-index:2; pointer-events:none; }
-  #photos .ph { position:absolute; inset:0; background:center/cover no-repeat; opacity:0; transition:opacity 1.4s ease; filter:saturate(.55) contrast(1.08); }
-  #photos .ph::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.55) 0%, rgba(5,8,16,.15) 45%, rgba(5,8,16,.8) 100%); }
-  #photos .ph.on { opacity:.34; }
+  /* Backdrop crossfade: the outgoing photograph leaves faster than the incoming one arrives, so the two never stack to a brighter
+     frame mid-switch (Brockmann, 2026-09-04: "the background pulled forward"). */
+  #photos .ph { position:absolute; inset:0; background:center/cover no-repeat; opacity:0; transition:opacity .6s ease; filter:saturate(.72) contrast(1.06); }
+  #photos .ph.on { transition:opacity 1.6s ease .3s; }
+  #photos .ph::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.42) 0%, rgba(5,8,16,.08) 45%, rgba(5,8,16,.72) 100%); }
+  /* Backdrop presence (Brockmann, 2026-09-05: pull the background forward, keep the layers; then "Reduce background brightness by
+     20%"): the photograph sits at .42 (.52 less a fifth), the scene and the text layers stay above it. */
+  #photos .ph.on { opacity:.42; }
   .grain { position:fixed; inset:0; z-index:3; pointer-events:none; opacity:.035; background-image:repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(255,255,255,.3) 2px, rgba(255,255,255,.3) 3px); mix-blend-mode:overlay; }
   .vignette { position:fixed; inset:0; z-index:4; pointer-events:none; background:radial-gradient(ellipse at center, transparent 0%, transparent 55%, rgba(5,8,16,.75) 100%); }
   .letterbox-top, .letterbox-bottom { position:fixed; left:0; right:0; height:0; background:#000; z-index:50; pointer-events:none; transition:height .6s cubic-bezier(.7,.15,.3,.95); }
@@ -57,7 +62,9 @@
   body.cinema .letterbox-top, body.cinema .letterbox-bottom { height:50px; }
   #intro-seq { position:fixed; inset:0; z-index:9000; background:#000; display:flex; align-items:center; justify-content:center; flex-direction:column; font-family:'Cinzel',serif; pointer-events:none; transition:opacity 1s ease-out; }
   #intro-seq.done { opacity:0; }
-  .intro-credit { font-size:.75rem; letter-spacing:.6em; color:var(--text-dim); opacity:0; animation:introFade 2.8s ease-in-out forwards; text-transform:uppercase; }
+  .intro-credit { position:relative; z-index:1; font-size:.75rem; letter-spacing:.6em; color:var(--text-dim); opacity:0; animation:introFade 2.8s ease-in-out forwards; text-transform:uppercase; }
+  /* The gold sparkle ring from the atlasglinn.com intro, drawn around the wordmark; the script fades it in after the wordmark and out before the splash ends. */
+  .intro-ring { position:absolute; inset:0; width:100%; height:100%; z-index:0; opacity:0; pointer-events:none; }
   .intro-credit:nth-child(1) { animation-delay:.3s; }
   .intro-credit:nth-child(2) { animation-delay:1.2s; margin-top:1.8rem; color:var(--gold); font-weight:900; font-size:1.5rem; letter-spacing:.35em; }
   .intro-credit:nth-child(3) { animation-delay:2.6s; margin-top:1.5rem; color:var(--gold-champagne); font-size:.85rem; letter-spacing:.5em; }
@@ -65,8 +72,9 @@
   .intro-credit.wordmark { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2rem,6.5vw,4.6rem); letter-spacing:.16em; line-height:1.1; margin-top:1.4rem; padding:0 1rem; background:linear-gradient(90deg, #1558B8 0%, #DCEBFF 25%, #0F4AA8 50%, #CFE2FF 75%, #0B3A85 100%); background-size:1000px 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; text-shadow:0 0 60px rgba(26,107,222,.35); animation:introFade 3.4s ease-in-out forwards, shimmer 2.6s linear infinite; animation-delay:1.1s, 1.1s; }
   @keyframes introFade { 0% { opacity:0; transform:translateY(8px); } 18%, 75% { opacity:1; transform:translateY(0); } 100% { opacity:0; transform:translateY(-8px); } }
   .chapter-nav { position:fixed; right:1.5rem; top:50%; transform:translateY(-50%); z-index:30; display:flex; flex-direction:column; gap:.5rem; font-family:'Share Tech Mono',monospace; font-size:.62rem; }
-  .chap-link { color:var(--text-mute); text-decoration:none; letter-spacing:.25em; padding:.35rem .8rem; border:1px solid transparent; transition:all .3s; text-transform:uppercase; cursor:none; display:flex; align-items:center; gap:.6rem; }
-  .chap-link::before { content:''; width:18px; height:1px; background:var(--text-mute); transition:all .3s; }
+  /* Chapter menu: bold and bright (Brockmann, 2026-09-04: "Make the menu bar stronger, bold, to be very visible"). */
+  .chap-link { color:var(--text); font-weight:700; text-shadow:0 1px 10px rgba(0,0,0,.9); text-decoration:none; letter-spacing:.25em; padding:.35rem .8rem; border:1px solid transparent; transition:all .3s; text-transform:uppercase; cursor:none; display:flex; align-items:center; gap:.6rem; }
+  .chap-link::before { content:''; width:18px; height:2px; background:var(--text); transition:all .3s; }
   .chap-link:hover, .chap-link.active { color:var(--gold-champagne); border-color:rgba(26,107,222,.35); background:rgba(26,107,222,.04); }
   .chap-link.active::before, .chap-link:hover::before { width:28px; background:var(--gold); }
   .hud { position:fixed; z-index:20; font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.3em; opacity:.6; text-decoration:none; }
@@ -80,7 +88,7 @@
   section.panel > div { width:100%; max-width:1200px; }
   .eyebrow { font-family:'Share Tech Mono',monospace; color:var(--gold-champagne); letter-spacing:.45em; font-size:.75rem; text-transform:uppercase; margin-bottom:1.6rem; opacity:0; transform:translateY(20px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
   .eyebrow.in { opacity:1; transform:translateY(0); }
-  h1.mega { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(3rem,10vw,9rem); letter-spacing:.02em; line-height:.95; margin-bottom:2rem; opacity:0; filter:blur(20px); transform:scale(1.15); transition:opacity 1.2s cubic-bezier(.2,.7,.2,1), filter 1.2s cubic-bezier(.2,.7,.2,1), transform 1.4s cubic-bezier(.2,.7,.2,1); }
+  h1.mega { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2.6rem,7.2vw,6.6rem); letter-spacing:.02em; line-height:.95; margin-bottom:2rem; opacity:0; filter:blur(20px); transform:scale(1.15); transition:opacity 1.2s cubic-bezier(.2,.7,.2,1), filter 1.2s cubic-bezier(.2,.7,.2,1), transform 1.4s cubic-bezier(.2,.7,.2,1); }
   h1.mega.in { opacity:1; filter:blur(0); transform:scale(1); }
   .gold { background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
   h1.mega .gold { text-shadow:0 0 80px rgba(26,107,222,.3); }
@@ -117,6 +125,11 @@
   .tile:hover .bg { transform:scale(1.12); }
   .tile::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.05) 0%, rgba(5,8,16,.35) 50%, rgba(5,8,16,.92) 100%); }
   .tile:hover { transform:translateY(-6px); border-color:var(--gold); }
+  /* Shared card hover (Brockmann, 2026-09-04: "make sure that for any card or any function on the site ... we don't lose the
+     consistency"): every card on either site lifts the same way on mouse-over. Add each new card class to these two selectors;
+     the card's own rules only set its border colour. */
+  .tile, .tier { transition:transform .45s, border-color .45s, box-shadow .45s; }
+  .tile:hover, .tier:hover { transform:translateY(-6px); }
   .tile .txt { position:relative; z-index:2; padding:1.4rem 1.3rem; width:100%; }
   .tile .num { font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.4em; color:var(--gold); margin-bottom:.5rem; }
   .tile h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.15rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.35rem; }
@@ -134,8 +147,10 @@
   .catalog-note { text-align:center; color:var(--text-dim); font-size:.92rem; margin-top:1.4rem; font-weight:300; }
   .catalog-note a { color:var(--gold-champagne); text-decoration:none; }
   /* Instructor */
-  .founder { display:grid; grid-template-columns:minmax(260px,420px) 1fr; gap:2.2rem; max-width:1150px; margin:0 auto; text-align:left; align-items:stretch; }
-  .founder .portrait { position:relative; min-height:460px; border:1px solid rgba(26,107,222,.3); background:center 20%/cover no-repeat; }
+  /* Portraits: one size for every person on the page, founder and team alike — the same column and a 4:5 frame that does not
+     stretch with the bio beside it (Brockmann, 2026-09-05: "They're not all the same size … size them for consistency"). */
+  .founder { display:grid; grid-template-columns:minmax(240px,380px) 1fr; gap:2.2rem; max-width:1150px; margin:0 auto; text-align:left; align-items:start; }
+  .founder .portrait { position:relative; aspect-ratio:4/5; min-height:0; border:1px solid rgba(26,107,222,.3); background:center 20%/cover no-repeat; }
   .founder .portrait::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, transparent 55%, rgba(5,8,16,.9) 100%); }
   .founder .portrait .cap { position:absolute; left:1.2rem; bottom:1.1rem; z-index:2; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.35em; color:var(--gold-champagne); text-transform:uppercase; }
   .founder .bio { border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.75) 100%); backdrop-filter:blur(14px); padding:2rem 1.9rem; position:relative; }
@@ -150,6 +165,16 @@
   .cert { max-width:1150px; margin:1.4rem auto 0; display:grid; grid-template-columns:minmax(220px,360px) 1fr; gap:1.4rem; align-items:center; text-align:left; }
   .cert img { width:100%; border:1px solid rgba(26,107,222,.3); display:block; }
   .cert p { color:var(--text-dim); font-weight:300; line-height:1.55; font-size:.98rem; }
+  /* Team blocks: the Atlas Glinn "Meet the Team" format (portrait + name, role, bio), shared by the MAST Instructors chapter. */
+  .team { display:grid; grid-template-columns:minmax(240px,380px) 1fr; gap:2.2rem; max-width:1150px; margin:0 auto 1.6rem; text-align:left; align-items:start; }
+  .team .portrait { aspect-ratio:4/5; min-height:0; border:1px solid rgba(26,107,222,.3); background:center 20%/cover no-repeat; position:relative; }
+  .team .portrait::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, transparent 60%, rgba(5,8,16,.9) 100%); }
+  .team .portrait .cap { position:absolute; left:1.1rem; bottom:1rem; z-index:2; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; color:var(--gold-champagne); text-transform:uppercase; }
+  .team .bio { border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.75) 100%); backdrop-filter:blur(14px); padding:1.8rem; position:relative; }
+  .team .bio::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:linear-gradient(180deg, var(--gold), var(--copper)); }
+  .team .bio h3, .founder .bio h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.25rem; color:var(--gold-champagne); margin-bottom:.2rem; }
+  .team .bio .role, .founder .bio .role { font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.3em; text-transform:uppercase; color:var(--text-dim); margin-bottom:1rem; }
+  .team .bio p { color:var(--text-dim); line-height:1.6; font-weight:300; font-size:1.02rem; }
   /* Media strip */
   .media-strip { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:1rem; padding:.5rem 0 1rem; scrollbar-width:thin; scrollbar-color:var(--gold) var(--deep-navy); max-width:1200px; margin:0 auto; }
   .video-card { flex:0 0 min(82vw,480px); scroll-snap-align:start; background:rgba(11,18,33,.8); border:1px solid rgba(26,107,222,.22); overflow:hidden; text-align:left; }
@@ -163,7 +188,8 @@
   .post small { display:block; font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.62rem; letter-spacing:.35em; color:var(--text-dim); margin-bottom:.35rem; }
   .quote { font-style:italic; color:var(--gold-champagne); max-width:700px; margin:.5rem auto 2rem; font-size:clamp(1.05rem,1.5vw,1.3rem); line-height:1.5; }
   .quote.lead { max-width:820px; font-size:clamp(1.2rem,1.9vw,1.55rem); margin-top:.8rem; }
-  .contact-lines { font-family:'Share Tech Mono',monospace; font-size:.75rem; letter-spacing:.2em; color:var(--text-dim); line-height:2.1; margin-bottom:2.2rem; }
+  /* Contact lines sit over a backdrop photograph on both sites: full text colour and a shadow (Brockmann, 2026-09-05: "Fix the visibility of the contact"). */
+  .contact-lines { font-family:'Share Tech Mono',monospace; font-size:.75rem; letter-spacing:.2em; color:var(--text); text-shadow:0 1px 6px rgba(0,0,0,.9), 0 0 22px rgba(0,0,0,.7); line-height:2.1; margin-bottom:2.2rem; }
   .contact-lines a { color:var(--gold-champagne); text-decoration:none; }
   .foot { margin-top:4rem; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; color:var(--text-mute); text-transform:uppercase; line-height:2.2; }
   .foot a { color:var(--text-mute); text-decoration:none; margin:0 .6rem; }
@@ -184,17 +210,21 @@
   input:focus { border-color:var(--gold) !important; }
   .banner { background:var(--gold); color:#000; }
   .quals-list li::marker, .quals-list li b { color:var(--gold-champagne); }
-  @media (max-width:900px) { .founder, .cert { grid-template-columns:1fr; } .founder .portrait { min-height:360px; } .tiles, .tiles.four { grid-template-columns:1fr 1fr; } }
+  @media (max-width:900px) { .founder, .cert, .team { grid-template-columns:1fr; } .founder .portrait, .team .portrait { max-width:380px; width:100%; margin:0 auto; } .tiles, .tiles.four { grid-template-columns:1fr 1fr; } }
+  /* The fixed chapter nav on the right needs its own lane: at laptop widths keep the labels and give the panels a right
+     margin; on tablets collapse the nav to its tick marks so the content keeps most of the width. */
+  @media (min-width:1025px) and (max-width:1600px) { section.panel { padding-right:16.5rem; } }
+  @media (min-width:769px) and (max-width:1024px) { section.panel { padding-right:4.5rem; } .chapter-nav { right:.8rem; gap:.35rem; } .chap-link { font-size:0; padding:.3rem .4rem; gap:0; } .chap-link::before { width:16px; } .chap-link.active::before, .chap-link:hover::before { width:22px; } }
   @media (max-width:768px) {
     html, body { cursor:auto; } .cta, .cta-button, .secondary-cta, .chap-link, .qty button { cursor:pointer; }
     .reticle, .chapter-nav { display:none; }
-    .hud { font-size:.55rem; } .hud.tr { right:1.8rem; } .hud.bl, .hud.br { display:none; }
+    .hud { font-size:.55rem; } .hud.tr, .hud.bl, .hud.br { display:none; }   /* phones keep only the top-left line; the section counter collided with it */
     .stats { grid-template-columns:1fr; gap:1rem; }
     .tiles, .tiles.four { grid-template-columns:1fr; } .tile, .tiles.four .tile { min-height:220px; }
     section.panel { padding:5rem 1rem; }
     .glass { padding:.8rem; }
     .secondary-cta, .cta-button.ghost-button { margin-left:0; }
-    #photos .ph.on { opacity:.28; }
+    #photos .ph.on { opacity:.35; }
   }
   @media (prefers-reduced-motion: reduce) { .eyebrow, h1.mega, h2.section-h, .sub, .rise { transition:none; opacity:1; filter:none; transform:none; } }
 
@@ -254,15 +284,7 @@
   .form-msg.ok { color:#7fd4a1; } .form-msg.err { color:#ff8a80; }
   .form .fine { font-size:.82rem; color:var(--text-dim); margin-top:.9rem; line-height:1.5; }
   .form .fine a { color:var(--gold-champagne); text-decoration:none; }
-  .team { display:grid; grid-template-columns:minmax(240px,380px) 1fr; gap:1.6rem; max-width:1150px; margin:0 auto 1.6rem; text-align:left; align-items:stretch; }
-  .team .portrait { min-height:380px; border:1px solid rgba(26,107,222,.3); background:center 20%/cover no-repeat; position:relative; }
-  .team .portrait::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, transparent 60%, rgba(5,8,16,.9) 100%); }
-  .team .portrait .cap { position:absolute; left:1.1rem; bottom:1rem; z-index:2; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; color:var(--gold-champagne); text-transform:uppercase; }
-  .team .bio { border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.75) 100%); backdrop-filter:blur(14px); padding:1.8rem; position:relative; }
-  .team .bio::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:linear-gradient(180deg, var(--gold), var(--copper)); }
-  .team .bio h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.25rem; color:var(--gold-champagne); margin-bottom:.2rem; }
-  .team .bio .role { font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.3em; text-transform:uppercase; color:var(--text-dim); margin-bottom:1rem; }
-  .team .bio p { color:var(--text-dim); line-height:1.6; font-weight:300; font-size:1.02rem; }
+  /* .team blocks (portrait + name, role, bio) live in the shell, shared with the MAST Instructors chapter. */
   .yt-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.1rem; max-width:1100px; margin:0 auto 1.6rem; text-align:left; }
   .yt-card { border:1px solid rgba(26,107,222,.22); background:rgba(11,18,33,.8); overflow:hidden; }
   .yt-card .frame { position:relative; aspect-ratio:16/9; background:#000; }
@@ -272,6 +294,7 @@
   .yt-card p { font-size:.88rem; color:var(--text-dim); }
   .yt-card video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#000; }
   .yt-grid.one { grid-template-columns:1fr; max-width:860px; }
+  .stats.four { grid-template-columns:repeat(4,1fr); max-width:1100px; }
   .badges { display:flex; gap:1.4rem; justify-content:center; align-items:center; flex-wrap:wrap; margin-top:2rem; }
   .badges img { height:84px; width:auto; border:0; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); }
   .lede { font-size:clamp(1.05rem,1.4vw,1.3rem); color:var(--text); max-width:820px; margin:0 auto 2rem; line-height:1.6; font-weight:300; }
@@ -280,8 +303,12 @@
   .partner img { width:100%; border:1px solid rgba(26,107,222,.3); display:block; }
   .partner p { color:var(--text-dim); line-height:1.6; font-weight:300; font-size:1.02rem; margin-bottom:1rem; }
   .partner .ctas { justify-content:flex-start; }
-  @media (max-width:900px) { .cards, .cards.four, .steps, .quotes { grid-template-columns:1fr 1fr; } .team, .partner { grid-template-columns:1fr; } .team .portrait { min-height:320px; } }
-  @media (max-width:768px) { .cards, .cards.two, .cards.four, .steps, .quotes, .yt-grid { grid-template-columns:1fr; } .form { padding:1.1rem; } .form .row { grid-template-columns:1fr; } .badges img { height:64px; } .spec div { flex-direction:column; gap:.2rem; } .spec span { text-align:left; } }
+  @media (max-width:900px) { .cards, .cards.four, .steps, .quotes { grid-template-columns:1fr 1fr; } .partner { grid-template-columns:1fr; } }
+  @media (max-width:768px) { .cards, .cards.two, .cards.four, .steps, .quotes, .yt-grid { grid-template-columns:1fr; } .stats.four { grid-template-columns:1fr 1fr; gap:.8rem; } .form { padding:1.1rem; } .form .row { grid-template-columns:1fr; } .badges img { height:64px; } .spec div { flex-direction:column; gap:.2rem; } .spec span { text-align:left; } }
+
+  h1.mega .gold-shimmer { background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; animation:shimmer 6s linear infinite; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; text-shadow:0 0 80px rgba(201,168,76,.3); }
+  h1.mega .white { color:#1A6BDE; }
+  @media (prefers-reduced-motion: reduce) { h1.mega .gold-shimmer { animation:none; } }
 </style>
 </head>
 <body>
@@ -290,14 +317,15 @@
   <div class="intro-credit">Houston &middot; Texas</div>
   <div class="intro-credit wordmark">ATLAS GLINN</div>
   <div class="intro-credit">Executive Protection &middot; Intelligence &middot; Training</div>
+  <canvas class="intro-ring" id="intro-ring" aria-hidden="true"></canvas>
 </div>
 
 <canvas id="three-canvas"></canvas>
 <div id="photos">
-  <div class="ph" data-for="01" style="background-image:url('../images/gallery/IMG_2174.jpg')"></div>
-  <div class="ph" data-for="02" style="background-image:url('../images/mast/who-law-enforcement.jpg')"></div>
-  <div class="ph" data-for="03" style="background-image:url('../images/gallery/IMG_2168.jpg')"></div>
-  <div class="ph" data-for="04" style="background-image:url('../images/mast/contact-zodiac.jpg')"></div>
+  <div class="ph" data-for="01" style="background-image:url('https://atlasglinn.com/wp-content/uploads/2025/03/Screen-Shot-2025-03-25-at-12.41.58-PM.png')"></div>
+  <div class="ph" data-for="02" style="background-image:url('https://atlasglinn.com/wp-content/uploads/2025/04/closeup-cctv-camera-wall-min-1024x683.jpg')"></div>
+  <div class="ph" data-for="03" style="background-image:url('https://atlasglinn.com/wp-content/uploads/2025/03/Screen-Shot-2025-03-25-at-12.41.58-PM.png')"></div>
+  <div class="ph" data-for="04" style="background-image:url('https://atlasglinn.com/wp-content/uploads/2025/04/closeup-cctv-camera-wall-min-1024x683.jpg')"></div>
 </div>
 <div class="grain"></div>
 <div class="vignette"></div>
@@ -346,7 +374,7 @@
   <section class="panel" id="s1" data-section="01">
     <div>
       <div class="eyebrow">Residential Protection</div>
-      <h1 class="mega"><span class="gold">Details</span> <span class="white">Matter.</span></h1>
+      <h1 class="mega"><span class="gold-shimmer">Details</span> <span class="white">Matter.</span></h1>
       <p class="sub">Atlas Glinn provides comprehensive residential protection with highly trained security guards available 24/7, ensuring round-the-clock protection for your home and valuable assets. Whether you require an on-site presence or remote surveillance, we customize our protection to your exact needs &mdash; adapting to your lifestyle while maintaining an uncompromising security posture.</p>
       <div class="ctas rise"><a href="contact.html" class="cta">Request an Assessment</a><a href="#s2" class="secondary-cta">Four Pillars</a></div>
     </div>
@@ -358,7 +386,7 @@
       <div class="eyebrow">Layered Defense</div>
       <h2 class="section-h">Four Pillars of <span class="gold">Residential Defense.</span></h2>
       <p class="sub">Our residential security programs are built on a layered defense philosophy: physical presence, advanced technology, and intelligence-driven protocols working in concert to create an impenetrable shield around your property.</p>
-      <div class="cards four"><div class="card rise"><div class="num">01</div><h3>24/7 Guard Force</h3><p>Trained, licensed security officers providing round-the-clock physical presence. Background-verified and professionally equipped.</p></div><div class="card rise"><div class="num">02</div><h3>AI Surveillance</h3><p>Integrated camera systems with AI-driven analytics &mdash; facial recognition, behavior detection, and real-time alerts.</p></div><div class="card rise"><div class="num">03</div><h3>Access Control</h3><p>Perimeter security, visitor management, vehicle screening, and electronic access systems for complete control.</p></div><div class="card rise"><div class="num">04</div><h3>Emergency Response</h3><p>Documented emergency action plans, law enforcement coordination, and rapid response protocols tailored to your property.</p></div></div>
+      <div class="yt-grid one rise"><div class="yt-card"><div class="frame"><iframe src="https://www.youtube.com/embed/bn2eWWJzlDY?rel=0&amp;modestbranding=1&amp;playsinline=1" title="Residential Protection" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen></iframe></div><div class="info"><h4>Residential Protection</h4><p>The film from the current Residential Protection page</p></div></div></div><div class="cards four"><div class="card rise"><div class="num">01</div><h3>24/7 Guard Force</h3><p>Trained, licensed security officers providing round-the-clock physical presence. Background-verified and professionally equipped.</p></div><div class="card rise"><div class="num">02</div><h3>AI Surveillance</h3><p>Integrated camera systems with AI-driven analytics &mdash; facial recognition, behavior detection, and real-time alerts.</p></div><div class="card rise"><div class="num">03</div><h3>Access Control</h3><p>Perimeter security, visitor management, vehicle screening, and electronic access systems for complete control.</p></div><div class="card rise"><div class="num">04</div><h3>Emergency Response</h3><p>Documented emergency action plans, law enforcement coordination, and rapid response protocols tailored to your property.</p></div></div>
     </div>
   </section>
 
@@ -403,6 +431,31 @@ const openHero = () => {
 };
 if (reduce) { openHero(); } else {
   setTimeout(() => { intro.classList.add('done'); setTimeout(openHero, 1000); }, 4800);
+}
+// Gold ring (Brockmann, 2026-09-04: "the gold around the Atlas Glinn is what I was talking about ... take some of the gold shimmer
+// and fade it in and fade it out"): the sparkle ring of the current atlasglinn.com intro — a tilted, slowly turning, pulsing ring
+// of gold points — drawn in 2D around the wordmark. It fades in after the wordmark appears and out before the splash ends; the
+// wordmark itself keeps the page palette. Always gold, on both sites.
+const ring = document.getElementById('intro-ring');
+if (ring && !reduce) {
+  // rgb() on purpose: the ring is gold on every page, so these must not match the palette recolor's hex and rgba( tokens
+  const g = ring.getContext('2d'), P = [], gold = ['rgb(201 168 76)', 'rgb(232 210 125)', 'rgb(252 246 186)', 'rgb(191 149 63)', 'rgb(212 175 55)'];
+  const N = mobile ? 260 : 520;
+  const pick = () => gold[Math.floor(Math.random() * gold.length)];
+  for (let i = 0; i < N; i++) P.push({ a: Math.random() * Math.PI * 2, r: 1 + (Math.random() - .5) * .22, y: (Math.random() - .5) * .18, s: 1 + Math.random() * 2.2, c: pick(), o: .35 + Math.random() * .65, w: 1 + Math.random() * 2 });
+  for (let i = 0; i < N / 3; i++) P.push({ a: Math.random() * Math.PI * 2, r: 1.15 + Math.random() * .6, y: (Math.random() - .5) * .5, s: 1 + Math.random() * 1.5, c: pick(), o: .15 + Math.random() * .4, w: 1 + Math.random() * 2 });
+  const t0 = performance.now();
+  const fade = t => t < .9 ? 0 : t < 1.9 ? t - .9 : t < 3.6 ? 1 : t < 4.6 ? 1 - (t - 3.6) : 0;
+  const draw = () => {
+    if (!ring.isConnected) return;
+    const t = (performance.now() - t0) / 1000, W = ring.width = innerWidth, H = ring.height = innerHeight, k = fade(t);
+    ring.style.opacity = k; g.clearRect(0, 0, W, H);
+    if (t > 4.6) return;
+    const R = Math.min(W, H) * (mobile ? .42 : .34), cx = W / 2, cy = H / 2, rot = t * .3, pulse = 1 + Math.sin(t * 3) * .02, tilt = .62 + Math.sin(t) * .06;
+    for (const p of P) { const a = p.a + rot, x = cx + Math.cos(a) * R * p.r * pulse * 1.35, y = cy + Math.sin(a) * R * p.r * pulse * tilt + p.y * R; g.globalAlpha = p.o * (.7 + .3 * Math.sin(t * p.w * 2 + p.a * 7)); g.fillStyle = p.c; g.fillRect(x, y, p.s, p.s); }
+    requestAnimationFrame(draw);
+  };
+  requestAnimationFrame(draw);
 }
 
 // ── Reticle ──

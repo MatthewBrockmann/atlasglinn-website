@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
 <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
 <meta name="keywords" content="MAST Solutions, tactical training Houston, firearms training Houston TX, carbine course, select-fire training, NVG course, CQB course, team tactics, Atlas Glinn training, Matthew Brockmann">
@@ -41,7 +42,7 @@
   @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&family=Cinzel:wght@600;900&display=swap');
   :root {
     --midnight:#050810; --deep-navy:#0B1221; --gunmetal:#1E2A3A; --gunmetal-lt:#2C3845; --steel:#3A4A5C;
-    --gold:#C9A84C; --gold-antique:#D4AF37; --gold-champagne:#E8D27D; --gold-bright:#FCF6BA; --copper:#B87333;
+    --gold:#1A6BDE; --gold-antique:#2F7BEF; --gold-champagne:#5B9BFF; --gold-bright:#DCEBFF; --copper:#0E3F8C;
     --text:#F0F4FF; --text-dim:#8B95A8; --text-mute:#5B6474;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -57,9 +58,14 @@
   #three-canvas { position:fixed; inset:0; width:100vw; height:100vh; z-index:1; pointer-events:none; }
   /* Photography layer: one still per chapter, ghosted behind the 3D emblem and the grain */
   #photos { position:fixed; inset:0; z-index:2; pointer-events:none; }
-  #photos .ph { position:absolute; inset:0; background:center/cover no-repeat; opacity:0; transition:opacity 1.4s ease; filter:saturate(.55) contrast(1.08); }
-  #photos .ph::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.55) 0%, rgba(5,8,16,.15) 45%, rgba(5,8,16,.8) 100%); }
-  #photos .ph.on { opacity:.34; }
+  /* Backdrop crossfade: the outgoing photograph leaves faster than the incoming one arrives, so the two never stack to a brighter
+     frame mid-switch (Brockmann, 2026-09-04: "the background pulled forward"). */
+  #photos .ph { position:absolute; inset:0; background:center/cover no-repeat; opacity:0; transition:opacity .6s ease; filter:saturate(.72) contrast(1.06); }
+  #photos .ph.on { transition:opacity 1.6s ease .3s; }
+  #photos .ph::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.42) 0%, rgba(5,8,16,.08) 45%, rgba(5,8,16,.72) 100%); }
+  /* Backdrop presence (Brockmann, 2026-09-05: pull the background forward, keep the layers; then "Reduce background brightness by
+     20%"): the photograph sits at .42 (.52 less a fifth), the scene and the text layers stay above it. */
+  #photos .ph.on { opacity:.42; }
   .grain { position:fixed; inset:0; z-index:3; pointer-events:none; opacity:.035; background-image:repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(255,255,255,.3) 2px, rgba(255,255,255,.3) 3px); mix-blend-mode:overlay; }
   .vignette { position:fixed; inset:0; z-index:4; pointer-events:none; background:radial-gradient(ellipse at center, transparent 0%, transparent 55%, rgba(5,8,16,.75) 100%); }
   .letterbox-top, .letterbox-bottom { position:fixed; left:0; right:0; height:0; background:#000; z-index:50; pointer-events:none; transition:height .6s cubic-bezier(.7,.15,.3,.95); }
@@ -67,33 +73,36 @@
   body.cinema .letterbox-top, body.cinema .letterbox-bottom { height:50px; }
   #intro-seq { position:fixed; inset:0; z-index:9000; background:#000; display:flex; align-items:center; justify-content:center; flex-direction:column; font-family:'Cinzel',serif; pointer-events:none; transition:opacity 1s ease-out; }
   #intro-seq.done { opacity:0; }
-  .intro-credit { font-size:.75rem; letter-spacing:.6em; color:var(--text-dim); opacity:0; animation:introFade 2.8s ease-in-out forwards; text-transform:uppercase; }
+  .intro-credit { position:relative; z-index:1; font-size:.75rem; letter-spacing:.6em; color:var(--text-dim); opacity:0; animation:introFade 2.8s ease-in-out forwards; text-transform:uppercase; }
+  /* The gold sparkle ring from the atlasglinn.com intro, drawn around the wordmark; the script fades it in after the wordmark and out before the splash ends. */
+  .intro-ring { position:absolute; inset:0; width:100%; height:100%; z-index:0; opacity:0; pointer-events:none; }
   .intro-credit:nth-child(1) { animation-delay:.3s; }
   .intro-credit:nth-child(2) { animation-delay:1.2s; margin-top:1.8rem; color:var(--gold); font-weight:900; font-size:1.5rem; letter-spacing:.35em; }
   .intro-credit:nth-child(3) { animation-delay:2.6s; margin-top:1.5rem; color:var(--gold-champagne); font-size:.85rem; letter-spacing:.5em; }
   @keyframes shimmer { 0% { background-position:-1000px 0; } 100% { background-position:1000px 0; } }
-  .intro-credit.wordmark { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2rem,6.5vw,4.6rem); letter-spacing:.16em; line-height:1.1; margin-top:1.4rem; padding:0 1rem; background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; text-shadow:0 0 60px rgba(201,168,76,.35); animation:introFade 3.4s ease-in-out forwards, shimmer 2.6s linear infinite; animation-delay:1.1s, 1.1s; }
+  .intro-credit.wordmark { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2rem,6.5vw,4.6rem); letter-spacing:.16em; line-height:1.1; margin-top:1.4rem; padding:0 1rem; background:linear-gradient(90deg, #1558B8 0%, #DCEBFF 25%, #0F4AA8 50%, #CFE2FF 75%, #0B3A85 100%); background-size:1000px 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; text-shadow:0 0 60px rgba(26,107,222,.35); animation:introFade 3.4s ease-in-out forwards, shimmer 2.6s linear infinite; animation-delay:1.1s, 1.1s; }
   @keyframes introFade { 0% { opacity:0; transform:translateY(8px); } 18%, 75% { opacity:1; transform:translateY(0); } 100% { opacity:0; transform:translateY(-8px); } }
   .chapter-nav { position:fixed; right:1.5rem; top:50%; transform:translateY(-50%); z-index:30; display:flex; flex-direction:column; gap:.5rem; font-family:'Share Tech Mono',monospace; font-size:.62rem; }
-  .chap-link { color:var(--text-mute); text-decoration:none; letter-spacing:.25em; padding:.35rem .8rem; border:1px solid transparent; transition:all .3s; text-transform:uppercase; cursor:none; display:flex; align-items:center; gap:.6rem; }
-  .chap-link::before { content:''; width:18px; height:1px; background:var(--text-mute); transition:all .3s; }
-  .chap-link:hover, .chap-link.active { color:var(--gold-champagne); border-color:rgba(201,168,76,.35); background:rgba(201,168,76,.04); }
+  /* Chapter menu: bold and bright (Brockmann, 2026-09-04: "Make the menu bar stronger, bold, to be very visible"). */
+  .chap-link { color:var(--text); font-weight:700; text-shadow:0 1px 10px rgba(0,0,0,.9); text-decoration:none; letter-spacing:.25em; padding:.35rem .8rem; border:1px solid transparent; transition:all .3s; text-transform:uppercase; cursor:none; display:flex; align-items:center; gap:.6rem; }
+  .chap-link::before { content:''; width:18px; height:2px; background:var(--text); transition:all .3s; }
+  .chap-link:hover, .chap-link.active { color:var(--gold-champagne); border-color:rgba(26,107,222,.35); background:rgba(26,107,222,.04); }
   .chap-link.active::before, .chap-link:hover::before { width:28px; background:var(--gold); }
   .hud { position:fixed; z-index:20; font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.3em; opacity:.6; text-decoration:none; }
   .hud.tl { top:1.2rem; left:1.8rem; color:var(--gold-champagne); }
   .hud.tr { top:1.2rem; right:15rem; color:var(--text-mute); }
   .hud.bl { bottom:1.2rem; left:1.8rem; color:var(--text-mute); }
   .hud.br { bottom:1.2rem; right:1.8rem; color:var(--gold); }
-  .progress { position:fixed; top:0; left:0; height:2px; width:0; background:linear-gradient(90deg, var(--gold-antique), var(--gold-bright), var(--copper)); z-index:100; box-shadow:0 0 14px rgba(201,168,76,.7); transition:width .1s linear; }
+  .progress { position:fixed; top:0; left:0; height:2px; width:0; background:linear-gradient(90deg, var(--gold-antique), var(--gold-bright), var(--copper)); z-index:100; box-shadow:0 0 14px rgba(26,107,222,.7); transition:width .1s linear; }
   .content { position:relative; z-index:5; }
   section.panel { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:6rem 2rem; text-align:center; position:relative; }
   section.panel > div { width:100%; max-width:1200px; }
   .eyebrow { font-family:'Share Tech Mono',monospace; color:var(--gold-champagne); letter-spacing:.45em; font-size:.75rem; text-transform:uppercase; margin-bottom:1.6rem; opacity:0; transform:translateY(20px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
   .eyebrow.in { opacity:1; transform:translateY(0); }
-  h1.mega { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(3rem,10vw,9rem); letter-spacing:.02em; line-height:.95; margin-bottom:2rem; opacity:0; filter:blur(20px); transform:scale(1.15); transition:opacity 1.2s cubic-bezier(.2,.7,.2,1), filter 1.2s cubic-bezier(.2,.7,.2,1), transform 1.4s cubic-bezier(.2,.7,.2,1); }
+  h1.mega { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2.6rem,7.2vw,6.6rem); letter-spacing:.02em; line-height:.95; margin-bottom:2rem; opacity:0; filter:blur(20px); transform:scale(1.15); transition:opacity 1.2s cubic-bezier(.2,.7,.2,1), filter 1.2s cubic-bezier(.2,.7,.2,1), transform 1.4s cubic-bezier(.2,.7,.2,1); }
   h1.mega.in { opacity:1; filter:blur(0); transform:scale(1); }
-  .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
-  h1.mega .gold { text-shadow:0 0 80px rgba(201,168,76,.3); }
+  .gold { background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  h1.mega .gold { text-shadow:0 0 80px rgba(26,107,222,.3); }
   h1.mega .white { color:var(--text); }
   h2.section-h { font-family:'Orbitron',sans-serif; font-weight:700; font-size:clamp(2rem,5vw,4.5rem); letter-spacing:.03em; margin-bottom:1.4rem; opacity:0; filter:blur(12px); transform:translateY(24px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), filter 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
   h2.section-h.in { opacity:1; filter:blur(0); transform:translateY(0); }
@@ -101,39 +110,44 @@
   .sub.in { opacity:1; transform:translateY(0); }
   .rise { opacity:0; transform:translateY(22px); transition:opacity 1s ease-out .35s, transform 1s ease-out .35s; }
   .rise.in { opacity:1; transform:translateY(0); }
-  .cta, .cta-button { display:inline-block; padding:1.1rem 2.5rem; font-family:'Orbitron',sans-serif; font-weight:700; letter-spacing:.2em; font-size:.85rem; text-transform:uppercase; text-decoration:none; color:#000; background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border:1px solid var(--gold-champagne); cursor:none; transition:transform .35s, box-shadow .35s; position:relative; overflow:hidden; border-radius:0; }
+  .cta, .cta-button { display:inline-block; padding:1.1rem 2.5rem; font-family:'Orbitron',sans-serif; font-weight:700; letter-spacing:.2em; font-size:.85rem; text-transform:uppercase; text-decoration:none; color:#000; background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); border:1px solid var(--gold-champagne); cursor:none; transition:transform .35s, box-shadow .35s; position:relative; overflow:hidden; border-radius:0; }
   .cta::before, .cta-button::before { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent); transition:left .7s; }
-  .cta:hover, .cta-button:hover { transform:translateY(-3px); box-shadow:0 14px 44px rgba(201,168,76,.5); }
+  .cta:hover, .cta-button:hover { transform:translateY(-3px); box-shadow:0 14px 44px rgba(26,107,222,.5); }
   .cta:hover::before, .cta-button:hover::before { left:100%; }
   .cta-button[disabled] { opacity:.35; transform:none; box-shadow:none; }
   .secondary-cta, .cta-button.ghost-button { display:inline-block; padding:1.1rem 2.5rem; font-family:'Orbitron',sans-serif; font-weight:700; letter-spacing:.2em; font-size:.85rem; text-transform:uppercase; text-decoration:none; color:var(--gold-champagne); background:transparent; border:1px solid var(--gold); cursor:none; transition:all .35s; margin-left:1rem; }
-  .secondary-cta:hover, .cta-button.ghost-button:hover { background:rgba(201,168,76,.08); border-color:var(--gold-bright); color:var(--gold-bright); transform:none; box-shadow:none; }
+  .secondary-cta:hover, .cta-button.ghost-button:hover { background:rgba(26,107,222,.08); border-color:var(--gold-bright); color:var(--gold-bright); transform:none; box-shadow:none; }
   .ctas { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; }
   .ctas .secondary-cta, .ctas .ghost-button { margin-left:0; }
-  .badge { display:inline-block; padding:.45rem 1rem; border:1px solid var(--gold); font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.4em; color:var(--gold-champagne); margin-bottom:1.5rem; background:rgba(201,168,76,.06); backdrop-filter:blur(8px); }
+  .badge { display:inline-block; padding:.45rem 1rem; border:1px solid var(--gold); font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.4em; color:var(--gold-champagne); margin-bottom:1.5rem; background:rgba(26,107,222,.06); backdrop-filter:blur(8px); }
   .chips { display:flex; flex-wrap:wrap; gap:.65rem; justify-content:center; max-width:1000px; margin:0 auto 2.5rem; }
-  .chip { padding:.55rem 1rem; border:1px solid rgba(201,168,76,.35); background:rgba(30,42,58,.55); backdrop-filter:blur(6px); font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.25em; color:var(--gold-champagne); text-transform:uppercase; }
+  .chip { padding:.55rem 1rem; border:1px solid rgba(26,107,222,.35); background:rgba(30,42,58,.55); backdrop-filter:blur(6px); font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.25em; color:var(--gold-champagne); text-transform:uppercase; }
   .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:1.8rem; max-width:980px; margin:3rem auto 0; }
-  .stat { text-align:center; padding:2rem 1.5rem; border:1px solid rgba(201,168,76,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.7) 100%); backdrop-filter:blur(12px); position:relative; overflow:hidden; transition:transform .4s, border-color .4s; }
+  .stat { text-align:center; padding:2rem 1.5rem; border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.7) 100%); backdrop-filter:blur(12px); position:relative; overflow:hidden; transition:transform .4s, border-color .4s; }
   .stat::before { content:''; position:absolute; top:0; left:0; width:100%; height:1px; background:linear-gradient(90deg, transparent, var(--gold), transparent); }
   .stat:hover { transform:translateY(-6px); border-color:var(--gold); }
-  .stat-num { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2.8rem,5.5vw,4.5rem); background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; line-height:1; }
+  .stat-num { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2.8rem,5.5vw,4.5rem); background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; line-height:1; }
   .stat-label { font-family:'Share Tech Mono',monospace; font-size:.7rem; letter-spacing:.35em; color:var(--text-dim); margin-top:1rem; text-transform:uppercase; }
   /* Photo tiles: the trailer's glass pillars carrying the Federico and range photography */
   .tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:1.2rem; max-width:1200px; margin:0 auto; }
   .tiles.four { grid-template-columns:repeat(4,1fr); }
-  .tile { position:relative; min-height:300px; display:flex; align-items:flex-end; text-align:left; overflow:hidden; border:1px solid rgba(201,168,76,.22); background:var(--deep-navy); transition:transform .45s, border-color .45s; }
+  .tile { position:relative; min-height:300px; display:flex; align-items:flex-end; text-align:left; overflow:hidden; border:1px solid rgba(26,107,222,.22); background:var(--deep-navy); transition:transform .45s, border-color .45s; }
   .tile .bg { position:absolute; inset:0; background:center/cover no-repeat; transform:scale(1.04); transition:transform 5s ease; filter:saturate(.8); }
   .tile:hover .bg { transform:scale(1.12); }
   .tile::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.05) 0%, rgba(5,8,16,.35) 50%, rgba(5,8,16,.92) 100%); }
   .tile:hover { transform:translateY(-6px); border-color:var(--gold); }
+  /* Shared card hover (Brockmann, 2026-09-04: "make sure that for any card or any function on the site ... we don't lose the
+     consistency"): every card on either site lifts the same way on mouse-over. Add each new card class to these two selectors;
+     the card's own rules only set its border colour. */
+  .tile, .tier { transition:transform .45s, border-color .45s, box-shadow .45s; }
+  .tile:hover, .tier:hover { transform:translateY(-6px); }
   .tile .txt { position:relative; z-index:2; padding:1.4rem 1.3rem; width:100%; }
   .tile .num { font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.4em; color:var(--gold); margin-bottom:.5rem; }
   .tile h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.15rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.35rem; }
   .tile p { font-size:.92rem; color:var(--text-dim); line-height:1.5; font-weight:300; }
   .tiles.four .tile { min-height:260px; }
   /* Glass panel that carries the catalog */
-  .glass { border:1px solid rgba(201,168,76,.22); background:linear-gradient(180deg, rgba(30,42,58,.45) 0%, rgba(11,18,33,.78) 100%); backdrop-filter:blur(14px); padding:1.4rem; text-align:left; position:relative; }
+  .glass { border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.45) 0%, rgba(11,18,33,.78) 100%); backdrop-filter:blur(14px); padding:1.4rem; text-align:left; position:relative; }
   .glass::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg, transparent, var(--gold), transparent); }
   .catalog-wrap { max-width:960px; margin:0 auto; }
   .catalog-panel { max-height:none; }
@@ -144,36 +158,49 @@
   .catalog-note { text-align:center; color:var(--text-dim); font-size:.92rem; margin-top:1.4rem; font-weight:300; }
   .catalog-note a { color:var(--gold-champagne); text-decoration:none; }
   /* Instructor */
-  .founder { display:grid; grid-template-columns:minmax(260px,420px) 1fr; gap:2.2rem; max-width:1150px; margin:0 auto; text-align:left; align-items:stretch; }
-  .founder .portrait { position:relative; min-height:460px; border:1px solid rgba(201,168,76,.3); background:center 20%/cover no-repeat; }
+  /* Portraits: one size for every person on the page, founder and team alike — the same column and a 4:5 frame that does not
+     stretch with the bio beside it (Brockmann, 2026-09-05: "They're not all the same size … size them for consistency"). */
+  .founder { display:grid; grid-template-columns:minmax(240px,380px) 1fr; gap:2.2rem; max-width:1150px; margin:0 auto; text-align:left; align-items:start; }
+  .founder .portrait { position:relative; aspect-ratio:4/5; min-height:0; border:1px solid rgba(26,107,222,.3); background:center 20%/cover no-repeat; }
   .founder .portrait::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, transparent 55%, rgba(5,8,16,.9) 100%); }
   .founder .portrait .cap { position:absolute; left:1.2rem; bottom:1.1rem; z-index:2; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.35em; color:var(--gold-champagne); text-transform:uppercase; }
-  .founder .bio { border:1px solid rgba(201,168,76,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.75) 100%); backdrop-filter:blur(14px); padding:2rem 1.9rem; position:relative; }
+  .founder .bio { border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.75) 100%); backdrop-filter:blur(14px); padding:2rem 1.9rem; position:relative; }
   .founder .bio::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:linear-gradient(180deg, var(--gold), var(--copper)); }
   .founder .bio p { color:var(--text-dim); line-height:1.6; font-weight:300; font-size:1.05rem; margin-bottom:1.2rem; }
   .founder .creds { list-style:none; margin:0 0 1.4rem; padding:0; }
-  .founder .creds li { padding:.45rem 0 .45rem 1.4rem; position:relative; color:var(--text); font-size:.98rem; line-height:1.5; border-top:1px solid rgba(201,168,76,.12); }
+  .founder .creds li { padding:.45rem 0 .45rem 1.4rem; position:relative; color:var(--text); font-size:.98rem; line-height:1.5; border-top:1px solid rgba(26,107,222,.12); }
   .founder .creds li::before { content:'◆'; position:absolute; left:0; top:.55rem; color:var(--gold); font-size:.6rem; }
   .founder .creds b { color:var(--gold-champagne); font-weight:600; }
   .founder .cadre { font-family:'Share Tech Mono',monospace; font-size:.72rem; letter-spacing:.08em; color:var(--text-dim); line-height:1.7; margin-bottom:1.4rem; }
   .founder .ctas { justify-content:flex-start; }
   .cert { max-width:1150px; margin:1.4rem auto 0; display:grid; grid-template-columns:minmax(220px,360px) 1fr; gap:1.4rem; align-items:center; text-align:left; }
-  .cert img { width:100%; border:1px solid rgba(201,168,76,.3); display:block; }
+  .cert img { width:100%; border:1px solid rgba(26,107,222,.3); display:block; }
   .cert p { color:var(--text-dim); font-weight:300; line-height:1.55; font-size:.98rem; }
+  /* Team blocks: the Atlas Glinn "Meet the Team" format (portrait + name, role, bio), shared by the MAST Instructors chapter. */
+  .team { display:grid; grid-template-columns:minmax(240px,380px) 1fr; gap:2.2rem; max-width:1150px; margin:0 auto 1.6rem; text-align:left; align-items:start; }
+  .team .portrait { aspect-ratio:4/5; min-height:0; border:1px solid rgba(26,107,222,.3); background:center 20%/cover no-repeat; position:relative; }
+  .team .portrait::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, transparent 60%, rgba(5,8,16,.9) 100%); }
+  .team .portrait .cap { position:absolute; left:1.1rem; bottom:1rem; z-index:2; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; color:var(--gold-champagne); text-transform:uppercase; }
+  .team .bio { border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.75) 100%); backdrop-filter:blur(14px); padding:1.8rem; position:relative; }
+  .team .bio::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:linear-gradient(180deg, var(--gold), var(--copper)); }
+  .team .bio h3, .founder .bio h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.25rem; color:var(--gold-champagne); margin-bottom:.2rem; }
+  .team .bio .role, .founder .bio .role { font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.3em; text-transform:uppercase; color:var(--text-dim); margin-bottom:1rem; }
+  .team .bio p { color:var(--text-dim); line-height:1.6; font-weight:300; font-size:1.02rem; }
   /* Media strip */
   .media-strip { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:1rem; padding:.5rem 0 1rem; scrollbar-width:thin; scrollbar-color:var(--gold) var(--deep-navy); max-width:1200px; margin:0 auto; }
-  .video-card { flex:0 0 min(82vw,480px); scroll-snap-align:start; background:rgba(11,18,33,.8); border:1px solid rgba(201,168,76,.22); overflow:hidden; text-align:left; }
+  .video-card { flex:0 0 min(82vw,480px); scroll-snap-align:start; background:rgba(11,18,33,.8); border:1px solid rgba(26,107,222,.22); overflow:hidden; text-align:left; }
   .yt .play { border-color:var(--gold); background:rgba(5,8,16,.8); }
   .yt:hover .play { background:var(--gold); border-color:var(--gold); }
   .yt.mp4 { background:linear-gradient(135deg, var(--gunmetal), var(--midnight)); }
   .yt.mp4 .lbl { color:var(--gold-champagne); font-family:'Share Tech Mono',monospace; }
   .video-card-info h4 { color:var(--gold-champagne); }
-  .post { display:inline-block; margin-top:2rem; padding:1rem 1.8rem; border:1px solid var(--gold); background:rgba(201,168,76,.07); backdrop-filter:blur(8px); font-family:'Orbitron',sans-serif; font-weight:700; font-size:clamp(.85rem,1.2vw,1.05rem); letter-spacing:.14em; color:var(--gold-champagne); text-decoration:none; text-transform:uppercase; transition:all .35s; cursor:none; }
-  .post:hover { background:rgba(201,168,76,.16); border-color:var(--gold-bright); color:var(--gold-bright); transform:translateY(-3px); }
+  .post { display:inline-block; margin-top:2rem; padding:1rem 1.8rem; border:1px solid var(--gold); background:rgba(26,107,222,.07); backdrop-filter:blur(8px); font-family:'Orbitron',sans-serif; font-weight:700; font-size:clamp(.85rem,1.2vw,1.05rem); letter-spacing:.14em; color:var(--gold-champagne); text-decoration:none; text-transform:uppercase; transition:all .35s; cursor:none; }
+  .post:hover { background:rgba(26,107,222,.16); border-color:var(--gold-bright); color:var(--gold-bright); transform:translateY(-3px); }
   .post small { display:block; font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.62rem; letter-spacing:.35em; color:var(--text-dim); margin-bottom:.35rem; }
   .quote { font-style:italic; color:var(--gold-champagne); max-width:700px; margin:.5rem auto 2rem; font-size:clamp(1.05rem,1.5vw,1.3rem); line-height:1.5; }
   .quote.lead { max-width:820px; font-size:clamp(1.2rem,1.9vw,1.55rem); margin-top:.8rem; }
-  .contact-lines { font-family:'Share Tech Mono',monospace; font-size:.75rem; letter-spacing:.2em; color:var(--text-dim); line-height:2.1; margin-bottom:2.2rem; }
+  /* Contact lines sit over a backdrop photograph on both sites: full text colour and a shadow (Brockmann, 2026-09-05: "Fix the visibility of the contact"). */
+  .contact-lines { font-family:'Share Tech Mono',monospace; font-size:.75rem; letter-spacing:.2em; color:var(--text); text-shadow:0 1px 6px rgba(0,0,0,.9), 0 0 22px rgba(0,0,0,.7); line-height:2.1; margin-bottom:2.2rem; }
   .contact-lines a { color:var(--gold-champagne); text-decoration:none; }
   .foot { margin-top:4rem; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; color:var(--text-mute); text-transform:uppercase; line-height:2.2; }
   .foot a { color:var(--text-mute); text-decoration:none; margin:0 .6rem; }
@@ -204,17 +231,18 @@
 .cr-price { font-family: 'Orbitron', sans-serif; font-size: 1.15rem; font-weight: 900; color: #C9A84C; text-align: right; line-height: 1; }
 .cr-price small { display: block; font-family: 'Share Tech Mono', monospace; font-size: .6rem; letter-spacing: .14em; color: #888; margin-top: .3rem; font-weight: 400; }
 .cr-btn { padding: .55rem 1rem; font-size: .8rem; white-space: nowrap; }
-.media-strip { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 1rem; padding: 1.5rem 0 .5rem; scrollbar-width: thin; scrollbar-color: #C9A84C #0B1221; }
-.video-card { flex: 0 0 min(82vw, 520px); scroll-snap-align: start; background: rgba(5,8,16,.7); border: 1px solid rgba(201,168,76,.25); border-radius: 4px; overflow: hidden; }
+.media-strip { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 1rem; padding: 1.5rem 0 .5rem; scrollbar-width: thin; scrollbar-color: #1A6BDE #0B1221; }
+.video-card { flex: 0 0 min(82vw, 520px); scroll-snap-align: start; background: rgba(5,8,16,.7); border: 1px solid rgba(26,107,222,.25); border-radius: 4px; overflow: hidden; }
 .yt { position: relative; aspect-ratio: 16/9; background: #000; cursor: pointer; overflow: hidden; }
 .yt img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: .85; transition: opacity .3s; }
 .yt:hover img { opacity: 1; }
-.yt .play { position: absolute; inset: 0; margin: auto; width: 68px; height: 68px; border-radius: 50%; border: 2px solid #C9A84C; background: rgba(5,8,16,.8); display: grid; place-items: center; }
+.yt .play { position: absolute; inset: 0; margin: auto; width: 68px; height: 68px; border-radius: 50%; border: 2px solid #1A6BDE; background: rgba(5,8,16,.8); display: grid; place-items: center; }
 .yt .play::after { content: ''; border-left: 20px solid #fff; border-top: 12px solid transparent; border-bottom: 12px solid transparent; margin-left: 5px; }
-.yt:hover .play { background: #C9A84C; border-color: #C9A84C; }
+.yt:hover .play { background: #1A6BDE; border-color: #1A6BDE; }
 .yt iframe, .yt video { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.yt video.teaser { object-fit: cover; opacity: .92; pointer-events: none; }
 .yt.mp4 { background: linear-gradient(135deg, #0B1221, #050810); }
-.yt.mp4 .lbl { position: absolute; left: 16px; bottom: 14px; font-family: 'Share Tech Mono', monospace; font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; color: #C9A84C; }
+.yt.mp4 .lbl { position: absolute; left: 16px; bottom: 14px; font-family: 'Share Tech Mono', monospace; font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; color: #1A6BDE; }
 .video-card-info { padding: 14px 18px; }
 .video-card-info h4 { font-family: 'Orbitron', sans-serif; font-size: .85rem; margin-bottom: 3px; }
 .video-card-info p { font-size: .85rem; color: #b0b0b0; }
@@ -225,6 +253,12 @@
 .modal.open { opacity: 1; visibility: visible; transform: translate(-50%,-50%) scale(1); }
 .modal-x { position: absolute; top: 10px; right: 14px; background: none; border: none; color: #888; font-size: 30px; cursor: pointer; line-height: 1; }
 .modal-x:hover { color: #C9A84C; }
+.modal.gate .gate-text { color: #d8dce6; line-height: 1.6; margin: .8rem 0 1.1rem; font-size: 1rem; }
+.modal.gate .gate-text b { color: #C9A84C; }
+.modal.gate .gate-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+.modal.gate .gate-actions .cta-button { margin: 0; }
+.modal.gate .gate-fine { margin-top: 1rem; font-size: .8rem; color: #888; line-height: 1.5; }
+.course-row.flash { box-shadow: inset 0 0 0 2px #C9A84C; }
 .modal h3 { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; font-weight: 700; padding-right: 2rem; margin: .35rem 0 .2rem; }
 .modal-meta { font-family: 'Share Tech Mono', monospace; font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: #888; }
 .modal-price { font-family: 'Orbitron', sans-serif; font-weight: 900; color: #C9A84C; font-size: 1.1rem; margin-top: .4rem; }
@@ -247,6 +281,21 @@
 .cal-legend { display: flex; gap: 1.2rem; flex-wrap: wrap; font-family: 'Share Tech Mono', monospace; font-size: .68rem; letter-spacing: .1em; color: #888; margin-top: .8rem; text-transform: uppercase; }
 .cal-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
 .cal-quick { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+.cal-classes { margin-top: 1.2rem; border-top: 1px solid rgba(201,168,76,.25); padding-top: 1rem; }
+.cal-tabs { display: flex; flex-wrap: wrap; gap: .45rem; margin: .8rem 0 .4rem; }
+.cal-list .cal-item { display: grid; grid-template-columns: 1fr auto auto; gap: 1rem; align-items: center; padding: .75rem 0; border-top: 1px solid rgba(255,255,255,.06); }
+.cal-list .cal-item:first-child { border-top: 0; }
+.cal-item .cal-name { display: block; font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: .85rem; color: #fff; margin-bottom: .2rem; }
+.cal-item small .cr-lvl { display: inline-block; margin-left: .3rem; }
+.cal-item small { display: block; font-family: 'Share Tech Mono', monospace; font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; color: #b0b0b0; }
+.cal-item .cal-item-price { font-family: 'Orbitron', sans-serif; font-weight: 700; color: #C9A84C; font-size: .95rem; }
+.cal-item .cta-button.small { padding: .55rem 1rem; font-size: .68rem; letter-spacing: .18em; }
+.modal.req label { display: block; margin: .7rem 0 0; font-family: 'Share Tech Mono', monospace; font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; color: #b0b0b0; }
+.modal.req label .opt { text-transform: none; letter-spacing: 0; color: #777; }
+.modal.req input, .modal.req textarea { display: block; width: 100%; margin-top: .35rem; padding: .7rem .8rem; background: rgba(255,255,255,.04); border: 1px solid rgba(201,168,76,.3); border-radius: 4px; color: #fff; font-family: 'Rajdhani', sans-serif; font-size: 1rem; }
+.modal.req input:focus, .modal.req textarea:focus { outline: none; border-color: #C9A84C; }
+.modal.req .err { color: #ff8a80; font-size: .9rem; margin-top: .6rem; }
+.modal.req .err a { color: #E8D27D; }
 .cal-foot { position: sticky; bottom: -2rem; background: #0B1221; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.4rem -2rem -2rem; padding: 1rem 2rem 1.2rem; border-top: 1px solid rgba(201,168,76,.2); flex-wrap: wrap; }
 .cal-sel { font-size: .95rem; color: #b0b0b0; }
 .cal-sel b { color: #fff; font-family: 'Orbitron', sans-serif; font-size: .85rem; }
@@ -267,6 +316,8 @@
 .err.show { display: block; }
 .cr-lvl { display: inline-block; padding: .05rem .45rem; border-radius: 3px; background: rgba(255,255,255,.08); color: #d8dce6; letter-spacing: .1em; }
 .cr-lvl.lvl-1 { background: rgba(201,168,76,.22); color: #fff; }
+.cr-img { width: 72px; height: 72px; object-fit: cover; border-radius: 4px; border: 1px solid rgba(201,168,76,.3); flex: 0 0 72px; margin-right: 14px; }
+.cr-pdf { display: inline-block; margin-top: .35rem; font-family: 'Share Tech Mono', monospace; font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: #C9A84C; text-decoration: none; }
 .reg-steps { display: flex; gap: .4rem; list-style: none; margin: 1rem 0 .2rem; padding: 0; font-family: 'Share Tech Mono', monospace; font-size: .64rem; letter-spacing: .12em; text-transform: uppercase; color: #666; counter-reset: s; }
 .reg-steps li { flex: 1; padding: .45rem 0 0; border-top: 2px solid rgba(255,255,255,.12); }
 .reg-steps li::before { content: counter(s) ' '; counter-increment: s; }
@@ -280,6 +331,7 @@
 .reg-yn label { flex: 1; display: flex; align-items: center; justify-content: center; gap: .5rem; padding: .7rem; border: 1px solid rgba(255,255,255,.14); border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 1rem; }
 .reg-yn label:has(input:checked) { border-color: #C9A84C; background: rgba(201,168,76,.12); }
 .reg-yn input { accent-color: #C9A84C; width: 18px; height: 18px; }
+.sheet label.reg-check[hidden] { display: none; }
 .sheet label.reg-check { display: flex; gap: .7rem; align-items: flex-start; margin: 1rem 0 0; font-size: .95rem; line-height: 1.5; color: #d8dce6; cursor: pointer; font-family: 'Rajdhani', sans-serif; text-transform: none; letter-spacing: 0; font-weight: 500; }
 .sheet .reg-check input { margin-top: .2rem; flex: none; width: 18px; height: 18px; accent-color: #C9A84C; padding: 0; }
 .sheet .reg-check a { color: #C9A84C; }
@@ -308,11 +360,8 @@
 .quals-list { padding: .4rem 0 0 1.4rem; columns: 2; column-gap: 2.4rem; }
 .quals-list li { font-size: .92rem; color: #b0b0b0; line-height: 1.5; padding: .3rem .4rem .3rem .1rem; break-inside: avoid; }
 .quals-list li::marker { color: #C9A84C; font-family: 'Share Tech Mono', monospace; font-size: .78rem; }
-@media (max-width: 900px) {
-.catalog-panel { max-height: none; }
-.quals-list { columns: 1; }
-}
 @media (max-width: 768px) {
+.cr-img { width: 56px; height: 56px; flex-basis: 56px; margin-right: 10px; }
 .course-row { grid-template-columns: 1fr; gap: .8rem; padding: 1rem 1.1rem; }
 .cr-side { justify-content: space-between; }
 .modal, .modal.wide { top: auto; bottom: 0; left: 0; transform: translateY(14px); width: 100%; max-height: 92vh; border-radius: 12px 12px 0 0; padding: 1.4rem 1.2rem calc(1.4rem + env(safe-area-inset-bottom)); }
@@ -321,11 +370,84 @@
 .cal-foot .cta-button { width: 100%; text-align: center; }
 .day { height: 44px; }
 }
-  .modal { background:var(--deep-navy); border-color:rgba(201,168,76,.4); }
+@media (max-width: 900px) {
+.catalog-panel { max-height: none; }
+.quals-list { columns: 1; }
+}
+  #s6, #s7, .sheet, .sheet-bd, .modal, .modal-bd { --gold:#C9A84C; --gold-antique:#D4AF37; --gold-champagne:#E8D27D; --gold-bright:#FCF6BA; --copper:#B87333; }
+  #s6 .gold, #s7 .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  /* The live atlasglinn.com hero, verbatim (owner, 2026-09-04: "Grab the code from Atlas Glinn. Apply same font size and same code"):
+     .hero-headline metrics, the .gold-shimmer rule on "Details", flat #1A6BDE on "Matter", no entrance effect. */
+  h1.mega { font-family:'Orbitron',sans-serif; font-size:3.2rem; font-weight:900; margin-bottom:1rem; letter-spacing:.02em; line-height:1.1; opacity:1; filter:none; transform:none; transition:none; }
+  h1.mega .gold { background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; animation:shimmer 6s linear infinite; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; text-shadow:none; }
+  h1.mega .white { color:#1A6BDE; }
+  h2.section-h { font-size:3.2rem; }   /* every chapter heading at the hero's size (owner: "same font size for every section below") */
+  @media (max-width:768px) { h1.mega, h2.section-h { font-size:2rem; } }
+  @media (max-width:480px) { h1.mega, h2.section-h { font-size:1.8rem; } }
+  @media (prefers-reduced-motion: reduce) { h1.mega .gold { animation:none; } }
+  #s6 .cta-button, #s6 .cta, #s7 .cta-button, .sheet .cta-button, .modal .cta-button { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border-color:#E8D27D; }
+  #s6 .cta-button:hover, #s6 .cta:hover, #s7 .cta-button:hover, .sheet .cta-button:hover, .modal .cta-button:hover { box-shadow:0 14px 44px rgba(201,168,76,.5); }
+  #s5 .cta-button.ghost-button, .sheet .cta-button.ghost-button, .modal .cta-button.ghost-button { background:transparent; }
+  /* Splash wordmark (owner, 2026-09-04: "Use this font for the splash intro. But space correctly." — the HUD's monospace — then
+     "MAST Solutions", "Strong Font"): Share Tech Mono in a strong weight, mixed case, tracked and optically centred (the leading
+     padding balances the tracking after the last letter). The blue shimmer stays. */
+  .intro-credit.wordmark { font-family:'Orbitron',sans-serif; font-weight:900; text-transform:none; letter-spacing:.16em; padding-left:.16em; word-spacing:0; font-size:clamp(2rem, 6.5vw, 4.6rem); text-shadow:0 0 30px rgba(26,107,222,.35); }   /* 2026-09-05: "Keep this font for the splash opener - need the consistency" — the hero's Orbitron, as Details Matter */
+  .chap-link { color:#E8D27D; }
+  .chap-link::before { background:#C9A84C; }
+  .chap-link:hover, .chap-link.active { color:#FCF6BA; border-color:rgba(201,168,76,.5); background:rgba(201,168,76,.06); }
+  .chap-link.active::before, .chap-link:hover::before { background:#FCF6BA; }
+  /* Membership tiles: the seven-skills tile (shell .tile / .tiles.four, shared hover) in the team colour — border, top rule and a wash
+     behind the text (owner, 2026-09-04: "the cards should match the seven skills ... not only in function, but in size"). The benefit line
+     shows on hover / focus; a tap opens the join dialog. */
+  .team-tile { --tc:#C9A84C; border-color:color-mix(in srgb, var(--tc) 72%, transparent); cursor:pointer; }
+  .team-tile:hover, .team-tile:focus-visible { border-color:var(--tc); box-shadow:0 22px 60px rgba(0,0,0,.5), 0 0 0 1px var(--tc); outline:none; }
+  .team-tile .bg { background:radial-gradient(120% 90% at 22% 18%, color-mix(in srgb, var(--tc) 38%, #050810) 0%, #050810 72%); }
+  .team-tile::before { content:''; position:absolute; top:0; left:1.3rem; right:1.3rem; height:2px; background:var(--tc); z-index:2; }
+  .team-tile .num { color:var(--gold-champagne); }
+  .team-tile h3 { font-family:'Cormorant Garamond',Georgia,serif; font-weight:600; font-size:1.55rem; letter-spacing:.06em; }
+  .team-tile p { font-family:'Cormorant Garamond',Georgia,serif; font-size:1.08rem; line-height:1.4; color:var(--text); max-height:0; opacity:0; overflow:hidden; transition:max-height .45s, opacity .45s, margin .45s; margin-top:0; }
+  .team-tile:hover p, .team-tile:focus-visible p, .team-tile:focus-within p { max-height:6rem; opacity:1; margin-top:.35rem; }
+  .team-tile.t-red { --tc:#7A0F14; } .team-tile.t-blue { --tc:#1A6BDE; } .team-tile.t-gold { --tc:#C9A84C; } .team-tile.t-black { --tc:#F0F4FF; } .team-tile.t-le { --tc:#3A4A5C; } .team-tile.t-teachers { --tc:#CFE2FF; }
+  .teams-note { font-family:'Cormorant Garamond',Georgia,serif; font-style:italic; font-size:1.05rem; color:#8B95A8; max-width:760px; margin:1.2rem auto 0; text-align:center; }
+  .modal.join .join-inc { font-family:'Cormorant Garamond',Georgia,serif; font-size:1.1rem; line-height:1.45; color:#F0F4FF; margin:.6rem 0 0; }
+  .modal.join .join-field { display:block; font-family:'Share Tech Mono',monospace; font-size:.66rem; letter-spacing:.25em; text-transform:uppercase; color:#8B95A8; margin:.9rem 0 0; }
+  .modal.join input { display:block; width:100%; margin-top:.35rem; padding:.8rem .9rem; background:#0B1221; border:1px solid rgba(201,168,76,.35); color:#F0F4FF; font:1rem 'Rajdhani',sans-serif; letter-spacing:.02em; }
+  .modal.join input:focus { outline:none; border-color:#C9A84C; }
+  .modal.join .gate-actions { margin-top:1.3rem; }
+  .modal.join .join-err { color:#ff8a80; font-size:.9rem; line-height:1.45; margin-top:.8rem; min-height:1.2em; }
+  .modal.join .join-err a { color:#E8D27D; }
+  @media (max-width:900px) { .teams { grid-template-columns:1fr 1fr; } }
+  @media (max-width:600px) { .teams { grid-template-columns:1fr; } .tier-fee { font-size:2.2rem; } }
+
+  .tile.photo .txt { padding:1rem 1.1rem; }
+  .photo-tiles .tile.more { display:none; }
+  .photo-tiles.all .tile.more { display:flex; }
+  .gallery-eyebrow { margin-top:2.6rem; }
+  #s9 .post { margin-top:.2rem; margin-bottom:1.8rem; }   /* above the films (owner, 2026-09-05) */
+  /* Preview-only menu entries (the Blogs link under In Action): hidden until the URL carries `preview`. Styled as the chapter menu, indented. */
+  .chap-extra { display:none; color:var(--text); font-weight:700; text-shadow:0 1px 10px rgba(0,0,0,.9); text-decoration:none; letter-spacing:.25em; padding:.2rem .8rem .2rem 2.6rem; font-size:.58rem; text-transform:uppercase; align-items:center; gap:.6rem; cursor:none; }
+  .chap-extra:hover { color:var(--gold-champagne); }
+  body.preview .chap-extra { display:flex; }
+  /* Folded photo grids: closed until the button opens them, then they unfold downward. The padding keeps the tiles' hover lift clear of the clip. */
+  .fold { max-height:0; overflow:hidden; opacity:0; padding:10px 10px 0; margin:-10px -10px 0; transition:max-height .8s cubic-bezier(.2,.7,.2,1), opacity .45s; }
+  .fold.open { max-height:6000px; opacity:1; padding-bottom:12px; transition:max-height 1.2s cubic-bezier(.2,.7,.2,1), opacity .5s .1s; }
+  /* The contact chapter's line over the water backdrop (owner, 2026-09-05: "Fix the visibility of the contact"); the contact lines themselves are handled in the shell for both sites. */
+  #s12 .sub { text-shadow:0 1px 6px rgba(0,0,0,.9), 0 0 18px rgba(0,0,0,.6); }
+  .modal.lightbox { width:min(1200px, calc(100vw - 32px)); padding:.6rem; background:#050810; }
+  .modal.lightbox img { display:block; max-width:100%; max-height:84vh; margin:0 auto; }
+
+  .quotes { display:grid; grid-template-columns:repeat(3,1fr); gap:1.1rem; max-width:1200px; margin:0 auto; text-align:left; }
+  .quotes .q { border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.7) 100%); padding:1.4rem 1.5rem; }
+  .quotes .q p { font-style:italic; color:var(--text); line-height:1.55; font-size:1rem; font-weight:300; }
+  .quotes .q .by { margin-top:.8rem; font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.25em; color:var(--gold-champagne); text-transform:uppercase; }
+  @media (max-width:900px) { .quotes { grid-template-columns:1fr 1fr; } }
+  @media (max-width:768px) { .quotes { grid-template-columns:1fr; } }
+
+  .modal { background:var(--deep-navy); border-color:rgba(26,107,222,.4); }
   .modal .eyebrow { opacity:1; transform:none; margin-bottom:.6rem; }
   .modal h3 { color:var(--text); }
   .day.sel { background:var(--gold); border-color:var(--gold); color:#000; }
-  .day.wk:hover { background:rgba(201,168,76,.25); border-color:var(--gold); }
+  .day.wk:hover { background:rgba(26,107,222,.25); border-color:var(--gold); }
   .cal-nav button:hover:not([disabled]) { background:var(--gold); color:#000; }
   .cal-quick button.on, .cal-quick .on { background:var(--gold); color:#000; border-color:var(--gold); }
   .qty button { cursor:none; }
@@ -333,17 +455,21 @@
   input:focus { border-color:var(--gold) !important; }
   .banner { background:var(--gold); color:#000; }
   .quals-list li::marker, .quals-list li b { color:var(--gold-champagne); }
-  @media (max-width:900px) { .founder, .cert { grid-template-columns:1fr; } .founder .portrait { min-height:360px; } .tiles, .tiles.four { grid-template-columns:1fr 1fr; } }
+  @media (max-width:900px) { .founder, .cert, .team { grid-template-columns:1fr; } .founder .portrait, .team .portrait { max-width:380px; width:100%; margin:0 auto; } .tiles, .tiles.four { grid-template-columns:1fr 1fr; } }
+  /* The fixed chapter nav on the right needs its own lane: at laptop widths keep the labels and give the panels a right
+     margin; on tablets collapse the nav to its tick marks so the content keeps most of the width. */
+  @media (min-width:1025px) and (max-width:1600px) { section.panel { padding-right:16.5rem; } }
+  @media (min-width:769px) and (max-width:1024px) { section.panel { padding-right:4.5rem; } .chapter-nav { right:.8rem; gap:.35rem; } .chap-link { font-size:0; padding:.3rem .4rem; gap:0; } .chap-link::before { width:16px; } .chap-link.active::before, .chap-link:hover::before { width:22px; } }
   @media (max-width:768px) {
     html, body { cursor:auto; } .cta, .cta-button, .secondary-cta, .chap-link, .qty button { cursor:pointer; }
     .reticle, .chapter-nav { display:none; }
-    .hud { font-size:.55rem; } .hud.tr { right:1.8rem; } .hud.bl, .hud.br { display:none; }
+    .hud { font-size:.55rem; } .hud.tr, .hud.bl, .hud.br { display:none; }   /* phones keep only the top-left line; the section counter collided with it */
     .stats { grid-template-columns:1fr; gap:1rem; }
     .tiles, .tiles.four { grid-template-columns:1fr; } .tile, .tiles.four .tile { min-height:220px; }
     section.panel { padding:5rem 1rem; }
     .glass { padding:.8rem; }
     .secondary-cta, .cta-button.ghost-button { margin-left:0; }
-    #photos .ph.on { opacity:.28; }
+    #photos .ph.on { opacity:.35; }
   }
   @media (prefers-reduced-motion: reduce) { .eyebrow, h1.mega, h2.section-h, .sub, .rise { transition:none; opacity:1; filter:none; transform:none; } }
 </style>
@@ -352,21 +478,25 @@
 
 <div id="intro-seq">
   <div class="intro-credit">A Houston Operation</div>
-  <div class="intro-credit wordmark">MAST SOLUTIONS</div>
+  <div class="intro-credit wordmark">MAST Solutions</div>
   <div class="intro-credit">Since 2005</div>
+  <canvas class="intro-ring" id="intro-ring" aria-hidden="true"></canvas>
 </div>
 
 <canvas id="three-canvas"></canvas>
 <div id="photos">
   <div class="ph" data-for="01" style="background-image:url('images/mast/hero-casualty-carry.jpg');background-position:center 40%"></div>
-  <div class="ph" data-for="02" style="background-image:url('images/mast/disc-firearms.jpg')"></div>
-  <div class="ph" data-for="03" style="background-image:url('images/mast/ship-deck-movement.jpg')"></div>
+  <div class="ph" data-for="02" style="background-image:url('images/mast/disc-firearms.jpg');background-position:center top"></div>
+  <div class="ph" data-for="03" style="background-image:url('images/mast/ship-deck-operators.jpg');background-position:center top"></div>
   <div class="ph" data-for="04" style="background-image:url('images/mast/disc-cqb.jpg')"></div>
-  <div class="ph" data-for="05" style="background-image:url('images/mast/courses-low-light.jpg')"></div>
-  <div class="ph" data-for="06" style="background-image:url('images/mast/founder-ship.jpg');background-position:center 20%"></div>
-  <div class="ph" data-for="07" style="background-image:url('images/mast/vehicular.jpg')"></div>
-  <div class="ph" data-for="08" style="background-image:url('images/mast/privacy-aircraft.jpg')"></div>
-  <div class="ph" data-for="09" style="background-image:url('images/mast/contact-zodiac.jpg')"></div>
+  <div class="ph" data-for="05" style="background-image:url('images/mast/range/a08.jpg');background-position:center 45%"></div>
+  <div class="ph" data-for="06" style="background-image:url('images/mast/courses-low-light.jpg')"></div>
+  <div class="ph" data-for="07" style="background-image:url('images/mast/courses-low-light.jpg');background-position:center 60%"></div>
+  <div class="ph" data-for="08" style="background-image:url('images/mast/gallery/g06.jpg');background-position:center 45%"></div>
+  <div class="ph" data-for="09" style="background-image:url('images/mast/vehicular.jpg')"></div>
+  <div class="ph" data-for="10" style="background-image:url('images/mast/instructing-le.jpg');background-position:center 30%"></div>
+  <div class="ph" data-for="11" style="background-image:url('images/mast/privacy-aircraft.jpg')"></div>
+  <div class="ph" data-for="12" style="background-image:url('images/mast/contact-zodiac.jpg')"></div>
 </div>
 <div class="grain"></div>
 <div class="vignette"></div>
@@ -375,8 +505,8 @@
 <div class="progress" id="progress"></div>
 <div class="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>
 
-<a class="hud tl" href="index.html">&#9679; ATLAS GLINN &middot; MAST.SYS LIVE</a>
-<div class="hud tr" id="hud-section">SECTION 01 / 09</div>
+<a class="hud tl" href="/">&#9679; ATLAS GLINN &middot; MAST.SYS LIVE</a>
+<div class="hud tr" id="hud-section">SECTION 01 / 12</div>
 <div class="hud bl">HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W</div>
 <div class="hud br">DETAILS MATTER</div>
 
@@ -385,11 +515,15 @@
   <a href="#s2" class="chap-link">02 &middot; Standard</a>
   <a href="#s3" class="chap-link">03 &middot; Who</a>
   <a href="#s4" class="chap-link">04 &middot; Disciplines</a>
-  <a href="#s5" class="chap-link">05 &middot; Courses</a>
-  <a href="#s6" class="chap-link">06 &middot; Instructors</a>
-  <a href="#s7" class="chap-link">07 &middot; In Action</a>
-  <a href="#s8" class="chap-link">08 &middot; Privacy</a>
-  <a href="#s9" class="chap-link">09 &middot; Contact</a>
+  <a href="#s5" class="chap-link">05 &middot; The Range</a>
+  <a href="#s6" class="chap-link">06 &middot; Classes</a>
+  <a href="#s7" class="chap-link">07 &middot; Team Memberships</a>
+  <a href="#s8" class="chap-link">08 &middot; Instructors</a>
+  <a href="#s9" class="chap-link">09 &middot; In Action</a>
+  <a href="articles/index.html" class="chap-extra preview-only">&middot; Blogs</a>
+  <a href="#s10" class="chap-link">10 &middot; Testimonials</a>
+  <a href="#s11" class="chap-link">11 &middot; Privacy</a>
+  <a href="#s12" class="chap-link">12 &middot; Contact</a>
 </nav>
 
 <div id="banner" class="banner" role="status"></div>
@@ -398,10 +532,10 @@
 
   <section class="panel" id="s1" data-section="01">
     <div>
-      <div class="eyebrow">34 Years &middot; Quiet &middot; Deliberate</div>
-      <h1 class="mega"><span class="gold">Details</span> <span class="white">Matter.</span></h1>
+      <div class="eyebrow">Over Two Decades &middot; Quiet &middot; Deliberate</div>
+      <h1 class="mega"><span class="gold">Details</span> <span class="white">Matter</span></h1>
       <p class="sub">Trusted by DEA, Houston SWAT, US Military, and Homeland Security. No fluff. No shortcuts. No compromise.</p>
-      <div class="ctas rise"><a href="#s5" class="cta">Enter The Range</a><a href="#s6" class="secondary-cta">The Instructors</a></div>
+      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a><a href="#s5" class="secondary-cta">Enter The Range</a></div>   <!-- owner, 2026-09-05: "Swap Enter the Range to Book a Class; click = calendar open" -->
     </div>
     <div class="scroll-cue">SCROLL &darr;</div>
   </section>
@@ -410,11 +544,11 @@
     <div>
       <div class="eyebrow">Est. 2005 &middot; Houston, TX</div>
       <h2 class="section-h">Trained to <span class="gold">Standard.</span></h2>
-      <p class="sub">No paint-ball courses dressed up as tactics. No cinema instructors. We teach what works when the silence is broken.</p>
+      <p class="sub">No paint-ball courses dressed up as tactics. No cinema instructors. Real-world doctrine, changing TTPs, evolving tactics proven in real-world environments.</p>
       <div class="stats rise">
         <div class="stat"><div class="stat-num" data-count="1701" data-suffix="+">0</div><div class="stat-label">Students Trained</div></div>
-        <div class="stat"><div class="stat-num" data-count="21">0</div><div class="stat-label">Courses</div></div>
-        <div class="stat"><div class="stat-num" data-count="0">0</div><div class="stat-label">Shortcuts</div></div>
+        <div class="stat"><div class="stat-num" data-count="22">0</div><div class="stat-label">Classes</div></div>
+        <div class="stat"><div class="stat-num" data-count="20" data-suffix="+">0</div><div class="stat-label">Years &middot; Over Two Decades</div></div>
       </div>
     </div>
   </section>
@@ -453,33 +587,81 @@
     </div>
   </section>
 
+
   <section class="panel" id="s5" data-section="05">
     <div>
-      <div class="eyebrow">Course Catalog</div>
-      <h2 class="section-h">Twenty-One <span class="gold">Courses.</span></h2>
-      <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">First time with MAST? Start with a Fundamentals course.</b> Operator and P1 courses build on it; P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
-      <div class="catalog-wrap rise"><div class="glass"><div class="catalog-panel" id="catalog"></div></div>
-      <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p></div>
+      <div class="eyebrow">Enter the Range</div>
+      <h2 class="section-h">The <span class="gold">Range.</span></h2>
+      <p class="sub">A private range. Flat range and berms, vehicle lanes, low light, and the shoothouse &mdash; the ground every class is run on.</p>
+      <div class="ctas rise"><button class="secondary-cta" type="button" id="range-fold-btn" aria-expanded="false" aria-controls="range-fold" onclick="toggleFold('range-fold', 'Click to View', 'Click to Close')">Click to View</button></div>
+      <div class="fold" id="range-fold"><div class="tiles four rise photo-tiles" id="range-tiles"><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 01" onclick="openLb('images/mast/range/a08.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a08.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a08.jpg')"></div><div class="txt"><div class="num">01</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 02" onclick="openLb('images/mast/range/a13.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a13.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a13.jpg')"></div><div class="txt"><div class="num">02</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 03" onclick="openLb('images/mast/range/a01.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a01.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a01.jpg')"></div><div class="txt"><div class="num">03</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 04" onclick="openLb('images/mast/range/a02.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a02.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a02.jpg')"></div><div class="txt"><div class="num">04</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 05" onclick="openLb('images/mast/range/a03.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a03.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a03.jpg')"></div><div class="txt"><div class="num">05</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 06" onclick="openLb('images/mast/range/a04.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a04.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a04.jpg')"></div><div class="txt"><div class="num">06</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 07" onclick="openLb('images/mast/range/a05.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a05.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a05.jpg')"></div><div class="txt"><div class="num">07</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 08" onclick="openLb('images/mast/range/a09.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a09.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a09.jpg')"></div><div class="txt"><div class="num">08</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 09" onclick="openLb('images/mast/range/a10.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a10.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a10.jpg')"></div><div class="txt"><div class="num">09</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 10" onclick="openLb('images/mast/range/a11.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a11.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a11.jpg')"></div><div class="txt"><div class="num">10</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 11" onclick="openLb('images/mast/range/a12.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a12.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a12.jpg')"></div><div class="txt"><div class="num">11</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 12" onclick="openLb('images/mast/range/r002.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/r002.jpg');}"><div class="bg" style="background-image:url('images/mast/range/r002.jpg')"></div><div class="txt"><div class="num">12</div></div></div></div>
+      </div>
     </div>
   </section>
 
   <section class="panel" id="s6" data-section="06">
     <div>
-      <div class="eyebrow">Founder &amp; Lead Instructor</div>
-      <h2 class="section-h">Matthew <span class="gold">Brockmann.</span></h2>
+      <div class="eyebrow">Course Catalog</div>
+      <h2 class="section-h">The <span class="gold">Classes.</span></h2>
+      <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Fundamentals first, unless you have taken it before. Each discipline&rsquo;s Fundamentals course opens its other courses, and Select Date asks before the calendar opens.</b> P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
+      <div class="catalog-wrap rise"><div class="glass"><div class="catalog-panel" id="catalog"></div></div>
+      <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p></div>
+    </div>
+  </section>
+
+
+  <section class="panel" id="s7" data-section="07">
+    <div>
+      <div class="eyebrow">Team Memberships &middot; Six Teams &middot; Limited Slots</div>
+      <h2 class="section-h">Team <span class="gold">Memberships.</span></h2>
+      <p class="sub">MAST offers membership in six teams: four open teams, plus Law Enforcement and Verified Teachers. Each team holds a set number of slots, so the benefits and the class seats are always there for the members who hold them. When a team is full there is a waiting list. New memberships are vetted by the established team.</p>
+      <div class="tiles four rise">
+        <div class="tile team-tile t-red" role="button" tabindex="0" onclick="joinTeam('red_team', 'Red Team', '$250', 'One class, plus 25% off any one class for you or one friend.')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();joinTeam('red_team', 'Red Team', '$250', 'One class, plus 25% off any one class for you or one friend.');}"><div class="bg"></div><div class="txt"><div class="num">$250 &middot; per month &middot; 10 memberships</div><h3>Red Team.</h3><p>One class, plus 25% off any one class for you or one friend.</p></div></div>
+        <div class="tile team-tile t-blue" role="button" tabindex="0" onclick="joinTeam('blue_team', 'Blue Team', '$450', 'Two classes, plus 35% off any two classes for you or two friends.')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();joinTeam('blue_team', 'Blue Team', '$450', 'Two classes, plus 35% off any two classes for you or two friends.');}"><div class="bg"></div><div class="txt"><div class="num">$450 &middot; per month &middot; 5 memberships</div><h3>Blue Team.</h3><p>Two classes, plus 35% off any two classes for you or two friends.</p></div></div>
+        <div class="tile team-tile t-gold" role="button" tabindex="0" onclick="joinTeam('gold_team', 'Gold Team', '$575', 'Three classes, plus 45% off any three classes for you or three friends.')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();joinTeam('gold_team', 'Gold Team', '$575', 'Three classes, plus 45% off any three classes for you or three friends.');}"><div class="bg"></div><div class="txt"><div class="num">$575 &middot; per month &middot; 5 memberships</div><h3>Gold Team.</h3><p>Three classes, plus 45% off any three classes for you or three friends.</p></div></div>
+        <div class="tile team-tile t-black" role="button" tabindex="0" onclick="joinTeam('black_team', 'Black Team', '$600', 'Unlimited classes, plus 50% off any class for you or four friends.')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();joinTeam('black_team', 'Black Team', '$600', 'Unlimited classes, plus 50% off any class for you or four friends.');}"><div class="bg"></div><div class="txt"><div class="num">$600 &middot; per month &middot; 5 memberships</div><h3>Black Team.</h3><p>Unlimited classes, plus 50% off any class for you or four friends.</p></div></div>
+        <div class="tile team-tile t-le" role="button" tabindex="0" onclick="joinTeam('le_team', 'Law Enforcement', '$195', 'Two classes, plus 35% off any two classes for you or two friends.')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();joinTeam('le_team', 'Law Enforcement', '$195', 'Two classes, plus 35% off any two classes for you or two friends.');}"><div class="bg"></div><div class="txt"><div class="num">$195 &middot; per month &middot; Verified status required</div><h3>Law Enforcement.</h3><p>Two classes, plus 35% off any two classes for you or two friends.</p></div></div>
+        <div class="tile team-tile t-teachers" role="button" tabindex="0" onclick="joinTeam('teachers_team', 'Verified Teachers', '$195', 'Two classes, plus 35% off any two classes for you or two friends.')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();joinTeam('teachers_team', 'Verified Teachers', '$195', 'Two classes, plus 35% off any two classes for you or two friends.');}"><div class="bg"></div><div class="txt"><div class="num">$195 &middot; per month &middot; Verified status required</div><h3>Verified Teachers.</h3><p>Two classes, plus 35% off any two classes for you or two friends.</p></div></div>
+      </div>
+      <p class="teams-note">Hover a team for what it includes; tap it to join. A slot is held while the monthly fee is paid; a lapsed slot goes to the waiting list. Membership is billed monthly by card; new memberships are vetted by the established team.</p>
+    </div>
+  </section>
+
+  <section class="panel" id="s8" data-section="08">
+    <div>
+      <div class="eyebrow">Instructors</div>
+      <h2 class="section-h">Meet The <span class="gold">Team.</span></h2>
       <div class="founder rise">
-        <div class="portrait" style="background-image:url('images/mast/instructing-le.jpg')"><div class="cap">Instructing a federal team on the line</div></div>
+        <div class="portrait" style="background-image:url('images/mast/brockmann-instructor.jpg');background-position:66% 50%"><div class="cap">Founder &amp; Lead Instructor</div></div>
         <div class="bio">
-          <p>Founded MAST Solutions in 2005 and later Atlas Glinn, LLC. Former Head of Security for Senator Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named only where media coverage exists. Other high-profile and high-net-worth individuals follow our privacy standards. We do not do media; a name appears only where media captured it without our consent. Teaches on the range. Has trained Houston, Baytown, Galveston, and other SWAT teams, including TTPOA (TX Tactical Police Officers Association), VBSS (Visit, Board, Search, Seize), NASA SRT, Dept of Homeland Security, and other federal, state, and Military Units.</p>
+          <h3>Matthew Brockmann</h3><div class="role">Founder &amp; Lead Instructor</div>
+          <p>Founded MAST Solutions in 2005 and later Atlas Glinn, LLC. Former Head of Security, Sen. Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named as media exist. Other high-profile and high-net-worth individuals follow our privacy standards. We don&rsquo;t do media. Names appear only where the media captured them. Teaches on the range. Has trained Houston, Baytown, Galveston, and other SWAT teams, including TTPOA (TX Tactical Police Officers Association), VBSS (Visit, Board, Search, Seize), NASA SRT, Dept of Homeland Security, and other federal, state, and Military Units.</p>
           <ul class="creds">
             <li>Trained by <b>Paul Howe</b> (1st SFOD-D), <b>Bill Jeans</b> and <b>John Perretti</b></li>
-            <li><b>DPS Level III Firearms Instructor</b> &middot; <b>TTPOA Maritime VBSS</b> instructor</li>
-            <li>Featured on <b>Modern Shooter TV</b> and in <b>The Washington Post</b></li>
+            <li><b>DPS Level III Firearms Instructor</b> &middot; <b>12+ certified instructor programs</b> &middot; <b>TTPOA Maritime VBSS</b> instructor</li>
+            <li>Law Enforcement Instructor, <b>Harris County Diplomatic Protection Unit</b></li>
+            <li><b>Chief Training Officer</b> certification co-signed by the Chief of the <b>Texas Rangers</b> (Ret.)</li>
+            <li>Featured on <b>Modern Shooter TV</b>, in <b>The Washington Post</b> and <b>The Houstonian</b></li>
           </ul>
           <p class="cadre">Courses run with a lead instructor, assistant instructors, and RSOs (Range Safety Officers) on the line. Your instructors are named on the course confirmation.</p>
-          <div class="ctas"><button class="cta-button ghost-button" type="button" onclick="openQuals()">Qualifications &amp; Certifications</button><a href="#s5" class="cta-button">Train With Him</a></div>
+          <div class="ctas"><button class="cta-button ghost-button" type="button" onclick="openQuals()">Qualifications &amp; Certifications</button><a href="#s6" class="cta-button">Train With Him</a></div>
         </div>
       </div>
+      <!-- Team blocks in the Atlas Glinn "Meet the Team" format (owner, 2026-09-04: "add Mike Cline - Look at how ATLASGLINN list and emulate").
+           Cline's portrait and bio are the ones on atlasglinn.com/about; his MAST title is the owner's to set. Torrey Kramer's bio is a
+           one-line draft until the owner supplies the text (not in the old-site export). -->
+      <div class="team rise">
+        <div class="portrait" style="background-image:url('https://atlasglinn.com/wp-content/uploads/2025/03/Cline-Bio-Pic-1024x819.jpg');background-position:center 15%"><div class="cap">Chief Operating Officer</div></div>
+        <div class="bio"><h3>Michael Cline</h3><div class="role">Chief Operating Officer &middot; Atlas Glinn</div>
+          <p>As the Chief Operating Officer at Atlas Glinn, Michael Cline brings a wealth of experience and a strategic vision to the company. With a distinguished 12-year career as a Navy SEAL, Michael has honed exceptional leadership, discipline, and problem-solving skills that are now pivotal in driving Atlas Glinn&rsquo;s operational excellence.</p>
+        </div>
+      </div>
+      <div class="team rise">
+        <div class="portrait" style="background-image:url('images/mast/torrey-kramer.jpg');background-position:center 20%"><div class="cap">Instructor</div></div>
+        <div class="bio"><h3>Torrey Kramer</h3><div class="role">Instructor</div>
+        </div><!-- bio text deleted on the owner's word (2026-09-05: "Delete Torrey Kramer's bio"); the portrait, name and the film below stay -->
+      </div>
+      <div class="media-strip rise" id="instructor-strip"></div>
       <div class="cert rise">
         <img src="images/mast/capitol-flag-certificate.jpg" alt="Certificate: a flag flown over the United States Capitol in honor of Matthew Brockmann, at the request of Senator Ted Cruz, December 1, 2021" loading="lazy">
         <p>A flag flown over the United States Capitol at the request of Senator Ted Cruz, December 1, 2021, &ldquo;with gratitude for your steadfast vigilance, unwavering dedication, and heart of service.&rdquo; The task force is not named here. Details matter. Privacy matters.</p>
@@ -487,33 +669,58 @@
     </div>
   </section>
 
-  <section class="panel" id="s7" data-section="07">
+  <section class="panel" id="s9" data-section="09">
     <div>
       <div class="eyebrow">MAST Solutions In Action</div>
       <h2 class="section-h">In <span class="gold">Action.</span></h2>
       <p class="sub">Training, operations, and the people behind the mission. Tap to play. Nothing loads until you do.</p>
+      <a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener" class="post rise"><small>As featured in</small>The Washington Post &middot; Arming American Teachers &rarr;</a>
+      <!-- The Washington Post feature sits above the films (owner, 2026-09-05: "the videos will draw attention, so put it right above the videos") -->
       <div class="media-strip rise" id="media-strip"></div>
-      <a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener" class="post"><small>As featured in</small>The Washington Post &middot; Arming American Teachers &rarr;</a>
+      <div class="eyebrow gallery-eyebrow rise">Photographs</div>
+      <div class="ctas rise"><button class="secondary-cta" type="button" id="gallery-fold-btn" aria-expanded="false" aria-controls="gallery-fold" onclick="toggleFold('gallery-fold', 'Click to View', 'Click to Close')">Click to View</button></div>
+      <div class="fold" id="gallery-fold"><div class="tiles four rise photo-tiles" id="gallery-tiles"><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 01" onclick="openLb('images/mast/gallery/g12.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g12.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g12.jpg')"></div><div class="txt"><div class="num">01</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 02" onclick="openLb('images/mast/gallery/g01.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g01.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g01.jpg')"></div><div class="txt"><div class="num">02</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 03" onclick="openLb('images/mast/gallery/g03.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g03.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g03.jpg')"></div><div class="txt"><div class="num">03</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 04" onclick="openLb('images/mast/gallery/g07.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g07.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g07.jpg')"></div><div class="txt"><div class="num">04</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 05" onclick="openLb('images/mast/gallery/g06.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g06.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g06.jpg')"></div><div class="txt"><div class="num">05</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 06" onclick="openLb('images/mast/gallery/g04.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g04.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g04.jpg')"></div><div class="txt"><div class="num">06</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 07" onclick="openLb('images/mast/gallery/g05.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g05.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g05.jpg')"></div><div class="txt"><div class="num">07</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 08" onclick="openLb('images/mast/gallery/g13.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g13.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g13.jpg')"></div><div class="txt"><div class="num">08</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 09" onclick="openLb('images/mast/gallery/g11.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g11.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g11.jpg')"></div><div class="txt"><div class="num">09</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 10" onclick="openLb('images/mast/gallery/g10.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g10.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g10.jpg')"></div><div class="txt"><div class="num">10</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 11" onclick="openLb('images/mast/gallery/g08.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g08.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g08.jpg')"></div><div class="txt"><div class="num">11</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 12" onclick="openLb('images/mast/gallery/g09.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g09.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g09.jpg')"></div><div class="txt"><div class="num">12</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 13" onclick="openLb('images/mast/gallery/g02.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g02.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g02.jpg')"></div><div class="txt"><div class="num">13</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 14" onclick="openLb('images/mast/range/a06.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a06.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a06.jpg')"></div><div class="txt"><div class="num">14</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 15" onclick="openLb('images/mast/range/a07.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a07.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a07.jpg')"></div><div class="txt"><div class="num">15</div></div></div></div>
+      </div>
     </div>
   </section>
 
-  <section class="panel" id="s8" data-section="08">
+  <section class="panel" id="s10" data-section="10">
+    <div>
+      <div class="eyebrow">Testimonials</div>
+      <h2 class="section-h">In Their <span class="gold">Words.</span></h2>
+      <div class="media-strip rise" id="testimonial-strip"></div>
+      <div class="quotes rise">
+        <div class="q"><p>&ldquo;Matthew is an expert in his field. He is highly motivated, knowledgeable and I highly recommend him for top-tier performance.&rdquo;</p><div class="by">Kenny Upton &middot; Deputy, Harris County Sheriff</div></div>
+        <div class="q"><p>&ldquo;His leadership, dedication, drive, and passion is second to none. A master at teamwork, problem-solving, leadership, and communication.&rdquo;</p><div class="by">Ray Cash Care &middot; Navy SEAL / Former CIA</div></div>
+        <div class="q"><p>&ldquo;As a former Reconnaissance Marine, Matthew&rsquo;s teaching has not only made me a better shooter, he has made me a better team player.&rdquo;</p><div class="by">Arthur Metcalfe &middot; Recon Marine</div></div>
+        <div class="q"><p>&ldquo;Brockmann had hosted and taught some of the best classes I have been a part of. I can&rsquo;t recommend him enough.&rdquo;</p><div class="by">William H. Miller &middot; Flight Paramedic</div></div>
+        <div class="q"><p>&ldquo;Extremely professional. In an extremely competitive industry Matt has never failed to provide exceptional guidance. I recommend him without hesitation.&rdquo;</p><div class="by">Craig Etkin &middot; President &amp; CEO, intelligence360</div></div>
+        <div class="q"><p>&ldquo;I&rsquo;ve trained with some big-name national and global self-defense trainers. I&rsquo;ve always felt safe training with Matt, the #1 criterion for choosing a trainer.&rdquo;</p><div class="by">Wayne Sadin &middot; CxO / Investor</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="s11" data-section="11">
     <div>
       <div class="badge">Privacy Matters</div>
       <p class="sub quote lead">&ldquo;Details matter. Privacy matters. We don&rsquo;t disclose.&rdquo;</p>
-      <p class="sub" style="font-size:.98rem;">Former Head of Security for Senator Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named only where media coverage exists. Other high-profile and high-net-worth individuals follow our privacy standards. We do not do media; a name appears only where media captured it without our consent. Pictured: Senators Hawley and Schmitt.</p>
+      <p class="sub" style="font-size:.98rem;">Former Head of Security, Sen. Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named as media exist. Other high-profile and high-net-worth individuals follow our privacy standards. We don&rsquo;t do media. Names appear only where the media captured them.</p>
+      <div class="cert rise">
+        <img src="images/mast/privacy-aircraft.jpg" alt="U.S. Senators Josh Hawley and Eric Schmitt aboard an aircraft, seen through the cabin windows" loading="lazy">
+        <p>Pictured: Senators Hawley and Schmitt.</p>
+      </div>
       <div class="eyebrow" style="margin-top:2.5rem;">For agencies, units and procurement officers</div>
-      <div class="ctas rise"><a href="mailto:atlasglinn.hq@atlasglinn.com?subject=MAST%20Solutions%20Capability%20Statement%20Request" class="cta">Email for the Capability Statement</a><a href="mast-capability-statement.html" class="secondary-cta">View One-Pager</a></div>
+      <div class="ctas rise"><a href="mailto:matthew@atlasglinn.com?subject=MAST%20Solutions%20Capability%20Statement%20Request" class="cta">Email for the Capability Statement</a><a href="mast-capability-statement.html" class="secondary-cta">View One-Pager</a></div>
     </div>
   </section>
 
-  <section class="panel" id="s9" data-section="09">
+  <section class="panel" id="s12" data-section="12">
     <div>
       <div class="eyebrow">Book a Course</div>
       <h2 class="section-h"><span class="gold">Train</span> with MAST.</h2>
       <p class="sub">Individual seats, team blocks, and agency instruction.</p>
       <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div>
-      <div class="ctas rise"><a href="#s5" class="cta">Book a Course</a><a href="index.html" class="secondary-cta">Atlas Glinn &rarr;</a></div>
+      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a><a href="/" class="secondary-cta">Atlas Glinn &rarr;</a></div>
       <div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions <br><a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.youtube.com/@mastsolutions" target="_blank" rel="noopener">YouTube</a></div>
     </div>
   </section>
@@ -531,10 +738,59 @@
     <div class="cal-nav"><button id="cal-prev" aria-label="Previous month" onclick="calShift(-1)">&#8249;</button><div class="cal-month" id="cal-month"></div><button id="cal-next" aria-label="Next month" onclick="calShift(1)">&#8250;</button></div>
     <div class="cal-dow"><div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div></div>
     <div class="cal-grid" id="cal-grid"></div>
-    <div class="cal-legend"><span><i style="background:rgba(201,168,76,.5)"></i>Training weekend</span><span><i style="background:#E8D27D"></i>Selected</span><span><i style="background:#333"></i>Unavailable</span></div>
+    <div class="cal-legend"><span><i style="background:rgba(26,107,222,.5)"></i>Training weekend</span><span><i style="background:#5B9BFF"></i>Selected</span><span><i style="background:#333"></i>Unavailable</span></div>
     <div class="cal-quick" id="cal-quick"></div>
     <div class="cal-hint" style="margin-top:1rem;">One-day courses run Saturday, two-day courses Saturday and Sunday. Range directions and gear list follow by email after booking.</div>
     <div class="cal-foot"><div class="cal-sel" id="cal-sel">Tap a highlighted date.</div><button class="cta-button" id="cal-go" disabled onclick="calContinue()">Continue &rarr;</button></div>
+</div>
+
+<!-- PREREQUISITE GATE: asked at Select Date for every course with a prerequisite (owner, 2026-09-04) -->
+<div id="gate-bd" class="modal-bd" onclick="closeGate()"></div>
+<div id="gate" class="modal gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+    <button class="modal-x" aria-label="Close" onclick="closeGate()">&times;</button>
+    <div class="eyebrow">Before you pick a date</div>
+    <h3 id="gate-title"></h3>
+    <p class="gate-text" id="gate-text"></p>
+    <div class="gate-actions"><button class="cta-button" id="gate-yes" type="button" onclick="gateYes()">Yes &mdash; I have completed it</button><button class="cta-button ghost-button" id="gate-no" type="button" onclick="gateNo()"></button></div>
+    <p class="gate-fine">First time with MAST? Start with Fundamentals. It is the base every other course builds on.</p>
+</div>
+
+<!-- PRIVATE INSTRUCTION REQUEST: sends through the Worker's /contact (owner, 2026-09-05: "Request = doesn't go to email"). -->
+<div id="req-bd" class="modal-bd" onclick="closeReq()"></div>
+<div id="req" class="modal gate req" role="dialog" aria-modal="true" aria-labelledby="req-title">
+    <button class="modal-x" aria-label="Close" onclick="closeReq()">&times;</button>
+    <div class="eyebrow">Private instruction</div>
+    <h3 id="req-title"></h3>
+    <p class="gate-text" id="req-meta"></p>
+    <label>Name<input id="req-name" type="text" autocomplete="name" required></label>
+    <label>Email<input id="req-email" type="email" autocomplete="email" required></label>
+    <label>Phone <span class="opt">(optional)</span><input id="req-phone" type="tel" autocomplete="tel"></label>
+    <label>Anything we should know <span class="opt">(optional)</span><textarea id="req-msg" rows="3"></textarea></label>
+    <input type="text" id="req-web" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;">
+    <div class="gate-actions"><button class="cta-button" id="req-go" type="button" onclick="reqGo()">Send Request</button></div>
+    <p class="err" id="req-err" hidden></p>
+    <p class="gate-fine">We reply within one business day. Private sessions are by arrangement, not on the weekend calendar.</p>
+</div>
+
+<!-- BOOK A CLASS, date first (owner, 2026-09-05: "Click Book Class = calendar open; each has tab; choose tab; class offerings; all dates; hover class shows").
+     Every training weekend; hover or tap a date for what runs; tabs by discipline ("All" opens every tab); Select hands the class to the
+     normal gate → calendar (date preselected) → registration. Until the course→weekend map exists, every bookable course runs every weekend. -->
+<div id="dcal-bd" class="modal-bd" onclick="closeDCal()"></div>
+<div id="dcal" class="modal wide" role="dialog" aria-modal="true" aria-labelledby="dcal-title">
+    <button class="modal-x" aria-label="Close" onclick="closeDCal()">&times;</button>
+    <div class="eyebrow">Book a Class</div>
+    <h3 id="dcal-title">Choose a training weekend</h3>
+    <div class="modal-meta">Every training weekend on one calendar. Hover a date for what runs; tap it to choose a class.</div>
+    <div class="cal-nav"><button id="dcal-prev" aria-label="Previous month" onclick="dcalShift(-1)">&#8249;</button><div class="cal-month" id="dcal-month"></div><button id="dcal-next" aria-label="Next month" onclick="dcalShift(1)">&#8250;</button></div>
+    <div class="cal-dow"><div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div></div>
+    <div class="cal-grid" id="dcal-grid"></div>
+    <div class="cal-legend"><span><i style="background:rgba(26,107,222,.5)"></i>Training weekend</span><span><i style="background:#5B9BFF"></i>Selected</span><span><i style="background:#333"></i>Unavailable</span></div>
+    <div class="cal-quick" id="dcal-quick"></div>
+    <div class="cal-classes" id="dcal-classes" hidden>
+        <div class="cal-sel" id="dcal-sel"></div>
+        <div class="cal-tabs" id="dcal-tabs"></div>
+        <div class="cal-list" id="dcal-list"></div>
+    </div>
 </div>
 
 <!-- CHECKOUT -->
@@ -559,13 +815,14 @@
         <label>Seats</label>
         <div class="qty"><button type="button" aria-label="Fewer seats" onclick="step(-1)">&minus;</button><span class="qv" id="co-qty">1</span><button type="button" aria-label="More seats" onclick="step(1)">+</button></div>
         <p class="reg-note">One seat per person. You answer the eligibility questions and sign the agreement for yourself; additional attendees complete their own before class.</p>
+        <label class="reg-check" id="co-prereq-wrap" hidden><input type="checkbox" id="co-prereq"><span id="co-prereq-text">I have completed the prerequisite Fundamentals course, or an instructor-approved equivalent, before this course.</span></label>
         <label class="reg-check"><input type="checkbox" id="co-news"><span>Email me about new courses and training weekends. Optional, and separate from your booking emails.</span></label>
         <div class="total"><span>Total</span><span class="amt" id="co-total-1">&mdash;</span></div>
         <button class="cta-button" onclick="regNext(1)">Continue &rarr;</button>
     </div>
 
     <div class="reg-step" id="reg-2" hidden>
-        <p class="reg-lead">Two questions before you sign. These are live-fire courses. Your answers are seen by MAST staff only, never emailed, and deleted on a schedule (see the <a href="privacy.html#eligibility" target="_blank" rel="noopener" style="color:#E8D27D;text-decoration:none;">Privacy Policy</a>).</p>
+        <p class="reg-lead">Two questions before you sign. These are live-fire courses. Your answers are seen by MAST staff only, never emailed, and deleted on a schedule (see the <a href="privacy.html#eligibility" target="_blank" rel="noopener" style="color:#5B9BFF;text-decoration:none;">Privacy Policy</a>).</p>
         <fieldset class="reg-q"><legend>1. Are you a citizen of the United States?</legend><div class="reg-yn"><label><input type="radio" name="q1" value="yes">Yes</label><label><input type="radio" name="q1" value="no">No</label></div></fieldset>
         <fieldset class="reg-q"><legend>2. Do you have a felony conviction that prevents you from using or handling a firearm?</legend><div class="reg-yn"><label><input type="radio" name="q2" value="yes">Yes</label><label><input type="radio" name="q2" value="no">No</label></div></fieldset>
         <label class="reg-check"><input type="checkbox" id="q-attest"><span>I confirm these answers are true. I understand MAST Solutions relies on them to admit me to a live-fire course.</span></label>
@@ -598,7 +855,7 @@
         <div class="total"><span>Total</span><span class="amt" id="co-total">&mdash;</span></div>
         <div class="reg-nav"><button type="button" class="reg-back" onclick="regBack(4)">&larr; Back</button><button class="cta-button" id="co-pay" onclick="startCheckout()">Continue to Secure Checkout</button></div>
         <div class="secure">&#128274; PAYMENTS PROCESSED BY STRIPE</div>
-        <div class="secure" style="letter-spacing:.04em;text-transform:none;font-family:'Rajdhani',sans-serif;font-size:.85rem;">By continuing you agree to our <a href="privacy.html" target="_blank" rel="noopener" style="color:#E8D27D;text-decoration:none;">Privacy Policy</a>. Your range address and gear list follow by email.</div>
+        <div class="secure" style="letter-spacing:.04em;text-transform:none;font-family:'Rajdhani',sans-serif;font-size:.85rem;">By continuing you agree to our <a href="privacy.html" target="_blank" rel="noopener" style="color:#5B9BFF;text-decoration:none;">Privacy Policy</a>. Your range address and gear list follow by email.</div>
     </div>
     <div class="err" id="co-err"></div>
     <div class="reg-review" id="reg-review" hidden></div>
@@ -629,7 +886,7 @@
         <p>Serious illness, injury, family emergency, or military or law-enforcement deployment: contact us. We will transfer your seat to a future class at no charge, whatever the notice. We may ask for documentation for a deployment.</p>
         <h4>How refunds are issued</h4>
         <p>Refunds go back to the original payment method within 5 to 10 business days of approval. We do not refund to a different card or by cash.</p>
-        <p class="policy-version">Policy version 2026-09-01-draft &middot; your acceptance is recorded with this version, the time and your IP address.</p>
+        <p class="policy-version">Policy version 2026-09-01 &middot; your acceptance is recorded with this version, the time and your IP address.</p>
     </div>
     <button class="cta-button" onclick="closePolicy()" style="margin-top:1rem">Close</button>
 </div>
@@ -675,11 +932,30 @@
         <li>Trained U.S. Army units for pre-deployment (101st CQB package)</li>
     </ol>
 </div>
+<!-- MEMBERSHIP JOIN: name + email, then Stripe Checkout in subscription mode through the Worker (POST /create-membership) -->
+<div id="join-bd" class="modal-bd" onclick="closeJoin()"></div>
+<div id="join" class="modal gate join" role="dialog" aria-modal="true" aria-labelledby="join-title">
+    <button class="modal-x" aria-label="Close" onclick="closeJoin()">&times;</button>
+    <div class="eyebrow">Membership</div>
+    <h3 id="join-title"></h3>
+    <div class="modal-meta" id="join-meta"></div>
+    <p class="join-inc" id="join-inc"></p>
+    <label class="join-field">Name<input id="join-name" type="text" autocomplete="name"></label>
+    <label class="join-field">Email<input id="join-email" type="email" autocomplete="email" required></label>
+    <div class="gate-actions"><button class="cta-button" id="join-go" type="button" onclick="joinGo()">Continue to Stripe</button></div>
+    <p class="gate-fine">Billed monthly by card through Stripe. New memberships are vetted by the established team.</p>
+    <p class="join-err" id="join-err" role="alert"></p>
+</div>
+
+<!-- LIGHTBOX for the Range photographs -->
+<div id="lb-bd" class="modal-bd" onclick="closeLb()"></div>
+<div id="lb" class="modal wide lightbox" role="dialog" aria-modal="true" aria-label="Photograph"><button class="modal-x" aria-label="Close" onclick="closeLb()">&times;</button><img id="lb-img" alt=""></div>
+
 
 <script type="module">
 import * as THREE from './vendor/three.module.js';
 
-const SECTIONS = 9;
+const SECTIONS = 12;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mobile = matchMedia('(max-width: 768px)').matches;
 
@@ -697,6 +973,31 @@ const openHero = () => {
 };
 if (reduce) { openHero(); } else {
   setTimeout(() => { intro.classList.add('done'); setTimeout(openHero, 1000); }, 4800);
+}
+// Gold ring (Brockmann, 2026-09-04: "the gold around the Atlas Glinn is what I was talking about ... take some of the gold shimmer
+// and fade it in and fade it out"): the sparkle ring of the current atlasglinn.com intro — a tilted, slowly turning, pulsing ring
+// of gold points — drawn in 2D around the wordmark. It fades in after the wordmark appears and out before the splash ends; the
+// wordmark itself keeps the page palette. Always gold, on both sites.
+const ring = document.getElementById('intro-ring');
+if (ring && !reduce) {
+  // rgb() on purpose: the ring is gold on every page, so these must not match the palette recolor's hex and rgba( tokens
+  const g = ring.getContext('2d'), P = [], gold = ['rgb(201 168 76)', 'rgb(232 210 125)', 'rgb(252 246 186)', 'rgb(191 149 63)', 'rgb(212 175 55)'];
+  const N = mobile ? 260 : 520;
+  const pick = () => gold[Math.floor(Math.random() * gold.length)];
+  for (let i = 0; i < N; i++) P.push({ a: Math.random() * Math.PI * 2, r: 1 + (Math.random() - .5) * .22, y: (Math.random() - .5) * .18, s: 1 + Math.random() * 2.2, c: pick(), o: .35 + Math.random() * .65, w: 1 + Math.random() * 2 });
+  for (let i = 0; i < N / 3; i++) P.push({ a: Math.random() * Math.PI * 2, r: 1.15 + Math.random() * .6, y: (Math.random() - .5) * .5, s: 1 + Math.random() * 1.5, c: pick(), o: .15 + Math.random() * .4, w: 1 + Math.random() * 2 });
+  const t0 = performance.now();
+  const fade = t => t < .9 ? 0 : t < 1.9 ? t - .9 : t < 3.6 ? 1 : t < 4.6 ? 1 - (t - 3.6) : 0;
+  const draw = () => {
+    if (!ring.isConnected) return;
+    const t = (performance.now() - t0) / 1000, W = ring.width = innerWidth, H = ring.height = innerHeight, k = fade(t);
+    ring.style.opacity = k; g.clearRect(0, 0, W, H);
+    if (t > 4.6) return;
+    const R = Math.min(W, H) * (mobile ? .42 : .34), cx = W / 2, cy = H / 2, rot = t * .3, pulse = 1 + Math.sin(t * 3) * .02, tilt = .62 + Math.sin(t) * .06;
+    for (const p of P) { const a = p.a + rot, x = cx + Math.cos(a) * R * p.r * pulse * 1.35, y = cy + Math.sin(a) * R * p.r * pulse * tilt + p.y * R; g.globalAlpha = p.o * (.7 + .3 * Math.sin(t * p.w * 2 + p.a * 7)); g.fillStyle = p.c; g.fillRect(x, y, p.s, p.s); }
+    requestAnimationFrame(draw);
+  };
+  requestAnimationFrame(draw);
 }
 
 // ── Reticle ──
@@ -724,11 +1025,11 @@ const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 10
 camera.position.set(0, 0, 9);
 
 // Lights — all warm
-scene.add(new THREE.AmbientLight(0x1a1208, 0.5));
-const keyL = new THREE.DirectionalLight(0xC9A84C, 3.0); keyL.position.set(6, 10, 7); scene.add(keyL);
-const rimL = new THREE.DirectionalLight(0xB87333, 1.6); rimL.position.set(-7, -4, -5); scene.add(rimL);
-const fillL = new THREE.DirectionalLight(0xE8D27D, 0.9); fillL.position.set(0, -8, 3); scene.add(fillL);
-const pt = new THREE.PointLight(0xFCF6BA, 3.5, 18); pt.position.set(0, 0, 4); scene.add(pt);
+scene.add(new THREE.AmbientLight(0x0a1020, 0.5));
+const keyL = new THREE.DirectionalLight(0x1A6BDE, 3.0); keyL.position.set(6, 10, 7); scene.add(keyL);
+const rimL = new THREE.DirectionalLight(0x0E3F8C, 1.6); rimL.position.set(-7, -4, -5); scene.add(rimL);
+const fillL = new THREE.DirectionalLight(0x5B9BFF, 0.9); fillL.position.set(0, -8, 3); scene.add(fillL);
+const pt = new THREE.PointLight(0xDCEBFF, 3.5, 18); pt.position.set(0, 0, 4); scene.add(pt);
 
 // Reflective floor
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(140, 140, 40, 40),
@@ -747,9 +1048,9 @@ scene.add(peaks);
 
 // Hero emblem: hexagonal shield, rings, bars, gem, shards
 const emblem = new THREE.Group();
-const gold = new THREE.MeshStandardMaterial({ color: 0xC9A84C, metalness: 1, roughness: .12, emissive: 0x2a1f08, emissiveIntensity: .4 });
-const copper = new THREE.MeshStandardMaterial({ color: 0xB87333, metalness: 1, roughness: .18, emissive: 0x3a1a08, emissiveIntensity: .5 });
-const champagne = new THREE.MeshStandardMaterial({ color: 0xE8D27D, metalness: 1, roughness: .1, emissive: 0x443311, emissiveIntensity: .8 });
+const gold = new THREE.MeshStandardMaterial({ color: 0x1A6BDE, metalness: 1, roughness: .12, emissive: 0x081a3a, emissiveIntensity: .4 });
+const copper = new THREE.MeshStandardMaterial({ color: 0x0E3F8C, metalness: 1, roughness: .18, emissive: 0x071535, emissiveIntensity: .5 });
+const champagne = new THREE.MeshStandardMaterial({ color: 0x5B9BFF, metalness: 1, roughness: .1, emissive: 0x112a55, emissiveIntensity: .8 });
 const shield = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.3, 0.4, 6), gold); shield.rotation.x = Math.PI / 2; emblem.add(shield);
 const innerHex = new THREE.Mesh(new THREE.CylinderGeometry(1.75, 1.75, 0.45, 6), new THREE.MeshStandardMaterial({ color: 0x050810, metalness: .6, roughness: .4 }));
 innerHex.rotation.x = Math.PI / 2; emblem.add(innerHex);
@@ -768,7 +1069,7 @@ scene.add(emblem);
 const rays = new THREE.Group();
 for (let i = 0; i < 14; i++) {
   const r = new THREE.Mesh(new THREE.ConeGeometry(.08, 16, 8, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0xC9A84C, transparent: true, opacity: .04, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+    new THREE.MeshBasicMaterial({ color: 0x1A6BDE, transparent: true, opacity: .04, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
   r.rotation.z = (Math.PI * 2 * i) / 14; r.position.z = -2; rays.add(r);
 }
 scene.add(rays);
@@ -781,7 +1082,7 @@ function pts(count, color, size, range) {
   const o = new THREE.Points(g, new THREE.PointsMaterial({ color, size, transparent: true, opacity: .65, blending: THREE.AdditiveBlending, depthWrite: false }));
   o.userData = { v }; return o;
 }
-const gd = pts(mobile ? 220 : 600, 0xC9A84C, .035, 40), ch = pts(mobile ? 60 : 150, 0xE8D27D, .028, 30);
+const gd = pts(mobile ? 220 : 600, 0x1A6BDE, .035, 40), ch = pts(mobile ? 60 : 150, 0x5B9BFF, .028, 30);
 scene.add(gd); scene.add(ch);
 
 // Stars
@@ -804,6 +1105,9 @@ const kf = [
   { x: 0, y: -2, z: 10, lx: 0, ly: .5, lz: 0 },
   { x: 2, y: -3, z: 13, lx: 0, ly: 1, lz: 0 },
   { x: -2, y: -3.5, z: 15, lx: 0, ly: 1.5, lz: 0 },
+  { x: 3, y: 1, z: 11, lx: 0, ly: 0, lz: 0 },
+  { x: -3, y: 2, z: 13, lx: 0, ly: -1, lz: 0 },
+  { x: 4, y: 3, z: 14, lx: 0, ly: -.5, lz: 0 },
   { x: 0, y: -4, z: 18, lx: 0, ly: 2, lz: 0 },
 ];
 let activeIdx = 0;
@@ -829,7 +1133,7 @@ function update() {
   scene.fog.density = 0.03 + t * .025;
   document.getElementById('progress').style.width = (t * 100) + '%';
   const idx = sectionIndex();
-  if (idx !== activeIdx) { activeIdx = idx; document.getElementById('hud-section').textContent = `SECTION 0${idx + 1} / 0${SECTIONS}`; chapLinks.forEach((l, k) => l.classList.toggle('active', k === idx)); }
+  if (idx !== activeIdx) { activeIdx = idx; document.getElementById('hud-section').textContent = `SECTION ${String(idx + 1).padStart(2, '0')} / ${String(SECTIONS).padStart(2, '0')}`; chapLinks.forEach((l, k) => l.classList.toggle('active', k === idx)); }
   if (!intro.isConnected) setPhoto(idx);
 }
 addEventListener('scroll', update, { passive: true });
@@ -870,31 +1174,33 @@ const API = 'https://mast-booking-backend.matthew-221.workers.dev';
 const BOOKING_ENDPOINT = API + '/create-booking', CATALOG_ENDPOINT = API + '/catalog', WEEKENDS_ENDPOINT = API + '/weekends';
 
 const COURSES = [
-  { sku:'MAST-HG-FUND',  cat:'Handgun',         name:'Handgun Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16 },
-  { sku:'MAST-HG-OP',    cat:'Handgun',         name:'Handgun Operator',                hours:16, days:2, price_cents:45000, seats:10 },
-  { sku:'MAST-CAR-FUND', cat:'Carbine',         name:'Carbine Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16 },
-  { sku:'MAST-CAR-OP',   cat:'Carbine',         name:'Carbine Operator',                hours:16, days:2, price_cents:45000, seats:10 },
-  { sku:'MAST-SG-FUND',  cat:'Shotgun',         name:'Shotgun Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16 },
+  /* Private instruction — listed first (owner, 2026-09-04). No price and no dates on the page; the sheet PDF is linked when supplied — by arrangement, not on the weekend calendar. Priced per the owner's 2026-09 progression sheet. */
+  { sku:'MAST-PVT-2H',    cat:'Private Instruction', img:'images/mast/class/MAST-PVT-2H.jpg', name:'Private Session',                 request:true, price_cents:35000,  meta:'2 HRS · ONE-ON-ONE · +$100 EACH ADDITIONAL HOUR' },
+  { sku:'MAST-PVT-FOUND', cat:'Private Instruction', img:'images/mast/class/MAST-PVT-FOUND.jpg', name:'Foundation Package — Phases 1–4', request:true, price_cents:125000, meta:'4 PHASES · PREPAID · $1,400 À LA CARTE' },
+  { sku:'MAST-PVT-FULL',  cat:'Private Instruction', img:'images/mast/class/MAST-PVT-FULL.jpg', name:'Full Progression — Phases 1–11',  request:true, price_cents:330000, meta:'11 PHASES · PREPAID · $3,850 À LA CARTE' },
+  { sku:'MAST-HG-FUND',  cat:'Handgun',         img:'images/mast/class/MAST-HG-FUND.jpg', name:'Handgun Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16 },
+  /* Ladies-only Handgun (owner, 2026-09-04: "add one selection, ladies only. Handgun."). Mirrors Handgun Fundamentals until he sets its hours, price and seats; it is a qualifier for the other courses like Handgun Fundamentals. */
+  { sku:'MAST-HG-LADIES', cat:'Handgun',        img:'images/mast/class/MAST-HG-LADIES.jpg', name:'Ladies Only Handgun Fundamentals', hours:8, days:1, price_cents:22500, seats:16 },
+  { sku:'MAST-HG-OP',    cat:'Handgun',         img:'images/mast/class/MAST-HG-OP.jpg', name:'Handgun Operator',                hours:16, days:2, price_cents:45000, seats:10 },
+  { sku:'MAST-CAR-FUND', cat:'Carbine',         img:'images/mast/class/MAST-CAR-FUND.jpg', name:'Carbine Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16 },
+  { sku:'MAST-CAR-OP',   cat:'Carbine',         img:'images/mast/class/MAST-CAR-OP.jpg', name:'Carbine Operator',                hours:16, days:2, price_cents:45000, seats:10 },
+  { sku:'MAST-SG-FUND',  cat:'Shotgun',         img:'images/mast/class/MAST-SG-FUND.jpg', name:'Shotgun Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16 },
   { sku:'MAST-SUB-FUND', cat:'Sub-Gun',         name:'Sub-Gun Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16 },
   { sku:'MAST-SUB-P1',   cat:'Sub-Gun',         name:'Sub-Gun P1',                      hours:8,  days:1, price_cents:25000, seats:10 },
-  { sku:'MAST-SF-P1',    cat:'Select-Fire',     name:'Select-Fire M4A1 / MK18 Operator P1', hours:8, days:1, price_cents:50000, seats:10 },
-  { sku:'MAST-SF-P2',    cat:'Select-Fire',     name:'Select-Fire M4A1 / MK18 Operator P2', hours:16, days:2, price_cents:95000, seats:10 },
-  { sku:'MAST-LL-FUND',  cat:'Low-Light / NVG', name:'Low-Light Fundamentals',          hours:8,  days:1, price_cents:22500, seats:16 },
-  { sku:'MAST-LL-P1',    cat:'Low-Light / NVG', name:'Low-Light Operator P1',           hours:16, days:2, price_cents:45000, seats:10 },
-  { sku:'MAST-NVG-P1',   cat:'Low-Light / NVG', name:'Low-Light / No-Light NVG Operator P1', hours:16, days:2, price_cents:50000, seats:10 },
-  { sku:'MAST-NVG-P2',   cat:'Low-Light / NVG', name:'NVG Operator P2',                 hours:16, days:2, price_cents:95000, seats:10 },
-  { sku:'MAST-TEAM-P1',  cat:'Team Tactics',    name:'Team Tactics P1',                 hours:16, days:2, price_cents:45000, seats:10 },
-  { sku:'MAST-TEAM-P2',  cat:'Team Tactics',    name:'Team Tactics P2',                 hours:16, days:2, price_cents:47500, seats:10 },
-  { sku:'MAST-HPP-P1',   cat:'Protective',      name:'Home & Property Protection P1',   hours:8,  days:1, price_cents:25000, seats:10 },
-  { sku:'MAST-VEH-P1',   cat:'Protective',      name:'Vehicular Tactics P1',            hours:8,  days:1, price_cents:22500, seats:10 },
-  { sku:'MAST-VEH-P2',   cat:'Protective',      name:'Vehicular Tactics / Team Tactics P2', hours:16, days:2, price_cents:50000, seats:10 },
-  { sku:'MAST-MOTOR-P1', cat:'Protective',      name:'Motorcade P1',                    hours:0,  days:0, price_cents:0,     seats:10 },
-  { sku:'MAST-MOTOR-P2', cat:'Protective',      name:'Motorcade P2',                    hours:0,  days:0, price_cents:0,     seats:10 },
-  /* Private instruction — by arrangement, not on the weekend calendar. Priced per the owner's 2026-09 progression sheet. */
-  { sku:'MAST-PVT-2H',    cat:'Private Instruction', name:'Private Session',                 request:true, price_cents:35000,  meta:'2 HRS · ONE-ON-ONE · +$100 EACH ADDITIONAL HOUR' },
-  { sku:'MAST-PVT-FOUND', cat:'Private Instruction', name:'Foundation Package — Phases 1–4', request:true, price_cents:125000, meta:'4 PHASES · PREPAID · $1,400 À LA CARTE' },
-  { sku:'MAST-PVT-FULL',  cat:'Private Instruction', name:'Full Progression — Phases 1–11',  request:true, price_cents:330000, meta:'11 PHASES · PREPAID · $3,850 À LA CARTE' },
-  { sku:'MAST-GEAR',     cat:'Gear',            name:'Gear & Kit Considerations',       hours:24, days:3, price_cents:75000, seats:10 },
+  { sku:'MAST-SF-P1',    cat:'Select-Fire',     img:'images/mast/class/MAST-SF-P1.jpg', name:'Select-Fire M4A1 / MK18 Operator P1', hours:8, days:1, price_cents:50000, seats:10 },
+  { sku:'MAST-SF-P2',    cat:'Select-Fire',     img:'images/mast/class/MAST-SF-P2.jpg', name:'Select-Fire M4A1 / MK18 Operator P2', hours:16, days:2, price_cents:95000, seats:10 },
+  { sku:'MAST-LL-FUND',  cat:'Low-Light / NVG', img:'images/mast/class/MAST-LL-FUND.jpg', name:'Low-Light Fundamentals',          hours:8,  days:1, price_cents:22500, seats:16 },
+  { sku:'MAST-LL-P1',    cat:'Low-Light / NVG', img:'images/mast/class/MAST-LL-P1.jpg', name:'Low-Light Operator P1',           hours:16, days:2, price_cents:45000, seats:10 },
+  { sku:'MAST-NVG-P1',   cat:'Low-Light / NVG', img:'images/mast/class/MAST-NVG-P1.jpg', name:'Low-Light / No-Light NVG Operator P1', hours:16, days:2, price_cents:50000, seats:10 },
+  { sku:'MAST-NVG-P2',   cat:'Low-Light / NVG', img:'images/mast/class/MAST-NVG-P2.jpg', name:'NVG Operator P2',                 hours:16, days:2, price_cents:95000, seats:10 },
+  { sku:'MAST-TEAM-P1',  cat:'Team Tactics',    img:'images/mast/class/MAST-TEAM-P1.jpg', name:'Team Tactics P1',                 hours:16, days:2, price_cents:45000, seats:10 },
+  { sku:'MAST-TEAM-P2',  cat:'Team Tactics',    img:'images/mast/class/MAST-TEAM-P2.jpg', name:'Team Tactics P2',                 hours:16, days:2, price_cents:47500, seats:10 },
+  { sku:'MAST-HPP-P1',   cat:'Protective',      img:'images/mast/class/MAST-HPP-P1.jpg', name:'Home & Property Protection P1',   hours:8,  days:1, price_cents:25000, seats:10 },
+  { sku:'MAST-VEH-P1',   cat:'Protective',      img:'images/mast/class/MAST-VEH-P1.jpg', name:'Vehicular Tactics P1',            hours:8,  days:1, price_cents:22500, seats:10 },
+  { sku:'MAST-VEH-P2',   cat:'Protective',      img:'images/mast/class/MAST-VEH-P2.jpg', name:'Vehicular Tactics / Team Tactics P2', hours:16, days:2, price_cents:50000, seats:10 },
+  { sku:'MAST-MOTOR-P1', cat:'Protective',      img:'images/mast/class/MAST-MOTOR-P1.jpg', name:'Motorcade P1',                    hours:0,  days:0, price_cents:0,     seats:10 },
+  { sku:'MAST-MOTOR-P2', cat:'Protective',      img:'images/mast/class/MAST-MOTOR-P2.jpg', name:'Motorcade P2',                    hours:0,  days:0, price_cents:0,     seats:10 },
+  { sku:'MAST-GEAR',     cat:'Gear',            img:'images/mast/class/MAST-GEAR.jpg', name:'Gear & Kit Considerations',       hours:24, days:3, price_cents:75000, seats:10 },
 ];
 if (location.hash === '#test') COURSES.push({ sku:'MAST-TEST', cat:'Test', name:'Live payment test seat', hours:1, days:1, price_cents:100, seats:1 });
 
@@ -906,24 +1212,36 @@ let WEEKENDS = [
 
 const $ = id => document.getElementById(id);
 const money = c => '$' + (c/100).toLocaleString('en-US', { minimumFractionDigits: c % 100 ? 2 : 0 });
-/* Progression: most students do not know the order. Fundamentals first; Operator and P1 build on it; P2 follows P1. */
-const levelOf = c => c.request || c.cat === 'Gear' ? null : /Fundamentals/.test(c.name) ? { n: 1, tag: 'START HERE' } : /P2/.test(c.name) ? { n: 3, tag: 'LEVEL 3 · AFTER P1' } : /Operator|P1/.test(c.name) ? { n: 2, tag: 'LEVEL 2 · AFTER FUNDAMENTALS' } : null;
+/* Progression (owner, 2026-09-04: "first-time students HAVE to take Fundamentals in all courses that have fundamentals first"): every
+   course in a discipline that has a Fundamentals course requires that Fundamentals first — Handgun Operator ← Handgun Fundamentals (or its
+   ladies-only class), Carbine Operator ← Carbine Fundamentals, Sub-Gun P1 ← Sub-Gun Fundamentals, Low-Light / NVG ← Low-Light Fundamentals.
+   Of the disciplines without their own Fundamentals, only Team Tactics requires one — Handgun Fundamentals (owner, 2026-09-05: "Only Team
+   Tactics = Handgun Fun 1st"); Select-Fire, Protective (Home, Vehicular, Motorcade) and Gear carry no prerequisite. A P2 course also needs the P1 before it. The gate is asked at Select Date (selectCourse) and again as the attestation in the
+   sheet; by-arrangement private instruction carries no badge. The Worker applies the same rule (prerequisiteFor). */
+const FUND_SKU = { 'Handgun': 'MAST-HG-FUND', 'Carbine': 'MAST-CAR-FUND', 'Shotgun': 'MAST-SG-FUND', 'Sub-Gun': 'MAST-SUB-FUND', 'Low-Light / NVG': 'MAST-LL-FUND' };
+const PREREQ_CAT = { 'Team Tactics': 'MAST-HG-FUND' };   // the only discipline without its own Fundamentals that requires one
+const fundFor = c => { const sku = FUND_SKU[c.cat] || PREREQ_CAT[c.cat]; return sku ? COURSES.find(x => x.sku === sku) : null; };
+const levelOf = c => { if (c.request) return null; if (/Fundamentals/.test(c.name)) return { n: 1, tag: 'START HERE' }; const f = fundFor(c); if (!f) return null; const disc = f.name.replace(/ Fundamentals$/, '').toUpperCase(); return /\bP2\b/.test(c.name) ? { n: 3, tag: disc + ' FUNDAMENTALS + P1 REQUIRED', fund: f } : { n: 2, tag: disc + ' FUNDAMENTALS REQUIRED', fund: f }; };
+const fundLabel = f => f.name + (f.sku === 'MAST-HG-FUND' ? ' (or the Ladies Only class)' : '');
 const metaBase = c => c.meta ? c.meta : c.days ? `${c.hours} HRS · ${c.days} DAY${c.days > 1 ? 'S' : ''} · ${c.seats} SEATS` : `CALL FOR DETAILS`;
 const metaFor = c => { const l = levelOf(c); return metaBase(c) + (l ? ' · ' + l.tag : ''); };
 const metaHtml = c => { const l = levelOf(c); return esc(metaBase(c)) + (l ? ` · <b class="cr-lvl lvl-${l.n}">${l.tag}</b>` : ''); };
+const pic = c => c.img ? `<img class="cr-img" src="${esc(c.img)}" alt="" loading="lazy" decoding="async">` : '';   // each class carries a picture as the owner supplies them
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 
 /* Catalog */
 const CATS = [...new Set(COURSES.map(c => c.cat))];
+/* Accordion headers read 'All <category>' unless named here (owner, 2026-09-04: "all gear" = Kit and Load Out Considerations; "all protective" = Home, Vehicular, Motorcade). */
+const CAT_LABELS = { 'Gear': 'Kit and Load Out Considerations', 'Protective': 'Home, Vehicular, Motorcade' };
 const CAT_NOTES = { 'Private Instruction': 'The path: Handgun Fundamentals &rarr; Medical &rarr; Concealment &rarr; Environmental Considerations &rarr; Kit &harr; Vehicle Bag &rarr; Carbine &harr; Shoot-house &rarr; Shotgun &harr; Vehicular &rarr; Low-Light + No-Light, the capstone. Paired phases run in either order. Sessions are scheduled by arrangement, not on the weekend calendar. Instruction only; ammunition, range fees and gear are separate.' };
 $('catalog').innerHTML = CATS.map((cat, ci) => {
   const items = COURSES.map((c, i) => ({ c, i })).filter(x => x.c.cat === cat);
-  return `<div class="cat${ci === 0 ? ' open' : ''}" id="cat-${ci}"><button class="cat-btn" aria-expanded="${ci === 0}" onclick="toggleCat(${ci})"><span class="cat-name">All ${esc(cat)}</span><span class="cat-count">${items.length} ${cat === 'Private Instruction' ? 'option' : 'course'}${items.length > 1 ? 's' : ''}</span><span class="cat-chev" aria-hidden="true">&#9662;</span></button><div class="cat-panel">` + (CAT_NOTES[cat] ? `<p class="cat-note">${CAT_NOTES[cat]}</p>` : '') +
+  return `<div class="cat${ci === 0 ? ' open' : ''}" id="cat-${ci}"><button class="cat-btn" aria-expanded="${ci === 0}" onclick="toggleCat(${ci})"><span class="cat-name">${esc(CAT_LABELS[cat] || 'All ' + cat)}</span><span class="cat-count">${items.length} ${cat === 'Private Instruction' ? 'option' : 'course'}${items.length > 1 ? 's' : ''}</span><span class="cat-chev" aria-hidden="true">&#9662;</span></button><div class="cat-panel">` + (CAT_NOTES[cat] ? `<p class="cat-note">${CAT_NOTES[cat]}</p>` : '') +
     items.map(({ c, i }) => c.request
-      ? `<div class="course-row call"><div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price">${money(c.price_cents)}<small>INSTRUCTION ONLY</small></div><a class="cta-button cr-btn" href="${'mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent('Private instruction — ' + c.name)}">Request</a></div></div>`
+      ? `<div class="course-row call">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div>${c.pdf ? `<a class="cr-pdf" href="${esc(c.pdf)}" target="_blank" rel="noopener">Private instruction sheet (PDF) &rarr;</a>` : ''}</div><div class="cr-side"><div class="cr-price">BY<small>ARRANGEMENT</small></div><button class="cta-button cr-btn" type="button" onclick="requestPrivate(${i})">Request</button></div></div>`
       : c.price_cents
-      ? `<div class="course-row" role="button" tabindex="0" onclick="openCal(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCal(${i});}"><div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price" data-sku="${c.sku}">${money(c.price_cents)}<small>PER SEAT</small></div><span class="cta-button cr-btn">Select Date</span></div></div>`
-      : `<div class="course-row call"><div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price">CALL<small>FOR PRICING</small></div><a class="cta-button ghost-button cr-btn" href="tel:+12816548100">Call</a></div></div>`).join('') + `</div></div>`;
+      ? `<div class="course-row" role="button" tabindex="0" onclick="selectCourse(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectCourse(${i});}">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price" data-sku="${c.sku}">${money(c.price_cents)}<small>PER SEAT</small></div><span class="cta-button cr-btn">Select Date</span></div></div>`
+      : `<div class="course-row call">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price">CALL<small>FOR PRICING</small></div><a class="cta-button ghost-button cr-btn" href="tel:+12816548100">Call</a></div></div>`).join('') + `</div></div>`;
 }).join('');
 function toggleCat(ci){ const el = $('cat-' + ci); const open = el.classList.toggle('open'); el.querySelector('.cat-btn').setAttribute('aria-expanded', open); }
 fetch(CATALOG_ENDPOINT).then(r => r.ok ? r.json() : null).then(d => { if (!d || !d.classes) return; const by = Object.fromEntries(d.classes.map(c => [c.sku, c.price_cents])); COURSES.forEach(c => { if (by[c.sku]) { c.price_cents = by[c.sku]; const el = document.querySelector(`.cr-price[data-sku="${c.sku}"]`); if (el) el.innerHTML = money(c.price_cents) + '<small>PER SEAT</small>'; } }); }).catch(() => {});
@@ -938,7 +1256,18 @@ function weekendDates(w, days){ const sat = parseISO(w.saturday), out = []; cons
 function labelFor(w, days){ const ds = weekendDates(w, days), a = ds[0], b = ds[ds.length - 1]; const mo = d => d.toLocaleDateString('en-US', { month: 'short' }); if (ds.length === 1) return a.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }); const wd = ds.length === 2 ? 'Sat–Sun' : 'Fri–Sun'; const range = a.getMonth() === b.getMonth() ? `${mo(a)} ${a.getDate()}–${b.getDate()}` : `${mo(a)} ${a.getDate()} – ${mo(b)} ${b.getDate()}`; return `${wd}, ${range}, ${b.getFullYear()}`; }
 function isPast(w){ const t = new Date(); t.setHours(0,0,0,0); return parseISO(w.saturday) < t; }
 function bookable(w){ return (w.status === 'available' || w.status === 'scheduled') && !isPast(w); }
-function openCal(i){ calCourse = COURSES[i]; chosen = null; lastFocus = document.activeElement; $('cal-title').textContent = calCourse.name; $('cal-meta').textContent = metaFor(calCourse); $('cal-price').textContent = money(calCourse.price_cents) + ' per seat'; const first = WEEKENDS.find(bookable) || WEEKENDS[0]; const fd = parseISO(first.saturday); calMonth = new Date(fd.getFullYear(), fd.getMonth(), 1); renderCal(); $('cal-bd').classList.add('open'); $('cal').classList.add('open'); document.body.style.overflow = 'hidden'; }
+/* The gate (owner, 2026-09-04: "Still no gate to make sure that first-time students HAVE to take Fundamentals ... first"): before the
+   calendar opens for a course with a prerequisite, the student answers whether they have completed it. "Yes" opens the calendar and
+   pre-ticks the attestation in the sheet (still shown, still recorded); "No" takes them to the Fundamentals row and opens ITS calendar.
+   Nothing is checked against a roster: students from before this system are not in it ("UNLESS they have taken it prior"). */
+const attested = {};   // sku → true once the student has answered yes on this visit
+let gateIdx = null;
+function selectCourse(i){ const c = COURSES[i], lv = levelOf(c); if (!lv || lv.n < 2 || attested[c.sku]) return openCal(i); gateIdx = i; const f = lv.fund; $('gate-title').textContent = c.name; $('gate-text').innerHTML = `<b>${esc(fundLabel(f))}</b>${lv.n === 3 ? ' and a MAST P1 course' : ''} comes first. Have you completed it with MAST, or an instructor-approved equivalent?`; $('gate-no').textContent = 'No — book ' + f.name + ' first'; lastFocus = document.activeElement; $('gate-bd').classList.add('open'); $('gate').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('gate-yes').focus(), 150); }
+function closeGate(){ $('gate-bd').classList.remove('open'); $('gate').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+function gateYes(){ const c = COURSES[gateIdx]; attested[c.sku] = true; closeGate(); openCal(gateIdx); }
+function gateNo(){ const f = levelOf(COURSES[gateIdx]).fund, fi = COURSES.indexOf(f), ci = CATS.indexOf(f.cat); closeGate(); const cat = $('cat-' + ci); if (cat && !cat.classList.contains('open')) toggleCat(ci); const row = document.querySelector(`.cr-price[data-sku="${f.sku}"]`); const rowEl = row && row.closest('.course-row'); if (rowEl) { rowEl.scrollIntoView({ block: 'center' }); rowEl.classList.add('flash'); setTimeout(() => rowEl.classList.remove('flash'), 2400); } openCal(fi); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('gate').classList.contains('open')) closeGate(); });
+function openCal(i){ calCourse = COURSES[i]; chosen = (preChosen !== null && bookable(WEEKENDS[preChosen])) ? preChosen : null; preChosen = null; lastFocus = document.activeElement; $('cal-title').textContent = calCourse.name; $('cal-meta').textContent = metaFor(calCourse); $('cal-price').textContent = money(calCourse.price_cents) + ' per seat'; const first = chosen !== null ? WEEKENDS[chosen] : (WEEKENDS.find(bookable) || WEEKENDS[0]); const fd = parseISO(first.saturday); calMonth = new Date(fd.getFullYear(), fd.getMonth(), 1); renderCal(); $('cal-bd').classList.add('open'); $('cal').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeCal(){ $('cal-bd').classList.remove('open'); $('cal').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
 function calBounds(){ const a = parseISO(WEEKENDS[0].saturday), b = parseISO(WEEKENDS[WEEKENDS.length - 1].saturday); return { min: new Date(a.getFullYear(), a.getMonth(), 1), max: new Date(b.getFullYear(), b.getMonth(), 1) }; }
 function calShift(n){ const { min, max } = calBounds(); const next = new Date(calMonth.getFullYear(), calMonth.getMonth() + n, 1); if (next < min || next > max) return; calMonth = next; renderCal(); }
@@ -956,11 +1285,59 @@ function renderCal(){
 function pick(wi){ chosen = wi; const d = parseISO(WEEKENDS[wi].saturday); calMonth = new Date(d.getFullYear(), d.getMonth(), 1); renderCal(); }
 function calContinue(){ if (chosen === null) return; $('cal-bd').classList.remove('open'); $('cal').classList.remove('open'); openSheet(); }
 
+// ── Book a Class, date first (owner, 2026-09-05). Every training weekend on one calendar; hover shows what runs; pick a weekend, then a
+//    class from tabs by discipline ("All" opens every tab); Select hands the class to the normal gate → calendar (the weekend already
+//    chosen) → registration. Until the course→weekend map exists every bookable course runs every weekend (his accepted hole).
+let dcalMonth = null, dcalPick = null, dcalTab = 'All', preChosen = null;
+function offeredOn(wi){ return COURSES.map((c, i) => ({ c, i })).filter(({ c }) => !c.request && c.price_cents > 0 && c.days > 0); }
+function openDCal(){ dcalPick = null; dcalTab = 'All'; lastFocus = document.activeElement; const first = WEEKENDS.find(bookable) || WEEKENDS[0]; const fd = parseISO(first.saturday); dcalMonth = new Date(fd.getFullYear(), fd.getMonth(), 1); renderDCal(); $('dcal-bd').classList.add('open'); $('dcal').classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeDCal(){ $('dcal-bd').classList.remove('open'); $('dcal').classList.remove('open'); document.body.style.overflow = ''; }
+function dcalShift(n){ const { min, max } = calBounds(); const next = new Date(dcalMonth.getFullYear(), dcalMonth.getMonth() + n, 1); if (next < min || next > max) return; dcalMonth = next; renderDCal(); }
+function renderDCal(){
+  const { min, max } = calBounds(); $('dcal-month').textContent = MONTHS[dcalMonth.getMonth()] + ' ' + dcalMonth.getFullYear(); $('dcal-prev').disabled = dcalMonth <= min; $('dcal-next').disabled = dcalMonth >= max;
+  const dayMap = {}; WEEKENDS.forEach((w, wi) => weekendDates(w, 2).forEach(d => { dayMap[keyOf(d)] = wi; }));
+  const y = dcalMonth.getFullYear(), m = dcalMonth.getMonth(); const gridStart = new Date(y, m, 1 - new Date(y, m, 1).getDay()); let html = '';
+  for (let k = 0; k < 42; k++) { const d = new Date(gridStart); d.setDate(gridStart.getDate() + k); const wi = dayMap[keyOf(d)]; const other = d.getMonth() !== m; let cls = 'day' + (other ? ' other' : ''), attrs = '';
+    if (wi !== undefined && !other) { const w = WEEKENDS[wi]; if (bookable(w)) { cls += ' wk' + (dcalPick === wi ? ' sel' : ''); attrs = ` onclick="dcalPickDay(${wi})" title="${esc(w.label)} · ${offeredOn(wi).length} classes offered · tap to choose"`; } else { cls += ' blk' + (isPast(w) ? ' past' : ''); attrs = ' title="Unavailable"'; } }
+    html += `<div class="${cls}"${attrs}>${d.getDate()}</div>`; }
+  $('dcal-grid').innerHTML = html;
+  $('dcal-quick').innerHTML = WEEKENDS.map((w, wi) => bookable(w) ? `<button type="button" class="chip${dcalPick === wi ? ' sel' : ''}" onclick="dcalPickDay(${wi})">${labelFor(w, 2).replace(/, \d{4}$/, '')}</button>` : '').join('');
+  const box = $('dcal-classes'); box.hidden = dcalPick === null; if (dcalPick === null) return;
+  const items = offeredOn(dcalPick); $('dcal-sel').innerHTML = `<b>${labelFor(WEEKENDS[dcalPick], 2)}</b> &middot; ${items.length} classes &middot; choose one`;
+  const cats = ['All', ...CATS.filter(cat => items.some(({ c }) => c.cat === cat))];
+  $('dcal-tabs').innerHTML = cats.map(cat => `<button type="button" class="chip${dcalTab === cat ? ' sel' : ''}" onclick="dcalTabSet(this.dataset.cat)" data-cat="${esc(cat)}">${esc(cat === 'All' ? 'All classes' : (CAT_LABELS[cat] || cat))}</button>`).join('');
+  $('dcal-list').innerHTML = items.filter(({ c }) => dcalTab === 'All' || c.cat === dcalTab).map(({ c, i }) => `<div class="cal-item"><div><b class="cal-name">${esc(c.name)}</b><small>${metaHtml(c)}</small></div><div class="cal-item-price">${money(c.price_cents)}</div><button type="button" class="cta-button small" onclick="dcalChoose(${i})">Select</button></div>`).join('');
+}
+function dcalPickDay(wi){ dcalPick = wi; const d = parseISO(WEEKENDS[wi].saturday); dcalMonth = new Date(d.getFullYear(), d.getMonth(), 1); renderDCal(); setTimeout(() => { const b = $('dcal-classes'); if (b && !b.hidden) b.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 60); }
+function dcalTabSet(cat){ dcalTab = cat; renderDCal(); }
+function dcalChoose(i){ preChosen = dcalPick; closeDCal(); selectCourse(i); }
+
+// ── Private instruction request (owner, 2026-09-05: "Request = doesn't go to email"): a short dialog that posts to the Worker's /contact,
+//    which emails the office; the mailto stays only as the fallback when the Worker cannot be reached.
+let reqIdx = null;
+function requestPrivate(i){ reqIdx = i; const c = COURSES[i]; lastFocus = document.activeElement; $('req-title').textContent = c.name; $('req-meta').textContent = c.meta ? c.meta.replace(/ · /g, ' · ') : ''; $('req-msg').value = ''; $('req-err').hidden = true; const b = $('req-go'); b.disabled = false; b.textContent = 'Send Request'; $('req-bd').classList.add('open'); $('req').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('req-name').focus(), 60); }
+function closeReq(){ $('req-bd').classList.remove('open'); $('req').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+async function reqGo(){ const c = COURSES[reqIdx]; const name = $('req-name').value.trim(), email = $('req-email').value.trim(), phone = $('req-phone').value.trim(), note = $('req-msg').value.trim(); const err = $('req-err'), b = $('req-go');
+  if (name.length < 2) { err.textContent = 'Enter your name.'; err.hidden = false; $('req-name').focus(); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Enter a valid email address.'; err.hidden = false; $('req-email').focus(); return; }
+  err.hidden = true; b.disabled = true; b.textContent = 'Sending…';
+  const message = 'Private instruction request — ' + c.name + (c.meta ? ' (' + c.meta + ')' : '') + (note ? '\n\n' + note : '');
+  try { const r = await fetch(API + '/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'contact', request_type: 'private', name, email, phone, message, website: $('req-web').value, page: location.href.split('#')[0] }) });
+    const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'Could not send the request.');
+    b.textContent = 'Request sent ✓'; $('req-meta').textContent = 'Thank you, ' + name.split(' ')[0] + '. We reply within one business day.'; setTimeout(closeReq, 2400); }
+  catch (e) { b.disabled = false; b.textContent = 'Send Request'; err.innerHTML = esc(e.message || 'Could not send the request.') + ' You can also email <a href="mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent('Private instruction — ' + c.name) + '">atlasglinn.hq@atlasglinn.com</a>.'; err.hidden = false; }
+}
+document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if ($('dcal').classList.contains('open')) closeDCal(); if ($('req').classList.contains('open')) closeReq(); });
+
 /* Checkout — registration: details → eligibility → agreement → refund consent → Stripe (privacy.html §3) */
 const REGISTER_ENDPOINT = API + '/register';
-const QUESTIONS_VERSION = '2q-2026-09-03', AGREEMENT_VERSION = '81961f2a07675eff', REFUND_POLICY_VERSION = '2026-09-01-draft'; // must match the Worker
+const QUESTIONS_VERSION = '2q-2026-09-03', AGREEMENT_VERSION = '81961f2a07675eff', REFUND_POLICY_VERSION = '2026-09-01'; // must match the Worker
 let qty = 1, regStep = 1, docScrolled = false;
-function openSheet(){ qty = 1; docScrolled = false; $('sheet-title').textContent = calCourse.name; $('sheet-meta').textContent = metaFor(calCourse); $('sheet-date-label').innerHTML = '&#128197; ' + labelFor(WEEKENDS[chosen], calCourse.days); $('co-qty').textContent = '1'; $('reg-review').hidden = true; $('reg-sign').hidden = true; $('reg-3-go').disabled = true; const h = $('reg-doc-hint'); h.textContent = 'Scroll to the end of page 3 to continue.'; h.classList.remove('ok'); $('reg-doc').scrollTop = 0; showStep(1); updateTotal(); $('sheet-bd').classList.add('open'); $('sheet').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('co-name').focus(), 250); }
+function openSheet(){ qty = 1; docScrolled = false;
+  // The attestation (owner, 2026-09-04): the discipline's Fundamentals gates every other course in it; P2 also needs the P1. Pre-ticked when the student answered yes at Select Date.
+  const lv = levelOf(calCourse), gate = !!(lv && lv.n >= 2); $('co-prereq-wrap').hidden = !gate; $('co-prereq').checked = gate && !!attested[calCourse.sku];
+  if (gate) $('co-prereq-text').textContent = 'I have completed MAST ' + fundLabel(lv.fund) + (lv.n === 3 ? ' and a MAST P1 course' : '') + ', or an instructor-approved equivalent, before this course.';
+  $('sheet-title').textContent = calCourse.name; $('sheet-meta').textContent = metaFor(calCourse); $('sheet-date-label').innerHTML = '&#128197; ' + labelFor(WEEKENDS[chosen], calCourse.days); $('co-qty').textContent = '1'; $('reg-review').hidden = true; $('reg-sign').hidden = true; $('reg-3-go').disabled = true; const h = $('reg-doc-hint'); h.textContent = 'Scroll to the end of page 3 to continue.'; h.classList.remove('ok'); $('reg-doc').scrollTop = 0; showStep(1); updateTotal(); $('sheet-bd').classList.add('open'); $('sheet').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('co-name').focus(), 250); }
 function showStep(n){ regStep = n; for (let i = 1; i <= 4; i++) $('reg-' + i).hidden = i !== n; document.querySelectorAll('.reg-steps li').forEach(li => { const s = +li.dataset.step; li.classList.toggle('on', s === n); li.classList.toggle('done', s < n); }); $('co-err').classList.remove('show'); $('sheet').scrollTop = 0; }
 function fail(msg, el){ const err = $('co-err'); err.textContent = msg; err.classList.add('show'); if (el && el.focus) el.focus(); }
 function regBack(n){ showStep(n - 1); }
@@ -969,6 +1346,7 @@ function regNext(n){
     if ($('co-name').value.trim().length < 2) return fail('Enter your full name.', $('co-name'));
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test($('co-email').value.trim())) return fail('Enter a valid email address to receive your booking confirmation.', $('co-email'));
     if ($('co-phone').value.replace(/\D/g, '').length < 7) return fail('Enter a mobile number we can reach you on.', $('co-phone'));
+    if (!$('co-prereq-wrap').hidden && !$('co-prereq').checked) return fail(levelOf(calCourse).fund.name + ' comes first. Tick the box if you have completed it, or book ' + levelOf(calCourse).fund.name + ' instead.', $('co-prereq'));
     return showStep(2);
   }
   if (n === 2) {
@@ -1006,6 +1384,7 @@ async function startCheckout(){
     eligibility: { us_citizen: q1 === 'yes', felony_prohibited: q2 === 'yes', attested: $('q-attest').checked, questions_version: QUESTIONS_VERSION },
     agreement: { version: AGREEMENT_VERSION, signed_name: $('ag-name').value.trim(), initials: $('ag-initials').value.trim(), address1: $('ag-address1').value.trim(), address2: $('ag-address2').value.trim(), emergency_name: $('ag-em-name').value.trim(), emergency_phone: $('ag-em-phone').value.trim(), emergency_relationship: $('ag-em-rel').value.trim(), scrolled: docScrolled, agreed: $('ag-agree').checked },
     refund: { accepted: $('rf-accept').checked, version: REFUND_POLICY_VERSION },
+    prerequisite: { required: !$('co-prereq-wrap').hidden, attested: $('co-prereq').checked },
     newsletter_opt_in: $('co-news').checked,
   }, returns);
   try {
@@ -1025,25 +1404,76 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('pol
 
 /* Hero film + volume */
 const MEDIA = [
-  { mp4: 'images/mast/jason-castro-testimonial.mp4', poster: 'images/mast/jason-castro-testimonial-poster.jpg', title: 'Jason Castro', sub: 'Student testimonial' },
-  { mp4: 'images/mast/mast-cqb.mp4', poster: 'images/mast/mast-cqb-poster.jpg', title: 'CQB', sub: 'Night-vision room clearing, then the range' },
-  { mp4: 'images/mast/mast-vid-1.mp4', poster: 'images/mast/mast-vid-1-poster.jpg', title: 'MAST Solutions', sub: 'On the range' },
-  { mp4: 'images/mast/mast-vid-2.mp4', poster: 'images/mast/mast-vid-2-poster.jpg', title: 'MAST Solutions', sub: 'Training day' },
-  { mp4: 'images/mast/mast-medical.mp4', poster: 'images/mast/mast-medical-poster.jpg', title: 'Medical', sub: 'Tourniquet under pressure' },
-  { mp4: 'images/mast/mast-shotgun.mp4', poster: 'images/mast/mast-shotgun-poster.jpg', title: 'Shotgun', sub: 'Breaching and patterning' },
-  { mp4: 'images/mast/forge-ignition-orlando.mp4', poster: 'images/mast/forge-ignition-orlando-poster.jpg', title: 'Forge Ignition', sub: 'Orlando' },
-  { yt: 'pSGWdaDglZE', title: 'Modern Shooter TV', sub: 'Lance M / Castro / Ray Cash — MAST Solutions' },
-  { yt: 'jwQ5OyKEKwg', title: 'Training Reel', sub: 'The film behind the Training page' },
+  { yt: 'jwQ5OyKEKwg', end: 36, title: 'Training Reel', sub: 'The film behind the Training page' },
+  { mp4: 'images/mast/mast-cqb.mp4', teaser: 'images/mast/mast-cqb-teaser.mp4', poster: 'images/mast/mast-cqb-poster.jpg', title: 'CQB', sub: 'Night-vision room clearing, then the range' },
+  { mp4: 'images/mast/mast-vid-3.mp4', teaser: 'images/mast/mast-vid-3-teaser.mp4', poster: 'images/mast/mast-vid-3-poster.jpg', title: 'Behind the Scenes', sub: 'Filming the Modern Shooter TV feature' },
+  { mp4: 'images/mast/mast-vid-web2.mp4', teaser: 'images/mast/mast-vid-web2-teaser.mp4', poster: 'images/mast/mast-vid-web2-poster.jpg', title: 'Vehicle Tactics', sub: 'Mounted movement through smoke' },
+  { mp4: 'images/mast/mast-vid-1.mp4', teaser: 'images/mast/mast-vid-1-teaser.mp4', poster: 'images/mast/mast-vid-1-poster.jpg', title: 'MAST Solutions', sub: 'On the range' },
+  { mp4: 'images/mast/mast-vid-2.mp4', teaser: 'images/mast/mast-vid-2-teaser.mp4', poster: 'images/mast/mast-vid-2-poster.jpg', title: 'MAST Solutions', sub: 'Training day' },
+  { mp4: 'images/mast/mast-medical.mp4', teaser: 'images/mast/mast-medical-teaser.mp4', poster: 'images/mast/mast-medical-poster.jpg', title: 'Medical', sub: 'Tourniquet under pressure' },
+  { mp4: 'images/mast/mast-shotgun.mp4', teaser: 'images/mast/mast-shotgun-teaser.mp4', poster: 'images/mast/mast-shotgun-poster.jpg', title: 'Shotgun', sub: 'Two takes on the flat range' },
+  { mp4: 'images/mast/mast-shotgun-op.mp4', teaser: 'images/mast/mast-shotgun-op-teaser.mp4', poster: 'images/mast/mast-shotgun-op-poster.jpg', title: 'Shotgun Operator', sub: 'Class instruction' },
+  { mp4: 'images/film/atlas-glinn-and-mast-solutions.mp4', teaser: 'images/film/atlas-glinn-and-mast-solutions-teaser.mp4', poster: 'images/film/atlas-glinn-and-mast-solutions-poster.jpg', title: 'Atlas Glinn & MAST Solutions', sub: 'The film from the Atlas Glinn home page' },
+  { mp4: 'images/film/about-atlas-glinn.mp4', teaser: 'images/film/about-atlas-glinn-teaser.mp4', poster: 'images/film/about-atlas-glinn-poster.jpg', title: 'Leadership Course', sub: 'MAST Solutions and Atlas Glinn' },
+  { yt: 'pSGWdaDglZE', title: 'Modern Shooter TV', sub: 'Lance M / Castro / Ray Cash — MAST Solutions, full episode' },
+  { yt: 'OfXe_bdH6t4', title: 'Modern Shooter TV', sub: 'Tactical Training Feature' },
+  { yt: 'mI7Ou5P-WHE', title: 'Disaster Recovery & Asset Protection', sub: 'Immediate deployment when the storm has passed' },
 ];
+const TESTIMONIALS = [
+  { mp4: 'images/mast/jason-castro-testimonial.mp4', teaser: 'images/mast/jason-castro-testimonial-teaser.mp4', poster: 'images/mast/jason-castro-testimonial-poster.jpg', title: 'Jason Castro', sub: 'Student testimonial' },
+  { mp4: 'images/mast/testimonial-2.mp4', teaser: 'images/mast/testimonial-2-teaser.mp4', poster: 'images/mast/testimonial-2-poster.jpg', title: 'MUSAT Security Training Center', sub: 'Client film' },
+];   // video testimonials; rendered into #testimonial-strip (the Testimonials chapter) where that exists
+const INSTRUCTOR_FILMS = [
+  { yt: '0IkEMH0LPC8', title: 'A Long Recovery', sub: 'The documentary following Torrey Kramer\u2019s return' },
+];   // films on the Instructors chapter (#instructor-strip), e.g. the documentary about an instructor
 (function(){
-  const host = $('media-strip');
-  host.innerHTML = MEDIA.filter(i => i.yt || i.mp4).map(i => `<div class="video-card"><div class="yt${i.mp4 ? ' mp4' : ''}" role="button" tabindex="0" aria-label="Play ${esc(i.title)}" ${i.yt ? `data-yt="${esc(i.yt)}"` : `data-mp4="${esc(i.mp4)}"`}>${i.yt ? `<img src="https://i.ytimg.com/vi/${esc(i.yt)}/hqdefault.jpg" alt="" loading="lazy" decoding="async">` : i.poster ? `<img src="${esc(i.poster)}" alt="" loading="lazy" decoding="async">` : `<span class="lbl">MAST Solutions · Film</span>`}<span class="play" aria-hidden="true"></span></div><div class="video-card-info"><h4>${esc(i.title)}</h4><p>${esc(i.sub || '')}</p></div></div>`).join('');
-  const play = el => { if (el.dataset.done) return; el.dataset.done = '1'; let node; if (el.dataset.yt) { node = document.createElement('iframe'); node.src = `https://www.youtube.com/embed/${el.dataset.yt}?autoplay=1&rel=0&modestbranding=1&playsinline=1`; node.title = el.getAttribute('aria-label'); node.allow = 'accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture'; node.setAttribute('allowfullscreen', ''); } else { node = document.createElement('video'); node.src = el.dataset.mp4; node.controls = true; node.autoplay = true; node.playsInline = true; node.preload = 'none'; } el.innerHTML = ''; el.appendChild(node); el.style.cursor = 'default'; };
-  host.addEventListener('click', e => { const el = e.target.closest('.yt'); if (el) play(el); });
-  host.addEventListener('keydown', e => { const el = e.target.closest('.yt'); if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); play(el); } });
+  const card = i => `<div class="video-card"><div class="yt${i.mp4 ? ' mp4' : ''}" role="button" tabindex="0" aria-label="Play ${esc(i.title)}" ${i.yt ? `data-yt="${esc(i.yt)}"${i.end ? ` data-end="${+i.end}"` : ''}` : `data-mp4="${esc(i.mp4)}"`}>${i.yt ? `<img src="https://i.ytimg.com/vi/${esc(i.yt)}/hqdefault.jpg" alt="" loading="lazy" decoding="async">` : i.teaser ? `<video class="teaser" muted loop playsinline preload="none" poster="${esc(i.poster || '')}" data-src="${esc(i.teaser)}" aria-hidden="true"></video>` : i.poster ? `<img src="${esc(i.poster)}" alt="" loading="lazy" decoding="async">` : `<span class="lbl">MAST Solutions · Film</span>`}<span class="play" aria-hidden="true"></span></div><div class="video-card-info"><h4>${esc(i.title)}</h4><p>${esc(i.sub || '')}</p></div></div>`;
+  // A YouTube film with an end mark (data-end, seconds) loops back to its start at that second, so the card never reaches a closing
+  // title card or YouTube's end screen (Brockmann, 2026-09-04: the Training Reel's "2023" card). The IFrame API loads on first use;
+  // the player's own end= parameter, one second later, is the fallback if the API cannot load.
+  const loopBefore = (frame, end) => { const arm = () => { const p = new YT.Player(frame, { events: { onReady: () => setInterval(() => { try { if (p.getCurrentTime() >= end) p.seekTo(0, true); } catch (e) {} }, 250), onStateChange: e => { if (e.data === YT.PlayerState.ENDED) { p.seekTo(0, true); p.playVideo(); } } } }); }; if (window.YT && YT.Player) return arm(); const prev = window.onYouTubeIframeAPIReady; window.onYouTubeIframeAPIReady = () => { if (prev) prev(); arm(); }; if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) { const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s); } };
+  const play = el => { if (el.dataset.done) return; el.dataset.done = '1'; let node; const end = +el.dataset.end || 0; if (el.dataset.yt) { node = document.createElement('iframe'); node.src = `https://www.youtube.com/embed/${el.dataset.yt}?autoplay=1&rel=0&modestbranding=1&playsinline=1` + (end ? `&end=${Math.ceil(end) + 1}&enablejsapi=1` + (/^https?:$/.test(location.protocol) ? `&origin=${encodeURIComponent(location.origin)}` : '') : ''); node.title = el.getAttribute('aria-label'); node.allow = 'accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture'; node.setAttribute('allowfullscreen', ''); } else { node = document.createElement('video'); node.src = el.dataset.mp4; node.controls = true; node.autoplay = true; node.playsInline = true; node.preload = 'none'; } el.innerHTML = ''; el.appendChild(node); el.style.cursor = 'default'; if (end && el.dataset.yt) loopBefore(node, end); };
+  for (const [id, list] of [['media-strip', MEDIA], ['testimonial-strip', TESTIMONIALS], ['instructor-strip', INSTRUCTOR_FILMS]]) {
+    const host = $(id); if (!host) continue;
+    host.innerHTML = list.filter(i => i.yt || i.mp4).map(card).join('');
+    host.addEventListener('click', e => { const el = e.target.closest('.yt'); if (el) play(el); });
+    host.addEventListener('keydown', e => { const el = e.target.closest('.yt'); if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); play(el); } });
+    // Teasers (Brockmann, 2026-09-04: "each video should have a small snippet play"): a six-second muted loop runs while the
+    // card is on screen and pauses off screen; nothing downloads before then. The tap still plays the full film in place.
+    if ('IntersectionObserver' in window) { const tio = new IntersectionObserver(en => en.forEach(x => { const v = x.target; if (x.isIntersecting) { if (!v.getAttribute('src')) v.src = v.dataset.src; v.play().catch(() => {}); } else if (v.getAttribute('src')) v.pause(); }), { threshold: .5 }); host.querySelectorAll('video.teaser').forEach(v => tio.observe(v)); }
+  }
 })();
 
 /* Counters (animate on entry) */
+
+/* Membership join (owner, 2026-09-04): Join opens a short dialog for name and email, then Stripe Checkout in subscription mode via
+   POST /create-membership; the Worker provisions the plan's Stripe Price on first use. A failure offers the email route. */
+let joinPlan = null;
+function joinTeam(key, name, fee, includes){ joinPlan = key; $('join-title').textContent = name; $('join-meta').textContent = fee + ' per month'; $('join-inc').textContent = includes || ''; $('join-err').textContent = ''; const b = $('join-go'); b.disabled = false; b.textContent = 'Continue to Stripe'; $('join-bd').classList.add('open'); $('join').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('join-email').focus(), 150); }
+function closeJoin(){ $('join-bd').classList.remove('open'); $('join').classList.remove('open'); document.body.style.overflow = ''; }
+async function joinGo(){
+  const email = $('join-email').value.trim(), name = $('join-name').value.trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { $('join-err').textContent = 'Enter the email address for your membership.'; $('join-email').focus(); return; }
+  const btn = $('join-go'); btn.disabled = true; btn.textContent = 'One moment…'; const base = location.origin + location.pathname;
+  try {
+    const res = await fetch(API + '/create-membership', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, plan: joinPlan, customer_name: name, successUrl: base + '?membership=success', cancelUrl: base + '?membership=cancelled' }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.checkoutUrl) throw new Error(data.error || 'Could not start checkout.');
+    location.href = data.checkoutUrl;
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Continue to Stripe';
+    $('join-err').innerHTML = esc(e.message) + ' Or apply by email: <a href="mailto:matthew@atlasglinn.com?subject=' + encodeURIComponent('MAST Membership — ' + $('join-title').textContent) + '">matthew@atlasglinn.com</a>';
+  }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('join').classList.contains('open')) closeJoin(); });
+(function(){ const p = new URLSearchParams(location.search); const s = p.get('membership'); if (!s) return; const b = $('banner'); b.textContent = s === 'success' ? 'Welcome to the team — your membership is set up. The team will be in touch.' : 'Membership checkout cancelled — your card was not charged.'; b.classList.add('show'); setTimeout(() => b.classList.remove('show'), 9000); history.replaceState(null, '', location.pathname); })();
+
+function showAll(id){ document.getElementById(id).classList.add('all'); const b = document.getElementById(id + '-more'); if (b) b.remove(); }
+if (/[?&#]preview(?=[=&#]|$)/.test(location.search + location.hash)) document.body.classList.add('preview');   // owner's preview of unpublished pieces (the Blogs link)
+function toggleFold(id, openText, closeText){ const f = $(id), b = $(id + '-btn'); const open = !f.classList.contains('open'); f.classList.toggle('open', open); b.textContent = open ? closeText : openText; b.setAttribute('aria-expanded', open ? 'true' : 'false'); if (!open) b.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+function openLb(src){ $('lb-img').src = src; $('lb-bd').classList.add('open'); $('lb').classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeLb(){ $('lb-bd').classList.remove('open'); $('lb').classList.remove('open'); document.body.style.overflow = ''; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('lb').classList.contains('open')) closeLb(); });
 </script>
 </body>
 </html>

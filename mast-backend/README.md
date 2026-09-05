@@ -5,11 +5,14 @@ Participation and Use of Property Agreement (filled and flattened as a PDF),
 refund-policy consent, Stripe Checkout, D1 persistence, and Resend email to the
 participant, the range host and staff.
 
-**Status (2026-09-03): v1.0 (bookings, memberships, webhook) is DEPLOYED and live
-from the owner's machine; v1.1 (`POST /register`, the agreement PDF, the daily
-retention cron) is MERGED, NOT DEPLOYED** — it needs `npm install`, the schema
-re-applied, three new secrets, and `wrangler deploy` (see Deploy). Check what is
-actually running with `curl …/health`; do not trust this line over that answer.
+**Status (2026-09-04): v1.1 (`POST /register`, `POST /contact`, the agreement PDF,
+the daily retention cron) is DEPLOYED** from the owner's machine; `/health` answered
+`"version":"1.1.0"` at 16:52 UTC and the cron is scheduled. Secrets on the Worker:
+`ADMIN_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `RANGE_ADDRESS`,
+`DOC_RECIPIENTS_AGREEMENT`. Not set: `NOTIFY_EMAIL` and `RESEND_API_KEY`, so every
+email (participant confirmation, agreement PDF, staff alerts, contact form) is
+logged, not sent, until both exist. Check what is actually running with
+`curl …/health`; do not trust this line over that answer.
 
 ---
 
@@ -40,6 +43,7 @@ The old Worker is left untouched — it still serves SafeGuard.
 | `POST` | `/register` | **The registration flow**: details → two eligibility questions → agreement → refund consent → Stripe Checkout |
 | `POST` | `/create-booking` | Legacy one-time seat with no screening (kept for the WordPress theme) |
 | `POST` | `/create-membership` | Recurring tier → Stripe Checkout |
+| `POST` | `/contact` | Site contact form and capability-statement requests (honeypot, validation, one email to `NOTIFY_EMAIL` with reply-to the sender) |
 | `POST` | `/webhook` | Stripe events; persists orders, links registrations, sends the documents |
 | `GET` | `/roster?key=…` | Admin: recent bookings (`&sku=MAST-DA`), or `&view=registrations` for the screening → payment records, review items first |
 | cron | daily 09:17 UTC | Purges eligibility answers past `purge_after`; marks day-old unpaid registrations abandoned |
@@ -57,7 +61,7 @@ request is refused with 409 (stale terms):
                  "address1": "1 Main St", "address2": "Houston, TX 77002",
                  "emergency_name": "John Doe", "emergency_phone": "(713) 555-0199", "emergency_relationship": "Spouse",
                  "scrolled": true, "agreed": true },
-  "refund": { "accepted": true, "version": "2026-09-01-draft" },
+  "refund": { "accepted": true, "version": "2026-09-01" },
   "newsletter_opt_in": false, "success_url": "…", "cancel_url": "…" }
 ```
 
@@ -99,6 +103,10 @@ wrangler d1 create mast_bookings
 
 # 2. Create the tables and seed the class catalog (idempotent: CREATE TABLE IF NOT EXISTS)
 wrangler d1 execute mast_bookings --remote --file=schema.sql
+wrangler d1 execute mast_bookings --remote --file=migrations/001-prereq-attested.sql   # once, on a database created before 2026-09-04
+wrangler d1 execute mast_bookings --remote --file=migrations/002-ladies-handgun.sql    # once: the ladies-only Handgun class
+wrangler d1 execute mast_bookings --remote --file=migrations/003-membership-teams.sql  # once: the six membership teams (the Worker creates each plan's Stripe Price on the first join)
+wrangler d1 execute mast_bookings --remote --file=migrations/002-ladies-handgun.sql   # once: adds the ladies-only Handgun class (owner, 2026-09-04)
 
 # 3. Secrets (never commit these)
 wrangler secret put STRIPE_SECRET_KEY        # sk_test_… first, sk_live_… when ready
@@ -170,7 +178,9 @@ curl "https://mast-booking-backend.<subdomain>.workers.dev/roster?key=$ADMIN_KEY
 node test-worker.mjs
 ```
 
-82 assertions, all passing as committed: server-side pricing (an injected
+105 assertions, all passing as committed (the first three parse every file under
+`src/` with `node --check`, because the PDF asset module is never imported by the
+tests and a syntax error there once reached `wrangler deploy`): server-side pricing (an injected
 `price_cents` is ignored), unknown SKU and bad email rejection, qty clamping,
 off-origin redirect rejection, training-weekend validation, membership plan
 resolution, webhook signature acceptance/forgery/replay/tamper, order

@@ -1,4 +1,8 @@
-import worker from '/home/user/atlasglinn-website/mast-backend/src/worker.js';
+import worker from './src/worker.js';
+import { execFileSync } from 'node:child_process';
+import { readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 
 let pass = 0, fail = 0;
 const ok = (name, cond, extra = '') => {
@@ -6,13 +10,33 @@ const ok = (name, cond, extra = '') => {
   else { fail++; console.log('  ✗', name, extra); }
 };
 
+// ── every source file must parse ──
+// The tests never import agreement-asset.js (it carries a .pdf Data module Node cannot load), so a syntax error there
+// reached `wrangler deploy` once (a star-slash inside a block comment). `node --check` parses each file without running it.
+const SRC = path.join(path.dirname(fileURLToPath(import.meta.url)), 'src');
+for (const f of readdirSync(SRC).filter(n => n.endsWith('.js')).sort()) {
+  let err = '';
+  try { execFileSync(process.execPath, ['--check', path.join(SRC, f)], { stdio: ['ignore', 'ignore', 'pipe'] }); } catch (e) { err = String(e.stderr || e.message).split('\n').slice(0, 3).join(' | '); }
+  ok(`parses: src/${f}`, !err, err);
+}
+
 // ── fake env ──
 const stripeCalls = [];
 const stored = [];
 const emails = [];
 
+const stripePriceCalls = [];   // GET /v1/prices?lookup_keys[] and POST /v1/prices (membership price provisioning)
+const fakePrices = [];         // prices "in Stripe" ({ id, lookup_key })
 globalThis.fetch = async (url, init) => {
-  if (String(url).includes('api.stripe.com')) {
+  const u = String(url);
+  if (u.includes('api.stripe.com/v1/prices')) {
+    const method = (init && init.method) || 'GET';
+    stripePriceCalls.push({ method, url: u, body: init && init.body ? new URLSearchParams(init.body) : null });
+    if (method === 'GET') return new Response(JSON.stringify({ data: fakePrices.filter(p => u.includes(encodeURIComponent(p.lookup_key))) }), { status: 200 });
+    const b = new URLSearchParams(init.body); const price = { id: 'price_new_' + b.get('lookup_key'), lookup_key: b.get('lookup_key') }; fakePrices.push(price);
+    return new Response(JSON.stringify(price), { status: 200 });
+  }
+  if (u.includes('api.stripe.com')) {
     stripeCalls.push(new URLSearchParams(init.body));
     return new Response(JSON.stringify({ id: 'cs_test_123', url: 'https://checkout.stripe.com/pay/cs_test_123' }), { status: 200 });
   }
@@ -28,8 +52,12 @@ const registrations = new Map();   // id -> row
 const outcomes = [];               // eligibility_outcomes rows
 const answers = [];                // eligibility_answers rows
 const orderUpdates = [];           // UPDATE orders ... from completeRegistration
+const fakePlans = {                // memberships rows; a plan without a stripe_price_id is provisioned on first join
+  range_member: { plan_key: 'range_member', name: 'Range Member', stripe_price_id: 'price_live_rm', price_cents: 9900, interval: 'month' },
+  red_team: { plan_key: 'red_team', name: 'Red Team', stripe_price_id: '', price_cents: 25000, interval: 'month' },
+};
 const sqlLog = [];
-const REG_COLS = ['id','created_at','status','sku','item_name','qty','session_date','session_label','customer_name','customer_email','customer_phone','organization','address1','address2','emergency_name','emergency_phone','emergency_relationship','eligibility_outcome_id','eligibility_status','questions_version','agreement_version','agreement_signed_name','agreement_initials','agreement_signed_at','agreement_ip','agreement_user_agent','refund_policy_version','refund_policy_accepted_at','refund_policy_ip','newsletter_opt_in','newsletter_opted_in_at'];
+const REG_COLS = ['id','created_at','status','sku','item_name','qty','session_date','session_label','customer_name','customer_email','customer_phone','organization','address1','address2','emergency_name','emergency_phone','emergency_relationship','eligibility_outcome_id','eligibility_status','questions_version','agreement_version','agreement_signed_name','agreement_initials','agreement_signed_at','agreement_ip','agreement_user_agent','refund_policy_version','refund_policy_accepted_at','refund_policy_ip','newsletter_opt_in','newsletter_opted_in_at','prereq_attested'];
 
 const DB = {
   prepare(sql) {
@@ -39,14 +67,24 @@ const DB = {
       _b(args) {
         return {
           async first() {
+            if (sql.includes('SUM(qty)') && sql.includes('FROM registrations')) {
+              let n = 0;
+              for (const r of registrations.values()) if (r.sku === args[0] && r.session_date === args[1] && (r.status === 'paid' || (r.status === 'pending' && r.created_at > args[2]))) n += Number(r.qty || 1);
+              return { n };
+            }
             if (sql.includes('FROM offerings')) {
-              const row = { 'MAST-DA': { sku: 'MAST-DA', name: 'Direct Action', price_cents: 69500 } }[args[0]];
+              const row = { 'MAST-DA': { sku: 'MAST-DA', name: 'Direct Action', price_cents: 69500, capacity: 10 },
+                            'MAST-HG-OP': { sku: 'MAST-HG-OP', name: 'Handgun Operator', price_cents: 45000, capacity: 10 },
+                            'MAST-HG-FUND': { sku: 'MAST-HG-FUND', name: 'Handgun Fundamentals', price_cents: 22500, capacity: 16 },
+                            'MAST-HG-LADIES': { sku: 'MAST-HG-LADIES', name: 'Ladies Only Handgun Fundamentals', price_cents: 22500, capacity: 16 },
+                            'MAST-CAR-OP': { sku: 'MAST-CAR-OP', name: 'Carbine Operator', price_cents: 45000, capacity: 10 },
+                            'MAST-NVG-P2': { sku: 'MAST-NVG-P2', name: 'NVG Operator P2', price_cents: 95000, capacity: 10 },
+                            'MAST-TEAM-P1': { sku: 'MAST-TEAM-P1', name: 'Team Tactics P1', price_cents: 45000, capacity: 10 },
+                            'MAST-VEH-P2': { sku: 'MAST-VEH-P2', name: 'Vehicular Tactics / Team Tactics P2', price_cents: 50000, capacity: 10 },
+                            'MAST-SF-P1': { sku: 'MAST-SF-P1', name: 'Select-Fire M4A1 / MK18 Operator P1', price_cents: 50000, capacity: 10 } }[args[0]];
               return row || null;
             }
-            if (sql.includes('FROM memberships')) {
-              const row = { range_member: { plan_key: 'range_member', name: 'Range Member', stripe_price_id: 'price_live_rm' } }[args[0]];
-              return row || null;
-            }
+            if (sql.includes('FROM memberships')) return fakePlans[args[0]] || null;
             if (sql.includes('FROM registrations WHERE id')) return registrations.get(args[0]) || null;
             return null;
           },
@@ -62,6 +100,7 @@ const DB = {
               return { meta: { changes: row ? 1 : 0 } };
             }
             if (sql.startsWith('UPDATE orders SET refund_policy_version')) { orderUpdates.push(args); return { meta: { changes: 1 } }; }
+            if (sql.startsWith('UPDATE memberships SET stripe_price_id')) { if (fakePlans[args[1]]) fakePlans[args[1]].stripe_price_id = args[0]; return { meta: { changes: 1 } }; }
             if (sql.startsWith('DELETE FROM eligibility_answers')) { const before = answers.length; for (let i = answers.length - 1; i >= 0; i--) if (answers[i][4] < args[0]) answers.splice(i, 1); return { meta: { changes: before - answers.length } }; }
             return { meta: { changes: 0 } };
           },
@@ -186,6 +225,21 @@ console.log('\n── Membership plan resolution ──');
   const body = await res.json();
   ok('unconfigured plan returns 400 with a hint', res.status === 400 && body.hint.includes('STRIPE_PRICE_NONEXISTENT'));
 }
+{
+  // Membership prices provision themselves (owner, 2026-09-04): the first join finds or creates the Stripe Price by lookup_key,
+  // stores it on the plan, and checks out with it; later joins reuse the stored id.
+  stripeCalls.length = 0; stripePriceCalls.length = 0;
+  const res = await post('/create-membership', { email: 'a@b.com', plan: 'red_team' });
+  ok('a plan without a price id still joins → 200', res.status === 200, String(res.status));
+  const [look, make] = stripePriceCalls;
+  ok('price looked up by lookup_key, then created', stripePriceCalls.length === 2 && look.method === 'GET' && look.url.includes('mast_red_team') && make.method === 'POST', JSON.stringify(stripePriceCalls.map(c => c.method)));
+  ok('created monthly at the plan price with the product named after it', make && make.body.get('unit_amount') === '25000' && make.body.get('recurring[interval]') === 'month' && make.body.get('lookup_key') === 'mast_red_team' && /Red Team/.test(make.body.get('product_data[name]')));
+  ok('the new price id is stored on the plan', fakePlans.red_team.stripe_price_id === 'price_new_mast_red_team', fakePlans.red_team.stripe_price_id);
+  ok('checkout uses it, in subscription mode', stripeCalls[0].get('line_items[0][price]') === 'price_new_mast_red_team' && stripeCalls[0].get('mode') === 'subscription');
+  stripePriceCalls.length = 0;
+  await post('/create-membership', { email: 'a@b.com', plan: 'red_team' });
+  ok('the second join reuses the stored id (no Stripe price calls)', stripePriceCalls.length === 0);
+}
 
 console.log('\n── Webhook signature ──');
 const sign = async (payload, ts, secret = 'whsec_testsecret') => {
@@ -249,7 +303,7 @@ console.log('\n── CORS ──');
 }
 
 console.log('\n── Registration: screening → agreement → refund consent → Stripe ──');
-const { QUESTIONS_VERSION, REFUND_POLICY_VERSION, AGREEMENT_VERSION } = await import('/home/user/atlasglinn-website/mast-backend/src/worker.js');
+const { QUESTIONS_VERSION, REFUND_POLICY_VERSION, AGREEMENT_VERSION } = await import('./src/worker.js');
 const FIRST_WEEKEND = '2026-10-10', BLOCKED_WEEKEND = '2026-10-31'; // from the seeded training_weekends
 const goodReg = (over = {}) => ({
   sku: 'MAST-DA', qty: 1, session_date: FIRST_WEEKEND, session_label: 'Sat–Sun test',
@@ -257,6 +311,7 @@ const goodReg = (over = {}) => ({
   eligibility: { us_citizen: true, felony_prohibited: false, attested: true, questions_version: QUESTIONS_VERSION },
   agreement: { version: AGREEMENT_VERSION, signed_name: 'Jane Doe', initials: 'jd', address1: '1 Main St', address2: 'Houston, TX 77002', emergency_name: 'John Doe', emergency_phone: '(713) 555-0199', emergency_relationship: 'Spouse', scrolled: true, agreed: true },
   refund: { accepted: true, version: REFUND_POLICY_VERSION },
+  prerequisite: { required: true, attested: true },   // every course but Handgun Fundamentals asks (owner, 2026-09-04)
   newsletter_opt_in: false,
   success_url: 'https://mastsolutions.com/?checkout=success',
   ...over,
@@ -280,6 +335,59 @@ const reg = (body) => post('/register', body);
   ok('answers row written separately with a purge date', answers.length === 1 && answers[0][4] > row.created_at);
   ok('stripe session id written back to the registration', row.stripe_session_id === 'cs_test_123');
   ok('no email sent for a cleared registration before payment', emails.length === 0);
+}
+{
+  // Capacity: MAST-DA is a 10-seat course in the fake catalog. Fill the first weekend, then the 11th seat is refused.
+  stripeCalls.length = 0;
+  const already = [...registrations.values()].filter((r) => r.sku === 'MAST-DA' && r.session_date === FIRST_WEEKEND && r.status === 'pending').reduce((s, r) => s + Number(r.qty || 1), 0);
+  const SECOND_WEEKEND = '2026-10-24';   // seeded fortnightly: 09-26, 10-10, 10-24 …
+  const upTo9 = await reg(goodReg({ qty: 9 - already })); const r9 = await upTo9.json();
+  ok('capacity: booking up to one seat short still reaches Stripe', upTo9.status === 200, String(upTo9.status));
+  const tenth = await reg(goodReg({ qty: 1 })); const r10 = await tenth.json();
+  ok('capacity: the last seat still sells', tenth.status === 200, String(tenth.status));
+  const over = await reg(goodReg({ qty: 1 })); const ob = await over.json();
+  ok('capacity: the 11th seat is refused with 409 sold_out and 0 left', over.status === 409 && ob.code === 'sold_out' && ob.seats_left === 0, JSON.stringify(ob));
+  ok('capacity: no Stripe session for the refused seat', stripeCalls.length === 2);
+  const other = await reg(goodReg({ qty: 1, session_date: SECOND_WEEKEND })); const ro = await other.json();
+  ok('capacity: another weekend of the same course is unaffected', other.status === 200, String(other.status));
+  const tooMany = await reg(goodReg({ qty: 10, session_date: SECOND_WEEKEND }));   // 1 taken, 9 left, 10 asked
+  const tb = await tooMany.json();
+  ok('capacity: a block bigger than the seats left is refused and told how many remain', tooMany.status === 409 && tb.seats_left === 9, JSON.stringify(tb));
+  // Release the seats this block took so the fixture weekend is open again for the tests that follow.
+  for (const id of [r9.registration_id, r10.registration_id, ro.registration_id]) { const row = registrations.get(id); if (row) row.status = 'abandoned'; }
+}
+{
+  // Progression gate (owner, 2026-09-04, refined 2026-09-05): a course needs its discipline's Fundamentals; of the disciplines without
+  // their own, only Team Tactics requires one (Handgun Fundamentals); P2 also needs the P1; Fundamentals courses never ask.
+  stripeCalls.length = 0;
+  const bare = await reg(goodReg({ sku: 'MAST-HG-OP', prerequisite: undefined })); const bb = await bare.json();
+  ok('prerequisite: Handgun Operator without the attestation → 400 prerequisite', bare.status === 400 && bb.field === 'prerequisite' && bb.code === 'prerequisite', JSON.stringify(bb));
+  ok('prerequisite: the refusal names Handgun Fundamentals', /Handgun Fundamentals/.test(bb.error || ''), bb.error);
+  ok('prerequisite: Stripe not called without it', stripeCalls.length === 0);
+  const carb = await (await reg(goodReg({ sku: 'MAST-CAR-OP', prerequisite: undefined }))).json();
+  ok('prerequisite: Carbine Operator names Carbine Fundamentals', /MAST Carbine Fundamentals/.test(carb.error || '') && !/P1/.test(carb.error || ''), carb.error);
+  const nvg = await (await reg(goodReg({ sku: 'MAST-NVG-P2', prerequisite: undefined }))).json();
+  ok('prerequisite: NVG Operator P2 names Low-Light Fundamentals and a P1 course', /MAST Low-Light Fundamentals and a MAST P1 course/.test(nvg.error || ''), nvg.error);
+  const daBare = await reg(goodReg({ prerequisite: undefined })); const dab = await daBare.json();
+  ok('prerequisite: a discipline without its own Fundamentals (Direct Action) has no prerequisite → 200 (owner, 2026-09-05)', daBare.status === 200, String(daBare.status) + ' ' + (dab.error || ''));
+  const team = await reg(goodReg({ sku: 'MAST-TEAM-P1', prerequisite: undefined })); const tb = await team.json();
+  ok('prerequisite: Team Tactics P1 is the one exception, Handgun Fundamentals first → 400', team.status === 400 && /MAST Handgun Fundamentals/.test(tb.error || '') && !/P1 course/.test(tb.error || ''), String(team.status) + ' ' + (tb.error || ''));
+  const vehp2 = await reg(goodReg({ sku: 'MAST-VEH-P2', prerequisite: undefined }));
+  ok('prerequisite: "Vehicular Tactics / Team Tactics P2" (Protective) has no prerequisite → 200', vehp2.status === 200, String(vehp2.status));
+  const sf = await reg(goodReg({ sku: 'MAST-SF-P1', prerequisite: undefined }));
+  ok('prerequisite: Select-Fire P1 has no prerequisite → 200', sf.status === 200, String(sf.status));
+  const withIt = await reg(goodReg({ sku: 'MAST-HG-OP' })); const wb = await withIt.json();
+  ok('prerequisite: attested → reaches Stripe', withIt.status === 200, String(withIt.status));
+  const row = registrations.get(wb.registration_id);
+  ok('prerequisite: attestation recorded on the registration', row && row.prereq_attested === 1, JSON.stringify(row && row.prereq_attested));
+  const fund = await reg(goodReg({ sku: 'MAST-HG-FUND', prerequisite: undefined })); const fb = await fund.json();
+  ok('prerequisite: Handgun Fundamentals never asks', fund.status === 200, String(fund.status));
+  const fr = registrations.get(fb.registration_id);
+  ok('prerequisite: Handgun Fundamentals records 0', fr && fr.prereq_attested === 0);
+  const ladies = await reg(goodReg({ sku: 'MAST-HG-LADIES', prerequisite: undefined })); const lb = await ladies.json();
+  ok('prerequisite: the ladies-only Handgun Fundamentals class is a qualifier too (no attestation asked)', ladies.status === 200, String(ladies.status));
+  const lr = registrations.get(lb.registration_id);
+  for (const r of [row, fr, lr]) if (r) r.status = 'abandoned';
 }
 {
   stripeCalls.length = 0; emails.length = 0; const before = registrations.size;
@@ -357,6 +465,8 @@ console.log('\n── Site contact + capability requests ──');
   emails.length = 0;
   const res = await post('/contact', { name: 'Jane Doe', email: 'Jane@Example.com', phone: '(713) 555-0100', message: 'Need a residential assessment.', page: 'contact.html' });
   ok('contact form sends one email, 200', res.status === 200 && emails.length === 1, 'status=' + res.status + ' emails=' + emails.length);
+  const priv = await post('/contact', { kind: 'contact', request_type: 'private', name: 'Jane Doe', email: 'jane@example.com', phone: '', message: 'Private instruction request — Private Session (2 HRS · ONE-ON-ONE)', page: 'https://www.atlasglinn.com/mastsolutions.html' });
+  ok('private instruction request (the page\'s Request dialog) sends one email titled as such, 200', priv.status === 200 && emails.length === 2 && /Private instruction request: Jane Doe/.test(JSON.stringify(emails[1])), 'status=' + priv.status + ' ' + JSON.stringify(emails[1]).slice(0, 160));
   ok('email has reply-to the sender and the message', emails[0] && emails[0].reply_to === 'jane@example.com' && /residential assessment/.test(emails[0].text));
   emails.length = 0;
   const cap = await post('/contact', { kind: 'capability', name: 'Jane Doe', email: 'jane@example.com', company: 'Acme', status: 'Need security', request_type: 'RFP' });
@@ -372,9 +482,9 @@ console.log('\n── Agreement PDF fill (the real form, pdf-lib) ──');
 {
   const { readFileSync } = await import('node:fs');
   const { createHash } = await import('node:crypto');
-  const { fillAgreement } = await import('/home/user/atlasglinn-website/mast-backend/src/agreement.js');
+  const { fillAgreement } = await import('./src/agreement.js');
   const { PDFDocument } = await import('pdf-lib');
-  const src = readFileSync('/home/user/atlasglinn-website/mast-backend/assets/class-participation-agreement.pdf');
+  const src = readFileSync(new URL('./assets/class-participation-agreement.pdf', import.meta.url));
   ok('AGREEMENT_VERSION is the hash prefix of the shipped PDF', createHash('sha256').update(src).digest('hex').startsWith(AGREEMENT_VERSION));
   const out = await fillAgreement(src, { id: 'reg_test', customer_name: 'Jane Doe', customer_email: 'student@example.com', customer_phone: '(713) 555-0100', address1: '1 Main St', address2: 'Houston, TX 77002', emergency_name: 'John Doe', emergency_phone: '(713) 555-0199', emergency_relationship: 'Spouse', agreement_signed_name: 'Jane Doe', agreement_initials: 'JD', agreement_signed_at: '2026-09-03T22:40:11Z', agreement_ip: '203.0.113.7' });
   ok('filled PDF produced', out && out.length > 100000, 'bytes=' + (out && out.length));
