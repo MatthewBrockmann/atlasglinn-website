@@ -52,6 +52,12 @@
   #photos .ph { position:absolute; inset:0; background:center/cover no-repeat; opacity:0; transition:opacity .6s ease; filter:saturate(.72) contrast(1.06); }
   #photos .ph.on { transition:opacity 1.6s ease .3s; }
   #photos .ph::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.42) 0%, rgba(5,8,16,.08) 45%, rgba(5,8,16,.72) 100%); }
+  /* A chapter backdrop can be a film snippet instead of a still (Brockmann, 2026-09-05: "the video should be in the background,
+     just a snippet playing, like the current website"). The still stays underneath as the poster; the clip fades in once it
+     plays, loops, muted, and only while its chapter is on screen. */
+  #photos .ph video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:inherit; opacity:0; transition:opacity 1.2s ease; }
+  #photos .ph video.playing { opacity:1; }
+  #photos .ph.film.on { opacity:.58; }
   /* Backdrop presence (Brockmann, 2026-09-05: pull the background forward, keep the layers; then "Reduce background brightness by
      20%"): the photograph sits at .42 (.52 less a fifth), the scene and the text layers stay above it. */
   #photos .ph.on { opacity:.42; }
@@ -225,6 +231,7 @@
     .glass { padding:.8rem; }
     .secondary-cta, .cta-button.ghost-button { margin-left:0; }
     #photos .ph.on { opacity:.35; }
+    #photos .ph.film.on { opacity:.5; }
   }
   @media (prefers-reduced-motion: reduce) { .eyebrow, h1.mega, h2.section-h, .sub, .rise { transition:none; opacity:1; filter:none; transform:none; } }
 
@@ -351,18 +358,18 @@
     <div class="eyebrow">Atlas Glinn, LLC &middot; Houston</div>
     <ul>
       <li><a href="index.html">Home<small>Atlas Glinn, LLC</small></a></li>
-      <li><a href="executive-protection.html">Executive Protection<small>Dignitary and close protection</small></a></li>
-      <li><a href="residential-protection.html" class="here">Residential Protection<small>Estates, guard force, AI surveillance</small></a></li>
-      <li><a href="disaster-recovery.html">Disaster Recovery<small>Asset protection when it counts</small></a></li>
-      <li><a href="training.html">Training<small>Dignitary protection curriculum</small></a></li>
+      <li><a href="https://atlasglinn.com/executive-protection/">Executive Protection<small>Dignitary and close protection</small></a></li>
+      <li><a href="https://atlasglinn.com/residential-protection/" class="here">Residential Protection<small>Estates, guard force, AI surveillance</small></a></li>
+      <li><a href="https://atlasglinn.com/disaster-recovery-asset-protection/">Disaster Recovery<small>Asset protection when it counts</small></a></li>
+      <li><a href="https://atlasglinn.com/training/">Training<small>Dignitary protection curriculum</small></a></li>
       <li><a href="../mastsolutions.html">MAST Solutions<small>Book a course</small></a></li>
-      <li><a href="technology.html">Technology<small>Atlas EP, AI surveillance, drones</small></a></li>
-      <li><a href="cuas-aerodefense.html">Counter-Drone<small>AirWarden by AeroDefense</small></a></li>
-      <li><a href="uas.html">Autonomous UAS<small>Sunflower Labs</small></a></li>
+      <li><a href="https://atlasglinn.com/technology/">Technology<small>Atlas EP, AI surveillance, drones</small></a></li>
+      <li><a href="https://atlasglinn.com/cuas-aerodefense/">Counter-Drone<small>AirWarden by AeroDefense</small></a></li>
+      <li><a href="https://atlasglinn.com/uas/">Autonomous UAS<small>Sunflower Labs</small></a></li>
       <li><a href="../signup.html">Atlas EP App<small>On the App Store</small></a></li>
-      <li><a href="about.html">About<small>Mission and team</small></a></li>
-      <li><a href="careers.html">Careers<small>Open positions</small></a></li>
-      <li><a href="contact.html">Contact<small>(281) 654-8100</small></a></li>
+      <li><a href="https://atlasglinn.com/about/">About<small>Mission and team</small></a></li>
+      <li><a href="https://atlasglinn.com/careers/">Careers<small>Open positions</small></a></li>
+      <li><a href="https://atlasglinn.com/contact/">Contact<small>(281) 654-8100</small></a></li>
       <li><a href="../privacy.html">Privacy Policy<small>What we keep, and for how long</small></a></li>
     </ul>
     <div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions &middot; Executive Protection &middot; Training &middot; AI Surveillance &middot; Counter-Drone &middot; Risk Management<br><a href="../privacy.html">Privacy Policy</a>&middot;<a href="../terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a></div>
@@ -376,7 +383,7 @@
       <div class="eyebrow">Residential Protection</div>
       <h1 class="mega"><span class="gold-shimmer">Details</span> <span class="white">Matter.</span></h1>
       <p class="sub">Atlas Glinn provides comprehensive residential protection with highly trained security guards available 24/7, ensuring round-the-clock protection for your home and valuable assets. Whether you require an on-site presence or remote surveillance, we customize our protection to your exact needs &mdash; adapting to your lifestyle while maintaining an uncompromising security posture.</p>
-      <div class="ctas rise"><a href="contact.html" class="cta">Request an Assessment</a><a href="#s2" class="secondary-cta">Four Pillars</a></div>
+      <div class="ctas rise"><a href="https://atlasglinn.com/contact/" class="cta">Request an Assessment</a><a href="#s2" class="secondary-cta">Four Pillars</a></div>
     </div>
     <div class="scroll-cue">SCROLL &darr;</div>
   </section>
@@ -395,7 +402,7 @@
       <div class="eyebrow">Comprehensive Coverage</div>
       <h2 class="section-h">Every <span class="gold">Layer.</span></h2>
       
-      <div class="cards"><div class="card rise"><div class="num">01</div><h3>Estate Security</h3><p>Full perimeter protection for high-value residences &mdash; gates, fencing, lighting assessments, and dedicated guard posts. Comprehensive coverage for estates of any size.</p></div><div class="card rise"><div class="num">02</div><h3>Remote Monitoring</h3><p>24/7 camera surveillance with AI analytics &mdash; Deep Sentinel live agents, Rhombus smart cameras, and LVT mobile units providing constant vigilance.</p></div><div class="card rise"><div class="num">03</div><h3>Alarm Integration</h3><p>Direct integration with your existing alarm and automation systems. Atlas Glinn becomes your monitoring center with guaranteed response times.</p></div><div class="card rise"><div class="num">04</div><h3>Safe Room Planning</h3><p>Threat assessment and safe room design consultation for high-risk residences and families requiring enhanced protection layers.</p></div><div class="card rise"><div class="num">05</div><h3>K-9 Security</h3><p>Trained security K-9 units available for patrol and detection operations on large residential properties. A proven force multiplier.</p></div><div class="card rise"><div class="num">06</div><h3>Vulnerability Assessment</h3><p>Comprehensive property security audits identifying entry points, blind spots, and upgrade recommendations to harden your residence.</p></div></div><div class="ctas rise" style="margin-top:2rem"><a href="technology.html" class="secondary-cta">View Technology</a></div>
+      <div class="cards"><div class="card rise"><div class="num">01</div><h3>Estate Security</h3><p>Full perimeter protection for high-value residences &mdash; gates, fencing, lighting assessments, and dedicated guard posts. Comprehensive coverage for estates of any size.</p></div><div class="card rise"><div class="num">02</div><h3>Remote Monitoring</h3><p>24/7 camera surveillance with AI analytics &mdash; Deep Sentinel live agents, Rhombus smart cameras, and LVT mobile units providing constant vigilance.</p></div><div class="card rise"><div class="num">03</div><h3>Alarm Integration</h3><p>Direct integration with your existing alarm and automation systems. Atlas Glinn becomes your monitoring center with guaranteed response times.</p></div><div class="card rise"><div class="num">04</div><h3>Safe Room Planning</h3><p>Threat assessment and safe room design consultation for high-risk residences and families requiring enhanced protection layers.</p></div><div class="card rise"><div class="num">05</div><h3>K-9 Security</h3><p>Trained security K-9 units available for patrol and detection operations on large residential properties. A proven force multiplier.</p></div><div class="card rise"><div class="num">06</div><h3>Vulnerability Assessment</h3><p>Comprehensive property security audits identifying entry points, blind spots, and upgrade recommendations to harden your residence.</p></div></div><div class="ctas rise" style="margin-top:2rem"><a href="https://atlasglinn.com/technology/" class="secondary-cta">View Technology</a></div>
     </div>
   </section>
 
@@ -404,7 +411,7 @@
       <div class="eyebrow">Ready to Secure Your Home?</div>
       <h2 class="section-h">Start With an <span class="gold">Assessment.</span></h2>
       <p class="sub">Every engagement begins with a confidential property assessment. Reach out to discuss your family&rsquo;s security requirements.</p>
-      <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div><div class="ctas rise"><a href="contact.html" class="cta">Contact Us</a><a href="tel:+12816548100" class="secondary-cta">(281) 654-8100</a></div><div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions &middot; Executive Protection &middot; Training &middot; AI Surveillance &middot; Counter-Drone &middot; Risk Management<br><a href="../privacy.html">Privacy Policy</a>&middot;<a href="../terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a></div>
+      <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div><div class="ctas rise"><a href="https://atlasglinn.com/contact/" class="cta">Contact Us</a><a href="tel:+12816548100" class="secondary-cta">(281) 654-8100</a></div><div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions &middot; Executive Protection &middot; Training &middot; AI Surveillance &middot; Counter-Drone &middot; Risk Management<br><a href="../privacy.html">Privacy Policy</a>&middot;<a href="../terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a></div>
     </div>
   </section>
 
@@ -466,7 +473,19 @@ addEventListener('mousemove', e => { cx = e.clientX; cy = e.clientY; });
 // ── Photography layer ──
 const phs = [...document.querySelectorAll('#photos .ph')];
 let photoIdx = -1;
-function setPhoto(i) { if (i === photoIdx) return; photoIdx = i; phs.forEach((p, k) => p.classList.toggle('on', k === i)); }
+function setPhoto(i) {
+  if (i === photoIdx) return; photoIdx = i;
+  phs.forEach((p, k) => {
+    const on = k === i; p.classList.toggle('on', on);
+    const v = p.querySelector('video'); if (!v) return;          // film backdrops play only while their chapter is on screen
+    if (on && !reduce) v.play().catch(() => {}); else v.pause();
+  });
+}
+document.querySelectorAll('#photos video').forEach(v => {
+  v.addEventListener('playing', () => v.classList.add('playing'));
+  const end = parseFloat(v.dataset.end || '0');                    // data-end: loop the first N seconds of a longer file as the snippet
+  if (end > 0) v.addEventListener('timeupdate', () => { if (v.currentTime >= end) v.currentTime = 0; });
+});
 
 // ── Three: the Tier 3 emblem scene ──
 const canvas = document.getElementById('three-canvas');

@@ -52,6 +52,12 @@
   #photos .ph { position:absolute; inset:0; background:center/cover no-repeat; opacity:0; transition:opacity .6s ease; filter:saturate(.72) contrast(1.06); }
   #photos .ph.on { transition:opacity 1.6s ease .3s; }
   #photos .ph::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.42) 0%, rgba(5,8,16,.08) 45%, rgba(5,8,16,.72) 100%); }
+  /* A chapter backdrop can be a film snippet instead of a still (Brockmann, 2026-09-05: "the video should be in the background,
+     just a snippet playing, like the current website"). The still stays underneath as the poster; the clip fades in once it
+     plays, loops, muted, and only while its chapter is on screen. */
+  #photos .ph video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:inherit; opacity:0; transition:opacity 1.2s ease; }
+  #photos .ph video.playing { opacity:1; }
+  #photos .ph.film.on { opacity:.58; }
   /* Backdrop presence (Brockmann, 2026-09-05: pull the background forward, keep the layers; then "Reduce background brightness by
      20%"): the photograph sits at .42 (.52 less a fifth), the scene and the text layers stay above it. */
   #photos .ph.on { opacity:.42; }
@@ -225,6 +231,7 @@
     .glass { padding:.8rem; }
     .secondary-cta, .cta-button.ghost-button { margin-left:0; }
     #photos .ph.on { opacity:.35; }
+    #photos .ph.film.on { opacity:.5; }
   }
   @media (prefers-reduced-motion: reduce) { .eyebrow, h1.mega, h2.section-h, .sub, .rise { transition:none; opacity:1; filter:none; transform:none; } }
 
@@ -351,18 +358,18 @@
     <div class="eyebrow">Atlas Glinn, LLC &middot; Houston</div>
     <ul>
       <li><a href="index.html">Home<small>Atlas Glinn, LLC</small></a></li>
-      <li><a href="executive-protection.html">Executive Protection<small>Dignitary and close protection</small></a></li>
-      <li><a href="residential-protection.html">Residential Protection<small>Estates, guard force, AI surveillance</small></a></li>
-      <li><a href="disaster-recovery.html" class="here">Disaster Recovery<small>Asset protection when it counts</small></a></li>
-      <li><a href="training.html">Training<small>Dignitary protection curriculum</small></a></li>
+      <li><a href="https://atlasglinn.com/executive-protection/">Executive Protection<small>Dignitary and close protection</small></a></li>
+      <li><a href="https://atlasglinn.com/residential-protection/">Residential Protection<small>Estates, guard force, AI surveillance</small></a></li>
+      <li><a href="https://atlasglinn.com/disaster-recovery-asset-protection/" class="here">Disaster Recovery<small>Asset protection when it counts</small></a></li>
+      <li><a href="https://atlasglinn.com/training/">Training<small>Dignitary protection curriculum</small></a></li>
       <li><a href="../mastsolutions.html">MAST Solutions<small>Book a course</small></a></li>
-      <li><a href="technology.html">Technology<small>Atlas EP, AI surveillance, drones</small></a></li>
-      <li><a href="cuas-aerodefense.html">Counter-Drone<small>AirWarden by AeroDefense</small></a></li>
-      <li><a href="uas.html">Autonomous UAS<small>Sunflower Labs</small></a></li>
+      <li><a href="https://atlasglinn.com/technology/">Technology<small>Atlas EP, AI surveillance, drones</small></a></li>
+      <li><a href="https://atlasglinn.com/cuas-aerodefense/">Counter-Drone<small>AirWarden by AeroDefense</small></a></li>
+      <li><a href="https://atlasglinn.com/uas/">Autonomous UAS<small>Sunflower Labs</small></a></li>
       <li><a href="../signup.html">Atlas EP App<small>On the App Store</small></a></li>
-      <li><a href="about.html">About<small>Mission and team</small></a></li>
-      <li><a href="careers.html">Careers<small>Open positions</small></a></li>
-      <li><a href="contact.html">Contact<small>(281) 654-8100</small></a></li>
+      <li><a href="https://atlasglinn.com/about/">About<small>Mission and team</small></a></li>
+      <li><a href="https://atlasglinn.com/careers/">Careers<small>Open positions</small></a></li>
+      <li><a href="https://atlasglinn.com/contact/">Contact<small>(281) 654-8100</small></a></li>
       <li><a href="../privacy.html">Privacy Policy<small>What we keep, and for how long</small></a></li>
     </ul>
     <div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions &middot; Executive Protection &middot; Training &middot; AI Surveillance &middot; Counter-Drone &middot; Risk Management<br><a href="../privacy.html">Privacy Policy</a>&middot;<a href="../terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a></div>
@@ -376,7 +383,7 @@
       <div class="eyebrow">Disaster Recovery &amp; Asset Protection</div>
       <h1 class="mega"><span class="gold-shimmer">Details</span> <span class="white">Matter.</span></h1>
       <p class="sub">Atlas Glinn offers comprehensive disaster recovery and asset protection services designed to help clients rebuild and protect assets following natural catastrophes, industrial incidents, and crisis events. From hurricanes and flooding to fire and power grid failures, we deploy rapidly to secure what matters most.</p>
-      <div class="ctas rise"><a href="contact.html" class="cta">Plan Before the Storm</a><a href="#s2" class="secondary-cta">Core Capabilities</a></div>
+      <div class="ctas rise"><a href="https://atlasglinn.com/contact/" class="cta">Plan Before the Storm</a><a href="#s2" class="secondary-cta">Core Capabilities</a></div>
     </div>
     <div class="scroll-cue">SCROLL &darr;</div>
   </section>
@@ -395,7 +402,7 @@
       <div class="eyebrow">Prepared for Anything</div>
       <h2 class="section-h">Every <span class="gold">Scenario.</span></h2>
       
-      <div class="tiles"><div class="tile rise"><div class="bg" style="background-image:url('../images/disaster-hurricane.jpg');background-position:center"></div><div class="txt"><div class="num">01</div><h3>Hurricanes &amp; Storms</h3><p>Pre-storm boarding and asset relocation. Post-storm site security, access control, and recovery logistics throughout the Gulf Coast and beyond.</p><span class="more">Talk to us &rarr;</span></div><a class="cover" href="contact.html" aria-label="Hurricanes &amp; Storms"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/disaster-flood.jpg');background-position:center"></div><div class="txt"><div class="num">02</div><h3>Flooding</h3><p>Emergency asset extraction, temporary storage coordination, and 24/7 site security during flood events and extended recovery periods.</p><span class="more">Talk to us &rarr;</span></div><a class="cover" href="contact.html" aria-label="Flooding"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/disaster-fire.jpg');background-position:center"></div><div class="txt"><div class="num">03</div><h3>Fire &amp; Structural</h3><p>Post-fire perimeter security, salvage coordination, and asset protection during reconstruction and insurance investigations.</p><span class="more">Talk to us &rarr;</span></div><a class="cover" href="contact.html" aria-label="Fire &amp; Structural"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/disaster-industrial.jpg');background-position:center"></div><div class="txt"><div class="num">04</div><h3>Industrial Incidents</h3><p>Plant and facility security following industrial accidents. Personnel accountability, perimeter control, and evidence preservation for investigations.</p><span class="more">Talk to us &rarr;</span></div><a class="cover" href="contact.html" aria-label="Industrial Incidents"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/disaster-lightning.jpg');background-position:center"></div><div class="txt"><div class="num">05</div><h3>Power Grid Failures</h3><p>Security augmentation during extended power outages. Generator coordination, access control, and anti-looting patrols to protect your property.</p><span class="more">Talk to us &rarr;</span></div><a class="cover" href="contact.html" aria-label="Power Grid Failures"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/disaster-commercial.jpg');background-position:center"></div><div class="txt"><div class="num">06</div><h3>Commercial Properties</h3><p>Retail, office, and warehouse security during and after disaster events. Inventory protection and controlled access for repair crews and contractors.</p><span class="more">Talk to us &rarr;</span></div><a class="cover" href="contact.html" aria-label="Commercial Properties"></a></div></div>
+      <div class="tiles"><div class="tile rise"><div class="bg" style="background-image:url('../images/disaster-hurricane.jpg');background-position:center"></div><div class="txt"><div class="num">01</div><h3>Hurricanes &amp; Storms</h3><p>Pre-storm boarding and asset relocation. Post-storm site security, access control, and recovery logistics throughout the Gulf Coast and beyond.</p><span class="more">Talk to us &rarr;</span></div><a class="cover" href="https://atlasglinn.com/contact/" aria-label="Hurricanes &amp; Storms"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/disaster-flood.jpg');background-position:center"></div><div class="txt"><div class="num">02</div><h3>Flooding</h3><p>Emergency asset extraction, temporary storage coordination, and 24/7 site security during flood events and extended recovery periods.</p><span class="more">Talk to us &rarr;</span></div><a class="cover" href="https://atlasglinn.com/contact/" aria-label="Flooding"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/disaster-fire.jpg');background-position:center"></div><div class="txt"><div class="num">03</div><h3>Fire &amp; Structural</h3><p>Post-fire perimeter security, salvage coordination, and asset protection during reconstruction and insurance investigations.</p><span class="more">Talk to us &rarr;</span></div><a class="cover" href="https://atlasglinn.com/contact/" aria-label="Fire &amp; Structural"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/disaster-industrial.jpg');background-position:center"></div><div class="txt"><div class="num">04</div><h3>Industrial Incidents</h3><p>Plant and facility security following industrial accidents. Personnel accountability, perimeter control, and evidence preservation for investigations.</p><span class="more">Talk to us &rarr;</span></div><a class="cover" href="https://atlasglinn.com/contact/" aria-label="Industrial Incidents"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/disaster-lightning.jpg');background-position:center"></div><div class="txt"><div class="num">05</div><h3>Power Grid Failures</h3><p>Security augmentation during extended power outages. Generator coordination, access control, and anti-looting patrols to protect your property.</p><span class="more">Talk to us &rarr;</span></div><a class="cover" href="https://atlasglinn.com/contact/" aria-label="Power Grid Failures"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/disaster-commercial.jpg');background-position:center"></div><div class="txt"><div class="num">06</div><h3>Commercial Properties</h3><p>Retail, office, and warehouse security during and after disaster events. Inventory protection and controlled access for repair crews and contractors.</p><span class="more">Talk to us &rarr;</span></div><a class="cover" href="https://atlasglinn.com/contact/" aria-label="Commercial Properties"></a></div></div>
     </div>
   </section>
 
@@ -404,7 +411,7 @@
       <div class="eyebrow">Don&rsquo;t Wait for the Storm</div>
       <h2 class="section-h">Plan <span class="gold">Before.</span></h2>
       <p class="sub">Proactive planning saves assets and lives. Contact us to develop a disaster recovery plan before you need one.</p>
-      <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div><div class="ctas rise"><a href="contact.html" class="cta">Contact Us</a><a href="residential-protection.html" class="secondary-cta">Residential Protection &rarr;</a></div><div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions &middot; Executive Protection &middot; Training &middot; AI Surveillance &middot; Counter-Drone &middot; Risk Management<br><a href="../privacy.html">Privacy Policy</a>&middot;<a href="../terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a></div>
+      <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div><div class="ctas rise"><a href="https://atlasglinn.com/contact/" class="cta">Contact Us</a><a href="https://atlasglinn.com/residential-protection/" class="secondary-cta">Residential Protection &rarr;</a></div><div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions &middot; Executive Protection &middot; Training &middot; AI Surveillance &middot; Counter-Drone &middot; Risk Management<br><a href="../privacy.html">Privacy Policy</a>&middot;<a href="../terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a></div>
     </div>
   </section>
 
@@ -466,7 +473,19 @@ addEventListener('mousemove', e => { cx = e.clientX; cy = e.clientY; });
 // ── Photography layer ──
 const phs = [...document.querySelectorAll('#photos .ph')];
 let photoIdx = -1;
-function setPhoto(i) { if (i === photoIdx) return; photoIdx = i; phs.forEach((p, k) => p.classList.toggle('on', k === i)); }
+function setPhoto(i) {
+  if (i === photoIdx) return; photoIdx = i;
+  phs.forEach((p, k) => {
+    const on = k === i; p.classList.toggle('on', on);
+    const v = p.querySelector('video'); if (!v) return;          // film backdrops play only while their chapter is on screen
+    if (on && !reduce) v.play().catch(() => {}); else v.pause();
+  });
+}
+document.querySelectorAll('#photos video').forEach(v => {
+  v.addEventListener('playing', () => v.classList.add('playing'));
+  const end = parseFloat(v.dataset.end || '0');                    // data-end: loop the first N seconds of a longer file as the snippet
+  if (end > 0) v.addEventListener('timeupdate', () => { if (v.currentTime >= end) v.currentTime = 0; });
+});
 
 // ── Three: the Tier 3 emblem scene ──
 const canvas = document.getElementById('three-canvas');
