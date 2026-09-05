@@ -56,6 +56,12 @@
   #photos .ph { position:absolute; inset:0; background:center/cover no-repeat; opacity:0; transition:opacity .6s ease; filter:saturate(.72) contrast(1.06); }
   #photos .ph.on { transition:opacity 1.6s ease .3s; }
   #photos .ph::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.42) 0%, rgba(5,8,16,.08) 45%, rgba(5,8,16,.72) 100%); }
+  /* A chapter backdrop can be a film snippet instead of a still (Brockmann, 2026-09-05: "the video should be in the background,
+     just a snippet playing, like the current website"). The still stays underneath as the poster; the clip fades in once it
+     plays, loops, muted, and only while its chapter is on screen. */
+  #photos .ph video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:inherit; opacity:0; transition:opacity 1.2s ease; }
+  #photos .ph video.playing { opacity:1; }
+  #photos .ph.film.on { opacity:.58; }
   /* Backdrop presence (Brockmann, 2026-09-05: pull the background forward, keep the layers; then "Reduce background brightness by
      20%"): the photograph sits at .42 (.52 less a fifth), the scene and the text layers stay above it. */
   #photos .ph.on { opacity:.42; }
@@ -229,6 +235,7 @@
     .glass { padding:.8rem; }
     .secondary-cta, .cta-button.ghost-button { margin-left:0; }
     #photos .ph.on { opacity:.35; }
+    #photos .ph.film.on { opacity:.5; }
   }
   @media (prefers-reduced-motion: reduce) { .eyebrow, h1.mega, h2.section-h, .sub, .rise { transition:none; opacity:1; filter:none; transform:none; } }
 
@@ -326,7 +333,7 @@
 
 <canvas id="three-canvas"></canvas>
 <div id="photos">
-  <div class="ph" data-for="01" style="background-image:url('../images/film/atlas-glinn-and-mast-solutions-poster.jpg')"></div>
+  <div class="ph film" data-for="01" style="background-image:url('../images/film/atlas-glinn-and-mast-solutions-poster.jpg')"><video muted loop playsinline preload="metadata" aria-hidden="true"><source src="../images/film/atlas-glinn-and-mast-solutions-teaser.mp4" type="video/mp4"></video></div>
   <div class="ph" data-for="02" style="background-image:url('../images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg')"></div>
   <div class="ph" data-for="03" style="background-image:url('../images/atlas/Atlas-Glinn-Protection.png')"></div>
   <div class="ph" data-for="04" style="background-image:url('../images/film/atlas-glinn-and-mast-solutions-poster.jpg')"></div>
@@ -363,18 +370,18 @@
     <div class="eyebrow">Atlas Glinn, LLC &middot; Houston</div>
     <ul>
       <li><a href="index.html" class="here">Home<small>Atlas Glinn, LLC</small></a></li>
-      <li><a href="executive-protection.html">Executive Protection<small>Dignitary and close protection</small></a></li>
-      <li><a href="residential-protection.html">Residential Protection<small>Estates, guard force, AI surveillance</small></a></li>
-      <li><a href="disaster-recovery.html">Disaster Recovery<small>Asset protection when it counts</small></a></li>
-      <li><a href="training.html">Training<small>Dignitary protection curriculum</small></a></li>
+      <li><a href="https://atlasglinn.com/executive-protection/">Executive Protection<small>Dignitary and close protection</small></a></li>
+      <li><a href="https://atlasglinn.com/residential-protection/">Residential Protection<small>Estates, guard force, AI surveillance</small></a></li>
+      <li><a href="https://atlasglinn.com/disaster-recovery-asset-protection/">Disaster Recovery<small>Asset protection when it counts</small></a></li>
+      <li><a href="https://atlasglinn.com/training/">Training<small>Dignitary protection curriculum</small></a></li>
       <li><a href="../mastsolutions.html">MAST Solutions<small>Book a course</small></a></li>
-      <li><a href="technology.html">Technology<small>Atlas EP, AI surveillance, drones</small></a></li>
-      <li><a href="cuas-aerodefense.html">Counter-Drone<small>AirWarden by AeroDefense</small></a></li>
-      <li><a href="uas.html">Autonomous UAS<small>Sunflower Labs</small></a></li>
+      <li><a href="https://atlasglinn.com/technology/">Technology<small>Atlas EP, AI surveillance, drones</small></a></li>
+      <li><a href="https://atlasglinn.com/cuas-aerodefense/">Counter-Drone<small>AirWarden by AeroDefense</small></a></li>
+      <li><a href="https://atlasglinn.com/uas/">Autonomous UAS<small>Sunflower Labs</small></a></li>
       <li><a href="../signup.html">Atlas EP App<small>On the App Store</small></a></li>
-      <li><a href="about.html">About<small>Mission and team</small></a></li>
-      <li><a href="careers.html">Careers<small>Open positions</small></a></li>
-      <li><a href="contact.html">Contact<small>(281) 654-8100</small></a></li>
+      <li><a href="https://atlasglinn.com/about/">About<small>Mission and team</small></a></li>
+      <li><a href="https://atlasglinn.com/careers/">Careers<small>Open positions</small></a></li>
+      <li><a href="https://atlasglinn.com/contact/">Contact<small>(281) 654-8100</small></a></li>
       <li><a href="../privacy.html">Privacy Policy<small>What we keep, and for how long</small></a></li>
     </ul>
     <div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions &middot; Executive Protection &middot; Training &middot; AI Surveillance &middot; Counter-Drone &middot; Risk Management<br><a href="../privacy.html">Privacy Policy</a>&middot;<a href="../terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a></div>
@@ -388,7 +395,7 @@
       <div class="eyebrow">Security, Training, Dignitary Protection</div>
       <h1 class="mega"><span class="gold-shimmer">Details</span> <span class="white">Matter.</span></h1>
       <p class="sub">Discreet, adaptive security for those who cannot afford a mistake. Executive and residential protection, disaster recovery, technology, and the training behind all of it. Houston, Texas.</p>
-      <div class="ctas rise"><a href="#s2" class="cta">Our Services</a><a href="contact.html" class="secondary-cta">Contact Us</a></div>
+      <div class="ctas rise"><a href="#s2" class="cta">Our Services</a><a href="https://atlasglinn.com/contact/" class="secondary-cta">Contact Us</a></div>
     </div>
     <div class="scroll-cue">SCROLL &darr;</div>
   </section>
@@ -398,7 +405,7 @@
       <div class="eyebrow">Our Services</div>
       <h2 class="section-h">Customized <span class="gold">Security.</span></h2>
       <p class="sub">Customized Security Solutions Tailored to Every Client&rsquo;s Needs.</p>
-      <div class="tiles"><div class="tile rise"><div class="bg" style="background-image:url('../images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg');background-position:center"></div><div class="txt"><div class="num">01</div><h3>Executive Protection</h3><p>Discreet, adaptive security for high-level executives and dignitaries.</p><span class="more">Learn more &rarr;</span></div><a class="cover" href="executive-protection.html" aria-label="Executive Protection"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/atlas/closeup-cctv-camera-wall-min-1024x683.jpg');background-position:center"></div><div class="txt"><div class="num">02</div><h3>Residential Protection</h3><p>24/7 security guards and AI surveillance for your home and estate.</p><span class="more">Learn more &rarr;</span></div><a class="cover" href="residential-protection.html" aria-label="Residential Protection"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/atlas/Atlas-Glinn-Protection.png');background-position:center"></div><div class="txt"><div class="num">03</div><h3>Secure Transport</h3><p>Armed drivers, route planning, and tactical escort for motorcade operations.</p><span class="more">Learn more &rarr;</span></div><a class="cover" href="executive-protection.html#s7" aria-label="Secure Transport"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/atlas/Atlas-Glinn-Training-1024x951.jpeg');background-position:center"></div><div class="txt"><div class="num">04</div><h3>Training Programs</h3><p>Rigorous training for real-world challenges. Delivered by operators, for operators.</p><span class="more">Learn more &rarr;</span></div><a class="cover" href="training.html" aria-label="Training Programs"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/atlas/closeup-cctv-camera-wall-min-1024x683.jpg');background-position:center"></div><div class="txt"><div class="num">05</div><h3>AI Surveillance</h3><p>AI-powered intelligence gathering, threat assessment, and real-time analytics.</p><span class="more">Learn more &rarr;</span></div><a class="cover" href="technology.html" aria-label="AI Surveillance"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/atlas/Atlas-Glinn-3.jpg');background-position:center"></div><div class="txt"><div class="num">06</div><h3>Disaster Recovery</h3><p>Rapid response and asset protection during crisis situations.</p><span class="more">Learn more &rarr;</span></div><a class="cover" href="disaster-recovery.html" aria-label="Disaster Recovery"></a></div></div>
+      <div class="tiles"><div class="tile rise"><div class="bg" style="background-image:url('../images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg');background-position:center"></div><div class="txt"><div class="num">01</div><h3>Executive Protection</h3><p>Discreet, adaptive security for high-level executives and dignitaries.</p><span class="more">Learn more &rarr;</span></div><a class="cover" href="https://atlasglinn.com/executive-protection/" aria-label="Executive Protection"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/atlas/closeup-cctv-camera-wall-min-1024x683.jpg');background-position:center"></div><div class="txt"><div class="num">02</div><h3>Residential Protection</h3><p>24/7 security guards and AI surveillance for your home and estate.</p><span class="more">Learn more &rarr;</span></div><a class="cover" href="https://atlasglinn.com/residential-protection/" aria-label="Residential Protection"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/atlas/Atlas-Glinn-Protection.png');background-position:center"></div><div class="txt"><div class="num">03</div><h3>Secure Transport</h3><p>Armed drivers, route planning, and tactical escort for motorcade operations.</p><span class="more">Learn more &rarr;</span></div><a class="cover" href="https://atlasglinn.com/executive-protection/" aria-label="Secure Transport"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/atlas/Atlas-Glinn-Training-1024x951.jpeg');background-position:center"></div><div class="txt"><div class="num">04</div><h3>Training Programs</h3><p>Rigorous training for real-world challenges. Delivered by operators, for operators.</p><span class="more">Learn more &rarr;</span></div><a class="cover" href="https://atlasglinn.com/training/" aria-label="Training Programs"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/atlas/closeup-cctv-camera-wall-min-1024x683.jpg');background-position:center"></div><div class="txt"><div class="num">05</div><h3>AI Surveillance</h3><p>AI-powered intelligence gathering, threat assessment, and real-time analytics.</p><span class="more">Learn more &rarr;</span></div><a class="cover" href="https://atlasglinn.com/technology/" aria-label="AI Surveillance"></a></div><div class="tile rise"><div class="bg" style="background-image:url('../images/atlas/Atlas-Glinn-3.jpg');background-position:center"></div><div class="txt"><div class="num">06</div><h3>Disaster Recovery</h3><p>Rapid response and asset protection during crisis situations.</p><span class="more">Learn more &rarr;</span></div><a class="cover" href="https://atlasglinn.com/disaster-recovery-asset-protection/" aria-label="Disaster Recovery"></a></div></div>
     </div>
   </section>
 
@@ -425,7 +432,7 @@
       <div class="eyebrow">Built by Atlas Glinn</div>
       <h2 class="section-h">The Atlas EP <span class="gold">Platform.</span></h2>
       <p class="sub">We didn&rsquo;t just build a security company &mdash; we built the intelligence platform behind it. Powered by artificial intelligence, designed by a 34-year EP veteran.</p>
-      <div class="cards four"><div class="card rise"><div class="num">01</div><h3>AI Threat Analysis &amp; Scoring</h3><p>Real-time threat intelligence powered by Anthropic Claude AI. Automated situation reports, risk scoring, and predictive threat modeling.</p></div><div class="card rise"><div class="num">02</div><h3>Blue Force Tracking</h3><p>Real-time GPS positioning of your entire protection team. Anti-spoofing technology ensures accurate, tamper-proof location data.</p></div><div class="card rise"><div class="num">03</div><h3>Encrypted Push-to-Talk Radio</h3><p>AES-256-GCM encrypted voice comms. No third-party servers, no interception risk.</p></div><div class="card rise"><div class="num">04</div><h3>Crime Data Intelligence</h3><p>Live crime feeds, sex offender mapping, aviation/airspace monitoring &mdash; all layered on Google Earth for advance work.</p></div><div class="card rise"><div class="num">05</div><h3>Covert Emergency Stream</h3><p>Silent SOS with live audio/video streaming. Your team sees and hears everything without alerting the threat.</p></div><div class="card rise"><div class="num">06</div><h3>Duress Detection</h3><p>Dead man&rsquo;s switch + heart rate monitoring. If you go down, your team knows immediately. Apple Watch companion with wrist SOS.</p></div><div class="card rise"><div class="num">07</div><h3>Counter-Surveillance Sweep</h3><p>BLE + IR camera detection for room sweeps. Identify hidden surveillance devices before your principal arrives.</p></div><div class="card rise"><div class="num">08</div><h3>Cyber Defense Suite</h3><p>Evil twin WiFi detection, jailbreak monitoring, MITM protection. Your device security is part of the mission.</p></div></div><div class="ctas rise" style="margin-top:2rem"><a href="../signup.html" class="cta">Explore Atlas EP</a><a href="technology.html" class="secondary-cta">All Technology</a></div>
+      <div class="cards four"><div class="card rise"><div class="num">01</div><h3>AI Threat Analysis &amp; Scoring</h3><p>Real-time threat intelligence powered by Anthropic Claude AI. Automated situation reports, risk scoring, and predictive threat modeling.</p></div><div class="card rise"><div class="num">02</div><h3>Blue Force Tracking</h3><p>Real-time GPS positioning of your entire protection team. Anti-spoofing technology ensures accurate, tamper-proof location data.</p></div><div class="card rise"><div class="num">03</div><h3>Encrypted Push-to-Talk Radio</h3><p>AES-256-GCM encrypted voice comms. No third-party servers, no interception risk.</p></div><div class="card rise"><div class="num">04</div><h3>Crime Data Intelligence</h3><p>Live crime feeds, sex offender mapping, aviation/airspace monitoring &mdash; all layered on Google Earth for advance work.</p></div><div class="card rise"><div class="num">05</div><h3>Covert Emergency Stream</h3><p>Silent SOS with live audio/video streaming. Your team sees and hears everything without alerting the threat.</p></div><div class="card rise"><div class="num">06</div><h3>Duress Detection</h3><p>Dead man&rsquo;s switch + heart rate monitoring. If you go down, your team knows immediately. Apple Watch companion with wrist SOS.</p></div><div class="card rise"><div class="num">07</div><h3>Counter-Surveillance Sweep</h3><p>BLE + IR camera detection for room sweeps. Identify hidden surveillance devices before your principal arrives.</p></div><div class="card rise"><div class="num">08</div><h3>Cyber Defense Suite</h3><p>Evil twin WiFi detection, jailbreak monitoring, MITM protection. Your device security is part of the mission.</p></div></div><div class="ctas rise" style="margin-top:2rem"><a href="../signup.html" class="cta">Explore Atlas EP</a><a href="https://atlasglinn.com/technology/" class="secondary-cta">All Technology</a></div>
     </div>
   </section>
 
@@ -452,7 +459,7 @@
       <div class="eyebrow">Get in Touch</div>
       <h2 class="section-h">Protecting What <span class="gold">Matters Most.</span></h2>
       <p class="sub">From U.S. Senators to Fortune 500 executives &mdash; discreet, adaptive protection at the highest level.</p>
-      <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div><div class="ctas rise"><a href="contact.html" class="cta">Contact Us</a><a href="../mastsolutions.html" class="secondary-cta">Book Training &rarr;</a></div><div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions &middot; Executive Protection &middot; Training &middot; AI Surveillance &middot; Counter-Drone &middot; Risk Management<br><a href="../privacy.html">Privacy Policy</a>&middot;<a href="../terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a></div>
+      <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div><div class="ctas rise"><a href="https://atlasglinn.com/contact/" class="cta">Contact Us</a><a href="../mastsolutions.html" class="secondary-cta">Book Training &rarr;</a></div><div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions &middot; Executive Protection &middot; Training &middot; AI Surveillance &middot; Counter-Drone &middot; Risk Management<br><a href="../privacy.html">Privacy Policy</a>&middot;<a href="../terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a></div>
     </div>
   </section>
 
@@ -514,7 +521,19 @@ addEventListener('mousemove', e => { cx = e.clientX; cy = e.clientY; });
 // ── Photography layer ──
 const phs = [...document.querySelectorAll('#photos .ph')];
 let photoIdx = -1;
-function setPhoto(i) { if (i === photoIdx) return; photoIdx = i; phs.forEach((p, k) => p.classList.toggle('on', k === i)); }
+function setPhoto(i) {
+  if (i === photoIdx) return; photoIdx = i;
+  phs.forEach((p, k) => {
+    const on = k === i; p.classList.toggle('on', on);
+    const v = p.querySelector('video'); if (!v) return;          // film backdrops play only while their chapter is on screen
+    if (on && !reduce) v.play().catch(() => {}); else v.pause();
+  });
+}
+document.querySelectorAll('#photos video').forEach(v => {
+  v.addEventListener('playing', () => v.classList.add('playing'));
+  const end = parseFloat(v.dataset.end || '0');                    // data-end: loop the first N seconds of a longer file as the snippet
+  if (end > 0) v.addEventListener('timeupdate', () => { if (v.currentTime >= end) v.currentTime = 0; });
+});
 
 // ── Three: the Tier 3 emblem scene ──
 const canvas = document.getElementById('three-canvas');

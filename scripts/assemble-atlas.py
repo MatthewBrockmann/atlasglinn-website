@@ -65,6 +65,12 @@ BADGE_BEST    = A + 'BEST_OF_BusinessRate_2025_Atlas_Glinn.png'
 BEEHIVE       = WP + '2025/03/IMG_1837-1024x751.jpeg'                # not on the handoff yet (the Mac's fetch skipped it)
 FILM_POSTER   = 'images/film/atlas-glinn-and-mast-solutions-poster.jpg'       # frame of the home-page film
 ABOUT_POSTER  = 'images/film/about-atlas-glinn-poster.jpg'                    # frame of the About film
+# The current home and About pages open on a background film; the rebuilt pages open on the same films as six-second snippets
+# behind the opening chapter (Brockmann, 2026-09-05: "the video should be in the background, just a snippet playing").
+# technology, uas and contact also open on a film today, but those files are LFS pointers in this repo (no bytes) and have
+# not come over on the handoff; they keep their photographs until they do.
+FILM_TEASER   = 'images/film/atlas-glinn-and-mast-solutions-teaser.mp4'
+ABOUT_TEASER  = 'images/film/about-atlas-glinn-teaser.mp4'
 # Pages whose current hero is a YouTube film keep that film as the first card of chapter 2.
 YT_RESIDENTIAL, YT_DISASTER, YT_TRAINING, YT_CUAS = 'bn2eWWJzlDY', 'mI7Ou5P-WHE', 'jwQ5OyKEKwg', 'fO8_EOUrSfg'
 def shimmer(t):
@@ -304,7 +310,7 @@ def build(path, title, desc, og_image, credits, chapters, photos, jsonld=''):
     """chapters: [(label, html)]; photos: [(image, pos or None)] one per chapter."""
     n = len(chapters)
     chrome = shell.chrome(credits=credits, wordmark='ATLAS GLINN',
-                          photos=[(f'{k:02d}', img, pos) for k, (img, pos) in enumerate(photos, 1)],
+                          photos=[(f'{k:02d}', *entry) for k, entry in enumerate(photos, 1)],
                           hud_tl='&#9679; ATLAS GLINN &middot; HOUSTON', hud_tl_href='index.html',
                           hud_bl='HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W', hud_br='DETAILS MATTER',
                           chapters=[(f's{k}', f'{k:02d} &middot; {label}') for k, (label, _) in enumerate(chapters, 1)])
@@ -313,6 +319,8 @@ def build(path, title, desc, og_image, credits, chapters, photos, jsonld=''):
     html = shell.head(meta(title, desc, path, og_image, jsonld), css) + body + shell.tail(shell.three(n, shell.ATLAS), shell.SITENAV_JS + FORM_JS)
     for banned in ('images/mast/', 'images/gallery/', 'deep-sentinel', 'man-s-hand-holding-drone'):
         assert banned not in html, f'{path}: {banned} is not approved Atlas Glinn imagery'
+    if LIVE_LINKS:
+        html = _LIVE_RE.sub(lambda m: 'href="%s"' % LIVE_URLS[m.group(1)], html)
     if not PUBLISH: html = _previewize(html)
     out = os.path.join(REPO, OUT_DIR, path)
     os.makedirs(os.path.dirname(out), exist_ok=True)
@@ -320,6 +328,27 @@ def build(path, title, desc, og_image, credits, chapters, photos, jsonld=''):
     print('wrote', OUT_DIR + path, len(html.encode('utf-8')), 'bytes,', n, 'chapters')
 
 # No `M = 'images/mast/'` here on purpose: the Atlas pages draw only from the approved list above; build() enforces it.
+
+# Brockmann, 2026-09-05: "when you click on the card, it should take it to the same as atlasglinn.com now. So we're not changing
+# actual content." While LIVE_LINKS is True every card, button and menu item that names one of the ten content pages goes to
+# that page's current address on atlasglinn.com (the canonical URLs the current pages carry), so a visitor reads today's content.
+# The rebuilt pages still generate for his review. Flip to False on the day the full set publishes, and the links turn back into
+# the local pages. Home, the MAST page, signup, privacy and terms are untouched.
+LIVE_LINKS = True
+LIVE_URLS = {
+    'executive-protection.html':  'https://atlasglinn.com/executive-protection/',
+    'residential-protection.html': 'https://atlasglinn.com/residential-protection/',
+    'disaster-recovery.html':     'https://atlasglinn.com/disaster-recovery-asset-protection/',
+    'training.html':              'https://atlasglinn.com/training/',
+    'technology.html':            'https://atlasglinn.com/technology/',
+    'cuas-aerodefense.html':      'https://atlasglinn.com/cuas-aerodefense/',
+    'uas.html':                   'https://atlasglinn.com/uas/',
+    'about.html':                 'https://atlasglinn.com/about/',
+    'careers.html':               'https://atlasglinn.com/careers/',
+    'contact.html':               'https://atlasglinn.com/contact/',
+}
+_LIVE_RE = re.compile(r'href="(%s)(?:[?#][^"]*)?"' % '|'.join(re.escape(p) for p in LIVE_URLS))   # anchors and ?subject= prefills drop: the live pages have neither
+
 CREDITS = ('Houston &middot; Texas', 'Executive Protection &middot; Intelligence &middot; Training')
 OG_DEFAULT = HERO_EP
 PRIVACY_LINE = ('Former Head of Security, Sen. Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, '
@@ -379,7 +408,7 @@ build('index.html',
         + f'<div class="badges rise"><img src="{BADGE_BEST}" alt="Best of Business 2025" loading="lazy"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"></div>')),
     ('Contact', contact_chapter(8, 'Get in Touch', f'Protecting What {blue("Matters Most.")}', 'From U.S. Senators to Fortune 500 executives &mdash; discreet, adaptive protection at the highest level.',
         cta('contact.html', 'Contact Us') + cta2('mastsolutions.html', 'Book Training &rarr;'))),
-], photos=[(FILM_POSTER, None), (HERO_EP, None), (PROTECTION, None), (FILM_POSTER, None), (CCTV, None), (EP_MATTERS, None), (AG3, None), (HERO_EP, None)],
+], photos=[(FILM_POSTER, None, FILM_TEASER), (HERO_EP, None), (PROTECTION, None), (FILM_POSTER, None), (CCTV, None), (EP_MATTERS, None), (AG3, None), (HERO_EP, None)],
       jsonld=jsonld_org())
 
 # ═══════════════════════════ executive-protection.html ═══════════════════════════
@@ -636,7 +665,7 @@ build('about.html',
                ('5 Essential Tips for VIP Security in 2025', 'Key strategies every VIP protection detail should implement to stay ahead of evolving threats.', '<a class="secondary-cta" href="https://atlasglinn.com/executive-residential-protection/5-essential-tips-for-vip-security-in-2025/">Read &rarr;</a>')], numbered=False))),
     ('Contact', contact_chapter(6, 'Ready to Work With Us?', f'Let&rsquo;s {blue("Talk.")}', '',
         cta('contact.html', 'Contact Us') + cta2('careers.html', 'Careers &rarr;'))),
-], photos=[(ABOUT_POSTER, None), (FOUNDER_SCENE, 'center 20%'), (ABOUT_POSTER, None), (EP_MATTERS, None), (HERO_EP, None), (PROTECTION, None)],
+], photos=[(ABOUT_POSTER, None, ABOUT_TEASER), (FOUNDER_SCENE, 'center 20%'), (ABOUT_POSTER, None), (EP_MATTERS, None), (HERO_EP, None), (PROTECTION, None)],
       jsonld=jsonld_org())
 
 # ═══════════════════════════ careers.html ═══════════════════════════

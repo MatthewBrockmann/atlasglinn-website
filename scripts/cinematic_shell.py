@@ -39,6 +39,12 @@ CSS_A = r"""
   #photos .ph { position:absolute; inset:0; background:center/cover no-repeat; opacity:0; transition:opacity .6s ease; filter:saturate(.72) contrast(1.06); }
   #photos .ph.on { transition:opacity 1.6s ease .3s; }
   #photos .ph::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.42) 0%, rgba(5,8,16,.08) 45%, rgba(5,8,16,.72) 100%); }
+  /* A chapter backdrop can be a film snippet instead of a still (Brockmann, 2026-09-05: "the video should be in the background,
+     just a snippet playing, like the current website"). The still stays underneath as the poster; the clip fades in once it
+     plays, loops, muted, and only while its chapter is on screen. */
+  #photos .ph video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:inherit; opacity:0; transition:opacity 1.2s ease; }
+  #photos .ph video.playing { opacity:1; }
+  #photos .ph.film.on { opacity:.58; }
   /* Backdrop presence (Brockmann, 2026-09-05: pull the background forward, keep the layers; then "Reduce background brightness by
      20%"): the photograph sits at .42 (.52 less a fifth), the scene and the text layers stay above it. */
   #photos .ph.on { opacity:.42; }
@@ -214,6 +220,7 @@ CSS_B = r"""
     .glass { padding:.8rem; }
     .secondary-cta, .cta-button.ghost-button { margin-left:0; }
     #photos .ph.on { opacity:.35; }
+    #photos .ph.film.on { opacity:.5; }
   }
   @media (prefers-reduced-motion: reduce) { .eyebrow, h1.mega, h2.section-h, .sub, .rise { transition:none; opacity:1; filter:none; transform:none; } }
 """
@@ -274,7 +281,19 @@ addEventListener('mousemove', e => { cx = e.clientX; cy = e.clientY; });
 // ── Photography layer ──
 const phs = [...document.querySelectorAll('#photos .ph')];
 let photoIdx = -1;
-function setPhoto(i) { if (i === photoIdx) return; photoIdx = i; phs.forEach((p, k) => p.classList.toggle('on', k === i)); }
+function setPhoto(i) {
+  if (i === photoIdx) return; photoIdx = i;
+  phs.forEach((p, k) => {
+    const on = k === i; p.classList.toggle('on', on);
+    const v = p.querySelector('video'); if (!v) return;          // film backdrops play only while their chapter is on screen
+    if (on && !reduce) v.play().catch(() => {}); else v.pause();
+  });
+}
+document.querySelectorAll('#photos video').forEach(v => {
+  v.addEventListener('playing', () => v.classList.add('playing'));
+  const end = parseFloat(v.dataset.end || '0');                    // data-end: loop the first N seconds of a longer file as the snippet
+  if (end > 0) v.addEventListener('timeupdate', () => { if (v.currentTime >= end) v.currentTime = 0; });
+});
 
 // ── Three: the Tier 3 emblem scene ──
 const canvas = document.getElementById('three-canvas');
@@ -499,10 +518,17 @@ def head(meta_html, css_text):
 
 
 def chrome(credits, wordmark, photos, hud_tl, hud_tl_href, hud_bl, hud_br, chapters):
-    """credits: (line before, line after) the wordmark; photos: [(num, image path, position or None)]; chapters: [(id, label)]."""
+    """credits: (line before, line after) the wordmark; photos: [(num, image path, position or None[, mp4[, loop end seconds]])];
+    chapters: [(id, label)]. A photo entry with an mp4 is a film backdrop: the still is its poster, the clip loops muted."""
     n = len(chapters)
-    ph = '\n'.join('  <div class="ph" data-for="%s" style="background-image:url(\'%s\')%s"></div>'
-                   % (num, img, (';background-position:' + pos) if pos else '') for num, img, pos in photos)
+    def layer(entry):
+        num, img, pos, *film = entry
+        style = 'background-image:url(\'%s\')%s' % (img, (';background-position:' + pos) if pos else '')
+        if not film: return '  <div class="ph" data-for="%s" style="%s"></div>' % (num, style)
+        mp4, end = (film + [None])[:2]
+        return ('  <div class="ph film" data-for="%s" style="%s"><video muted loop playsinline preload="metadata" aria-hidden="true"%s>'
+                '<source src="%s" type="video/mp4"></video></div>' % (num, style, (' data-end="%s"' % end) if end else '', mp4))
+    ph = '\n'.join(layer(e) for e in photos)
     nav = '\n'.join('  <a href="#%s" class="chap-link">%s</a>' % (cid, label) for cid, label in chapters)
     return ('<div id="intro-seq">\n  <div class="intro-credit">%s</div>\n  <div class="intro-credit wordmark">%s</div>\n'
             '  <div class="intro-credit">%s</div>\n  <canvas class="intro-ring" id="intro-ring" aria-hidden="true"></canvas>\n</div>\n\n<canvas id="three-canvas"></canvas>\n<div id="photos">\n%s\n</div>\n'
