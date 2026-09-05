@@ -233,7 +233,14 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
        P2 "provide a recovery path for forgotten passwords" — Forgot your password → emailed reset code → new password (every
        other session signed out). Codes are hashed under `ACCOUNT_SECRET`, live 15 minutes, five tries, one resend a minute,
        never BCC'd. Needs `migrations/005-account-verification.sql` after 004, and `RESEND_API_KEY` (sign-up answers 503
-       `email_off` without it; sign-in for verified students still works).
+       `email_off` without it; sign-in for verified students still works). Codex's three follow-ups on #11 (atomic attempt
+       counting, no-enumeration throttles, deploy-before-secret) are **PR #12, merged 2026-09-05 16:29 UTC (main 4c16337)**.
+       His terminal, 16:3x UTC: migrations run (6 queries, 6 rows written = 005's six columns), **Worker deployed, version
+       46cc3f76**, `ACCOUNT_SECRET` at the prompt (he types the value; it is never pasted into chat). Page upload still pending.
+     - **Instructors = the founder only** (2026-09-05, "Just me right now = instructor + correct pic"): the Michael Cline and
+       Torrey Kramer blocks are out of chapter 08; Kramer's documentary stays on the In Action strip. Same message: the chapter
+       was **blank on his Retina Mac** because the reveal waited for 25% of a 2,500 px chapter inside a 508 px window; every
+       reveal element is now also observed on its own (`cinematic_shell.py`, both sites).
 2. Founder shot: is `founder-portrait.jpg` it, or is another photo coming?
 3. Instagram: which posts, or an embedded feed?
 4. Capability cards: "have it here and bring back to front" — move up the MAST page, put on the Atlas home, or

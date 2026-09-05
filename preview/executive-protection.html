@@ -665,6 +665,12 @@ const io = new IntersectionObserver(entries => {
   });
 }, { threshold: .25 });
 secs.forEach(s => io.observe(s));
+// A tall chapter in a short window never reaches 25% visible (owner, 2026-09-05: Instructors blank on a Retina Mac at 1000×508
+// CSS px), so every reveal element is also observed on its own and turns on as soon as it enters the lower part of the window.
+const ioEl = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (!e.isIntersecting) return; e.target.classList.add('in'); ioEl.unobserve(e.target); });
+}, { threshold: 0, rootMargin: '0px 0px -12% 0px' });
+document.querySelectorAll('section.panel:not([data-section="01"]) .rise, section.panel:not([data-section="01"]) .eyebrow, section.panel:not([data-section="01"]) h2.section-h, section.panel:not([data-section="01"]) .sub').forEach(el => ioEl.observe(el));
 </script>
 <script>
 (function(){

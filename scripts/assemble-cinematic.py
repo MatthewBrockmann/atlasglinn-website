@@ -307,20 +307,9 @@ SECTIONS = f"""
           <div class="ctas"><button class="cta-button ghost-button" type="button" onclick="openQuals()">Qualifications &amp; Certifications</button><a href="#s6" class="cta-button">Train With Him</a></div>
         </div>
       </div>
-      <!-- Team blocks in the Atlas Glinn "Meet the Team" format (owner, 2026-09-04: "add Mike Cline - Look at how ATLASGLINN list and emulate").
-           Cline's portrait and bio are the ones on atlasglinn.com/about; his MAST title is the owner's to set. Torrey Kramer's bio is a
-           one-line draft until the owner supplies the text (not in the old-site export). -->
-      <div class="team rise">
-        <div class="portrait" style="background-image:url('https://atlasglinn.com/wp-content/uploads/2025/03/Cline-Bio-Pic-1024x819.jpg');background-position:center 15%"><div class="cap">Chief Operating Officer</div></div>
-        <div class="bio"><h3>Michael Cline</h3><div class="role">Chief Operating Officer &middot; Atlas Glinn</div>
-          <p>As the Chief Operating Officer at Atlas Glinn, Michael Cline brings a wealth of experience and a strategic vision to the company. With a distinguished 12-year career as a Navy SEAL, Michael has honed exceptional leadership, discipline, and problem-solving skills that are now pivotal in driving Atlas Glinn&rsquo;s operational excellence.</p>
-        </div>
-      </div>
-      <div class="team rise">
-        <div class="portrait" style="background-image:url('images/mast/torrey-kramer.jpg');background-position:center 20%"><div class="cap">Instructor</div></div>
-        <div class="bio"><h3>Torrey Kramer</h3><div class="role">Instructor</div>
-        </div><!-- bio text deleted on the owner's word (2026-09-05: "Delete Torrey Kramer's bio"); the portrait, name and the film below stay -->
-      </div>
+      <!-- Instructors = the founder only (owner, 2026-09-05: "Just me right now = instructor + correct pic"). The Michael Cline and
+           Torrey Kramer team blocks that stood here (2026-09-04 format "Look at how ATLASGLINN list and emulate") are out until he
+           names the cadre again; Kramer's documentary stays on the In Action strip. -->
       <div class="media-strip rise" id="instructor-strip"></div>
       <div class="cert rise">
         <img src="images/mast/capitol-flag-certificate.jpg" alt="Certificate: a flag flown over the United States Capitol in honor of Matthew Brockmann, at the request of Senator Ted Cruz, December 1, 2021" loading="lazy">
