@@ -64,6 +64,24 @@ git -C "$R" fetch -q origin "${REF#origin/}"
 # --if-changed (the hourly LaunchAgent from scripts/mac-autopilot.sh): upload only when origin/main moved since the last
 # successful upload; otherwise say so and stop. The stamp is written after the live check passes.
 HEADSHA="$(git -C "$R" rev-parse FETCH_HEAD)"; STAMP="$HOME/.cache/wp-upload/last-uploaded"
+# The Worker rides along (owner, 2026-09-05, leaving without a Terminal: "Do it yourself or figure out an easier way"): when
+# mast-backend/ moved since the last deploy this Mac made, `wrangler deploy` runs from the clone (it holds node_modules and
+# the wrangler login) before the page logic, so the hourly LaunchAgent turns a merge into a running Worker with no paste.
+# Secrets and D1 migrations are untouched. WORKER_DEPLOY=0 skips it. Stamp: ~/.cache/wp-upload/last-worker-deploy.
+WSTAMP="$HOME/.cache/wp-upload/last-worker-deploy"; mkdir -p "$HOME/.cache/wp-upload"
+if [ "${WORKER_DEPLOY:-1}" = 1 ] && [ -d "$R/mast-backend" ]; then
+  LASTW="$(cat "$WSTAMP" 2>/dev/null || true)"
+  if [ -z "$LASTW" ] || ! git -C "$R" diff --quiet "$LASTW" "$HEADSHA" -- mast-backend/ 2>/dev/null; then
+    say "Worker: mast-backend/ moved since ${LASTW:0:7}; deploying ${HEADSHA:0:7}"
+    if (cd "$R/mast-backend" && { [ -d node_modules ] || npm install --no-audit --no-fund >/dev/null 2>&1; } && CI=1 npx wrangler deploy); then
+      echo "$HEADSHA" > "$WSTAMP"; say "Worker deployed from ${HEADSHA:0:7}"
+    else
+      echo "   Worker deploy failed (is wrangler logged in on this Mac? run: cd \"$R/mast-backend\" && npx wrangler whoami). The page upload continues."
+    fi
+  else
+    say "Worker: up to date (${LASTW:0:7})"
+  fi
+fi
 if [ "${1:-}" = "--if-changed" ] && [ -f "$STAMP" ] && [ "$(cat "$STAMP")" = "$HEADSHA" ]; then
   say "up to date: ${HEADSHA:0:7} is already the uploaded page"; exit 0
 fi

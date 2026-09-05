@@ -175,7 +175,10 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
 - **Mac:** `~/Desktop/MAST NEW WEB 2026/gallery/` and `…/range/` are the drop folders. `scripts/mac-autopilot.sh install`
   (run once from the clone, after `wp-upload.sh --save-login`) puts two LaunchAgents on the Mac: a watcher that hands the two
   folders off to `claude/desktop-assets` on every change (`mac-handoff.sh` web-sizes photographs to 2000 px JPEG and makes a
-  poster beside every clip), and an hourly `wp-upload.sh --if-changed` that uploads the page whenever main moved.
+  poster beside every clip), and an hourly `wp-upload.sh --if-changed` that uploads the page whenever main moved and, first, runs `wrangler deploy`
+  from the clone whenever `mast-backend/` moved (added 2026-09-05, "Do it yourself or figure out an easier way": with the
+  Mac on, a merge becomes a running Worker and page within the hour, no paste; the LaunchAgent pulls main and runs the
+  script from the clone, so script changes reach it on their own).
   `status` shows loaded state and logs; `kick` runs both now. Mac-local by physics: a cloud session cannot install, see or
   confirm them ("wired, NOT confirmed firing" until a drop is seen to land).
 - **Cloud (the hourly check-in):** `python3 scripts/photo-intake.py` imports what is new on the handoff ref into
