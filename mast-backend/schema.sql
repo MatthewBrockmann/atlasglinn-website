@@ -286,6 +286,15 @@ CREATE TABLE IF NOT EXISTS accounts (
   notes                  TEXT,
   created_at             TEXT NOT NULL,
   updated_at             TEXT NOT NULL,
-  last_login_at          TEXT
+  last_login_at          TEXT,
+  -- Email verification and password reset (migrations/005-account-verification.sql on a live database; Codex review of
+  -- PR #10, 2026-09-05). No token is ever issued while verified_at is NULL; one live code per account, hashed, 15 minutes,
+  -- five tries; unverified accounts older than a day are removed by the daily cron.
+  verified_at            TEXT,
+  verify_kind            TEXT,                         -- 'verify' | 'reset'
+  verify_code_hash       TEXT,                         -- HMAC(ACCOUNT_SECRET, id:kind:code)
+  verify_expires_at      TEXT,
+  verify_attempts        INTEGER NOT NULL DEFAULT 0,
+  verify_sent_at         TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email);

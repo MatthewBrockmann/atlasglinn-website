@@ -136,6 +136,12 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
 `04-resources/agent-memory/reference_mac_handoff_command.md`. Address him as
 **Brockmann** in replies.
 
+## Reply format (Brockmann, 2026-09-05: "always bring back to bottom_ wire")
+
+Every reply ends with a **WIRE** block: the exact `YOU RUN THIS` commands that turn what is merged into what is running
+(Worker migration/secret/deploy, the page upload), followed by the open questions carried forward. Reorder or shorten the
+text above it; never drop the block. Every review link carries a fresh `?v=<sha>` (he has reviewed stale cached builds).
+
 ## Memory Rules
 
 ### Installation completeness (Matthew, 2026-07-18)

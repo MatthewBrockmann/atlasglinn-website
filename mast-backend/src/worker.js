@@ -67,6 +67,10 @@ export default {
       // Student accounts (owner, 2026-09-05)
       if (url.pathname === '/account/register' && request.method === 'POST') return await handleAccountRegister(request, env, cors);
       if (url.pathname === '/account/login' && request.method === 'POST') return await handleAccountLogin(request, env, cors);
+      if (url.pathname === '/account/verify' && request.method === 'POST') return await handleAccountVerify(request, env, cors);
+      if (url.pathname === '/account/resend' && request.method === 'POST') return await handleAccountResend(request, env, cors);
+      if (url.pathname === '/account/forgot' && request.method === 'POST') return await handleAccountForgot(request, env, cors);
+      if (url.pathname === '/account/reset' && request.method === 'POST') return await handleAccountReset(request, env, cors);
       if (url.pathname === '/account/me' && request.method === 'GET') return await handleAccountMe(request, env, cors);
       if (url.pathname === '/account/update' && request.method === 'POST') return await handleAccountUpdate(request, env, cors);
       if (url.pathname === '/account/password' && request.method === 'POST') return await handleAccountPassword(request, env, cors);
@@ -145,7 +149,7 @@ async function accountFromToken(env, token) {
   const claims = await readToken(env, token);
   if (!claims) return null;
   const row = await env.DB.prepare('SELECT * FROM accounts WHERE id = ?').bind(claims.id).first();
-  if (!row || (row.token_version || 1) !== claims.v) return null;
+  if (!row || (row.token_version || 1) !== claims.v || !row.verified_at) return null;   // tokens are only signed after the email is verified
   return row;
 }
 async function requireAccount(request, env, cors) {
@@ -164,8 +168,79 @@ function publicAccount(a) {
   };
 }
 
-async function handleAccountRegister(request, env, cors) {
+/* Email ownership (Codex review of PR #10, 2026-09-05, P1): an account is only live — and only sees the classes booked under
+   its email — after a 6-digit code emailed to that address comes back. Until then no token is issued; an unverified account
+   is overwritten by the next sign-up for the same address (nobody can squat a student's email) and is purged after a day.
+   The same code mechanism carries the forgotten-password path (P2). Codes: 6 digits, 15 minutes, 5 tries, one at a time
+   per account, stored as an HMAC of (account id, purpose, code) under ACCOUNT_SECRET; re-sends at most once a minute. */
+const CODE_TTL_MS = 15 * 60000, CODE_MAX_TRIES = 5, CODE_RESEND_MS = 60000;
+function accountsOff(env, cors) {
   if (!env.ACCOUNT_SECRET) return json({ error: 'Accounts are not configured yet.', code: 'accounts_off' }, 503, cors);
+  return null;
+}
+function signupOff(env, cors) {
+  // Sign-up, verification and password reset all need the email leg; without it the page shows a clear message, not a dead code box.
+  if (!env.RESEND_API_KEY) return json({ error: 'Account sign-up is not available yet. Please book as a guest.', code: 'email_off' }, 503, cors);
+  return null;
+}
+function newCode() { const n = crypto.getRandomValues(new Uint32Array(1))[0] % 1000000; return String(n).padStart(6, '0'); }
+async function codeHash(env, acct, kind, code) {
+  return b64url(await crypto.subtle.sign('HMAC', await hmacKey(env.ACCOUNT_SECRET), new TextEncoder().encode(acct.id + ':' + kind + ':' + String(code))));
+}
+async function issueCode(env, acct, kind) {
+  const code = newCode(), now = Date.now();
+  const hash = await codeHash(env, acct, kind, code);
+  const exp = new Date(now + CODE_TTL_MS).toISOString(), sent = new Date(now).toISOString();
+  await env.DB.prepare('UPDATE accounts SET verify_kind = ?, verify_code_hash = ?, verify_expires_at = ?, verify_attempts = ?, verify_sent_at = ? WHERE id = ?').bind(kind, hash, exp, 0, sent, acct.id).run();
+  Object.assign(acct, { verify_kind: kind, verify_code_hash: hash, verify_expires_at: exp, verify_attempts: 0, verify_sent_at: sent });
+  return code;
+}
+function codeTooSoon(acct) { return !!(acct.verify_sent_at && Date.now() - Date.parse(acct.verify_sent_at) < CODE_RESEND_MS); }
+async function clearCode(env, acct) {
+  await env.DB.prepare('UPDATE accounts SET verify_kind = ?, verify_code_hash = ?, verify_expires_at = ?, verify_attempts = ? WHERE id = ?').bind(null, null, null, 0, acct.id).run();
+  Object.assign(acct, { verify_kind: null, verify_code_hash: null, verify_expires_at: null, verify_attempts: 0 });
+}
+/** 'ok' | 'wrong' | 'expired' | 'locked'. A wrong try counts; the fifth wrong try burns the code. */
+async function checkCode(env, acct, kind, code) {
+  if (!acct.verify_code_hash || acct.verify_kind !== kind) return 'expired';
+  if (!acct.verify_expires_at || Date.parse(acct.verify_expires_at) < Date.now()) return 'expired';
+  const tries = (acct.verify_attempts || 0) + 1;
+  const want = acct.verify_code_hash, got = await codeHash(env, acct, kind, String(code || '').replace(/\D/g, ''));
+  let diff = want.length ^ got.length; for (let i = 0; i < Math.min(want.length, got.length); i++) diff |= want.charCodeAt(i) ^ got.charCodeAt(i);
+  if (diff === 0) return 'ok';
+  if (tries >= CODE_MAX_TRIES) { await clearCode(env, acct); return 'locked'; }
+  await env.DB.prepare('UPDATE accounts SET verify_attempts = ? WHERE id = ?').bind(tries, acct.id).run();
+  acct.verify_attempts = tries;
+  return 'wrong';
+}
+async function sendCode(env, acct, kind, code) {
+  const verify = kind === 'verify';
+  const subject = verify ? 'Your MAST Solutions verification code' : 'Reset your MAST Solutions password';
+  const text = [
+    verify ? 'Enter this code on mastsolutions.com to finish creating your account:' : 'Enter this code on mastsolutions.com to set a new password:',
+    '', '    ' + code, '',
+    'It works for 15 minutes. If you did not ask for it, ignore this email; nothing changes without the code.',
+    '', 'MAST Solutions · Atlas Glinn, LLC · Houston, Texas',
+  ].join('\n');
+  await sendEmail(env, { to: [acct.email], subject, text, bcc: false });
+}
+async function issueAndSend(env, acct, kind, cors) {
+  let code; try { code = await issueCode(env, acct, kind); await sendCode(env, acct, kind, code); }
+  catch (e) { console.error('[Account] code email failed:', e.message); return json({ error: 'We could not send the email. Please try again in a minute.', code: 'email_failed' }, 502, cors); }
+  return null;
+}
+async function signedIn(env, acct, cors) {
+  const now = new Date().toISOString();
+  await env.DB.prepare('UPDATE accounts SET last_login_at = ? WHERE id = ?').bind(now, acct.id).run();
+  acct.last_login_at = now;
+  return json({ token: await signToken(env, acct), account: publicAccount(acct) }, 200, cors);
+}
+async function accountByEmail(env, email) {
+  return isEmail(email) ? await env.DB.prepare('SELECT * FROM accounts WHERE email = ?').bind(email).first() : null;
+}
+
+async function handleAccountRegister(request, env, cors) {
+  const off = accountsOff(env, cors) || signupOff(env, cors); if (off) return off;
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== 'object') return json({ error: 'Bad request' }, 400, cors);
   const email = String(body.email || '').trim().toLowerCase();
@@ -173,33 +248,106 @@ async function handleAccountRegister(request, env, cors) {
   if (!isEmail(email)) return json({ error: 'Enter a valid email address.', field: 'email' }, 400, cors);
   if (password.length < 10) return json({ error: 'Use a password of at least 10 characters.', field: 'password' }, 400, cors);
   if (password.length > 200) return json({ error: 'That password is too long.', field: 'password' }, 400, cors);
-  const existing = await env.DB.prepare('SELECT id FROM accounts WHERE email = ?').bind(email).first();
-  if (existing) return json({ error: 'There is already an account for that email. Sign in instead.', field: 'email', code: 'exists' }, 409, cors);
+  const existing = await accountByEmail(env, email);
+  if (existing && existing.verified_at) return json({ error: 'There is already an account for that email. Sign in instead.', field: 'email', code: 'exists' }, 409, cors);
   const now = new Date().toISOString();
-  const acct = {
-    id: 'acct_' + crypto.randomUUID(), email, password_hash: await hashPassword(password), token_version: 1,
-    name: str(body.name).trim().slice(0, 120), phone: str(body.phone).replace(/[^\d+()\-.\s]/g, '').trim().slice(0, 40), organization: str(body.organization).trim().slice(0, 120),
-    address1: '', address2: '', emergency_name: '', emergency_phone: '', emergency_relationship: '', stripe_customer_id: '', standards_passed: '[]', notes: '',
-    created_at: now, updated_at: now, last_login_at: now,
-  };
-  await env.DB.prepare('INSERT INTO accounts (id, email, password_hash, token_version, name, phone, organization, address1, address2, emergency_name, emergency_phone, emergency_relationship, stripe_customer_id, standards_passed, notes, created_at, updated_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .bind(acct.id, acct.email, acct.password_hash, 1, acct.name, acct.phone, acct.organization, '', '', '', '', '', '', '[]', '', now, now, now).run();
-  return json({ token: await signToken(env, acct), account: publicAccount(acct) }, 200, cors);
+  const name = str(body.name).trim().slice(0, 120), phone = str(body.phone).replace(/[^\d+()\-.\s]/g, '').trim().slice(0, 40), organization = str(body.organization).trim().slice(0, 120);
+  let acct;
+  if (existing) {
+    // Someone started but never verified this address (perhaps not its owner): the new sign-up takes the slot over.
+    if (codeTooSoon(existing)) return json({ error: 'A code was just sent to that address. Check your email, or try again in a minute.', code: 'too_soon' }, 429, cors);
+    const v = (existing.token_version || 1) + 1;
+    await env.DB.prepare('UPDATE accounts SET password_hash = ?, token_version = ?, name = ?, phone = ?, organization = ?, updated_at = ? WHERE id = ?').bind(await hashPassword(password), v, name, phone, organization, now, existing.id).run();
+    acct = { ...existing, password_hash: '(new)', token_version: v, name, phone, organization, updated_at: now };
+  } else {
+    acct = {
+      id: 'acct_' + crypto.randomUUID(), email, password_hash: await hashPassword(password), token_version: 1, name, phone, organization,
+      address1: '', address2: '', emergency_name: '', emergency_phone: '', emergency_relationship: '', stripe_customer_id: '', standards_passed: '[]', notes: '',
+      created_at: now, updated_at: now, last_login_at: null, verified_at: null, verify_kind: null, verify_code_hash: null, verify_expires_at: null, verify_attempts: 0, verify_sent_at: null,
+    };
+    await env.DB.prepare('INSERT INTO accounts (id, email, password_hash, token_version, name, phone, organization, address1, address2, emergency_name, emergency_phone, emergency_relationship, stripe_customer_id, standards_passed, notes, created_at, updated_at, last_login_at, verified_at, verify_kind, verify_code_hash, verify_expires_at, verify_attempts, verify_sent_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(acct.id, acct.email, acct.password_hash, 1, acct.name, acct.phone, acct.organization, '', '', '', '', '', '', '[]', '', now, now, null, null, null, null, null, 0, null).run();
+  }
+  const fail = await issueAndSend(env, acct, 'verify', cors); if (fail) return fail;
+  return json({ pending: true, email, message: 'We emailed a 6-digit code to ' + email + '. Enter it to finish.' }, 202, cors);
+}
+
+async function handleAccountVerify(request, env, cors) {
+  const off = accountsOff(env, cors); if (off) return off;
+  const body = await request.json().catch(() => null);
+  const email = String((body && body.email) || '').trim().toLowerCase();
+  const acct = await accountByEmail(env, email);
+  if (!acct) return json({ error: 'That code is not right.', code: 'bad_code' }, 400, cors);
+  if (acct.verified_at) return json({ error: 'That email is already verified. Sign in instead.', code: 'already' }, 409, cors);
+  const r = await checkCode(env, acct, 'verify', body && body.code);
+  if (r === 'wrong') return json({ error: 'That code is not right.', code: 'bad_code', tries_left: CODE_MAX_TRIES - (acct.verify_attempts || 0) }, 400, cors);
+  if (r === 'expired') return json({ error: 'That code has expired. Request a new one.', code: 'expired' }, 400, cors);
+  if (r === 'locked') return json({ error: 'Too many tries. Request a new code.', code: 'locked' }, 429, cors);
+  const now = new Date().toISOString();
+  await env.DB.prepare('UPDATE accounts SET verified_at = ?, updated_at = ? WHERE id = ?').bind(now, now, acct.id).run();
+  acct.verified_at = now;
+  await clearCode(env, acct);
+  return await signedIn(env, acct, cors);
+}
+
+async function handleAccountResend(request, env, cors) {
+  const off = accountsOff(env, cors) || signupOff(env, cors); if (off) return off;
+  const body = await request.json().catch(() => null);
+  const acct = await accountByEmail(env, String((body && body.email) || '').trim().toLowerCase());
+  // Always 200 for an unknown or already-verified address: the answer must not say which emails have accounts.
+  if (acct && !acct.verified_at) {
+    if (codeTooSoon(acct)) return json({ error: 'A code was sent less than a minute ago. Check your email first.', code: 'too_soon' }, 429, cors);
+    const fail = await issueAndSend(env, acct, 'verify', cors); if (fail) return fail;
+  }
+  return json({ ok: true }, 200, cors);
 }
 
 async function handleAccountLogin(request, env, cors) {
-  if (!env.ACCOUNT_SECRET) return json({ error: 'Accounts are not configured yet.', code: 'accounts_off' }, 503, cors);
+  const off = accountsOff(env, cors); if (off) return off;
   const body = await request.json().catch(() => null);
   const email = String((body && body.email) || '').trim().toLowerCase();
   const password = String((body && body.password) || '');
-  const acct = isEmail(email) ? await env.DB.prepare('SELECT * FROM accounts WHERE email = ?').bind(email).first() : null;
+  const acct = await accountByEmail(env, email);
   // The same hashing work runs whether or not the account exists, so timing does not reveal which emails have accounts.
   const okPw = acct ? await verifyPassword(password, acct.password_hash) : (await verifyPassword(password, 'pbkdf2-sha256$' + PBKDF2_ITER + '$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='), false);
   if (!acct || !okPw) return json({ error: 'That email and password do not match.', code: 'bad_login' }, 401, cors);
-  const now = new Date().toISOString();
-  await env.DB.prepare('UPDATE accounts SET last_login_at = ? WHERE id = ?').bind(now, acct.id).run();
-  acct.last_login_at = now;
-  return json({ token: await signToken(env, acct), account: publicAccount(acct) }, 200, cors);
+  if (!acct.verified_at) {
+    // Right password, email never confirmed: send a fresh code (at most once a minute) and let the page open the code box.
+    if (env.RESEND_API_KEY && !codeTooSoon(acct)) { const fail = await issueAndSend(env, acct, 'verify', cors); if (fail) return fail; }
+    return json({ error: 'Verify your email first. Enter the code we sent you.', code: 'unverified', email }, 403, cors);
+  }
+  return await signedIn(env, acct, cors);
+}
+
+async function handleAccountForgot(request, env, cors) {
+  const off = accountsOff(env, cors) || signupOff(env, cors); if (off) return off;
+  const body = await request.json().catch(() => null);
+  const acct = await accountByEmail(env, String((body && body.email) || '').trim().toLowerCase());
+  // Always 200: a forgotten-password request must not say which emails have accounts.
+  if (acct && acct.verified_at) {
+    if (codeTooSoon(acct)) return json({ error: 'A code was sent less than a minute ago. Check your email first.', code: 'too_soon' }, 429, cors);
+    const fail = await issueAndSend(env, acct, 'reset', cors); if (fail) return fail;
+  }
+  return json({ ok: true }, 200, cors);
+}
+
+async function handleAccountReset(request, env, cors) {
+  const off = accountsOff(env, cors); if (off) return off;
+  const body = await request.json().catch(() => null);
+  const email = String((body && body.email) || '').trim().toLowerCase();
+  const next = String((body && body.password) || '');
+  if (next.length < 10 || next.length > 200) return json({ error: 'Use a password of at least 10 characters.', field: 'password' }, 400, cors);
+  const acct = await accountByEmail(env, email);
+  if (!acct) return json({ error: 'That code is not right.', code: 'bad_code' }, 400, cors);
+  const r = await checkCode(env, acct, 'reset', body && body.code);
+  if (r === 'wrong') return json({ error: 'That code is not right.', code: 'bad_code', tries_left: CODE_MAX_TRIES - (acct.verify_attempts || 0) }, 400, cors);
+  if (r === 'expired') return json({ error: 'That code has expired. Request a new one.', code: 'expired' }, 400, cors);
+  if (r === 'locked') return json({ error: 'Too many tries. Request a new code.', code: 'locked' }, 429, cors);
+  const v = (acct.token_version || 1) + 1, now = new Date().toISOString();
+  await env.DB.prepare('UPDATE accounts SET password_hash = ?, token_version = ?, updated_at = ? WHERE id = ?').bind(await hashPassword(next), v, now, acct.id).run();
+  acct.token_version = v;
+  await clearCode(env, acct);
+  return await signedIn(env, acct, cors);
 }
 
 async function handleAccountMe(request, env, cors) {
@@ -1201,9 +1349,10 @@ async function notify(env, r, stored) {
 // Every email the Worker sends is blind-copied to the owner (owner, 2026-09-05: "all emails to office + BCC matthew@atlasglinn,
 // matthew@mastsolutions"); BCC_ALWAYS on the Worker overrides the list. Addresses already in `to` are not copied twice.
 const BCC_DEFAULT = 'matthew@atlasglinn.com, matthew@mastsolutions.com';
-async function sendEmail(env, { to, subject, text, reply_to, attachments }) {
+async function sendEmail(env, { to, subject, text, reply_to, attachments, bcc: copy = true }) {
   const toList = Array.isArray(to) ? to : list(to);
-  const bcc = list(env.BCC_ALWAYS === undefined ? BCC_DEFAULT : env.BCC_ALWAYS).filter((a) => !toList.map((x) => x.toLowerCase()).includes(a.toLowerCase()));
+  // bcc:false is for one-time codes (email verification, password reset): those are the student's alone.
+  const bcc = copy ? list(env.BCC_ALWAYS === undefined ? BCC_DEFAULT : env.BCC_ALWAYS).filter((a) => !toList.map((x) => x.toLowerCase()).includes(a.toLowerCase())) : [];
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -1334,8 +1483,10 @@ async function runRetention(env) {
   const purged = await env.DB.prepare('DELETE FROM eligibility_answers WHERE purge_after < ?').bind(now).run();
   const dayAgo = new Date(Date.now() - 86400000).toISOString();
   const abandoned = await env.DB.prepare("UPDATE registrations SET status = 'abandoned' WHERE status = 'pending' AND created_at < ?").bind(dayAgo).run();
-  const out = { purged: purged?.meta?.changes ?? 0, abandoned: abandoned?.meta?.changes ?? 0 };
-  console.log('[Retention] answers purged:', out.purged, '· registrations abandoned:', out.abandoned);
+  // An account whose email was never verified within a day is a squat or a typo: it goes, and the address is free again.
+  const unverified = await env.DB.prepare('DELETE FROM accounts WHERE verified_at IS NULL AND created_at < ?').bind(dayAgo).run().catch(() => null);
+  const out = { purged: purged?.meta?.changes ?? 0, abandoned: abandoned?.meta?.changes ?? 0, unverified: unverified?.meta?.changes ?? 0 };
+  console.log('[Retention] answers purged:', out.purged, '· registrations abandoned:', out.abandoned, '· unverified accounts removed:', out.unverified);
   return out;
 }
 
