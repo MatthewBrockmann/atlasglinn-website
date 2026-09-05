@@ -7,7 +7,8 @@
 #                             (web-sized JPEGs, a poster beside every clip). The cloud session's hourly check turns them into
 #                             tiles (scripts/photo-intake.py), regenerates the page and opens a PR.
 #   com.atlasglinn.wp-upload  every hour -> scripts/wp-upload.sh --if-changed: when main moved since the last upload, puts the
-#                             page on atlasglinn.com over the SFTP login saved in the Keychain (wp-upload.sh --save-login).
+#                             page on atlasglinn.com over the SFTP login saved in the Keychain (wp-upload.sh --save-login),
+#                             and first deploys the Worker when mast-backend/ moved (wrangler login on this Mac; added 2026-09-05).
 #
 # The one hand left is the merge of that PR. Logs: ~/Library/Logs/atlasglinn-handoff.log, ~/Library/Logs/atlasglinn-wp-upload.log.
 #

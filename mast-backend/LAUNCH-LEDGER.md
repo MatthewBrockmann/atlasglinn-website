@@ -141,7 +141,12 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    Until then the workflow runs the tests and stops with a notice; the fix is merged, not running. The same workflow pushes
    any `WORKER_RESEND_API_KEY` / `WORKER_ACCOUNT_SECRET` / `WORKER_NOTIFY_EMAIL` repository secret to the Worker after the
    deploy, so a rotated key needs no Terminal. `.github/workflows/deploy-page.yml` does the same for the page over SFTP
-   (secrets `WP_SFTP_USER`, `WP_SFTP_PASSWORD`).
+   (secrets `WP_SFTP_USER`, `WP_SFTP_PASSWORD`). **Easier way (2026-09-05 ~20:45 UTC, "Do it yourself or figure out an
+   easier way. I've gotta go"):** the Mac's hourly job (`wp-upload.sh --if-changed`, already installed as a LaunchAgent)
+   now also runs `wrangler deploy` from the clone whenever `mast-backend/` moved since its last deploy. So the moment the Mac
+   is on again, the Worker (return-link fix, gear subject) and the page (Gear chapter, phone legibility) go live within the
+   hour with no paste and no secrets. The GitHub secrets remain the phone-only path. Wired, NOT confirmed firing until the
+   Mac's log shows "Worker deployed from …".
 2c. **Gear chapter (owner, 2026-09-05: "Atlasglinn.com has this product = add to mastsolutions so we can sell there"):** the 31
    Aimpoint SKUs and 9 IWA International devices from his IWA inventory report are chapter 12 of the MAST page (Contact is
    13), each a **quote request** through the existing Request dialog (`request_type: 'gear'`, agency required for IWA items,
