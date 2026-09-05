@@ -140,6 +140,7 @@ const env = {
   STRIPE_SECRET_KEY: 'sk_test_x',
   STRIPE_WEBHOOK_SECRET: 'whsec_testsecret',
   ALLOWED_ORIGINS: 'https://mastsolutions.com,https://mastsolutions.com',
+  SITE_URL: 'https://mastsolutions.com/mastsolutions.html',
   NOTIFY_EMAIL: 'hq@atlasglinn.com',
   RESEND_API_KEY: 're_test',
   ADMIN_KEY: 'super-secret-admin-key',
@@ -189,6 +190,20 @@ console.log('\n── Redirect allowlist ──');
   const s = stripeCalls[0].get('success_url');
   ok('off-origin success_url rejected', !s.includes('evil.example.com'), 'got ' + s);
   ok('falls back to allowlisted origin', s.startsWith('https://mastsolutions.com'), 'got ' + s);
+  // Owner, 2026-09-05: the fallback must land on the MAST page itself, not the bare origin (the site's home page).
+  ok('fallback is the MAST page with the checkout flag', s === 'https://mastsolutions.com/mastsolutions.html?checkout=success', 'got ' + s);
+  ok('cancel fallback is the MAST page too', stripeCalls[0].get('cancel_url') === 'https://mastsolutions.com/mastsolutions.html?checkout=cancelled', 'got ' + stripeCalls[0].get('cancel_url'));
+}
+{
+  // No SITE_URL configured: the fallback still names the page on the first allowed origin.
+  stripeCalls.length = 0;
+  const { SITE_URL, ...noSite } = env;
+  await worker.fetch(new Request('https://mast-booking-backend.matthew-221.workers.dev/create-booking', {
+    method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://mastsolutions.com' },
+    body: JSON.stringify({ sku: 'MAST-DA', customer_email: 'a@b.com' }),
+  }), noSite, ctx);
+  const s = stripeCalls[0] && stripeCalls[0].get('success_url');
+  ok('without SITE_URL the fallback is <first origin>/mastsolutions.html', s === 'https://mastsolutions.com/mastsolutions.html?checkout=success', 'got ' + s);
 }
 {
   stripeCalls.length = 0;

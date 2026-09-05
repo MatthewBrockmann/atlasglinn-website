@@ -1,0 +1,57 @@
+# Deploys the MAST booking Worker when mast-backend/ changes on main, so "merged" becomes "running" without a
+# Terminal (owner, 2026-09-05: "a PR that you should auto push because I won't be able to use terminal commands").
+#
+# Needs two repository secrets (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN   an API token from the Cloudflare dashboard (My Profile → API Tokens → Create Token →
+#                          template "Edit Cloudflare Workers", plus D1: Edit) — the token itself never appears here
+#   CLOUDFLARE_ACCOUNT_ID  the Account ID shown on the Workers & Pages overview page
+# Until both exist the job runs the tests and then stops with a notice; nothing is deployed.
+# Worker secrets (Stripe, Resend, ACCOUNT_SECRET, …) live on the Worker already and are untouched by a deploy.
+# D1 migrations stay a manual step (mast-backend/README.md).
+name: Deploy MAST Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mast-backend/**'
+      - '.github/workflows/deploy-worker.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mast-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Tests
+        run: node test-worker.mjs
+      - name: Check for Cloudflare credentials
+        id: creds
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$TOKEN" ] || [ -z "$ACCOUNT" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set — tests ran, deploy skipped. Add both repository secrets to turn on auto-deploy."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Deploy
+        if: steps.creds.outputs.ready == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: mast-backend
+          command: deploy

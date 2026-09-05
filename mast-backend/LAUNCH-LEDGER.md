@@ -117,6 +117,28 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    from Resend → Domains → mastsolutions.com into the GoDaddy record, then Verify. His reply "i dont have DKIM": the value is
    the first row of that Resend page (TXT, name `resend._domainkey`), whatever the row is labelled. The key value is not
    written anywhere in this repo and must not be.
+   **Outcome, 2026-09-05 19:20–20:05 UTC:** he replaced the record with the `p=` value by hand (nameserver confirmed 19:2x),
+   then ran Resend's **Auto configure** (GoDaddy Domain Connect, "connected to Mail" 19:35). That step wrote the three Resend
+   rows correctly but **removed the root Microsoft 365 records** (MX, SPF, autodiscover) — mastsolutions.com is a Microsoft
+   365 tenant domain (login.microsoftonline.com confirms) and matthew@mastsolutions.com lost inbound mail for ~10 minutes.
+   He re-added `MX @ 0 mastsolutions-com.mail.protection.outlook.com` (confirmed 19:40) and `CNAME autodiscover →
+   autodiscover.outlook.com` (confirmed 19:50); the apex SPF `v=spf1 include:spf.protection.outlook.com -all` and the
+   removal of GoDaddy's duplicate SPF row on `send` (`v=spf1 include:dc-…_spfm…`) were reported added/deleted at 19:5x and
+   are re-checked at the next hourly pass. Domain verification at Resend: he clicked "I've already added the records" at
+   ~20:05 with **Enable Receiving left off** (receiving would put a Resend MX on the root and break Microsoft 365 again);
+   **all three rows Verified at ~20:10 UTC (his screenshot). Email is live: the Worker sends as bookings@mastsolutions.com
+   with Reply-To matthew@mastsolutions.com. MAST is complete end to end.** He kept the once-exposed API key (his call, ~1 h in a public TXT record). Forward
+   mastsolutions.com → `https://atlasglinn.com/mastsolutions.html` set 19:5x ("Forwarding added").
+   **Rule from this:** never run a provider's "Auto configure / connect" on a domain that carries mail; add the rows by hand.
+2a. **Stripe return link (owner, 2026-09-05: "correct the payment link in the back end")** — the Worker's fallback
+   `success_url`/`cancel_url` was the first allowed *origin* plus `?checkout=…`, i.e. `https://www.atlasglinn.com?checkout=success`:
+   no `/mastsolutions.html`, and on www, so a paid customer whose page did not send its own return URL landed on the Atlas
+   Glinn home page. Fixed: the fallback is `SITE_URL` (now `https://atlasglinn.com/mastsolutions.html`), `ALLOWED_ORIGINS`
+   leads with the apex, tests cover success/cancel/no-SITE_URL (178 pass). **Needs a deploy.** He is on the road without a
+   Terminal, so `.github/workflows/deploy-worker.yml` now deploys the Worker on every push to main that touches
+   `mast-backend/` — once two repository secrets exist: `CLOUDFLARE_API_TOKEN` (Cloudflare dashboard → My Profile → API
+   Tokens → Create → "Edit Cloudflare Workers" template, add D1: Edit) and `CLOUDFLARE_ACCOUNT_ID` (Workers & Pages overview).
+   Until then the workflow runs the tests and stops with a notice; the fix is merged, not running.
 3. **Rotate the Atlas EP leads key** on the `atlas-ep-signup` Worker. It was public on `main` until today.
 4. ~~One live test registration with the $1 `MAST-TEST` seat~~ — **2026-09-05 ("Remove test hook")**: the `#test` page hook
    and the Worker's `MAST-TEST` fallback entry are removed (PR #10); there is no $1 seat any more. A live check now means a

@@ -21,12 +21,14 @@ crons = ["17 9 * * *"]
 # GoDaddy forward, not a web server), so atlasglinn.com MUST be listed or CORS
 # blocks checkout on the page's actual origin. mastsolutions.com entries are here
 # for when it gets real hosting; www.mastsolutions.com has no DNS record yet.
-# The FIRST entry is the fallback used for Stripe return URLs.
+# The FIRST entry is the origin the Worker falls back to; SITE_URL below is the page Stripe
+# returns people to when the page did not say. Both are the apex host: that is where the page
+# is served (atlasglinn.com/mastsolutions.html, live 2026-09-05) and where the owner tested.
 # htmlpreview.github.io was listed while the owner reviewed branch previews there;
 # removed 2026-09-04 before launch (previews now render from raw.githack.com, which
 # is deliberately NOT allowed: forms on a preview must not reach the live Worker).
-ALLOWED_ORIGINS = "https://www.atlasglinn.com,https://atlasglinn.com,https://mastsolutions.com"
-SITE_URL = "https://www.atlasglinn.com/mastsolutions.html"
+ALLOWED_ORIGINS = "https://atlasglinn.com,https://www.atlasglinn.com,https://mastsolutions.com"
+SITE_URL = "https://atlasglinn.com/mastsolutions.html"
 NOTIFY_FROM = "MAST Solutions <bookings@mastsolutions.com>"
 # NOTIFY_FROM is a sender label on the Resend-verified domain, not a mailbox (owner, 2026-09-05: "bookings@mastsolutions.com
 # = NOT email"). Replies to any email the Worker sends go to REPLY_TO, a real, read mailbox; office alerts still reply to
