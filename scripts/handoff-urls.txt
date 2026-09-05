@@ -26,13 +26,19 @@ https://atlasglinn.com/wp-content/uploads/atlas-ep-og-image.jpg
 https://atlasglinn.com/wp-content/uploads/atlas-ep-screenshot.jpg
 https://atlasglinn.com/wp-content/uploads/atlas-glinn-logo.png
 # Added 2026-09-05: the hero films of the current Technology, UAS and Contact pages are Git LFS pointers in this repo (no
-# bytes); if the live site serves them, the Mac brings the real files over and the rebuilt pages open on them like the
-# current ones do (scripts/assemble-atlas.py, film backdrops).
-https://atlasglinn.com/images/technology-hero.mp4
-https://atlasglinn.com/images/corporate_buildings.mp4
+# bytes). The live site serves them from its theme folder, not /images/ (the /images/ paths answered 404 on the first
+# capture, 21:15 UTC), so the theme paths are listed; the rebuilt pages open on them like the current ones do
+# (scripts/assemble-atlas.py, film backdrops).
+https://atlasglinn.com/wp-content/themes/atlasglinn/images/technology-hero.mp4
+https://atlasglinn.com/wp-content/themes/atlasglinn/images/corporate_buildings.mp4
+https://atlasglinn.com/wp-content/themes/atlasglinn/images/about-hero-new.mp4
 # The current About page's two In Action clips, also LFS pointers here (2026-09-05).
-https://atlasglinn.com/images/careers-gallery.mp4
-https://atlasglinn.com/images/forge-legend-mast.mp4
+https://atlasglinn.com/wp-content/themes/atlasglinn/images/careers-gallery.mp4
+https://atlasglinn.com/wp-content/themes/atlasglinn/images/forge-legend-mast.mp4
+# The live About page's team pictures (seen on the first capture): the founder portrait the site shows today and
+# Anthony Glover's. Neither is in the repo.
+https://atlasglinn.com/wp-content/themes/atlasglinn/images/matt-ceo-2026.jpg
+https://atlasglinn.com/wp-content/themes/atlasglinn/images/anthony-glover.png
 # Added 2026-09-04 (owner: the Training Reel and the Disaster Recovery film as true embeds, no YouTube chrome). The Mac
 # fetches each as an MP4 with yt-dlp; the cloud session then trims the Training Reel's closing "2023" card, makes the
 # six-second teasers and posters, and swaps the YouTube cards for local files.
@@ -45,8 +51,11 @@ https://www.youtube.com/watch?v=mI7Ou5P-WHE
 https://atlasglinn.com/
 https://atlasglinn.com/executive-protection/
 https://atlasglinn.com/residential-protection/
-https://atlasglinn.com/disaster-recovery-asset-protection/
+https://atlasglinn.com/disaster-recovery/
 https://atlasglinn.com/training/
+https://atlasglinn.com/training/shop/
+https://atlasglinn.com/aimpoint-shop/
+https://atlasglinn.com/ep-app/
 https://atlasglinn.com/technology/
 https://atlasglinn.com/cuas-aerodefense/
 https://atlasglinn.com/uas/
