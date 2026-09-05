@@ -372,5 +372,21 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
   Dropped paragraphs: the EP SOP/OPORD intro, image captions, the contact address line, "AI Intelligence Features".
   `handoff-urls.txt` now lists the live pages; the next handoff run saves them as `reference/desktop/live/<slug>.html`,
   and the reconcile (site headings as titles, live text) runs against those files.
+  **21:15–21:25 UTC, `capture-live.yml` (a GitHub runner; no Mac):** the live pages, their films and team pictures are on
+  `claude/desktop-assets` under `reference/desktop/live/`. Probe: `/` still serves the WordPress home; `/index.html` and
+  `/about.html` serve the new pages; `images/atlas/*` and `images/team/brockmann.jpg` are on the host at their exact
+  sizes (the empty tiles he saw were the upload still running). Live vs new measured 183/188 headings and 185/220
+  paragraphs before the reconcile, 203/204 and 224/230 after. Reconciled to the live copy: About gets the live founder
+  lead, Anthony Glover and J. Reneé Renobato (word for word), the live founder portrait (`matt-ceo-2026.jpg`, theme
+  folder) and the two In Action clips; the home Reviews block is the live six Google/LinkedIn quotes; the Atlas EP
+  section lists the four features and four benefits once, no year figure; EP lead, SOP paragraph, "military-grade"
+  OPORD line and the Senators-to-Fortune-500 line; Deep Sentinel card and partner paragraph with the partner links;
+  UAS "24/7 Autonomous" lead; contact block with the socials; the Training submenu (IWA Training Products, Aimpoint
+  Optics → the MAST Gear chapter; the live shop pages are notify-me catalogs with no checkout: IWA 3-unit minimum,
+  hazmat +$45/box, PPC required; Aimpoint MAP pricing, export-controlled); the technology/uas/contact hero films from
+  the theme folder, served whole (no ffmpeg in the container). Not carried on purpose: "Built around the standard two
+  sitting U.S. Senators required" (his 2026-09-04 correction) and "over 30 years" (decades, 2026-09-05). The chapter
+  titles stay the trailer shell's: he reviewed that build and said publish. Mac shut down ~21:10 UTC, mid-upload:
+  whether the 149-file set finished is unknown; the hourly job redoes it the next time the Mac is on.
 - Docs to reconcile: `ARCHITECTURE.md` open-decisions table (prices are confirmed; range directions are text in
   the email, not a PDF), `mast-wp-theme/` is superseded by the static page + Worker + SFTP path.

@@ -32,6 +32,10 @@ https://atlasglinn.com/wp-content/uploads/atlas-glinn-logo.png
 https://atlasglinn.com/wp-content/themes/atlasglinn/images/technology-hero.mp4
 https://atlasglinn.com/wp-content/themes/atlasglinn/images/corporate_buildings.mp4
 https://atlasglinn.com/wp-content/themes/atlasglinn/images/about-hero-new.mp4
+# The live Residential and Training pages open on these films (seen on the first capture); the rebuilt pages open on
+# YouTube stills until they land.
+https://atlasglinn.com/wp-content/uploads/2025/04/residential_hero.mp4
+https://atlasglinn.com/wp-content/uploads/2025/04/training_hero.mp4
 # The current About page's two In Action clips, also LFS pointers here (2026-09-05).
 https://atlasglinn.com/wp-content/themes/atlasglinn/images/careers-gallery.mp4
 https://atlasglinn.com/wp-content/themes/atlasglinn/images/forge-legend-mast.mp4
