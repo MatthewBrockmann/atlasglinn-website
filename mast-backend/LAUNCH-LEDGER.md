@@ -84,10 +84,14 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    (main 143525c) and the Worker redeployed from it at version 84a18bca (migrations 001–003 applied); **PR #10 merged 2026-09-05
    04:19 UTC** (student accounts + the $1 test seat removed), main = 99af86d. **Worker redeployed from 99af86d ~04:25 UTC**
    (version c01a6989; his terminal paste) — but **migration 004 and `ACCOUNT_SECRET` were not run**, so the account routes are
-   live and answer 503 "Accounts are not configured yet" until both happen. **Still his hand, in order:** from `mast-backend/`
-   `wrangler d1 execute mast_bookings --remote --file=migrations/004-accounts.sql`, then `wrangler secret put ACCOUNT_SECRET`
-   (a secret put publishes a new version by itself; no second deploy needed); then **`scripts/wp-upload.sh`** for the page
-   (the live page is still the old one).
+   live and answer 503 "Accounts are not configured yet" until both happen. **Do not set `ACCOUNT_SECRET` on that Worker:**
+   the 99af86d build issues tokens without email verification (Codex on PR #10/#11); the secret switches it on. **PR #11 merged
+   2026-09-05 16:21 UTC at b34077a (main d12adda)**; the atomic attempt counting, the no-enumeration throttles and this deploy
+   order missed that merge by seconds and ride on **PR #12**. **Still his hand, in this order,** from `mast-backend/` after
+   #12 merges: `git pull` · `wrangler d1 execute mast_bookings --remote
+   --file=migrations/004-accounts.sql` · `… --file=migrations/005-account-verification.sql` · `npx wrangler deploy` (the
+   verified build) · **then** `wrangler secret put ACCOUNT_SECRET` (a secret put republishes whatever code is deployed, which
+   is why it comes last); then **`scripts/wp-upload.sh`** for the page (the live page is still the old one).
    The page on main and the Worker must match (refund policy version, prerequisite rule, the ladies-only SKU, memberships, the
    private-request subject line, the account routes). Merged is not running.
 2. **`RESEND_API_KEY`** — `wrangler secret put RESEND_API_KEY --name mast-booking-backend`. Sending as
