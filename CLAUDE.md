@@ -142,7 +142,9 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   served from it at `atlasglinn.com/mastsolutions.html`; `scripts/wp-upload.sh` puts the page and its 113 assets there over
   SFTP. The login it asks for is **the atlasglinn.com site's** SFTP username and password (GoDaddy → My Products → Managed
   WordPress → Manage → Settings → Production Site → SFTP/SSH). Nobody but Brockmann can read them; they never pass through
-  chat or git. The GoDaddy connector in cloud sessions only checks domain availability; it cannot reach hosting.
+  chat or git. He saves them once on the Mac with `bash scripts/wp-upload.sh --save-login` (macOS Keychain item
+  `mast-wp-sftp`); after that the upload never asks. The GoDaddy connector in cloud sessions only checks domain
+  availability; it cannot reach hosting.
 - **mastsolutions.com** has no site: it is a GoDaddy domain forward to atlasglinn.com. Point it at
   `https://atlasglinn.com/mastsolutions.html` (301). It still carries DNS: Resend verifies it so the Worker can send as
   bookings@mastsolutions.com, beside the existing matthew@mastsolutions.com mail.

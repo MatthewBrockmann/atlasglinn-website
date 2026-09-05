@@ -100,7 +100,12 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
 3. **Rotate the Atlas EP leads key** on the `atlas-ep-signup` Worker. It was public on `main` until today.
 4. ~~One live test registration with the $1 `MAST-TEST` seat~~ — **2026-09-05 ("Remove test hook")**: the `#test` page hook
    and the Worker's `MAST-TEST` fallback entry are removed (PR #10); there is no $1 seat any more. A live check now means a
-   real seat and a Stripe refund, or Stripe test mode.
+   real seat and a Stripe refund. **Stripe is on the live key** (Brockmann, 2026-09-05: "stripe answered yesterday real go
+   live key - we tested"); the 2026-09-04 test went through on it. `wrangler secret list` on 2026-09-05 16:46 UTC showed
+   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ACCOUNT_SECRET`, `ADMIN_KEY`, `NOTIFY_EMAIL`, `RANGE_*`, `DOC_RECIPIENTS_*`
+   present and **`RESEND_API_KEY` absent**. Two things stand between the Worker and a sent email, both in item 2 above:
+   the key, **and** mastsolutions.com verified at Resend (its DNS records added at GoDaddy), because every email goes out
+   as bookings@mastsolutions.com. The key alone is not enough.
 5. **Course → weekend map**, or accept that any course sells on any of the 15 weekends for now (he said "I will
    organize what classes on what weekends later"). Accepted hole for launch night per his 2026-09-04 message.
 6. **Security pass over both sites**: Mullvad and pentAI, or an equivalent (his instruction, 2026-09-04).
@@ -241,7 +246,8 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
        Torrey Kramer blocks are out of chapter 08; Kramer's documentary stays on the In Action strip. Same message: the chapter
        was **blank on his Retina Mac** because the reveal waited for 25% of a 2,500 px chapter inside a 508 px window; every
        reveal element is now also observed on its own (`cinematic_shell.py`, both sites).
-2. Founder shot: is `founder-portrait.jpg` it, or is another photo coming?
+2. ~~Founder shot~~ — settled 2026-09-05 ("Instruct pic Y its ok"): `images/mast/brockmann-instructor.jpg`, the suit-and-skyline
+   photo he sent this session, cropped to keep the photographer's mark out of frame. He is the only instructor on the page.
 3. Instagram: which posts, or an embedded feed?
 4. Capability cards: "have it here and bring back to front" — move up the MAST page, put on the Atlas home, or
    change the content? The cards are currently absent.
