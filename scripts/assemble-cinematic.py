@@ -23,7 +23,7 @@ def between(s, a, b, inclusive=False):
 # ── 1. Booking CSS from the Tesla page (catalog, video cards, modals, calendar, checkout, quals, banner) ──
 css_src = between(tesla, '<style>', '</style>')
 want = ('.catalog-panel', '.cat', '.course-row', '.cr-', '.video-card', '.yt', '.media-strip', '.modal', '.cal-', '.day',
-        '.sheet', 'label', 'input', '.qty', '.total', '.secure', '.err', '.quals', '.banner', '.legend', '.reg-', '.policy')
+        '.sheet', 'label', 'input', '.qty', '.total', '.secure', '.err', '.quals', '.banner', '.legend', '.reg-', '.policy', '.acct')
 # keep each lifted rule inside the media query it came from (the Tesla page nests its phone sheet rules in @media)
 groups = {None: []}; media = None
 for line in css_src.splitlines():
@@ -148,6 +148,15 @@ MEMBERSHIP = f"""
 _in_action = '  <a href="#s9" class="chap-link">09 &middot; In Action</a>'
 assert CHROME.count(_in_action) == 1, 'In Action nav entry not found'
 CHROME = CHROME.replace(_in_action, _in_action + '\n  <a href="articles/index.html" class="chap-extra preview-only">&middot; Blogs</a>')
+
+# ── Account (owner, 2026-09-05: "ADD ACCOUNT"): a Sign in link in the HUD's top-right corner and an entry at the foot of the chapter
+#    menu; both open the account dialog lifted from the booking page. The label becomes the student's first name once signed in.
+_contact_nav = '  <a href="#s12" class="chap-link">12 &middot; Contact</a>'
+assert CHROME.count(_contact_nav) == 1, 'Contact nav entry not found'
+CHROME = CHROME.replace(_contact_nav, _contact_nav + '\n  <a href="#" class="chap-extra chap-always acct-link" onclick="openAcct();return false;">&middot; Sign in</a>')
+_hud_tr = '<div class="hud tr" id="hud-section">'
+assert CHROME.count(_hud_tr) == 1, 'HUD section marker not found'
+CHROME = CHROME.replace(_hud_tr, '<a class="hud acct acct-link" href="#" onclick="openAcct();return false;" aria-haspopup="dialog">Sign in</a>\n' + _hud_tr)
 
 # ── The Range: the owner's photographs first (2026-09-05: a08 and a13 the aerials, a01–a04 the berm, the berm at dusk, the
 #    canopies and the classroom, a05 the briefing, a09 the pistol line, a10 the range at night under lights, a11 the low-light
@@ -481,6 +490,11 @@ QUOTES_CSS = """
   .chap-extra { display:none; color:var(--text); font-weight:700; text-shadow:0 1px 10px rgba(0,0,0,.9); text-decoration:none; letter-spacing:.25em; padding:.2rem .8rem .2rem 2.6rem; font-size:.58rem; text-transform:uppercase; align-items:center; gap:.6rem; cursor:none; }
   .chap-extra:hover { color:var(--gold-champagne); }
   body.preview .chap-extra { display:flex; }
+  .chap-extra.chap-always { display:flex; margin-top:.5rem; padding-left:.8rem; color:var(--gold-champagne); }
+  /* The account link in the HUD's top-right corner (the section counter sits left of the chapter menu). */
+  .hud.acct { top:1.2rem; right:1.8rem; color:var(--gold-champagne); opacity:.9; pointer-events:auto; cursor:pointer; text-decoration:none; padding:.3rem .6rem; border:1px solid rgba(201,168,76,.35); }
+  .hud.acct:hover { opacity:1; background:rgba(201,168,76,.06); }
+  @media (max-width:768px) { .hud.acct { display:block; top:.9rem; right:1rem; font-size:.55rem; } }
   /* Folded photo grids: closed until the button opens them, then they unfold downward. The padding keeps the tiles' hover lift clear of the clip. */
   .fold { max-height:0; overflow:hidden; opacity:0; padding:10px 10px 0; margin:-10px -10px 0; transition:max-height .8s cubic-bezier(.2,.7,.2,1), opacity .45s; }
   .fold.open { max-height:6000px; opacity:1; padding-bottom:12px; transition:max-height 1.2s cubic-bezier(.2,.7,.2,1), opacity .5s .1s; }

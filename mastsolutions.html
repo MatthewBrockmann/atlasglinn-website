@@ -296,6 +296,32 @@
 .modal.req input:focus, .modal.req textarea:focus { outline: none; border-color: #C9A84C; }
 .modal.req .err { color: #ff8a80; font-size: .9rem; margin-top: .6rem; }
 .modal.req .err a { color: #E8D27D; }
+.acct.modal { width: min(860px, calc(100vw - 32px)); }
+.acct-tabs { display: flex; gap: .45rem; margin: .4rem 0 .6rem; }
+.acct-field { display: block; position: relative; margin: .7rem 0 0; font-family: 'Share Tech Mono', monospace; font-size: .66rem; letter-spacing: .16em; text-transform: uppercase; color: #b0b0b0; }
+.acct-field .opt { text-transform: none; letter-spacing: 0; color: #777; }
+.acct-field .sr { position: absolute; left: -9999px; }
+.acct input { display: block; width: 100%; margin-top: .35rem; padding: .7rem .8rem; background: rgba(255,255,255,.04); border: 1px solid rgba(201,168,76,.3); border-radius: 4px; color: #fff; font-family: 'Rajdhani', sans-serif; font-size: 1rem; }
+.acct input:focus { outline: none; border-color: #C9A84C; }
+.acct-two { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-top: .5rem; }
+.acct-two input { margin-top: 0; }
+.acct-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.8rem; margin-top: .6rem; }
+.acct-block h4 { font-family: 'Orbitron', sans-serif; font-size: .7rem; letter-spacing: .22em; text-transform: uppercase; color: #C9A84C; margin: 1.1rem 0 .25rem; }
+.acct-block h4:first-child { margin-top: 0; }
+.acct-line { color: #fff; font-size: 1rem; margin: .4rem 0; }
+.acct-note { display: block; font-family: 'Rajdhani', sans-serif; font-size: .85rem; letter-spacing: .02em; text-transform: none; color: #8B95A8; margin-top: .35rem; line-height: 1.4; }
+.acct-list { list-style: none; margin: .3rem 0 0; padding: 0; }
+.acct-list li { padding: .45rem 0; border-top: 1px solid rgba(255,255,255,.06); color: #d0d0d0; font-size: .95rem; }
+.acct-list li:first-child { border-top: 0; }
+.acct-list li small { display: block; font-family: 'Share Tech Mono', monospace; font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; color: #8B95A8; }
+.acct-list .acct-empty { color: #777; font-style: italic; }
+.acct .cta-button.small { padding: .55rem 1rem; font-size: .68rem; letter-spacing: .18em; }
+.acct .gate-actions { margin-top: .8rem; display: flex; align-items: center; gap: .8rem; }
+.acct-saved { color: #8fd19e; font-size: .9rem; }
+.acct .err { color: #ff8a80; font-size: .9rem; margin-top: .6rem; }
+.acct [hidden] { display: none !important; }   /* the display:block rules above must not undo the hidden attribute (sign-in tab hides name, phone and the password note) */
+.acct .gate-fine { margin-top: 1rem; font-size: .8rem; color: #888; line-height: 1.5; }
+.acct-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 1.2rem; padding-top: .8rem; border-top: 1px solid rgba(201,168,76,.25); font-family: 'Share Tech Mono', monospace; font-size: .68rem; letter-spacing: .14em; color: #8B95A8; }
 .cal-foot { position: sticky; bottom: -2rem; background: #0B1221; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.4rem -2rem -2rem; padding: 1rem 2rem 1.2rem; border-top: 1px solid rgba(201,168,76,.2); flex-wrap: wrap; }
 .cal-sel { font-size: .95rem; color: #b0b0b0; }
 .cal-sel b { color: #fff; font-family: 'Orbitron', sans-serif; font-size: .85rem; }
@@ -361,6 +387,7 @@
 .quals-list li { font-size: .92rem; color: #b0b0b0; line-height: 1.5; padding: .3rem .4rem .3rem .1rem; break-inside: avoid; }
 .quals-list li::marker { color: #C9A84C; font-family: 'Share Tech Mono', monospace; font-size: .78rem; }
 @media (max-width: 768px) {
+.acct-grid { grid-template-columns: 1fr; }
 .cr-img { width: 56px; height: 56px; flex-basis: 56px; margin-right: 10px; }
 .course-row { grid-template-columns: 1fr; gap: .8rem; padding: 1rem 1.1rem; }
 .cr-side { justify-content: space-between; }
@@ -431,6 +458,11 @@
   .chap-extra { display:none; color:var(--text); font-weight:700; text-shadow:0 1px 10px rgba(0,0,0,.9); text-decoration:none; letter-spacing:.25em; padding:.2rem .8rem .2rem 2.6rem; font-size:.58rem; text-transform:uppercase; align-items:center; gap:.6rem; cursor:none; }
   .chap-extra:hover { color:var(--gold-champagne); }
   body.preview .chap-extra { display:flex; }
+  .chap-extra.chap-always { display:flex; margin-top:.5rem; padding-left:.8rem; color:var(--gold-champagne); }
+  /* The account link in the HUD's top-right corner (the section counter sits left of the chapter menu). */
+  .hud.acct { top:1.2rem; right:1.8rem; color:var(--gold-champagne); opacity:.9; pointer-events:auto; cursor:pointer; text-decoration:none; padding:.3rem .6rem; border:1px solid rgba(26,107,222,.35); }
+  .hud.acct:hover { opacity:1; background:rgba(26,107,222,.06); }
+  @media (max-width:768px) { .hud.acct { display:block; top:.9rem; right:1rem; font-size:.55rem; } }
   /* Folded photo grids: closed until the button opens them, then they unfold downward. The padding keeps the tiles' hover lift clear of the clip. */
   .fold { max-height:0; overflow:hidden; opacity:0; padding:10px 10px 0; margin:-10px -10px 0; transition:max-height .8s cubic-bezier(.2,.7,.2,1), opacity .45s; }
   .fold.open { max-height:6000px; opacity:1; padding-bottom:12px; transition:max-height 1.2s cubic-bezier(.2,.7,.2,1), opacity .5s .1s; }
@@ -509,6 +541,7 @@
 <div class="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>
 
 <a class="hud tl" href="/">&#9679; ATLAS GLINN &middot; MAST.SYS LIVE</a>
+<a class="hud acct acct-link" href="#" onclick="openAcct();return false;" aria-haspopup="dialog">Sign in</a>
 <div class="hud tr" id="hud-section">SECTION 01 / 12</div>
 <div class="hud bl">HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W</div>
 <div class="hud br">DETAILS MATTER</div>
@@ -527,6 +560,7 @@
   <a href="#s10" class="chap-link">10 &middot; Testimonials</a>
   <a href="#s11" class="chap-link">11 &middot; Privacy</a>
   <a href="#s12" class="chap-link">12 &middot; Contact</a>
+  <a href="#" class="chap-extra chap-always acct-link" onclick="openAcct();return false;">&middot; Sign in</a>
 </nav>
 
 <div id="banner" class="banner" role="status"></div>
@@ -793,6 +827,56 @@
         <div class="cal-sel" id="dcal-sel"></div>
         <div class="cal-tabs" id="dcal-tabs"></div>
         <div class="cal-list" id="dcal-list"></div>
+    </div>
+</div>
+
+<!-- ACCOUNT (owner, 2026-09-05: "ADD ACCOUNT = account info to include payment method + save + classes taken + placeholder for Standards
+     Passed + other details for account + account email + password"). Sign in / create account, then the panel: details, saved card
+     (held by Stripe), classes taken (from registrations by email), standards passed (placeholder the instructor fills in), password. -->
+<div id="acct-bd" class="modal-bd" onclick="closeAcct()"></div>
+<div id="acct" class="modal acct" role="dialog" aria-modal="true" aria-labelledby="acct-title">
+    <button class="modal-x" aria-label="Close" onclick="closeAcct()">&times;</button>
+    <div class="eyebrow">Your Account</div>
+    <h3 id="acct-title">Sign in</h3>
+    <div id="acct-auth">
+        <div class="acct-tabs"><button type="button" class="chip sel" id="acct-tab-in" onclick="acctMode('in')">Sign in</button><button type="button" class="chip" id="acct-tab-up" onclick="acctMode('up')">Create account</button></div>
+        <label class="acct-field" id="acct-name-wrap" hidden>Name<input id="acct-name" type="text" autocomplete="name"></label>
+        <label class="acct-field">Email<input id="acct-email" type="email" autocomplete="email"></label>
+        <label class="acct-field">Password<input id="acct-pass" type="password" autocomplete="current-password"><span class="acct-note" id="acct-pass-note" hidden>At least 10 characters.</span></label>
+        <label class="acct-field" id="acct-phone-wrap" hidden>Phone <span class="opt">(optional)</span><input id="acct-phone" type="tel" autocomplete="tel"></label>
+        <div class="gate-actions"><button class="cta-button" id="acct-go" type="button" onclick="acctSubmit()">Sign in</button></div>
+        <p class="err" id="acct-err" hidden></p>
+        <p class="gate-fine">Your account keeps your details, the classes you have taken and a saved card for faster booking. Card numbers are held by Stripe, never by us.</p>
+    </div>
+    <div id="acct-panel" hidden>
+        <div class="acct-grid">
+            <section class="acct-block">
+                <h4>Details</h4>
+                <label class="acct-field">Name<input id="ap-name" type="text" autocomplete="name"></label>
+                <label class="acct-field">Phone<input id="ap-phone" type="tel" autocomplete="tel"></label>
+                <label class="acct-field">Organization<input id="ap-org" type="text" autocomplete="organization"></label>
+                <label class="acct-field">Address<input id="ap-address1" type="text" placeholder="Street" autocomplete="address-line1"></label>
+                <label class="acct-field"><span class="sr">Address line 2</span><input id="ap-address2" type="text" placeholder="City, State ZIP" autocomplete="address-line2"></label>
+                <label class="acct-field">Emergency contact<input id="ap-em-name" type="text" placeholder="Name"></label>
+                <div class="acct-two"><input id="ap-em-phone" type="tel" placeholder="Phone"><input id="ap-em-rel" type="text" placeholder="Relationship"></div>
+                <div class="gate-actions"><button class="cta-button ghost-button small" type="button" onclick="acctSave()">Save details</button><span class="acct-saved" id="acct-saved" hidden>Saved &#10003;</span></div>
+            </section>
+            <section class="acct-block">
+                <h4>Payment method</h4>
+                <p class="acct-line" id="ap-card">No card on file.</p>
+                <div class="gate-actions"><button class="cta-button ghost-button small" type="button" id="ap-card-btn" onclick="acctCard()">Save a card</button></div>
+                <span class="acct-note">Saved with Stripe and offered at checkout when you book while signed in.</span>
+                <h4>Classes taken</h4>
+                <ul class="acct-list" id="ap-classes"><li class="acct-empty">None on record yet.</li></ul>
+                <h4>Standards passed</h4>
+                <ul class="acct-list" id="ap-standards"><li class="acct-empty">Recorded by your instructor after class.</li></ul>
+                <h4>Password</h4>
+                <div class="acct-two"><input id="ap-pass-cur" type="password" placeholder="Current" autocomplete="current-password"><input id="ap-pass-new" type="password" placeholder="New (10+ characters)" autocomplete="new-password"></div>
+                <div class="gate-actions"><button class="cta-button ghost-button small" type="button" onclick="acctPassword()">Change password</button></div>
+            </section>
+        </div>
+        <p class="err" id="acct-perr" hidden></p>
+        <div class="acct-foot"><span id="ap-email"></span><button type="button" class="chip" onclick="acctSignOut()">Sign out</button></div>
     </div>
 </div>
 
@@ -1206,7 +1290,6 @@ const COURSES = [
   { sku:'MAST-MOTOR-P2', cat:'Protective',      img:'images/mast/class/MAST-MOTOR-P2.jpg', name:'Motorcade P2',                    hours:0,  days:0, price_cents:0,     seats:10 },
   { sku:'MAST-GEAR',     cat:'Gear',            img:'images/mast/class/MAST-GEAR.jpg', name:'Gear & Kit Considerations',       hours:24, days:3, price_cents:75000, seats:10 },
 ];
-if (location.hash === '#test') COURSES.push({ sku:'MAST-TEST', cat:'Test', name:'Live payment test seat', hours:1, days:1, price_cents:100, seats:1 });
 
 let WEEKENDS = [
   ['2026-09-26','September — last weekend'],['2026-10-10','October — 2nd weekend'],['2026-10-24','October — 4th weekend'],['2026-10-31','October — 5th weekend','blocked'],
@@ -1331,13 +1414,72 @@ async function reqGo(){ const c = COURSES[reqIdx]; const name = $('req-name').va
     b.textContent = 'Request sent ✓'; $('req-meta').textContent = 'Thank you, ' + name.split(' ')[0] + '. We reply within one business day.'; setTimeout(closeReq, 2400); }
   catch (e) { b.disabled = false; b.textContent = 'Send Request'; err.innerHTML = esc(e.message || 'Could not send the request.') + ' You can also email <a href="mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent('Private instruction — ' + c.name) + '">atlasglinn.hq@atlasglinn.com</a>.'; err.hidden = false; }
 }
-document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if ($('dcal').classList.contains('open')) closeDCal(); if ($('req').classList.contains('open')) closeReq(); });
+document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if ($('dcal').classList.contains('open')) closeDCal(); if ($('req').classList.contains('open')) closeReq(); if ($('acct').classList.contains('open')) closeAcct(); });
+
+// ── Account (owner, 2026-09-05). The session token lives in localStorage; the Worker holds everything else. Card numbers never
+//    touch this page: "Save a card" opens Stripe Checkout in setup mode and the Worker keeps the card on the Stripe Customer.
+const ACCT_KEY = 'mast_acct';
+let acctToken = null, acctData = null, acctModeNow = 'in';
+try { acctToken = localStorage.getItem(ACCT_KEY) || null; } catch (e) {}
+function acctHeaders(){ return acctToken ? { 'Content-Type': 'application/json', Authorization: 'Bearer ' + acctToken } : { 'Content-Type': 'application/json' }; }
+function acctLinkText(){ document.querySelectorAll('.acct-link').forEach(a => { a.textContent = acctData ? (acctData.name ? acctData.name.split(' ')[0] : 'Account') : 'Sign in'; }); }
+function openAcct(){ lastFocus = document.activeElement; $('acct-bd').classList.add('open'); $('acct').classList.add('open'); document.body.style.overflow = 'hidden'; if (acctToken) { $('acct-auth').hidden = true; $('acct-panel').hidden = false; acctLoad(); } else acctMode(acctModeNow); }
+function closeAcct(){ $('acct-bd').classList.remove('open'); $('acct').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+function acctMode(m){ acctModeNow = m; const up = m === 'up'; $('acct-tab-in').classList.toggle('sel', !up); $('acct-tab-up').classList.toggle('sel', up); $('acct-name-wrap').hidden = !up; $('acct-phone-wrap').hidden = !up; $('acct-pass-note').hidden = !up; $('acct-pass').setAttribute('autocomplete', up ? 'new-password' : 'current-password'); $('acct-go').textContent = up ? 'Create account' : 'Sign in'; $('acct-title').textContent = up ? 'Create your account' : 'Sign in'; $('acct-auth').hidden = false; $('acct-panel').hidden = true; $('acct-err').hidden = true; }
+async function acctSubmit(){
+  const err = $('acct-err'), b = $('acct-go'); const email = $('acct-email').value.trim(), password = $('acct-pass').value;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Enter a valid email address.'; err.hidden = false; $('acct-email').focus(); return; }
+  if (acctModeNow === 'up' && password.length < 10) { err.textContent = 'Use a password of at least 10 characters.'; err.hidden = false; $('acct-pass').focus(); return; }
+  err.hidden = true; b.disabled = true;
+  const body = acctModeNow === 'up' ? { email, password, name: $('acct-name').value.trim(), phone: $('acct-phone').value.trim() } : { email, password };
+  try {
+    const r = await fetch(API + (acctModeNow === 'up' ? '/account/register' : '/account/login'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({})); if (!r.ok || !d.token) throw new Error(d.error || 'Could not sign in.');
+    acctToken = d.token; try { localStorage.setItem(ACCT_KEY, acctToken); } catch (e) {} acctData = d.account; $('acct-pass').value = ''; acctLinkText(); $('acct-auth').hidden = true; $('acct-panel').hidden = false; await acctLoad();
+  } catch (e) { err.textContent = e.message; err.hidden = false; }
+  b.disabled = false;
+}
+async function acctLoad(){
+  if (!acctToken) return;
+  try { const r = await fetch(API + '/account/me', { headers: acctHeaders() }); if (r.status === 401) { acctSignOut(); return; } const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'Could not load your account.'); acctData = d.account; acctRender(d); }
+  catch (e) { $('acct-perr').textContent = e.message; $('acct-perr').hidden = false; }
+}
+function acctRender(d){
+  const a = d.account; $('acct-title').textContent = a.name || 'Your account'; $('acct-auth').hidden = true; $('acct-panel').hidden = false; $('ap-email').textContent = a.email;
+  [['ap-name', 'name'], ['ap-phone', 'phone'], ['ap-org', 'organization'], ['ap-address1', 'address1'], ['ap-address2', 'address2'], ['ap-em-name', 'emergency_name'], ['ap-em-phone', 'emergency_phone'], ['ap-em-rel', 'emergency_relationship']].forEach(([id, k]) => { $(id).value = a[k] || ''; });
+  const pm = d.payment_method; $('ap-card').textContent = pm ? ((pm.brand ? pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1) : 'Card') + ' •••• ' + (pm.last4 || '') + (pm.exp_month ? ' · ' + pm.exp_month + '/' + String(pm.exp_year).slice(-2) : '')) : 'No card on file.'; $('ap-card-btn').textContent = pm ? 'Replace card' : 'Save a card';
+  $('ap-classes').innerHTML = (d.classes && d.classes.length) ? d.classes.map(c => `<li>${esc(c.item_name || c.sku)}<small>${esc(c.session_label || c.session_date || '')}${c.qty > 1 ? ' · ' + c.qty + ' seats' : ''}</small></li>`).join('') : '<li class="acct-empty">None on record yet.</li>';
+  const st = a.standards_passed || []; $('ap-standards').innerHTML = st.length ? st.map(x => `<li>${esc(typeof x === 'string' ? x : (x.name || ''))}${x && x.date ? `<small>${esc(x.date)}</small>` : ''}</li>`).join('') : '<li class="acct-empty">Recorded by your instructor after class.</li>';
+  acctLinkText();
+}
+function acctFlash(){ const s = $('acct-saved'); s.hidden = false; setTimeout(() => { s.hidden = true; }, 2200); }
+async function acctSave(){
+  const body = { name: $('ap-name').value.trim(), phone: $('ap-phone').value.trim(), organization: $('ap-org').value.trim(), address1: $('ap-address1').value.trim(), address2: $('ap-address2').value.trim(), emergency_name: $('ap-em-name').value.trim(), emergency_phone: $('ap-em-phone').value.trim(), emergency_relationship: $('ap-em-rel').value.trim() };
+  try { const r = await fetch(API + '/account/update', { method: 'POST', headers: acctHeaders(), body: JSON.stringify(body) }); const d = await r.json().catch(() => ({})); if (r.status === 401) { acctSignOut(); return; } if (!r.ok) throw new Error(d.error || 'Could not save.'); acctData = d.account; acctLinkText(); $('acct-perr').hidden = true; acctFlash(); }
+  catch (e) { $('acct-perr').textContent = e.message; $('acct-perr').hidden = false; }
+}
+async function acctPassword(){
+  const cur = $('ap-pass-cur').value, nw = $('ap-pass-new').value;
+  try { const r = await fetch(API + '/account/password', { method: 'POST', headers: acctHeaders(), body: JSON.stringify({ current: cur, password: nw }) }); const d = await r.json().catch(() => ({})); if (!r.ok || !d.token) throw new Error(d.error || 'Could not change the password.'); acctToken = d.token; try { localStorage.setItem(ACCT_KEY, acctToken); } catch (e) {} $('ap-pass-cur').value = ''; $('ap-pass-new').value = ''; $('acct-perr').hidden = true; acctFlash(); }
+  catch (e) { $('acct-perr').textContent = e.message; $('acct-perr').hidden = false; }
+}
+async function acctCard(){
+  const base = location.origin + location.pathname;
+  try { const r = await fetch(API + '/account/setup-payment', { method: 'POST', headers: acctHeaders(), body: JSON.stringify({ successUrl: base + '?account=card-saved', cancelUrl: base + '?account=card-cancelled' }) }); const d = await r.json().catch(() => ({})); if (!r.ok || !d.checkoutUrl) throw new Error(d.error || 'Could not open the card form.'); location.href = d.checkoutUrl; }
+  catch (e) { $('acct-perr').textContent = e.message; $('acct-perr').hidden = false; }
+}
+function acctSignOut(){ acctToken = null; acctData = null; try { localStorage.removeItem(ACCT_KEY); } catch (e) {} acctLinkText(); acctMode('in'); }
+function acctPrefill(){ if (!acctData) return; const a = acctData; const set = (id, v) => { const el = $(id); if (el && !el.value && v) el.value = v; }; set('co-name', a.name); set('co-email', a.email); set('co-phone', a.phone); set('co-org', a.organization); set('ag-name', a.name); set('ag-address1', a.address1); set('ag-address2', a.address2); set('ag-em-name', a.emergency_name); set('ag-em-phone', a.emergency_phone); set('ag-em-rel', a.emergency_relationship); }
+(function(){
+  if (acctToken) fetch(API + '/account/me', { headers: acctHeaders() }).then(r => { if (r.status === 401) { acctSignOut(); return null; } return r.ok ? r.json() : null; }).then(d => { if (d && d.account) { acctData = d.account; acctLinkText(); } }).catch(() => {});
+  const q = new URLSearchParams(location.search); if (q.get('account') === 'card-saved' && acctToken) setTimeout(openAcct, 1400);
+})();
 
 /* Checkout — registration: details → eligibility → agreement → refund consent → Stripe (privacy.html §3) */
 const REGISTER_ENDPOINT = API + '/register';
 const QUESTIONS_VERSION = '2q-2026-09-03', AGREEMENT_VERSION = '81961f2a07675eff', REFUND_POLICY_VERSION = '2026-09-01'; // must match the Worker
 let qty = 1, regStep = 1, docScrolled = false;
-function openSheet(){ qty = 1; docScrolled = false;
+function openSheet(){ qty = 1; docScrolled = false; acctPrefill();
   // The attestation (owner, 2026-09-04): the discipline's Fundamentals gates every other course in it; P2 also needs the P1. Pre-ticked when the student answered yes at Select Date.
   const lv = levelOf(calCourse), gate = !!(lv && lv.n >= 2); $('co-prereq-wrap').hidden = !gate; $('co-prereq').checked = gate && !!attested[calCourse.sku];
   if (gate) $('co-prereq-text').textContent = 'I have completed MAST ' + fundLabel(lv.fund) + (lv.n === 3 ? ' and a MAST P1 course' : '') + ', or an instructor-approved equivalent, before this course.';
@@ -1390,6 +1532,7 @@ async function startCheckout(){
     refund: { accepted: $('rf-accept').checked, version: REFUND_POLICY_VERSION },
     prerequisite: { required: !$('co-prereq-wrap').hidden, attested: $('co-prereq').checked },
     newsletter_opt_in: $('co-news').checked,
+    account_token: acctToken || undefined,   // a signed-in student books against their Stripe Customer (saved card)
   }, returns);
   try {
     const res = await fetch(REGISTER_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });

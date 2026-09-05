@@ -106,7 +106,7 @@ wrangler d1 execute mast_bookings --remote --file=schema.sql
 wrangler d1 execute mast_bookings --remote --file=migrations/001-prereq-attested.sql   # once, on a database created before 2026-09-04
 wrangler d1 execute mast_bookings --remote --file=migrations/002-ladies-handgun.sql    # once: the ladies-only Handgun class
 wrangler d1 execute mast_bookings --remote --file=migrations/003-membership-teams.sql  # once: the six membership teams (the Worker creates each plan's Stripe Price on the first join)
-wrangler d1 execute mast_bookings --remote --file=migrations/002-ladies-handgun.sql   # once: adds the ladies-only Handgun class (owner, 2026-09-04)
+wrangler d1 execute mast_bookings --remote --file=migrations/004-accounts.sql          # once: student accounts (owner, 2026-09-05)
 
 # 3. Secrets (never commit these)
 wrangler secret put STRIPE_SECRET_KEY        # sk_test_… first, sk_live_… when ready
@@ -119,6 +119,9 @@ wrangler secret put ADMIN_KEY                # long random string for /roster
 wrangler secret put RANGE_ADDRESS            # street address of the range; only ever emailed to a paid participant
 wrangler secret put RANGE_COORDS             # "lat, lon" for the directions line (optional)
 wrangler secret put DOC_RECIPIENTS_AGREEMENT # comma-separated: range host + staff who receive the signed agreement
+wrangler secret put ACCOUNT_SECRET           # long random string (e.g. `openssl rand -base64 48`) that signs student sign-in tokens;
+                                             # without it every /account/* route answers 503 and the page hides nothing but cannot sign anyone in.
+                                             # Rotating it signs everyone out; nothing else is lost (passwords are salted PBKDF2 hashes in D1).
 
 # 4. Deploy
 wrangler deploy

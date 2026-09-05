@@ -64,6 +64,13 @@ export default {
       if (url.pathname === '/webhook' && request.method === 'POST') {
         return await handleWebhook(request, env, ctx, cors);
       }
+      // Student accounts (owner, 2026-09-05)
+      if (url.pathname === '/account/register' && request.method === 'POST') return await handleAccountRegister(request, env, cors);
+      if (url.pathname === '/account/login' && request.method === 'POST') return await handleAccountLogin(request, env, cors);
+      if (url.pathname === '/account/me' && request.method === 'GET') return await handleAccountMe(request, env, cors);
+      if (url.pathname === '/account/update' && request.method === 'POST') return await handleAccountUpdate(request, env, cors);
+      if (url.pathname === '/account/password' && request.method === 'POST') return await handleAccountPassword(request, env, cors);
+      if (url.pathname === '/account/setup-payment' && request.method === 'POST') return await handleAccountSetupPayment(request, env, cors);
       if (url.pathname === '/roster' && request.method === 'GET') {
         return await handleRoster(request, env, cors);
       }
@@ -79,6 +86,199 @@ export default {
     ctx.waitUntil(runRetention(env).catch((e) => console.error('[Retention] failed:', e.message)));
   },
 };
+
+/* ───────────────────────── Student accounts (owner, 2026-09-05) ─────────────────────────
+   "ADD ACCOUNT = account info to include payment method + save + classes taken + placeholder for Standards Passed + other
+   details + account email + password." Email + password: PBKDF2-SHA256 (100,000 iterations, 16-byte salt) via WebCrypto,
+   nothing reversible stored. Sessions are HMAC-SHA256 tokens (ACCOUNT_SECRET) carrying the account id, its token_version and
+   an expiry; a password change bumps token_version so every issued token dies. The saved card lives on the account's Stripe
+   Customer, set up through Checkout in setup mode; the Worker never sees card numbers. Classes taken are read from
+   registrations by email. Without ACCOUNT_SECRET every /account/* call answers 503. */
+const ACCOUNT_TOKEN_DAYS = 30;
+const PBKDF2_ITER = 100000;
+const PROFILE_FIELDS = ['name', 'phone', 'organization', 'address1', 'address2', 'emergency_name', 'emergency_phone', 'emergency_relationship'];
+
+function b64(buf) { let s = ''; const a = new Uint8Array(buf); for (let i = 0; i < a.length; i++) s += String.fromCharCode(a[i]); return btoa(s); }
+function unb64(s) { return Uint8Array.from(atob(s), (c) => c.charCodeAt(0)); }
+function b64url(buf) { return b64(buf).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+function unb64url(s) { s = String(s).replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; return unb64(s); }
+
+async function pbkdf2(password, salt, iterations) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  return crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations }, key, 256);
+}
+async function hashPassword(password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const bits = await pbkdf2(password, salt, PBKDF2_ITER);
+  return 'pbkdf2-sha256$' + PBKDF2_ITER + '$' + b64(salt) + '$' + b64(bits);
+}
+async function verifyPassword(password, stored) {
+  const [alg, iter, salt, hash] = String(stored || '').split('$');
+  if (alg !== 'pbkdf2-sha256' || !salt || !hash) return false;
+  let bits; try { bits = await pbkdf2(password, unb64(salt), parseInt(iter, 10) || PBKDF2_ITER); } catch (e) { return false; }
+  const a = new Uint8Array(bits), b = unb64(hash);
+  if (a.length !== b.length) return false;
+  let diff = 0; for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+async function hmacKey(secret) {
+  return crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+}
+async function signToken(env, account) {
+  const exp = Date.now() + ACCOUNT_TOKEN_DAYS * 86400000;
+  const body = b64url(new TextEncoder().encode(JSON.stringify({ id: account.id, v: account.token_version || 1, exp })));
+  const sig = b64url(await crypto.subtle.sign('HMAC', await hmacKey(env.ACCOUNT_SECRET), new TextEncoder().encode(body)));
+  return body + '.' + sig;
+}
+async function readToken(env, token) {
+  if (!env.ACCOUNT_SECRET || !token || token.indexOf('.') < 0) return null;
+  const [body, sig] = String(token).split('.');
+  let okSig = false;
+  try { okSig = await crypto.subtle.verify('HMAC', await hmacKey(env.ACCOUNT_SECRET), unb64url(sig), new TextEncoder().encode(body)); } catch (e) { return null; }
+  if (!okSig) return null;
+  let claims; try { claims = JSON.parse(new TextDecoder().decode(unb64url(body))); } catch (e) { return null; }
+  if (!claims || !claims.id || !claims.exp || claims.exp < Date.now()) return null;
+  return claims;
+}
+function bearer(request) { const m = /^Bearer\s+(.+)$/i.exec(request.headers.get('Authorization') || ''); return m ? m[1].trim() : ''; }
+async function accountFromToken(env, token) {
+  const claims = await readToken(env, token);
+  if (!claims) return null;
+  const row = await env.DB.prepare('SELECT * FROM accounts WHERE id = ?').bind(claims.id).first();
+  if (!row || (row.token_version || 1) !== claims.v) return null;
+  return row;
+}
+async function requireAccount(request, env, cors) {
+  if (!env.ACCOUNT_SECRET) return { res: json({ error: 'Accounts are not configured yet.', code: 'accounts_off' }, 503, cors) };
+  const acct = await accountFromToken(env, bearer(request));
+  if (!acct) return { res: json({ error: 'Please sign in again.', code: 'unauthorized' }, 401, cors) };
+  return { acct };
+}
+function publicAccount(a) {
+  let standards = []; try { standards = JSON.parse(a.standards_passed || '[]'); } catch (e) { standards = []; }
+  return {
+    id: a.id, email: a.email, name: a.name || '', phone: a.phone || '', organization: a.organization || '',
+    address1: a.address1 || '', address2: a.address2 || '', emergency_name: a.emergency_name || '', emergency_phone: a.emergency_phone || '',
+    emergency_relationship: a.emergency_relationship || '', standards_passed: Array.isArray(standards) ? standards : [],
+    has_stripe_customer: !!a.stripe_customer_id, created_at: a.created_at, last_login_at: a.last_login_at || null,
+  };
+}
+
+async function handleAccountRegister(request, env, cors) {
+  if (!env.ACCOUNT_SECRET) return json({ error: 'Accounts are not configured yet.', code: 'accounts_off' }, 503, cors);
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== 'object') return json({ error: 'Bad request' }, 400, cors);
+  const email = String(body.email || '').trim().toLowerCase();
+  const password = String(body.password || '');
+  if (!isEmail(email)) return json({ error: 'Enter a valid email address.', field: 'email' }, 400, cors);
+  if (password.length < 10) return json({ error: 'Use a password of at least 10 characters.', field: 'password' }, 400, cors);
+  if (password.length > 200) return json({ error: 'That password is too long.', field: 'password' }, 400, cors);
+  const existing = await env.DB.prepare('SELECT id FROM accounts WHERE email = ?').bind(email).first();
+  if (existing) return json({ error: 'There is already an account for that email. Sign in instead.', field: 'email', code: 'exists' }, 409, cors);
+  const now = new Date().toISOString();
+  const acct = {
+    id: 'acct_' + crypto.randomUUID(), email, password_hash: await hashPassword(password), token_version: 1,
+    name: str(body.name).trim().slice(0, 120), phone: str(body.phone).replace(/[^\d+()\-.\s]/g, '').trim().slice(0, 40), organization: str(body.organization).trim().slice(0, 120),
+    address1: '', address2: '', emergency_name: '', emergency_phone: '', emergency_relationship: '', stripe_customer_id: '', standards_passed: '[]', notes: '',
+    created_at: now, updated_at: now, last_login_at: now,
+  };
+  await env.DB.prepare('INSERT INTO accounts (id, email, password_hash, token_version, name, phone, organization, address1, address2, emergency_name, emergency_phone, emergency_relationship, stripe_customer_id, standards_passed, notes, created_at, updated_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(acct.id, acct.email, acct.password_hash, 1, acct.name, acct.phone, acct.organization, '', '', '', '', '', '', '[]', '', now, now, now).run();
+  return json({ token: await signToken(env, acct), account: publicAccount(acct) }, 200, cors);
+}
+
+async function handleAccountLogin(request, env, cors) {
+  if (!env.ACCOUNT_SECRET) return json({ error: 'Accounts are not configured yet.', code: 'accounts_off' }, 503, cors);
+  const body = await request.json().catch(() => null);
+  const email = String((body && body.email) || '').trim().toLowerCase();
+  const password = String((body && body.password) || '');
+  const acct = isEmail(email) ? await env.DB.prepare('SELECT * FROM accounts WHERE email = ?').bind(email).first() : null;
+  // The same hashing work runs whether or not the account exists, so timing does not reveal which emails have accounts.
+  const okPw = acct ? await verifyPassword(password, acct.password_hash) : (await verifyPassword(password, 'pbkdf2-sha256$' + PBKDF2_ITER + '$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='), false);
+  if (!acct || !okPw) return json({ error: 'That email and password do not match.', code: 'bad_login' }, 401, cors);
+  const now = new Date().toISOString();
+  await env.DB.prepare('UPDATE accounts SET last_login_at = ? WHERE id = ?').bind(now, acct.id).run();
+  acct.last_login_at = now;
+  return json({ token: await signToken(env, acct), account: publicAccount(acct) }, 200, cors);
+}
+
+async function handleAccountMe(request, env, cors) {
+  const { acct, res } = await requireAccount(request, env, cors); if (res) return res;
+  const classes = await env.DB.prepare("SELECT sku, item_name, session_date, session_label, qty, status, created_at FROM registrations WHERE customer_email = ? AND status IN ('paid', 'completed') ORDER BY session_date DESC, created_at DESC LIMIT 200").bind(acct.email).all().catch(() => ({ results: [] }));
+  const card = acct.stripe_customer_id ? await stripeDefaultCard(env, acct.stripe_customer_id).catch(() => null) : null;
+  return json({ account: publicAccount(acct), classes: (classes && classes.results) || [], payment_method: card }, 200, cors);
+}
+
+async function handleAccountUpdate(request, env, cors) {
+  const { acct, res } = await requireAccount(request, env, cors); if (res) return res;
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== 'object') return json({ error: 'Bad request' }, 400, cors);
+  const sets = [], vals = [];
+  for (const f of PROFILE_FIELDS) if (f in body) { sets.push(f + ' = ?'); vals.push(str(body[f]).trim().slice(0, f.endsWith('phone') ? 40 : 160)); acct[f] = vals[vals.length - 1]; }
+  if (!sets.length) return json({ error: 'Nothing to update.' }, 400, cors);
+  const now = new Date().toISOString(); sets.push('updated_at = ?'); vals.push(now, acct.id);
+  await env.DB.prepare('UPDATE accounts SET ' + sets.join(', ') + ' WHERE id = ?').bind(...vals).run();
+  if (acct.stripe_customer_id && env.STRIPE_SECRET_KEY && ('name' in body || 'phone' in body)) {
+    fetch('https://api.stripe.com/v1/customers/' + encodeURIComponent(acct.stripe_customer_id), { method: 'POST', headers: stripeHeaders(env), body: new URLSearchParams({ name: acct.name || '', phone: acct.phone || '' }).toString() }).catch(() => {});
+  }
+  return json({ account: publicAccount(acct) }, 200, cors);
+}
+
+async function handleAccountPassword(request, env, cors) {
+  const { acct, res } = await requireAccount(request, env, cors); if (res) return res;
+  const body = await request.json().catch(() => null);
+  const current = String((body && body.current) || ''), next = String((body && body.password) || '');
+  if (!(await verifyPassword(current, acct.password_hash))) return json({ error: 'Your current password is not right.', field: 'current' }, 401, cors);
+  if (next.length < 10 || next.length > 200) return json({ error: 'Use a password of at least 10 characters.', field: 'password' }, 400, cors);
+  const v = (acct.token_version || 1) + 1;
+  await env.DB.prepare('UPDATE accounts SET password_hash = ?, token_version = ?, updated_at = ? WHERE id = ?').bind(await hashPassword(next), v, new Date().toISOString(), acct.id).run();
+  acct.token_version = v;
+  return json({ token: await signToken(env, acct), account: publicAccount(acct) }, 200, cors);
+}
+
+function stripeHeaders(env) { return { Authorization: 'Bearer ' + env.STRIPE_SECRET_KEY, 'Content-Type': 'application/x-www-form-urlencoded' }; }
+async function ensureStripeCustomer(env, acct) {
+  if (acct.stripe_customer_id) return acct.stripe_customer_id;
+  if (!env.STRIPE_SECRET_KEY) throw new Error('Payments are not configured.');
+  const res = await fetch('https://api.stripe.com/v1/customers', { method: 'POST', headers: stripeHeaders(env),
+    body: new URLSearchParams({ email: acct.email, name: acct.name || '', phone: acct.phone || '', 'metadata[account_id]': acct.id, 'metadata[source]': 'mastsolutions' }).toString() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.id) throw new Error('Stripe customer: ' + ((data.error && data.error.message) || res.status));
+  await env.DB.prepare('UPDATE accounts SET stripe_customer_id = ?, updated_at = ? WHERE id = ?').bind(data.id, new Date().toISOString(), acct.id).run();
+  acct.stripe_customer_id = data.id;
+  return data.id;
+}
+async function stripeDefaultCard(env, customerId) {
+  if (!env.STRIPE_SECRET_KEY) return null;
+  const res = await fetch('https://api.stripe.com/v1/customers/' + encodeURIComponent(customerId) + '?expand[]=invoice_settings.default_payment_method', { headers: { Authorization: 'Bearer ' + env.STRIPE_SECRET_KEY } });
+  const data = await res.json().catch(() => ({}));
+  const pm = data && data.invoice_settings && data.invoice_settings.default_payment_method;
+  if (!pm || typeof pm !== 'object') return null;
+  const card = pm.card || {};
+  return { brand: card.brand || pm.type || 'card', last4: card.last4 || '', exp_month: card.exp_month || null, exp_year: card.exp_year || null };
+}
+async function handleAccountSetupPayment(request, env, cors) {
+  const { acct, res } = await requireAccount(request, env, cors); if (res) return res;
+  const body = (await request.json().catch(() => null)) || {};
+  let customer;
+  try { customer = await ensureStripeCustomer(env, acct); } catch (e) { return json({ error: e.message }, 503, cors); }
+  const payload = new URLSearchParams({
+    mode: 'setup', customer, 'payment_method_types[0]': 'card',
+    success_url: safeUrl(body.successUrl, env) || defaultUrl(env, '?account=card-saved'),
+    cancel_url: safeUrl(body.cancelUrl, env) || defaultUrl(env, '?account=card-cancelled'),
+    'metadata[kind]': 'account_card', 'metadata[account_id]': acct.id,
+  });
+  return await createSession(payload, env, cors, 'AccountCard');
+}
+async function setDefaultCardFromSetup(env, session) {
+  if (!env.STRIPE_SECRET_KEY || !session.setup_intent || !session.customer) return;
+  const siId = typeof session.setup_intent === 'string' ? session.setup_intent : session.setup_intent.id;
+  const cusId = typeof session.customer === 'string' ? session.customer : session.customer.id;
+  const si = await (await fetch('https://api.stripe.com/v1/setup_intents/' + encodeURIComponent(siId), { headers: { Authorization: 'Bearer ' + env.STRIPE_SECRET_KEY } })).json().catch(() => ({}));
+  const pm = si && (typeof si.payment_method === 'string' ? si.payment_method : si.payment_method && si.payment_method.id);
+  if (!pm) return;
+  await fetch('https://api.stripe.com/v1/customers/' + encodeURIComponent(cusId), { method: 'POST', headers: stripeHeaders(env), body: new URLSearchParams({ 'invoice_settings[default_payment_method]': pm }).toString() });
+}
 
 /* ────────────────────────────── CORS ────────────────────────────── */
 
@@ -105,7 +305,7 @@ function baseCors(origin) {
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   };
@@ -148,10 +348,6 @@ const SEED_CLASSES = [
   { sku: 'MAST-GEAR',     name: 'Gear & Kit Considerations',               price_cents: 75000 },
   { sku: 'MAST-MOTOR-P1', name: 'Motorcade P1',                            price_cents: 0 },
   { sku: 'MAST-MOTOR-P2', name: 'Motorcade P2',                            price_cents: 0 },
-  // GO-LIVE TEST SEAT (owner, 2026-09-03). Not in D1 and not in the public
-  // catalog; reachable only by SKU from the page's #test mode. Remove after
-  // the first live payment has been verified in the roster.
-  { sku: 'MAST-TEST',     name: 'Live payment test seat ($1.00)',          price_cents: 100 },
 ];
 
 async function lookupClass(env, sku) {
@@ -295,7 +491,23 @@ async function handleBooking(request, env, cors) {
     'metadata[source]': 'mastsolutions',
   });
 
+  await applyAccountCustomer(env, payload, body.account_token, 'Booking');
   return await createSession(payload, env, cors, 'Booking');
+}
+
+/** A signed-in student checks out against their Stripe Customer: Checkout offers the saved card, a new card can be saved, and
+ *  the order joins the account (owner, 2026-09-05: "account info to include payment method + save + classes taken").
+ *  A bad or expired token, or a Stripe hiccup, falls back to the guest path: the booking never fails because of the account. */
+async function applyAccountCustomer(env, payload, token, label) {
+  if (!token) return null;
+  const acct = await accountFromToken(env, String(token)).catch(() => null);
+  if (!acct) return null;
+  try {
+    const cus = await ensureStripeCustomer(env, acct);
+    payload.delete('customer_email'); payload.set('customer', cus); payload.set('customer_update[address]', 'auto'); payload.set('customer_update[name]', 'auto');
+    payload.set('saved_payment_method_options[payment_method_save]', 'enabled'); payload.set('metadata[account_id]', acct.id);
+    return acct;
+  } catch (e) { console.error('[' + label + '] account customer failed:', e.message); return null; }
 }
 
 /* ─────────── Registration: screening → agreement → refund consent → Stripe ─────────── */
@@ -483,6 +695,7 @@ async function handleRegister(request, env, cors) {
     'metadata[notes]': '',
     'metadata[source]': 'mastsolutions',
   });
+  await applyAccountCustomer(env, payload, body.account_token, 'Register');
   const result = await createStripeSession(payload, env, 'Register');
   if (!result.ok) return json({ error: result.error }, result.status, cors);
   await updateRegistration(env, id, { stripe_session_id: result.session.id }).catch((e) =>
@@ -836,6 +1049,11 @@ async function handleWebhook(request, env, ctx, cors) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
     const meta = session.metadata || {};
+    if (session.mode === 'setup') {
+      // Account card saved through Checkout in setup mode: make it the customer's default for future charges.
+      ctx.waitUntil(setDefaultCardFromSetup(env, session).catch((e) => console.error('[AccountCard] failed:', e.message)));
+      return json({ received: true }, 200, cors);
+    }
     const record = {
       stripe_session_id: session.id,
       stripe_event_id: event.id,
