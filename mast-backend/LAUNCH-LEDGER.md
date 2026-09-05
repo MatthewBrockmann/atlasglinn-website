@@ -80,11 +80,13 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
 
 ## B. Before launch — owner's hand, in order
 
-1. ~~"merge 8"~~ — **merged 2026-09-05 ~03:50 UTC** on his word ("MERGE PR8"), main = 8d886b8. **Still his hand, in order:**
-   redeploy the Worker from main (`git pull`, migrations 001, 002, 003 once each, `npx wrangler deploy`), then **run
-   `scripts/wp-upload.sh`** for the page. Until both run, the live Worker is the 2026-09-03 deploy and the live page is the old
-   one; the page on main and the Worker must match (refund policy version, prerequisite rule, the ladies-only SKU, memberships,
-   the private-request subject line). Merged is not running.
+1. ~~"merge 8"~~ — **merged 2026-09-05 ~03:50 UTC** on his word ("MERGE PR8"), main = 8d886b8; **PR #9 merged** by him
+   (main 143525c) and the Worker redeployed from it at version 84a18bca (migrations 001–003 applied); **PR #10 merged 2026-09-05
+   04:19 UTC** (student accounts + the $1 test seat removed), main = 99af86d. **Still his hand, in order:** from `mast-backend/`
+   `git pull`, `wrangler d1 execute mast_bookings --remote --file=migrations/004-accounts.sql`, `wrangler secret put
+   ACCOUNT_SECRET`, `npx wrangler deploy`; then **`scripts/wp-upload.sh`** for the page (the live page is still the old one).
+   The page on main and the Worker must match (refund policy version, prerequisite rule, the ladies-only SKU, memberships, the
+   private-request subject line, the account routes). Merged is not running.
 2. **`RESEND_API_KEY`** — `wrangler secret put RESEND_API_KEY --name mast-booking-backend`. Sending as
    `bookings@mastsolutions.com` needs Resend's DNS records added at GoDaddy for mastsolutions.com. Until then no
    receipt, no agreement PDF, no range address, no staff alert goes out; all are logged.
