@@ -30,7 +30,10 @@ git -C "$R" worktree add -q --detach "$W" FETCH_HEAD
 cd "$W"
 
 say "Listing files"
-LIST="$(python3 - "$PAGES" <<'PY'
+# The lister is written to a file first: macOS ships bash 3.2, whose $(...) parser trips over the parentheses of a regex
+# inside a heredoc ("syntax error near unexpected token `('", owner's terminal 2026-09-05).
+PYLIST="$(mktemp /tmp/wp-upload-list.XXXXXX)"
+cat > "$PYLIST" <<'PY'
 import os, re, sys
 pages = sys.argv[1].split(); seen = []; queue = list(pages)
 # attributes, CSS url(), the three.js module import, and JS string literals such as the media strip's clip paths
@@ -49,9 +52,10 @@ while queue:
         queue.append(u)
 print('\n'.join(seen))
 PY
-)"
+LIST="$(python3 "$PYLIST" "$PAGES")"
+rm -f "$PYLIST"
 COUNT=$(printf '%s\n' "$LIST" | grep -c .)
-SIZE=$(printf '%s\n' "$LIST" | xargs -I{} stat -f %z {} 2>/dev/null | awk '{s+=$1} END {printf "%.1f MB", s/1048576}')
+SIZE=$(printf '%s\n' "$LIST" | python3 -c 'import os, sys; s = sum(os.path.getsize(l.strip()) for l in sys.stdin if l.strip()); print("%.1f MB" % (s / 1048576))')
 printf '%s\n' "$LIST" | sed 's/^/   /'
 say "$COUNT files, $SIZE"
 [ "${DRY_RUN:-0}" = 1 ] && exit 0
