@@ -60,8 +60,11 @@ printf '%s\n' "$LIST" | sed 's/^/   /'
 say "$COUNT files, $SIZE"
 [ "${DRY_RUN:-0}" = 1 ] && exit 0
 
-read -r -p "SFTP username for $HOST (GoDaddy → Managed WordPress → Settings → SFTP/SSH): " USER
-[ -n "$USER" ] || { echo "no username"; exit 1; }
+# Read from the terminal, not stdin: under `curl … | bash` stdin IS the script, and a plain `read` swallowed the next
+# script line as the username ("remote username contains invalid characters", owner's terminal 2026-09-05).
+SFTP_USER=""
+read -r -p "SFTP username for $HOST (GoDaddy → Managed WordPress → Settings → SFTP/SSH): " SFTP_USER < /dev/tty || { echo "needs a terminal to ask for the username"; exit 1; }
+[ -n "$SFTP_USER" ] || { echo "no username"; exit 1; }
 BATCH="$(mktemp /tmp/wp-upload-batch.XXXXXX)"
 {
   printf '%s\n' "$LIST" | xargs -I{} dirname {} | sort -u | grep -v '^\.$' | awk '{ n=split($0,a,"/"); p=""; for(i=1;i<=n;i++){ p=(p==""?a[i]:p"/"a[i]); print "-mkdir " p } }' | sort -u
@@ -69,8 +72,8 @@ BATCH="$(mktemp /tmp/wp-upload-batch.XXXXXX)"
   echo "put -P mast-ping.txt mast-ping.txt"
 } > "$BATCH"
 echo "served by upload $(date -u +%FT%TZ)" > mast-ping.txt
-say "Uploading $COUNT files to $USER@$HOST (password prompt comes from sftp; typing is hidden)"
-sftp -o StrictHostKeyChecking=accept-new "$USER@$HOST" < "$BATCH"
+say "Uploading $COUNT files to $SFTP_USER@$HOST (password prompt comes from sftp; typing is hidden)"
+sftp -o StrictHostKeyChecking=accept-new "$SFTP_USER@$HOST" < "$BATCH"
 rm -f "$BATCH"
 
 say "Checking the live site"
