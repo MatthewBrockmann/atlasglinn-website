@@ -33,6 +33,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: mast-backend/package-lock.json
+      - name: Install dependencies (pdf-lib for the agreement; the tests import the Worker)
+        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
       - name: Tests
         run: node test-worker.mjs
       - name: Check for Cloudflare credentials
