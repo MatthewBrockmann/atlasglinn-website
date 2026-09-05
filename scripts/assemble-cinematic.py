@@ -155,8 +155,8 @@ RANGE_PHOTOS = ['images/mast/range/' + f + '.jpg' for f in
 # carbine, g06 the carbine from behind the car, g04 the boat drill, g05 room clearing, g08 the team in the truck bed, g09 coffee in
 # kit with an MP, g02 the night muzzle flash) and his two range shots that are not of the range itself (a06 the firing line, a07
 # the prone shot; "photos that I will assign"). Anything he assigns to a chapter moves out of here.
-GALLERY_PHOTOS = ['images/mast/gallery/' + f + '.jpg' for f in ['g12', 'g01', 'g03', 'g07', 'g06', 'g04', 'g05', 'g11', 'g10', 'g08', 'g09', 'g02']] + \
-                 ['images/mast/range/a06.jpg', 'images/mast/range/a07.jpg']   # g10 the log carry, g11 the tire jump, g12 the class with the tire (01:29)
+GALLERY_PHOTOS = ['images/mast/gallery/' + f + '.jpg' for f in ['g12', 'g01', 'g03', 'g07', 'g06', 'g04', 'g05', 'g13', 'g11', 'g10', 'g08', 'g09', 'g02']] + \
+                 ['images/mast/range/a06.jpg', 'images/mast/range/a07.jpg']   # g10 the log carry, g11 the tire jump, g12 the class with the tire (01:29); g13 the combatives pad drill (02:01, a video-analysis frame with the app chrome cropped away)
 for _p in RANGE_PHOTOS + GALLERY_PHOTOS:
     assert os.path.exists(f'{REPO}/{_p}'), f'Photograph missing: {_p}'
 def photo_tile(i, src, shown):
