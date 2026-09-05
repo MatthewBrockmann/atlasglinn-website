@@ -61,6 +61,12 @@ cleanup() { cd / ; git -C "$R" worktree remove --force "$W" >/dev/null 2>&1 || t
 trap cleanup EXIT
 say "Fetching $REF"
 git -C "$R" fetch -q origin "${REF#origin/}"
+# --if-changed (the hourly LaunchAgent from scripts/mac-autopilot.sh): upload only when origin/main moved since the last
+# successful upload; otherwise say so and stop. The stamp is written after the live check passes.
+HEADSHA="$(git -C "$R" rev-parse FETCH_HEAD)"; STAMP="$HOME/.cache/wp-upload/last-uploaded"
+if [ "${1:-}" = "--if-changed" ] && [ -f "$STAMP" ] && [ "$(cat "$STAMP")" = "$HEADSHA" ]; then
+  say "up to date: ${HEADSHA:0:7} is already the uploaded page"; exit 0
+fi
 git -C "$R" worktree add -q --detach "$W" FETCH_HEAD
 cd "$W"
 
@@ -141,4 +147,5 @@ fi
 for a in images/mast/mast-cqb-poster.jpg vendor/three.module.js; do
   code=$(curl -sL -o /dev/null -w '%{http_code}' "https://atlasglinn.com/$a"); echo "   $a → $code"
 done
+mkdir -p "$(dirname "$STAMP")" && printf '%s\n' "$HEADSHA" > "$STAMP"
 say "Done. Open https://atlasglinn.com/mastsolutions.html on your phone."

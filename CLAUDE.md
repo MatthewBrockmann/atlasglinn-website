@@ -152,6 +152,19 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   with the WordPress admin. A cloud session cannot: the container has no route to atlasglinn.com and holds no credentials.
   The static page + Worker + SFTP path replaced `mast-wp-theme/`.
 
+## Drop folders → gallery (Brockmann, 2026-09-05: "anytime I drop new items into the folder on my desktop, it should update in and add photos to the gallery")
+
+- **Mac:** `~/Desktop/MAST NEW WEB 2026/gallery/` and `…/range/` are the drop folders. `scripts/mac-autopilot.sh install`
+  (run once from the clone, after `wp-upload.sh --save-login`) puts two LaunchAgents on the Mac: a watcher that hands the two
+  folders off to `claude/desktop-assets` on every change (`mac-handoff.sh` web-sizes photographs to 2000 px JPEG and makes a
+  poster beside every clip), and an hourly `wp-upload.sh --if-changed` that uploads the page whenever main moved.
+  `status` shows loaded state and logs; `kick` runs both now. Mac-local by physics: a cloud session cannot install, see or
+  confirm them ("wired, NOT confirmed firing" until a drop is seen to land).
+- **Cloud (the hourly check-in):** `python3 scripts/photo-intake.py` imports what is new on the handoff ref into
+  `images/mast/gallery/` (gNN) or `images/mast/range/` (aNN), appends to `images/mast/<kind>/tiles.txt` and records the
+  source in `intake.json`; then `python3 scripts/assemble-cinematic.py`, commit, PR. The assembler reads the two `tiles.txt`
+  files; a person reorders or removes tiles by editing them. The merge of that PR is the one hand left.
+
 ## Reply format (Brockmann, 2026-09-05: "always bring back to bottom_ wire")
 
 Every reply ends with a **WIRE** block: the exact `YOU RUN THIS` commands that turn what is merged into what is running

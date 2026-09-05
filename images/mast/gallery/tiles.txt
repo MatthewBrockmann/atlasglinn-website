@@ -1,0 +1,18 @@
+# The gallery under the films in In Action, one tile per line in display order (paths relative to images/mast/).
+# scripts/photo-intake.py appends whatever lands in the Desktop drop folder "MAST NEW WEB 2026/gallery" (photographs and
+# clips; a clip needs its -poster next to it); a person reorders or removes by editing this file.
+gallery/g12.jpg
+gallery/g01.jpg
+gallery/g03.jpg
+gallery/g07.jpg
+gallery/g06.jpg
+gallery/g04.jpg
+gallery/g05.jpg
+gallery/g13.jpg
+gallery/g11.jpg
+gallery/g10.jpg
+gallery/g08.jpg
+gallery/g09.jpg
+gallery/g02.jpg
+range/a06.jpg
+range/a07.jpg

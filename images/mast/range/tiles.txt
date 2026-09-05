@@ -1,0 +1,16 @@
+# The Range chapter, one tile per line in display order (paths relative to images/mast/). scripts/photo-intake.py appends
+# whatever lands in the Desktop drop folder "MAST NEW WEB 2026/range"; a person reorders or removes by editing this file.
+# Order set by the owner 2026-09-05 (the aerials, the berm, the briefing, the pistol line, the range at night, the low-light
+# class, the doorway entry, one old-site view).
+range/a08.jpg
+range/a13.jpg
+range/a01.jpg
+range/a02.jpg
+range/a03.jpg
+range/a04.jpg
+range/a05.jpg
+range/a09.jpg
+range/a10.jpg
+range/a11.jpg
+range/a12.jpg
+range/r002.jpg
