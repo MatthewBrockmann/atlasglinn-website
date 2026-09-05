@@ -41,8 +41,18 @@ in WordPress, and whether `index.html` wins over WordPress at `/` is a host sett
 matching"):** the rebuild was written from the repo's April 2026 build (now `*-atlas.html`), the only copy a cloud
 session can open; it carries that copy nearly word for word (204 of 208 headings, 223 of 235 paragraphs), but the big
 chapter titles are the trailer shell's own and the site's headings became the small labels. No cloud session has read
-the live WordPress text. `scripts/handoff-urls.txt` now lists the live pages; every handoff run saves them as
-`reference/desktop/live/<slug>.html` on `claude/desktop-assets`, and the reconcile runs against those files.
+the live WordPress text. Same day, `.github/workflows/capture-live.yml` (a GitHub runner has open internet; the
+container does not) reads every page and file URL in `scripts/handoff-urls.txt` and commits them to
+`claude/desktop-assets` under `reference/desktop/live/` (pages as `<slug>.html`, files by basename, a `_probe.txt` with
+what the host serves at `/`, `/index.html` …), on request (`workflow_dispatch`) and daily; the Mac's handoff writes the
+same place. The reconcile against the live copy is done (203 of 204 live headings, 224 of 230 paragraphs; the rest
+are the intro menu text, a Senators figure he corrected, and "over 30 years" → decades). The live site's own assets
+now count as approved imagery: `images/atlas/matt-ceo-2026.jpg` (the founder portrait the live About page shows),
+`images/atlas/anthony-glover.png`, and the theme-folder films in `images/film/` (technology-hero, corporate-buildings,
+careers-gallery, forge-legend-mast; plain files, not LFS, served whole because the container has no ffmpeg). The live
+Training submenu (IWA Training Products, Aimpoint Optics) points at the MAST Gear chapter; the live shop pages are
+notify-me catalogs with no checkout. Re-run the capture before any further content pass: `actions_run_trigger`
+on `capture-live.yml`, then `git fetch origin claude/desktop-assets` and read `reference/desktop/live/`.
 `ep-app.html`, `signup.html`, `privacy.html`, `terms.html` and the articles are hand-authored. Rebuilt forms post JSON to
 the booking Worker's `POST /contact`.
 
