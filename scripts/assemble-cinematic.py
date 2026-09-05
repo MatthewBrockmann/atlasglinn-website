@@ -23,7 +23,7 @@ def between(s, a, b, inclusive=False):
 # ── 1. Booking CSS from the Tesla page (catalog, video cards, modals, calendar, checkout, quals, banner) ──
 css_src = between(tesla, '<style>', '</style>')
 want = ('.catalog-panel', '.cat', '.course-row', '.cr-', '.video-card', '.yt', '.media-strip', '.modal', '.cal-', '.day',
-        '.sheet', 'label', 'input', '.qty', '.total', '.secure', '.err', '.quals', '.banner', '.legend', '.reg-', '.policy', '.acct')
+        '.sheet', 'label', 'input', '.qty', '.total', '.secure', '.err', '.quals', '.banner', '.legend', '.reg-', '.policy', '.acct', '.gear')
 # keep each lifted rule inside the media query it came from (the Tesla page nests its phone sheet rules in @media)
 groups = {None: []}; media = None
 for line in css_src.splitlines():
@@ -102,12 +102,12 @@ CHROME = shell.chrome(
             ('06', 'images/mast/courses-low-light.jpg', None), ('07', 'images/mast/courses-low-light.jpg', 'center 60%'),
             ('08', 'images/mast/gallery/g06.jpg', 'center 45%'),   # the carbine from behind the car (owner, 2026-09-05: "Replace this background with the attached JPG", on the Instructors chapter)
             ('09', 'images/mast/vehicular.jpg', None), ('10', 'images/mast/instructing-le.jpg', 'center 30%'),
-            ('11', 'images/mast/privacy-aircraft.jpg', None), ('12', 'images/mast/contact-zodiac.jpg', None)],
+            ('11', 'images/mast/privacy-aircraft.jpg', None), ('12', 'images/mast/disc-firearms.jpg', 'center 30%'), ('13', 'images/mast/contact-zodiac.jpg', None)],
     hud_tl='&#9679; ATLAS GLINN &middot; MAST.SYS LIVE', hud_tl_href='/',   # root, so it resolves on WordPress and on Pages alike
     hud_bl='HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W', hud_br='DETAILS MATTER',
     chapters=[('s1', '01 &middot; Opening'), ('s2', '02 &middot; Standard'), ('s3', '03 &middot; Who'), ('s4', '04 &middot; Disciplines'), ('s5', '05 &middot; The Range'),
               ('s6', '06 &middot; Classes'), ('s7', '07 &middot; Team Memberships'), ('s8', '08 &middot; Instructors'), ('s9', '09 &middot; In Action'),
-              ('s10', '10 &middot; Testimonials'), ('s11', '11 &middot; Privacy'), ('s12', '12 &middot; Contact')])
+              ('s10', '10 &middot; Testimonials'), ('s11', '11 &middot; Privacy'), ('s12', '12 &middot; Gear'), ('s13', '13 &middot; Contact')])
 
 
 # ── Membership: the four teams of the old site's Membership sheet (2014) plus Law Enforcement and Verified Teachers (owner,
@@ -151,7 +151,7 @@ CHROME = CHROME.replace(_in_action, _in_action + '\n  <a href="articles/index.ht
 
 # ── Account (owner, 2026-09-05: "ADD ACCOUNT"): a Sign in link in the HUD's top-right corner and an entry at the foot of the chapter
 #    menu; both open the account dialog lifted from the booking page. The label becomes the student's first name once signed in.
-_contact_nav = '  <a href="#s12" class="chap-link">12 &middot; Contact</a>'
+_contact_nav = '  <a href="#s13" class="chap-link">13 &middot; Contact</a>'   # Contact moved to 13 when Gear became chapter 12 (2026-09-05)
 assert CHROME.count(_contact_nav) == 1, 'Contact nav entry not found'
 CHROME = CHROME.replace(_contact_nav, _contact_nav + '\n  <a href="#" class="chap-extra chap-always acct-link" onclick="openAcct();return false;">&middot; Sign in</a>')
 _hud_tr = '<div class="hud tr" id="hud-section">'
@@ -379,6 +379,16 @@ SECTIONS = f"""
 
   <section class="panel" id="s12" data-section="12">
     <div>
+      <div class="eyebrow">Gear &middot; Aimpoint and IWA</div>
+      <h2 class="section-h">Equipment. <span class="gold">By Quote.</span></h2>
+      <p class="sub">Atlas Glinn is an authorized dealer for Aimpoint optics and IWA International devices. Every item below is quoted, not sold from a cart: Aimpoint optics ship to verified customers at dealer pricing on request; IWA devices go to law enforcement, military and licensed agencies only, and agency verification comes before any quote. Nothing is charged online.</p>
+      <div class="gear-panel rise" id="gear-panel"></div>
+      <p class="gate-fine" style="max-width:820px;margin:1.6rem auto 0;">Special order. Tell us the item and quantity; we confirm availability, price, hazmat and shipping by email within one business day.</p>
+    </div>
+  </section>
+
+  <section class="panel" id="s13" data-section="13">
+    <div>
       <div class="eyebrow">Book a Course</div>
       <h2 class="section-h"><span class="gold">Train</span> with MAST.</h2>
       <p class="sub">Individual seats, team blocks, and agency instruction.</p>
@@ -504,7 +514,7 @@ QUOTES_CSS = """
   .fold { max-height:0; overflow:hidden; opacity:0; padding:10px 10px 0; margin:-10px -10px 0; transition:max-height .8s cubic-bezier(.2,.7,.2,1), opacity .45s; }
   .fold.open { max-height:6000px; opacity:1; padding-bottom:12px; transition:max-height 1.2s cubic-bezier(.2,.7,.2,1), opacity .5s .1s; }
   /* The contact chapter's line over the water backdrop (owner, 2026-09-05: "Fix the visibility of the contact"); the contact lines themselves are handled in the shell for both sites. */
-  #s12 .sub { text-shadow:0 1px 6px rgba(0,0,0,.9), 0 0 18px rgba(0,0,0,.6); }
+  #s13 .sub { text-shadow:0 1px 6px rgba(0,0,0,.9), 0 0 18px rgba(0,0,0,.6); }   /* the Contact chapter (13 since the Gear chapter, 2026-09-05) */
   .modal.lightbox { width:min(1200px, calc(100vw - 32px)); padding:.6rem; background:#050810; }
   .modal.lightbox img { display:block; max-width:100%; max-height:84vh; margin:0 auto; }
 

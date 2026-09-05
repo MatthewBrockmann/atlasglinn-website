@@ -124,6 +124,22 @@
         .cr-price { font-family: 'Orbitron', sans-serif; font-size: 1.15rem; font-weight: 900; color: #C9A84C; text-align: right; line-height: 1; }
         .cr-price small { display: block; font-family: 'Inconsolata', monospace; font-size: .6rem; letter-spacing: .14em; color: #888; margin-top: .3rem; font-weight: 400; }
         .cr-btn { padding: .55rem 1rem; font-size: .8rem; white-space: nowrap; }
+        /* Gear (owner, 2026-09-05: Aimpoint / IWA "add to mastsolutions so we can sell there"): quote requests, never a cart. The hover is the
+           shared .tile/.tier one in scripts/cinematic_shell.py (.gear-card is in those selectors); these rules set colours and layout only. */
+        .gear-panel { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; max-width: 1200px; margin: 0 auto; text-align: left; }
+        .gear-brand { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: .6rem 1.2rem; margin-top: 1.2rem; padding-bottom: .5rem; border-bottom: 1px solid rgba(26,107,222,.3); }
+        .gear-brand h3 { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1rem; letter-spacing: .06em; color: #1A6BDE; }
+        .gear-brand span { font-family: 'Share Tech Mono', monospace; font-size: .62rem; letter-spacing: .25em; text-transform: uppercase; color: #8B98AD; }
+        .gear-card { position: relative; padding: 1.2rem 1.1rem 1.1rem; border: 1px solid rgba(26,107,222,.28); background: linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.75) 100%); backdrop-filter: blur(10px); }
+        .gear-card .gear-sku { font-family: 'Share Tech Mono', monospace; font-size: .62rem; letter-spacing: .3em; color: #1A6BDE; margin-bottom: .5rem; }
+        .gear-card h4 { font-family: 'Orbitron', sans-serif; font-weight: 600; font-size: .9rem; line-height: 1.35; color: #fff; margin-bottom: .35rem; }
+        .gear-card .gear-fam { font-size: .82rem; color: #8B98AD; }
+        .gear-card .cta-button { display: inline-block; margin-top: .9rem; padding: .55rem 1rem; font-size: .68rem; letter-spacing: .18em; }
+        .gear-card.device { border-color: rgba(201,168,76,.28); }
+        .gear-card.device .gear-sku { color: #C9A84C; }
+        .modal.req [hidden] { display: none !important; }
+        @media (max-width: 900px) { .gear-panel { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 600px) { .gear-panel { grid-template-columns: 1fr; } }
 
         /* INSTRUCTOR */
         .instructor .bg { background-position: 78% 20%; }
@@ -475,6 +491,19 @@
     </div>
 </section>
 
+<!-- 5b · GEAR: Aimpoint optics and IWA devices, quoted by email (owner, 2026-09-05). Nothing here is charged online. -->
+<section class="screen center" id="gear">
+    <div class="bg" style="background-image:url('images/mast/disc-firearms.jpg');background-position:center 30%"></div>
+    <div class="veil"></div>
+    <div class="inner">
+        <div class="eyebrow">Gear &middot; Aimpoint and IWA</div>
+        <h2 class="h-big">Equipment. <span class="gold-shimmer">By Quote.</span></h2>
+        <p class="h-line">Atlas Glinn is an authorized dealer for Aimpoint optics and IWA International devices. Every item below is quoted, not sold from a cart: Aimpoint optics ship to verified customers at dealer pricing on request; IWA devices go to law enforcement, military and licensed agencies only, and agency verification comes before any quote. Nothing is charged online.</p>
+        <div class="gear-panel" id="gear-panel"></div>
+        <p class="h-line" style="font-size:.9rem;margin-top:1.6rem;">Special order. Tell us the item and quantity; we confirm availability, price, hazmat and shipping by email within one business day.</p>
+    </div>
+</section>
+
 <!-- 6 · INSTRUCTORS -->
 <section class="screen instructor" id="founder">
     <div class="bg" style="background-image:url('images/IMG_5949_2.jpg')"></div>
@@ -598,17 +627,19 @@
 <div id="req-bd" class="modal-bd" onclick="closeReq()"></div>
 <div id="req" class="modal gate req" role="dialog" aria-modal="true" aria-labelledby="req-title">
     <button class="modal-x" aria-label="Close" onclick="closeReq()">&times;</button>
-    <div class="eyebrow">Private instruction</div>
+    <div class="eyebrow" id="req-eyebrow">Private instruction</div>
     <h3 id="req-title"></h3>
     <p class="gate-text" id="req-meta"></p>
     <label>Name<input id="req-name" type="text" autocomplete="name" required></label>
     <label>Email<input id="req-email" type="email" autocomplete="email" required></label>
     <label>Phone <span class="opt">(optional)</span><input id="req-phone" type="tel" autocomplete="tel"></label>
+    <label id="req-org-wrap" hidden>Agency or organization <span class="opt">(required for IWA devices)</span><input id="req-org" type="text" autocomplete="organization"></label>
+    <label id="req-qty-wrap" hidden>Quantity<input id="req-qty" type="number" min="1" max="999" value="1" inputmode="numeric"></label>
     <label>Anything we should know <span class="opt">(optional)</span><textarea id="req-msg" rows="3"></textarea></label>
     <input type="text" id="req-web" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;">
     <div class="gate-actions"><button class="cta-button" id="req-go" type="button" onclick="reqGo()">Send Request</button></div>
     <p class="err" id="req-err" hidden></p>
-    <p class="gate-fine">We reply within one business day. Private sessions are by arrangement, not on the weekend calendar. The fee is instruction only: ammunition, range fees and gear are not included.</p>
+    <p class="gate-fine" id="req-fine">We reply within one business day. Private sessions are by arrangement, not on the weekend calendar. The fee is instruction only: ammunition, range fees and gear are not included.</p>
 </div>
 
 <!-- BOOK A CLASS, date first (owner, 2026-09-05: "Click Book Class = calendar open; each has tab; choose tab; class offerings; all dates; hover class shows").
@@ -978,17 +1009,55 @@ function dcalChoose(i){ preChosen = dcalPick; closeDCal(); selectCourse(i); }
 // ── Private instruction request (owner, 2026-09-05: "Request = doesn't go to email"): a short dialog that posts to the Worker's /contact,
 //    which emails the office; the mailto stays only as the fallback when the Worker cannot be reached.
 let reqIdx = null;
-function requestPrivate(i){ reqIdx = i; const c = COURSES[i]; lastFocus = document.activeElement; $('req-title').textContent = c.name; $('req-meta').textContent = c.meta ? c.meta.replace(/ · /g, ' · ') : ''; $('req-msg').value = ''; $('req-err').hidden = true; const b = $('req-go'); b.disabled = false; b.textContent = 'Send Request'; $('req-bd').classList.add('open'); $('req').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('req-name').focus(), 60); }
+/* ── Gear: Aimpoint optics and IWA International devices, quoted by email through the same Request dialog (owner, 2026-09-05:
+   "Atlasglinn.com has this product = add to mastsolutions so we can sell there"). The list is the IWA inventory report of
+   2026-09-05; costs in that report are dealer costs, not prices, so no price is shown. Nothing here goes to Stripe: card
+   networks bar weapons accessories and energetic devices from ordinary checkout, and IWA devices are LE / military /
+   licensed-agency only, so every item is a quote request and the office verifies the buyer before answering. ── */
+const GEAR = [
+  ['AP-11972', 'Aimpoint', 'CompM4', 'CompM4 AR15-Ready QRP2 w/ Bikini'], ['AP-12309', 'Aimpoint', 'CompM4', 'CompM4 No Mount — Cardboard Box'],
+  ['AP-12172', 'Aimpoint', 'CompM4s', 'CompM4s AR15-Ready QRP2 w/ Bikini'], ['AP-12308', 'Aimpoint', 'CompM4s', 'CompM4s No Mount — Cardboard Box'],
+  ['AP-200350', 'Aimpoint', 'CompM5', 'CompM5 Standard Mount'], ['AP-200386', 'Aimpoint', 'CompM5', 'CompM5 AR15-Ready LRP/39mm'], ['AP-200320', 'Aimpoint', 'CompM5', 'CompM5 No Mount — Cardboard Box'],
+  ['AP-200500', 'Aimpoint', 'CompM5s', 'CompM5s AR15-Ready LRP/39mm'], ['AP-200660', 'Aimpoint', 'CompM5s', 'CompM5s No Mount — Cardboard Box'],
+  ['AP-12841', 'Aimpoint', 'PRO', 'PRO AR15-Ready QRP2/39mm'], ['AP-200374', 'Aimpoint', 'PRO', 'PRO w/ LRP/39mm Spacer'], ['AP-200977', 'Aimpoint', 'PRO', 'PRO No Mount'],
+  ['AP-200170', 'Aimpoint', 'Micro T-2', 'Micro T-2 Standard Mount'], ['AP-200198', 'Aimpoint', 'Micro T-2', 'Micro T-2 AR15-Ready LRP/39mm'], ['AP-200180', 'Aimpoint', 'Micro T-2', 'Micro T-2 No Mount — Cardboard Box'], ['AP-200804', 'Aimpoint', 'Micro T-2', 'Micro T-2 ACET No Mount FDE'],
+  ['AP-200759', 'Aimpoint', 'Duty RDS', 'Duty RDS 2 MOA — 39mm Mount'], ['AP-200985', 'Aimpoint', 'Duty RDS', 'Duty RDS MR (2+65 MOA) — 39mm Mount'],
+  ['AP-200691', 'Aimpoint', 'ACRO', 'ACRO P-2 Polymer Cap — No Mount'], ['AP-201006', 'Aimpoint', 'ACRO', 'ACRO P-2 Aluminum Cap — No Mount'], ['AP-200777', 'Aimpoint', 'ACRO', 'ACRO P-2 FDE — No Mount'], ['AP-200871', 'Aimpoint', 'ACRO', 'ACRO P-2 Sniper Grey — No Mount'], ['AP-200907', 'Aimpoint', 'ACRO', 'ACRO S-2 Shotgun Sight (9 MOA)'],
+  ['AP-200271', 'Aimpoint', 'Magnifiers', '3XMag-1 Magnifier Only — No Mount'], ['AP-200334', 'Aimpoint', 'Magnifiers', '3XMag-1 w/ FlipMount + TwistMount'], ['AP-200272', 'Aimpoint', 'Magnifiers', '6XMag-1 Magnifier Only — No Mount'], ['AP-200340', 'Aimpoint', 'Magnifiers', '6XMag-1 AR15-Ready 39mm + TwistMount'],
+  ['AP-200273', 'Aimpoint', 'Magnifiers', '3X-C Magnifier Only — No Mount'], ['AP-200342', 'Aimpoint', 'Magnifiers', '3X-C w/ FlipMount + TwistMount'], ['AP-200857', 'Aimpoint', 'Magnifiers', '3X-P Magnifier Only — No Mount'], ['AP-200887', 'Aimpoint', 'Magnifiers', '3X-P w/ FlipMount + TwistMount'],
+  ['IWA-M12', 'IWA', 'Distraction', 'M12 Distraction Device'], ['IWA-M11-4B', 'IWA', 'Distraction', 'M11-4B Multibang Device'], ['IWA-M11-7B', 'IWA', 'Distraction', 'M11-7B Multibang Device'],
+  ['IWA-M14', 'IWA', 'Smoke', 'M14 Smoke Deployment Device'], ['IWA-M15', 'IWA', 'Smoke', 'M15 Large Smoke Grenade'], ['IWA-PA85', 'IWA', 'Chemical', 'PA-85 Pepper PAVA Grenade'],
+  ['IWA-IDC', 'IWA', 'Breaching', 'Electric Indirect Door Charge'], ['IWA-M13', 'IWA', 'Specialty', 'M13 Thermobaric Device'], ['IWA-TH14', 'IWA', 'Specialty', 'TH-14 Thermite Device'],
+].map(([sku, brand, fam, name]) => ({ sku, brand, fam, name, device: brand === 'IWA' }));
+const GEAR_BRANDS = { Aimpoint: 'Optics · dealer pricing on request · ships to verified customers', IWA: 'IWA International · law enforcement, military and licensed agencies only' };
+function renderGear(){ const p = $('gear-panel'); if (!p) return; let html = '', brand = '';
+  GEAR.forEach((g, i) => { if (g.brand !== brand) { brand = g.brand; html += '<div class="gear-brand"><h3>' + esc(brand) + '</h3><span>' + esc(GEAR_BRANDS[brand] || '') + '</span></div>'; }
+    html += '<div class="gear-card' + (g.device ? ' device' : '') + '"><div class="gear-sku">' + esc(g.sku) + '</div><h4>' + esc(g.name) + '</h4><div class="gear-fam">' + esc(g.brand + ' · ' + g.fam) + '</div><button class="cta-button" type="button" onclick="requestGear(' + i + ')">Request a quote</button></div>'; });
+  p.innerHTML = html; }
+let reqKind = 'private';
+function openReqDialog(kind, title, meta, eyebrow, fine){ reqKind = kind; lastFocus = document.activeElement; $('req-eyebrow').textContent = eyebrow; $('req-title').textContent = title; $('req-meta').textContent = meta; $('req-fine').textContent = fine;
+  $('req-org-wrap').hidden = kind !== 'gear'; $('req-qty-wrap').hidden = kind !== 'gear'; if ($('req-qty')) $('req-qty').value = 1; $('req-msg').value = ''; $('req-err').hidden = true;
+  const b = $('req-go'); b.disabled = false; b.textContent = kind === 'gear' ? 'Request Quote' : 'Send Request'; $('req-bd').classList.add('open'); $('req').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('req-name').focus(), 60); }
+function requestGear(i){ reqIdx = i; const g = GEAR[i]; openReqDialog('gear', g.name, g.sku + ' · ' + g.brand + ' · ' + g.fam, 'Gear quote',
+  g.device ? 'IWA devices are quoted to law enforcement, military and licensed agencies only. We verify the agency before we answer, then confirm availability, price, hazmat and shipping by email within one business day. Nothing is charged online.'
+           : 'Special order at dealer pricing. We confirm availability, price and shipping by email within one business day. Nothing is charged online.'); }
+function requestPrivate(i){ reqIdx = i; const c = COURSES[i]; openReqDialog('private', c.name, c.meta ? c.meta.replace(/ · /g, ' · ') : '', 'Private instruction',
+  'We reply within one business day. Private sessions are by arrangement, not on the weekend calendar. The fee is instruction only: ammunition, range fees and gear are not included.'); }
+renderGear();   // here, not at the foot of the script: the MAST assembler keeps the script only up to its reveal observer
 function closeReq(){ $('req-bd').classList.remove('open'); $('req').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
-async function reqGo(){ const c = COURSES[reqIdx]; const name = $('req-name').value.trim(), email = $('req-email').value.trim(), phone = $('req-phone').value.trim(), note = $('req-msg').value.trim(); const err = $('req-err'), b = $('req-go');
+async function reqGo(){ const gear = reqKind === 'gear'; const c = gear ? GEAR[reqIdx] : COURSES[reqIdx]; const name = $('req-name').value.trim(), email = $('req-email').value.trim(), phone = $('req-phone').value.trim(), note = $('req-msg').value.trim(); const err = $('req-err'), b = $('req-go');
+  const org = gear ? $('req-org').value.trim() : '', qty = gear ? Math.max(1, Math.min(999, parseInt($('req-qty').value, 10) || 1)) : 0;
   if (name.length < 2) { err.textContent = 'Enter your name.'; err.hidden = false; $('req-name').focus(); return; }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Enter a valid email address.'; err.hidden = false; $('req-email').focus(); return; }
+  if (gear && c.device && org.length < 2) { err.textContent = 'IWA devices are quoted to agencies only. Enter your agency or organization.'; err.hidden = false; $('req-org').focus(); return; }
   err.hidden = true; b.disabled = true; b.textContent = 'Sending…';
-  const message = 'Private instruction request — ' + c.name + (c.meta ? ' (' + c.meta + ')' : '') + (note ? '\n\n' + note : '');
-  try { const r = await fetch(API + '/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'contact', request_type: 'private', name, email, phone, message, website: $('req-web').value, page: location.href.split('#')[0] }) });
+  const message = gear
+    ? 'Gear quote request — ' + c.sku + ' ' + c.name + ' (' + c.brand + ' · ' + c.fam + ') × ' + qty + (org ? '\nAgency / organization: ' + org : '') + (note ? '\n\n' + note : '')
+    : 'Private instruction request — ' + c.name + (c.meta ? ' (' + c.meta + ')' : '') + (note ? '\n\n' + note : '');
+  try { const r = await fetch(API + '/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'contact', request_type: reqKind, company: org, name, email, phone, message, website: $('req-web').value, page: location.href.split('#')[0] }) });
     const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'Could not send the request.');
     b.textContent = 'Request sent ✓'; $('req-meta').textContent = 'Thank you, ' + name.split(' ')[0] + '. We reply within one business day.'; setTimeout(closeReq, 2400); }
-  catch (e) { b.disabled = false; b.textContent = 'Send Request'; err.innerHTML = esc(e.message || 'Could not send the request.') + ' You can also email <a href="mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent('Private instruction — ' + c.name) + '">atlasglinn.hq@atlasglinn.com</a>.'; err.hidden = false; }
+  catch (e) { b.disabled = false; b.textContent = 'Send Request'; err.innerHTML = esc(e.message || 'Could not send the request.') + ' You can also email <a href="mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent((reqKind === 'gear' ? 'Gear quote — ' + c.sku + ' ' : 'Private instruction — ') + c.name) + '">atlasglinn.hq@atlasglinn.com</a>.'; err.hidden = false; }
 }
 document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if ($('dcal').classList.contains('open')) closeDCal(); if ($('req').classList.contains('open')) closeReq(); if ($('acct').classList.contains('open')) closeAcct(); });
 

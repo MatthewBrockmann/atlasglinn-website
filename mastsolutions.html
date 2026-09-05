@@ -150,8 +150,8 @@
   /* Shared card hover (Brockmann, 2026-09-04: "make sure that for any card or any function on the site ... we don't lose the
      consistency"): every card on either site lifts the same way on mouse-over. Add each new card class to these two selectors;
      the card's own rules only set its border colour. */
-  .tile, .tier { transition:transform .45s, border-color .45s, box-shadow .45s; }
-  .tile:hover, .tier:hover { transform:translateY(-6px); }
+  .tile, .tier, .gear-card { transition:transform .45s, border-color .45s, box-shadow .45s; }   /* every card on either site takes this one hover (Brockmann, 2026-09-04) */
+  .tile:hover, .tier:hover, .gear-card:hover { transform:translateY(-6px); }
   .tile .txt { position:relative; z-index:2; padding:1.4rem 1.3rem; width:100%; }
   .tile .num { font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.4em; color:var(--gold); margin-bottom:.5rem; }
   .tile h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.15rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.35rem; }
@@ -242,6 +242,83 @@
 .cr-price { font-family: 'Orbitron', sans-serif; font-size: 1.15rem; font-weight: 900; color: #C9A84C; text-align: right; line-height: 1; }
 .cr-price small { display: block; font-family: 'Share Tech Mono', monospace; font-size: .6rem; letter-spacing: .14em; color: #888; margin-top: .3rem; font-weight: 400; }
 .cr-btn { padding: .55rem 1rem; font-size: .8rem; white-space: nowrap; }
+.gear-panel { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; max-width: 1200px; margin: 0 auto; text-align: left; }
+.gear-brand { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: .6rem 1.2rem; margin-top: 1.2rem; padding-bottom: .5rem; border-bottom: 1px solid rgba(201,168,76,.3); }
+.gear-brand h3 { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1rem; letter-spacing: .06em; color: #C9A84C; }
+.gear-brand span { font-family: 'Share Tech Mono', monospace; font-size: .62rem; letter-spacing: .25em; text-transform: uppercase; color: #8B98AD; }
+.gear-card { position: relative; padding: 1.2rem 1.1rem 1.1rem; border: 1px solid rgba(201,168,76,.28); background: linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.75) 100%); backdrop-filter: blur(10px); }
+.gear-card .gear-sku { font-family: 'Share Tech Mono', monospace; font-size: .62rem; letter-spacing: .3em; color: #C9A84C; margin-bottom: .5rem; }
+.gear-card h4 { font-family: 'Orbitron', sans-serif; font-weight: 600; font-size: .9rem; line-height: 1.35; color: #fff; margin-bottom: .35rem; }
+.gear-card .gear-fam { font-size: .82rem; color: #8B98AD; }
+.gear-card .cta-button { display: inline-block; margin-top: .9rem; padding: .55rem 1rem; font-size: .68rem; letter-spacing: .18em; }
+.gear-card.device { border-color: rgba(201,168,76,.28); }
+.gear-card.device .gear-sku { color: #C9A84C; }
+.modal.req [hidden] { display: none !important; }
+.cal-foot { position: sticky; bottom: -2rem; background: #0B1221; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.4rem -2rem -2rem; padding: 1rem 2rem 1.2rem; border-top: 1px solid rgba(201,168,76,.2); flex-wrap: wrap; }
+.cal-sel { font-size: .95rem; color: #b0b0b0; }
+.cal-sel b { color: #fff; font-family: 'Orbitron', sans-serif; font-size: .85rem; }
+.cal-hint { font-size: .85rem; color: #888; line-height: 1.5; }
+.sheet label { display: block; font-family: 'Share Tech Mono', monospace; font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; color: #C9A84C; margin: 1rem 0 .4rem; }
+.sheet input { width: 100%; padding: 13px 15px; font-size: 16px; font-family: 'Rajdhani', sans-serif; font-weight: 500; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); color: #fff; border-radius: 4px; }
+.sheet input:focus { outline: none; border-color: #C9A84C; }
+.sheet-date { display: flex; justify-content: space-between; align-items: center; gap: 1rem; background: rgba(201,168,76,.08); border: 1px solid rgba(201,168,76,.3); border-radius: 4px; padding: .8rem 1rem; margin-top: 1rem; font-size: .95rem; }
+.sheet-date button { background: none; border: none; color: #C9A84C; font-family: 'Rajdhani', sans-serif; font-weight: 700; cursor: pointer; font-size: .85rem; letter-spacing: .05em; text-transform: uppercase; }
+.qty { display: flex; align-items: center; gap: 1rem; }
+.qty button { width: 42px; height: 42px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.12); color: #fff; font-size: 19px; cursor: pointer; border-radius: 4px; }
+.qty .qv { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.2rem; min-width: 30px; text-align: center; }
+.total { display: flex; justify-content: space-between; align-items: baseline; margin: 1.4rem 0 .4rem; padding-top: 1.1rem; border-top: 1px solid rgba(201,168,76,.2); font-family: 'Share Tech Mono', monospace; font-size: .72rem; letter-spacing: .14em; color: #888; text-transform: uppercase; }
+.total .amt { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.5rem; color: #C9A84C; }
+.sheet .cta-button { width: 100%; margin-top: .9rem; text-align: center; padding: 1rem; }
+.secure { text-align: center; font-family: 'Share Tech Mono', monospace; font-size: .68rem; letter-spacing: .1em; color: #888; margin-top: .8rem; }
+.err { display: none; font-size: .95rem; color: #FF6B5A; margin-top: .8rem; line-height: 1.5; }
+.err.show { display: block; }
+.cr-lvl { display: inline-block; padding: .05rem .45rem; border-radius: 3px; background: rgba(255,255,255,.08); color: #d8dce6; letter-spacing: .1em; }
+.cr-lvl.lvl-1 { background: rgba(201,168,76,.22); color: #fff; }
+.cr-img { width: 72px; height: 72px; object-fit: cover; border-radius: 4px; border: 1px solid rgba(201,168,76,.3); flex: 0 0 72px; margin-right: 14px; }
+.cr-pdf { display: inline-block; margin-top: .35rem; font-family: 'Share Tech Mono', monospace; font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: #C9A84C; text-decoration: none; }
+.reg-steps { display: flex; gap: .4rem; list-style: none; margin: 1rem 0 .2rem; padding: 0; font-family: 'Share Tech Mono', monospace; font-size: .64rem; letter-spacing: .12em; text-transform: uppercase; color: #666; counter-reset: s; }
+.reg-steps li { flex: 1; padding: .45rem 0 0; border-top: 2px solid rgba(255,255,255,.12); }
+.reg-steps li::before { content: counter(s) ' '; counter-increment: s; }
+.reg-steps li.on { color: #C9A84C; border-top-color: #C9A84C; }
+.reg-steps li.done { color: #9aa3b5; border-top-color: rgba(201,168,76,.5); }
+.reg-lead { font-size: .98rem; color: #c8ccd6; line-height: 1.55; margin: 1rem 0 .2rem; }
+.reg-note { font-size: .85rem; color: #888; margin: .6rem 0 0; line-height: 1.5; }
+.reg-q { border: 1px solid rgba(255,255,255,.1); border-radius: 4px; padding: .8rem 1rem 1rem; margin: 1rem 0 0; min-width: 0; }
+.reg-q legend { font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 1.05rem; padding: 0 .4rem; color: #fff; line-height: 1.35; }
+.reg-yn { display: flex; gap: .6rem; margin-top: .4rem; }
+.reg-yn label { flex: 1; display: flex; align-items: center; justify-content: center; gap: .5rem; padding: .7rem; border: 1px solid rgba(255,255,255,.14); border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 1rem; }
+.reg-yn label:has(input:checked) { border-color: #C9A84C; background: rgba(201,168,76,.12); }
+.reg-yn input { accent-color: #C9A84C; width: 18px; height: 18px; }
+.sheet label.reg-check[hidden] { display: none; }
+.sheet label.reg-check { display: flex; gap: .7rem; align-items: flex-start; margin: 1rem 0 0; font-size: .95rem; line-height: 1.5; color: #d8dce6; cursor: pointer; font-family: 'Rajdhani', sans-serif; text-transform: none; letter-spacing: 0; font-weight: 500; }
+.sheet .reg-check input { margin-top: .2rem; flex: none; width: 18px; height: 18px; accent-color: #C9A84C; padding: 0; }
+.sheet .reg-check a { color: #C9A84C; }
+.sheet .reg-yn label { font-family: 'Rajdhani', sans-serif; text-transform: none; letter-spacing: 0; color: #fff; margin: 0; font-size: 1rem; }
+.reg-doc { height: min(46vh, 420px); overflow-y: auto; background: #fff; border: 1px solid rgba(201,168,76,.4); border-radius: 4px; margin-top: .8rem; padding: 6px; -webkit-overflow-scrolling: touch; }
+.reg-doc img { display: block; width: 100%; height: auto; margin-bottom: 6px; }
+.reg-doc-hint { font-family: 'Share Tech Mono', monospace; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: #C9A84C; margin-top: .5rem; }
+.reg-doc-hint.ok { color: #6fcf97; }
+.reg-row { display: flex; gap: .6rem; margin-top: .5rem; }
+.reg-row input { min-width: 0; }
+.reg-nav { display: flex; gap: .8rem; align-items: stretch; margin-top: 1rem; }
+.reg-nav .cta-button { flex: 1; margin-top: 0; }
+.reg-back { background: none; border: 1px solid rgba(255,255,255,.2); color: #ccc; padding: .85rem 1rem; border-radius: 4px; cursor: pointer; font-family: 'Rajdhani', sans-serif; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.reg-summary { font-size: .95rem; line-height: 1.6; color: #c8ccd6; margin-top: .8rem; }
+.reg-summary b { color: #fff; }
+.reg-review { margin-top: 1rem; padding: 1rem; border: 1px solid rgba(201,168,76,.4); border-radius: 4px; line-height: 1.55; font-size: .98rem; }
+.policy-body { max-height: 60vh; overflow-y: auto; margin-top: .6rem; font-size: .95rem; line-height: 1.55; color: #d8dce6; padding-right: .4rem; }
+.policy-body h4 { font-family: 'Rajdhani', sans-serif; color: #C9A84C; margin: 1rem 0 .3rem; font-size: 1rem; letter-spacing: .04em; text-transform: uppercase; }
+.policy-body p { margin: .4rem 0; }
+.policy-body table { width: 100%; border-collapse: collapse; margin: .4rem 0; }
+.policy-body td { padding: .45rem .5rem .45rem 0; border-top: 1px solid rgba(255,255,255,.1); vertical-align: top; }
+.policy-body td:first-child { font-weight: 600; color: #fff; width: 42%; }
+.policy-version { font-family: 'Share Tech Mono', monospace; font-size: .66rem; letter-spacing: .1em; color: #777; text-transform: uppercase; margin-top: 1rem; }
+.banner { position: fixed; top: 84px; left: 50%; transform: translateX(-50%); z-index: 2500; background: #0B1221; border: 1px solid #C9A84C; color: #fff; font-size: .95rem; padding: .9rem 1.6rem; border-radius: 4px; box-shadow: 0 20px 50px rgba(0,0,0,.6); display: none; max-width: calc(100vw - 32px); text-align: center; }
+.banner.show { display: block; }
+.quals-list { padding: .4rem 0 0 1.4rem; columns: 2; column-gap: 2.4rem; }
+.quals-list li { font-size: .92rem; color: #b0b0b0; line-height: 1.5; padding: .3rem .4rem .3rem .1rem; break-inside: avoid; }
+.quals-list li::marker { color: #C9A84C; font-family: 'Share Tech Mono', monospace; font-size: .78rem; }
+@media (max-width: 600px) { .gear-panel { grid-template-columns: 1fr; } } {
 .media-strip { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 1rem; padding: 1.5rem 0 .5rem; scrollbar-width: thin; scrollbar-color: #1A6BDE #0B1221; }
 .video-card { flex: 0 0 min(82vw, 520px); scroll-snap-align: start; background: rgba(5,8,16,.7); border: 1px solid rgba(26,107,222,.25); border-radius: 4px; overflow: hidden; }
 .yt { position: relative; aspect-ratio: 16/9; background: #000; cursor: pointer; overflow: hidden; }
@@ -335,70 +412,7 @@
 .acct-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 1.2rem; padding-top: .8rem; border-top: 1px solid rgba(201,168,76,.25); font-family: 'Share Tech Mono', monospace; font-size: .68rem; letter-spacing: .14em; color: #8B95A8; }
 .acct-forgot { margin-left: auto; background: none; border: 0; padding: 0; color: #8B95A8; font-family: 'Rajdhani', sans-serif; font-size: .9rem; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .acct-forgot:hover { color: #fff; }
-.cal-foot { position: sticky; bottom: -2rem; background: #0B1221; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.4rem -2rem -2rem; padding: 1rem 2rem 1.2rem; border-top: 1px solid rgba(201,168,76,.2); flex-wrap: wrap; }
-.cal-sel { font-size: .95rem; color: #b0b0b0; }
-.cal-sel b { color: #fff; font-family: 'Orbitron', sans-serif; font-size: .85rem; }
-.cal-hint { font-size: .85rem; color: #888; line-height: 1.5; }
-.sheet label { display: block; font-family: 'Share Tech Mono', monospace; font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; color: #C9A84C; margin: 1rem 0 .4rem; }
-.sheet input { width: 100%; padding: 13px 15px; font-size: 16px; font-family: 'Rajdhani', sans-serif; font-weight: 500; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); color: #fff; border-radius: 4px; }
-.sheet input:focus { outline: none; border-color: #C9A84C; }
-.sheet-date { display: flex; justify-content: space-between; align-items: center; gap: 1rem; background: rgba(201,168,76,.08); border: 1px solid rgba(201,168,76,.3); border-radius: 4px; padding: .8rem 1rem; margin-top: 1rem; font-size: .95rem; }
-.sheet-date button { background: none; border: none; color: #C9A84C; font-family: 'Rajdhani', sans-serif; font-weight: 700; cursor: pointer; font-size: .85rem; letter-spacing: .05em; text-transform: uppercase; }
-.qty { display: flex; align-items: center; gap: 1rem; }
-.qty button { width: 42px; height: 42px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.12); color: #fff; font-size: 19px; cursor: pointer; border-radius: 4px; }
-.qty .qv { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.2rem; min-width: 30px; text-align: center; }
-.total { display: flex; justify-content: space-between; align-items: baseline; margin: 1.4rem 0 .4rem; padding-top: 1.1rem; border-top: 1px solid rgba(201,168,76,.2); font-family: 'Share Tech Mono', monospace; font-size: .72rem; letter-spacing: .14em; color: #888; text-transform: uppercase; }
-.total .amt { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.5rem; color: #C9A84C; }
-.sheet .cta-button { width: 100%; margin-top: .9rem; text-align: center; padding: 1rem; }
-.secure { text-align: center; font-family: 'Share Tech Mono', monospace; font-size: .68rem; letter-spacing: .1em; color: #888; margin-top: .8rem; }
-.err { display: none; font-size: .95rem; color: #FF6B5A; margin-top: .8rem; line-height: 1.5; }
-.err.show { display: block; }
-.cr-lvl { display: inline-block; padding: .05rem .45rem; border-radius: 3px; background: rgba(255,255,255,.08); color: #d8dce6; letter-spacing: .1em; }
-.cr-lvl.lvl-1 { background: rgba(201,168,76,.22); color: #fff; }
-.cr-img { width: 72px; height: 72px; object-fit: cover; border-radius: 4px; border: 1px solid rgba(201,168,76,.3); flex: 0 0 72px; margin-right: 14px; }
-.cr-pdf { display: inline-block; margin-top: .35rem; font-family: 'Share Tech Mono', monospace; font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: #C9A84C; text-decoration: none; }
-.reg-steps { display: flex; gap: .4rem; list-style: none; margin: 1rem 0 .2rem; padding: 0; font-family: 'Share Tech Mono', monospace; font-size: .64rem; letter-spacing: .12em; text-transform: uppercase; color: #666; counter-reset: s; }
-.reg-steps li { flex: 1; padding: .45rem 0 0; border-top: 2px solid rgba(255,255,255,.12); }
-.reg-steps li::before { content: counter(s) ' '; counter-increment: s; }
-.reg-steps li.on { color: #C9A84C; border-top-color: #C9A84C; }
-.reg-steps li.done { color: #9aa3b5; border-top-color: rgba(201,168,76,.5); }
-.reg-lead { font-size: .98rem; color: #c8ccd6; line-height: 1.55; margin: 1rem 0 .2rem; }
-.reg-note { font-size: .85rem; color: #888; margin: .6rem 0 0; line-height: 1.5; }
-.reg-q { border: 1px solid rgba(255,255,255,.1); border-radius: 4px; padding: .8rem 1rem 1rem; margin: 1rem 0 0; min-width: 0; }
-.reg-q legend { font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 1.05rem; padding: 0 .4rem; color: #fff; line-height: 1.35; }
-.reg-yn { display: flex; gap: .6rem; margin-top: .4rem; }
-.reg-yn label { flex: 1; display: flex; align-items: center; justify-content: center; gap: .5rem; padding: .7rem; border: 1px solid rgba(255,255,255,.14); border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 1rem; }
-.reg-yn label:has(input:checked) { border-color: #C9A84C; background: rgba(201,168,76,.12); }
-.reg-yn input { accent-color: #C9A84C; width: 18px; height: 18px; }
-.sheet label.reg-check[hidden] { display: none; }
-.sheet label.reg-check { display: flex; gap: .7rem; align-items: flex-start; margin: 1rem 0 0; font-size: .95rem; line-height: 1.5; color: #d8dce6; cursor: pointer; font-family: 'Rajdhani', sans-serif; text-transform: none; letter-spacing: 0; font-weight: 500; }
-.sheet .reg-check input { margin-top: .2rem; flex: none; width: 18px; height: 18px; accent-color: #C9A84C; padding: 0; }
-.sheet .reg-check a { color: #C9A84C; }
-.sheet .reg-yn label { font-family: 'Rajdhani', sans-serif; text-transform: none; letter-spacing: 0; color: #fff; margin: 0; font-size: 1rem; }
-.reg-doc { height: min(46vh, 420px); overflow-y: auto; background: #fff; border: 1px solid rgba(201,168,76,.4); border-radius: 4px; margin-top: .8rem; padding: 6px; -webkit-overflow-scrolling: touch; }
-.reg-doc img { display: block; width: 100%; height: auto; margin-bottom: 6px; }
-.reg-doc-hint { font-family: 'Share Tech Mono', monospace; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: #C9A84C; margin-top: .5rem; }
-.reg-doc-hint.ok { color: #6fcf97; }
-.reg-row { display: flex; gap: .6rem; margin-top: .5rem; }
-.reg-row input { min-width: 0; }
-.reg-nav { display: flex; gap: .8rem; align-items: stretch; margin-top: 1rem; }
-.reg-nav .cta-button { flex: 1; margin-top: 0; }
-.reg-back { background: none; border: 1px solid rgba(255,255,255,.2); color: #ccc; padding: .85rem 1rem; border-radius: 4px; cursor: pointer; font-family: 'Rajdhani', sans-serif; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
-.reg-summary { font-size: .95rem; line-height: 1.6; color: #c8ccd6; margin-top: .8rem; }
-.reg-summary b { color: #fff; }
-.reg-review { margin-top: 1rem; padding: 1rem; border: 1px solid rgba(201,168,76,.4); border-radius: 4px; line-height: 1.55; font-size: .98rem; }
-.policy-body { max-height: 60vh; overflow-y: auto; margin-top: .6rem; font-size: .95rem; line-height: 1.55; color: #d8dce6; padding-right: .4rem; }
-.policy-body h4 { font-family: 'Rajdhani', sans-serif; color: #C9A84C; margin: 1rem 0 .3rem; font-size: 1rem; letter-spacing: .04em; text-transform: uppercase; }
-.policy-body p { margin: .4rem 0; }
-.policy-body table { width: 100%; border-collapse: collapse; margin: .4rem 0; }
-.policy-body td { padding: .45rem .5rem .45rem 0; border-top: 1px solid rgba(255,255,255,.1); vertical-align: top; }
-.policy-body td:first-child { font-weight: 600; color: #fff; width: 42%; }
-.policy-version { font-family: 'Share Tech Mono', monospace; font-size: .66rem; letter-spacing: .1em; color: #777; text-transform: uppercase; margin-top: 1rem; }
-.banner { position: fixed; top: 84px; left: 50%; transform: translateX(-50%); z-index: 2500; background: #0B1221; border: 1px solid #C9A84C; color: #fff; font-size: .95rem; padding: .9rem 1.6rem; border-radius: 4px; box-shadow: 0 20px 50px rgba(0,0,0,.6); display: none; max-width: calc(100vw - 32px); text-align: center; }
-.banner.show { display: block; }
-.quals-list { padding: .4rem 0 0 1.4rem; columns: 2; column-gap: 2.4rem; }
-.quals-list li { font-size: .92rem; color: #b0b0b0; line-height: 1.5; padding: .3rem .4rem .3rem .1rem; break-inside: avoid; }
-.quals-list li::marker { color: #C9A84C; font-family: 'Share Tech Mono', monospace; font-size: .78rem; }
+}
 @media (max-width: 768px) {
 .acct-grid { grid-template-columns: 1fr; }
 .cr-img { width: 56px; height: 56px; flex-basis: 56px; margin-right: 10px; }
@@ -481,7 +495,7 @@
   .fold { max-height:0; overflow:hidden; opacity:0; padding:10px 10px 0; margin:-10px -10px 0; transition:max-height .8s cubic-bezier(.2,.7,.2,1), opacity .45s; }
   .fold.open { max-height:6000px; opacity:1; padding-bottom:12px; transition:max-height 1.2s cubic-bezier(.2,.7,.2,1), opacity .5s .1s; }
   /* The contact chapter's line over the water backdrop (owner, 2026-09-05: "Fix the visibility of the contact"); the contact lines themselves are handled in the shell for both sites. */
-  #s12 .sub { text-shadow:0 1px 6px rgba(0,0,0,.9), 0 0 18px rgba(0,0,0,.6); }
+  #s13 .sub { text-shadow:0 1px 6px rgba(0,0,0,.9), 0 0 18px rgba(0,0,0,.6); }   /* the Contact chapter (13 since the Gear chapter, 2026-09-05) */
   .modal.lightbox { width:min(1200px, calc(100vw - 32px)); padding:.6rem; background:#050810; }
   .modal.lightbox img { display:block; max-width:100%; max-height:84vh; margin:0 auto; }
 
@@ -551,7 +565,8 @@
   <div class="ph" data-for="09" style="background-image:url('images/mast/vehicular.jpg')"></div>
   <div class="ph" data-for="10" style="background-image:url('images/mast/instructing-le.jpg');background-position:center 30%"></div>
   <div class="ph" data-for="11" style="background-image:url('images/mast/privacy-aircraft.jpg')"></div>
-  <div class="ph" data-for="12" style="background-image:url('images/mast/contact-zodiac.jpg')"></div>
+  <div class="ph" data-for="12" style="background-image:url('images/mast/disc-firearms.jpg');background-position:center 30%"></div>
+  <div class="ph" data-for="13" style="background-image:url('images/mast/contact-zodiac.jpg')"></div>
 </div>
 <div class="grain"></div>
 <div class="vignette"></div>
@@ -562,7 +577,7 @@
 
 <a class="hud tl" href="/">&#9679; ATLAS GLINN &middot; MAST.SYS LIVE</a>
 <a class="hud acct acct-link" href="#" onclick="openAcct();return false;" aria-haspopup="dialog">Sign in</a>
-<div class="hud tr" id="hud-section">SECTION 01 / 12</div>
+<div class="hud tr" id="hud-section">SECTION 01 / 13</div>
 <div class="hud bl">HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W</div>
 <div class="hud br">DETAILS MATTER</div>
 
@@ -579,7 +594,8 @@
   <a href="articles/index.html" class="chap-extra preview-only">&middot; Blogs</a>
   <a href="#s10" class="chap-link">10 &middot; Testimonials</a>
   <a href="#s11" class="chap-link">11 &middot; Privacy</a>
-  <a href="#s12" class="chap-link">12 &middot; Contact</a>
+  <a href="#s12" class="chap-link">12 &middot; Gear</a>
+  <a href="#s13" class="chap-link">13 &middot; Contact</a>
   <a href="#" class="chap-extra chap-always acct-link" onclick="openAcct();return false;">&middot; Sign in</a>
 </nav>
 
@@ -762,6 +778,16 @@
 
   <section class="panel" id="s12" data-section="12">
     <div>
+      <div class="eyebrow">Gear &middot; Aimpoint and IWA</div>
+      <h2 class="section-h">Equipment. <span class="gold">By Quote.</span></h2>
+      <p class="sub">Atlas Glinn is an authorized dealer for Aimpoint optics and IWA International devices. Every item below is quoted, not sold from a cart: Aimpoint optics ship to verified customers at dealer pricing on request; IWA devices go to law enforcement, military and licensed agencies only, and agency verification comes before any quote. Nothing is charged online.</p>
+      <div class="gear-panel rise" id="gear-panel"></div>
+      <p class="gate-fine" style="max-width:820px;margin:1.6rem auto 0;">Special order. Tell us the item and quantity; we confirm availability, price, hazmat and shipping by email within one business day.</p>
+    </div>
+  </section>
+
+  <section class="panel" id="s13" data-section="13">
+    <div>
       <div class="eyebrow">Book a Course</div>
       <h2 class="section-h"><span class="gold">Train</span> with MAST.</h2>
       <p class="sub">Individual seats, team blocks, and agency instruction.</p>
@@ -805,17 +831,19 @@
 <div id="req-bd" class="modal-bd" onclick="closeReq()"></div>
 <div id="req" class="modal gate req" role="dialog" aria-modal="true" aria-labelledby="req-title">
     <button class="modal-x" aria-label="Close" onclick="closeReq()">&times;</button>
-    <div class="eyebrow">Private instruction</div>
+    <div class="eyebrow" id="req-eyebrow">Private instruction</div>
     <h3 id="req-title"></h3>
     <p class="gate-text" id="req-meta"></p>
     <label>Name<input id="req-name" type="text" autocomplete="name" required></label>
     <label>Email<input id="req-email" type="email" autocomplete="email" required></label>
     <label>Phone <span class="opt">(optional)</span><input id="req-phone" type="tel" autocomplete="tel"></label>
+    <label id="req-org-wrap" hidden>Agency or organization <span class="opt">(required for IWA devices)</span><input id="req-org" type="text" autocomplete="organization"></label>
+    <label id="req-qty-wrap" hidden>Quantity<input id="req-qty" type="number" min="1" max="999" value="1" inputmode="numeric"></label>
     <label>Anything we should know <span class="opt">(optional)</span><textarea id="req-msg" rows="3"></textarea></label>
     <input type="text" id="req-web" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;">
     <div class="gate-actions"><button class="cta-button" id="req-go" type="button" onclick="reqGo()">Send Request</button></div>
     <p class="err" id="req-err" hidden></p>
-    <p class="gate-fine">We reply within one business day. Private sessions are by arrangement, not on the weekend calendar. The fee is instruction only: ammunition, range fees and gear are not included.</p>
+    <p class="gate-fine" id="req-fine">We reply within one business day. Private sessions are by arrangement, not on the weekend calendar. The fee is instruction only: ammunition, range fees and gear are not included.</p>
 </div>
 
 <!-- BOOK A CLASS, date first (owner, 2026-09-05: "Click Book Class = calendar open; each has tab; choose tab; class offerings; all dates; hover class shows").
@@ -1444,17 +1472,55 @@ function dcalChoose(i){ preChosen = dcalPick; closeDCal(); selectCourse(i); }
 // ── Private instruction request (owner, 2026-09-05: "Request = doesn't go to email"): a short dialog that posts to the Worker's /contact,
 //    which emails the office; the mailto stays only as the fallback when the Worker cannot be reached.
 let reqIdx = null;
-function requestPrivate(i){ reqIdx = i; const c = COURSES[i]; lastFocus = document.activeElement; $('req-title').textContent = c.name; $('req-meta').textContent = c.meta ? c.meta.replace(/ · /g, ' · ') : ''; $('req-msg').value = ''; $('req-err').hidden = true; const b = $('req-go'); b.disabled = false; b.textContent = 'Send Request'; $('req-bd').classList.add('open'); $('req').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('req-name').focus(), 60); }
+/* ── Gear: Aimpoint optics and IWA International devices, quoted by email through the same Request dialog (owner, 2026-09-05:
+   "Atlasglinn.com has this product = add to mastsolutions so we can sell there"). The list is the IWA inventory report of
+   2026-09-05; costs in that report are dealer costs, not prices, so no price is shown. Nothing here goes to Stripe: card
+   networks bar weapons accessories and energetic devices from ordinary checkout, and IWA devices are LE / military /
+   licensed-agency only, so every item is a quote request and the office verifies the buyer before answering. ── */
+const GEAR = [
+  ['AP-11972', 'Aimpoint', 'CompM4', 'CompM4 AR15-Ready QRP2 w/ Bikini'], ['AP-12309', 'Aimpoint', 'CompM4', 'CompM4 No Mount — Cardboard Box'],
+  ['AP-12172', 'Aimpoint', 'CompM4s', 'CompM4s AR15-Ready QRP2 w/ Bikini'], ['AP-12308', 'Aimpoint', 'CompM4s', 'CompM4s No Mount — Cardboard Box'],
+  ['AP-200350', 'Aimpoint', 'CompM5', 'CompM5 Standard Mount'], ['AP-200386', 'Aimpoint', 'CompM5', 'CompM5 AR15-Ready LRP/39mm'], ['AP-200320', 'Aimpoint', 'CompM5', 'CompM5 No Mount — Cardboard Box'],
+  ['AP-200500', 'Aimpoint', 'CompM5s', 'CompM5s AR15-Ready LRP/39mm'], ['AP-200660', 'Aimpoint', 'CompM5s', 'CompM5s No Mount — Cardboard Box'],
+  ['AP-12841', 'Aimpoint', 'PRO', 'PRO AR15-Ready QRP2/39mm'], ['AP-200374', 'Aimpoint', 'PRO', 'PRO w/ LRP/39mm Spacer'], ['AP-200977', 'Aimpoint', 'PRO', 'PRO No Mount'],
+  ['AP-200170', 'Aimpoint', 'Micro T-2', 'Micro T-2 Standard Mount'], ['AP-200198', 'Aimpoint', 'Micro T-2', 'Micro T-2 AR15-Ready LRP/39mm'], ['AP-200180', 'Aimpoint', 'Micro T-2', 'Micro T-2 No Mount — Cardboard Box'], ['AP-200804', 'Aimpoint', 'Micro T-2', 'Micro T-2 ACET No Mount FDE'],
+  ['AP-200759', 'Aimpoint', 'Duty RDS', 'Duty RDS 2 MOA — 39mm Mount'], ['AP-200985', 'Aimpoint', 'Duty RDS', 'Duty RDS MR (2+65 MOA) — 39mm Mount'],
+  ['AP-200691', 'Aimpoint', 'ACRO', 'ACRO P-2 Polymer Cap — No Mount'], ['AP-201006', 'Aimpoint', 'ACRO', 'ACRO P-2 Aluminum Cap — No Mount'], ['AP-200777', 'Aimpoint', 'ACRO', 'ACRO P-2 FDE — No Mount'], ['AP-200871', 'Aimpoint', 'ACRO', 'ACRO P-2 Sniper Grey — No Mount'], ['AP-200907', 'Aimpoint', 'ACRO', 'ACRO S-2 Shotgun Sight (9 MOA)'],
+  ['AP-200271', 'Aimpoint', 'Magnifiers', '3XMag-1 Magnifier Only — No Mount'], ['AP-200334', 'Aimpoint', 'Magnifiers', '3XMag-1 w/ FlipMount + TwistMount'], ['AP-200272', 'Aimpoint', 'Magnifiers', '6XMag-1 Magnifier Only — No Mount'], ['AP-200340', 'Aimpoint', 'Magnifiers', '6XMag-1 AR15-Ready 39mm + TwistMount'],
+  ['AP-200273', 'Aimpoint', 'Magnifiers', '3X-C Magnifier Only — No Mount'], ['AP-200342', 'Aimpoint', 'Magnifiers', '3X-C w/ FlipMount + TwistMount'], ['AP-200857', 'Aimpoint', 'Magnifiers', '3X-P Magnifier Only — No Mount'], ['AP-200887', 'Aimpoint', 'Magnifiers', '3X-P w/ FlipMount + TwistMount'],
+  ['IWA-M12', 'IWA', 'Distraction', 'M12 Distraction Device'], ['IWA-M11-4B', 'IWA', 'Distraction', 'M11-4B Multibang Device'], ['IWA-M11-7B', 'IWA', 'Distraction', 'M11-7B Multibang Device'],
+  ['IWA-M14', 'IWA', 'Smoke', 'M14 Smoke Deployment Device'], ['IWA-M15', 'IWA', 'Smoke', 'M15 Large Smoke Grenade'], ['IWA-PA85', 'IWA', 'Chemical', 'PA-85 Pepper PAVA Grenade'],
+  ['IWA-IDC', 'IWA', 'Breaching', 'Electric Indirect Door Charge'], ['IWA-M13', 'IWA', 'Specialty', 'M13 Thermobaric Device'], ['IWA-TH14', 'IWA', 'Specialty', 'TH-14 Thermite Device'],
+].map(([sku, brand, fam, name]) => ({ sku, brand, fam, name, device: brand === 'IWA' }));
+const GEAR_BRANDS = { Aimpoint: 'Optics · dealer pricing on request · ships to verified customers', IWA: 'IWA International · law enforcement, military and licensed agencies only' };
+function renderGear(){ const p = $('gear-panel'); if (!p) return; let html = '', brand = '';
+  GEAR.forEach((g, i) => { if (g.brand !== brand) { brand = g.brand; html += '<div class="gear-brand"><h3>' + esc(brand) + '</h3><span>' + esc(GEAR_BRANDS[brand] || '') + '</span></div>'; }
+    html += '<div class="gear-card' + (g.device ? ' device' : '') + '"><div class="gear-sku">' + esc(g.sku) + '</div><h4>' + esc(g.name) + '</h4><div class="gear-fam">' + esc(g.brand + ' · ' + g.fam) + '</div><button class="cta-button" type="button" onclick="requestGear(' + i + ')">Request a quote</button></div>'; });
+  p.innerHTML = html; }
+let reqKind = 'private';
+function openReqDialog(kind, title, meta, eyebrow, fine){ reqKind = kind; lastFocus = document.activeElement; $('req-eyebrow').textContent = eyebrow; $('req-title').textContent = title; $('req-meta').textContent = meta; $('req-fine').textContent = fine;
+  $('req-org-wrap').hidden = kind !== 'gear'; $('req-qty-wrap').hidden = kind !== 'gear'; if ($('req-qty')) $('req-qty').value = 1; $('req-msg').value = ''; $('req-err').hidden = true;
+  const b = $('req-go'); b.disabled = false; b.textContent = kind === 'gear' ? 'Request Quote' : 'Send Request'; $('req-bd').classList.add('open'); $('req').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('req-name').focus(), 60); }
+function requestGear(i){ reqIdx = i; const g = GEAR[i]; openReqDialog('gear', g.name, g.sku + ' · ' + g.brand + ' · ' + g.fam, 'Gear quote',
+  g.device ? 'IWA devices are quoted to law enforcement, military and licensed agencies only. We verify the agency before we answer, then confirm availability, price, hazmat and shipping by email within one business day. Nothing is charged online.'
+           : 'Special order at dealer pricing. We confirm availability, price and shipping by email within one business day. Nothing is charged online.'); }
+function requestPrivate(i){ reqIdx = i; const c = COURSES[i]; openReqDialog('private', c.name, c.meta ? c.meta.replace(/ · /g, ' · ') : '', 'Private instruction',
+  'We reply within one business day. Private sessions are by arrangement, not on the weekend calendar. The fee is instruction only: ammunition, range fees and gear are not included.'); }
+renderGear();   // here, not at the foot of the script: the MAST assembler keeps the script only up to its reveal observer
 function closeReq(){ $('req-bd').classList.remove('open'); $('req').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
-async function reqGo(){ const c = COURSES[reqIdx]; const name = $('req-name').value.trim(), email = $('req-email').value.trim(), phone = $('req-phone').value.trim(), note = $('req-msg').value.trim(); const err = $('req-err'), b = $('req-go');
+async function reqGo(){ const gear = reqKind === 'gear'; const c = gear ? GEAR[reqIdx] : COURSES[reqIdx]; const name = $('req-name').value.trim(), email = $('req-email').value.trim(), phone = $('req-phone').value.trim(), note = $('req-msg').value.trim(); const err = $('req-err'), b = $('req-go');
+  const org = gear ? $('req-org').value.trim() : '', qty = gear ? Math.max(1, Math.min(999, parseInt($('req-qty').value, 10) || 1)) : 0;
   if (name.length < 2) { err.textContent = 'Enter your name.'; err.hidden = false; $('req-name').focus(); return; }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Enter a valid email address.'; err.hidden = false; $('req-email').focus(); return; }
+  if (gear && c.device && org.length < 2) { err.textContent = 'IWA devices are quoted to agencies only. Enter your agency or organization.'; err.hidden = false; $('req-org').focus(); return; }
   err.hidden = true; b.disabled = true; b.textContent = 'Sending…';
-  const message = 'Private instruction request — ' + c.name + (c.meta ? ' (' + c.meta + ')' : '') + (note ? '\n\n' + note : '');
-  try { const r = await fetch(API + '/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'contact', request_type: 'private', name, email, phone, message, website: $('req-web').value, page: location.href.split('#')[0] }) });
+  const message = gear
+    ? 'Gear quote request — ' + c.sku + ' ' + c.name + ' (' + c.brand + ' · ' + c.fam + ') × ' + qty + (org ? '\nAgency / organization: ' + org : '') + (note ? '\n\n' + note : '')
+    : 'Private instruction request — ' + c.name + (c.meta ? ' (' + c.meta + ')' : '') + (note ? '\n\n' + note : '');
+  try { const r = await fetch(API + '/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'contact', request_type: reqKind, company: org, name, email, phone, message, website: $('req-web').value, page: location.href.split('#')[0] }) });
     const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'Could not send the request.');
     b.textContent = 'Request sent ✓'; $('req-meta').textContent = 'Thank you, ' + name.split(' ')[0] + '. We reply within one business day.'; setTimeout(closeReq, 2400); }
-  catch (e) { b.disabled = false; b.textContent = 'Send Request'; err.innerHTML = esc(e.message || 'Could not send the request.') + ' You can also email <a href="mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent('Private instruction — ' + c.name) + '">atlasglinn.hq@atlasglinn.com</a>.'; err.hidden = false; }
+  catch (e) { b.disabled = false; b.textContent = 'Send Request'; err.innerHTML = esc(e.message || 'Could not send the request.') + ' You can also email <a href="mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent((reqKind === 'gear' ? 'Gear quote — ' + c.sku + ' ' : 'Private instruction — ') + c.name) + '">atlasglinn.hq@atlasglinn.com</a>.'; err.hidden = false; }
 }
 document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if ($('dcal').classList.contains('open')) closeDCal(); if ($('req').classList.contains('open')) closeReq(); if ($('acct').classList.contains('open')) closeAcct(); });
 
