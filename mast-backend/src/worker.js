@@ -958,11 +958,13 @@ async function handleContact(request, env, cors) {
     company: str(body.company).trim(), status: str(body.status).trim(), request_type: str(body.request_type).trim(),
     page: str(body.page).trim(), ip: request.headers.get('CF-Connecting-IP') || '',
   };
+  // Subjects by origin: the Capability Statement form, the page's Private Instruction dialog, and the Gear chapter's quote
+  // request (owner, 2026-09-05: Aimpoint / IWA "add to mastsolutions so we can sell there" — quoted by email, never charged online).
   const subject = kind === 'capability'
     ? 'Capability statement request: ' + name + (meta.company ? ' · ' + meta.company : '')
-    : (meta.request_type === 'private' ? 'Private instruction request: ' : 'Website contact: ') + name;   // the page's Request dialog (2026-09-05)
+    : (meta.request_type === 'private' ? 'Private instruction request: ' : meta.request_type === 'gear' ? 'Gear quote request: ' : 'Website contact: ') + name;
   const text = [
-    kind === 'capability' ? 'CAPABILITY STATEMENT REQUEST' : 'WEBSITE CONTACT',
+    kind === 'capability' ? 'CAPABILITY STATEMENT REQUEST' : meta.request_type === 'gear' ? 'GEAR QUOTE REQUEST' : 'WEBSITE CONTACT',
     '',
     'Name:     ' + name,
     'Email:    ' + email,

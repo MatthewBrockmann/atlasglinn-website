@@ -142,6 +142,16 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    any `WORKER_RESEND_API_KEY` / `WORKER_ACCOUNT_SECRET` / `WORKER_NOTIFY_EMAIL` repository secret to the Worker after the
    deploy, so a rotated key needs no Terminal. `.github/workflows/deploy-page.yml` does the same for the page over SFTP
    (secrets `WP_SFTP_USER`, `WP_SFTP_PASSWORD`).
+2c. **Gear chapter (owner, 2026-09-05: "Atlasglinn.com has this product = add to mastsolutions so we can sell there"):** the 31
+   Aimpoint SKUs and 9 IWA International devices from his IWA inventory report are chapter 12 of the MAST page (Contact is
+   13), each a **quote request** through the existing Request dialog (`request_type: 'gear'`, agency required for IWA items,
+   quantity, subject "Gear quote request: <name>" to NOTIFY_EMAIL). Deliberately **no Stripe**: card networks bar weapons
+   accessories and energetic devices from ordinary checkout and a listing there could cost the bookings' Stripe account; IWA
+   devices are LE / military / licensed-agency only. The report's numbers are dealer costs, so no price is shown; the report
+   also shows 0 in stock across the line, so every item reads "special order". **His to give:** retail prices if he wants
+   them shown, product photographs, and the partnership material he mentioned ("when site working I can upload our
+   partnerships"). Needs the Worker deploy (subject line) and the page upload; without them the live page has no chapter 12
+   and a gear request would arrive titled "Website contact".
 2b. **"Not working" (2026-09-05 ~20:15 UTC, his test of Sign in → create account on the live page):** the page reached
    "Check your email — we emailed a 6-digit code to matthew@atlasglinn.com" and no code arrived. The page and the Worker's
    202 are fine; the send is the question. Two candidates, both checked in Resend → Emails / API Keys: (a) the attempt went

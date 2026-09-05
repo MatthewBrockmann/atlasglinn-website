@@ -13,6 +13,15 @@ stack (catalog, calendar, checkout, quals modal, media strip) from
 is the earlier Atlas-frame build, kept noindex just in case; `mastsolutions-cinematic.html`
 is a redirect stub for the preview links that were shared.
 
+**Gear chapter (Brockmann, 2026-09-05: "Atlasglinn.com has this product = add to mastsolutions so we can sell there"):** the
+Aimpoint optics and IWA International devices from his IWA inventory report are listed in `GEAR` in `mastsolutions-tesla.html`
+and lifted into chapter 12 of the MAST page. They are **quote requests through the existing Request dialog** (`request_type:
+'gear'` to the Worker's `/contact`), never a Stripe checkout: card networks bar weapons accessories and energetic devices from
+ordinary checkout and a listing there would put the class bookings' Stripe account at risk, and IWA devices are law enforcement /
+military / licensed-agency only (the dialog requires the agency; the office verifies before quoting). The report's costs are
+dealer costs, not prices; no price is shown until he gives retail. Add products to `GEAR`; the `.gear-card` hover is the shared
+one in `cinematic_shell.py`.
+
 ## Atlas Glinn pages (decided by Brockmann 2026-09-03: "SAME front end", mobile first)
 
 The rebuilt `index`, `executive-protection`, `residential-protection`, `disaster-recovery`,
