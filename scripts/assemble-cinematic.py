@@ -140,7 +140,7 @@ MEMBERSHIP = f"""
 #    "look up the range photos that we had on the other site. That should be enter the range"). Same tile as the skills; tap opens the
 #    photograph in a lightbox.
 import glob as _glob
-RANGE_PHOTOS = sorted(_glob.glob(f'{REPO}/images/mast/range/r*.jpg'))
+RANGE_PHOTOS = sorted(_glob.glob(f'{REPO}/images/mast/range/a*.jpg')) + sorted(_glob.glob(f'{REPO}/images/mast/range/r*.jpg'))   # a*: photographs he sent (2026-09-05), first; r*: the old site's facility views
 RANGE_PHOTOS = ['images/mast/range/' + os.path.basename(x) for x in RANGE_PHOTOS]   # every range picture from the old site (scripts/range-photos.py); the first twelve show, the rest behind "show all"
 SHOWN = 12
 def photo_tile(i, src):
