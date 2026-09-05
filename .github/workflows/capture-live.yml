@@ -65,7 +65,7 @@ jobs:
               echo "$code  $u  title=[$t] wordpress_generator=$w"
             done
           } | tee out/_probe.txt
-      - name: Commit to the handoff branch (sparse, blobless: the branch carries large media)
+      - name: Commit to the handoff branch (sparse, blobless checkout; the branch carries large media)
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
