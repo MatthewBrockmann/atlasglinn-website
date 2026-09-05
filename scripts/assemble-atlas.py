@@ -339,7 +339,7 @@ build('index.html',
         '<div class="stats four rise"><div class="stat"><div class="stat-num" data-count="34">0</div><div class="stat-label">Years of Experience</div></div>'
         '<div class="stat"><div class="stat-num" data-count="3">0</div><div class="stat-label">U.S. Senators Protected</div></div>'
         '<div class="stat"><div class="stat-num" data-count="17">0</div><div class="stat-label">Partnerships</div></div>'
-        '<div class="stat"><div class="stat-num" data-count="729">0</div><div class="stat-label">Professionals Trained</div></div></div>')),
+        '<div class="stat"><div class="stat-num" data-count="1701" data-suffix="+">0</div><div class="stat-label">Professionals Trained</div></div></div>')),   # same metric as the MAST page's 1,701+ (owner, 2026-09-05: "Y")
     ('The Film', section(4, 'Atlas Glinn &amp; MAST Solutions', f'Watch the {blue("Film.")}', 'Twenty-seven seconds of the work: motorcade operations, the shoothouse, and the team behind both companies.',
         '<div class="yt-grid one rise">' + film_card('images/film/atlas-glinn-and-mast-solutions.mp4', 'images/film/atlas-glinn-and-mast-solutions-poster.jpg', 'Atlas Glinn &amp; MAST Solutions', 'The film from the atlasglinn.com home page') + '</div>')),
     ('Atlas EP', section(5, 'Built by Atlas Glinn', f'The Atlas EP {blue("Platform.")}',

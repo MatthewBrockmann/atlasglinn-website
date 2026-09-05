@@ -104,7 +104,7 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    mark kept) and placed on the founder block. He is adding one more tactical photo "to match instructors" (the other two
    portraits are "less tactical") — place it where he says when it lands. **Private-row photos**: the three rows share one
    picture until his three arrive (each row takes its own).
-1b. **Ladies Only Handgun**: hours, price, seats (built as 8 h / $225 / 16 seats, mirroring Handgun Fundamentals).
+1b. ~~Ladies Only Handgun~~ — confirmed 2026-09-05 ("ladies = Y"): 8 h / $225 / 16 seats, mirroring Handgun Fundamentals.
 1c. **Instagram clips**: the post URLs (after the merge the handoff paste fetches them: `... | bash -s -- <urls>`), or the
    original files into the folder before then.
 1d. **Range and classroom photographs** ("The range photos are the ones that were posted on the old website, with the classroom,
@@ -162,13 +162,29 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    Hero buttons: **Enter the Range** → chapter 05, **Classes** → chapter 06 ("Classes should be classes. Shouldn't have two
    buttons for the same action"); chapters after it renumbered to 12.
 1e. **Doctrine notes** (his 2026-09-04 dump: 7 Skills, soft skills, three-year goals, five AG Leadership traits, ten Dignitary
-   Protection attributes, movement / signals / smoke / PACE / loadout / DOPE / OCOKA / combat survival): "Keep this = this is
-   background ... this will be separated as descriptors for certain classes." **Not committed** — this repository is public, and
-   the notes are internal training doctrine. They sit in the session record; file them in the brain vault (private) or hand the
-   text off, then split them into course descriptors. The 7 Skills already match the seven Disciplines tiles on the page.
-1f. **"Where is the blogs"**: the eight rebuilt articles live under `articles/` (index at `articles/index.html`); the live
-   WordPress blog at `/blog` is one of the ten WordPress-only URLs that must be rebuilt before the DNS cutover (§D). Neither
-   the MAST page nor the Atlas preview links to the articles yet — his call where.
+   Protection attributes, movement / signals / smoke / PACE / loadout / DOPE / OCOKA / combat survival). **Not committed** — this
+   repository is public. 2026-09-05: "Those are not for class descriptions — leave for 'blogs' but hidden until we can work on
+   what, when, why, and have backend + SEO + memory + ask." So: future blog material, private until he opens that work. Nothing
+   on the page uses them.
+1f. **"Where is the blogs"**: the eight rebuilt articles live under `articles/` (index at `articles/index.html`). 2026-09-05: linked
+   in the MAST chapter menu under In Action as "· Blogs", **preview-only** — it renders only when the URL carries `preview`
+   (`…mastsolutions.html?v=<sha>&preview`), so visitors do not see it until he says publish; titles change "when due to SEO".
+   The live WordPress blog at `/blog` is one of the ten WordPress-only URLs that must be rebuilt before the DNS cutover (§D).
+1g. **Class pictures still wanted** (2026-09-05): Sub-Gun ("looking"), Motorcade P2 (pending). NVG P2 and Select-Fire P2 received
+   (the night-vision view; the two operators at night) and placed. **Testimonial 2**: his "Testimonial2.mov" (a MUSAT training-
+   center film, 59 s) is the second card in the Testimonials chapter, titled "MUSAT Security Training Center · Client film"; retitle
+   on his word. **Torrey Kramer's bio text deleted** on his word; portrait, name and *A Long Recovery* stay.
+   **Priority** (his word): MAST first, then Atlas. **Training count**: "Y", same metric — the Atlas preview now reads 1,701+ like
+   the MAST page.
+1h. **Book a Class, date first** (2026-09-05: "Swap Enter the Range to Book a Class; click = calendar open; each has tab; choose tab;
+   class offerings; all dates; hover class shows"): the hero's primary button and the contact chapter's button are **Book a Class**
+   and open `#dcal` — every training weekend on one calendar (hover: "N classes offered"), tap a weekend → tabs by discipline
+   ("All classes" opens every tab) → Select hands the class to the normal gate → the course calendar with that weekend already
+   chosen → registration. Enter the Range is the secondary hero button. Until the course→weekend map exists (his accepted hole,
+   §B 5) every bookable course is offered every weekend. **Request** on the Private rows ("doesn't go to email"): now a dialog
+   (name, email, phone, note) that posts to the Worker's `/contact` with `request_type: private`; the Worker titles the email
+   "Private instruction request: <name>"; the mailto remains only as the fallback text when the Worker cannot be reached.
+   Needs the next Worker deploy for the subject line; the dialog itself works against the running Worker today.
 2. Founder shot: is `founder-portrait.jpg` it, or is another photo coming?
 3. Instagram: which posts, or an embedded feed?
 4. Capability cards: "have it here and bring back to front" — move up the MAST page, put on the Atlas home, or
@@ -180,8 +196,10 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
 9. Question order: the build asks name/email/phone before the two eligibility questions so a flagged person can be
    called; he said the questions come first. Confirm the build's order is acceptable.
 10. ~~"Fundamentals first" is a cue, not a gate~~ — settled 2026-09-04: each discipline's Fundamentals gates its other courses
-    (badge on every row, a yes/no gate at Select Date, attestation at registration, Worker refuses without it). Still open: should
-    disciplines without their own Fundamentals (Select-Fire, Team Tactics, Protective, Gear) require Handgun Fundamentals, as built?
+    (badge on every row, a yes/no gate at Select Date, attestation at registration, Worker refuses without it). Settled 2026-09-05
+    ("Only Team Tactics = Handgun Fun 1st"): of the disciplines without their own Fundamentals, only Team Tactics requires Handgun
+    Fundamentals; Select-Fire, Protective (Home, Vehicular, Motorcade, including "Vehicular Tactics / Team Tactics P2") and Gear carry
+    no prerequisite. Page (`PREREQ_CAT`), Worker (`prerequisiteFor`) and tests changed together.
 11. ~~Membership tiers~~ — chapter 06 "The Teams", six plans (2026-09-04): Red $250 (10 slots; 1 class + 25% off any 1 class for
     you or 1 friend), Blue $450 (5; 2 classes + 35% off 2 for you or 2 friends), Gold $575 (5; 3 + 45% off 3), Black $600 (5;
     unlimited + 50% off any class for you or 4 friends), **Law Enforcement $195** and **Verified Teachers $195** (Blue's benefits;

@@ -76,7 +76,8 @@ js = re.sub(r"const MEDIA = \[[\s\S]*?\n\];\n", media, js, count=1)
 # Video testimonials live in the Testimonials chapter (Brockmann, 2026-09-04), not in the media strip.
 testimonials = """const TESTIMONIALS = [
   { mp4: 'images/mast/jason-castro-testimonial.mp4', teaser: 'images/mast/jason-castro-testimonial-teaser.mp4', poster: 'images/mast/jason-castro-testimonial-poster.jpg', title: 'Jason Castro', sub: 'Student testimonial' },
-];"""
+  { mp4: 'images/mast/testimonial-2.mp4', teaser: 'images/mast/testimonial-2-teaser.mp4', poster: 'images/mast/testimonial-2-poster.jpg', title: 'MUSAT Security Training Center', sub: 'Client film' },
+];"""   # testimonial-2: his "Testimonial2.mov" (2026-09-05, "Attached MP4 = Testimonials"): a MUSAT training-center film; retitle on his word
 assert js.count('const TESTIMONIALS = [];') == 1, 'tesla page lost its TESTIMONIALS hook'
 js = js.replace('const TESTIMONIALS = [];', testimonials, 1)
 # A Long Recovery: the documentary about instructor Torrey Kramer's return after his second deployment (link from Brockmann, 2026-09-04).
@@ -140,6 +141,14 @@ MEMBERSHIP = f"""
   </section>
 """
 
+# ── Blogs in the chapter menu, under In Action, preview-only (owner, 2026-09-05: "Link the blogs in the menu under In Action, but do
+#    not publish to view yet (I can see) and can change up when due to SEO"). The link renders only when the URL carries `preview`
+#    (…mastsolutions.html?v=<sha>&preview), so visitors never see it until he says publish. Not a .chap-link: the shell maps those to
+#    chapters by index.
+_in_action = '  <a href="#s9" class="chap-link">09 &middot; In Action</a>'
+assert CHROME.count(_in_action) == 1, 'In Action nav entry not found'
+CHROME = CHROME.replace(_in_action, _in_action + '\n  <a href="articles/index.html" class="chap-extra preview-only">&middot; Blogs</a>')
+
 # ── The Range: the owner's photographs first (2026-09-05: a08 and a13 the aerials, a01–a04 the berm, the berm at dusk, the
 #    canopies and the classroom, a05 the briefing, a09 the pistol line, a10 the range at night under lights, a11 the low-light
 #    class, a12 the doorway entry), then the old site's views he kept. 2026-09-05, on the 27-tile build (b2d0e99: a05–a07 then r001–r024):
@@ -192,6 +201,7 @@ LIGHTBOX = """
 """
 LIGHTBOX_JS = """
 function showAll(id){ document.getElementById(id).classList.add('all'); const b = document.getElementById(id + '-more'); if (b) b.remove(); }
+if (/[?&#]preview(?=[=&#]|$)/.test(location.search + location.hash)) document.body.classList.add('preview');   // owner's preview of unpublished pieces (the Blogs link)
 function toggleFold(id, openText, closeText){ const f = $(id), b = $(id + '-btn'); const open = !f.classList.contains('open'); f.classList.toggle('open', open); b.textContent = open ? closeText : openText; b.setAttribute('aria-expanded', open ? 'true' : 'false'); if (!open) b.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 function openLb(src){ $('lb-img').src = src; $('lb-bd').classList.add('open'); $('lb').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeLb(){ $('lb-bd').classList.remove('open'); $('lb').classList.remove('open'); document.body.style.overflow = ''; }
@@ -204,7 +214,7 @@ SECTIONS = f"""
       <div class="eyebrow">Over Two Decades &middot; Quiet &middot; Deliberate</div>
       <h1 class="mega"><span class="gold">Details</span> <span class="white">Matter</span></h1>
       <p class="sub">Trusted by DEA, Houston SWAT, US Military, and Homeland Security. No fluff. No shortcuts. No compromise.</p>
-      <div class="ctas rise"><a href="#s5" class="cta">Enter The Range</a><a href="#s6" class="secondary-cta">Classes</a></div>
+      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a><a href="#s5" class="secondary-cta">Enter The Range</a></div>   <!-- owner, 2026-09-05: "Swap Enter the Range to Book a Class; click = calendar open" -->
     </div>
     <div class="scroll-cue">SCROLL &darr;</div>
   </section>
@@ -300,8 +310,7 @@ SECTIONS = f"""
       <div class="team rise">
         <div class="portrait" style="background-image:url('images/mast/torrey-kramer.jpg');background-position:center 20%"><div class="cap">Instructor</div></div>
         <div class="bio"><h3>Torrey Kramer</h3><div class="role">Instructor</div>
-          <p>Combat veteran. Injured by an IED on his second deployment; his return is the subject of the documentary <i>A Long Recovery</i>, below.</p>
-        </div>
+        </div><!-- bio text deleted on the owner's word (2026-09-05: "Delete Torrey Kramer's bio"); the portrait, name and the film below stay -->
       </div>
       <div class="media-strip rise" id="instructor-strip"></div>
       <div class="cert rise">
@@ -361,7 +370,7 @@ SECTIONS = f"""
       <h2 class="section-h"><span class="gold">Train</span> with MAST.</h2>
       <p class="sub">Individual seats, team blocks, and agency instruction.</p>
       <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div>
-      <div class="ctas rise"><a href="#s6" class="cta">Book a Course</a><a href="/" class="secondary-cta">Atlas Glinn &rarr;</a></div>
+      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a><a href="/" class="secondary-cta">Atlas Glinn &rarr;</a></div>
       <div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions <br><a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.youtube.com/@mastsolutions" target="_blank" rel="noopener">YouTube</a></div>
     </div>
   </section>
@@ -456,6 +465,10 @@ QUOTES_CSS = """
   .photo-tiles.all .tile.more { display:flex; }
   .gallery-eyebrow { margin-top:2.6rem; }
   #s9 .post { margin-top:.2rem; margin-bottom:1.8rem; }   /* above the films (owner, 2026-09-05) */
+  /* Preview-only menu entries (the Blogs link under In Action): hidden until the URL carries `preview`. Styled as the chapter menu, indented. */
+  .chap-extra { display:none; color:var(--text); font-weight:700; text-shadow:0 1px 10px rgba(0,0,0,.9); text-decoration:none; letter-spacing:.25em; padding:.2rem .8rem .2rem 2.6rem; font-size:.58rem; text-transform:uppercase; align-items:center; gap:.6rem; cursor:none; }
+  .chap-extra:hover { color:var(--gold-champagne); }
+  body.preview .chap-extra { display:flex; }
   /* Folded photo grids: closed until the button opens them, then they unfold downward. The padding keeps the tiles' hover lift clear of the clip. */
   .fold { max-height:0; overflow:hidden; opacity:0; padding:10px 10px 0; margin:-10px -10px 0; transition:max-height .8s cubic-bezier(.2,.7,.2,1), opacity .45s; }
   .fold.open { max-height:6000px; opacity:1; padding-bottom:12px; transition:max-height 1.2s cubic-bezier(.2,.7,.2,1), opacity .5s .1s; }

@@ -312,14 +312,18 @@ async function handleBooking(request, env, cors) {
  *  Mirrors levelOf() on the page: Fundamentals courses have no prerequisite, P2 needs P1, Operator/P1 need Fundamentals. */
 // Progression (owner, 2026-09-04: "first-time students HAVE to take Fundamentals in all courses that have fundamentals first"):
 // a course requires its discipline's Fundamentals (Handgun — or its ladies-only class —, Carbine, Sub-Gun, Low-Light / NVG;
-// Shotgun has only the Fundamentals); disciplines without their own fall back to Handgun Fundamentals ("For all of the
-// selections, you have to take the fundamentals class first"); a P2 course also needs the P1. The page shows and asks the
+// Shotgun has only the Fundamentals); of the disciplines without their own, only Team Tactics requires one, Handgun
+// Fundamentals (owner, 2026-09-05); a P2 course also needs the P1. The page shows and asks the
 // same rule (levelOf / selectCourse in mastsolutions-tesla.html). The discipline is read from the course name so D1 rows
 // and the seeds behave the same.
 function prerequisiteFor(offering) {
   const n = String((offering && offering.name) || '');
   if (!n || /Fundamentals/i.test(n)) return null;
-  const disc = /Carbine/i.test(n) ? 'Carbine' : /Sub-Gun/i.test(n) ? 'Sub-Gun' : /Low-Light|NVG/i.test(n) ? 'Low-Light' : 'Handgun';
+  const disc = /Carbine/i.test(n) ? 'Carbine' : /Sub-Gun/i.test(n) ? 'Sub-Gun' : /Low-Light|NVG/i.test(n) ? 'Low-Light' : /Shotgun/i.test(n) ? 'Shotgun'
+    : /Handgun|^Team Tactics/i.test(n) ? 'Handgun' : null;
+  // Select-Fire, Protective (Home, Vehicular, Motorcade — including "Vehicular Tactics / Team Tactics P2") and Gear carry no prerequisite
+  // (owner, 2026-09-05: "Only Team Tactics = Handgun Fun 1st"). The page's levelOf applies the same rule by category.
+  if (!disc) return null;
   const fund = 'MAST ' + disc + ' Fundamentals';
   return /\bP2\b/.test(n) ? fund + ' and a MAST P1 course' : fund;
 }
@@ -588,7 +592,7 @@ async function handleContact(request, env, cors) {
   };
   const subject = kind === 'capability'
     ? 'Capability statement request: ' + name + (meta.company ? ' · ' + meta.company : '')
-    : 'Website contact: ' + name;
+    : (meta.request_type === 'private' ? 'Private instruction request: ' : 'Website contact: ') + name;   // the page's Request dialog (2026-09-05)
   const text = [
     kind === 'capability' ? 'CAPABILITY STATEMENT REQUEST' : 'WEBSITE CONTACT',
     '',

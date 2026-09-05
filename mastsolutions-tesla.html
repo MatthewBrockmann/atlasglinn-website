@@ -211,6 +211,20 @@
         .cal-legend { display: flex; gap: 1.2rem; flex-wrap: wrap; font-family: 'Inconsolata', monospace; font-size: .68rem; letter-spacing: .1em; color: #888; margin-top: .8rem; text-transform: uppercase; }
         .cal-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
         .cal-quick { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+        .cal-classes { margin-top: 1.2rem; border-top: 1px solid rgba(201,168,76,.25); padding-top: 1rem; }
+        .cal-tabs { display: flex; flex-wrap: wrap; gap: .45rem; margin: .8rem 0 .4rem; }
+        .cal-list .cal-item { display: grid; grid-template-columns: 1fr auto auto; gap: 1rem; align-items: center; padding: .75rem 0; border-top: 1px solid rgba(255,255,255,.06); }
+        .cal-list .cal-item:first-child { border-top: 0; }
+        .cal-item b { display: block; font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: .85rem; color: #fff; margin-bottom: .2rem; }
+        .cal-item small { display: block; font-family: 'Inconsolata', monospace; font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; color: #b0b0b0; }
+        .cal-item .cal-item-price { font-family: 'Orbitron', sans-serif; font-weight: 700; color: #C9A84C; font-size: .95rem; }
+        .cal-item .cta-button.small { padding: .55rem 1rem; font-size: .68rem; letter-spacing: .18em; }
+        .modal.req label { display: block; margin: .7rem 0 0; font-family: 'Inconsolata', monospace; font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; color: #b0b0b0; }
+        .modal.req label .opt { text-transform: none; letter-spacing: 0; color: #777; }
+        .modal.req input, .modal.req textarea { display: block; width: 100%; margin-top: .35rem; padding: .7rem .8rem; background: rgba(255,255,255,.04); border: 1px solid rgba(201,168,76,.3); border-radius: 4px; color: #fff; font-family: 'Rajdhani', sans-serif; font-size: 1rem; }
+        .modal.req input:focus, .modal.req textarea:focus { outline: none; border-color: #C9A84C; }
+        .modal.req .err { color: #ff8a80; font-size: .9rem; margin-top: .6rem; }
+        .modal.req .err a { color: #E8D27D; }
         .chip { font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: .85rem; padding: .35rem .7rem; border-radius: 20px; border: 1px solid rgba(201,168,76,.4); color: #d0d0d0; background: none; cursor: pointer; }
         .chip:hover { border-color: #1A6BDE; color: #fff; }
         .chip.sel { background: #1A6BDE; border-color: #1A6BDE; color: #fff; }
@@ -547,6 +561,44 @@
     <p class="gate-fine">First time with MAST? Start with Fundamentals. It is the base every other course builds on.</p>
 </div>
 
+<!-- PRIVATE INSTRUCTION REQUEST: sends through the Worker's /contact (owner, 2026-09-05: "Request = doesn't go to email"). -->
+<div id="req-bd" class="modal-bd" onclick="closeReq()"></div>
+<div id="req" class="modal gate req" role="dialog" aria-modal="true" aria-labelledby="req-title">
+    <button class="modal-x" aria-label="Close" onclick="closeReq()">&times;</button>
+    <div class="eyebrow">Private instruction</div>
+    <h3 id="req-title"></h3>
+    <p class="gate-text" id="req-meta"></p>
+    <label>Name<input id="req-name" type="text" autocomplete="name" required></label>
+    <label>Email<input id="req-email" type="email" autocomplete="email" required></label>
+    <label>Phone <span class="opt">(optional)</span><input id="req-phone" type="tel" autocomplete="tel"></label>
+    <label>Anything we should know <span class="opt">(optional)</span><textarea id="req-msg" rows="3"></textarea></label>
+    <input type="text" id="req-web" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;">
+    <div class="gate-actions"><button class="cta-button" id="req-go" type="button" onclick="reqGo()">Send Request</button></div>
+    <p class="err" id="req-err" hidden></p>
+    <p class="gate-fine">We reply within one business day. Private sessions are by arrangement, not on the weekend calendar.</p>
+</div>
+
+<!-- BOOK A CLASS, date first (owner, 2026-09-05: "Click Book Class = calendar open; each has tab; choose tab; class offerings; all dates; hover class shows").
+     Every training weekend; hover or tap a date for what runs; tabs by discipline ("All" opens every tab); Select hands the class to the
+     normal gate → calendar (date preselected) → registration. Until the course→weekend map exists, every bookable course runs every weekend. -->
+<div id="dcal-bd" class="modal-bd" onclick="closeDCal()"></div>
+<div id="dcal" class="modal wide" role="dialog" aria-modal="true" aria-labelledby="dcal-title">
+    <button class="modal-x" aria-label="Close" onclick="closeDCal()">&times;</button>
+    <div class="eyebrow">Book a Class</div>
+    <h3 id="dcal-title">Choose a training weekend</h3>
+    <div class="modal-meta">Every training weekend on one calendar. Hover a date for what runs; tap it to choose a class.</div>
+    <div class="cal-nav"><button id="dcal-prev" aria-label="Previous month" onclick="dcalShift(-1)">&#8249;</button><div class="cal-month" id="dcal-month"></div><button id="dcal-next" aria-label="Next month" onclick="dcalShift(1)">&#8250;</button></div>
+    <div class="cal-dow"><div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div></div>
+    <div class="cal-grid" id="dcal-grid"></div>
+    <div class="cal-legend"><span><i style="background:rgba(201,168,76,.5)"></i>Training weekend</span><span><i style="background:#1A6BDE"></i>Selected</span><span><i style="background:#333"></i>Unavailable</span></div>
+    <div class="cal-quick" id="dcal-quick"></div>
+    <div class="cal-classes" id="dcal-classes" hidden>
+        <div class="cal-sel" id="dcal-sel"></div>
+        <div class="cal-tabs" id="dcal-tabs"></div>
+        <div class="cal-list" id="dcal-list"></div>
+    </div>
+</div>
+
 <!-- CHECKOUT -->
 <div id="sheet-bd" class="modal-bd" onclick="closeSheet()"></div>
 <div id="sheet" class="modal sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
@@ -734,12 +786,13 @@ const money = c => '$' + (c/100).toLocaleString('en-US', { minimumFractionDigits
 /* Progression (owner, 2026-09-04: "first-time students HAVE to take Fundamentals in all courses that have fundamentals first"): every
    course in a discipline that has a Fundamentals course requires that Fundamentals first — Handgun Operator ← Handgun Fundamentals (or its
    ladies-only class), Carbine Operator ← Carbine Fundamentals, Sub-Gun P1 ← Sub-Gun Fundamentals, Low-Light / NVG ← Low-Light Fundamentals.
-   Disciplines without their own fall back to Handgun Fundamentals ("For all of the selections, you have to take the fundamentals class
-   first"). A P2 course also needs the P1 before it. The gate is asked at Select Date (selectCourse) and again as the attestation in the
+   Of the disciplines without their own Fundamentals, only Team Tactics requires one — Handgun Fundamentals (owner, 2026-09-05: "Only Team
+   Tactics = Handgun Fun 1st"); Select-Fire, Protective (Home, Vehicular, Motorcade) and Gear carry no prerequisite. A P2 course also needs the P1 before it. The gate is asked at Select Date (selectCourse) and again as the attestation in the
    sheet; by-arrangement private instruction carries no badge. The Worker applies the same rule (prerequisiteFor). */
 const FUND_SKU = { 'Handgun': 'MAST-HG-FUND', 'Carbine': 'MAST-CAR-FUND', 'Shotgun': 'MAST-SG-FUND', 'Sub-Gun': 'MAST-SUB-FUND', 'Low-Light / NVG': 'MAST-LL-FUND' };
-const fundFor = c => COURSES.find(x => x.sku === (FUND_SKU[c.cat] || 'MAST-HG-FUND'));
-const levelOf = c => { if (c.request) return null; if (/Fundamentals/.test(c.name)) return { n: 1, tag: 'START HERE' }; const f = fundFor(c), disc = f.name.replace(/ Fundamentals$/, '').toUpperCase(); return /\bP2\b/.test(c.name) ? { n: 3, tag: disc + ' FUNDAMENTALS + P1 REQUIRED', fund: f } : { n: 2, tag: disc + ' FUNDAMENTALS REQUIRED', fund: f }; };
+const PREREQ_CAT = { 'Team Tactics': 'MAST-HG-FUND' };   // the only discipline without its own Fundamentals that requires one
+const fundFor = c => { const sku = FUND_SKU[c.cat] || PREREQ_CAT[c.cat]; return sku ? COURSES.find(x => x.sku === sku) : null; };
+const levelOf = c => { if (c.request) return null; if (/Fundamentals/.test(c.name)) return { n: 1, tag: 'START HERE' }; const f = fundFor(c); if (!f) return null; const disc = f.name.replace(/ Fundamentals$/, '').toUpperCase(); return /\bP2\b/.test(c.name) ? { n: 3, tag: disc + ' FUNDAMENTALS + P1 REQUIRED', fund: f } : { n: 2, tag: disc + ' FUNDAMENTALS REQUIRED', fund: f }; };
 const fundLabel = f => f.name + (f.sku === 'MAST-HG-FUND' ? ' (or the Ladies Only class)' : '');
 const metaBase = c => c.meta ? c.meta : c.days ? `${c.hours} HRS · ${c.days} DAY${c.days > 1 ? 'S' : ''} · ${c.seats} SEATS` : `CALL FOR DETAILS`;
 const metaFor = c => { const l = levelOf(c); return metaBase(c) + (l ? ' · ' + l.tag : ''); };
@@ -756,7 +809,7 @@ $('catalog').innerHTML = CATS.map((cat, ci) => {
   const items = COURSES.map((c, i) => ({ c, i })).filter(x => x.c.cat === cat);
   return `<div class="cat${ci === 0 ? ' open' : ''}" id="cat-${ci}"><button class="cat-btn" aria-expanded="${ci === 0}" onclick="toggleCat(${ci})"><span class="cat-name">${esc(CAT_LABELS[cat] || 'All ' + cat)}</span><span class="cat-count">${items.length} ${cat === 'Private Instruction' ? 'option' : 'course'}${items.length > 1 ? 's' : ''}</span><span class="cat-chev" aria-hidden="true">&#9662;</span></button><div class="cat-panel">` + (CAT_NOTES[cat] ? `<p class="cat-note">${CAT_NOTES[cat]}</p>` : '') +
     items.map(({ c, i }) => c.request
-      ? `<div class="course-row call">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div>${c.pdf ? `<a class="cr-pdf" href="${esc(c.pdf)}" target="_blank" rel="noopener">Private instruction sheet (PDF) &rarr;</a>` : ''}</div><div class="cr-side"><div class="cr-price">BY<small>ARRANGEMENT</small></div><a class="cta-button cr-btn" href="${'mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent('Private instruction — ' + c.name)}">Request</a></div></div>`
+      ? `<div class="course-row call">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div>${c.pdf ? `<a class="cr-pdf" href="${esc(c.pdf)}" target="_blank" rel="noopener">Private instruction sheet (PDF) &rarr;</a>` : ''}</div><div class="cr-side"><div class="cr-price">BY<small>ARRANGEMENT</small></div><button class="cta-button cr-btn" type="button" onclick="requestPrivate(${i})">Request</button></div></div>`
       : c.price_cents
       ? `<div class="course-row" role="button" tabindex="0" onclick="selectCourse(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectCourse(${i});}">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price" data-sku="${c.sku}">${money(c.price_cents)}<small>PER SEAT</small></div><span class="cta-button cr-btn">Select Date</span></div></div>`
       : `<div class="course-row call">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price">CALL<small>FOR PRICING</small></div><a class="cta-button ghost-button cr-btn" href="tel:+12816548100">Call</a></div></div>`).join('') + `</div></div>`;
@@ -785,7 +838,7 @@ function closeGate(){ $('gate-bd').classList.remove('open'); $('gate').classList
 function gateYes(){ const c = COURSES[gateIdx]; attested[c.sku] = true; closeGate(); openCal(gateIdx); }
 function gateNo(){ const f = levelOf(COURSES[gateIdx]).fund, fi = COURSES.indexOf(f), ci = CATS.indexOf(f.cat); closeGate(); const cat = $('cat-' + ci); if (cat && !cat.classList.contains('open')) toggleCat(ci); const row = document.querySelector(`.cr-price[data-sku="${f.sku}"]`); const rowEl = row && row.closest('.course-row'); if (rowEl) { rowEl.scrollIntoView({ block: 'center' }); rowEl.classList.add('flash'); setTimeout(() => rowEl.classList.remove('flash'), 2400); } openCal(fi); }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('gate').classList.contains('open')) closeGate(); });
-function openCal(i){ calCourse = COURSES[i]; chosen = null; lastFocus = document.activeElement; $('cal-title').textContent = calCourse.name; $('cal-meta').textContent = metaFor(calCourse); $('cal-price').textContent = money(calCourse.price_cents) + ' per seat'; const first = WEEKENDS.find(bookable) || WEEKENDS[0]; const fd = parseISO(first.saturday); calMonth = new Date(fd.getFullYear(), fd.getMonth(), 1); renderCal(); $('cal-bd').classList.add('open'); $('cal').classList.add('open'); document.body.style.overflow = 'hidden'; }
+function openCal(i){ calCourse = COURSES[i]; chosen = (preChosen !== null && bookable(WEEKENDS[preChosen])) ? preChosen : null; preChosen = null; lastFocus = document.activeElement; $('cal-title').textContent = calCourse.name; $('cal-meta').textContent = metaFor(calCourse); $('cal-price').textContent = money(calCourse.price_cents) + ' per seat'; const first = chosen !== null ? WEEKENDS[chosen] : (WEEKENDS.find(bookable) || WEEKENDS[0]); const fd = parseISO(first.saturday); calMonth = new Date(fd.getFullYear(), fd.getMonth(), 1); renderCal(); $('cal-bd').classList.add('open'); $('cal').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeCal(){ $('cal-bd').classList.remove('open'); $('cal').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
 function calBounds(){ const a = parseISO(WEEKENDS[0].saturday), b = parseISO(WEEKENDS[WEEKENDS.length - 1].saturday); return { min: new Date(a.getFullYear(), a.getMonth(), 1), max: new Date(b.getFullYear(), b.getMonth(), 1) }; }
 function calShift(n){ const { min, max } = calBounds(); const next = new Date(calMonth.getFullYear(), calMonth.getMonth() + n, 1); if (next < min || next > max) return; calMonth = next; renderCal(); }
@@ -802,6 +855,50 @@ function renderCal(){
 }
 function pick(wi){ chosen = wi; const d = parseISO(WEEKENDS[wi].saturday); calMonth = new Date(d.getFullYear(), d.getMonth(), 1); renderCal(); }
 function calContinue(){ if (chosen === null) return; $('cal-bd').classList.remove('open'); $('cal').classList.remove('open'); openSheet(); }
+
+// ── Book a Class, date first (owner, 2026-09-05). Every training weekend on one calendar; hover shows what runs; pick a weekend, then a
+//    class from tabs by discipline ("All" opens every tab); Select hands the class to the normal gate → calendar (the weekend already
+//    chosen) → registration. Until the course→weekend map exists every bookable course runs every weekend (his accepted hole).
+let dcalMonth = null, dcalPick = null, dcalTab = 'All', preChosen = null;
+function offeredOn(wi){ return COURSES.map((c, i) => ({ c, i })).filter(({ c }) => !c.request && c.price_cents > 0 && c.days > 0); }
+function openDCal(){ dcalPick = null; dcalTab = 'All'; lastFocus = document.activeElement; const first = WEEKENDS.find(bookable) || WEEKENDS[0]; const fd = parseISO(first.saturday); dcalMonth = new Date(fd.getFullYear(), fd.getMonth(), 1); renderDCal(); $('dcal-bd').classList.add('open'); $('dcal').classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeDCal(){ $('dcal-bd').classList.remove('open'); $('dcal').classList.remove('open'); document.body.style.overflow = ''; }
+function dcalShift(n){ const { min, max } = calBounds(); const next = new Date(dcalMonth.getFullYear(), dcalMonth.getMonth() + n, 1); if (next < min || next > max) return; dcalMonth = next; renderDCal(); }
+function renderDCal(){
+  const { min, max } = calBounds(); $('dcal-month').textContent = MONTHS[dcalMonth.getMonth()] + ' ' + dcalMonth.getFullYear(); $('dcal-prev').disabled = dcalMonth <= min; $('dcal-next').disabled = dcalMonth >= max;
+  const dayMap = {}; WEEKENDS.forEach((w, wi) => weekendDates(w, 2).forEach(d => { dayMap[keyOf(d)] = wi; }));
+  const y = dcalMonth.getFullYear(), m = dcalMonth.getMonth(); const gridStart = new Date(y, m, 1 - new Date(y, m, 1).getDay()); let html = '';
+  for (let k = 0; k < 42; k++) { const d = new Date(gridStart); d.setDate(gridStart.getDate() + k); const wi = dayMap[keyOf(d)]; const other = d.getMonth() !== m; let cls = 'day' + (other ? ' other' : ''), attrs = '';
+    if (wi !== undefined && !other) { const w = WEEKENDS[wi]; if (bookable(w)) { cls += ' wk' + (dcalPick === wi ? ' sel' : ''); attrs = ` onclick="dcalPickDay(${wi})" title="${esc(w.label)} · ${offeredOn(wi).length} classes offered · tap to choose"`; } else { cls += ' blk' + (isPast(w) ? ' past' : ''); attrs = ' title="Unavailable"'; } }
+    html += `<div class="${cls}"${attrs}>${d.getDate()}</div>`; }
+  $('dcal-grid').innerHTML = html;
+  $('dcal-quick').innerHTML = WEEKENDS.map((w, wi) => bookable(w) ? `<button type="button" class="chip${dcalPick === wi ? ' sel' : ''}" onclick="dcalPickDay(${wi})">${labelFor(w, 2).replace(/, \d{4}$/, '')}</button>` : '').join('');
+  const box = $('dcal-classes'); box.hidden = dcalPick === null; if (dcalPick === null) return;
+  const items = offeredOn(dcalPick); $('dcal-sel').innerHTML = `<b>${labelFor(WEEKENDS[dcalPick], 2)}</b> &middot; ${items.length} classes &middot; choose one`;
+  const cats = ['All', ...CATS.filter(cat => items.some(({ c }) => c.cat === cat))];
+  $('dcal-tabs').innerHTML = cats.map(cat => `<button type="button" class="chip${dcalTab === cat ? ' sel' : ''}" onclick="dcalTabSet(this.dataset.cat)" data-cat="${esc(cat)}">${esc(cat === 'All' ? 'All classes' : (CAT_LABELS[cat] || cat))}</button>`).join('');
+  $('dcal-list').innerHTML = items.filter(({ c }) => dcalTab === 'All' || c.cat === dcalTab).map(({ c, i }) => `<div class="cal-item"><div><b>${esc(c.name)}</b><small>${metaHtml(c)}</small></div><div class="cal-item-price">${money(c.price_cents)}</div><button type="button" class="cta-button small" onclick="dcalChoose(${i})">Select</button></div>`).join('');
+}
+function dcalPickDay(wi){ dcalPick = wi; const d = parseISO(WEEKENDS[wi].saturday); dcalMonth = new Date(d.getFullYear(), d.getMonth(), 1); renderDCal(); setTimeout(() => { const b = $('dcal-classes'); if (b && !b.hidden) b.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 60); }
+function dcalTabSet(cat){ dcalTab = cat; renderDCal(); }
+function dcalChoose(i){ preChosen = dcalPick; closeDCal(); selectCourse(i); }
+
+// ── Private instruction request (owner, 2026-09-05: "Request = doesn't go to email"): a short dialog that posts to the Worker's /contact,
+//    which emails the office; the mailto stays only as the fallback when the Worker cannot be reached.
+let reqIdx = null;
+function requestPrivate(i){ reqIdx = i; const c = COURSES[i]; lastFocus = document.activeElement; $('req-title').textContent = c.name; $('req-meta').textContent = c.meta ? c.meta.replace(/ · /g, ' · ') : ''; $('req-msg').value = ''; $('req-err').hidden = true; const b = $('req-go'); b.disabled = false; b.textContent = 'Send Request'; $('req-bd').classList.add('open'); $('req').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('req-name').focus(), 60); }
+function closeReq(){ $('req-bd').classList.remove('open'); $('req').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+async function reqGo(){ const c = COURSES[reqIdx]; const name = $('req-name').value.trim(), email = $('req-email').value.trim(), phone = $('req-phone').value.trim(), note = $('req-msg').value.trim(); const err = $('req-err'), b = $('req-go');
+  if (name.length < 2) { err.textContent = 'Enter your name.'; err.hidden = false; $('req-name').focus(); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Enter a valid email address.'; err.hidden = false; $('req-email').focus(); return; }
+  err.hidden = true; b.disabled = true; b.textContent = 'Sending…';
+  const message = 'Private instruction request — ' + c.name + (c.meta ? ' (' + c.meta + ')' : '') + (note ? '\n\n' + note : '');
+  try { const r = await fetch(API + '/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'contact', request_type: 'private', name, email, phone, message, website: $('req-web').value, page: location.href.split('#')[0] }) });
+    const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'Could not send the request.');
+    b.textContent = 'Request sent ✓'; $('req-meta').textContent = 'Thank you, ' + name.split(' ')[0] + '. We reply within one business day.'; setTimeout(closeReq, 2400); }
+  catch (e) { b.disabled = false; b.textContent = 'Send Request'; err.innerHTML = esc(e.message || 'Could not send the request.') + ' You can also email <a href="mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent('Private instruction — ' + c.name) + '">atlasglinn.hq@atlasglinn.com</a>.'; err.hidden = false; }
+}
+document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if ($('dcal').classList.contains('open')) closeDCal(); if ($('req').classList.contains('open')) closeReq(); });
 
 /* Checkout — registration: details → eligibility → agreement → refund consent → Stripe (privacy.html §3) */
 const REGISTER_ENDPOINT = API + '/register';
