@@ -86,7 +86,13 @@ jobs:
             xargs -I{} dirname {} < files.txt | sort -u | grep -v '^\.$' | awk '{ n=split($0,a,"/"); p=""; for(i=1;i<=n;i++){ p=(p==""?a[i]:p"/"a[i]); print "-mkdir " p } }' | sort -u
             awk '{ print "put " $0 " " $0 }' files.txt
           } > batch.txt
-          sshpass -e sftp -oBatchMode=no -o StrictHostKeyChecking=accept-new -b batch.txt "$SFTP_USER@$HOST" > sftp.log 2>&1 || { tail -20 sftp.log; exit 1; }
+          if ! sshpass -e sftp -oBatchMode=no -o StrictHostKeyChecking=accept-new -b batch.txt "$SFTP_USER@$HOST" > sftp.log 2>&1; then
+            tail -20 sftp.log
+            if grep -q 'Permission denied' sftp.log; then
+              echo "::error::The host refused the SFTP login: WP_SFTP_USER / WP_SFTP_PASSWORD do not match what the Mac keeps in the Keychain item mast-wp-sftp (Account = username; Show Password = password). Re-enter both repository secrets. Nothing was uploaded; the Mac's hourly job still carries the site."
+            fi
+            exit 1
+          fi
           echo "uploaded $(wc -l < files.txt) files to $HOST:$DOCROOT/"
       - name: Live check
         if: steps.creds.outputs.ready == 'true'
