@@ -139,8 +139,8 @@
   /* Shared card hover (Brockmann, 2026-09-04: "make sure that for any card or any function on the site ... we don't lose the
      consistency"): every card on either site lifts the same way on mouse-over. Add each new card class to these two selectors;
      the card's own rules only set its border colour. */
-  .tile, .tier { transition:transform .45s, border-color .45s, box-shadow .45s; }
-  .tile:hover, .tier:hover { transform:translateY(-6px); }
+  .tile, .tier, .gear-card { transition:transform .45s, border-color .45s, box-shadow .45s; }   /* every card on either site takes this one hover (Brockmann, 2026-09-04) */
+  .tile:hover, .tier:hover, .gear-card:hover { transform:translateY(-6px); }
   .tile .txt { position:relative; z-index:2; padding:1.4rem 1.3rem; width:100%; }
   .tile .num { font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.4em; color:var(--gold); margin-bottom:.5rem; }
   .tile h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.15rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.35rem; }
