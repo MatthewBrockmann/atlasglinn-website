@@ -245,7 +245,7 @@ SECTIONS = f"""
       <div class="eyebrow">Instructors</div>
       <h2 class="section-h">Meet The <span class="gold">Team.</span></h2>
       <div class="founder rise">
-        <div class="portrait" style="background-image:url('images/mast/brockmann-instructor.jpg');background-position:center 22%"><div class="cap">Founder &amp; Lead Instructor</div></div>
+        <div class="portrait" style="background-image:url('images/mast/brockmann-instructor.jpg');background-position:64% 30%"><div class="cap">Founder &amp; Lead Instructor</div></div>
         <div class="bio">
           <h3>Matthew Brockmann</h3><div class="role">Founder &amp; Lead Instructor</div>
           <p>Founded MAST Solutions in 2005 and later Atlas Glinn, LLC. Former Head of Security, Sen. Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named as media exist. Other high-profile and high-net-worth individuals follow our privacy standards. We don&rsquo;t do media. Names appear only where the media captured them. Teaches on the range. Has trained Houston, Baytown, Galveston, and other SWAT teams, including TTPOA (TX Tactical Police Officers Association), VBSS (Visit, Board, Search, Seize), NASA SRT, Dept of Homeland Security, and other federal, state, and Military Units.</p>
