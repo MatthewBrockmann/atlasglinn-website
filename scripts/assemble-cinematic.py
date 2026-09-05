@@ -63,7 +63,8 @@ media = """const MEDIA = [
   { mp4: 'images/mast/mast-vid-1.mp4', teaser: 'images/mast/mast-vid-1-teaser.mp4', poster: 'images/mast/mast-vid-1-poster.jpg', title: 'MAST Solutions', sub: 'On the range' },
   { mp4: 'images/mast/mast-vid-2.mp4', teaser: 'images/mast/mast-vid-2-teaser.mp4', poster: 'images/mast/mast-vid-2-poster.jpg', title: 'MAST Solutions', sub: 'Training day' },
   { mp4: 'images/mast/mast-medical.mp4', teaser: 'images/mast/mast-medical-teaser.mp4', poster: 'images/mast/mast-medical-poster.jpg', title: 'Medical', sub: 'Tourniquet under pressure' },
-  { mp4: 'images/mast/mast-shotgun.mp4', teaser: 'images/mast/mast-shotgun-teaser.mp4', poster: 'images/mast/mast-shotgun-poster.jpg', title: 'Shotgun', sub: 'Breaching and patterning' },
+  { mp4: 'images/mast/mast-shotgun.mp4', teaser: 'images/mast/mast-shotgun-teaser.mp4', poster: 'images/mast/mast-shotgun-poster.jpg', title: 'Shotgun', sub: 'Two takes on the flat range' },
+  { mp4: 'images/mast/mast-shotgun-op.mp4', teaser: 'images/mast/mast-shotgun-op-teaser.mp4', poster: 'images/mast/mast-shotgun-op-poster.jpg', title: 'Shotgun Operator', sub: 'Class instruction' },
   { mp4: 'images/film/atlas-glinn-and-mast-solutions.mp4', teaser: 'images/film/atlas-glinn-and-mast-solutions-teaser.mp4', poster: 'images/film/atlas-glinn-and-mast-solutions-poster.jpg', title: 'Atlas Glinn & MAST Solutions', sub: 'The film from the Atlas Glinn home page' },
   { mp4: 'images/film/about-atlas-glinn.mp4', teaser: 'images/film/about-atlas-glinn-teaser.mp4', poster: 'images/film/about-atlas-glinn-poster.jpg', title: 'Leadership Course', sub: 'MAST Solutions and Atlas Glinn' },
   { yt: 'pSGWdaDglZE', title: 'Modern Shooter TV', sub: 'Lance M / Castro / Ray Cash — MAST Solutions, full episode' },
@@ -136,25 +137,41 @@ MEMBERSHIP = f"""
   </section>
 """
 
-# ── The Range: photographs of the range from the old site (handoff branch, the 2013–14 shoots and section headers; owner, 2026-09-04:
-#    "look up the range photos that we had on the other site. That should be enter the range"). Same tile as the skills; tap opens the
-#    photograph in a lightbox.
-import glob as _glob
-RANGE_PHOTOS = sorted(_glob.glob(f'{REPO}/images/mast/range/a*.jpg')) + sorted(_glob.glob(f'{REPO}/images/mast/range/r*.jpg'))   # a*: photographs he sent (2026-09-05), first; r*: the old site's facility views
-RANGE_PHOTOS = ['images/mast/range/' + os.path.basename(x) for x in RANGE_PHOTOS]   # every range picture from the old site (scripts/range-photos.py); the first twelve show, the rest behind "show all"
-SHOWN = 12
-def photo_tile(i, src):
-    more = ' more' if i > SHOWN else ''
+# ── The Range: the owner's photographs first (2026-09-05: a08 and a13 the aerials, a01–a04 the berm, the berm at dusk, the
+#    canopies and the classroom, a05 the briefing, a09 the pistol line, a10 the range at night under lights, a11 the low-light
+#    class, a12 the doorway entry), then the old site's views he kept. 2026-09-05, on the 27-tile build (b2d0e99: a05–a07 then r001–r024):
+#    "Delete 2, 3, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15, 19, 21, 22, 23 and add what I just uploaded to the rest … want to trim down
+#    Range Photos". The sixteen he cut (a06, a07, r001, r003, r005–r012, r016, r018–r020) stay in images/mast/range/ out of the
+#    chapter ("can add some to gallery"). Same tile as the skills; tap opens the photograph in a lightbox. Edit the list and re-run.
+RANGE_PHOTOS = ['images/mast/range/' + f + '.jpg' for f in
+                ['a08', 'a13', 'a01', 'a02', 'a03', 'a04', 'a05', 'a09', 'a10', 'a11', 'a12',
+                 'r002', 'r004', 'r013', 'r014', 'r015', 'r017', 'r021', 'r022', 'r023', 'r024']]
+# The gallery under the films in In Action ("can add some to gallery", 2026-09-05): the action photographs he sent without a
+# caption that evening (g01 the police line on the covered range, g03 the vehicle drill in smoke, g07 through the smoke with the
+# carbine, g06 the carbine from behind the car, g04 the boat drill, g05 room clearing, g08 the team in the truck bed, g09 coffee in
+# kit with an MP, g02 the night muzzle flash) and his two range shots that are not of the range itself (a06 the firing line, a07
+# the prone shot; "photos that I will assign"). Anything he assigns to a chapter moves out of here.
+GALLERY_PHOTOS = ['images/mast/gallery/' + f + '.jpg' for f in ['g01', 'g03', 'g07', 'g06', 'g04', 'g05', 'g08', 'g09', 'g02']] + \
+                 ['images/mast/range/a06.jpg', 'images/mast/range/a07.jpg']
+for _p in RANGE_PHOTOS + GALLERY_PHOTOS:
+    assert os.path.exists(f'{REPO}/{_p}'), f'Photograph missing: {_p}'
+def photo_tile(i, src, shown):
+    more = ' more' if i > shown else ''
     return (f'<div class="tile photo{more}" role="button" tabindex="0" aria-label="Open photograph {i:02d}" onclick="openLb(\'{src}\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){{event.preventDefault();openLb(\'{src}\');}}">'
             f'<div class="bg" style="background-image:url(\'{src}\')"></div><div class="txt"><div class="num">{i:02d}</div></div></div>')
+def photo_grid(gid, photos):
+    """Skills-tile grid of photographs. Up to four rows show outright; a longer set shows twelve and puts the rest behind "Show all"."""
+    shown = len(photos) if len(photos) <= 16 else 12
+    tiles = ''.join(photo_tile(i, src, shown) for i, src in enumerate(photos, 1))
+    more = '' if len(photos) <= shown else f'<div class="ctas rise"><button class="secondary-cta" type="button" id="{gid}-more" onclick="showAll(\'{gid}\')">Show all {len(photos)} photographs</button></div>'
+    return f'<div class="tiles four rise photo-tiles" id="{gid}">{tiles}</div>\n      {more}'
 RANGE_SECTION = f"""
   <section class="panel" id="s5" data-section="05">
     <div>
       <div class="eyebrow">Enter the Range</div>
       <h2 class="section-h">The <span class="gold">Range.</span></h2>
       <p class="sub">A private range. Flat range and berms, vehicle lanes, low light, and the shoothouse &mdash; the ground every class is run on. Tap a photograph to open it.</p>
-      <div class="tiles four rise" id="range-tiles">{''.join(photo_tile(i, src) for i, src in enumerate(RANGE_PHOTOS, 1))}</div>
-      <div class="ctas rise"><button class="secondary-cta" type="button" id="range-more" onclick="showRange()">Show all {len(RANGE_PHOTOS)} photographs</button></div>
+      {photo_grid('range-tiles', RANGE_PHOTOS)}
     </div>
   </section>
 """
@@ -164,7 +181,7 @@ LIGHTBOX = """
 <div id="lb" class="modal wide lightbox" role="dialog" aria-modal="true" aria-label="Photograph"><button class="modal-x" aria-label="Close" onclick="closeLb()">&times;</button><img id="lb-img" alt=""></div>
 """
 LIGHTBOX_JS = """
-function showRange(){ document.getElementById('range-tiles').classList.add('all'); const b = document.getElementById('range-more'); if (b) b.remove(); }
+function showAll(id){ document.getElementById(id).classList.add('all'); const b = document.getElementById(id + '-more'); if (b) b.remove(); }
 function openLb(src){ $('lb-img').src = src; $('lb-bd').classList.add('open'); $('lb').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeLb(){ $('lb-bd').classList.remove('open'); $('lb').classList.remove('open'); document.body.style.overflow = ''; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('lb').classList.contains('open')) closeLb(); });
@@ -289,6 +306,8 @@ SECTIONS = f"""
       <h2 class="section-h">In <span class="gold">Action.</span></h2>
       <p class="sub">Training, operations, and the people behind the mission. Tap to play. Nothing loads until you do.</p>
       <div class="media-strip rise" id="media-strip"></div>
+      <div class="eyebrow gallery-eyebrow rise">Photographs</div>
+      {photo_grid('gallery-tiles', GALLERY_PHOTOS)}
       <a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener" class="post"><small>As featured in</small>The Washington Post &middot; Arming American Teachers &rarr;</a>
     </div>
   </section>
@@ -420,8 +439,9 @@ META = """<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><l
 # Six client testimonials (chapter 08) carried over from the earlier builds; they were dropped in the cinematic cut without an instruction.
 QUOTES_CSS = """
   .tile.photo .txt { padding:1rem 1.1rem; }
-  #range-tiles .tile.more { display:none; }
-  #range-tiles.all .tile.more { display:flex; }
+  .photo-tiles .tile.more { display:none; }
+  .photo-tiles.all .tile.more { display:flex; }
+  .gallery-eyebrow { margin-top:2.6rem; }
   .modal.lightbox { width:min(1200px, calc(100vw - 32px)); padding:.6rem; background:#050810; }
   .modal.lightbox img { display:block; max-width:100%; max-height:84vh; margin:0 auto; }
 

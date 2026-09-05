@@ -109,8 +109,30 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    original files into the folder before then.
 1d. **Range and classroom photographs** ("The range photos are the ones that were posted on the old website, with the classroom,
    the range"): **not in the handoff**. The old-site export's media library holds only 2014/06, 2014/09, 2014/11 and 2015/01
-   plus the gallery plugin's folder (the 2012–2014 shoots) — no classroom, nothing posted after January 2015. He offered to
-   attach them: the folder and the paste, or this chat. Until then chapter 05 shows the 24 facility views that do exist.
+   plus the gallery plugin's folder (the 2012–2014 shoots) — no classroom, nothing posted after January 2015. **Resolved in chat,
+   2026-09-05:** he attached the range set himself (the aerial, the berm, the berm at dusk, the canopies, the classroom, the
+   briefing, the pistol line, the range at night, the low-light class, the doorway entry: `images/mast/range/a01–a12.jpg`) and
+   trimmed the old-site views to ten ("Delete 2, 3, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15, 19, 21, 22, 23" on the 27-tile build).
+   Chapter 05 now shows his eleven photographs (a second aerial, "Range photo", came at 01:18), then those ten. The sixteen he
+   cut stay in the folder, out of the chapter ("can add some to gallery" — say the numbers and they go in). **Gallery:** In Action
+   (chapter 09) now carries a "Photographs" grid under the films, same tile and lightbox as The Range: the five action
+   photographs he sent without a caption at 01:18 (`images/mast/gallery/g01–g05.jpg`: the police line on the covered range,
+   the vehicle drill in smoke, the boat drill, room clearing, the night muzzle flash; then g06–g09 at 01:24: the carbine from
+   behind the car, through the smoke, the team in the truck bed, coffee in kit with an MP) plus a06/a07 (the firing line, the
+   prone shot). **Class pictures** ("The photos can go into the class area that I have labeled", 01:26, with a screenshot of the
+   three Private rows all carrying the casualty-carry photo): every course row in `mastsolutions-tesla.html` now carries an
+   `img` — a 320-px square cut from his photographs at `images/mast/class/<SKU>.jpg` (the map and crop points are in the
+   script that cut them; the labelled sheet went to him in chat). Matched by content, since the photographs arrive as pixels
+   without file names: Private Session = the briefing, Foundation = the classroom, Full Progression = the aerial with the class,
+   Handgun Fundamentals = the pistol line, Ladies Only = the old site's mixed line, Handgun Operator = the covered-range police
+   line, Carbine = his firing line / prone shot, Shotgun = the class film's frame, Select-Fire = the old Carbine-Auto flash / the
+   woods-range group, Low-Light = the range at night / the green-light class, NVG = the night muzzle flash / the old night-vision
+   green, Team Tactics = the truck bed / the doorway entry, Home & Property = room clearing, Vehicular = behind the car / through
+   the smoke, Motorcade = the SUV drill / the old truck, Gear = in kit. He corrects by class name. A second shotgun film,
+   "Shotgun class instruction" (30 s, `images/mast/mast-shotgun-op.mp4`, the source file as sent, its moov atom already first),
+   is the **Shotgun Operator** card after Shotgun in In Action.
+   His **shotgun clip** (`SHOTGUN gallery vids.mp4`, 7 s) is cut together with the existing 6 s take as one Shotgun film in
+   In Action (`images/mast/mast-shotgun.mp4`, new take first; poster and teaser from it).
    Earlier note — chapter 05 **The Range** (2026-09-04, "look up the range photos that we had on the other site. That
    should be enter the range"): twelve photographs from the old site's own set on the handoff branch (P.078, P.162, P.111, P.009,
    P.001, P.025, P.059, P.080, P.133, P.122, P.017, P.138 on `preview/old-range-photos.html`), as skills tiles with a lightbox.
