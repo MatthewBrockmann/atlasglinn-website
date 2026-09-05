@@ -322,6 +322,8 @@
 .acct [hidden] { display: none !important; }   /* the display:block rules above must not undo the hidden attribute (sign-in tab hides name, phone and the password note) */
 .acct .gate-fine { margin-top: 1rem; font-size: .8rem; color: #888; line-height: 1.5; }
 .acct-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 1.2rem; padding-top: .8rem; border-top: 1px solid rgba(201,168,76,.25); font-family: 'Share Tech Mono', monospace; font-size: .68rem; letter-spacing: .14em; color: #8B95A8; }
+.acct-forgot { margin-left: auto; background: none; border: 0; padding: 0; color: #8B95A8; font-family: 'Rajdhani', sans-serif; font-size: .9rem; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.acct-forgot:hover { color: #fff; }
 .cal-foot { position: sticky; bottom: -2rem; background: #0B1221; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.4rem -2rem -2rem; padding: 1rem 2rem 1.2rem; border-top: 1px solid rgba(201,168,76,.2); flex-wrap: wrap; }
 .cal-sel { font-size: .95rem; color: #b0b0b0; }
 .cal-sel b { color: #fff; font-family: 'Orbitron', sans-serif; font-size: .85rem; }
@@ -839,12 +841,22 @@
     <div class="eyebrow">Your Account</div>
     <h3 id="acct-title">Sign in</h3>
     <div id="acct-auth">
+        <div id="acct-form">
         <div class="acct-tabs"><button type="button" class="chip sel" id="acct-tab-in" onclick="acctMode('in')">Sign in</button><button type="button" class="chip" id="acct-tab-up" onclick="acctMode('up')">Create account</button></div>
         <label class="acct-field" id="acct-name-wrap" hidden>Name<input id="acct-name" type="text" autocomplete="name"></label>
         <label class="acct-field">Email<input id="acct-email" type="email" autocomplete="email"></label>
         <label class="acct-field">Password<input id="acct-pass" type="password" autocomplete="current-password"><span class="acct-note" id="acct-pass-note" hidden>At least 10 characters.</span></label>
         <label class="acct-field" id="acct-phone-wrap" hidden>Phone <span class="opt">(optional)</span><input id="acct-phone" type="tel" autocomplete="tel"></label>
-        <div class="gate-actions"><button class="cta-button" id="acct-go" type="button" onclick="acctSubmit()">Sign in</button></div>
+        <div class="gate-actions"><button class="cta-button" id="acct-go" type="button" onclick="acctSubmit()">Sign in</button><button type="button" class="acct-forgot" id="acct-forgot" onclick="acctForgot()">Forgot your password?</button></div>
+        </div>
+        <!-- One-time code: finishes a sign-up (email ownership) or a password reset. The Worker emails a 6-digit code, 15 minutes, 5 tries. -->
+        <div id="acct-code-wrap" hidden>
+            <p class="acct-line" id="acct-code-msg">We emailed a 6-digit code to <b id="acct-code-email"></b>. Enter it to finish.</p>
+            <label class="acct-field">Code<input id="acct-code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code"></label>
+            <label class="acct-field" id="acct-newpass-wrap" hidden>New password<input id="acct-newpass" type="password" autocomplete="new-password"><span class="acct-note">At least 10 characters.</span></label>
+            <div class="gate-actions"><button class="cta-button" id="acct-code-go" type="button" onclick="acctCodeSubmit()">Verify</button><button type="button" class="chip" onclick="acctResend()">Resend code</button><button type="button" class="chip" onclick="acctMode(acctModeNow)">Back</button></div>
+            <p class="acct-note" id="acct-code-note" hidden></p>
+        </div>
         <p class="err" id="acct-err" hidden></p>
         <p class="gate-fine">Your account keeps your details, the classes you have taken and a saved card for faster booking. Card numbers are held by Stripe, never by us.</p>
     </div>
@@ -1425,19 +1437,53 @@ function acctHeaders(){ return acctToken ? { 'Content-Type': 'application/json',
 function acctLinkText(){ document.querySelectorAll('.acct-link').forEach(a => { a.textContent = acctData ? (acctData.name ? acctData.name.split(' ')[0] : 'Account') : 'Sign in'; }); }
 function openAcct(){ lastFocus = document.activeElement; $('acct-bd').classList.add('open'); $('acct').classList.add('open'); document.body.style.overflow = 'hidden'; if (acctToken) { $('acct-auth').hidden = true; $('acct-panel').hidden = false; acctLoad(); } else acctMode(acctModeNow); }
 function closeAcct(){ $('acct-bd').classList.remove('open'); $('acct').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
-function acctMode(m){ acctModeNow = m; const up = m === 'up'; $('acct-tab-in').classList.toggle('sel', !up); $('acct-tab-up').classList.toggle('sel', up); $('acct-name-wrap').hidden = !up; $('acct-phone-wrap').hidden = !up; $('acct-pass-note').hidden = !up; $('acct-pass').setAttribute('autocomplete', up ? 'new-password' : 'current-password'); $('acct-go').textContent = up ? 'Create account' : 'Sign in'; $('acct-title').textContent = up ? 'Create your account' : 'Sign in'; $('acct-auth').hidden = false; $('acct-panel').hidden = true; $('acct-err').hidden = true; }
+function acctMode(m){ acctModeNow = m; const up = m === 'up'; $('acct-tab-in').classList.toggle('sel', !up); $('acct-tab-up').classList.toggle('sel', up); $('acct-name-wrap').hidden = !up; $('acct-phone-wrap').hidden = !up; $('acct-pass-note').hidden = !up; $('acct-forgot').hidden = up; $('acct-pass').setAttribute('autocomplete', up ? 'new-password' : 'current-password'); $('acct-go').textContent = up ? 'Create account' : 'Sign in'; $('acct-title').textContent = up ? 'Create your account' : 'Sign in'; $('acct-auth').hidden = false; $('acct-form').hidden = false; $('acct-code-wrap').hidden = true; $('acct-panel').hidden = true; $('acct-err').hidden = true; }
+const ACCT_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+let acctCodeKind = 'verify', acctCodeEmail = '';
+function acctErr(msg){ const err = $('acct-err'); err.textContent = msg; err.hidden = !msg; }
+function acctSignedIn(d){ acctToken = d.token; try { localStorage.setItem(ACCT_KEY, acctToken); } catch (e) {} acctData = d.account; $('acct-pass').value = ''; $('acct-code').value = ''; $('acct-newpass').value = ''; acctLinkText(); $('acct-auth').hidden = true; $('acct-panel').hidden = false; return acctLoad(); }
+/* The code box: 'verify' finishes a sign-up (the Worker only issues a token once the emailed code comes back), 'reset' sets a new password. */
+function acctShowCode(kind, email, note){ acctCodeKind = kind; acctCodeEmail = email; const reset = kind === 'reset'; $('acct-form').hidden = true; $('acct-code-wrap').hidden = false; $('acct-newpass-wrap').hidden = !reset; $('acct-code-go').textContent = reset ? 'Set password' : 'Verify'; $('acct-title').textContent = reset ? 'Reset your password' : 'Check your email'; $('acct-code-email').textContent = email; $('acct-code').value = ''; const n = $('acct-code-note'); n.textContent = note || ''; n.hidden = !note; acctErr(''); setTimeout(() => $('acct-code').focus(), 50); }
+async function acctPost(path, body){ const r = await fetch(API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const d = await r.json().catch(() => ({})); return { r, d }; }
 async function acctSubmit(){
-  const err = $('acct-err'), b = $('acct-go'); const email = $('acct-email').value.trim(), password = $('acct-pass').value;
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Enter a valid email address.'; err.hidden = false; $('acct-email').focus(); return; }
-  if (acctModeNow === 'up' && password.length < 10) { err.textContent = 'Use a password of at least 10 characters.'; err.hidden = false; $('acct-pass').focus(); return; }
-  err.hidden = true; b.disabled = true;
+  const b = $('acct-go'); const email = $('acct-email').value.trim(), password = $('acct-pass').value;
+  if (!ACCT_EMAIL_RE.test(email)) { acctErr('Enter a valid email address.'); $('acct-email').focus(); return; }
+  if (acctModeNow === 'up' && password.length < 10) { acctErr('Use a password of at least 10 characters.'); $('acct-pass').focus(); return; }
+  acctErr(''); b.disabled = true;
   const body = acctModeNow === 'up' ? { email, password, name: $('acct-name').value.trim(), phone: $('acct-phone').value.trim() } : { email, password };
   try {
-    const r = await fetch(API + (acctModeNow === 'up' ? '/account/register' : '/account/login'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const d = await r.json().catch(() => ({})); if (!r.ok || !d.token) throw new Error(d.error || 'Could not sign in.');
-    acctToken = d.token; try { localStorage.setItem(ACCT_KEY, acctToken); } catch (e) {} acctData = d.account; $('acct-pass').value = ''; acctLinkText(); $('acct-auth').hidden = true; $('acct-panel').hidden = false; await acctLoad();
-  } catch (e) { err.textContent = e.message; err.hidden = false; }
+    const { r, d } = await acctPost(acctModeNow === 'up' ? '/account/register' : '/account/login', body);
+    if (r.status === 202 && d.pending) { $('acct-pass').value = ''; acctShowCode('verify', d.email || email); }
+    else if (r.status === 403 && d.code === 'unverified') { $('acct-pass').value = ''; acctShowCode('verify', d.email || email, 'This email was never verified. We sent a fresh code.'); }
+    else if (!r.ok || !d.token) throw new Error(d.error || 'Could not sign in.');
+    else await acctSignedIn(d);
+  } catch (e) { acctErr(e.message); }
   b.disabled = false;
+}
+async function acctCodeSubmit(){
+  const b = $('acct-code-go'); const code = $('acct-code').value.replace(/\D/g, ''), reset = acctCodeKind === 'reset';
+  if (code.length !== 6) { acctErr('Enter the 6-digit code from the email.'); $('acct-code').focus(); return; }
+  const password = $('acct-newpass').value;
+  if (reset && password.length < 10) { acctErr('Use a password of at least 10 characters.'); $('acct-newpass').focus(); return; }
+  acctErr(''); b.disabled = true;
+  try {
+    const { r, d } = await acctPost(reset ? '/account/reset' : '/account/verify', reset ? { email: acctCodeEmail, code, password } : { email: acctCodeEmail, code });
+    if (!r.ok || !d.token) throw new Error(d.error || 'That code did not work.');
+    await acctSignedIn(d);
+  } catch (e) { acctErr(e.message); }
+  b.disabled = false;
+}
+async function acctResend(){
+  acctErr('');
+  try { const { r, d } = await acctPost(acctCodeKind === 'reset' ? '/account/forgot' : '/account/resend', { email: acctCodeEmail }); if (!r.ok) throw new Error(d.error || 'Could not resend the code.'); const n = $('acct-code-note'); n.textContent = 'A new code is on its way to ' + acctCodeEmail + '.'; n.hidden = false; }
+  catch (e) { acctErr(e.message); }
+}
+async function acctForgot(){
+  const email = $('acct-email').value.trim();
+  if (!ACCT_EMAIL_RE.test(email)) { acctErr('Enter your email address first, then tap Forgot your password.'); $('acct-email').focus(); return; }
+  acctErr('');
+  try { const { r, d } = await acctPost('/account/forgot', { email }); if (!r.ok) throw new Error(d.error || 'Could not start the reset.'); acctShowCode('reset', email, 'If there is an account for that address, a code is on its way.'); }
+  catch (e) { acctErr(e.message); }
 }
 async function acctLoad(){
   if (!acctToken) return;

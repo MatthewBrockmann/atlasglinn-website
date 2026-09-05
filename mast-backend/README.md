@@ -46,7 +46,14 @@ The old Worker is left untouched — it still serves SafeGuard.
 | `POST` | `/contact` | Site contact form and capability-statement requests (honeypot, validation, one email to `NOTIFY_EMAIL` with reply-to the sender) |
 | `POST` | `/webhook` | Stripe events; persists orders, links registrations, sends the documents |
 | `GET` | `/roster?key=…` | Admin: recent bookings (`&sku=MAST-DA`), or `&view=registrations` for the screening → payment records, review items first |
-| cron | daily 09:17 UTC | Purges eligibility answers past `purge_after`; marks day-old unpaid registrations abandoned |
+| `POST` | `/account/register` | Student account sign-up (email, password ≥ 10, name, phone). Answers **202 pending** and emails a 6-digit code; no token until the code comes back. An unverified address can be signed up again (the slot is taken over), so nobody can squat a student's email |
+| `POST` | `/account/verify` | `{email, code}` → the account goes live; answers the sign-in token. 15-minute codes, five tries, one at a time |
+| `POST` | `/account/resend` | New verification code (at most once a minute); always 200 so it does not reveal which emails have accounts |
+| `POST` | `/account/login` | `{email, password}` → token. A right password on an unverified email answers 403 `unverified` and re-sends the code |
+| `POST` | `/account/forgot` / `/account/reset` | Forgotten password: `forgot {email}` emails a reset code (always 200); `reset {email, code, password}` sets the new password, signs every other session out and answers a token |
+| `GET` | `/account/me` | Bearer token → profile, classes taken (paid/completed registrations under the account email), saved card (brand, last four, expiry) |
+| `POST` | `/account/update` / `/account/password` / `/account/setup-payment` | Bearer token → profile details; password change (needs the current one); Stripe Checkout in setup mode to save a card on the account's Stripe Customer |
+| cron | daily 09:17 UTC | Purges eligibility answers past `purge_after`; marks day-old unpaid registrations abandoned; removes day-old unverified accounts |
 
 `POST /register` body — the page sends what the participant saw; there is **no
 price field**, and the three `version` values must match the Worker's
@@ -107,6 +114,7 @@ wrangler d1 execute mast_bookings --remote --file=migrations/001-prereq-attested
 wrangler d1 execute mast_bookings --remote --file=migrations/002-ladies-handgun.sql    # once: the ladies-only Handgun class
 wrangler d1 execute mast_bookings --remote --file=migrations/003-membership-teams.sql  # once: the six membership teams (the Worker creates each plan's Stripe Price on the first join)
 wrangler d1 execute mast_bookings --remote --file=migrations/004-accounts.sql          # once: student accounts (owner, 2026-09-05)
+wrangler d1 execute mast_bookings --remote --file=migrations/005-account-verification.sql  # once, after 004: email verification + password reset columns (a second run fails with "duplicate column", which means it is already applied)
 
 # 3. Secrets (never commit these)
 wrangler secret put STRIPE_SECRET_KEY        # sk_test_… first, sk_live_… when ready
@@ -119,9 +127,11 @@ wrangler secret put ADMIN_KEY                # long random string for /roster
 wrangler secret put RANGE_ADDRESS            # street address of the range; only ever emailed to a paid participant
 wrangler secret put RANGE_COORDS             # "lat, lon" for the directions line (optional)
 wrangler secret put DOC_RECIPIENTS_AGREEMENT # comma-separated: range host + staff who receive the signed agreement
-wrangler secret put ACCOUNT_SECRET           # long random string (e.g. `openssl rand -base64 48`) that signs student sign-in tokens;
-                                             # without it every /account/* route answers 503 and the page hides nothing but cannot sign anyone in.
-                                             # Rotating it signs everyone out; nothing else is lost (passwords are salted PBKDF2 hashes in D1).
+wrangler secret put ACCOUNT_SECRET           # long random string (e.g. `openssl rand -base64 48`) that signs student sign-in tokens and the
+                                             # emailed verification / reset codes; without it every /account/* route answers 503 and the page
+                                             # hides nothing but cannot sign anyone in. Rotating it signs everyone out and voids any code in
+                                             # flight; nothing else is lost (passwords are salted PBKDF2 hashes in D1). Sign-up, verification
+                                             # and password reset also need RESEND_API_KEY (the code is emailed); without it they answer 503.
 
 # 4. Deploy
 wrangler deploy

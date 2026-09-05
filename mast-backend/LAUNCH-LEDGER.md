@@ -222,6 +222,14 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
        panel: details (name, phone, organization, address, emergency contact) with Save, the saved card with Add/Replace card,
        Classes taken, **Standards passed (placeholder, "recorded by your instructor")**, change password, sign out. Signing in
        prefills the registration sheet. 146/146 Worker tests pass.
+     - **Codex review of the merged PR #10 (2026-09-05 04:21 UTC), both findings fixed on the follow-up branch (PR #11):**
+       P1 "verify email ownership before issuing account tokens" — sign-up now answers 202 and emails a 6-digit code; no token
+       (and no class history) until the code comes back; an unverified address is taken over by the next sign-up and purged
+       after a day, so nobody can squat a student's email; sign-in on an unverified email answers 403 and re-sends the code.
+       P2 "provide a recovery path for forgotten passwords" — Forgot your password → emailed reset code → new password (every
+       other session signed out). Codes are hashed under `ACCOUNT_SECRET`, live 15 minutes, five tries, one resend a minute,
+       never BCC'd. Needs `migrations/005-account-verification.sql` after 004, and `RESEND_API_KEY` (sign-up answers 503
+       `email_off` without it; sign-in for verified students still works).
 2. Founder shot: is `founder-portrait.jpg` it, or is another photo coming?
 3. Instagram: which posts, or an embedded feed?
 4. Capability cards: "have it here and bring back to front" — move up the MAST page, put on the Atlas home, or

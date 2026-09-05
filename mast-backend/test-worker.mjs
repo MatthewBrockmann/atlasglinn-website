@@ -117,6 +117,7 @@ const DB = {
             }
             if (sql.startsWith('UPDATE orders SET refund_policy_version')) { orderUpdates.push(args); return { meta: { changes: 1 } }; }
             if (sql.startsWith('UPDATE memberships SET stripe_price_id')) { if (fakePlans[args[1]]) fakePlans[args[1]].stripe_price_id = args[0]; return { meta: { changes: 1 } }; }
+            if (sql.startsWith('DELETE FROM accounts WHERE verified_at IS NULL')) { let n = 0; for (const [id, a] of [...accounts]) if (!a.verified_at && a.created_at < args[0]) { accounts.delete(id); n++; } return { meta: { changes: n } }; }
             if (sql.startsWith('DELETE FROM eligibility_answers')) { const before = answers.length; for (let i = answers.length - 1; i >= 0; i--) if (answers[i][4] < args[0]) answers.splice(i, 1); return { meta: { changes: before - answers.length } }; }
             return { meta: { changes: 0 } };
           },
@@ -535,15 +536,29 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   // CORS lets the bearer token through
   const pre = await worker.fetch(new Request('https://api.test/account/me', { method: 'OPTIONS', headers: { Origin: 'https://mastsolutions.com' } }), env, ctx);
   ok('CORS preflight allows the Authorization header', /Authorization/.test(pre.headers.get('Access-Control-Allow-Headers') || ''), pre.headers.get('Access-Control-Allow-Headers'));
-  // register
+  // register: no token until the emailed code comes back (Codex review of PR #10, P1)
+  const codeIn = (m) => (/\b(\d{6})\b/.exec((m && m.text) || '') || [])[1];
+  const rowFor = (email) => [...accounts.values()].find((a) => a.email === email);
   const short = await post('/account/register', { email: 'student@example.com', password: 'short' });
   ok('register: a short password → 400', short.status === 400);
-  const reg1 = await post('/account/register', { email: 'Student@Example.com', password: 'correct horse battery', name: 'Jane Doe', phone: '(713) 555-0100' }); const r1 = await reg1.json();
-  ok('register → 200 with a token and the account (email normalised)', reg1.status === 200 && typeof r1.token === 'string' && r1.token.includes('.') && r1.account.email === 'student@example.com' && r1.account.name === 'Jane Doe', JSON.stringify(r1).slice(0, 160));
-  const stored = accounts.get(r1.account.id);
-  ok('the password is stored as a PBKDF2 hash, never in clear', stored && /^pbkdf2-sha256\$100000\$/.test(stored.password_hash) && !stored.password_hash.includes('correct horse'), stored && stored.password_hash.slice(0, 30));
+  emails.length = 0;
+  const reg1 = await post('/account/register', { email: 'Student@Example.com', password: 'correct horse battery', name: 'Jane Doe', phone: '(713) 555-0100' }); const p0 = await reg1.json();
+  ok('register → 202 pending with no token; one code email to the student alone (no BCC)', reg1.status === 202 && p0.pending === true && !p0.token && emails.length === 1 && emails[0].to[0] === 'student@example.com' && !emails[0].bcc && /Your MAST Solutions verification code/.test(emails[0].subject) && !!codeIn(emails[0]), JSON.stringify({ status: reg1.status, body: p0, email: emails[0] && { to: emails[0].to, bcc: emails[0].bcc, subject: emails[0].subject } }));
+  const code1 = codeIn(emails[0]);
+  let acctRow = rowFor('student@example.com');
+  ok('the password is stored as a PBKDF2 hash, never in clear', acctRow && /^pbkdf2-sha256\$100000\$/.test(acctRow.password_hash) && !acctRow.password_hash.includes('correct horse'), acctRow && acctRow.password_hash.slice(0, 30));
+  ok('the code is stored hashed and the account is unverified', acctRow && acctRow.verify_code_hash && !acctRow.verify_code_hash.includes(code1) && !acctRow.verified_at);
+  const early = await post('/account/login', { email: 'student@example.com', password: 'correct horse battery' });
+  ok('login before verifying → 403 unverified, no token', early.status === 403 && (await early.json()).code === 'unverified');
+  const wrongCode = await post('/account/verify', { email: 'student@example.com', code: code1 === '000000' ? '000001' : '000000' });
+  ok('verify with a wrong code → 400 and the try is counted', wrongCode.status === 400 && rowFor('student@example.com').verify_attempts === 1, String(wrongCode.status));
+  const ver = await post('/account/verify', { email: 'student@example.com', code: code1 }); const r1 = await ver.json();
+  ok('verify with the emailed code → 200 with a token and the account (email normalised)', ver.status === 200 && typeof r1.token === 'string' && r1.token.includes('.') && r1.account.email === 'student@example.com' && r1.account.name === 'Jane Doe', JSON.stringify(r1).slice(0, 160));
+  acctRow = accounts.get(r1.account.id);
+  ok('verified_at is set and the code is cleared', !!acctRow.verified_at && !acctRow.verify_code_hash);
+  ok('verify again → 409 already verified', (await post('/account/verify', { email: 'student@example.com', code: code1 })).status === 409);
   const dup = await post('/account/register', { email: 'student@example.com', password: 'another long password' });
-  ok('register twice → 409', dup.status === 409 && (await dup.json()).code === 'exists');
+  ok('register again for a verified email → 409', dup.status === 409 && (await dup.json()).code === 'exists');
   // login
   const bad = await post('/account/login', { email: 'student@example.com', password: 'wrong password here' });
   ok('login with the wrong password → 401', bad.status === 401);
@@ -593,6 +608,56 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   ok('the new token works', (await get('/account/me', p1.token)).status === 200);
   const relog = await post('/account/login', { email: 'student@example.com', password: 'a brand new long password' });
   ok('login with the new password → 200', relog.status === 200);
+  // squatting: a sign-up for someone else's address sees nothing and is taken over by the real owner
+  emails.length = 0;
+  const squat = await post('/account/register', { email: 'victim@example.com', password: 'attacker password 1', name: 'Mallory' });
+  const squatCode = codeIn(emails[0]);
+  ok('a sign-up for another address gets no token, only a code sent to that address', squat.status === 202 && emails.length === 1 && emails[0].to[0] === 'victim@example.com');
+  ok('the squatter (right password, unverified) cannot sign in → 403', (await post('/account/login', { email: 'victim@example.com', password: 'attacker password 1' })).status === 403);
+  ok('a second sign-up within a minute → 429 too_soon', (await post('/account/register', { email: 'victim@example.com', password: 'the real owner pw', name: 'Vic Owner' })).status === 429);
+  rowFor('victim@example.com').verify_sent_at = new Date(Date.now() - 120000).toISOString();   // a minute later
+  emails.length = 0;
+  const owner = await post('/account/register', { email: 'victim@example.com', password: 'the real owner pw', name: 'Vic Owner' });
+  const ownerCode = codeIn(emails[0]);
+  ok('the real owner can still sign up for the same address: the unverified slot is taken over', owner.status === 202 && rowFor('victim@example.com').name === 'Vic Owner');
+  ok("the squatter's code is dead", squatCode === ownerCode || (await post('/account/verify', { email: 'victim@example.com', code: squatCode })).status === 400);
+  const ownerIn = await post('/account/verify', { email: 'victim@example.com', code: ownerCode });
+  ok("the owner verifies with their code → 200; the squatter's password no longer works", ownerIn.status === 200 && (await post('/account/login', { email: 'victim@example.com', password: 'attacker password 1' })).status === 401, String(ownerIn.status));
+  // lockout and re-send
+  emails.length = 0;
+  await post('/account/register', { email: 'locked@example.com', password: 'a long enough password' });
+  const lockCode = codeIn(emails[0]); const statuses = [];
+  for (let i = 0; i < 5; i++) statuses.push((await post('/account/verify', { email: 'locked@example.com', code: lockCode === '111111' ? '222222' : '111111' })).status);
+  ok('four wrong codes → 400, the fifth → 429 and the code is burned', statuses.join() === '400,400,400,400,429' && (await post('/account/verify', { email: 'locked@example.com', code: lockCode })).status === 400, statuses.join());
+  ok('resend within a minute → 429', (await post('/account/resend', { email: 'locked@example.com' })).status === 429);
+  rowFor('locked@example.com').verify_sent_at = new Date(Date.now() - 120000).toISOString();
+  emails.length = 0;
+  ok('resend after a minute → 200 and a new code email', (await post('/account/resend', { email: 'locked@example.com' })).status === 200 && emails.length === 1);
+  ok('resend for an unknown email → 200 and no email (no account enumeration)', (await post('/account/resend', { email: 'nobody@example.com' })).status === 200 && emails.length === 1);
+  ok('the new code works', (await post('/account/verify', { email: 'locked@example.com', code: codeIn(emails[0]) })).status === 200);
+  // forgotten password (Codex P2)
+  emails.length = 0;
+  ok('forgot for an unknown email → 200 and no email', (await post('/account/forgot', { email: 'nobody@example.com' })).status === 200 && emails.length === 0);
+  ok('forgot within a minute of the last code → 429', (await post('/account/forgot', { email: 'student@example.com' })).status === 429);
+  rowFor('student@example.com').verify_sent_at = new Date(Date.now() - 120000).toISOString();   // the sign-up code went out a while ago
+  const forgot = await post('/account/forgot', { email: 'student@example.com' });
+  ok('forgot for a verified account → 200 and a reset code emailed to the student alone', forgot.status === 200 && emails.length === 1 && emails[0].to[0] === 'student@example.com' && !emails[0].bcc && /Reset your MAST Solutions password/.test(emails[0].subject), JSON.stringify(emails[0] && emails[0].subject));
+  const resetCode = codeIn(emails[0]);
+  ok('reset with a wrong code → 400', (await post('/account/reset', { email: 'student@example.com', code: resetCode === '333333' ? '444444' : '333333', password: 'yet another long password' })).status === 400);
+  ok('reset with a short password → 400', (await post('/account/reset', { email: 'student@example.com', code: resetCode, password: 'short' })).status === 400);
+  const reset = await post('/account/reset', { email: 'student@example.com', code: resetCode, password: 'yet another long password' }); const rs = await reset.json();
+  ok('reset with the code → 200 with a token; the old token is dead; the new password works', reset.status === 200 && typeof rs.token === 'string' && (await get('/account/me', p1.token)).status === 401 && (await post('/account/login', { email: 'student@example.com', password: 'yet another long password' })).status === 200, String(reset.status) + ' ' + JSON.stringify(rs).slice(0, 120));
+  ok('a used reset code does not work twice', (await post('/account/reset', { email: 'student@example.com', code: resetCode, password: 'yet another long password 2' })).status === 400);
+  // retention: unverified accounts older than a day go, verified ones stay
+  accounts.set('acct_stale', { id: 'acct_stale', email: 'stale@example.com', password_hash: 'x', token_version: 1, created_at: '2020-01-01T00:00:00Z', verified_at: null });
+  let ran2 = null; await worker.scheduled({}, env, { waitUntil: (p) => { ran2 = p; } }); await ran2;
+  ok('the daily cron removes unverified accounts older than a day and keeps verified ones', !accounts.has('acct_stale') && accounts.has(r1.account.id));
+  // no email leg → sign-up is off, sign-in still works
+  const savedResend = env.RESEND_API_KEY; env.RESEND_API_KEY = '';
+  const noMail = await post('/account/register', { email: 'new@example.com', password: 'a long enough password' });
+  ok('without RESEND_API_KEY sign-up answers 503 email_off', noMail.status === 503 && (await noMail.json()).code === 'email_off');
+  ok('… and a verified student can still sign in', (await post('/account/login', { email: 'student@example.com', password: 'yet another long password' })).status === 200);
+  env.RESEND_API_KEY = savedResend;
   // accounts off without the secret
   const saved = env.ACCOUNT_SECRET; delete env.ACCOUNT_SECRET;
   const off = await post('/account/login', { email: 'student@example.com', password: 'a brand new long password' });
