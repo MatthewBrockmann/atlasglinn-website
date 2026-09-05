@@ -80,9 +80,11 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
 
 ## B. Before launch — owner's hand, in order
 
-1. **"merge 8"**, then **redeploy the Worker from main** (the deploy paste, which now also applies
-   `migrations/001-prereq-attested.sql` and `migrations/002-ladies-handgun.sql` once), then **run `scripts/wp-upload.sh`**.
-   The page on main and the Worker must match (refund policy version, prerequisite rule, the ladies-only SKU).
+1. ~~"merge 8"~~ — **merged 2026-09-05 ~03:50 UTC** on his word ("MERGE PR8"), main = 8d886b8. **Still his hand, in order:**
+   redeploy the Worker from main (`git pull`, migrations 001, 002, 003 once each, `npx wrangler deploy`), then **run
+   `scripts/wp-upload.sh`** for the page. Until both run, the live Worker is the 2026-09-03 deploy and the live page is the old
+   one; the page on main and the Worker must match (refund policy version, prerequisite rule, the ladies-only SKU, memberships,
+   the private-request subject line). Merged is not running.
 2. **`RESEND_API_KEY`** — `wrangler secret put RESEND_API_KEY --name mast-booking-backend`. Sending as
    `bookings@mastsolutions.com` needs Resend's DNS records added at GoDaddy for mastsolutions.com. Until then no
    receipt, no agreement PDF, no range address, no staff alert goes out; all are logged.
@@ -185,6 +187,27 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    (name, email, phone, note) that posts to the Worker's `/contact` with `request_type: private`; the Worker titles the email
    "Private instruction request: <name>"; the mailto remains only as the fallback text when the Worker cannot be reached.
    Needs the next Worker deploy for the subject line; the dialog itself works against the running Worker today.
+1i. **His answers, 2026-09-05 ~04:00** (after the merge; all of this is on the follow-up branch, PR #9, and needs another merge
+   and Worker deploy):
+   - **Verified memberships**: "how 'verified' is checked = upload photo of credentials" → the Join dialog for Law Enforcement
+     and Verified Teachers requires a credential photograph (JPEG/PNG/HEIC/PDF, ≤ 8 MB); the Worker emails it to the office
+     (`NOTIFY_EMAIL`, reply-to the applicant, subject "Membership credential: <name> · <plan>") and only then opens Stripe
+     Checkout, recording `metadata[credential]=emailed <time>`. Charge at Join stays; a membership the team declines is refunded
+     (the page says so). Slot counts for LE/Teachers: still none given.
+   - **All emails BCC** matthew@atlasglinn.com and matthew@mastsolutions.com (`BCC_ALWAYS` on the Worker overrides).
+   - **Private Instruction fee is instruction only** ("NO" to ammo, range and gear): on the three rows' meta and in the Request
+     dialog's fine print.
+   - **Question order: contact first** — as built.
+   - **Instagram clips → the gallery** under In Action when they land; the lightbox now plays a clip (.mp4/.webm/.mov) in place
+     of a photograph, so a gallery tile can be a clip.
+   - **Training Reel / Disaster Recovery stay YouTube embeds**, trimmed: privacy-enhanced domain (youtube-nocookie.com),
+     `rel=0`, `modestbranding=1`, `iv_load_policy=3`, `cc_load_policy=0`, `disablekb=1`, the end mark on the Training Reel.
+     Ads on a monetised video are YouTube's and cannot be removed by an embed; only a local file removes them (he declined).
+   - **Account** ("Contact first + ADD ACCOUNT = account info to include payment method + save + classes taken + placeholder for
+     Standards Passed + other details + account email + password"): **not built yet** — a real feature on the Worker and D1:
+     accounts table (email, password hash, name, phone), sign-in (session token), Stripe Customer per account with a saved
+     payment method (SetupIntent / Customer Portal), classes taken from `registrations` by email, `standards_passed` placeholder,
+     profile details; the page gets Sign in / Create account and an Account panel. Scoped in chat; build next.
 2. Founder shot: is `founder-portrait.jpg` it, or is another photo coming?
 3. Instagram: which posts, or an embedded feed?
 4. Capability cards: "have it here and bring back to front" — move up the MAST page, put on the Atlas home, or

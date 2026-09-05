@@ -112,7 +112,9 @@ wrangler d1 execute mast_bookings --remote --file=migrations/002-ladies-handgun.
 wrangler secret put STRIPE_SECRET_KEY        # sk_test_… first, sk_live_… when ready
 wrangler secret put STRIPE_WEBHOOK_SECRET    # whsec_… from step 5
 wrangler secret put RESEND_API_KEY           # re_… from resend.com
-wrangler secret put NOTIFY_EMAIL             # where booking alerts and review notices go
+wrangler secret put NOTIFY_EMAIL             # where booking alerts, review notices, contact requests and membership credentials go
+# Every email is also blind-copied to matthew@atlasglinn.com and matthew@mastsolutions.com (owner, 2026-09-05);
+# set BCC_ALWAYS in wrangler.toml [vars] to change the list, or to "" to stop the copies.
 wrangler secret put ADMIN_KEY                # long random string for /roster
 wrangler secret put RANGE_ADDRESS            # street address of the range; only ever emailed to a paid participant
 wrangler secret put RANGE_COORDS             # "lat, lon" for the directions line (optional)

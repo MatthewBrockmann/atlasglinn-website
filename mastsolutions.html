@@ -413,6 +413,8 @@
   .modal.join .join-field { display:block; font-family:'Share Tech Mono',monospace; font-size:.66rem; letter-spacing:.25em; text-transform:uppercase; color:#8B95A8; margin:.9rem 0 0; }
   .modal.join input { display:block; width:100%; margin-top:.35rem; padding:.8rem .9rem; background:#0B1221; border:1px solid rgba(201,168,76,.35); color:#F0F4FF; font:1rem 'Rajdhani',sans-serif; letter-spacing:.02em; }
   .modal.join input:focus { outline:none; border-color:#C9A84C; }
+  .modal.join input[type=file] { padding:.6rem .7rem; font-size:.9rem; color:#8B95A8; }
+  .modal.join .join-cred-note { display:block; margin-top:.4rem; font-family:'Rajdhani',sans-serif; font-size:.85rem; letter-spacing:.02em; text-transform:none; color:#8B95A8; line-height:1.4; }
   .modal.join .gate-actions { margin-top:1.3rem; }
   .modal.join .join-err { color:#ff8a80; font-size:.9rem; line-height:1.45; margin-top:.8rem; min-height:1.2em; }
   .modal.join .join-err a { color:#E8D27D; }
@@ -423,7 +425,8 @@
   .photo-tiles .tile.more { display:none; }
   .photo-tiles.all .tile.more { display:flex; }
   .gallery-eyebrow { margin-top:2.6rem; }
-  #s9 .post { margin-top:.2rem; margin-bottom:1.8rem; }   /* above the films (owner, 2026-09-05) */
+  #s9 .post { margin-top:.2rem; margin-bottom:1.8rem; }
+  .modal.lightbox video { display:block; max-width:100%; max-height:82vh; margin:0 auto; background:#000; }   /* above the films (owner, 2026-09-05) */
   /* Preview-only menu entries (the Blogs link under In Action): hidden until the URL carries `preview`. Styled as the chapter menu, indented. */
   .chap-extra { display:none; color:var(--text); font-weight:700; text-shadow:0 1px 10px rgba(0,0,0,.9); text-decoration:none; letter-spacing:.25em; padding:.2rem .8rem .2rem 2.6rem; font-size:.58rem; text-transform:uppercase; align-items:center; gap:.6rem; cursor:none; }
   .chap-extra:hover { color:var(--gold-champagne); }
@@ -769,7 +772,7 @@
     <input type="text" id="req-web" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;">
     <div class="gate-actions"><button class="cta-button" id="req-go" type="button" onclick="reqGo()">Send Request</button></div>
     <p class="err" id="req-err" hidden></p>
-    <p class="gate-fine">We reply within one business day. Private sessions are by arrangement, not on the weekend calendar.</p>
+    <p class="gate-fine">We reply within one business day. Private sessions are by arrangement, not on the weekend calendar. The fee is instruction only: ammunition, range fees and gear are not included.</p>
 </div>
 
 <!-- BOOK A CLASS, date first (owner, 2026-09-05: "Click Book Class = calendar open; each has tab; choose tab; class offerings; all dates; hover class shows").
@@ -942,14 +945,15 @@
     <p class="join-inc" id="join-inc"></p>
     <label class="join-field">Name<input id="join-name" type="text" autocomplete="name"></label>
     <label class="join-field">Email<input id="join-email" type="email" autocomplete="email" required></label>
+    <label class="join-field join-cred" id="join-cred-wrap" hidden>Photo of your credentials<input id="join-cred" type="file" accept="image/*,.pdf,.heic"><span class="join-cred-note">Badge and ID, or school ID. Up to 8 MB. It goes to the team by email for verification and nowhere else.</span></label>
     <div class="gate-actions"><button class="cta-button" id="join-go" type="button" onclick="joinGo()">Continue to Stripe</button></div>
-    <p class="gate-fine">Billed monthly by card through Stripe. New memberships are vetted by the established team.</p>
+    <p class="gate-fine" id="join-fine">Billed monthly by card through Stripe. New memberships are vetted by the established team; a membership the team declines is refunded.</p>
     <p class="join-err" id="join-err" role="alert"></p>
 </div>
 
 <!-- LIGHTBOX for the Range photographs -->
 <div id="lb-bd" class="modal-bd" onclick="closeLb()"></div>
-<div id="lb" class="modal wide lightbox" role="dialog" aria-modal="true" aria-label="Photograph"><button class="modal-x" aria-label="Close" onclick="closeLb()">&times;</button><img id="lb-img" alt=""></div>
+<div id="lb" class="modal wide lightbox" role="dialog" aria-modal="true" aria-label="Photograph"><button class="modal-x" aria-label="Close" onclick="closeLb()">&times;</button><img id="lb-img" alt=""><video id="lb-vid" controls playsinline preload="none" hidden></video></div>
 
 
 <script type="module">
@@ -1175,9 +1179,9 @@ const BOOKING_ENDPOINT = API + '/create-booking', CATALOG_ENDPOINT = API + '/cat
 
 const COURSES = [
   /* Private instruction — listed first (owner, 2026-09-04). No price and no dates on the page; the sheet PDF is linked when supplied — by arrangement, not on the weekend calendar. Priced per the owner's 2026-09 progression sheet. */
-  { sku:'MAST-PVT-2H',    cat:'Private Instruction', img:'images/mast/class/MAST-PVT-2H.jpg', name:'Private Session',                 request:true, price_cents:35000,  meta:'2 HRS · ONE-ON-ONE · +$100 EACH ADDITIONAL HOUR' },
-  { sku:'MAST-PVT-FOUND', cat:'Private Instruction', img:'images/mast/class/MAST-PVT-FOUND.jpg', name:'Foundation Package — Phases 1–4', request:true, price_cents:125000, meta:'4 PHASES · PREPAID · $1,400 À LA CARTE' },
-  { sku:'MAST-PVT-FULL',  cat:'Private Instruction', img:'images/mast/class/MAST-PVT-FULL.jpg', name:'Full Progression — Phases 1–11',  request:true, price_cents:330000, meta:'11 PHASES · PREPAID · $3,850 À LA CARTE' },
+  { sku:'MAST-PVT-2H',    cat:'Private Instruction', img:'images/mast/class/MAST-PVT-2H.jpg', name:'Private Session',                 request:true, price_cents:35000,  meta:'2 HRS · ONE-ON-ONE · +$100 EACH ADDITIONAL HOUR · INSTRUCTION ONLY' },
+  { sku:'MAST-PVT-FOUND', cat:'Private Instruction', img:'images/mast/class/MAST-PVT-FOUND.jpg', name:'Foundation Package — Phases 1–4', request:true, price_cents:125000, meta:'4 PHASES · PREPAID · $1,400 À LA CARTE · INSTRUCTION ONLY' },
+  { sku:'MAST-PVT-FULL',  cat:'Private Instruction', img:'images/mast/class/MAST-PVT-FULL.jpg', name:'Full Progression — Phases 1–11',  request:true, price_cents:330000, meta:'11 PHASES · PREPAID · $3,850 À LA CARTE · INSTRUCTION ONLY' },
   { sku:'MAST-HG-FUND',  cat:'Handgun',         img:'images/mast/class/MAST-HG-FUND.jpg', name:'Handgun Fundamentals',            hours:8,  days:1, price_cents:22500, seats:16 },
   /* Ladies-only Handgun (owner, 2026-09-04: "add one selection, ladies only. Handgun."). Mirrors Handgun Fundamentals until he sets its hours, price and seats; it is a qualifier for the other courses like Handgun Fundamentals. */
   { sku:'MAST-HG-LADIES', cat:'Handgun',        img:'images/mast/class/MAST-HG-LADIES.jpg', name:'Ladies Only Handgun Fundamentals', hours:8, days:1, price_cents:22500, seats:16 },
@@ -1432,7 +1436,7 @@ const INSTRUCTOR_FILMS = [
   // title card or YouTube's end screen (Brockmann, 2026-09-04: the Training Reel's "2023" card). The IFrame API loads on first use;
   // the player's own end= parameter, one second later, is the fallback if the API cannot load.
   const loopBefore = (frame, end) => { const arm = () => { const p = new YT.Player(frame, { events: { onReady: () => setInterval(() => { try { if (p.getCurrentTime() >= end) p.seekTo(0, true); } catch (e) {} }, 250), onStateChange: e => { if (e.data === YT.PlayerState.ENDED) { p.seekTo(0, true); p.playVideo(); } } } }); }; if (window.YT && YT.Player) return arm(); const prev = window.onYouTubeIframeAPIReady; window.onYouTubeIframeAPIReady = () => { if (prev) prev(); arm(); }; if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) { const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s); } };
-  const play = el => { if (el.dataset.done) return; el.dataset.done = '1'; let node; const end = +el.dataset.end || 0; if (el.dataset.yt) { node = document.createElement('iframe'); node.src = `https://www.youtube.com/embed/${el.dataset.yt}?autoplay=1&rel=0&modestbranding=1&playsinline=1` + (end ? `&end=${Math.ceil(end) + 1}&enablejsapi=1` + (/^https?:$/.test(location.protocol) ? `&origin=${encodeURIComponent(location.origin)}` : '') : ''); node.title = el.getAttribute('aria-label'); node.allow = 'accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture'; node.setAttribute('allowfullscreen', ''); } else { node = document.createElement('video'); node.src = el.dataset.mp4; node.controls = true; node.autoplay = true; node.playsInline = true; node.preload = 'none'; } el.innerHTML = ''; el.appendChild(node); el.style.cursor = 'default'; if (end && el.dataset.yt) loopBefore(node, end); };
+  const play = el => { if (el.dataset.done) return; el.dataset.done = '1'; let node; const end = +el.dataset.end || 0; if (el.dataset.yt) { node = document.createElement('iframe'); node.src = `https://www.youtube-nocookie.com/embed/${el.dataset.yt}?autoplay=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&cc_load_policy=0&disablekb=1&color=white` + (end ? `&end=${Math.ceil(end) + 1}&enablejsapi=1` + (/^https?:$/.test(location.protocol) ? `&origin=${encodeURIComponent(location.origin)}` : '') : ''); node.title = el.getAttribute('aria-label'); node.allow = 'accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture'; node.setAttribute('allowfullscreen', ''); } else { node = document.createElement('video'); node.src = el.dataset.mp4; node.controls = true; node.autoplay = true; node.playsInline = true; node.preload = 'none'; } el.innerHTML = ''; el.appendChild(node); el.style.cursor = 'default'; if (end && el.dataset.yt) loopBefore(node, end); };
   for (const [id, list] of [['media-strip', MEDIA], ['testimonial-strip', TESTIMONIALS], ['instructor-strip', INSTRUCTOR_FILMS]]) {
     const host = $(id); if (!host) continue;
     host.innerHTML = list.filter(i => i.yt || i.mp4).map(card).join('');
@@ -1449,14 +1453,24 @@ const INSTRUCTOR_FILMS = [
 /* Membership join (owner, 2026-09-04): Join opens a short dialog for name and email, then Stripe Checkout in subscription mode via
    POST /create-membership; the Worker provisions the plan's Stripe Price on first use. A failure offers the email route. */
 let joinPlan = null;
-function joinTeam(key, name, fee, includes){ joinPlan = key; $('join-title').textContent = name; $('join-meta').textContent = fee + ' per month'; $('join-inc').textContent = includes || ''; $('join-err').textContent = ''; const b = $('join-go'); b.disabled = false; b.textContent = 'Continue to Stripe'; $('join-bd').classList.add('open'); $('join').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('join-email').focus(), 150); }
+const CRED_PLANS = { le_team: 'Law Enforcement', teachers_team: 'Verified Teachers' };   // plans that need a credential photograph at Join
+function joinTeam(key, name, fee, includes){ joinPlan = key; const cred = !!CRED_PLANS[key]; $('join-cred-wrap').hidden = !cred; if (cred) $('join-cred').value = ''; $('join-title').textContent = name; $('join-meta').textContent = fee + ' per month'; $('join-inc').textContent = includes || ''; $('join-err').textContent = ''; const b = $('join-go'); b.disabled = false; b.textContent = 'Continue to Stripe'; $('join-bd').classList.add('open'); $('join').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('join-email').focus(), 150); }
 function closeJoin(){ $('join-bd').classList.remove('open'); $('join').classList.remove('open'); document.body.style.overflow = ''; }
 async function joinGo(){
   const email = $('join-email').value.trim(), name = $('join-name').value.trim();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { $('join-err').textContent = 'Enter the email address for your membership.'; $('join-email').focus(); return; }
+  let credential = null;
+  if (CRED_PLANS[joinPlan]) {
+    const f = $('join-cred').files && $('join-cred').files[0];
+    if (!f) { $('join-err').textContent = CRED_PLANS[joinPlan] + ' membership needs a photo of your credentials before checkout.'; $('join-cred').focus(); return; }
+    if (f.size > 8 * 1024 * 1024) { $('join-err').textContent = 'That file is over 8 MB. A phone photo of the credential is enough.'; return; }
+    const data = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = () => no(new Error('read')); r.readAsDataURL(f); }).catch(() => '');
+    if (!data) { $('join-err').textContent = 'Could not read that file. Try a photo or a PDF.'; return; }
+    credential = { filename: f.name || 'credential', content_type: f.type || 'application/octet-stream', data };
+  }
   const btn = $('join-go'); btn.disabled = true; btn.textContent = 'One moment…'; const base = location.origin + location.pathname;
   try {
-    const res = await fetch(API + '/create-membership', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, plan: joinPlan, customer_name: name, successUrl: base + '?membership=success', cancelUrl: base + '?membership=cancelled' }) });
+    const res = await fetch(API + '/create-membership', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, plan: joinPlan, customer_name: name, credential, successUrl: base + '?membership=success', cancelUrl: base + '?membership=cancelled' }) });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.checkoutUrl) throw new Error(data.error || 'Could not start checkout.');
     location.href = data.checkoutUrl;
@@ -1471,8 +1485,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('join').
 function showAll(id){ document.getElementById(id).classList.add('all'); const b = document.getElementById(id + '-more'); if (b) b.remove(); }
 if (/[?&#]preview(?=[=&#]|$)/.test(location.search + location.hash)) document.body.classList.add('preview');   // owner's preview of unpublished pieces (the Blogs link)
 function toggleFold(id, openText, closeText){ const f = $(id), b = $(id + '-btn'); const open = !f.classList.contains('open'); f.classList.toggle('open', open); b.textContent = open ? closeText : openText; b.setAttribute('aria-expanded', open ? 'true' : 'false'); if (!open) b.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-function openLb(src){ $('lb-img').src = src; $('lb-bd').classList.add('open'); $('lb').classList.add('open'); document.body.style.overflow = 'hidden'; }
-function closeLb(){ $('lb-bd').classList.remove('open'); $('lb').classList.remove('open'); document.body.style.overflow = ''; }
+function openLb(src){ const vid = /\.(mp4|webm|mov)(\?|$)/i.test(src); const img = $('lb-img'), v = $('lb-vid'); img.hidden = vid; v.hidden = !vid; if (vid) { img.removeAttribute('src'); v.src = src; v.play().catch(() => {}); } else { v.pause(); v.removeAttribute('src'); img.src = src; } $('lb-bd').classList.add('open'); $('lb').classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeLb(){ const v = $('lb-vid'); v.pause(); v.removeAttribute('src'); $('lb-bd').classList.remove('open'); $('lb').classList.remove('open'); document.body.style.overflow = ''; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('lb').classList.contains('open')) closeLb(); });
 </script>
 </body>

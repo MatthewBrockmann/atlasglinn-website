@@ -704,6 +704,8 @@ async function ensureMembershipPrice(env, row) {
   return priceId;
 }
 
+const CREDENTIAL_PLANS = new Set(['le_team', 'teachers_team']);
+
 async function handleMembership(request, env, cors) {
   const body = await request.json().catch(() => null);
   if (!body || !body.email || !body.plan) {
@@ -729,6 +731,35 @@ async function handleMembership(request, env, cors) {
 
   const seats = clampInt(body.seats, 1, 100);
 
+  // Law Enforcement and Verified Teachers memberships need a photograph of the member's credentials at Join (owner, 2026-09-05:
+  // 'how "verified" is checked = upload photo of credentials'). It is emailed to the office for the team to vet and kept nowhere
+  // else; checkout proceeds once the email is accepted. A membership the team declines is refunded.
+  let credentialNote = '';
+  if (CREDENTIAL_PLANS.has(plan.key)) {
+    const cred = body.credential && typeof body.credential === 'object' ? body.credential : null;
+    const data = cred ? String(cred.data || '') : '';
+    const type = cred ? String(cred.content_type || '').toLowerCase() : '';
+    if (!cred || !data) return json({ error: plan.name + ' membership needs a photo of your credentials.', field: 'credential', code: 'credential' }, 400, cors);
+    if (!/^(image\/(jpeg|jpg|png|heic|heif|webp)|application\/pdf)$/.test(type)) return json({ error: 'Send the credential as a photo (JPEG, PNG, HEIC) or a PDF.', field: 'credential', code: 'credential_type' }, 400, cors);
+    if (data.length > 11 * 1024 * 1024 || !/^[A-Za-z0-9+/=\s]+$/.test(data.slice(0, 4096))) return json({ error: 'That file is too large. Up to 8 MB.', field: 'credential', code: 'credential_size' }, 400, cors);
+    const safeName = String(cred.filename || 'credential').replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 80) || 'credential';
+    const office = list(env.NOTIFY_EMAIL);
+    if (!office.length) return json({ error: 'Membership verification is not configured yet. Please email your credentials to atlasglinn.hq@atlasglinn.com.' }, 503, cors);
+    try {
+      await sendEmail(env, {
+        to: office,
+        reply_to: body.email,
+        subject: 'Membership credential: ' + (str(body.customer_name).trim() || body.email) + ' · ' + plan.name,
+        text: ['A ' + plan.name + ' membership application with credentials attached.', '', 'Name: ' + (str(body.customer_name).trim() || '—'), 'Email: ' + body.email, 'Plan: ' + plan.name + ' (' + plan.key + ')', 'Seats: ' + seats, '', 'The applicant continues to Stripe Checkout after this email. If the team declines the membership, refund it in Stripe.'].join('\n'),
+        attachments: [{ filename: safeName, content: data.replace(/\s+/g, '') }],
+      });
+    } catch (e) {
+      console.error('[Membership] credential email failed', e && e.message);
+      return json({ error: 'We could not receive your credentials just now. Please email them to atlasglinn.hq@atlasglinn.com and try again.' }, 502, cors);
+    }
+    credentialNote = 'emailed ' + new Date().toISOString();
+  }
+
   const payload = new URLSearchParams({
     customer_email: body.email,
     mode: 'subscription',
@@ -745,6 +776,7 @@ async function handleMembership(request, env, cors) {
     'metadata[plan_name]': plan.name,
     'metadata[seats]': String(seats),
     'metadata[customer_name]': str(body.customer_name),
+    'metadata[credential]': credentialNote,
     'metadata[source]': 'mastsolutions',
     allow_promotion_codes: 'true',
     billing_address_collection: 'auto',
@@ -948,7 +980,12 @@ async function notify(env, r, stored) {
 }
 
 /** One Resend call. Throws on a non-2xx so callers decide what a failed email means. */
+// Every email the Worker sends is blind-copied to the owner (owner, 2026-09-05: "all emails to office + BCC matthew@atlasglinn,
+// matthew@mastsolutions"); BCC_ALWAYS on the Worker overrides the list. Addresses already in `to` are not copied twice.
+const BCC_DEFAULT = 'matthew@atlasglinn.com, matthew@mastsolutions.com';
 async function sendEmail(env, { to, subject, text, reply_to, attachments }) {
+  const toList = Array.isArray(to) ? to : list(to);
+  const bcc = list(env.BCC_ALWAYS === undefined ? BCC_DEFAULT : env.BCC_ALWAYS).filter((a) => !toList.map((x) => x.toLowerCase()).includes(a.toLowerCase()));
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -958,6 +995,7 @@ async function sendEmail(env, { to, subject, text, reply_to, attachments }) {
     body: JSON.stringify({
       from: env.NOTIFY_FROM || 'MAST Solutions <bookings@mastsolutions.com>',
       to,
+      bcc: bcc.length ? bcc : undefined,
       reply_to,
       subject,
       text,
