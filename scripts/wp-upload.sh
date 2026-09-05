@@ -35,6 +35,22 @@ if [ "${1:-}" = "--save-login" ]; then
   exit 0
 fi
 
+if [ "${1:-}" = "--probe" ]; then
+  # Diagnosis when the live check fails after a clean upload (2026-09-05: 113 files in html/, still HTTP 404): what the
+  # site answers from this Mac, with and without a cache-busting query, and what the host's directory layout really is.
+  say "HTTP checks from this Mac"
+  for u in "https://atlasglinn.com/mast-ping.txt" "https://atlasglinn.com/mast-ping.txt?x=$(date +%s)" "https://www.atlasglinn.com/mast-ping.txt" \
+           "https://atlasglinn.com/mastsolutions.html" "https://atlasglinn.com/mastsolutions.html?x=$(date +%s)" \
+           "https://atlasglinn.com/images/mast/mast-cqb-poster.jpg" "https://atlasglinn.com/wp-content/uploads/atlas-glinn-logo.png"; do
+    printf '   %s -> %s\n' "$u" "$(curl -sL -o /dev/null -m 20 -w '%{http_code}' "$u")"
+  done
+  say "Directory layout on the host (saved Keychain login)"
+  u="$(kc_user || true)"; [ -n "$u" ] || { echo "no saved login; run --save-login first"; exit 1; }
+  A="$(mktemp /tmp/wp-upload-askpass.XXXXXX)"; printf '#!/bin/sh\nexec security find-generic-password -s %s -w\n' "$KC_SERVICE" > "$A"; chmod 700 "$A"
+  printf 'pwd\nls -la\ncd %s\npwd\nls -la\nls -la wp-content\n' "$DOCROOT" | SSH_ASKPASS="$A" SSH_ASKPASS_REQUIRE=force DISPLAY="${DISPLAY:-:0}" sftp -o StrictHostKeyChecking=accept-new "$u@$HOST" 2>&1 | sed 's/^/   /'
+  rm -f "$A"; exit 0
+fi
+
 R="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 case "$(git -C "${R:-.}" remote get-url origin 2>/dev/null || true)" in *atlasglinn-website*) ;; *)
   R="$(find "$HOME" -maxdepth 6 -type d -name .git -path '*/atlasglinn-website/.git' -not -path '*/Library/*' 2>/dev/null | head -1)"; R="${R%/.git}";; esac
