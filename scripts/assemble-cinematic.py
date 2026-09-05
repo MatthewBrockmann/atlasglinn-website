@@ -197,14 +197,14 @@ RANGE_SECTION = f"""
 LIGHTBOX = """
 <!-- LIGHTBOX for the Range photographs -->
 <div id="lb-bd" class="modal-bd" onclick="closeLb()"></div>
-<div id="lb" class="modal wide lightbox" role="dialog" aria-modal="true" aria-label="Photograph"><button class="modal-x" aria-label="Close" onclick="closeLb()">&times;</button><img id="lb-img" alt=""></div>
+<div id="lb" class="modal wide lightbox" role="dialog" aria-modal="true" aria-label="Photograph"><button class="modal-x" aria-label="Close" onclick="closeLb()">&times;</button><img id="lb-img" alt=""><video id="lb-vid" controls playsinline preload="none" hidden></video></div>
 """
 LIGHTBOX_JS = """
 function showAll(id){ document.getElementById(id).classList.add('all'); const b = document.getElementById(id + '-more'); if (b) b.remove(); }
 if (/[?&#]preview(?=[=&#]|$)/.test(location.search + location.hash)) document.body.classList.add('preview');   // owner's preview of unpublished pieces (the Blogs link)
 function toggleFold(id, openText, closeText){ const f = $(id), b = $(id + '-btn'); const open = !f.classList.contains('open'); f.classList.toggle('open', open); b.textContent = open ? closeText : openText; b.setAttribute('aria-expanded', open ? 'true' : 'false'); if (!open) b.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-function openLb(src){ $('lb-img').src = src; $('lb-bd').classList.add('open'); $('lb').classList.add('open'); document.body.style.overflow = 'hidden'; }
-function closeLb(){ $('lb-bd').classList.remove('open'); $('lb').classList.remove('open'); document.body.style.overflow = ''; }
+function openLb(src){ const vid = /\.(mp4|webm|mov)(\?|$)/i.test(src); const img = $('lb-img'), v = $('lb-vid'); img.hidden = vid; v.hidden = !vid; if (vid) { img.removeAttribute('src'); v.src = src; v.play().catch(() => {}); } else { v.pause(); v.removeAttribute('src'); img.src = src; } $('lb-bd').classList.add('open'); $('lb').classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeLb(){ const v = $('lb-vid'); v.pause(); v.removeAttribute('src'); $('lb-bd').classList.remove('open'); $('lb').classList.remove('open'); document.body.style.overflow = ''; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('lb').classList.contains('open')) closeLb(); });
 """
 
@@ -389,8 +389,9 @@ JOIN_MODAL = """
     <p class="join-inc" id="join-inc"></p>
     <label class="join-field">Name<input id="join-name" type="text" autocomplete="name"></label>
     <label class="join-field">Email<input id="join-email" type="email" autocomplete="email" required></label>
+    <label class="join-field join-cred" id="join-cred-wrap" hidden>Photo of your credentials<input id="join-cred" type="file" accept="image/*,.pdf,.heic"><span class="join-cred-note">Badge and ID, or school ID. Up to 8 MB. It goes to the team by email for verification and nowhere else.</span></label>
     <div class="gate-actions"><button class="cta-button" id="join-go" type="button" onclick="joinGo()">Continue to Stripe</button></div>
-    <p class="gate-fine">Billed monthly by card through Stripe. New memberships are vetted by the established team.</p>
+    <p class="gate-fine" id="join-fine">Billed monthly by card through Stripe. New memberships are vetted by the established team; a membership the team declines is refunded.</p>
     <p class="join-err" id="join-err" role="alert"></p>
 </div>
 """
@@ -398,14 +399,24 @@ JOIN_JS = """
 /* Membership join (owner, 2026-09-04): Join opens a short dialog for name and email, then Stripe Checkout in subscription mode via
    POST /create-membership; the Worker provisions the plan's Stripe Price on first use. A failure offers the email route. */
 let joinPlan = null;
-function joinTeam(key, name, fee, includes){ joinPlan = key; $('join-title').textContent = name; $('join-meta').textContent = fee + ' per month'; $('join-inc').textContent = includes || ''; $('join-err').textContent = ''; const b = $('join-go'); b.disabled = false; b.textContent = 'Continue to Stripe'; $('join-bd').classList.add('open'); $('join').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('join-email').focus(), 150); }
+const CRED_PLANS = { le_team: 'Law Enforcement', teachers_team: 'Verified Teachers' };   // plans that need a credential photograph at Join
+function joinTeam(key, name, fee, includes){ joinPlan = key; const cred = !!CRED_PLANS[key]; $('join-cred-wrap').hidden = !cred; if (cred) $('join-cred').value = ''; $('join-title').textContent = name; $('join-meta').textContent = fee + ' per month'; $('join-inc').textContent = includes || ''; $('join-err').textContent = ''; const b = $('join-go'); b.disabled = false; b.textContent = 'Continue to Stripe'; $('join-bd').classList.add('open'); $('join').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('join-email').focus(), 150); }
 function closeJoin(){ $('join-bd').classList.remove('open'); $('join').classList.remove('open'); document.body.style.overflow = ''; }
 async function joinGo(){
   const email = $('join-email').value.trim(), name = $('join-name').value.trim();
   if (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)) { $('join-err').textContent = 'Enter the email address for your membership.'; $('join-email').focus(); return; }
+  let credential = null;
+  if (CRED_PLANS[joinPlan]) {
+    const f = $('join-cred').files && $('join-cred').files[0];
+    if (!f) { $('join-err').textContent = CRED_PLANS[joinPlan] + ' membership needs a photo of your credentials before checkout.'; $('join-cred').focus(); return; }
+    if (f.size > 8 * 1024 * 1024) { $('join-err').textContent = 'That file is over 8 MB. A phone photo of the credential is enough.'; return; }
+    const data = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = () => no(new Error('read')); r.readAsDataURL(f); }).catch(() => '');
+    if (!data) { $('join-err').textContent = 'Could not read that file. Try a photo or a PDF.'; return; }
+    credential = { filename: f.name || 'credential', content_type: f.type || 'application/octet-stream', data };
+  }
   const btn = $('join-go'); btn.disabled = true; btn.textContent = 'One moment\u2026'; const base = location.origin + location.pathname;
   try {
-    const res = await fetch(API + '/create-membership', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, plan: joinPlan, customer_name: name, successUrl: base + '?membership=success', cancelUrl: base + '?membership=cancelled' }) });
+    const res = await fetch(API + '/create-membership', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, plan: joinPlan, customer_name: name, credential, successUrl: base + '?membership=success', cancelUrl: base + '?membership=cancelled' }) });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.checkoutUrl) throw new Error(data.error || 'Could not start checkout.');
     location.href = data.checkoutUrl;
@@ -464,7 +475,8 @@ QUOTES_CSS = """
   .photo-tiles .tile.more { display:none; }
   .photo-tiles.all .tile.more { display:flex; }
   .gallery-eyebrow { margin-top:2.6rem; }
-  #s9 .post { margin-top:.2rem; margin-bottom:1.8rem; }   /* above the films (owner, 2026-09-05) */
+  #s9 .post { margin-top:.2rem; margin-bottom:1.8rem; }
+  .modal.lightbox video { display:block; max-width:100%; max-height:82vh; margin:0 auto; background:#000; }   /* above the films (owner, 2026-09-05) */
   /* Preview-only menu entries (the Blogs link under In Action): hidden until the URL carries `preview`. Styled as the chapter menu, indented. */
   .chap-extra { display:none; color:var(--text); font-weight:700; text-shadow:0 1px 10px rgba(0,0,0,.9); text-decoration:none; letter-spacing:.25em; padding:.2rem .8rem .2rem 2.6rem; font-size:.58rem; text-transform:uppercase; align-items:center; gap:.6rem; cursor:none; }
   .chap-extra:hover { color:var(--gold-champagne); }
@@ -535,6 +547,8 @@ GOLD_KEEP = """
   .modal.join .join-field { display:block; font-family:'Share Tech Mono',monospace; font-size:.66rem; letter-spacing:.25em; text-transform:uppercase; color:#8B95A8; margin:.9rem 0 0; }
   .modal.join input { display:block; width:100%; margin-top:.35rem; padding:.8rem .9rem; background:#0B1221; border:1px solid rgba(201,168,76,.35); color:#F0F4FF; font:1rem 'Rajdhani',sans-serif; letter-spacing:.02em; }
   .modal.join input:focus { outline:none; border-color:#C9A84C; }
+  .modal.join input[type=file] { padding:.6rem .7rem; font-size:.9rem; color:#8B95A8; }
+  .modal.join .join-cred-note { display:block; margin-top:.4rem; font-family:'Rajdhani',sans-serif; font-size:.85rem; letter-spacing:.02em; text-transform:none; color:#8B95A8; line-height:1.4; }
   .modal.join .gate-actions { margin-top:1.3rem; }
   .modal.join .join-err { color:#ff8a80; font-size:.9rem; line-height:1.45; margin-top:.8rem; min-height:1.2em; }
   .modal.join .join-err a { color:#E8D27D; }
