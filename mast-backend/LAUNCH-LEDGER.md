@@ -246,7 +246,8 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
        Torrey Kramer blocks are out of chapter 08; Kramer's documentary stays on the In Action strip. Same message: the chapter
        was **blank on his Retina Mac** because the reveal waited for 25% of a 2,500 px chapter inside a 508 px window; every
        reveal element is now also observed on its own (`cinematic_shell.py`, both sites).
-2. Founder shot: is `founder-portrait.jpg` it, or is another photo coming?
+2. ~~Founder shot~~ — settled 2026-09-05 ("Instruct pic Y its ok"): `images/mast/brockmann-instructor.jpg`, the suit-and-skyline
+   photo he sent this session, cropped to keep the photographer's mark out of frame. He is the only instructor on the page.
 3. Instagram: which posts, or an embedded feed?
 4. Capability cards: "have it here and bring back to front" — move up the MAST page, put on the Atlas home, or
    change the content? The cards are currently absent.
