@@ -285,7 +285,8 @@
 .cal-tabs { display: flex; flex-wrap: wrap; gap: .45rem; margin: .8rem 0 .4rem; }
 .cal-list .cal-item { display: grid; grid-template-columns: 1fr auto auto; gap: 1rem; align-items: center; padding: .75rem 0; border-top: 1px solid rgba(255,255,255,.06); }
 .cal-list .cal-item:first-child { border-top: 0; }
-.cal-item b { display: block; font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: .85rem; color: #fff; margin-bottom: .2rem; }
+.cal-item .cal-name { display: block; font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: .85rem; color: #fff; margin-bottom: .2rem; }
+.cal-item small .cr-lvl { display: inline-block; margin-left: .3rem; }
 .cal-item small { display: block; font-family: 'Share Tech Mono', monospace; font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; color: #b0b0b0; }
 .cal-item .cal-item-price { font-family: 'Orbitron', sans-serif; font-weight: 700; color: #C9A84C; font-size: .95rem; }
 .cal-item .cta-button.small { padding: .55rem 1rem; font-size: .68rem; letter-spacing: .18em; }
@@ -1305,7 +1306,7 @@ function renderDCal(){
   const items = offeredOn(dcalPick); $('dcal-sel').innerHTML = `<b>${labelFor(WEEKENDS[dcalPick], 2)}</b> &middot; ${items.length} classes &middot; choose one`;
   const cats = ['All', ...CATS.filter(cat => items.some(({ c }) => c.cat === cat))];
   $('dcal-tabs').innerHTML = cats.map(cat => `<button type="button" class="chip${dcalTab === cat ? ' sel' : ''}" onclick="dcalTabSet(this.dataset.cat)" data-cat="${esc(cat)}">${esc(cat === 'All' ? 'All classes' : (CAT_LABELS[cat] || cat))}</button>`).join('');
-  $('dcal-list').innerHTML = items.filter(({ c }) => dcalTab === 'All' || c.cat === dcalTab).map(({ c, i }) => `<div class="cal-item"><div><b>${esc(c.name)}</b><small>${metaHtml(c)}</small></div><div class="cal-item-price">${money(c.price_cents)}</div><button type="button" class="cta-button small" onclick="dcalChoose(${i})">Select</button></div>`).join('');
+  $('dcal-list').innerHTML = items.filter(({ c }) => dcalTab === 'All' || c.cat === dcalTab).map(({ c, i }) => `<div class="cal-item"><div><b class="cal-name">${esc(c.name)}</b><small>${metaHtml(c)}</small></div><div class="cal-item-price">${money(c.price_cents)}</div><button type="button" class="cta-button small" onclick="dcalChoose(${i})">Select</button></div>`).join('');
 }
 function dcalPickDay(wi){ dcalPick = wi; const d = parseISO(WEEKENDS[wi].saturday); dcalMonth = new Date(d.getFullYear(), d.getMonth(), 1); renderDCal(); setTimeout(() => { const b = $('dcal-classes'); if (b && !b.hidden) b.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 60); }
 function dcalTabSet(cat){ dcalTab = cat; renderDCal(); }
