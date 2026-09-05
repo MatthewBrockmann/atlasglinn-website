@@ -55,3 +55,21 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: mast-backend
           command: deploy
+      # Worker secrets from a phone: a repository secret named WORKER_RESEND_API_KEY (or WORKER_<NAME> for any other
+      # Worker secret) is pushed to the Worker after each deploy, so a rotated key never needs a Terminal. Leave them
+      # unset and nothing happens; the value never appears in a log.
+      - name: Push Worker secrets that are set as repository secrets
+        if: steps.creds.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WORKER_RESEND_API_KEY: ${{ secrets.WORKER_RESEND_API_KEY }}
+          WORKER_ACCOUNT_SECRET: ${{ secrets.WORKER_ACCOUNT_SECRET }}
+          WORKER_NOTIFY_EMAIL: ${{ secrets.WORKER_NOTIFY_EMAIL }}
+        run: |
+          for name in RESEND_API_KEY ACCOUNT_SECRET NOTIFY_EMAIL; do
+            var="WORKER_$name"; val="${!var}"
+            if [ -n "$val" ]; then
+              printf '%s' "$val" | npx wrangler secret put "$name" --name mast-booking-backend >/dev/null && echo "secret $name updated on the Worker"
+            fi
+          done

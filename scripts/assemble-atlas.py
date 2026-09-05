@@ -126,6 +126,11 @@ EXTRA_CSS = r"""
   .card::before { content:''; position:absolute; top:0; left:0; width:100%; height:1px; background:linear-gradient(90deg, transparent, var(--gold), transparent); }
   .card:hover { transform:translateY(-5px); border-color:var(--gold); }
   .card .num { font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.4em; color:var(--gold); margin-bottom:.6rem; }
+  /* The current site's emoji icon on a card or tile, in the number's place (Brockmann, 2026-09-05: same content, same way). */
+  .card .ico, .tile .txt .num.ico { font-size:1.5rem; line-height:1; letter-spacing:0; margin-bottom:.6rem; }
+  /* A section photograph in the flow of the page, where the current page shows it. */
+  img.figure { display:block; width:100%; max-width:900px; margin:2rem auto 0; border:1px solid rgba(201,168,76,.22); }
+  .quotes .card .meta { margin-bottom:.4rem; }
   .card h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.55rem; line-height:1.35; }
   .card p { font-size:.95rem; color:var(--text-dim); line-height:1.55; font-weight:300; }
   .card ul { margin:.4rem 0 0 1rem; color:var(--text-dim); font-size:.92rem; line-height:1.6; }
@@ -232,11 +237,12 @@ def cta2(href, label): return f'<a href="{href}" class="secondary-cta">{label}</
 def blue(t): return f'<span class="gold">{t}</span>'
 
 def cards(items, cls='cards', numbered=True):
+    """items: (title, body[, extra html[, icon]]). An icon (the current site's emoji on that card) takes the number's place."""
     out = []
     for k, it in enumerate(items, 1):
-        title, body = it[0], it[1]; extra = it[2] if len(it) > 2 else ''
-        out.append(f'<div class="card rise"><div class="num">{k:02d}</div><h3>{title}</h3>' + (f'<p>{body}</p>' if body else '') + extra + '</div>' if numbered
-                   else f'<div class="card rise"><h3>{title}</h3>' + (f'<p>{body}</p>' if body else '') + extra + '</div>')
+        title, body = it[0], it[1]; extra = it[2] if len(it) > 2 else ''; icon = it[3] if len(it) > 3 else ''
+        head = f'<div class="ico" aria-hidden="true">{icon}</div>' if icon else (f'<div class="num">{k:02d}</div>' if numbered else '')
+        out.append(f'<div class="card rise">{head}<h3>{title}</h3>' + (f'<p>{body}</p>' if body else '') + extra + '</div>')
     return f'<div class="{cls}">' + ''.join(out) + '</div>'
 
 def chips(items): return '<div class="chips rise">' + ''.join(f'<span class="chip">{c}</span>' for c in items) + '</div>'
@@ -246,9 +252,10 @@ def film_card(mp4, poster, title, sub):
     return (f'<div class="yt-card"><div class="frame"><video controls preload="none" playsinline poster="{poster}" src="{mp4}" title="{title}"></video></div>'
             f'<div class="info"><h4>{title}</h4><p>{sub}</p></div></div>')
 
-def ltile(num, title, body, img, href, pos='center', more='Learn more &rarr;'):
+def ltile(num, title, body, img, href, pos='center', more='Learn more &rarr;', icon=False):
+    """icon=True: num is the current site's emoji for that tile, shown at icon size instead of as a numeral."""
     return (f'<div class="tile rise"><div class="bg" style="background-image:url(\'{img}\');background-position:{pos}"></div>'
-            f'<div class="txt"><div class="num">{num}</div><h3>{title}</h3><p>{body}</p><span class="more">{more}</span></div>'
+            f'<div class="txt"><div class="num{" ico" if icon else ""}">{num}</div><h3>{title}</h3><p>{body}</p><span class="more">{more}</span></div>'
             f'<a class="cover" href="{href}" aria-label="{title}"></a></div>')
 
 def tiles(items, four=False): return f'<div class="tiles{" four" if four else ""}">' + ''.join(items) + '</div>'
@@ -353,6 +360,37 @@ CREDITS = ('Houston &middot; Texas', 'Executive Protection &middot; Intelligence
 OG_DEFAULT = HERO_EP
 PRIVACY_LINE = ('Former Head of Security, Sen. Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, '
                 'named as media exist. Other high-profile and high-net-worth individuals follow our privacy standards. We don&rsquo;t do media. Names appear only where the media captured them.')
+
+# ── Shared with every content page (Brockmann, 2026-09-05: "structured to pull the exact same way, load, pre-embedded,
+#    etc. on every page") ─────────────────────────────────────────────────────────────────────────────────────────────
+def yt_bg(vid):
+    """The current page's hero: its YouTube film playing muted behind the opening chapter (controls=0, loop), exactly as
+    the live page embeds it. The still under it is the film's own frame from YouTube."""
+    return (f'https://i.ytimg.com/vi/{vid}/maxresdefault.jpg', None, 'yt:' + vid)
+
+def figure(src, alt):
+    """A section photograph in the flow of the page, where the current page shows it (not only as a backdrop)."""
+    return f'<img class="figure rise" src="{src}" alt="{alt}" loading="lazy">'
+
+# The Reviews block every current content page ends with: six quotes, each under its audience label, then the two
+# links and the two badges. Names and titles as the current site prints them.
+REVIEWS = [
+    ('Law Enforcement', 'Matthew is an expert in his field. He is highly motivated, knowledgeable and I highly recommend him for top-tier performance.', 'Kenny Upton &mdash; Deputy, Harris County Sheriff'),
+    ('Navy SEAL / Former CIA', 'His leadership, dedication, drive, and passion is second to none. A master at teamwork, problem-solving, leadership, and communication.', 'Ray Cash Care &mdash; Navy SEAL / Former CIA'),
+    ('Reconnaissance Marine', 'As a former Reconnaissance Marine, Matthew&rsquo;s teaching has not only made me a better shooter, he has made me a better team player.', 'Arthur Metcalfe &mdash; Recon Marine, 18yr O&amp;G'),
+    ('Flight Paramedic', 'Brockmann had hosted and taught some of the best classes I have been a part of. I can&rsquo;t recommend him enough.', 'William H. Miller BS, TP-C, FP-C, CPM &mdash; Flight Paramedic'),
+    ('President &amp; CEO', 'Extremely professional. In an extremely competitive industry Matt has never failed to provide exceptional guidance. I recommend him without hesitation.', 'Craig Etkin &mdash; President &amp; CEO, intelligence360'),
+    ('CxO / Investor', 'I&rsquo;ve trained with some big-name national &amp; global self-defense trainers. I&rsquo;ve always felt safe training with Matt &mdash; the #1 criterion for choosing a trainer.', 'Wayne Sadin &mdash; CxO/VP Investor'),
+]
+STARS = '&#9733;&#9733;&#9733;&#9733;&#9733;'
+def reviews_chapter(i):
+    body = ('<div class="quotes">' + ''.join(f'<div class="card rise"><div class="meta">{lab}</div><div class="stars">{STARS}</div><p>&ldquo;{q}&rdquo;</p><div class="by">{by}</div></div>' for lab, q, by in REVIEWS) + '</div>'
+            + '<div class="ctas rise" style="margin-top:2rem">' + cta2('https://www.google.com/search?q=Atlas+Glinn+Houston+reviews', 'Google Reviews &rarr;') + cta2('https://www.linkedin.com/in/mastsolutions1/', 'LinkedIn &rarr;') + '</div>'
+            + f'<div class="badges rise"><img src="{BADGE_BEST}" alt="Best of Business 2025" loading="lazy"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"></div>')
+    return section(i, 'Reviews', f'Google Reviews &amp; LinkedIn {blue("Recommendations.")}', f'<span class="stars">{STARS}</span> 5.0 &middot; Google Reviews', body)
+
+def partner(paras, ctas, img, alt):
+    return '<div class="partner rise"><div>' + ''.join(f'<p>{p}</p>' for p in paras) + f'<div class="ctas">{ctas}</div></div><img src="{img}" alt="{alt}" loading="lazy"></div>'
 
 # ═══════════════════════════════ index.html ═══════════════════════════════
 build('index.html',
@@ -472,49 +510,54 @@ build('residential-protection.html',
       CCTV, CREDITS, [
     ('Opening', opening('Residential Protection', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'Atlas Glinn provides comprehensive residential protection with highly trained security guards available 24/7, ensuring round-the-clock protection for your home and valuable assets. Whether you require an on-site presence or remote surveillance, we customize our protection to your exact needs &mdash; adapting to your lifestyle while maintaining an uncompromising security posture.',
-        cta('contact.html', 'Request an Assessment') + cta2('#s2', 'Four Pillars'))),
-    ('Four Pillars', section(2, 'Layered Defense', f'Four Pillars of {blue("Residential Defense.")}',
+        cta('contact.html', 'Contact Us') + cta2('#s2', 'Four Pillars'))),
+    ('Four Pillars', section(2, 'Unmatched Security For Your Home', f'Four Pillars of {blue("Residential Defense.")}',
         'Our residential security programs are built on a layered defense philosophy: physical presence, advanced technology, and intelligence-driven protocols working in concert to create an impenetrable shield around your property.',
-        yt_card(YT_RESIDENTIAL, 'Residential Protection', 'The film from the current Residential Protection page') + cards([('24/7 Guard Force', 'Trained, licensed security officers providing round-the-clock physical presence. Background-verified and professionally equipped.'),
-               ('AI Surveillance', 'Integrated camera systems with AI-driven analytics &mdash; facial recognition, behavior detection, and real-time alerts.'),
-               ('Access Control', 'Perimeter security, visitor management, vehicle screening, and electronic access systems for complete control.'),
-               ('Emergency Response', 'Documented emergency action plans, law enforcement coordination, and rapid response protocols tailored to your property.')], 'cards four'))),
-    ('Coverage', section(3, 'Comprehensive Coverage', f'Every {blue("Layer.")}', '',
-        cards([('Estate Security', 'Full perimeter protection for high-value residences &mdash; gates, fencing, lighting assessments, and dedicated guard posts. Comprehensive coverage for estates of any size.'),
-               ('Remote Monitoring', '24/7 camera surveillance with AI analytics &mdash; Deep Sentinel live agents, Rhombus smart cameras, and LVT mobile units providing constant vigilance.'),
-               ('Alarm Integration', 'Direct integration with your existing alarm and automation systems. Atlas Glinn becomes your monitoring center with guaranteed response times.'),
-               ('Safe Room Planning', 'Threat assessment and safe room design consultation for high-risk residences and families requiring enhanced protection layers.'),
-               ('K-9 Security', 'Trained security K-9 units available for patrol and detection operations on large residential properties. A proven force multiplier.'),
-               ('Vulnerability Assessment', 'Comprehensive property security audits identifying entry points, blind spots, and upgrade recommendations to harden your residence.')])
-        + '<div class="ctas rise" style="margin-top:2rem">' + cta2('technology.html', 'View Technology') + '</div>')),
+        cards([('24/7 Guard Force', 'Trained, licensed security officers providing round-the-clock physical presence. Background-verified and professionally equipped.', '', '🛡'),
+               ('AI Surveillance', 'Integrated camera systems with AI-driven analytics &mdash; facial recognition, behavior detection, and real-time alerts.', '', '👁'),
+               ('Access Control', 'Perimeter security, visitor management, vehicle screening, and electronic access systems for complete control.', '', '🔒'),
+               ('Emergency Response', 'Documented emergency action plans, law enforcement coordination, and rapid response protocols tailored to your property.', '', '⚠')], 'cards four')
+        + figure(RESI_COVERAGE, 'Atlas Glinn residential protection'))),
+    ('Coverage', section(3, 'Peace of Mind &middot; Your Family&rsquo;s Safety Is Non-Negotiable.', f'Comprehensive {blue("Coverage.")}', 'Every residential engagement is tailored to the property, the family, and the threat environment.',
+        cards([('Estate Security', 'Full perimeter protection for high-value residences &mdash; gates, fencing, lighting assessments, and dedicated guard posts. Comprehensive coverage for estates of any size.', '', '🏠'),
+               ('Remote Monitoring', '24/7 camera surveillance with AI analytics &mdash; Deep Sentinel live agents, Rhombus smart cameras, and LVT mobile units providing constant vigilance.', '', '📹'),
+               ('Alarm Integration', 'Direct integration with your existing alarm and automation systems. Atlas Glinn becomes your monitoring center with guaranteed response times.', '', '🚨'),
+               ('Safe Room Planning', 'Threat assessment and safe room design consultation for high-risk residences and families requiring enhanced protection layers.', '', '🔑'),
+               ('K-9 Security', 'Trained security K-9 units available for patrol and detection operations on large residential properties. A proven force multiplier.', '', '🐶'),
+               ('Vulnerability Assessment', 'Comprehensive property security audits identifying entry points, blind spots, and upgrade recommendations to harden your residence.', '', '📋')]))),
     ('Contact', contact_chapter(4, 'Ready to Secure Your Home?', f'Start With an {blue("Assessment.")}', 'Every engagement begins with a confidential property assessment. Reach out to discuss your family&rsquo;s security requirements.',
-        cta('contact.html', 'Contact Us') + cta2(TEL, PHONE))),
-], photos=[(RESI_COVERAGE, None), (CCTV, None), (RESI_COVERAGE, None), (CCTV, None)],
-      jsonld=jsonld_service('Residential Protection', '24/7 guard force, AI surveillance, access control and emergency response for homes and estates.', 'residential-protection.html'))
+        cta('contact.html', 'Contact Us') + cta2('technology.html', 'View Technology') + cta2(TEL, PHONE))),
+    ('Reviews', reviews_chapter(5)),
+], photos=[yt_bg(YT_RESIDENTIAL), (CCTV, None), (RESI_COVERAGE, None), (CCTV, None), (HERO_EP, None)],
+      jsonld=jsonld_service('Residential Protection', '24/7 guard force, AI surveillance, access control and emergency response for estates and residences in Houston, Texas.', 'residential-protection.html'))
 
 # ═══════════════════════════ disaster-recovery.html ═══════════════════════════
 build('disaster-recovery.html',
       'Disaster Recovery & Asset Protection Houston TX | Atlas Glinn',
       'Disaster recovery and asset protection services by Atlas Glinn. Immediate response, asset safeguarding, and rapid recovery for floods, hurricanes, and crisis events. Houston, TX and the Gulf Coast.',
-      SITE + 'images/disaster-hurricane.jpg', CREDITS, [
+      'images/disaster-hurricane.jpg', CREDITS, [
     ('Opening', opening('Disaster Recovery &amp; Asset Protection', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'Atlas Glinn offers comprehensive disaster recovery and asset protection services designed to help clients rebuild and protect assets following natural catastrophes, industrial incidents, and crisis events. From hurricanes and flooding to fire and power grid failures, we deploy rapidly to secure what matters most.',
-        cta('contact.html', 'Plan Before the Storm') + cta2('#s2', 'Core Capabilities'))),
-    ('Capabilities', section(2, 'Core Capabilities', f'Your Assets Don&rsquo;t Wait. {blue("Neither Do We.")}',
+        cta('contact.html', 'Contact Us') + cta2('#s2', 'Core Capabilities'))),
+    ('Capabilities', section(2, 'Disaster Recovery &amp; Asset Protection', f'Core {blue("Capabilities.")}',
         'We specialize in safeguarding and securely storing your most valued assets when danger is imminent, and providing the personnel and logistics to get operations back online as quickly as possible. Our teams are trained for the worst-case scenario so you never have to face it alone.',
-        yt_card(YT_DISASTER, 'Disaster Recovery &amp; Asset Protection', 'The film from the current Disaster Recovery page') + cards([('Immediate Deployment', 'Immediate deployment of trained security and logistics personnel when disaster strikes. First responder coordination, site lockdown, emergency communication establishment, and 24/7 operations center activation to ensure rapid, organized crisis management from the first moments.', '<div class="meta">Emergency Response</div>'),
-               ('Safeguard What Matters', 'Comprehensive strategies to safeguard your assets before, during, and after a disaster. Secure transport and relocation, temporary storage coordination, chain-of-custody documentation, and perimeter security to prevent loss, theft, or further damage during vulnerable periods.', '<div class="meta">Asset Protection</div>'),
-               ('Minimize Losses, Expedite Recovery', 'Post-event site security, damage assessment support, insurance documentation assistance, and coordination with contractors and recovery teams. We help minimize losses and get your operations back online with structured recovery protocols and experienced personnel.', '<div class="meta">Recovery Assistance</div>')]))),
-    ('Scenarios', section(3, 'Prepared for Anything', f'Every {blue("Scenario.")}', '',
-        tiles([ltile('01', 'Hurricanes &amp; Storms', 'Pre-storm boarding and asset relocation. Post-storm site security, access control, and recovery logistics throughout the Gulf Coast and beyond.', 'images/disaster-hurricane.jpg', 'contact.html', more='Talk to us &rarr;'),
-               ltile('02', 'Flooding', 'Emergency asset extraction, temporary storage coordination, and 24/7 site security during flood events and extended recovery periods.', 'images/disaster-flood.jpg', 'contact.html', more='Talk to us &rarr;'),
-               ltile('03', 'Fire &amp; Structural', 'Post-fire perimeter security, salvage coordination, and asset protection during reconstruction and insurance investigations.', 'images/disaster-fire.jpg', 'contact.html', more='Talk to us &rarr;'),
-               ltile('04', 'Industrial Incidents', 'Plant and facility security following industrial accidents. Personnel accountability, perimeter control, and evidence preservation for investigations.', 'images/disaster-industrial.jpg', 'contact.html', more='Talk to us &rarr;'),
-               ltile('05', 'Power Grid Failures', 'Security augmentation during extended power outages. Generator coordination, access control, and anti-looting patrols to protect your property.', 'images/disaster-lightning.jpg', 'contact.html', more='Talk to us &rarr;'),
-               ltile('06', 'Commercial Properties', 'Retail, office, and warehouse security during and after disaster events. Inventory protection and controlled access for repair crews and contractors.', 'images/disaster-commercial.jpg', 'contact.html', more='Talk to us &rarr;')]))),
-    ('Contact', contact_chapter(4, 'Don&rsquo;t Wait for the Storm', f'Plan {blue("Before.")}', 'Proactive planning saves assets and lives. Contact us to develop a disaster recovery plan before you need one.',
+        '<div class="cards">' + ''.join(f'<div class="card rise"><div class="meta">{m}</div><h3>{t}</h3><p>{b}</p></div>' for m, t, b in [
+            ('01 &mdash; Emergency Response', 'Immediate Deployment', 'Immediate deployment of trained security and logistics personnel when disaster strikes. First responder coordination, site lockdown, emergency communication establishment, and 24/7 operations center activation to ensure rapid, organized crisis management from the first moments.'),
+            ('02 &mdash; Asset Protection', 'Safeguard What Matters', 'Comprehensive strategies to safeguard your assets before, during, and after a disaster. Secure transport and relocation, temporary storage coordination, chain-of-custody documentation, and perimeter security to prevent loss, theft, or further damage during vulnerable periods.'),
+            ('03 &mdash; Recovery Assistance', 'Minimize Losses, Expedite Recovery', 'Post-event site security, damage assessment support, insurance documentation assistance, and coordination with contractors and recovery teams. We help minimize losses and get your operations back online with structured recovery protocols and experienced personnel.')]) + '</div>')),
+    ('Rapid Deployment', section(3, 'Rapid Deployment', f'Your Assets Don&rsquo;t Wait. {blue("Neither Do We.")}', '',
+        figure(PROTECTION, 'Atlas Glinn asset protection'))),
+    ('Scenarios', section(4, 'Prepared for Anything', f'Every {blue("Scenario.")}', 'Atlas Glinn deploys for natural disasters, man-made crises, and everything in between.',
+        tiles([ltile('🌀', 'Hurricanes &amp; Storms', 'Pre-storm boarding and asset relocation. Post-storm site security, access control, and recovery logistics throughout the Gulf Coast and beyond.', 'images/disaster-hurricane.jpg', 'contact.html', more='Talk to us &rarr;', icon=True),
+               ltile('🌊', 'Flooding', 'Emergency asset extraction, temporary storage coordination, and 24/7 site security during flood events and extended recovery periods.', 'images/disaster-flood.jpg', 'contact.html', more='Talk to us &rarr;', icon=True),
+               ltile('🔥', 'Fire &amp; Structural', 'Post-fire perimeter security, salvage coordination, and asset protection during reconstruction and insurance investigations.', 'images/disaster-fire.jpg', 'contact.html', more='Talk to us &rarr;', icon=True),
+               ltile('🏗', 'Industrial Incidents', 'Plant and facility security following industrial accidents. Personnel accountability, perimeter control, and evidence preservation for investigations.', 'images/disaster-industrial.jpg', 'contact.html', more='Talk to us &rarr;', icon=True),
+               ltile('⚡', 'Power Grid Failures', 'Security augmentation during extended power outages. Generator coordination, access control, and anti-looting patrols to protect your property.', 'images/disaster-lightning.jpg', 'contact.html', more='Talk to us &rarr;', icon=True),
+               ltile('🏢', 'Commercial Properties', 'Retail, office, and warehouse security during and after disaster events. Inventory protection and controlled access for repair crews and contractors.', 'images/disaster-commercial.jpg', 'contact.html', more='Talk to us &rarr;', icon=True)]))),
+    ('Contact', contact_chapter(5, 'Don&rsquo;t Wait for the Storm', f'Plan {blue("Before.")}', 'Proactive planning saves assets and lives. Contact us to develop a disaster recovery plan before you need one.',
         cta('contact.html', 'Contact Us') + cta2('residential-protection.html', 'Residential Protection &rarr;'))),
-], photos=[('images/disaster-hurricane.jpg', None), ('images/disaster-flood.jpg', None), ('images/disaster-commercial.jpg', None), ('images/disaster-lightning.jpg', None)],
+    ('Reviews', reviews_chapter(6)),
+], photos=[yt_bg(YT_DISASTER), (PROTECTION, None), (PROTECTION, None), ('images/disaster-hurricane.jpg', None), ('images/disaster-lightning.jpg', None), ('images/disaster-commercial.jpg', None)],
       jsonld=jsonld_service('Disaster Recovery and Asset Protection', 'Immediate deployment, asset safeguarding and recovery assistance for hurricanes, flooding, fire, industrial incidents and power grid failures.', 'disaster-recovery.html'))
 
 # ═══════════════════════════ training.html ═══════════════════════════
@@ -524,28 +567,27 @@ build('training.html',
       TRAINING, CREDITS, [
     ('Opening', opening('Dignitary Protection Training', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'At Atlas Glinn, our lead instructor brings over 30 years of experience, safeguarding dignitaries globally. We offer unparalleled Dignitary Protection training for professionals seeking to excel in high-stakes environments.',
-        cta('mastsolutions.html', 'Book a Course') + cta2('#s2', 'Focus Areas'))),
-    ('Focus Areas', section(2, 'Core Training Focus Areas', f'What We {blue("Teach.")}', '',
-        yt_card(YT_TRAINING, 'Training Reel', 'The film from the current Training page', end=37) + cards([('Advanced Threat Assessment &amp; Risk Management', 'Learn to identify, evaluate, and mitigate threats before they materialize. Comprehensive risk analysis methodologies used by top-tier protection teams worldwide.'),
-               ('Tactical Driving &amp; Motorcade Operations', 'Master evasive driving techniques, route planning, and multi-vehicle motorcade coordination for secure ground transportation in any environment.'),
-               ('Strategic Mission Planning &amp; Execution', 'Develop operational plans from advance work through mission completion. Intelligence gathering, contingency planning, and real-time decision making.'),
-               ('Close Protection Techniques &amp; Body Man Duties', 'Hands-on training in personal protection formations, crowd management, venue security, and the art of seamless close-proximity security.'),
-               ('Crisis Management &amp; Emergency Response', 'Prepare for worst-case scenarios with crisis management protocols, evacuation procedures, medical response, and real-time coordination under pressure.')]))),
-    ('Disciplines', section(3, 'Competence Standards', f'Seven Core {blue("Disciplines.")}', 'Every operator is measured against our Selection Baseline before they ever step on a detail. These seven disciplines are the foundation of every MAST Solutions program.',
-        # The current Training page lists the seven disciplines as text; no MAST range photos on the Atlas site.
-        cards([('Firearms', 'Advanced marksmanship and weapon handling.'), ('Hand Combat', 'Close-quarters fighting techniques.'), ('Knife Combat', 'Defensive and tactical knife skills.'), ('CQB', 'Close Quarters Battle operations.'),
-               ('Fitness', 'Peak physical conditioning for duty.'), ('Medical', 'Emergency medical and trauma care.'), ('Leadership', 'Command, decision-making, dynamics.')], 'cards four')
-        + '<div class="ctas rise" style="margin-top:2rem">' + cta('mastsolutions.html', 'Explore MAST Solutions') + '</div>')),
-    ('Media', section(4, 'Training Media', f'As {blue("Featured.")}', 'Featured on Modern Shooter TV and in The Washington Post.',
+        cta('mastsolutions.html', 'Explore MAST Solutions') + cta2('#s2', 'Focus Areas'))),
+    ('Focus Areas', section(2, 'Training', f'Core Training {blue("Focus Areas.")}', '',
+        cards([('Advanced Threat Assessment &amp; Risk Management', 'Learn to identify, evaluate, and mitigate threats before they materialize. Comprehensive risk analysis methodologies used by top-tier protection teams worldwide.', '', '🔎'),
+               ('Tactical Driving &amp; Motorcade Operations', 'Master evasive driving techniques, route planning, and multi-vehicle motorcade coordination for secure ground transportation in any environment.', '', '🚗'),
+               ('Strategic Mission Planning &amp; Execution', 'Develop operational plans from advance work through mission completion. Intelligence gathering, contingency planning, and real-time decision making.', '', '📋'),
+               ('Close Protection Techniques &amp; Body Man Duties', 'Hands-on training in personal protection formations, crowd management, venue security, and the art of seamless close-proximity security.', '', '🛡'),
+               ('Crisis Management &amp; Emergency Response', 'Prepare for worst-case scenarios with crisis management protocols, evacuation procedures, medical response, and real-time coordination under pressure.', '', '⚠')]))),
+    ('Disciplines', section(3, 'Competence Standards', f'Seven Core {blue("Disciplines.")}', 'Every operator is measured against our Selection Baseline before they ever step on a detail.',
+        cards([('Firearms', 'Advanced marksmanship and weapon handling', '', '🎯'), ('Hand Combat', 'Close-quarters fighting techniques', '', '🥊'), ('Knife Combat', 'Defensive and tactical knife skills', '', '🗡'), ('CQB', 'Close Quarters Battle operations', '', '⚔'),
+               ('Fitness', 'Peak physical conditioning for duty', '', '💪'), ('Medical', 'Emergency medical &amp; trauma care', '', '⚕'), ('Leadership', 'Command, decision-making, dynamics', '', '⭐')], 'cards four')
+        + '<p class="sub" style="margin-top:1.6rem">These seven disciplines are the foundation of every MAST Solutions program.</p>'
+        + '<div class="ctas rise">' + cta('mastsolutions.html', 'Explore MAST Solutions') + '</div>')),
+    ('Media', section(4, 'Training Media', f'Featured on Modern Shooter TV and {blue("The Washington Post.")}', '',
         '<div class="yt-grid rise">'
         '<div class="yt-card"><div class="frame"><iframe src="https://www.youtube.com/embed/pSGWdaDglZE?rel=0&amp;modestbranding=1" title="Modern Shooter TV — MAST Solutions" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen></iframe></div><div class="info"><h4>Modern Shooter TV</h4><p>Lance M / Castro / Ray Cash &mdash; MAST Solutions</p></div></div>'
         '<div class="yt-card"><div class="frame"><iframe src="https://www.youtube.com/embed/OfXe_bdH6t4?rel=0&amp;modestbranding=1" title="Modern Shooter TV — Tactical Training Feature" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen></iframe></div><div class="info"><h4>Modern Shooter TV</h4><p>Tactical Training Feature</p></div></div>'
         '</div>'
-        '<a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener" class="post"><small>Press feature &middot; The Washington Post</small>Active Shooter: Arming American Teachers &rarr;</a>'
-        '<p class="sub" style="margin-top:1.4rem;font-size:.95rem">MAST Solutions featured in The Washington Post&rsquo;s coverage on active shooter preparedness and school security training.</p>')),
-    ('Contact', contact_chapter(5, 'Train With Us', f'Book a {blue("Course.")}', 'Individual seats, team blocks, and agency instruction through MAST Solutions.',
-        cta('mastsolutions.html', 'Book a Course') + cta2('contact.html', 'Contact Us'))),
-], photos=[(TRAINING, None), (HERO_EP, None), (TRAINING, None), (EP_MATTERS, None), (TRAINING, None)],
+        '<a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener" class="post"><small>The Washington Post</small>Active Shooter: Arming American Teachers</a>'
+        '<p class="sub" style="margin-top:1.4rem;font-size:.95rem">MAST Solutions featured in The Washington Post&rsquo;s coverage on active shooter preparedness and school security training. An in-depth look at how Atlas Glinn&rsquo;s training programs prepare educators and security professionals for real-world threats. <a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener">Read The Feature &rarr;</a></p>')),
+    ('Reviews', reviews_chapter(5)),
+], photos=[yt_bg(YT_TRAINING), (TRAINING, None), (HERO_EP, None), (EP_MATTERS, None), (TRAINING, None)],
       jsonld=jsonld_service('Executive Protection and Tactical Training', 'Dignitary protection training and the seven MAST Solutions disciplines: firearms, hand combat, knife combat, CQB, fitness, medical, leadership.', 'training.html'))
 
 # ═══════════════════════════ technology.html ═══════════════════════════
@@ -553,22 +595,26 @@ build('technology.html',
       'Security Technology & AI Surveillance | Atlas Glinn',
       'Atlas Glinn technology solutions: the Atlas EP platform, AI surveillance with Rhombus, Deep Sentinel and LVT, counter-drone defense with AeroDefense, and autonomous UAS with Sunflower Labs.',
       AI_SURV, CREDITS, [
-    ('Opening', opening('Technology', f'{shimmer("Details")} <span class="white">Matter.</span>',
-        'Intelligence, surveillance, and airspace security &mdash; integrated into the same protective detail that runs on the ground.',
-        cta('#s2', 'Atlas EP') + cta2('contact.html', 'Contact Us'))),
-    ('Atlas EP', section(2, 'Built by Atlas Glinn', f'The Atlas EP {blue("Platform.")}', 'Our proprietary executive protection platform integrates AI threat analysis, Blue Force Tracking, encrypted comms, and covert emergency streaming &mdash; all in one secure iOS app.',
-        '<div class="ctas rise">' + cta('signup.html', 'Explore Atlas EP') + '</div>')),
-    ('AI Surveillance', section(3, 'AI Surveillance', f'Watched by {blue("Intelligence.")}', 'Atlas Glinn offers cutting-edge AI surveillance technology through our exclusive partnerships with Rhombus, Deep Sentinel &amp; LVT.',
+    ('Opening', opening('Technology', f'{shimmer("Details")} <span class="white">Matter.</span>', '',
+        cta('ep-app.html', 'Explore Atlas EP') + cta2('#s2', 'Atlas EP Platform'))),
+    ('Atlas EP', section(2, 'Atlas EP Platform', f'The Atlas EP {blue("Platform.")}', 'Our proprietary executive protection platform integrates AI threat analysis, Blue Force Tracking, encrypted comms, and covert emergency streaming &mdash; all in one secure iOS app.',
+        '<div class="ctas rise">' + cta('ep-app.html', 'Explore Atlas EP') + '</div>')),
+    ('AI Surveillance', section(3, 'AI Surveillance', f'AI {blue("Surveillance.")}', 'Atlas Glinn offers cutting-edge AI surveillance technology through our exclusive partnerships with Rhombus, Deep Sentinel &amp; LVT.',
         cards([('Rhombus', 'Physical security shouldn&rsquo;t be stressful. With Rhombus, you can make your spaces safer and smarter. Built by cybersecurity experts, Rhombus delivers a cloud-based platform with built-in AI analytics.', '<a class="secondary-cta" href="https://www.rhombus.com/" target="_blank" rel="noopener">Learn More &rarr;</a>'),
-               ('Deep Sentinel', 'At Atlas Glinn, we are proud to be an authorized partner with Deep Sentinel, offering 24/7 live agent monitoring with AI-driven analytics. Deep Sentinel describes its cameras as the only video surveillance with live security guards that prevent crime.', '<a class="secondary-cta" href="https://www.deepsentinel.com/" target="_blank" rel="noopener">Learn More &rarr;</a>'),
+               ('Deep Sentinel', 'At Atlas Glinn, we are proud to be an authorized partner with Deep Sentinel, offering 24/7 live agent monitoring with AI-driven analytics.', '<a class="secondary-cta" href="https://www.deepsentinel.com/" target="_blank" rel="noopener">Learn More &rarr;</a>'),
                ('LVT (Live View Technologies)', 'Atlas Glinn partners with Live View Technologies. Solar-powered, wireless surveillance with advanced cameras, analytics, and real-time monitoring.', '<a class="secondary-cta" href="https://www.lvt.com/partner/atlas-glinn" target="_blank" rel="noopener">Learn More &rarr;</a>')], numbered=False))),
-    ('Counter-Drone', section(4, 'Counter-Drone Solutions', f'Airspace {blue("Defended.")}', '',
-        f'<div class="partner rise"><div><p>Atlas Glinn, in partnership with AeroDefense, delivers advanced drone detection solutions to safeguard critical infrastructure, public safety, &amp; national security &mdash; locating both drones &amp; their operators in real time.</p><p>AeroDefense&rsquo;s Made-in-the-USA system simultaneously locates both the drone and its pilot. DHS SAFETY Act Designated.</p><div class="ctas">{cta("cuas-aerodefense.html", "Counter-Drone Solutions")}</div></div><img src="{AERO}" alt="AeroDefense partnership" loading="lazy"></div>')),
-    ('UAS', section(5, 'Advanced UAS Solutions', f'Autonomous {blue("Eyes.")}', '',
-        f'<div class="partner rise"><div><p>Through elite partnership with Sunflower Labs, Atlas Glinn delivers autonomous drones for real-time surveillance, instant threat response, and seamless security integration.</p><p>Sunflower Labs&rsquo; fully autonomous drones provide real-time, intelligent surveillance. These drones fly without human intervention, responding instantly to alarms and security system triggers.</p><div class="ctas">{cta("uas.html", "Autonomous UAS")}{cta2("contact.html", "Inquire About UAS")}</div></div><img src="{UAS_IMG}" alt="Autonomous UAS drone" loading="lazy"></div>')),
-    ('Contact', contact_chapter(6, 'Integrate', f'One {blue("Picture.")}', 'Technology only matters when it feeds the people on the detail. Talk to us about the whole system.',
-        cta('contact.html', 'Contact Us') + cta2('signup.html', 'Atlas EP App &rarr;'))),
-], photos=[(AI_SURV, None), (CCTV, None), (AI_SURV, None), (AERO, None), (UAS_IMG, None), (BEEHIVE, None)],
+    ('Deep Sentinel', section(4, 'Deep Sentinel', f'Deep {blue("Sentinel.")}', 'The only video surveillance cameras with live security guards that prevent crime. AI-driven analytics with 24/7 live agent monitoring.',
+        '<div class="ctas rise">' + cta2('https://www.deepsentinel.com/', 'Learn More') + '</div>' + figure(AI_SURV, 'Deep Sentinel AI surveillance'))),
+    ('Counter-Drone', section(5, 'Counter-Drone Solutions', f'Counter-Drone {blue("Solutions.")}', '',
+        partner(['Atlas Glinn, in partnership with AeroDefense, delivers advanced drone detection solutions to safeguard critical infrastructure, public safety, &amp; national security &mdash; locating both drones &amp; their operators in real time.',
+                 'AeroDefense&rsquo;s Made-in-the-USA system simultaneously locates both the drone and its pilot. DHS Safety Act Designated.'],
+                cta2('cuas-aerodefense.html', 'Learn More'), AERO, 'AeroDefense partner — Atlas Glinn'))),
+    ('Advanced UAS', section(6, 'Advanced UAS Solutions', f'Advanced UAS {blue("Solutions.")}', '',
+        partner(['Through elite partnership with Sunflower Labs, Atlas Glinn delivers autonomous drones for real-time surveillance, instant threat response, and seamless security integration.',
+                 'Sunflower Labs&rsquo; fully autonomous drones provide real-time, intelligent surveillance. These drones fly without human intervention, responding instantly to alarms and security system triggers.'],
+                cta2('contact.html', 'Inquire About UAS'), UAS_IMG, 'Sunflower Labs autonomous UAS'))),
+    ('Reviews', reviews_chapter(7)),
+], photos=[(AI_SURV, None), (CCTV, None), (AI_SURV, None), (AI_SURV, None), (AERO, None), (UAS_IMG, None), (HERO_EP, None)],
       jsonld=jsonld_service('Security Technology', 'Atlas EP platform, AI surveillance with Rhombus, Deep Sentinel and LVT, counter-drone with AeroDefense, autonomous UAS with Sunflower Labs.', 'technology.html'))
 
 # ═══════════════════════════ cuas-aerodefense.html ═══════════════════════════
@@ -577,29 +623,38 @@ build('cuas-aerodefense.html',
       'Counter-drone defense with AirWarden by AeroDefense. DHS SAFETY Act designated. Simultaneously locates drones AND pilots in real time. Atlas Glinn, Texas regional partner.',
       AERO, CREDITS, [
     ('Opening', opening('Counter-Drone Solutions', f'{shimmer("Details")} <span class="white">Matter.</span>',
-        'AirWarden by AeroDefense &mdash; the system that simultaneously locates both drone and pilot. Atlas Glinn is the Texas regional partner for AeroDefense, bringing counter-drone technology to critical infrastructure, high-profile events, and security-sensitive facilities.',
-        cta('contact.html', 'Protect Your Airspace') + cta2('#s2', 'Capabilities'))),
-    ('Capabilities', section(2, 'System Capabilities', f'Drone {blue("and Pilot.")}',
-        'AirWarden simultaneously locates both the drone and its pilot, enabling security and law enforcement personnel to quickly address the source of potential threats &mdash; not just the drone in the air. Made in the USA, AirWarden provides real-time early warning and situational awareness for critical infrastructure, public safety, and national security applications. All solutions are FAA-compliant, ensuring lawful and effective deployment.',
-        yt_card(YT_CUAS, 'Counter-Drone Solutions', 'The film from the current Counter-Drone page') + cards([('Dual Detection', 'Simultaneously locates both drones and their operators in real time &mdash; the only way to truly neutralize the threat at its source. Know where the pilot is hiding, not just where the drone is flying.'),
+        'AirWarden by AeroDefense &mdash; The Only System That Simultaneously Locates Both Drone AND Pilot',
+        cta('contact.html', 'Contact Us') + cta2('#s2', 'System Capabilities'))),
+    ('Capabilities', section(2, 'AirWarden by AeroDefense', f'System {blue("Capabilities.")}',
+        'Atlas Glinn is the Texas regional partner for AeroDefense, bringing cutting-edge counter-drone technology to critical infrastructure, high-profile events, and security-sensitive facilities. AirWarden simultaneously locates both the drone and its pilot, enabling security and law enforcement personnel to quickly address the source of potential threats &mdash; not just the drone in the air. Made in the USA, AirWarden provides real-time early warning and situational awareness for critical infrastructure, public safety, and national security applications. All solutions are FAA-compliant, ensuring lawful and effective deployment.',
+        cards([('Dual Detection', 'Simultaneously locates both drones and their operators in real time &mdash; the only way to truly neutralize the threat at its source. Know where the pilot is hiding, not just where the drone is flying.'),
                ('Real-Time Early Warning', 'Instant alerting and situational awareness. Know about drone incursions before they reach your protected airspace, giving your team critical response time.'),
                ('DHS SAFETY Act Designated', 'AirWarden has received the Department of Homeland Security SAFETY Act Designation, providing important legal liability protections for providers of qualified anti-terrorism technologies.'),
                ('Made in the USA', 'Designed and manufactured in the United States. No foreign dependencies. Trusted by government agencies and critical infrastructure operators nationwide.'),
                ('FAA Compliant', 'All Atlas Glinn counter-drone solutions are fully FAA-compliant, ensuring lawful deployment without regulatory risk. Protect your airspace within the bounds of federal aviation law.'),
                ('Scalable Architecture', 'From single-site protection to enterprise-wide deployments, AirWarden scales to meet the demands of any environment &mdash; stadiums, campuses, industrial facilities, and more.')]))),
-    ('Threats', section(3, 'Countering Drone Threats', f'The {blue("Threat.")}', 'Malicious drone operations are growing. AirWarden detects and locates threats before damage is done.',
-        cards([('Espionage', 'Corporate and government surveillance via unauthorized drones over sensitive facilities and executive residences.'),
-               ('Contraband Delivery', 'Drone-based delivery of contraband to correctional facilities, secure sites, and restricted zones.'),
-               ('Criminal Warning', 'Drones used as early warning systems for criminal operations, providing real-time surveillance of law enforcement movements.'),
-               ('Infrastructure Attacks', 'Direct attacks on critical infrastructure &mdash; power grids, water systems, communications networks, and transportation hubs.')], 'cards four'))),
-    ('Proven', section(4, 'Proven in the Field', f'Real-World {blue("Deployment.")}', '',
+    ('SAFETY Act', section(3, 'Department of Homeland Security', f'SAFETY Act {blue("Designated.")}',
+        'AirWarden has received the DHS SAFETY Act Designation &mdash; providing important legal liability protections for providers of Qualified Anti-Terrorism Technologies deployed in the defense of critical infrastructure.', '')),
+    ('Threats', section(4, 'Countering Drone Threats', f'The {blue("Threat.")}', 'Malicious drone operations are growing. AirWarden detects and locates threats before damage is done.',
+        cards([('Espionage', 'Corporate and government surveillance via unauthorized drones over sensitive facilities and executive residences.', '', '🕵'),
+               ('Contraband Delivery', 'Drone-based delivery of contraband to correctional facilities, secure sites, and restricted zones.', '', '📦'),
+               ('Criminal Warning', 'Drones used as early warning systems for criminal operations, providing real-time surveillance of law enforcement movements.', '', '⚠'),
+               ('Infrastructure Attacks', 'Direct attacks on critical infrastructure &mdash; power grids, water systems, communications networks, and transportation hubs.', '', '🏭')], 'cards four'))),
+    ('Proven', section(5, 'Proven in the Field', f'Real-World {blue("Deployment.")}', '',
         '<p class="sub quote lead">&ldquo;Recently, we protected a high-profile event from a potential drone threat, ensuring safety without disruption. Our team deployed AirWarden to establish a secure airspace perimeter, detecting and locating an unauthorized drone and its operator within minutes &mdash; allowing law enforcement to respond before any incident occurred.&rdquo;</p>'
-        '<div class="eyebrow in" style="margin-top:2rem">Autonomous Drone Integration</div>'
-        '<p class="sub">Atlas Glinn integrates AirWarden counter-drone detection with Sunflower Labs autonomous drone systems for comprehensive perimeter protection. When a threat is detected, autonomous response drones can be deployed to visually verify and track incursions in real time. This layered approach combines passive RF detection with active autonomous response &mdash; Detection &rarr; Alert &rarr; Autonomous Response.</p>'
-        '<div class="ctas rise">' + cta2('uas.html', 'Learn About UAS Drones') + '</div>')),
-    ('Contact', contact_chapter(5, 'Is Your Airspace Protected?', f'Stay {blue("Ahead.")}', 'Stay ahead of drone-related risks with Atlas Glinn&rsquo;s expertise in counter-drone strategies. Our team brings decades of security experience to every deployment, ensuring your airspace remains secure and your operations uninterrupted.',
-        cta('contact.html', 'Contact Us') + cta2('https://atlasglinn.com/counter-drone-solutions/how-cuas-aerodefense-stops-drone-threats-in-their-tracks/', 'From Our Blog &rarr;'))),
-], photos=[(AERO, None), (AERO, None), (UAS_IMG, None), (AERO, None), (AERO, None)],
+        '<p class="sub" style="font-family:\'Share Tech Mono\',monospace;font-size:.7rem;letter-spacing:.25em;text-transform:uppercase">Atlas Glinn &mdash; Real-World Deployment</p>')),
+    ('Integration', section(6, 'Autonomous Drone Integration', f'Detection &rarr; Alert &rarr; {blue("Autonomous Response.")}',
+        'Atlas Glinn integrates AirWarden counter-drone detection with Sunflower Labs autonomous drone systems for comprehensive perimeter protection. When a threat is detected, autonomous response drones can be deployed to visually verify and track incursions in real time.',
+        '<p class="sub">This layered approach combines passive RF detection with active autonomous response &mdash; delivering a complete airspace security solution that stays ahead of evolving threats.</p>'
+        '<div class="ctas rise">' + cta2('uas.html', 'Learn About UAS Drones') + '</div>'
+        '<p class="sub" style="margin-top:1.4rem;font-family:\'Share Tech Mono\',monospace;font-size:.7rem;letter-spacing:.25em;text-transform:uppercase">Layered Airspace Security</p>')),
+    ('Stay Ahead', section(7, 'Stay Ahead', f'Stay {blue("Ahead.")}', 'Stay ahead of drone-related risks with Atlas Glinn&rsquo;s expertise in counter-drone strategies. Our team brings decades of security experience to every deployment, ensuring your airspace remains secure and your operations uninterrupted.',
+        '<div class="eyebrow in" style="margin-top:2rem">From Our Blog</div>'
+        + cards([('How cUAS Aerodefense Stops Drone Threats', 'Learn how counter-UAS technology is transforming airspace security for critical infrastructure and high-profile events.', '<a class="secondary-cta" href="https://atlasglinn.com/counter-drone-solutions/how-cuas-aerodefense-stops-drone-threats-in-their-tracks/">Read &rarr;</a>')], 'cards two', numbered=False))),
+    ('Contact', contact_chapter(8, 'Is Your Airspace Protected?', f'Assess Your {blue("Vulnerability.")}', 'Drone threats are real and growing. Contact Atlas Glinn to assess your facility&rsquo;s vulnerability and deploy AirWarden protection.',
+        cta('contact.html', 'Contact Us') + cta2(TEL, 'Phone: ' + PHONE))),
+    ('Reviews', reviews_chapter(9)),
+], photos=[yt_bg(YT_CUAS), (AERO, None), (AERO, None), (UAS_IMG, None), (AERO, None), (UAS_IMG, None), (AERO, None), (AERO, None), (HERO_EP, None)],
       jsonld=jsonld_service('Counter-Drone Solutions', 'AirWarden by AeroDefense counter-UAS detection locating drones and their pilots; DHS SAFETY Act designated; Atlas Glinn is the Texas regional partner.', 'cuas-aerodefense.html'))
 
 # ═══════════════════════════ uas.html ═══════════════════════════
@@ -607,17 +662,19 @@ build('uas.html',
       'Autonomous Drone Security Houston TX | Sunflower Labs — Atlas Glinn',
       'Fully autonomous drone surveillance by Sunflower Labs. Real-time intelligent monitoring, AI detection, and 24/7 property protection through Atlas Glinn.',
       UAS_IMG, CREDITS, [
-    ('Opening', opening('Autonomous UAS', f'{shimmer("Details")} <span class="white">Matter.</span>',
-        'Autonomous drones that never sleep. Atlas Glinn partners with Sunflower Labs to deliver cutting-edge autonomous drone technology integrated into complete security solutions. The Beehive system deploys The Bee &mdash; a fully autonomous drone &mdash; on demand or on schedule, with zero human intervention required.',
-        cta('contact.html', 'Design a Solution') + cta2('#s2', 'How It Detects'))),
-    ('Detection', section(2, 'Intelligent Detection', f'No Pilot Required. {blue("No Gaps in Coverage.")}', 'AI detection identifies people, vehicles, and animals with real-time tracking. The drone autonomously navigates, surveys, deters, and returns to base to recharge &mdash; all without a pilot. This is security that never takes a break.',
+    ('Opening', opening('Autonomous Drones That Never Sleep', f'{shimmer("Details")} <span class="white">Matter.</span>',
+        'Sunflower Labs partnership delivering fully autonomous aerial surveillance. Atlas Glinn partners with Sunflower Labs to deliver cutting-edge autonomous drone technology integrated into complete security solutions. The Beehive system deploys The Bee &mdash; a fully autonomous drone &mdash; on demand or on schedule, with zero human intervention required. AI detection identifies people, vehicles, and animals with real-time tracking. The drone autonomously navigates, surveys, deters, and returns to base to recharge &mdash; all without a pilot. This is security that never takes a break.',
+        cta('contact.html', 'Contact Us') + cta2('#s2', 'Intelligent Detection'))),
+    ('Detection', section(2, 'Intelligent Detection', f'AI-Powered Threat Identification and {blue("Real-Time Response.")}', '',
         cards([('People Detection', 'Advanced AI identifies and tracks human subjects in real time, day or night. Low-light and optional thermal imaging ensure no gap in coverage.'),
                ('Vehicle Recognition', 'Automated vehicle detection and tracking across parking lots, driveways, and perimeters. Instant alerts for unauthorized access.'),
                ('Animal Classification', 'AI distinguishes between human threats and wildlife, reducing false alarms while maintaining maximum threat awareness.'),
                ('Real-Time Tracking', 'Continuous subject tracking from detection through resolution. Live HD video feeds to security teams and monitoring centers.'),
                ('Autonomous Deterrence', 'Visible drone presence deters intruders on contact. No waiting for human response &mdash; the system acts immediately and autonomously.'),
                ('Zero Human Intervention', 'From launch to landing, The Bee operates entirely on its own. Self-deploying, self-navigating, self-charging. Fully autonomous.')]))),
-    ('How It Works', section(3, 'How It Works', f'Trigger to {blue("Return.")}', '',
+    ('No Pilot', section(3, 'Autonomous Drones via Sunflower Labs', f'No Pilot Required. {blue("No Gaps in Coverage.")}', 'Real-time intelligent surveillance with instant threat response.',
+        figure(UAS_IMG, 'Sunflower Labs autonomous drone'))),
+    ('How It Works', section(4, 'How It Works', f'Six-Step Autonomous {blue("Security Cycle.")}', '',
         '<div class="steps">' + ''.join(f'<div class="card rise"><h3>{t}</h3><p>{b}</p></div>' for t, b in [
             ('Trigger', 'Flight triggered automatically by motion sensors, cameras, scheduled intervals, or manual demand via app.'),
             ('Navigate', 'The Bee autonomously navigates to the destination with obstacle avoidance in 99% of weather conditions.'),
@@ -625,13 +682,14 @@ build('uas.html',
             ('Deter', 'Visible drone presence deters intruders. Tracking provides real-time alerts to security teams and monitoring centers.'),
             ('Return', 'Autonomous return-to-base and self-charging. Ready for the next flight within minutes.'),
             ('Repeat', 'Up to 8 hours of daily drone coverage. Continuous autonomous protection without interruption.')]) + '</div>')),
-    ('Specifications', section(4, 'System Specifications', f'The {blue("Beehive.")}', 'Purpose-built for security. The Beehive houses, charges, and deploys The Bee autonomously. Operates within geocaged airspace restricted to your property. Specifications as published by Sunflower Labs.',
+    ('Specifications', section(5, 'System Specifications', f'The {blue("Beehive.")}', 'Purpose-built for security. The Beehive houses, charges, and deploys The Bee autonomously. Operates within geocaged airspace restricted to your property.',
         f'<div class="partner rise"><div class="spec">' + ''.join(f'<div><b>{k}</b><span>{v}</span></div>' for k, v in [
-            ('Operational radius', '~600 m (1,800 ft)'), ('Flight duration', 'Up to 20 min'), ('Daily coverage', 'Up to 8 hours'), ('Operating cost', '$4&ndash;7 / hour'),
-            ('Installation', '8&ndash;12 weeks'), ('Weather', '99% of conditions'), ('Integrations', 'RTSP, Webhooks, API')]) + f'</div><img src="{BEEHIVE}" alt="Sunflower Labs Beehive system" loading="lazy"></div>')),
-    ('Contact', contact_chapter(5, 'Ready for Autonomous Protection?', f'Design {blue("Yours.")}', 'Contact Atlas Glinn to design a custom autonomous drone surveillance solution for your property.',
-        cta('contact.html', 'Contact Us') + cta2('cuas-aerodefense.html', 'Counter-Drone &rarr;'))),
-], photos=[(UAS_IMG, None), (BEEHIVE, None), (UAS_IMG, None), (BEEHIVE, None), (UAS_IMG, None)],
+            ('Operational Radius', '~600m (1,800 ft)'), ('Flight Duration', 'Up to 20 min'), ('Daily Coverage', 'Up to 8 hours'), ('Operating Cost', '$4&ndash;7/hour'),
+            ('Installation', '8&ndash;12 weeks'), ('Weather', '99% conditions'), ('Integrations', 'RTSP, Webhooks, API')]) + f'</div><img src="{BEEHIVE}" alt="Sunflower Labs Beehive system" loading="lazy"></div>')),
+    ('Contact', contact_chapter(6, 'Ready for Autonomous Protection?', f'Design {blue("Yours.")}', 'Contact Atlas Glinn to design a custom autonomous drone surveillance solution for your property.',
+        cta('contact.html', 'Contact Us') + cta2(TEL, PHONE))),
+    ('Reviews', reviews_chapter(7)),
+], photos=[(UAS_IMG, None), (BEEHIVE, None), (UAS_IMG, None), (BEEHIVE, None), (UAS_IMG, None), (BEEHIVE, None), (HERO_EP, None)],
       jsonld=jsonld_service('Autonomous UAS Security', 'Sunflower Labs Beehive autonomous drone surveillance with AI detection of people, vehicles and animals, integrated by Atlas Glinn.', 'uas.html'))
 
 # ═══════════════════════════ about.html ═══════════════════════════

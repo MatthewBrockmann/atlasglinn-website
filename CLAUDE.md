@@ -148,8 +148,14 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   chat or git. He saves them once on the Mac with `bash scripts/wp-upload.sh --save-login` (macOS Keychain item
   `mast-wp-sftp`); after that the upload never asks. The GoDaddy connector in cloud sessions only checks domain
   availability; it cannot reach hosting.
-- **mastsolutions.com** has no site: it is a GoDaddy domain forward to atlasglinn.com. Point it at
-  `https://atlasglinn.com/mastsolutions.html` (301). It still carries DNS: Resend verifies it so the Worker can send as
+  **Without the Mac (added 2026-09-05, "I won't be able to use terminal commands on the road"):** two GitHub Actions turn a
+  merge into a deploy once their repository secrets exist. `.github/workflows/deploy-page.yml` uploads the MAST page and its
+  assets over SFTP on every push to main that touches them (secrets `WP_SFTP_USER`, `WP_SFTP_PASSWORD`, the same pair as the
+  Keychain item); `.github/workflows/deploy-worker.yml` runs the Worker tests and `wrangler deploy` (secrets
+  `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) and pushes any `WORKER_<NAME>` repository secret to the Worker, so a key
+  can be rotated from a phone. Without the secrets both jobs stop with a notice; the Mac's hourly upload stays the fallback.
+- **mastsolutions.com** has no site: it is a GoDaddy domain forward to atlasglinn.com, pointed at
+  `https://atlasglinn.com/mastsolutions.html` (set 2026-09-05). It still carries DNS: Resend verifies it so the Worker can send as
   bookings@mastsolutions.com, beside the existing matthew@mastsolutions.com mail.
 - An earlier session put HTML straight into WordPress (`wp-content/themes/atlasglinn/ep-trailer.html`) from a Mac session
   with the WordPress admin. A cloud session cannot: the container has no route to atlasglinn.com and holds no credentials.

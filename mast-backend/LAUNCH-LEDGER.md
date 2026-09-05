@@ -138,7 +138,16 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    Terminal, so `.github/workflows/deploy-worker.yml` now deploys the Worker on every push to main that touches
    `mast-backend/` — once two repository secrets exist: `CLOUDFLARE_API_TOKEN` (Cloudflare dashboard → My Profile → API
    Tokens → Create → "Edit Cloudflare Workers" template, add D1: Edit) and `CLOUDFLARE_ACCOUNT_ID` (Workers & Pages overview).
-   Until then the workflow runs the tests and stops with a notice; the fix is merged, not running.
+   Until then the workflow runs the tests and stops with a notice; the fix is merged, not running. The same workflow pushes
+   any `WORKER_RESEND_API_KEY` / `WORKER_ACCOUNT_SECRET` / `WORKER_NOTIFY_EMAIL` repository secret to the Worker after the
+   deploy, so a rotated key needs no Terminal. `.github/workflows/deploy-page.yml` does the same for the page over SFTP
+   (secrets `WP_SFTP_USER`, `WP_SFTP_PASSWORD`).
+2b. **"Not working" (2026-09-05 ~20:15 UTC, his test of Sign in → create account on the live page):** the page reached
+   "Check your email — we emailed a 6-digit code to matthew@atlasglinn.com" and no code arrived. The page and the Worker's
+   202 are fine; the send is the question. Two candidates, both checked in Resend → Emails / API Keys: (a) the attempt went
+   out before the domain verified at 20:10 and a "Resend code" fixes it; (b) the API key was deleted at his "1- done" and the
+   Worker holds a dead key — then a new key must reach the Worker (`WORKER_RESEND_API_KEY` repository secret + the deploy
+   workflow, or `wrangler secret put` at the Mac). Awaiting his answer.
 3. **Rotate the Atlas EP leads key** on the `atlas-ep-signup` Worker. It was public on `main` until today.
 4. ~~One live test registration with the $1 `MAST-TEST` seat~~ — **2026-09-05 ("Remove test hook")**: the `#test` page hook
    and the Worker's `MAST-TEST` fallback entry are removed (PR #10); there is no $1 seat any more. A live check now means a

@@ -1,0 +1,99 @@
+# Uploads the MAST page and its assets to the atlasglinn.com host (GoDaddy Managed WordPress, SFTP) when they change on
+# main, so "merged" becomes "running" for the page without the Mac (owner, 2026-09-05: on the road, no Terminal). The same
+# file list and the same batch as scripts/wp-upload.sh, which stays the Mac's hourly path.
+#
+# Needs two repository secrets (Settings → Secrets and variables → Actions):
+#   WP_SFTP_USER       the atlasglinn.com site's SFTP username (GoDaddy → Managed WordPress → Settings → Production Site → SFTP/SSH)
+#   WP_SFTP_PASSWORD   its password — the same pair the Mac keeps in the Keychain item mast-wp-sftp; it never appears in a log
+# Until both exist the job lists the files and stops with a notice; nothing is uploaded.
+name: Upload MAST page
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mastsolutions.html'
+      - 'mast-capability-statement.html'
+      - 'privacy.html'
+      - 'terms.html'
+      - 'signup.html'
+      - 'images/**'
+      - 'vendor/**'
+      - 'scripts/wp-upload.sh'
+      - '.github/workflows/deploy-page.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: upload-page
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: List the page and its assets (the lister from scripts/wp-upload.sh)
+        id: list
+        run: |
+          eval "$(grep -m1 '^PAGES=' scripts/wp-upload.sh)"
+          python3 - "$PAGES" > files.txt <<'PY'
+          import os, re, sys
+          pages = sys.argv[1].split(); seen = []; queue = list(pages)
+          attr = re.compile(r'''(?:src|href|poster)=["']([^"'#?]+)|url\(['"]?([^)'"?#]+)|from\s+['"]\.?/?([^'"]+\.js)['"]|['"]((?:images|vendor)/[^'"?#\s]+)['"]''')
+          while queue:
+              p = queue.pop(0)
+              if p in seen or not os.path.isfile(p): continue
+              seen.append(p)
+              if not p.endswith('.html'): continue
+              for m in attr.finditer(open(p, encoding='utf-8', errors='ignore').read()):
+                  u = (m.group(1) or m.group(2) or m.group(3) or m.group(4) or '').strip()
+                  if not u or u.startswith(('http', '//', 'mailto:', 'tel:', 'data:', 'javascript:')): continue
+                  u = os.path.normpath(os.path.join(os.path.dirname(p), u))
+                  if u.startswith('..'): continue
+                  if u.endswith('.html') and os.path.basename(u) not in pages and u not in pages: continue
+                  queue.append(u)
+          print('\n'.join(seen))
+          PY
+          echo "$(wc -l < files.txt) files"; head -5 files.txt
+          # An LFS pointer that was not fetched would be uploaded as a 130-byte text file; refuse that.
+          if grep -l 'git-lfs.github.com/spec' $(cat files.txt) 2>/dev/null | head -1 | grep -q .; then
+            echo "::error::LFS pointer among the files; nothing uploaded"; exit 1; fi
+      - name: Check for SFTP credentials
+        id: creds
+        env:
+          U: ${{ secrets.WP_SFTP_USER }}
+          P: ${{ secrets.WP_SFTP_PASSWORD }}
+        run: |
+          if [ -z "$U" ] || [ -z "$P" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::WP_SFTP_USER / WP_SFTP_PASSWORD not set — files listed, upload skipped. Add both repository secrets to turn on auto-upload."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Upload over SFTP
+        if: steps.creds.outputs.ready == 'true'
+        env:
+          SFTP_USER: ${{ secrets.WP_SFTP_USER }}
+          SSHPASS: ${{ secrets.WP_SFTP_PASSWORD }}
+          HOST: 1127220.us12.ssh.myftpupload.com
+          DOCROOT: html
+        run: |
+          sudo apt-get install -y -qq sshpass >/dev/null
+          {
+            echo "cd $DOCROOT"
+            xargs -I{} dirname {} < files.txt | sort -u | grep -v '^\.$' | awk '{ n=split($0,a,"/"); p=""; for(i=1;i<=n;i++){ p=(p==""?a[i]:p"/"a[i]); print "-mkdir " p } }' | sort -u
+            awk '{ print "put " $0 " " $0 }' files.txt
+          } > batch.txt
+          sshpass -e sftp -oBatchMode=no -o StrictHostKeyChecking=accept-new -b batch.txt "$SFTP_USER@$HOST" > sftp.log 2>&1 || { tail -20 sftp.log; exit 1; }
+          echo "uploaded $(wc -l < files.txt) files to $HOST:$DOCROOT/"
+      - name: Live check
+        if: steps.creds.outputs.ready == 'true'
+        run: |
+          sleep 5
+          if curl -sfL "https://atlasglinn.com/mastsolutions.html?x=$GITHUB_RUN_ID" | grep -q 'reg-steps'; then
+            echo "atlasglinn.com/mastsolutions.html serves the new page"
+          else
+            echo "::warning::the page uploaded but the live check did not see the new build yet (host cache); check in a minute"
+          fi
