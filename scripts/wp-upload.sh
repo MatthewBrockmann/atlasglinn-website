@@ -19,7 +19,9 @@ HOST="${WP_SFTP_HOST:-1127220.us12.ssh.myftpupload.com}"   # GoDaddy moved the s
 DOCROOT="${WP_DOCROOT:-html}"   # the SFTP login lands in the account home; WordPress (the web root) is its html/ folder.
                                 # 2026-09-05: the first upload put 113 files into the home directory and nothing was served.
 REF="${REF:-origin/main}"
-PAGES="${PAGES:-mastsolutions.html privacy.html terms.html mast-capability-statement.html}"
+# The MAST page and, since the Atlas Glinn publish (owner, 2026-09-05: "Publish AG preview"), the eleven rebuilt Atlas pages
+# with the hand-authored pages they link to. The lister follows the links between these and gathers every asset.
+PAGES="${PAGES:-mastsolutions.html privacy.html terms.html mast-capability-statement.html index.html executive-protection.html residential-protection.html disaster-recovery.html training.html technology.html cuas-aerodefense.html uas.html about.html careers.html contact.html ep-app.html signup.html}"
 say() { printf '\033[1;36m%s\033[0m\n' "$*"; }
 KC_SERVICE="mast-wp-sftp"   # macOS Keychain item: account = SFTP username, password = SFTP password
 kc_user() { security find-generic-password -s "$KC_SERVICE" 2>/dev/null | sed -n 's/^ *"acct"<blob>="\(.*\)"$/\1/p'; }
