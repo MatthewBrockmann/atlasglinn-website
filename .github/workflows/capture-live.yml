@@ -1,6 +1,7 @@
 # Reads the live atlasglinn.com pages from a GitHub runner (open internet; the cloud container has no route to the site)
 # and commits them to the handoff branch as reference/desktop/live/<slug>.html, the same place scripts/mac-handoff.sh
-# saves them from the Mac. Owner, 2026-09-05, on the published rebuild: "why the content from the actual site and this
+# saves them from the Mac; file URLs on the same list (the site's films and team pictures) land beside them by basename,
+# up to 60 MB each. Owner, 2026-09-05, on the published rebuild: "why the content from the actual site and this
 # new site front end are not matching" — no cloud session had ever read the live WordPress text. Runs on request and once
 # a day; needs no secret. A probe file beside the pages records what the host serves at /, /index.html, /about.html and a
 # few uploaded assets (status, content type, <title>, WordPress generator tag), so the upload state is visible from a
@@ -30,19 +31,23 @@ jobs:
       DEST: reference/desktop/live
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch the live pages named in scripts/handoff-urls.txt
+      - name: Fetch the live pages and files named in scripts/handoff-urls.txt
         run: |
           mkdir -p out
-          n=0
           grep -E '^https?://' scripts/handoff-urls.txt | while read -r u; do
-            case "$u" in *youtube.com/*|*youtu.be/*|*instagram.com/*|*vimeo.com/*|*tiktok.com/*|*facebook.com/*|*fb.watch/*) continue ;; esac
+            case "$u" in *youtube.com/*|*youtu.be/*|*instagram.com/*|*vimeo.com/*|*tiktok.com/*|*facebook.com/*|*fb.watch/*) continue ;; esac   # yt-dlp on the Mac
             p="${u#*://}"; p="${p#*/}"; p="${p%%\?*}"; p="${p%%#*}"
-            case "$p" in ""|*/) ;; *) case "${p##*/}" in *.*) continue ;; esac ;; esac      # a file, not a page: the Mac's job
-            s="${p%/}"; s="$(printf '%s' "$s" | tr '/' '-')"; s="${s:-index}"
-            if curl -fsSL -A "$UA" --max-time 60 -o "out/$s.html" "$u"; then
-              echo "ok    $u -> $DEST/$s.html ($(wc -c < "out/$s.html") bytes)"
+            page=1; case "$p" in ""|*/) ;; *) case "${p##*/}" in *.*) page=0 ;; esac ;; esac
+            if [ "$page" = 1 ]; then
+              s="${p%/}"; s="$(printf '%s' "$s" | tr '/' '-')"; s="${s:-index}.html"
             else
-              echo "::warning::fetch failed: $u"; rm -f "out/$s.html"
+              s="${p##*/}"                                   # a file (image, film): by basename, beside the pages
+            fi
+            # Files up to 60 MB (GitHub refuses 100 MB); the Mac's handoff compresses bigger films, this job lists them.
+            if curl -fsSL -A "$UA" --max-time 300 --max-filesize 60000000 -o "out/$s" "$u"; then
+              echo "ok    $u -> $DEST/$s ($(wc -c < "out/$s") bytes)"
+            else
+              echo "::warning::fetch failed or over 60 MB: $u"; rm -f "out/$s"
             fi
           done
           ls -la out

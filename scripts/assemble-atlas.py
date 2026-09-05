@@ -346,7 +346,7 @@ LIVE_LINKS = False   # 2026-09-05 "Publish AG preview": the full set is publishe
 LIVE_URLS = {
     'executive-protection.html':  'https://atlasglinn.com/executive-protection/',
     'residential-protection.html': 'https://atlasglinn.com/residential-protection/',
-    'disaster-recovery.html':     'https://atlasglinn.com/disaster-recovery-asset-protection/',
+    'disaster-recovery.html':     'https://atlasglinn.com/disaster-recovery/',
     'training.html':              'https://atlasglinn.com/training/',
     'technology.html':            'https://atlasglinn.com/technology/',
     'cuas-aerodefense.html':      'https://atlasglinn.com/cuas-aerodefense/',
