@@ -344,10 +344,11 @@ build('index.html',
             ltile('06', 'Disaster Recovery', 'Rapid response and asset protection during crisis situations.', AG3, 'disaster-recovery.html'),
         ]))),
     # Brockmann, 2026-09-04: "Hours of experience is wrong, and number of US senators is wrong" (the current site said
-    # 1,500 hours / 2 senators). 34 years is the figure in his approved bio; three senators are named in the protectee
+    # 1,500 hours / 2 senators). Brockmann, 2026-09-05: "34 years of expertise = change to decades", so the bio says
+    # decades, the tile counts three decades, and no page states the year figure; three senators are named in the protectee
     # line; the trained count rolls to an odd number ("seven twenty nine or something like that") until he has the exact one.
     ('By the Numbers', section(3, 'Atlas Glinn &middot; Houston', f'By the {blue("Numbers.")}', '',
-        '<div class="stats four rise"><div class="stat"><div class="stat-num" data-count="34">0</div><div class="stat-label">Years of Experience</div></div>'
+        '<div class="stats four rise"><div class="stat"><div class="stat-num" data-count="3">0</div><div class="stat-label">Decades of Experience</div></div>'
         '<div class="stat"><div class="stat-num" data-count="3">0</div><div class="stat-label">U.S. Senators Protected</div></div>'
         '<div class="stat"><div class="stat-num" data-count="17">0</div><div class="stat-label">Partnerships</div></div>'
         '<div class="stat"><div class="stat-num" data-count="1701" data-suffix="+">0</div><div class="stat-label">Professionals Trained</div></div></div>')),   # same metric as the MAST page's 1,701+ (owner, 2026-09-05: "Y")
@@ -605,11 +606,11 @@ build('uas.html',
       jsonld=jsonld_service('Autonomous UAS Security', 'Sunflower Labs Beehive autonomous drone surveillance with AI detection of people, vehicles and animals, integrated by Atlas Glinn.', 'uas.html'))
 
 # ═══════════════════════════ about.html ═══════════════════════════
-BROCKMANN_BIO = ('Matthew Brockmann is the visionary founder of both MAST Solutions and Atlas Glinn, bringing over 34 years of expertise in security, training, and dignitary protection. A seasoned civilian contractor, he specializes in Military, Law Enforcement, and Homeland Security Special Response Teams (SRT), with extensive experience collaborating with elite Tier 1 Operators from units like Navy SEALs, Recon Marines, and USASOC. His career began in 1991 at Gunsite under Col. Jeff Cooper. '
+BROCKMANN_BIO = ('Matthew Brockmann is the visionary founder of both MAST Solutions and Atlas Glinn, bringing decades of expertise in security, training, and dignitary protection. A seasoned civilian contractor, he specializes in Military, Law Enforcement, and Homeland Security Special Response Teams (SRT), with extensive experience collaborating with elite Tier 1 Operators from units like Navy SEALs, Recon Marines, and USASOC. His career began in 1991 at Gunsite under Col. Jeff Cooper. '
                  + PRIVACY_LINE + ' He is a certified Firearms Instructor for civilians, law enforcement, and agencies, and a Gracie Jiu-Jitsu practitioner.')
 build('about.html',
       'About Atlas Glinn | Elite Security Leadership — Houston, TX',
-      'Meet the Atlas Glinn leadership team. 34+ years of elite security, dignitary protection, and tactical training expertise led by Matthew Brockmann and Michael Cline.',
+      'Meet the Atlas Glinn leadership team. Decades of elite security, dignitary protection, and tactical training expertise led by Matthew Brockmann and Michael Cline.',
       FOUNDER, CREDITS, [
     ('Opening', opening('About Atlas Glinn', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'Our mission is to provide you with unparalleled peace of mind, safeguarding what matters most &mdash; your safety, your assets, and your way of life. With a foundation built on elite expertise and a relentless pursuit of excellence, we deliver tailored protection solutions that blend seamlessly into your world.',
