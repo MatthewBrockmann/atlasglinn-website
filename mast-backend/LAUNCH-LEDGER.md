@@ -94,7 +94,8 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    is why it comes last); then **`scripts/wp-upload.sh`** for the page (the live page is still the old one).
    The page on main and the Worker must match (refund policy version, prerequisite rule, the ladies-only SKU, memberships, the
    private-request subject line, the account routes). Merged is not running.
-2. **`RESEND_API_KEY`** — `wrangler secret put RESEND_API_KEY --name mast-booking-backend`. Sending as
+2. **`RESEND_API_KEY`** — **set 2026-09-05 ~17:15 UTC** (his terminal: "Success! Uploaded secret RESEND_API_KEY"). Still needed:
+   mastsolutions.com verified at Resend. Original note: `wrangler secret put RESEND_API_KEY --name mast-booking-backend`. Sending as
    `bookings@mastsolutions.com` needs Resend's DNS records added at GoDaddy for mastsolutions.com. Until then no
    receipt, no agreement PDF, no range address, no staff alert goes out; all are logged.
 3. **Rotate the Atlas EP leads key** on the `atlas-ep-signup` Worker. It was public on `main` until today.
