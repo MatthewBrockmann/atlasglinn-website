@@ -133,8 +133,8 @@ MEMBERSHIP = f"""
         {tier('Blue Team', 't-blue', 'blue_team', '$450', 'Two classes, plus 35% off any two classes for you or two friends.', '5 memberships')}
         {tier('Gold Team', 't-gold', 'gold_team', '$575', 'Three classes, plus 45% off any three classes for you or three friends.', '5 memberships')}
         {tier('Black Team', 't-black', 'black_team', '$600', 'Unlimited classes, plus 50% off any class for you or four friends.', '5 memberships')}
-        {tier('Law Enforcement', 't-le', 'le_team', '$195', 'Two classes, plus 35% off any two classes for you or two friends.', 'Verified status required')}
-        {tier('Verified Teachers', 't-teachers', 'teachers_team', '$195', 'Two classes, plus 35% off any two classes for you or two friends.', 'Verified status required')}
+        {tier('Law Enforcement', 't-le', 'le_team', '$195', 'Two classes, plus 35% off any two classes for you or two friends. Verified status required.', '10 memberships')}
+        {tier('Verified Teachers', 't-teachers', 'teachers_team', '$195', 'Two classes, plus 35% off any two classes for you or two friends. Verified status required.', '10 memberships')}
       </div>
       <p class="teams-note">Hover a team for what it includes; tap it to join. A slot is held while the monthly fee is paid; a lapsed slot goes to the waiting list. Membership is billed monthly by card; new memberships are vetted by the established team.</p>
     </div>

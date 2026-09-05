@@ -199,7 +199,7 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
      and Verified Teachers requires a credential photograph (JPEG/PNG/HEIC/PDF, ≤ 8 MB); the Worker emails it to the office
      (`NOTIFY_EMAIL`, reply-to the applicant, subject "Membership credential: <name> · <plan>") and only then opens Stripe
      Checkout, recording `metadata[credential]=emailed <time>`. Charge at Join stays; a membership the team declines is refunded
-     (the page says so). Slot counts for LE/Teachers: still none given.
+     (the page says so). Slot counts for LE/Teachers: **10 each** (2026-09-05, "Le teach slot 10"); on the tiles.
    - **All emails BCC** matthew@atlasglinn.com and matthew@mastsolutions.com (`BCC_ALWAYS` on the Worker overrides).
    - **Private Instruction fee is instruction only** ("NO" to ammo, range and gear): on the three rows' meta and in the Request
      dialog's fine print.
@@ -244,9 +244,9 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
     "verified status required"), monthly; waiting list; vetted by the established team. **Join → Stripe Checkout in subscription
     mode** through `POST /create-membership`; the Worker provisions each plan's Stripe recurring Price on the first join
     (lookup_key `mast_<plan>`) and stores it in `memberships` — his "2- you can do" — so no price id is handled by anyone. Needs
-    the next deploy plus `migrations/003`. **Still his:** slot counts for Red/Blue/Gold/Black are the 2014 figures; LE and
-    Teachers have none; how "verified" is checked; and the sequence — the page charges at join and says the team vets new
-    members, so decide whether a declined member is refunded or vetting comes first (then Join becomes an application).
+    the next deploy plus `migrations/003`. **Still his:** slot counts for Red/Blue/Gold/Black are the 2014 figures. Settled
+    2026-09-05: LE and Teachers **10 memberships each** ("Le teach slot 10"); "verified" = credential photo at Join; charge at
+    Join, a declined member is refunded (the page says so).
 11a. ~~Certificate credentials~~ — on the founder block since 2026-09-04 ("not in MASTsolutions - if not add"): Harris County
     Diplomatic Protection Unit instructor; Chief Training Officer certification co-signed by the Chief of the Texas Rangers
     (Ret.); 12+ certified instructor programs; The Houstonian. The certificate's phone and suite address are not on the page.
