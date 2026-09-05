@@ -80,9 +80,11 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
 
 ## B. Before launch — owner's hand, in order
 
-1. **"merge 8"**, then **redeploy the Worker from main** (the deploy paste, which now also applies
-   `migrations/001-prereq-attested.sql` and `migrations/002-ladies-handgun.sql` once), then **run `scripts/wp-upload.sh`**.
-   The page on main and the Worker must match (refund policy version, prerequisite rule, the ladies-only SKU).
+1. ~~"merge 8"~~ — **merged 2026-09-05 ~03:50 UTC** on his word ("MERGE PR8"), main = 8d886b8. **Still his hand, in order:**
+   redeploy the Worker from main (`git pull`, migrations 001, 002, 003 once each, `npx wrangler deploy`), then **run
+   `scripts/wp-upload.sh`** for the page. Until both run, the live Worker is the 2026-09-03 deploy and the live page is the old
+   one; the page on main and the Worker must match (refund policy version, prerequisite rule, the ladies-only SKU, memberships,
+   the private-request subject line). Merged is not running.
 2. **`RESEND_API_KEY`** — `wrangler secret put RESEND_API_KEY --name mast-booking-backend`. Sending as
    `bookings@mastsolutions.com` needs Resend's DNS records added at GoDaddy for mastsolutions.com. Until then no
    receipt, no agreement PDF, no range address, no staff alert goes out; all are logged.
