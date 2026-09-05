@@ -319,7 +319,7 @@ build('index.html',
       'Atlas Glinn | Executive Protection, Risk Management & Training — Houston, TX',
       'Elite security services by Atlas Glinn: dignitary and executive protection, residential security, secure transport, disaster recovery, AI surveillance and counter-drone solutions, and tactical training through MAST Solutions. Houston, Texas.',
       OG_DEFAULT, CREDITS, [
-    ('Opening', opening('Executive Protection &middot; Intelligence &middot; Training',
+    ('Opening', opening('Security, Training, Dignitary Protection',   # the home hero line (owner, 2026-09-05: '"Security, Training, Dignitary Protection" on the Atlas side'), replacing "34+ Years · …"
         f'{shimmer("Details")} <span class="white">Matter.</span>',
         'Discreet, adaptive security for those who cannot afford a mistake. Executive and residential protection, disaster recovery, technology, and the training behind all of it. Houston, Texas.',
         cta('#s2', 'Our Services') + cta2('contact.html', 'Contact Us'))),

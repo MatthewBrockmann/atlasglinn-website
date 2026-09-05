@@ -191,7 +191,8 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    change the content? The cards are currently absent.
 5. ~~MAST wordmark colour~~ — settled 2026-09-04: blue page, gold on the hero wordmark, the class selections and the menu.
 6. Training count: MAST says 1,701+; the Atlas preview says 729. Same metric?
-7. Replacement hero copy for "34+ Years · Security, Training, Dignitary Protection" ("I'll have to send it").
+7. ~~Replacement hero copy~~ — 2026-09-05: "Security, Training, Dignitary Protection" is the Atlas home hero line (the eyebrow over
+   Details Matter in the preview); the "34+ Years" prefix is gone. The MAST hero keeps "Est. 2005 · Houston, TX".
 8. `handcuffs.jpg` slot. "Forge Legend" vs "Forge Ignition". Better discipline photos ("I can send some later").
 9. Question order: the build asks name/email/phone before the two eligibility questions so a flagged person can be
    called; he said the questions come first. Confirm the build's order is acceptable.
