@@ -1370,7 +1370,9 @@ async function sendEmail(env, { to, subject, text, reply_to, attachments, bcc: c
       from: env.NOTIFY_FROM || 'MAST Solutions <bookings@mastsolutions.com>',
       to,
       bcc: bcc.length ? bcc : undefined,
-      reply_to,
+      // The From address is a sender label on the verified domain, not a mailbox (owner, 2026-09-05: "bookings@mastsolutions.com
+      // = NOT email"), so every email carries a real Reply-To unless the caller set one (office alerts reply to the customer).
+      reply_to: reply_to || env.REPLY_TO || 'matthew@mastsolutions.com',
       subject,
       text,
       attachments: attachments && attachments.length ? attachments : undefined,
