@@ -51,10 +51,25 @@ if [ "${1:-}" = "--probe" ]; then
   rm -f "$A"; exit 0
 fi
 
-R="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-case "$(git -C "${R:-.}" remote get-url origin 2>/dev/null || true)" in *atlasglinn-website*) ;; *)
-  R="$(find "$HOME" -maxdepth 6 -type d -name .git -path '*/atlasglinn-website/.git' -not -path '*/Library/*' 2>/dev/null | head -1)"; R="${R%/.git}";; esac
-[ -n "$R" ] || { echo "no atlasglinn-website clone found under $HOME"; exit 1; }
+# Which clone: ATLAS_REPO if the caller says (the LaunchAgent), else the clone this runs from, else any clone under $HOME.
+# Then a health check: the clone on the iCloud-synced Desktop broke git on 2026-09-05 ("mmap failed: Resource deadlock
+# avoided", "bad object refs/remotes/…"), so the hourly job never uploaded. A clone that cannot fetch is replaced by a private
+# one under ~/Library/Caches, which iCloud never touches; it is created on first use.
+CACHE_REPO="$HOME/Library/Caches/atlasglinn/atlasglinn-website"
+export GIT_LFS_SKIP_SMUDGE=1   # the page's clips are plain blobs; the few LFS pointers in the tree stay pointers (no LFS bandwidth)
+if [ -n "${ATLAS_REPO:-}" ] && [ -d "$ATLAS_REPO/.git" ]; then R="$ATLAS_REPO"
+else
+  R="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  case "$(git -C "${R:-.}" remote get-url origin 2>/dev/null || true)" in *atlasglinn-website*) ;; *)
+    R="$(find "$HOME" -maxdepth 6 -type d -name .git -path '*/atlasglinn-website/.git' -not -path '*/Library/*' 2>/dev/null | head -1)"; R="${R%/.git}";; esac
+fi
+if [ -z "$R" ] || ! git -C "$R" fetch -q origin "${REF#origin/}" 2>/dev/null; then
+  say "the clone at ${R:-<none>} cannot fetch; using the private clone at $CACHE_REPO"
+  if [ ! -d "$CACHE_REPO/.git" ]; then mkdir -p "$(dirname "$CACHE_REPO")"; git clone -q --single-branch -b main https://github.com/MatthewBrockmann/atlasglinn-website.git "$CACHE_REPO"; fi
+  R="$CACHE_REPO"; git -C "$R" fetch -q origin "${REF#origin/}"
+fi
+# node for the Worker deploy: LaunchAgents do not read the shell profile, so look where nvm, Volta and Homebrew put it.
+for d in /opt/homebrew/bin /usr/local/bin "$HOME/.volta/bin" "$HOME"/.nvm/versions/node/*/bin; do [ -x "$d/npx" ] && PATH="$d:$PATH" && break; done; export PATH
 
 W="$(mktemp -d /tmp/wp-upload.XXXXXX)/wt"
 cleanup() { cd / ; git -C "$R" worktree remove --force "$W" >/dev/null 2>&1 || true; rm -f "${ASKPASS:-}" 2>/dev/null || true; }

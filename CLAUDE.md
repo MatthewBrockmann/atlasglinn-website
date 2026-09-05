@@ -173,7 +173,12 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
 ## Drop folders → gallery (Brockmann, 2026-09-05: "anytime I drop new items into the folder on my desktop, it should update in and add photos to the gallery")
 
 - **Mac:** `~/Desktop/MAST NEW WEB 2026/gallery/` and `…/range/` are the drop folders. `scripts/mac-autopilot.sh install`
-  (run once from the clone, after `wp-upload.sh --save-login`) puts two LaunchAgents on the Mac: a watcher that hands the two
+  (paste: `curl -fsSL https://raw.githubusercontent.com/MatthewBrockmann/atlasglinn-website/main/scripts/mac-autopilot.sh |
+  bash -s -- install`, after `wp-upload.sh --save-login`) puts two LaunchAgents on the Mac. **The hourly job runs from a
+  private clone at `~/Library/Caches/atlasglinn/atlasglinn-website`, never from the Desktop clone:** the Desktop is
+  iCloud-synced and iCloud evicts git objects ("mmap failed: Resource deadlock avoided", "bad object", 2026-09-05), which
+  is why the first install never uploaded. `wp-upload.sh` falls back to that private clone on its own whenever the clone it
+  was given cannot fetch. The agents: a watcher that hands the two
   folders off to `claude/desktop-assets` on every change (`mac-handoff.sh` web-sizes photographs to 2000 px JPEG and makes a
   poster beside every clip), and an hourly `wp-upload.sh --if-changed` that uploads the page whenever main moved and, first, runs `wrangler deploy`
   from the clone whenever `mast-backend/` moved (added 2026-09-05, "Do it yourself or figure out an easier way": with the
