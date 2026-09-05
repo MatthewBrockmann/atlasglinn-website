@@ -124,16 +124,19 @@ rm -f "$BATCH"; [ -n "$ASKPASS" ] && rm -f "$ASKPASS"
 
 say "Checking the live site"
 sleep 2
-# -L: the site answers on www.atlasglinn.com and redirects the bare domain; the checks follow that.
-if curl -sfL "https://atlasglinn.com/mast-ping.txt" | grep -q "served by upload"; then
-  echo "   static files are served from the WordPress root"
-else
-  echo "   atlasglinn.com/mast-ping.txt is NOT served (HTTP $(curl -sL -o /dev/null -w '%{http_code}' https://atlasglinn.com/mast-ping.txt)). The files went to $DOCROOT/ under the SFTP home; if that is not the web root, re-run with WP_DOCROOT=<folder>. Tell Claude."; exit 2
-fi
-if curl -sfL "https://atlasglinn.com/mastsolutions.html" | grep -q 'reg-steps'; then
+# -L: the site answers on www.atlasglinn.com and redirects the bare domain; the checks follow that. The page itself is the
+# check that matters; a cache-busting query gets past the host's page cache (2026-09-05: the page was live in the browser
+# while a stale 404 for the ping file made this step report failure).
+TS="$(date +%s)"
+if curl -sfL "https://atlasglinn.com/mastsolutions.html?x=$TS" | grep -q 'reg-steps'; then
   echo "   https://atlasglinn.com/mastsolutions.html is the new page (registration flow present)"
 else
-  echo "   mastsolutions.html is reachable but is NOT the new page (no registration flow in it). Tell Claude."; exit 3
+  echo "   mastsolutions.html is NOT the new page yet (HTTP $(curl -sL -o /dev/null -w '%{http_code}' "https://atlasglinn.com/mastsolutions.html?x=$TS")). The files went to $DOCROOT/ under the SFTP home; if that is not the web root, re-run with WP_DOCROOT=<folder>. Tell Claude."; exit 3
+fi
+if curl -sfL "https://atlasglinn.com/mast-ping.txt?x=$TS" | grep -q "served by upload"; then
+  echo "   the ping file from this upload is served (no stale cache in the way)"
+else
+  echo "   note: mast-ping.txt still shows an older copy or a 404; the host's cache is holding it. The page above is what counts."
 fi
 for a in images/mast/mast-cqb-poster.jpg vendor/three.module.js; do
   code=$(curl -sL -o /dev/null -w '%{http_code}' "https://atlasglinn.com/$a"); echo "   $a → $code"
