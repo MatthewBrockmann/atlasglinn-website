@@ -37,6 +37,12 @@ parked as `*-atlas.html` (noindex, canonical to the new page). `LIVE_LINKS` is F
 The pages reach atlasglinn.com through `scripts/wp-upload.sh` (its `PAGES` default carries them) by the Mac's hourly job
 or the page workflow; the WordPress pages at the old permalinks (`/about/` …) still exist on the host until he retires them
 in WordPress, and whether `index.html` wins over WordPress at `/` is a host setting to confirm on the first upload.
+**Copy source (Brockmann, 2026-09-05: "why the content from the actual site and this new site front end are not
+matching"):** the rebuild was written from the repo's April 2026 build (now `*-atlas.html`), the only copy a cloud
+session can open; it carries that copy nearly word for word (204 of 208 headings, 223 of 235 paragraphs), but the big
+chapter titles are the trailer shell's own and the site's headings became the small labels. No cloud session has read
+the live WordPress text. `scripts/handoff-urls.txt` now lists the live pages; every handoff run saves them as
+`reference/desktop/live/<slug>.html` on `claude/desktop-assets`, and the reconcile runs against those files.
 `ep-app.html`, `signup.html`, `privacy.html`, `terms.html` and the articles are hand-authored. Rebuilt forms post JSON to
 the booking Worker's `POST /contact`.
 

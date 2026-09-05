@@ -16,7 +16,9 @@
 # Anything passed after `--` is handed off IN ADDITION to the default set — a
 # file, a folder, or an http(s) URL (downloaded on the Mac, then handled like a
 # file; a YouTube, Instagram, Vimeo, TikTok or Facebook video page is fetched as
-# an MP4 with yt-dlp, installed into ~/.cache/mac-handoff on first use):
+# an MP4 with yt-dlp, installed into ~/.cache/mac-handoff on first use; any other
+# web page — a URL ending in / or without a file extension — is saved as
+# reference/desktop/live/<slug>.html so a cloud session can read the live site):
 #
 #   curl -fsSL https://raw.githubusercontent.com/MatthewBrockmann/atlasglinn-website/main/scripts/mac-handoff.sh | bash -s -- ~/Desktop/some-folder ~/Downloads/clip.mov
 #
@@ -54,6 +56,12 @@ is_url() { case "$1" in http://*|https://*) return 0 ;; *) return 1 ;; esac; }
 # and the Instagram clips the owner wants embedded on the site). yt-dlp goes into a private venv on first use — macOS
 # ships python3 with the Xcode command-line tools that git already needs — and nothing else on the Mac changes.
 is_media_url() { case "$1" in *youtube.com/*|*youtu.be/*|*instagram.com/*|*vimeo.com/*|*tiktok.com/*|*facebook.com/*|*fb.watch/*) return 0 ;; *) return 1 ;; esac; }
+# A web page (the path ends in / or its last segment has no extension) is saved as live/<slug>.html, not by basename
+# (added 2026-09-05: the owner asked why the rebuilt Atlas pages and the live atlasglinn.com pages do not match; a cloud
+# session cannot open the site, so the Mac brings the live pages' HTML over and the words are compared there).
+_url_path() { local p="${1#*://}"; p="${p#*/}"; p="${p%%\?*}"; printf '%s' "${p%%#*}"; }
+is_page_url() { local p; p="$(_url_path "$1")"; case "$p" in ""|*/) return 0 ;; esac; case "${p##*/}" in *.*) return 1 ;; *) return 0 ;; esac; }
+page_slug() { local p; p="$(_url_path "$1")"; p="${p%/}"; p="$(printf '%s' "$p" | tr '/' '-')"; printf '%s' "${p:-index}"; }
 media_id() { printf '%s' "$1" | sed -E 's#.*(v=|youtu\.be/|/reel/|/reels/|/p/|/shorts/|/video/|/videos/)([A-Za-z0-9_-]+).*#\2#'; }
 YTDLP=""
 ensure_ytdlp() {
@@ -206,6 +214,16 @@ for src in "${SOURCES[@]}"; do
       say "video download failed, skipping (save the file into 'MAST NEW WEB 2026' instead): $src"; missing=$((missing + 1))
     fi
     rm -rf "$d"
+  elif is_url "$src" && is_page_url "$src"; then
+    slug="$(page_slug "$src")"
+    say "page:   $src -> $DEST/live/$slug.html"
+    dl="$(mktemp -d "${TMPDIR:-/tmp}/handoff-dl-XXXXXX")/$slug.html"
+    if curl -fsSL -A "Mozilla/5.0 (Macintosh) mac-handoff" -o "$dl" "$src"; then
+      if copy_file "$dl" "$OUT/live"; then copied=$((copied + 1)); else skipped=$((skipped + 1)); fi
+      rm -rf "$(dirname "$dl")"
+    else
+      say "page download failed, skipping: $src"; missing=$((missing + 1))
+    fi
   elif is_url "$src"; then
     name="$(basename "$src")"
     # Skip the download only when the server reports the same byte size as what the branch already holds
