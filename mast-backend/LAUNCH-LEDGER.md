@@ -131,6 +131,15 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    the smoke, Motorcade = the SUV drill / the old truck, Gear = in kit. He corrects by class name. A second shotgun film,
    "Shotgun class instruction" (30 s, `images/mast/mast-shotgun-op.mp4`, the source file as sent, its moov atom already first),
    is the **Shotgun Operator** card after Shotgun in In Action.
+   **01:30–01:45, his round on the backdrops:** "Reduce background brightness by 20%" → the photograph layer sits at .42
+   (phones .35) in the shared shell, so both sites; "BOTH SITES?" — yes for the brightness and the contact-line shadow, which
+   live in the shell; the chapter positions, the portrait, the splash font are MAST only. Standard (02) from the top so the two
+   faces show; Who (03) from the bottom so the four operators on the deck show; Meet the Team (08) takes the carbine-behind-the-car
+   photograph; The Range (05) backdrop is the aerial (its previous file name never existed); the founder portrait is a tall cut of the
+   skyline photograph framed on his face (`images/mast/brockmann-portrait.jpg`); contact lines in full text colour with a shadow
+   ("Fix the visibility of the contact"); the splash wordmark is the hero's Orbitron ("Keep this font for the splash opener — need
+   the consistency"). "The Range = 'SHOW ALL' delete … just what we have for the range is good": the twelve that showed stay,
+   no button; r004, r013–r015, r017, r021–r024 leave the chapter.
    His **shotgun clip** (`SHOTGUN gallery vids.mp4`, 7 s) is cut together with the existing 6 s take as one Shotgun film in
    In Action (`images/mast/mast-shotgun.mp4`, new take first; poster and teaser from it).
    Earlier note — chapter 05 **The Range** (2026-09-04, "look up the range photos that we had on the other site. That

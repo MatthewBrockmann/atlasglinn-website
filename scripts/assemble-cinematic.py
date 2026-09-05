@@ -94,9 +94,12 @@ def tile(num, title, body, img, pos='center'):
 
 CHROME = shell.chrome(
     credits=('A Houston Operation', 'Since 2005'), wordmark='MAST Solutions',
-    photos=[('01', 'images/mast/hero-casualty-carry.jpg', 'center 40%'), ('02', 'images/mast/disc-firearms.jpg', None),
-            ('03', 'images/mast/ship-deck-movement.jpg', None), ('04', 'images/mast/disc-cqb.jpg', None),
-            ('05', 'images/mast/range/r01.jpg', 'center 45%'), ('06', 'images/mast/courses-low-light.jpg', None), ('07', 'images/mast/courses-low-light.jpg', 'center 60%'), ('08', 'images/mast/founder-ship.jpg', 'center 20%'),
+    photos=[('01', 'images/mast/hero-casualty-carry.jpg', 'center 40%'), ('02', 'images/mast/disc-firearms.jpg', 'center top'),   # the picture is near-square: from the top so the two faces show (owner, 2026-09-05: "bring this pic down so we can see the people")
+            ('03', 'images/mast/ship-deck-movement.jpg', 'center bottom'),   # near-square: from the bottom so the four operators on the deck show (owner, 2026-09-05: "Bring the ship up and the operators visible")
+            ('04', 'images/mast/disc-cqb.jpg', None),
+            ('05', 'images/mast/range/a08.jpg', 'center 45%'),   # the aerial (r01.jpg never existed: the old-site set is r001–r024)
+            ('06', 'images/mast/courses-low-light.jpg', None), ('07', 'images/mast/courses-low-light.jpg', 'center 60%'),
+            ('08', 'images/mast/gallery/g06.jpg', 'center 45%'),   # the carbine from behind the car (owner, 2026-09-05: "Replace this background with the attached JPG", on the Instructors chapter)
             ('09', 'images/mast/vehicular.jpg', None), ('10', 'images/mast/instructing-le.jpg', 'center 30%'),
             ('11', 'images/mast/privacy-aircraft.jpg', None), ('12', 'images/mast/contact-zodiac.jpg', None)],
     hud_tl='&#9679; ATLAS GLINN &middot; MAST.SYS LIVE', hud_tl_href='/',   # root, so it resolves on WordPress and on Pages alike
@@ -144,8 +147,9 @@ MEMBERSHIP = f"""
 #    Range Photos". The sixteen he cut (a06, a07, r001, r003, r005–r012, r016, r018–r020) stay in images/mast/range/ out of the
 #    chapter ("can add some to gallery"). Same tile as the skills; tap opens the photograph in a lightbox. Edit the list and re-run.
 RANGE_PHOTOS = ['images/mast/range/' + f + '.jpg' for f in
-                ['a08', 'a13', 'a01', 'a02', 'a03', 'a04', 'a05', 'a09', 'a10', 'a11', 'a12',
-                 'r002', 'r004', 'r013', 'r014', 'r015', 'r017', 'r021', 'r022', 'r023', 'r024']]
+                ['a08', 'a13', 'a01', 'a02', 'a03', 'a04', 'a05', 'a09', 'a10', 'a11', 'a12', 'r002']]
+# 2026-09-05, 01:40: "The Range = 'SHOW ALL' delete … just what we have for the range is good": the twelve that showed stay, no
+# button; the other old-site views (r004, r013–r015, r017, r021–r024) leave the chapter and stay in the folder.
 # The gallery under the films in In Action ("can add some to gallery", 2026-09-05): the action photographs he sent without a
 # caption that evening (g01 the police line on the covered range, g03 the vehicle drill in smoke, g07 through the smoke with the
 # carbine, g06 the carbine from behind the car, g04 the boat drill, g05 room clearing, g08 the team in the truck bed, g09 coffee in
@@ -262,7 +266,7 @@ SECTIONS = f"""
       <div class="eyebrow">Instructors</div>
       <h2 class="section-h">Meet The <span class="gold">Team.</span></h2>
       <div class="founder rise">
-        <div class="portrait" style="background-image:url('images/mast/brockmann-instructor.jpg');background-position:80% 28%"><div class="cap">Founder &amp; Lead Instructor</div></div>
+        <div class="portrait" style="background-image:url('images/mast/brockmann-portrait.jpg');background-position:center 35%"><div class="cap">Founder &amp; Lead Instructor</div></div>
         <div class="bio">
           <h3>Matthew Brockmann</h3><div class="role">Founder &amp; Lead Instructor</div>
           <p>Founded MAST Solutions in 2005 and later Atlas Glinn, LLC. Former Head of Security, Sen. Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, named as media exist. Other high-profile and high-net-worth individuals follow our privacy standards. We don&rsquo;t do media. Names appear only where the media captured them. Teaches on the range. Has trained Houston, Baytown, Galveston, and other SWAT teams, including TTPOA (TX Tactical Police Officers Association), VBSS (Visit, Board, Search, Seize), NASA SRT, Dept of Homeland Security, and other federal, state, and Military Units.</p>
@@ -442,6 +446,8 @@ QUOTES_CSS = """
   .photo-tiles .tile.more { display:none; }
   .photo-tiles.all .tile.more { display:flex; }
   .gallery-eyebrow { margin-top:2.6rem; }
+  /* The contact chapter's line over the water backdrop (owner, 2026-09-05: "Fix the visibility of the contact"); the contact lines themselves are handled in the shell for both sites. */
+  #s12 .sub { text-shadow:0 1px 6px rgba(0,0,0,.9), 0 0 18px rgba(0,0,0,.6); }
   .modal.lightbox { width:min(1200px, calc(100vw - 32px)); padding:.6rem; background:#050810; }
   .modal.lightbox img { display:block; max-width:100%; max-height:84vh; margin:0 auto; }
 
@@ -481,7 +487,7 @@ GOLD_KEEP = """
   /* Splash wordmark (owner, 2026-09-04: "Use this font for the splash intro. But space correctly." — the HUD's monospace — then
      "MAST Solutions", "Strong Font"): Share Tech Mono in a strong weight, mixed case, tracked and optically centred (the leading
      padding balances the tracking after the last letter). The blue shimmer stays. */
-  .intro-credit.wordmark { font-family:'Share Tech Mono',monospace; font-weight:700; text-transform:none; letter-spacing:.26em; padding-left:.26em; word-spacing:.15em; font-size:clamp(1.9rem, 5.8vw, 4.2rem); text-shadow:0 0 30px rgba(26,107,222,.35); }
+  .intro-credit.wordmark { font-family:'Orbitron',sans-serif; font-weight:900; text-transform:none; letter-spacing:.16em; padding-left:.16em; word-spacing:0; font-size:clamp(2rem, 6.5vw, 4.6rem); text-shadow:0 0 30px rgba(26,107,222,.35); }   /* 2026-09-05: "Keep this font for the splash opener - need the consistency" — the hero's Orbitron, as Details Matter */
   .chap-link { color:#E8D27D; }
   .chap-link::before { background:#C9A84C; }
   .chap-link:hover, .chap-link.active { color:#FCF6BA; border-color:rgba(201,168,76,.5); background:rgba(201,168,76,.06); }
