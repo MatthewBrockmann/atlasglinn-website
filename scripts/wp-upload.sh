@@ -35,6 +35,22 @@ if [ "${1:-}" = "--save-login" ]; then
   exit 0
 fi
 
+if [ "${1:-}" = "--probe" ]; then
+  # Diagnosis when the live check fails after a clean upload (2026-09-05: 113 files in html/, still HTTP 404): what the
+  # site answers from this Mac, with and without a cache-busting query, and what the host's directory layout really is.
+  say "HTTP checks from this Mac"
+  for u in "https://atlasglinn.com/mast-ping.txt" "https://atlasglinn.com/mast-ping.txt?x=$(date +%s)" "https://www.atlasglinn.com/mast-ping.txt" \
+           "https://atlasglinn.com/mastsolutions.html" "https://atlasglinn.com/mastsolutions.html?x=$(date +%s)" \
+           "https://atlasglinn.com/images/mast/mast-cqb-poster.jpg" "https://atlasglinn.com/wp-content/uploads/atlas-glinn-logo.png"; do
+    printf '   %s -> %s\n' "$u" "$(curl -sL -o /dev/null -m 20 -w '%{http_code}' "$u")"
+  done
+  say "Directory layout on the host (saved Keychain login)"
+  u="$(kc_user || true)"; [ -n "$u" ] || { echo "no saved login; run --save-login first"; exit 1; }
+  A="$(mktemp /tmp/wp-upload-askpass.XXXXXX)"; printf '#!/bin/sh\nexec security find-generic-password -s %s -w\n' "$KC_SERVICE" > "$A"; chmod 700 "$A"
+  printf 'pwd\nls -la\ncd %s\npwd\nls -la\nls -la wp-content\n' "$DOCROOT" | SSH_ASKPASS="$A" SSH_ASKPASS_REQUIRE=force DISPLAY="${DISPLAY:-:0}" sftp -o StrictHostKeyChecking=accept-new "$u@$HOST" 2>&1 | sed 's/^/   /'
+  rm -f "$A"; exit 0
+fi
+
 R="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 case "$(git -C "${R:-.}" remote get-url origin 2>/dev/null || true)" in *atlasglinn-website*) ;; *)
   R="$(find "$HOME" -maxdepth 6 -type d -name .git -path '*/atlasglinn-website/.git' -not -path '*/Library/*' 2>/dev/null | head -1)"; R="${R%/.git}";; esac
@@ -108,16 +124,19 @@ rm -f "$BATCH"; [ -n "$ASKPASS" ] && rm -f "$ASKPASS"
 
 say "Checking the live site"
 sleep 2
-# -L: the site answers on www.atlasglinn.com and redirects the bare domain; the checks follow that.
-if curl -sfL "https://atlasglinn.com/mast-ping.txt" | grep -q "served by upload"; then
-  echo "   static files are served from the WordPress root"
-else
-  echo "   atlasglinn.com/mast-ping.txt is NOT served (HTTP $(curl -sL -o /dev/null -w '%{http_code}' https://atlasglinn.com/mast-ping.txt)). The files went to $DOCROOT/ under the SFTP home; if that is not the web root, re-run with WP_DOCROOT=<folder>. Tell Claude."; exit 2
-fi
-if curl -sfL "https://atlasglinn.com/mastsolutions.html" | grep -q 'reg-steps'; then
+# -L: the site answers on www.atlasglinn.com and redirects the bare domain; the checks follow that. The page itself is the
+# check that matters; a cache-busting query gets past the host's page cache (2026-09-05: the page was live in the browser
+# while a stale 404 for the ping file made this step report failure).
+TS="$(date +%s)"
+if curl -sfL "https://atlasglinn.com/mastsolutions.html?x=$TS" | grep -q 'reg-steps'; then
   echo "   https://atlasglinn.com/mastsolutions.html is the new page (registration flow present)"
 else
-  echo "   mastsolutions.html is reachable but is NOT the new page (no registration flow in it). Tell Claude."; exit 3
+  echo "   mastsolutions.html is NOT the new page yet (HTTP $(curl -sL -o /dev/null -w '%{http_code}' "https://atlasglinn.com/mastsolutions.html?x=$TS")). The files went to $DOCROOT/ under the SFTP home; if that is not the web root, re-run with WP_DOCROOT=<folder>. Tell Claude."; exit 3
+fi
+if curl -sfL "https://atlasglinn.com/mast-ping.txt?x=$TS" | grep -q "served by upload"; then
+  echo "   the ping file from this upload is served (no stale cache in the way)"
+else
+  echo "   note: mast-ping.txt still shows an older copy or a 404; the host's cache is holding it. The page above is what counts."
 fi
 for a in images/mast/mast-cqb-poster.jpg vendor/three.module.js; do
   code=$(curl -sL -o /dev/null -w '%{http_code}' "https://atlasglinn.com/$a"); echo "   $a → $code"
