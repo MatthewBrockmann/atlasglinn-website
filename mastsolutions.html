@@ -1475,7 +1475,7 @@ async function acctCodeSubmit(){
 }
 async function acctResend(){
   acctErr('');
-  try { const { r, d } = await acctPost(acctCodeKind === 'reset' ? '/account/forgot' : '/account/resend', { email: acctCodeEmail }); if (!r.ok) throw new Error(d.error || 'Could not resend the code.'); const n = $('acct-code-note'); n.textContent = 'A new code is on its way to ' + acctCodeEmail + '.'; n.hidden = false; }
+  try { const { r, d } = await acctPost(acctCodeKind === 'reset' ? '/account/forgot' : '/account/resend', { email: acctCodeEmail }); if (!r.ok) throw new Error(d.error || 'Could not resend the code.'); const n = $('acct-code-note'); n.textContent = 'If your last code is more than a minute old, a new one is on its way to ' + acctCodeEmail + '.'; n.hidden = false; }
   catch (e) { acctErr(e.message); }
 }
 async function acctForgot(){

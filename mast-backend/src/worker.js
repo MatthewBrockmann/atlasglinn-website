@@ -200,17 +200,28 @@ async function clearCode(env, acct) {
   await env.DB.prepare('UPDATE accounts SET verify_kind = ?, verify_code_hash = ?, verify_expires_at = ?, verify_attempts = ? WHERE id = ?').bind(null, null, null, 0, acct.id).run();
   Object.assign(acct, { verify_kind: null, verify_code_hash: null, verify_expires_at: null, verify_attempts: 0 });
 }
-/** 'ok' | 'wrong' | 'expired' | 'locked'. A wrong try counts; the fifth wrong try burns the code. */
+/** 'ok' | 'wrong' | 'expired' | 'locked'. The try is claimed FIRST with one conditional UPDATE (code live, attempts < max), so
+ *  concurrent guesses cannot share a count: at most CODE_MAX_TRIES comparisons ever happen per code, however many requests
+ *  arrive at once (Codex on PR #11, P1). A wrong try counts; the last allowed try, or any try past the limit, burns the code. */
 async function checkCode(env, acct, kind, code) {
-  if (!acct.verify_code_hash || acct.verify_kind !== kind) return 'expired';
-  if (!acct.verify_expires_at || Date.parse(acct.verify_expires_at) < Date.now()) return 'expired';
-  const tries = (acct.verify_attempts || 0) + 1;
+  const now = new Date().toISOString();
+  const claim = await env.DB.prepare('UPDATE accounts SET verify_attempts = verify_attempts + 1 WHERE id = ? AND verify_kind = ? AND verify_code_hash IS NOT NULL AND verify_expires_at > ? AND verify_attempts < ?')
+    .bind(acct.id, kind, now, CODE_MAX_TRIES).run();
+  if (!claim || !claim.meta || !claim.meta.changes) {
+    const live = !!(acct.verify_code_hash && acct.verify_kind === kind && acct.verify_expires_at && acct.verify_expires_at > now);
+    if (live) await clearCode(env, acct);   // the tries are spent: burn what is left
+    return live ? 'locked' : 'expired';
+  }
   const want = acct.verify_code_hash, got = await codeHash(env, acct, kind, String(code || '').replace(/\D/g, ''));
   let diff = want.length ^ got.length; for (let i = 0; i < Math.min(want.length, got.length); i++) diff |= want.charCodeAt(i) ^ got.charCodeAt(i);
   if (diff === 0) return 'ok';
-  if (tries >= CODE_MAX_TRIES) { await clearCode(env, acct); return 'locked'; }
-  await env.DB.prepare('UPDATE accounts SET verify_attempts = ? WHERE id = ?').bind(tries, acct.id).run();
-  acct.verify_attempts = tries;
+  // Wrong: read the count back from the database (this copy may be stale under concurrent guesses) and burn the code once
+  // the last allowed try is spent.
+  const row = await env.DB.prepare('SELECT verify_attempts, verify_code_hash FROM accounts WHERE id = ?').bind(acct.id).first().catch(() => null);
+  const used = row && typeof row.verify_attempts === 'number' ? row.verify_attempts : (acct.verify_attempts || 0) + 1;
+  acct.verify_attempts = used;
+  if (!row || !row.verify_code_hash) return 'locked';   // a parallel try already burned it
+  if (used >= CODE_MAX_TRIES) { await clearCode(env, acct); return 'locked'; }
   return 'wrong';
 }
 async function sendCode(env, acct, kind, code) {
@@ -294,11 +305,9 @@ async function handleAccountResend(request, env, cors) {
   const off = accountsOff(env, cors) || signupOff(env, cors); if (off) return off;
   const body = await request.json().catch(() => null);
   const acct = await accountByEmail(env, String((body && body.email) || '').trim().toLowerCase());
-  // Always 200 for an unknown or already-verified address: the answer must not say which emails have accounts.
-  if (acct && !acct.verified_at) {
-    if (codeTooSoon(acct)) return json({ error: 'A code was sent less than a minute ago. Check your email first.', code: 'too_soon' }, 429, cors);
-    const fail = await issueAndSend(env, acct, 'verify', cors); if (fail) return fail;
-  }
+  // Always the same 200, whether the address is unknown, already verified, or throttled (a second request inside a minute
+  // sends nothing): the answer must not say which emails have accounts (Codex on PR #11, P2).
+  if (acct && !acct.verified_at && !codeTooSoon(acct)) { const fail = await issueAndSend(env, acct, 'verify', cors); if (fail) return fail; }
   return json({ ok: true }, 200, cors);
 }
 
@@ -323,11 +332,9 @@ async function handleAccountForgot(request, env, cors) {
   const off = accountsOff(env, cors) || signupOff(env, cors); if (off) return off;
   const body = await request.json().catch(() => null);
   const acct = await accountByEmail(env, String((body && body.email) || '').trim().toLowerCase());
-  // Always 200: a forgotten-password request must not say which emails have accounts.
-  if (acct && acct.verified_at) {
-    if (codeTooSoon(acct)) return json({ error: 'A code was sent less than a minute ago. Check your email first.', code: 'too_soon' }, 429, cors);
-    const fail = await issueAndSend(env, acct, 'reset', cors); if (fail) return fail;
-  }
+  // Always the same 200, whether the address is unknown, unverified, or throttled (a second request inside a minute sends
+  // nothing): a forgotten-password request must not say which emails have accounts (Codex on PR #11, P2).
+  if (acct && acct.verified_at && !codeTooSoon(acct)) { const fail = await issueAndSend(env, acct, 'reset', cors); if (fail) return fail; }
   return json({ ok: true }, 200, cors);
 }
 

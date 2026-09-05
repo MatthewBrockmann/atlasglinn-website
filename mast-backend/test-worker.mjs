@@ -107,6 +107,7 @@ const DB = {
             if (sql.includes('INSERT INTO eligibility_outcomes')) { outcomes.push(args); return { meta: { last_row_id: outcomes.length, changes: 1 } }; }
             if (sql.includes('INSERT INTO eligibility_answers')) { answers.push(args); return { meta: { last_row_id: answers.length, changes: 1 } }; }
             if (sql.startsWith('INSERT INTO accounts')) { const cols = sql.slice(sql.indexOf('(') + 1, sql.indexOf(')')).split(',').map(c => c.trim()); const row = Object.fromEntries(cols.map((c, i) => [c, args[i]])); accounts.set(row.id, row); return { meta: { changes: 1 } }; }
+            if (sql.startsWith('UPDATE accounts SET verify_attempts = verify_attempts + 1')) { const [id, kind, now, max] = args; const row = accounts.get(id); const live = !!(row && row.verify_kind === kind && row.verify_code_hash && row.verify_expires_at > now && (row.verify_attempts || 0) < max); if (live) row.verify_attempts = (row.verify_attempts || 0) + 1; return { meta: { changes: live ? 1 : 0 } }; }
             if (sql.startsWith('UPDATE accounts SET')) { const keys = [...sql.matchAll(/(\w+) = \?/g)].map((m) => m[1]); const id = args[args.length - 1]; const row = accounts.get(id); if (row) keys.forEach((k, i) => { row[k] = args[i]; }); return { meta: { changes: row ? 1 : 0 } }; }
             if (sql.includes('INSERT INTO registrations')) { const row = Object.fromEntries(REG_COLS.map((c, i) => [c, args[i]])); registrations.set(row.id, row); return { meta: { changes: 1 } }; }
             if (sql.includes("SET status = 'abandoned'")) { let n = 0; for (const r of registrations.values()) if (r.status === 'pending' && r.created_at < args[0]) { r.status = 'abandoned'; n++; } return { meta: { changes: n } }; }
@@ -629,16 +630,23 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   const lockCode = codeIn(emails[0]); const statuses = [];
   for (let i = 0; i < 5; i++) statuses.push((await post('/account/verify', { email: 'locked@example.com', code: lockCode === '111111' ? '222222' : '111111' })).status);
   ok('four wrong codes → 400, the fifth → 429 and the code is burned', statuses.join() === '400,400,400,400,429' && (await post('/account/verify', { email: 'locked@example.com', code: lockCode })).status === 400, statuses.join());
-  ok('resend within a minute → 429', (await post('/account/resend', { email: 'locked@example.com' })).status === 429);
-  rowFor('locked@example.com').verify_sent_at = new Date(Date.now() - 120000).toISOString();
   emails.length = 0;
+  ok('resend within a minute → the same 200 and no email (no account enumeration)', (await post('/account/resend', { email: 'locked@example.com' })).status === 200 && emails.length === 0);
+  rowFor('locked@example.com').verify_sent_at = new Date(Date.now() - 120000).toISOString();
   ok('resend after a minute → 200 and a new code email', (await post('/account/resend', { email: 'locked@example.com' })).status === 200 && emails.length === 1);
   ok('resend for an unknown email → 200 and no email (no account enumeration)', (await post('/account/resend', { email: 'nobody@example.com' })).status === 200 && emails.length === 1);
   ok('the new code works', (await post('/account/verify', { email: 'locked@example.com', code: codeIn(emails[0]) })).status === 200);
+  // parallel guesses cannot share an attempt count (Codex on PR #11, P1): eight at once, at most five are ever compared
+  emails.length = 0;
+  await post('/account/register', { email: 'raced@example.com', password: 'a long enough password' });
+  const raceCode = codeIn(emails[0]);
+  const raced = await Promise.all(Array.from({ length: 8 }, (_, i) => post('/account/verify', { email: 'raced@example.com', code: String(900000 + i) === raceCode ? '000000' : String(900000 + i) })));
+  const raceStatuses = raced.map((r) => r.status);
+  ok('eight concurrent wrong guesses → at most four 400s, the rest 429, and the code is burned', raceStatuses.filter((s) => s === 400).length <= 4 && raceStatuses.filter((s) => s === 429).length >= 4 && (await post('/account/verify', { email: 'raced@example.com', code: raceCode })).status !== 200, raceStatuses.join());
   // forgotten password (Codex P2)
   emails.length = 0;
   ok('forgot for an unknown email → 200 and no email', (await post('/account/forgot', { email: 'nobody@example.com' })).status === 200 && emails.length === 0);
-  ok('forgot within a minute of the last code → 429', (await post('/account/forgot', { email: 'student@example.com' })).status === 429);
+  ok('forgot within a minute of the last code → the same 200 and no email (no account enumeration)', (await post('/account/forgot', { email: 'student@example.com' })).status === 200 && emails.length === 0);
   rowFor('student@example.com').verify_sent_at = new Date(Date.now() - 120000).toISOString();   // the sign-up code went out a while ago
   const forgot = await post('/account/forgot', { email: 'student@example.com' });
   ok('forgot for a verified account → 200 and a reset code emailed to the student alone', forgot.status === 200 && emails.length === 1 && emails[0].to[0] === 'student@example.com' && !emails[0].bcc && /Reset your MAST Solutions password/.test(emails[0].subject), JSON.stringify(emails[0] && emails[0].subject));
