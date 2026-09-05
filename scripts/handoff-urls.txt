@@ -30,6 +30,9 @@ https://atlasglinn.com/wp-content/uploads/atlas-glinn-logo.png
 # current ones do (scripts/assemble-atlas.py, film backdrops).
 https://atlasglinn.com/images/technology-hero.mp4
 https://atlasglinn.com/images/corporate_buildings.mp4
+# The current About page's two In Action clips, also LFS pointers here (2026-09-05).
+https://atlasglinn.com/images/careers-gallery.mp4
+https://atlasglinn.com/images/forge-legend-mast.mp4
 # Added 2026-09-04 (owner: the Training Reel and the Disaster Recovery film as true embeds, no YouTube chrome). The Mac
 # fetches each as an MP4 with yt-dlp; the cloud session then trims the Training Reel's closing "2023" card, makes the
 # six-second teasers and posters, and swaps the YouTube cards for local files.

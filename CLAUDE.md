@@ -30,14 +30,15 @@ The rebuilt `index`, `executive-protection`, `residential-protection`, `disaster
 (`scripts/cinematic_shell.py`, ATLAS blue palette, site menu overlay). Edit the assembler and
 re-run it; never hand-edit the output.
 
-**Not published yet** (Brockmann, 2026-09-04: "let me review it before we publish"). The
-assembler writes to `preview/` by default (noindex, assets via `../`, reachable at
-`https://atlasglinn.com/preview/` once merged, unlinked from the site). The root-level pages
-are still the previous hand-authored builds. When he approves, run
-`python3 scripts/assemble-atlas.py --publish`, which overwrites the root pages; park the old
-builds as `*-atlas.html` (noindex, canonical to the new page) in the same commit and delete
-`preview/`. `ep-app.html`, `signup.html`, `privacy.html`, `terms.html` and the articles are
-hand-authored. Rebuilt forms post JSON to the booking Worker's `POST /contact`.
+**Published 2026-09-05** (Brockmann: "Publish AG preview", after the review links). The eleven pages are now the root-level
+files, written by `python3 scripts/assemble-atlas.py --publish` (the default, preview mode, still writes `preview/` if anyone
+needs a look without touching the live set; `preview/` is not committed any more). The previous hand-authored builds are
+parked as `*-atlas.html` (noindex, canonical to the new page). `LIVE_LINKS` is False: cards and menu go to the new pages.
+The pages reach atlasglinn.com through `scripts/wp-upload.sh` (its `PAGES` default carries them) by the Mac's hourly job
+or the page workflow; the WordPress pages at the old permalinks (`/about/` …) still exist on the host until he retires them
+in WordPress, and whether `index.html` wins over WordPress at `/` is a host setting to confirm on the first upload.
+`ep-app.html`, `signup.html`, `privacy.html`, `terms.html` and the articles are hand-authored. Rebuilt forms post JSON to
+the booking Worker's `POST /contact`.
 
 **Imagery rule (Brockmann, 2026-09-04):** an Atlas page uses only what the current
 atlasglinn.com page uses in that section (the approved list at the top of

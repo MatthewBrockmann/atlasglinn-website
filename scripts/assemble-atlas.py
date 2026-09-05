@@ -240,8 +240,9 @@ def cards(items, cls='cards', numbered=True):
     """items: (title, body[, extra html[, icon]]). An icon (the current site's emoji on that card) takes the number's place."""
     out = []
     for k, it in enumerate(items, 1):
-        title, body = it[0], it[1]; extra = it[2] if len(it) > 2 else ''; icon = it[3] if len(it) > 3 else ''
+        title, body = it[0], it[1]; extra = it[2] if len(it) > 2 else ''; icon = it[3] if len(it) > 3 else ''; meta = it[4] if len(it) > 4 else ''
         head = f'<div class="ico" aria-hidden="true">{icon}</div>' if icon else (f'<div class="num">{k:02d}</div>' if numbered else '')
+        if meta: head += f'<div class="meta">{meta}</div>'   # a category label above the title (the current site's Insights cards)
         out.append(f'<div class="card rise">{head}<h3>{title}</h3>' + (f'<p>{body}</p>' if body else '') + extra + '</div>')
     return f'<div class="{cls}">' + ''.join(out) + '</div>'
 
@@ -341,7 +342,7 @@ def build(path, title, desc, og_image, credits, chapters, photos, jsonld=''):
 # that page's current address on atlasglinn.com (the canonical URLs the current pages carry), so a visitor reads today's content.
 # The rebuilt pages still generate for his review. Flip to False on the day the full set publishes, and the links turn back into
 # the local pages. Home, the MAST page, signup, privacy and terms are untouched.
-LIVE_LINKS = True
+LIVE_LINKS = False   # 2026-09-05 "Publish AG preview": the full set is published, links stay on the new pages
 LIVE_URLS = {
     'executive-protection.html':  'https://atlasglinn.com/executive-protection/',
     'residential-protection.html': 'https://atlasglinn.com/residential-protection/',
@@ -425,13 +426,21 @@ build('index.html',
         'We didn&rsquo;t just build a security company &mdash; we built the intelligence platform behind it. Powered by artificial intelligence, designed by a 34-year EP veteran.',
         cards([('AI Threat Analysis &amp; Scoring', 'Real-time threat intelligence powered by Anthropic Claude AI. Automated situation reports, risk scoring, and predictive threat modeling.'),
                ('Blue Force Tracking', 'Real-time GPS positioning of your entire protection team. Anti-spoofing technology ensures accurate, tamper-proof location data.'),
-               ('Encrypted Push-to-Talk Radio', 'AES-256-GCM encrypted voice comms. No third-party servers, no interception risk.'),
+               ('Encrypted Push-to-Talk Radio', 'Military-grade AES-256-GCM encrypted voice comms. No third-party servers, no interception risk.'),
                ('Crime Data Intelligence', 'Live crime feeds, sex offender mapping, aviation/airspace monitoring &mdash; all layered on Google Earth for advance work.'),
                ('Covert Emergency Stream', 'Silent SOS with live audio/video streaming. Your team sees and hears everything without alerting the threat.'),
                ('Duress Detection', 'Dead man&rsquo;s switch + heart rate monitoring. If you go down, your team knows immediately. Apple Watch companion with wrist SOS.'),
                ('Counter-Surveillance Sweep', 'BLE + IR camera detection for room sweeps. Identify hidden surveillance devices before your principal arrives.'),
                ('Cyber Defense Suite', 'Evil twin WiFi detection, jailbreak monitoring, MITM protection. Your device security is part of the mission.')], 'cards four')
-        + '<div class="ctas rise" style="margin-top:2rem">' + cta('signup.html', 'Explore Atlas EP') + cta2('technology.html', 'All Technology') + '</div>')),
+        + '<div class="eyebrow in" style="margin-top:2.2rem">Operator Benefits</div>'
+        + cards([('Covert Emergency Stream', 'Silent SOS with live audio/video streaming. Your team sees and hears everything without alerting the threat.'),
+                 ('Duress Detection', 'Dead man&rsquo;s switch + heart rate monitoring. If you go down, your team knows immediately. Apple Watch companion with wrist SOS.'),
+                 ('Counter-Surveillance Sweep', 'BLE + IR camera detection for room sweeps. Identify hidden surveillance devices before your principal arrives.'),
+                 ('Cyber Defense Suite', 'Evil twin WiFi detection, jailbreak monitoring, MITM protection. Your device security is part of the mission.')], 'cards four', numbered=False)
+        + '<div class="eyebrow in" style="margin-top:2.2rem">Choose Your Plan</div>'
+        + '<div class="cards" style="grid-template-columns:repeat(6,1fr)">' + ''.join(f'<div class="card rise"><h3>{n}</h3><p><b style="color:var(--gold-champagne);font-size:1.3rem">{p}</b><br><span class="meta">{u}</span></p></div>' for n, p, u in [
+            ('Free', '$0', 'demo mode'), ('Personal Safety', '$9.99', '/month'), ('Operator', '$49', '/month'), ('Professional', '$149', '/month'), ('Command', '$249', '/seat/mo'), ('Enterprise', '$500+', '/seat/mo')]) + '</div>'
+        + '<div class="ctas rise" style="margin-top:2rem">' + cta('technology.html', 'Explore Atlas EP &rarr;') + '</div>')),
     ('No Press', section(6, '', '', '',
         '<p class="sub quote lead">&ldquo;We don&rsquo;t do press. We let our work speak for itself.&rdquo;</p>'
         f'<p class="sub" style="font-size:.98rem;">{PRIVACY_LINE}</p>'
@@ -500,7 +509,8 @@ build('executive-protection.html',
         '<div class="ctas rise">' + cta('contact.html', 'Plan a Movement') + cta2('mastsolutions.html', 'Vehicular Tactics Courses') + '</div>')),
     ('Contact', contact_chapter(8, 'Protecting What Matters Most', f'From Senators to {blue("Fortune 500.")}', 'Discreet, adaptive protection at the highest level.',
         cta('contact.html', 'Contact Us') + cta2('residential-protection.html', 'Residential Protection &rarr;'))),
-], photos=[(HERO_EP, None), (EP_MATTERS, None), (PROTECTION, None), (HERO_EP, None), (EP_MATTERS, None), (PROTECTION, None), (HERO_EP, None), (EP_MATTERS, None)],
+    ('Reviews', reviews_chapter(9)),
+], photos=[(HERO_EP, None), (EP_MATTERS, None), (PROTECTION, None), (HERO_EP, None), (EP_MATTERS, None), (PROTECTION, None), (HERO_EP, None), (EP_MATTERS, None), (HERO_EP, None)],
       jsonld=jsonld_service('Executive Protection', 'Dignitary and executive protection: close protection, advance operations, motorcade planning, body man duties, crisis management and emergency response.', 'executive-protection.html'))
 
 # ═══════════════════════════ residential-protection.html ═══════════════════════════
@@ -699,7 +709,7 @@ build('about.html',
       'About Atlas Glinn | Elite Security Leadership — Houston, TX',
       'Meet the Atlas Glinn leadership team. Decades of elite security, dignitary protection, and tactical training expertise led by Matthew Brockmann and Michael Cline.',
       FOUNDER, CREDITS, [
-    ('Opening', opening('About Atlas Glinn', f'{shimmer("Details")} <span class="white">Matter.</span>',
+    ('Opening', opening('About Atlas Glinn &middot; Our Mission', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'Our mission is to provide you with unparalleled peace of mind, safeguarding what matters most &mdash; your safety, your assets, and your way of life. With a foundation built on elite expertise and a relentless pursuit of excellence, we deliver tailored protection solutions that blend seamlessly into your world.',
         cta('#s2', 'Meet the Team') + cta2('contact.html', 'Contact Us'))),
     ('Team', section(2, 'Meet the Team', f'Precision. Discretion. {blue("Commitment.")}', 'We redefine security with precision, discretion, and unwavering commitment.',
@@ -715,15 +725,16 @@ build('about.html',
                 ('I highly recommend Matthew &amp; his team for your security &amp; training needs.', 'Charles W. &middot; Business Operations Manager'),
                 ('Matthew is a highly skilled individual with ample knowledge of firearm operations, safety &amp; security.', 'Alf T. &middot; Senior Operations Advisor')]))),
     ('Insights', section(5, 'Insights &amp; Resources', f'From the {blue("Field.")}', '',
-        cards([('Raising the Bar: Why the Security Industry Needs Higher Standards', 'Discover why Atlas Glinn is leading the charge to elevate training standards across the security industry.', '<a class="secondary-cta" href="https://atlasglinn.com/training-certification/raising-the-bar-why-the-security-industry-needs-higher-standards-and-how-atlas-glinn-is-leading-the-charge/">Read &rarr;</a>'),
-               ('Why Real-World Experience Matters in Executive Protection', 'A lesson from the front lines on why field-tested expertise outperforms theory every time.', '<a class="secondary-cta" href="https://atlasglinn.com/case-studies-success-stories/why-real-world-experience-matters-in-executive-protection-a-lesson-from-the-front-lines/">Read &rarr;</a>'),
-               ('How We Secured a CEO&rsquo;s Global Tour', 'An inside look at the coordination and planning behind protecting a Fortune 500 executive across multiple countries.', '<a class="secondary-cta" href="https://atlasglinn.com/case-studies-success-stories/how-we-secured-a-ceos-global-tour/">Read &rarr;</a>'),
-               ('Why Atlas Glinn&rsquo;s Security Training Sets the Standard', 'Our training programs are built on decades of real-world experience with elite military and law enforcement units.', '<a class="secondary-cta" href="https://atlasglinn.com/training-certification/why-atlas-glinns-security-training-sets-the-standard/">Read &rarr;</a>'),
-               ('Preparing for Natural Disasters: A Security Must', 'Why disaster preparedness is a critical component of any comprehensive security strategy.', '<a class="secondary-cta" href="https://atlasglinn.com/disaster-recovery-asset-protection/preparing-for-natural-disasters-a-security-must/">Read &rarr;</a>'),
-               ('5 Essential Tips for VIP Security in 2025', 'Key strategies every VIP protection detail should implement to stay ahead of evolving threats.', '<a class="secondary-cta" href="https://atlasglinn.com/executive-residential-protection/5-essential-tips-for-vip-security-in-2025/">Read &rarr;</a>')], numbered=False))),
+        cards([('Raising the Bar: Why the Security Industry Needs Higher Standards', 'Discover why Atlas Glinn is leading the charge to elevate training standards across the security industry.', '<a class="secondary-cta" href="https://atlasglinn.com/training-certification/raising-the-bar-why-the-security-industry-needs-higher-standards-and-how-atlas-glinn-is-leading-the-charge/">Read More &rarr;</a>', '', 'Training &amp; Certification'),
+               ('Why Real-World Experience Matters in Executive Protection', 'A lesson from the front lines on why field-tested expertise outperforms theory every time.', '<a class="secondary-cta" href="https://atlasglinn.com/case-studies-success-stories/why-real-world-experience-matters-in-executive-protection-a-lesson-from-the-front-lines/">Read More &rarr;</a>', '', 'Case Studies'),
+               ('How We Secured a CEO&rsquo;s Global Tour', 'An inside look at the coordination and planning behind protecting a Fortune 500 executive across multiple countries.', '<a class="secondary-cta" href="https://atlasglinn.com/case-studies-success-stories/how-we-secured-a-ceos-global-tour/">Read More &rarr;</a>', '', 'Case Studies'),
+               ('Why Atlas Glinn&rsquo;s Security Training Sets the Standard', 'Our training programs are built on decades of real-world experience with elite military and law enforcement units.', '<a class="secondary-cta" href="https://atlasglinn.com/training-certification/why-atlas-glinns-security-training-sets-the-standard/">Read More &rarr;</a>', '', 'Training &amp; Certification'),
+               ('Preparing for Natural Disasters: A Security Must', 'Why disaster preparedness is a critical component of any comprehensive security strategy.', '<a class="secondary-cta" href="https://atlasglinn.com/disaster-recovery-asset-protection/preparing-for-natural-disasters-a-security-must/">Read More &rarr;</a>', '', 'Disaster Recovery'),
+               ('5 Essential Tips for VIP Security in 2025', 'Key strategies every VIP protection detail should implement to stay ahead of evolving threats.', '<a class="secondary-cta" href="https://atlasglinn.com/executive-residential-protection/5-essential-tips-for-vip-security-in-2025/">Read More &rarr;</a>', '', 'Executive &amp; Residential Protection')], numbered=False))),
     ('Contact', contact_chapter(6, 'Ready to Work With Us?', f'Let&rsquo;s {blue("Talk.")}', '',
-        cta('contact.html', 'Contact Us') + cta2('careers.html', 'Careers &rarr;'))),
-], photos=[(ABOUT_POSTER, None, ABOUT_TEASER), (FOUNDER_SCENE, 'center 20%'), (ABOUT_POSTER, None), (EP_MATTERS, None), (HERO_EP, None), (PROTECTION, None)],
+        cta('contact.html', 'Contact Us') + cta2(TEL, 'Phone: ' + PHONE) + cta2('mailto:' + EMAIL, 'Email: ' + EMAIL))),
+    ('Reviews', reviews_chapter(7)),
+], photos=[(ABOUT_POSTER, None, ABOUT_TEASER), (FOUNDER_SCENE, 'center 20%'), (ABOUT_POSTER, None), (EP_MATTERS, None), (HERO_EP, None), (PROTECTION, None), (HERO_EP, None)],
       jsonld=jsonld_org())
 
 # ═══════════════════════════ careers.html ═══════════════════════════
@@ -751,7 +762,8 @@ build('careers.html',
                ('Elite MAST Training', 'Access to MAST Solutions training programs &mdash; firearms, CQB, medical, and EP certification courses.')], 'cards four', numbered=False))),
     ('Contact', contact_chapter(4, 'Ready to Join the Team?', f'Speak With a {blue("Coordinator.")}', 'Speak with a coordinator today about available positions and next steps.',
         cta('contact.html', 'Contact Us') + cta2(TEL, PHONE))),
-], photos=[(CAREERS_HERO, None), (HERO_EP, None), (TRAINING, None), (CAREERS_HERO, None)])
+    ('Reviews', reviews_chapter(5)),
+], photos=[(CAREERS_HERO, None), (HERO_EP, None), (TRAINING, None), (CAREERS_HERO, None), (HERO_EP, None)])
 
 # ═══════════════════════════ contact.html ═══════════════════════════
 build('contact.html',

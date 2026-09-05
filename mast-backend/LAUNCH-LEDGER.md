@@ -354,8 +354,13 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
   nothing writes them), segments and journeys. Build order in `DATA-AND-MARKETING.md` §Build order.
 - MAST page site menu (the Atlas pages have it; on WordPress the Atlas page URLs differ, so it waits for the DNS
   cutover).
-- Atlas Glinn rebuild: same brand colours as the current site, every current item present and embedded, test only
-  (his 2026-09-04 instruction); then the DNS move to GitHub Pages, which also needs the 22 WordPress images
-  localized and the 10 WordPress-only URLs (blog, Atlas EP page, 8 articles) rebuilt as static pages.
+- Atlas Glinn rebuild: **published 2026-09-05 ~21:05 UTC** ("Publish AG preview") — the eleven rebuilt pages are the
+  root files, the previous builds parked as `*-atlas.html` (noindex), `preview/` gone, `LIVE_LINKS` off, the WordPress
+  images local under `images/atlas/`. Merged; it reaches atlasglinn.com through the Mac's hourly upload (PAGES in
+  `wp-upload.sh` now carries the set) or the page workflow. Two things to confirm on the first upload: whether
+  `index.html` wins over WordPress at `/` (host DirectoryIndex), and the old WordPress permalinks (`/about/` …) staying
+  up until he retires them in WordPress. Still his: the two About "In Action" clips and the technology/uas/contact hero
+  films are LFS pointers here (on the handoff list); the 10 WordPress-only URLs (blog, Atlas EP page, 8 articles) are
+  not rebuilt.
 - Docs to reconcile: `ARCHITECTURE.md` open-decisions table (prices are confirmed; range directions are text in
   the email, not a PDF), `mast-wp-theme/` is superseded by the static page + Worker + SFTP path.
