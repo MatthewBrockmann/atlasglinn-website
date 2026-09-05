@@ -1,6 +1,6 @@
-# Uploads the MAST page and its assets to the atlasglinn.com host (GoDaddy Managed WordPress, SFTP) when they change on
-# main, so "merged" becomes "running" for the page without the Mac (owner, 2026-09-05: on the road, no Terminal). The same
-# file list and the same batch as scripts/wp-upload.sh, which stays the Mac's hourly path.
+# Uploads the MAST page, the Atlas Glinn pages and their assets to the atlasglinn.com host (GoDaddy Managed WordPress,
+# SFTP) when they change on main, so "merged" becomes "running" for the pages without the Mac (owner, 2026-09-05: on the
+# road, no Terminal). The same file list and the same batch as scripts/wp-upload.sh, which stays the Mac's hourly path.
 #
 # Needs two repository secrets (Settings → Secrets and variables → Actions):
 #   WP_SFTP_USER       the atlasglinn.com site's SFTP username (GoDaddy → Managed WordPress → Settings → Production Site → SFTP/SSH)
@@ -17,6 +17,19 @@ on:
       - 'privacy.html'
       - 'terms.html'
       - 'signup.html'
+      - 'ep-app.html'
+      # The eleven Atlas Glinn pages, published 2026-09-05 (PAGES in scripts/wp-upload.sh carries them).
+      - 'index.html'
+      - 'executive-protection.html'
+      - 'residential-protection.html'
+      - 'disaster-recovery.html'
+      - 'training.html'
+      - 'technology.html'
+      - 'cuas-aerodefense.html'
+      - 'uas.html'
+      - 'about.html'
+      - 'careers.html'
+      - 'contact.html'
       - 'images/**'
       - 'vendor/**'
       - 'scripts/wp-upload.sh'

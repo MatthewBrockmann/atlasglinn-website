@@ -38,3 +38,18 @@ https://atlasglinn.com/images/forge-legend-mast.mp4
 # six-second teasers and posters, and swaps the YouTube cards for local files.
 https://www.youtube.com/watch?v=jwQ5OyKEKwg
 https://www.youtube.com/watch?v=mI7Ou5P-WHE
+# Added 2026-09-05 (owner, on the published rebuild: "why the content from the actual site and this new site front end are
+# not matching"): the live WordPress pages themselves. Each is saved as live/<slug>.html on every run (index.html for the
+# home page), so a cloud session can read the words atlasglinn.com shows today and hold scripts/assemble-atlas.py to them.
+# The rebuild was written from the repo's April 2026 build (*-atlas.html), the only copy a cloud session can open.
+https://atlasglinn.com/
+https://atlasglinn.com/executive-protection/
+https://atlasglinn.com/residential-protection/
+https://atlasglinn.com/disaster-recovery-asset-protection/
+https://atlasglinn.com/training/
+https://atlasglinn.com/technology/
+https://atlasglinn.com/cuas-aerodefense/
+https://atlasglinn.com/uas/
+https://atlasglinn.com/about/
+https://atlasglinn.com/careers/
+https://atlasglinn.com/contact/

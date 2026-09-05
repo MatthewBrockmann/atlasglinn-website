@@ -1,0 +1,88 @@
+# Reads the live atlasglinn.com pages from a GitHub runner (open internet; the cloud container has no route to the site)
+# and commits them to the handoff branch as reference/desktop/live/<slug>.html, the same place scripts/mac-handoff.sh
+# saves them from the Mac. Owner, 2026-09-05, on the published rebuild: "why the content from the actual site and this
+# new site front end are not matching" — no cloud session had ever read the live WordPress text. Runs on request and once
+# a day; needs no secret. A probe file beside the pages records what the host serves at /, /index.html, /about.html and a
+# few uploaded assets (status, content type, <title>, WordPress generator tag), so the upload state is visible from a
+# cloud session too. Read them with:
+#   git fetch origin claude/desktop-assets
+#   git show origin/claude/desktop-assets:reference/desktop/live/_probe.txt
+name: Capture live site
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: capture-live
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    env:
+      UA: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36 capture-live'
+      BRANCH: claude/desktop-assets
+      DEST: reference/desktop/live
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch the live pages named in scripts/handoff-urls.txt
+        run: |
+          mkdir -p out
+          n=0
+          grep -E '^https?://' scripts/handoff-urls.txt | while read -r u; do
+            case "$u" in *youtube.com/*|*youtu.be/*|*instagram.com/*|*vimeo.com/*|*tiktok.com/*|*facebook.com/*|*fb.watch/*) continue ;; esac
+            p="${u#*://}"; p="${p#*/}"; p="${p%%\?*}"; p="${p%%#*}"
+            case "$p" in ""|*/) ;; *) case "${p##*/}" in *.*) continue ;; esac ;; esac      # a file, not a page: the Mac's job
+            s="${p%/}"; s="$(printf '%s' "$s" | tr '/' '-')"; s="${s:-index}"
+            if curl -fsSL -A "$UA" --max-time 60 -o "out/$s.html" "$u"; then
+              echo "ok    $u -> $DEST/$s.html ($(wc -c < "out/$s.html") bytes)"
+            else
+              echo "::warning::fetch failed: $u"; rm -f "out/$s.html"
+            fi
+          done
+          ls -la out
+      - name: Probe what the host serves
+        run: |
+          {
+            echo "captured $(date -u +%FT%TZ) by capture-live from main ${GITHUB_SHA::7}"
+            for u in https://atlasglinn.com/ https://atlasglinn.com/index.html https://atlasglinn.com/about.html \
+                     https://atlasglinn.com/about/ https://atlasglinn.com/mastsolutions.html \
+                     https://atlasglinn.com/images/atlas/Atlas-Glinn-3.jpg \
+                     https://atlasglinn.com/images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg \
+                     https://atlasglinn.com/images/film/atlas-glinn-and-mast-solutions-poster.jpg \
+                     https://atlasglinn.com/images/team/brockmann.jpg \
+                     https://atlasglinn.com/images/technology-hero.mp4 https://atlasglinn.com/images/careers-gallery.mp4 \
+                     https://atlasglinn.com/wp-content/uploads/2025/03/IMG_1837-1024x751.jpeg; do
+              rm -f /tmp/p
+              code="$(curl -sS -L -A "$UA" --max-time 60 -o /tmp/p -w '%{http_code} %{content_type} %{size_download}' "$u" 2>/dev/null || echo 'ERR - -')"
+              t="$(grep -o '<title>[^<]*' /tmp/p 2>/dev/null | head -1 | sed 's/<title>//')"
+              w="$(grep -c 'generator" content="WordPress' /tmp/p 2>/dev/null || true)"
+              echo "$code  $u  title=[$t] wordpress_generator=$w"
+            done
+          } | tee out/_probe.txt
+      - name: Commit to the handoff branch (sparse, blobless: the branch carries large media)
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          git config --global user.name "capture-live"
+          git config --global user.email "actions@users.noreply.github.com"
+          mkdir handoff && cd handoff
+          git init -q
+          git remote add origin "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git sparse-checkout init --cone
+          git sparse-checkout set "$DEST"
+          git fetch -q --depth 1 --filter=blob:none origin "$BRANCH"
+          git checkout -q -b "$BRANCH" FETCH_HEAD
+          mkdir -p "$DEST"
+          cp ../out/* "$DEST"/
+          git add -A "$DEST"
+          if git diff --cached --quiet; then echo "live pages unchanged; nothing to commit"; exit 0; fi
+          git commit -q -m "Capture the live atlasglinn.com pages ($(date -u +%F %H:%M) UTC)"
+          git push -q origin "HEAD:$BRANCH"
+          echo "pushed $(git rev-parse --short HEAD) to $BRANCH: $DEST/"

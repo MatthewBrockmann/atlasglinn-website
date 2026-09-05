@@ -362,5 +362,15 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
   up until he retires them in WordPress. Still his: the two About "In Action" clips and the technology/uas/contact hero
   films are LFS pointers here (on the handoff list); the 10 WordPress-only URLs (blog, Atlas EP page, 8 articles) are
   not rebuilt.
+  **First upload (Mac `kick`, ~21:03 UTC):** `atlasglinn.com/index.html` serves the new page; on his first look the
+  tiles had no pictures (the batch puts the pages before `images/atlas/`; recheck once `status` shows the upload done).
+  He parked the Atlas launch ("not worried about launching this") and asked why the live site and the new front end do
+  not match. **Answer, measured:** the rebuild carries the repo's April 2026 build (`*-atlas.html`) nearly verbatim (204
+  of 208 headings, 223 of 235 paragraphs); no cloud session has ever read the live WordPress text, so wherever WordPress
+  moved on since April the new pages still say April; and the chapter titles are the trailer shell's own ("Customized
+  Security.", "Led From Experience.", "Behind the Mission." …) with the site's headings demoted to the small labels.
+  Dropped paragraphs: the EP SOP/OPORD intro, image captions, the contact address line, "AI Intelligence Features".
+  `handoff-urls.txt` now lists the live pages; the next handoff run saves them as `reference/desktop/live/<slug>.html`,
+  and the reconcile (site headings as titles, live text) runs against those files.
 - Docs to reconcile: `ARCHITECTURE.md` open-decisions table (prices are confirmed; range directions are text in
   the email, not a PDF), `mast-wp-theme/` is superseded by the static page + Worker + SFTP path.
