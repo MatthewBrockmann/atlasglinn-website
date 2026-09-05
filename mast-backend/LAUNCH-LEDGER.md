@@ -148,6 +148,11 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    portrait (founder, Cline, Kramer) is one 4:5 frame in the same column, no longer stretching with the bio (shell `.founder`,
    `.team`); the founder block is back on `brockmann-instructor.jpg` (the skyline photograph as sent), framed 66% across.
    "Put the Washington Post article right above the videos" → the Post line sits between the In Action sub and the film strip.
+   **02:08, privacy statement:** the traffic-analytics bullet (Cloudflare Web Analytics, PostHog) and the campaign-tags bullet
+   are out of `privacy.html`. He ordered them deleted on 2026-09-03 (with the security-posture and hosting-logs paragraphs,
+   which did go); the 2026-09-04 launch pass misread them as additions and put them back. The rule is now in `CLAUDE.md`
+   ("Privacy statement rule") so no session repeats it. If the WordPress copy of the policy carries the two bullets, they
+   come out there too (his hand in WordPress, or the page upload).
    His **shotgun clip** (`SHOTGUN gallery vids.mp4`, 7 s) is cut together with the existing 6 s take as one Shotgun film in
    In Action (`images/mast/mast-shotgun.mp4`, new take first; poster and teaser from it).
    Earlier note — chapter 05 **The Range** (2026-09-04, "look up the range photos that we had on the other site. That

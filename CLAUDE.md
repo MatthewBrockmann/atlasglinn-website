@@ -36,6 +36,17 @@ atlasglinn.com page uses in that section (the approved list at the top of
 `build()` asserts it. `scripts/compare-atlas.py` writes `preview/compare.html`, the
 section-by-section "as is vs new" sheet he reviews from.
 
+## Privacy statement rule (Brockmann, 2026-09-03; repeated 2026-09-05)
+
+`privacy.html` is his text, confirmed 2026-09-03 and carried on both sites. It **never names infrastructure, hosting,
+analytics or security tooling** (no Cloudflare, Workers, D1, Supabase, PostHog, GitHub Pages, GoDaddy, no "how we stop
+brute force"): "this is an invite to be hacked". Providers that receive a customer's data (payments, email, the app's
+SMS) stay named in §8 and §12.3 as he confirmed them. On 2026-09-03 he ordered the security-posture paragraph, the
+hosting-logs paragraph, the traffic-analytics bullet and the campaign-tags bullet **deleted**; the 2026-09-04 session
+misread the last two as additions and put them back, and he had to say it again. Do not add tooling to the policy
+without his words; when he pastes policy text with "Delete" in front, everything in the paste goes, and only the items
+he marks as new (the AI section, "We do not run background checks") get added.
+
 ## Site consistency rule (Brockmann, 2026-09-04)
 
 "For any card or any function on the site itself, when adding another product or membership, we don't lose the
