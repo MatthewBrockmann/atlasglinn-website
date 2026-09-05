@@ -165,9 +165,16 @@ copy_file() { # copy_file <source file> <destination directory>; returns 2 when 
   fi
   s="$(fsize "$f")"
   mkdir -p "$d"
+  # Drop folders (owner, 2026-09-05: "anytime I drop new items into the folder on my desktop, it should … add photos to the
+  # gallery"): photographs bound for a gallery/ or range/ folder are web-sized here on the Mac — JPEG, longest side 2000 px,
+  # quality 82 — because the cloud container has no image tools; clips get a poster frame beside them (qlmanage ships with
+  # macOS) so the tile has a picture. scripts/photo-intake.py turns them into tiles.
+  local drop=0; case "$d" in */gallery|*/gallery/*|*/range|*/range/*) drop=1 ;; esac
   case "$e" in
     heic|heif)
-      if command -v sips >/dev/null 2>&1 && sips -s format jpeg "$f" --out "$d/${b%.*}.jpg" >/dev/null 2>&1; then :; else cp "$f" "$d/$b"; fi ;;
+      if command -v sips >/dev/null 2>&1 && sips -s format jpeg -s formatOptions 82 $([ "$drop" = 1 ] && echo -Z 2000) "$f" --out "$d/${b%.*}.jpg" >/dev/null 2>&1; then :; else cp "$f" "$d/$b"; fi ;;
+    jpg|jpeg|png|webp|tif|tiff)
+      if [ "$drop" = 1 ] && command -v sips >/dev/null 2>&1 && sips -s format jpeg -s formatOptions 82 -Z 2000 "$f" --out "$d/${b%.*}.jpg" >/dev/null 2>&1; then :; else cp "$f" "$d/$b"; fi ;;
     mov|mp4|m4v|avi|mkv)
       if [ "$s" -le $((MAX_MB * 1000000)) ]; then cp "$f" "$d/$b"; else
         web="$d/${b%.*}-web.mp4"
@@ -178,6 +185,9 @@ copy_file() { # copy_file <source file> <destination directory>; returns 2 when 
           say "  too big for GitHub even after compression, listed instead: $b ($((s / 1000000)) MB)"
           list_skipped "$f" "$s bytes"; return 2
         fi
+      fi
+      if [ "$drop" = 1 ] && [ ! -f "$d/${b%.*}-poster.png" ] && command -v qlmanage >/dev/null 2>&1; then
+        qlmanage -t -s 1600 -o "$d" "$f" >/dev/null 2>&1 && [ -f "$d/$b.png" ] && mv "$d/$b.png" "$d/${b%.*}-poster.png"
       fi ;;
     *) cp "$f" "$d/$b" ;;
   esac

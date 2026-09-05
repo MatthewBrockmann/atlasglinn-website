@@ -90,8 +90,11 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    order missed that merge by seconds and ride on **PR #12**. **Still his hand, in this order,** from `mast-backend/` after
    **PAGE LIVE 2026-09-05 ~17:20 UTC:** his browser showed the new page at atlasglinn.com/mastsolutions.html (Book a Class,
    Sign in, the twelve chapters) after `wp-upload.sh` put 113 files into `html/` over the Keychain-saved login; the script's
-   own ping check reported a stale 404 from the host cache, since fixed to check the page itself. Worker at 0411322b, page
-   from main bdf453f: merged = running for MAST. Earlier text of this item, kept for the record — after
+   own ping check reported a stale 404 from the host cache, since fixed to check the page itself. Worker redeployed at
+   **756039ac from main 84def57** (17:27 UTC, his terminal), page from main bdf453f: merged = running for MAST **except the
+   Reply-To change**: PR #19 was merged at 8859705 a minute before that commit (81d0192) was pushed, so it never reached main
+   or that deploy. It rides on the drop-folder PR (#20) and needs one more `git pull && npx wrangler deploy` after the merge.
+   Until then a reply to a Worker email goes to bookings@mastsolutions.com, which is not a mailbox. Earlier text of this item, kept for the record — after
    #12 merges: `git pull` · `wrangler d1 execute mast_bookings --remote
    --file=migrations/004-accounts.sql` · `… --file=migrations/005-account-verification.sql` · `npx wrangler deploy` (the
    verified build) · **then** `wrangler secret put ACCOUNT_SECRET` (a secret put republishes whatever code is deployed, which

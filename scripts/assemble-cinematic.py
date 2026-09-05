@@ -164,8 +164,13 @@ CHROME = CHROME.replace(_hud_tr, '<a class="hud acct acct-link" href="#" onclick
 #    "Delete 2, 3, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15, 19, 21, 22, 23 and add what I just uploaded to the rest … want to trim down
 #    Range Photos". The sixteen he cut (a06, a07, r001, r003, r005–r012, r016, r018–r020) stay in images/mast/range/ out of the
 #    chapter ("can add some to gallery"). Same tile as the skills; tap opens the photograph in a lightbox. Edit the list and re-run.
-RANGE_PHOTOS = ['images/mast/range/' + f + '.jpg' for f in
-                ['a08', 'a13', 'a01', 'a02', 'a03', 'a04', 'a05', 'a09', 'a10', 'a11', 'a12', 'r002']]
+#    2026-09-05 ("anytime I drop new items into the folder on my desktop, it should update in and add photos to the gallery"):
+#    both lists now live in images/mast/<kind>/tiles.txt. scripts/photo-intake.py appends what lands in the Desktop drop
+#    folders (via the handoff branch); a person reorders or removes by editing the file. The order below is unchanged.
+def read_tiles(kind):
+    p = f'{REPO}/images/mast/{kind}/tiles.txt'
+    return ['images/mast/' + l.strip() for l in open(p, encoding='utf-8') if l.strip() and not l.lstrip().startswith('#')]
+RANGE_PHOTOS = read_tiles('range')   # was: a08, a13, a01–a05, a09–a12, r002
 # 2026-09-05, 01:40: "The Range = 'SHOW ALL' delete … just what we have for the range is good": the twelve that showed stay, no
 # button; the other old-site views (r004, r013–r015, r017, r021–r024) leave the chapter and stay in the folder.
 # The gallery under the films in In Action ("can add some to gallery", 2026-09-05): the action photographs he sent without a
@@ -173,14 +178,24 @@ RANGE_PHOTOS = ['images/mast/range/' + f + '.jpg' for f in
 # carbine, g06 the carbine from behind the car, g04 the boat drill, g05 room clearing, g08 the team in the truck bed, g09 coffee in
 # kit with an MP, g02 the night muzzle flash) and his two range shots that are not of the range itself (a06 the firing line, a07
 # the prone shot; "photos that I will assign"). Anything he assigns to a chapter moves out of here.
-GALLERY_PHOTOS = ['images/mast/gallery/' + f + '.jpg' for f in ['g12', 'g01', 'g03', 'g07', 'g06', 'g04', 'g05', 'g13', 'g11', 'g10', 'g08', 'g09', 'g02']] + \
-                 ['images/mast/range/a06.jpg', 'images/mast/range/a07.jpg']   # g10 the log carry, g11 the tire jump, g12 the class with the tire (01:29); g13 the combatives pad drill (02:01, a video-analysis frame with the app chrome cropped away)
+GALLERY_PHOTOS = read_tiles('gallery')   # was: g12, g01, g03, g07, g06, g04, g05, g13, g11, g10, g08, g09, g02, a06, a07 — g10 the log carry, g11 the tire jump, g12 the class with the tire (01:29); g13 the combatives pad drill (02:01, a video-analysis frame with the app chrome cropped away)
 for _p in RANGE_PHOTOS + GALLERY_PHOTOS:
     assert os.path.exists(f'{REPO}/{_p}'), f'Photograph missing: {_p}'
+CLIP_EXT = ('.mp4', '.mov', '.webm', '.m4v')
 def photo_tile(i, src, shown):
+    """One tile. A clip (Instagram or a phone video dropped into the gallery folder) shows its -poster frame and a play mark;
+    the lightbox plays the file (openLb handles .mp4/.webm/.mov)."""
     more = ' more' if i > shown else ''
-    return (f'<div class="tile photo{more}" role="button" tabindex="0" aria-label="Open photograph {i:02d}" onclick="openLb(\'{src}\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){{event.preventDefault();openLb(\'{src}\');}}">'
-            f'<div class="bg" style="background-image:url(\'{src}\')"></div><div class="txt"><div class="num">{i:02d}</div></div></div>')
+    clip = src.lower().endswith(CLIP_EXT)
+    bg = src
+    if clip:
+        stem = os.path.splitext(src)[0]
+        bg = next((c for c in (stem + '-poster.jpg', stem + '-poster.png', stem + '.jpg', stem + '.png') if os.path.exists(f'{REPO}/{c}')), '')
+    style = " style=\"background-image:url('" + bg + "')\"" if bg else ''
+    kind = 'clip' if clip else 'photograph'
+    return ('<div class="tile photo' + more + (' clip' if clip else '') + '" role="button" tabindex="0" aria-label="Open ' + kind + f' {i:02d}" '
+            "onclick=\"openLb('" + src + "')\" onkeydown=\"if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('" + src + "');}\">"
+            '<div class="bg"' + style + '></div><div class="txt"><div class="num">' + f'{i:02d}' + (' &#9654;' if clip else '') + '</div></div></div>')
 def fold_button(fold_id, open_text, close_text):
     """The open/close button for a folded photo grid (owner, 2026-09-05: "collapse all the photos … with a close open button. I'm trying
     to limit how much scrolling there is"). The grid starts closed; the button toggles it and swaps its own label."""
@@ -470,6 +485,7 @@ META = """<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><l
 # Six client testimonials (chapter 08) carried over from the earlier builds; they were dropped in the cinematic cut without an instruction.
 QUOTES_CSS = """
   .tile.photo .txt { padding:1rem 1.1rem; }
+  .tile.photo.clip .bg { background-color:#0B1221; }   /* a clip without a poster still reads as a tile; the play mark sits in the number */
   .photo-tiles .tile.more { display:none; }
   .photo-tiles.all .tile.more { display:flex; }
   .gallery-eyebrow { margin-top:2.6rem; }

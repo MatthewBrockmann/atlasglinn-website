@@ -144,6 +144,7 @@ const env = {
   RESEND_API_KEY: 're_test',
   ADMIN_KEY: 'super-secret-admin-key',
   ACCOUNT_SECRET: 'account-secret-test',
+  REPLY_TO: 'replies@example.com',
   DB,
 };
 const ctx = { waitUntil: (p) => p };
@@ -546,6 +547,7 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   const reg1 = await post('/account/register', { email: 'Student@Example.com', password: 'correct horse battery', name: 'Jane Doe', phone: '(713) 555-0100' }); const p0 = await reg1.json();
   ok('register → 202 pending with no token; one code email to the student alone (no BCC)', reg1.status === 202 && p0.pending === true && !p0.token && emails.length === 1 && emails[0].to[0] === 'student@example.com' && !emails[0].bcc && /Your MAST Solutions verification code/.test(emails[0].subject) && !!codeIn(emails[0]), JSON.stringify({ status: reg1.status, body: p0, email: emails[0] && { to: emails[0].to, bcc: emails[0].bcc, subject: emails[0].subject } }));
   const code1 = codeIn(emails[0]);
+  ok('the code email replies to the real mailbox (REPLY_TO), not the sender label', emails[0].reply_to === 'replies@example.com', JSON.stringify(emails[0].reply_to));
   let acctRow = rowFor('student@example.com');
   ok('the password is stored as a PBKDF2 hash, never in clear', acctRow && /^pbkdf2-sha256\$100000\$/.test(acctRow.password_hash) && !acctRow.password_hash.includes('correct horse'), acctRow && acctRow.password_hash.slice(0, 30));
   ok('the code is stored hashed and the account is unverified', acctRow && acctRow.verify_code_hash && !acctRow.verify_code_hash.includes(code1) && !acctRow.verified_at);

@@ -28,6 +28,10 @@ crons = ["17 9 * * *"]
 ALLOWED_ORIGINS = "https://www.atlasglinn.com,https://atlasglinn.com,https://mastsolutions.com"
 SITE_URL = "https://www.atlasglinn.com/mastsolutions.html"
 NOTIFY_FROM = "MAST Solutions <bookings@mastsolutions.com>"
+# NOTIFY_FROM is a sender label on the Resend-verified domain, not a mailbox (owner, 2026-09-05: "bookings@mastsolutions.com
+# = NOT email"). Replies to any email the Worker sends go to REPLY_TO, a real, read mailbox; office alerts still reply to
+# the customer who wrote in.
+REPLY_TO = "matthew@mastsolutions.com"
 
 
 
