@@ -33,7 +33,10 @@ hand-authored. Rebuilt forms post JSON to the booking Worker's `POST /contact`.
 **Imagery rule (Brockmann, 2026-09-04):** an Atlas page uses only what the current
 atlasglinn.com page uses in that section (the approved list at the top of
 `assemble-atlas.py`). No MAST range photos, nothing from `images/mast/` or `images/gallery/`;
-`build()` asserts it. `scripts/compare-atlas.py` writes `preview/compare.html`, the
+`build()` asserts it. The files are the site's own WordPress uploads, kept under `images/atlas/` by their WordPress names
+(handed off from the Mac 2026-09-05). The About portrait is `images/team/brockmann.jpg`, the picture he approved on the
+MAST Instructors chapter: the WordPress file named after him is a press-line scene ("This is not my picture from
+atlasglinn.com", 2026-09-05), kept only as a backdrop. `scripts/compare-atlas.py` writes `preview/compare.html`, the
 section-by-section "as is vs new" sheet he reviews from.
 
 ## Privacy statement rule (Brockmann, 2026-09-03; repeated 2026-09-05)

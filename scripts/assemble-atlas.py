@@ -34,25 +34,35 @@ API = 'https://mast-booking-backend.matthew-221.workers.dev'
 SITE = 'https://atlasglinn.com/'
 PHONE, TEL, EMAIL = '(281) 654-8100', 'tel:+12816548100', 'atlasglinn.hq@atlasglinn.com'
 ADDRESS = '2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063'
-WP = 'https://atlasglinn.com/wp-content/uploads/'
+WP = 'https://atlasglinn.com/wp-content/uploads/'   # only for what has not landed in images/atlas/ yet (see BEEHIVE)
 
 # Approved Atlas Glinn imagery: exactly what the current atlasglinn.com pages use, section for section. Brockmann,
 # 2026-09-04: no MAST photos on Atlas pages and nothing that is not already on the site. Every photo layer, tile and
 # portrait below comes from this list; the Atlas assembler must never reach into images/mast/.
-HERO_EP       = WP + '2025/05/Atlas-Glinn-Executive-Protection-scaled.jpeg'   # EP page hero; home Executive Protection card
-EP_MATTERS    = WP + '2025/05/Executive-Protection.jpg'                       # EP page "Protecting What Matters Most"
-CCTV          = WP + '2025/04/closeup-cctv-camera-wall-min-1024x683.jpg'      # home Residential + AI Surveillance cards
-PROTECTION    = WP + '2025/05/Atlas-Glinn-Protection.png'                     # home Secure Transport card; disaster page
-TRAINING      = WP + '2025/05/Atlas-Glinn-Training-1024x951.jpeg'             # home Training Programs card
-AG3           = WP + '2025/05/Atlas-Glinn-3.jpg'                              # home Disaster Recovery card
-RESI_COVERAGE = WP + '2025/03/Screen-Shot-2025-03-25-at-12.41.58-PM.png'      # residential Comprehensive Coverage
-FOUNDER       = WP + '2025/03/Matthew-Brockmann-Atlas-glenn-security-ceo-protection1-scaled-e1741887403903.jpeg'
-CLINE         = WP + '2025/03/Cline-Bio-Pic-1024x819.jpg'
-CAREERS_HERO  = WP + '2025/03/IMG_0396-e1742749164806.jpg'
-AI_SURV       = WP + '2025/02/AI-surveillance-1.png'                          # technology Deep Sentinel section
-AERO          = WP + '2025/03/AeroDefense-Partner-Atlas-Glinn.jpeg'
-UAS_IMG       = WP + '2025/03/Technology-UAS-1.png'
-BEEHIVE       = WP + '2025/03/IMG_1837-1024x751.jpeg'
+# The files are the site's own WordPress uploads, handed off from the Mac on 2026-09-05 (reference/desktop on
+# claude/desktop-assets) and kept under images/atlas/ by their WordPress names, so the pages serve them from the repo.
+A = 'images/atlas/'
+HERO_EP       = A + 'Atlas-Glinn-Executive-Protection-scaled.jpeg'   # EP page hero; home Executive Protection card
+EP_MATTERS    = A + 'Executive-Protection.jpg'                       # EP page "Protecting What Matters Most"
+CCTV          = A + 'closeup-cctv-camera-wall-min-1024x683.jpg'      # home Residential + AI Surveillance cards
+PROTECTION    = A + 'Atlas-Glinn-Protection.png'                     # home Secure Transport card; disaster page
+TRAINING      = A + 'Atlas-Glinn-Training-1024x951.jpeg'             # home Training Programs card
+AG3           = A + 'Atlas-Glinn-3.jpg'                              # home Disaster Recovery card
+RESI_COVERAGE = A + 'Screen-Shot-2025-03-25-at-12.41.58-PM.png'      # residential Comprehensive Coverage
+# The WordPress file named after him is the detail at a press line (a scene, not a portrait): Brockmann, 2026-09-05,
+# "This is not my picture from atlasglinn.com". The About portrait is the one he approved on the MAST Instructors
+# chapter ("Instruct pic Y its ok"), copied to images/team/ so the no-images/mast/ rule below still holds.
+FOUNDER_SCENE = A + 'Matthew-Brockmann-Atlas-glenn-security-ceo-protection1-scaled-e1741887403903.jpeg'
+FOUNDER       = 'images/team/brockmann.jpg'
+FOUNDER_CROP  = 'background-size:auto 118%;background-position:64% 22%'   # same framing as the MAST page; keeps the photographer's mark out of frame
+CLINE         = A + 'Cline-Bio-Pic-1024x819.jpg'
+CAREERS_HERO  = A + 'IMG_0396-e1742749164806.jpg'
+AI_SURV       = A + 'AI-surveillance-1.png'                          # technology Deep Sentinel section
+AERO          = A + 'AeroDefense-Partner-Atlas-Glinn.jpeg'
+UAS_IMG       = A + 'Technology-UAS-1.png'
+LOGO          = A + 'Atlas-Glinn-Logo-Rev1-1.png'
+BADGE_BEST    = A + 'BEST_OF_BusinessRate_2025_Atlas_Glinn.png'
+BEEHIVE       = WP + '2025/03/IMG_1837-1024x751.jpeg'                # not on the handoff yet (the Mac's fetch skipped it)
 FILM_POSTER   = 'images/film/atlas-glinn-and-mast-solutions-poster.jpg'       # frame of the home-page film
 ABOUT_POSTER  = 'images/film/about-atlas-glinn-poster.jpg'                    # frame of the About film
 # Pages whose current hero is a YouTube film keep that film as the first card of chapter 2.
@@ -269,7 +279,7 @@ def contact_form(kind='contact'):
 
 def jsonld_org():
     return ('<script type="application/ld+json">\n{\n  "@context": "https://schema.org",\n  "@type": "Organization",\n  "name": "Atlas Glinn, LLC",\n'
-            '  "alternateName": "Atlas Glinn",\n  "url": "https://atlasglinn.com/",\n  "logo": "' + WP + '2025/02/Atlas-Glinn-Logo-Rev1-1.png",\n'
+            '  "alternateName": "Atlas Glinn",\n  "url": "https://atlasglinn.com/",\n  "logo": "' + SITE + LOGO + '",\n'
             '  "description": "Executive protection, residential protection, disaster recovery and asset protection, AI surveillance, counter-drone and autonomous UAS solutions, and tactical training through MAST Solutions. Houston, Texas.",\n'
             '  "founder": { "@type": "Person", "name": "Matthew Brockmann", "jobTitle": "Founder & CEO" },\n'
             '  "address": { "@type": "PostalAddress", "streetAddress": "2450 Fondren Rd, Suite 255", "addressLocality": "Houston", "addressRegion": "TX", "postalCode": "77063", "addressCountry": "US" },\n'
@@ -284,6 +294,7 @@ def jsonld_service(name, desc, path):
 
 def meta(title, desc, path, og_image, jsonld=''):
     url = SITE + ('' if path == 'index.html' else path)
+    if not og_image.startswith('http'): og_image = SITE + og_image   # share cards need an absolute URL; local images are repo paths
     return (f'<title>{title}</title>\n<meta name="description" content="{desc}">\n<link rel="canonical" href="{url}">\n'
             f'<meta property="og:title" content="{title}">\n<meta property="og:description" content="{desc}">\n<meta property="og:image" content="{og_image}">\n'
             f'<meta property="og:type" content="website">\n<meta property="og:url" content="{url}">\n<meta name="twitter:card" content="summary_large_image">\n'
@@ -364,7 +375,7 @@ build('index.html',
                 ('Simply THE BEST hands on tactical training you can find local to Houston, TX.', 'Guadalupe A. &middot; Power Testing Specialist'),
                 ('Matthew is an expert in his field. I have had the privilege to train with and work alongside him on numerous occasions.', 'Kenny U. &middot; Deputy')])
         + '<div class="ctas rise" style="margin-top:2rem">' + cta2('https://www.google.com/search?q=Atlas+Glinn+Houston+reviews', 'View All Google Reviews') + '</div>'
-        + f'<div class="badges rise"><img src="{WP}2025/02/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"></div>')),
+        + f'<div class="badges rise"><img src="{BADGE_BEST}" alt="Best of Business 2025" loading="lazy"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"></div>')),
     ('Contact', contact_chapter(8, 'Get in Touch', f'Protecting What {blue("Matters Most.")}', 'From U.S. Senators to Fortune 500 executives &mdash; discreet, adaptive protection at the highest level.',
         cta('contact.html', 'Contact Us') + cta2('mastsolutions.html', 'Book Training &rarr;'))),
 ], photos=[(FILM_POSTER, None), (HERO_EP, None), (PROTECTION, None), (FILM_POSTER, None), (CCTV, None), (EP_MATTERS, None), (AG3, None), (HERO_EP, None)],
@@ -522,9 +533,9 @@ build('technology.html',
                ('Deep Sentinel', 'At Atlas Glinn, we are proud to be an authorized partner with Deep Sentinel, offering 24/7 live agent monitoring with AI-driven analytics. Deep Sentinel describes its cameras as the only video surveillance with live security guards that prevent crime.', '<a class="secondary-cta" href="https://www.deepsentinel.com/" target="_blank" rel="noopener">Learn More &rarr;</a>'),
                ('LVT (Live View Technologies)', 'Atlas Glinn partners with Live View Technologies. Solar-powered, wireless surveillance with advanced cameras, analytics, and real-time monitoring.', '<a class="secondary-cta" href="https://www.lvt.com/partner/atlas-glinn" target="_blank" rel="noopener">Learn More &rarr;</a>')], numbered=False))),
     ('Counter-Drone', section(4, 'Counter-Drone Solutions', f'Airspace {blue("Defended.")}', '',
-        f'<div class="partner rise"><div><p>Atlas Glinn, in partnership with AeroDefense, delivers advanced drone detection solutions to safeguard critical infrastructure, public safety, &amp; national security &mdash; locating both drones &amp; their operators in real time.</p><p>AeroDefense&rsquo;s Made-in-the-USA system simultaneously locates both the drone and its pilot. DHS SAFETY Act Designated.</p><div class="ctas">{cta("cuas-aerodefense.html", "Counter-Drone Solutions")}</div></div><img src="{WP}2025/03/AeroDefense-Partner-Atlas-Glinn.jpeg" alt="AeroDefense partnership" loading="lazy"></div>')),
+        f'<div class="partner rise"><div><p>Atlas Glinn, in partnership with AeroDefense, delivers advanced drone detection solutions to safeguard critical infrastructure, public safety, &amp; national security &mdash; locating both drones &amp; their operators in real time.</p><p>AeroDefense&rsquo;s Made-in-the-USA system simultaneously locates both the drone and its pilot. DHS SAFETY Act Designated.</p><div class="ctas">{cta("cuas-aerodefense.html", "Counter-Drone Solutions")}</div></div><img src="{AERO}" alt="AeroDefense partnership" loading="lazy"></div>')),
     ('UAS', section(5, 'Advanced UAS Solutions', f'Autonomous {blue("Eyes.")}', '',
-        f'<div class="partner rise"><div><p>Through elite partnership with Sunflower Labs, Atlas Glinn delivers autonomous drones for real-time surveillance, instant threat response, and seamless security integration.</p><p>Sunflower Labs&rsquo; fully autonomous drones provide real-time, intelligent surveillance. These drones fly without human intervention, responding instantly to alarms and security system triggers.</p><div class="ctas">{cta("uas.html", "Autonomous UAS")}{cta2("contact.html", "Inquire About UAS")}</div></div><img src="{WP}2025/03/Technology-UAS-1.png" alt="Autonomous UAS drone" loading="lazy"></div>')),
+        f'<div class="partner rise"><div><p>Through elite partnership with Sunflower Labs, Atlas Glinn delivers autonomous drones for real-time surveillance, instant threat response, and seamless security integration.</p><p>Sunflower Labs&rsquo; fully autonomous drones provide real-time, intelligent surveillance. These drones fly without human intervention, responding instantly to alarms and security system triggers.</p><div class="ctas">{cta("uas.html", "Autonomous UAS")}{cta2("contact.html", "Inquire About UAS")}</div></div><img src="{UAS_IMG}" alt="Autonomous UAS drone" loading="lazy"></div>')),
     ('Contact', contact_chapter(6, 'Integrate', f'One {blue("Picture.")}', 'Technology only matters when it feeds the people on the detail. Talk to us about the whole system.',
         cta('contact.html', 'Contact Us') + cta2('signup.html', 'Atlas EP App &rarr;'))),
 ], photos=[(AI_SURV, None), (CCTV, None), (AI_SURV, None), (AERO, None), (UAS_IMG, None), (BEEHIVE, None)],
@@ -565,7 +576,7 @@ build('cuas-aerodefense.html',
 build('uas.html',
       'Autonomous Drone Security Houston TX | Sunflower Labs — Atlas Glinn',
       'Fully autonomous drone surveillance by Sunflower Labs. Real-time intelligent monitoring, AI detection, and 24/7 property protection through Atlas Glinn.',
-      WP + '2025/03/Technology-UAS-1.png', CREDITS, [
+      UAS_IMG, CREDITS, [
     ('Opening', opening('Autonomous UAS', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'Autonomous drones that never sleep. Atlas Glinn partners with Sunflower Labs to deliver cutting-edge autonomous drone technology integrated into complete security solutions. The Beehive system deploys The Bee &mdash; a fully autonomous drone &mdash; on demand or on schedule, with zero human intervention required.',
         cta('contact.html', 'Design a Solution') + cta2('#s2', 'How It Detects'))),
@@ -587,7 +598,7 @@ build('uas.html',
     ('Specifications', section(4, 'System Specifications', f'The {blue("Beehive.")}', 'Purpose-built for security. The Beehive houses, charges, and deploys The Bee autonomously. Operates within geocaged airspace restricted to your property. Specifications as published by Sunflower Labs.',
         f'<div class="partner rise"><div class="spec">' + ''.join(f'<div><b>{k}</b><span>{v}</span></div>' for k, v in [
             ('Operational radius', '~600 m (1,800 ft)'), ('Flight duration', 'Up to 20 min'), ('Daily coverage', 'Up to 8 hours'), ('Operating cost', '$4&ndash;7 / hour'),
-            ('Installation', '8&ndash;12 weeks'), ('Weather', '99% of conditions'), ('Integrations', 'RTSP, Webhooks, API')]) + f'</div><img src="{WP}2025/03/IMG_1837-1024x751.jpeg" alt="Sunflower Labs Beehive system" loading="lazy"></div>')),
+            ('Installation', '8&ndash;12 weeks'), ('Weather', '99% of conditions'), ('Integrations', 'RTSP, Webhooks, API')]) + f'</div><img src="{BEEHIVE}" alt="Sunflower Labs Beehive system" loading="lazy"></div>')),
     ('Contact', contact_chapter(5, 'Ready for Autonomous Protection?', f'Design {blue("Yours.")}', 'Contact Atlas Glinn to design a custom autonomous drone surveillance solution for your property.',
         cta('contact.html', 'Contact Us') + cta2('cuas-aerodefense.html', 'Counter-Drone &rarr;'))),
 ], photos=[(UAS_IMG, None), (BEEHIVE, None), (UAS_IMG, None), (BEEHIVE, None), (UAS_IMG, None)],
@@ -604,8 +615,8 @@ build('about.html',
         'Our mission is to provide you with unparalleled peace of mind, safeguarding what matters most &mdash; your safety, your assets, and your way of life. With a foundation built on elite expertise and a relentless pursuit of excellence, we deliver tailored protection solutions that blend seamlessly into your world.',
         cta('#s2', 'Meet the Team') + cta2('contact.html', 'Contact Us'))),
     ('Team', section(2, 'Meet the Team', f'Precision. Discretion. {blue("Commitment.")}', 'We redefine security with precision, discretion, and unwavering commitment.',
-        f'<div class="team rise"><div class="portrait" style="background-image:url(\'{FOUNDER}\');background-position:center 20%"><div class="cap">Founder &amp; CEO</div></div><div class="bio"><h3>Matthew Brockmann</h3><div class="role">Founder &amp; CEO</div><p>{BROCKMANN_BIO}</p></div></div>'
-        f'<div class="team rise"><div class="portrait" style="background-image:url(\'{WP}2025/03/Cline-Bio-Pic-1024x819.jpg\');background-position:center 15%"><div class="cap">Chief Operating Officer</div></div><div class="bio"><h3>Michael Cline</h3><div class="role">Chief Operating Officer</div><p>As the Chief Operating Officer at Atlas Glinn, Michael Cline brings a wealth of experience and a strategic vision to the company. With a distinguished 12-year career as a Navy SEAL, Michael has honed exceptional leadership, discipline, and problem-solving skills that are now pivotal in driving Atlas Glinn&rsquo;s operational excellence.</p></div></div>')),
+        f'<div class="team rise"><div class="portrait" style="background-image:url(\'{FOUNDER}\');{FOUNDER_CROP}"><div class="cap">Founder &amp; CEO</div></div><div class="bio"><h3>Matthew Brockmann</h3><div class="role">Founder &amp; CEO</div><p>{BROCKMANN_BIO}</p></div></div>'
+        f'<div class="team rise"><div class="portrait" style="background-image:url(\'{CLINE}\');background-position:center 15%"><div class="cap">Chief Operating Officer</div></div><div class="bio"><h3>Michael Cline</h3><div class="role">Chief Operating Officer</div><p>As the Chief Operating Officer at Atlas Glinn, Michael Cline brings a wealth of experience and a strategic vision to the company. With a distinguished 12-year career as a Navy SEAL, Michael has honed exceptional leadership, discipline, and problem-solving skills that are now pivotal in driving Atlas Glinn&rsquo;s operational excellence.</p></div></div>')),
     ('In Action', section(3, 'Atlas Glinn In Action', f'Behind the {blue("Mission.")}', 'Training, operations, and the people behind the mission.',
         '<div class="yt-grid one rise">' + film_card('images/film/about-atlas-glinn.mp4', ABOUT_POSTER, 'About Atlas Glinn', 'The film from the About page') + '</div>')),
     ('Clients', section(4, 'What Clients Say', f'In Their {blue("Words.")}', '',
@@ -624,7 +635,7 @@ build('about.html',
                ('5 Essential Tips for VIP Security in 2025', 'Key strategies every VIP protection detail should implement to stay ahead of evolving threats.', '<a class="secondary-cta" href="https://atlasglinn.com/executive-residential-protection/5-essential-tips-for-vip-security-in-2025/">Read &rarr;</a>')], numbered=False))),
     ('Contact', contact_chapter(6, 'Ready to Work With Us?', f'Let&rsquo;s {blue("Talk.")}', '',
         cta('contact.html', 'Contact Us') + cta2('careers.html', 'Careers &rarr;'))),
-], photos=[(ABOUT_POSTER, None), (FOUNDER, 'center 20%'), (ABOUT_POSTER, None), (EP_MATTERS, None), (HERO_EP, None), (PROTECTION, None)],
+], photos=[(ABOUT_POSTER, None), (FOUNDER_SCENE, 'center 20%'), (ABOUT_POSTER, None), (EP_MATTERS, None), (HERO_EP, None), (PROTECTION, None)],
       jsonld=jsonld_org())
 
 # ═══════════════════════════ careers.html ═══════════════════════════

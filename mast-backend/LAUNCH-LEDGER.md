@@ -94,7 +94,12 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    **756039ac from main 84def57** (17:27 UTC, his terminal), page from main bdf453f: merged = running for MAST **except the
    Reply-To change**: PR #19 was merged at 8859705 a minute before that commit (81d0192) was pushed, so it never reached main
    or that deploy. It rides on the drop-folder PR (#20) and needs one more `git pull && npx wrangler deploy` after the merge.
-   Until then a reply to a Worker email goes to bookings@mastsolutions.com, which is not a mailbox. Earlier text of this item, kept for the record — after
+   Until then a reply to a Worker email goes to bookings@mastsolutions.com, which is not a mailbox. **Done 2026-09-05 ~17:35 UTC:**
+   PR #20 merged at 0b62bf8 and his terminal showed `npx wrangler deploy` → **cfe6e827** with `env.REPLY_TO` in the bundle, so
+   replies now reach matthew@mastsolutions.com. Merged = running for the Worker and the MAST page. In the same paste
+   `scripts/mac-autopilot.sh install` reported both LaunchAgents loaded (17:37 UTC): wired, **not confirmed firing** from a
+   drop; the handoff branch did receive a commit at 12:38 CDT, one minute after the install, consistent with the watcher's
+   first run. Earlier text of this item, kept for the record — after
    #12 merges: `git pull` · `wrangler d1 execute mast_bookings --remote
    --file=migrations/004-accounts.sql` · `… --file=migrations/005-account-verification.sql` · `npx wrangler deploy` (the
    verified build) · **then** `wrangler secret put ACCOUNT_SECRET` (a secret put republishes whatever code is deployed, which
@@ -105,6 +110,13 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
    mastsolutions.com verified at Resend. Original note: `wrangler secret put RESEND_API_KEY --name mast-booking-backend`. Sending as
    `bookings@mastsolutions.com` needs Resend's DNS records added at GoDaddy for mastsolutions.com. Until then no
    receipt, no agreement PDF, no range address, no staff alert goes out; all are logged.
+   **DNS incident 2026-09-05 ~18:10 UTC:** he added the records at GoDaddy ("saved"); a nameserver query showed the `send`
+   MX and SPF TXT and `_dmarc` correct, but the `resend._domainkey` TXT carried **the Resend API key itself** instead of the
+   DKIM public key (`p=MIGf…`). A DNS TXT record is public, so that key is burned: **revoke it in Resend → API Keys, create a
+   new one, `npx wrangler secret put RESEND_API_KEY --name mast-booking-backend` with the new value**, and put the `p=` value
+   from Resend → Domains → mastsolutions.com into the GoDaddy record, then Verify. His reply "i dont have DKIM": the value is
+   the first row of that Resend page (TXT, name `resend._domainkey`), whatever the row is labelled. The key value is not
+   written anywhere in this repo and must not be.
 3. **Rotate the Atlas EP leads key** on the `atlas-ep-signup` Worker. It was public on `main` until today.
 4. ~~One live test registration with the $1 `MAST-TEST` seat~~ — **2026-09-05 ("Remove test hook")**: the `#test` page hook
    and the Worker's `MAST-TEST` fallback entry are removed (PR #10); there is no $1 seat any more. A live check now means a
