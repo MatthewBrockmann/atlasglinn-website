@@ -58,6 +58,8 @@ database_id = "a510159f-a4f6-44fd-87d1-63db5ce27773"
 # Private routing and location — SECRETS, never in this file (the repo is public):
 #   RANGE_ADDRESS           street address of the range; emailed only after booking
 #   RANGE_COORDS            "lat, lon" for the directions email
+#   RANGE_DIRECTIONS        the driving directions as Markdown; src/directions.js renders address + coords + text into
+#                           MAST-Range-Directions.pdf, attached to the confirmation and the T−7 / T−1 emails
 #   DOC_RECIPIENTS_AGREEMENT comma-separated; everyone who receives the signed range
 #                           agreement (owner list of four, 2026-09-01)
 #   DOC_RECIPIENTS_INTERNAL  comma-separated; MAST staff who receive everything else

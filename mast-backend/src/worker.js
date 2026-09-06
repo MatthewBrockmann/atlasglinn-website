@@ -22,6 +22,7 @@
  */
 
 import { AGREEMENT_VERSION, fillAgreement } from './agreement.js';
+import { directionsAttachment } from './directions.js';
 import { crmSnapshot, audienceCsv, syncAudience, syncOnPayment, syncLead, adminPage, attributionFrom, recordContact, markContactEmailed, recordEvent, handleEvent, handleSubscribe, runJourneys } from './crm.js';
 
 const REPLAY_WINDOW_SECONDS = 300; // reject webhook timestamps older than 5 min
@@ -1509,13 +1510,16 @@ async function sendRegistrationDocuments(env, reg, record) {
   }
   const fileName = 'MAST-Participation-Agreement-' + String(reg.customer_name || 'participant').replace(/[^A-Za-z0-9]+/g, '-') + '.pdf';
   const attachments = pdfB64 ? [{ filename: fileName, content: pdfB64 }] : [];
+  // The range-directions PDF (RANGE_ADDRESS / RANGE_COORDS / RANGE_DIRECTIONS rendered by src/directions.js); [] when unset.
+  const directions = await directionsAttachment(env);
   const when = reg.session_label || reg.session_date;
   const seats = Number(reg.qty || 1);
 
   const rangeLines = env.RANGE_ADDRESS
     ? ['Range:       ' + env.RANGE_ADDRESS + (env.RANGE_COORDS ? ' (' + env.RANGE_COORDS + ')' : ''),
        '             Rural range: your GPS will stop you short of it. Plan for the drive.']
-    : ['Range:       Directions follow by email before the class.'];
+    : [];
+  rangeLines.push(directions.length ? 'Directions:  the PDF attached to this email. Keep it on your phone.' : 'Directions:  follow by email before the class.');
   const customerText = [
     "You're booked.",
     '',
@@ -1545,7 +1549,7 @@ async function sendRegistrationDocuments(env, reg, record) {
     'MAST Solutions · a division of Atlas Glinn, LLC · Houston, Texas',
   ].filter((l) => l !== null).join('\n');
 
-  await sendEmail(env, { to: [reg.customer_email], subject: "You're booked: " + reg.item_name + ' · ' + when, text: customerText, attachments });
+  await sendEmail(env, { to: [reg.customer_email], subject: "You're booked: " + reg.item_name + ' · ' + when, text: customerText, attachments: [...attachments, ...directions] });
 
   const agreementTo = list(env.DOC_RECIPIENTS_AGREEMENT);
   if (agreementTo.length && pdfB64) {

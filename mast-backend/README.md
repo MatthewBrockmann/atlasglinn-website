@@ -140,6 +140,7 @@ wrangler secret put NOTIFY_EMAIL             # where booking alerts, review noti
 wrangler secret put ADMIN_KEY                # long random string for /roster
 wrangler secret put RANGE_ADDRESS            # street address of the range; only ever emailed to a paid participant
 wrangler secret put RANGE_COORDS             # "lat, lon" for the directions line (optional)
+wrangler secret put RANGE_DIRECTIONS         # the driving directions as Markdown; rendered to the PDF attached to the confirmation and the T−7 / T−1 emails
 wrangler secret put DOC_RECIPIENTS_AGREEMENT # comma-separated: range host + staff who receive the signed agreement
 wrangler secret put ACCOUNT_SECRET           # long random string (e.g. `openssl rand -base64 48`) that signs student sign-in tokens and the
                                              # emailed verification / reset codes; without it every /account/* route answers 503 and the page
@@ -264,6 +265,7 @@ is safe to run anywhere and proves logic, not deployment. (It needs
 | `BUILD` | var (deploy flag) | Not in `wrangler.toml`: passed as `--var BUILD:<short sha>` by the two deploy paths and echoed by `/health` so a runner can tell which merge is running |
 | `RANGE_ADDRESS` | secret | Range street address; emailed only to a paid participant, never on the site |
 | `RANGE_COORDS` | secret | Optional "lat, lon" for the directions line |
+| `RANGE_DIRECTIONS` | secret | The driving directions as Markdown (`#` headings, `-` bullets, plain paragraphs; a few KB). `src/directions.js` renders it with the address and coords into `MAST-Range-Directions.pdf`, attached to the booking confirmation and the T−7 / T−1 reminders (owner, 2026-09-06: "ADD THE PDF WITH DIRECTIONS"). Unset = no attachment; the emails then point at the confirmation |
 | `DOC_RECIPIENTS_AGREEMENT` | secret | Range host + staff who receive the signed agreement PDF (and nothing else) |
 | `STRIPE_PRICE_<PLAN>` | secret | Optional per-plan fallback price ID |
 

@@ -314,7 +314,13 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   generated page), attribution on registrations and orders (UTM, referrer, landing page, first touch, visitor id); builds
   one profile per email with segments; exports the opted-in audience (CSV, Mailchimp when keys exist); runs the T−7 /
   T−1 / T+1 journeys from the daily cron behind `JOURNEYS_ENABLED` (off until he approves the texts, his "show me them
-  before"). Staff page `GET /admin` (ADMIN_KEY). The schema self-applies (`migrations/006-crm.sql` is the record).
+  before"). **The T−7 text is his** (2026-09-06, pasted back with three changes, all built: a numbered PARTICIPANTS
+  list — seat 2+ reads "name pending" because the booking stores one name; the range-directions PDF, rendered by
+  `src/directions.js` from the `RANGE_ADDRESS` / `RANGE_COORDS` / `RANGE_DIRECTIONS` secrets and attached to the T−7,
+  the T−1 and the booking confirmation, nothing attached when they are unset; and the second office number
+  281-415-1023 beside (281) 654-8100, `OFFICE_PHONES` in `crm.js`). His paste dropped the GPS warning from the body; it
+  lives in the PDF. T−1 and T+1 texts still await his word before `JOURNEYS_ENABLED="1"`. Staff page `GET /admin`
+  (ADMIN_KEY). The schema self-applies (`migrations/006-crm.sql` is the record).
   Rules: eligibility answers never appear anywhere in it; consent is the tick, never the purchase; fence only commands.
 - **Mailboxes:** the Claude Microsoft 365 connector in a cloud session is signed in as matthew@atlasglinn.com. The
   mastsolutions.com tenant (matthew@mastsolutions.com, the Worker's `REPLY_TO`) is a different tenant and answers
