@@ -83,10 +83,14 @@ W="$(mktemp -d /tmp/wp-upload.XXXXXX)/wt"
 cleanup() { cd / ; git -C "$R" worktree remove --force "$W" >/dev/null 2>&1 || true; rm -f "${ASKPASS:-}" 2>/dev/null || true; [ -n "${TMPD:-}" ] && rm -rf "$TMPD" 2>/dev/null || true; }
 trap cleanup EXIT
 say "Fetching $REF"
-git -C "$R" fetch -q $FILTER origin "${REF#origin/}"
+# Into the remote-tracking ref, never FETCH_HEAD: the handoff agent shares this clone, and its fetch of the handoff branch
+# overwrote FETCH_HEAD between this fetch and the read below (owner's Mac, 2026-09-06: "Worker deployed from 70170fc", a
+# handoff-branch commit; the page worktree would have been that branch's old tree).
+REFB="${REF#origin/}"
+git -C "$R" fetch -q $FILTER origin "+refs/heads/$REFB:refs/remotes/origin/$REFB"
 # --if-changed (the hourly LaunchAgent from scripts/mac-autopilot.sh): upload only when origin/main moved since the last
 # successful upload; otherwise say so and stop. The stamp is written after the live check passes.
-HEADSHA="$(git -C "$R" rev-parse FETCH_HEAD)"; STAMP="$HOME/.cache/wp-upload/last-uploaded"
+HEADSHA="$(git -C "$R" rev-parse "refs/remotes/origin/$REFB")"; STAMP="$HOME/.cache/wp-upload/last-uploaded"
 # The Worker rides along (owner, 2026-09-05, leaving without a Terminal: "Do it yourself or figure out an easier way"): when
 # mast-backend/ moved since the last deploy this Mac made, `wrangler deploy` runs from the clone (it holds node_modules and
 # the wrangler login) before the page logic, so the hourly LaunchAgent turns a merge into a running Worker with no paste.
@@ -108,7 +112,7 @@ fi
 if [ "${1:-}" = "--if-changed" ] && [ -f "$STAMP" ] && [ "$(cat "$STAMP")" = "$HEADSHA" ]; then
   say "up to date: ${HEADSHA:0:7} is already the uploaded page"; exit 0
 fi
-git -C "$R" worktree add -q --detach "$W" FETCH_HEAD
+git -C "$R" worktree add -q --detach "$W" "$HEADSHA"
 cd "$W"
 
 say "Listing files"

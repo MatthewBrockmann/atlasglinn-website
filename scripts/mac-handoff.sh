@@ -122,12 +122,14 @@ if [ "${HANDOFF_ONLY:-0}" = "1" ]; then SOURCES=("$@"); else SOURCES=("${DEFAULT
 # 2. Fetch — blobless and one commit deep (2026-09-06). The handoff branch's tip tree is over 1 GB of media; on a poor
 # connection the old full fetch never finished. Commits and trees only, about 3 MB; the worktree below materialises
 # nothing, so a run downloads only what it must. A second try goes over HTTP/1.1 with a slow-link timeout.
-pfetch() {
-  git fetch -q --filter=blob:none --depth 1 "$REMOTE" "$1" 2>/dev/null && return 0
-  git -c http.version=HTTP/1.1 -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=180 fetch -q --filter=blob:none --depth 1 "$REMOTE" "$1"
+pfetch() {   # into refs/handoff/<branch>, never FETCH_HEAD: the hourly upload shares this clone and its fetch of main landed
+             # between this fetch and the read (owner's Mac, 2026-09-06: every kick ended "! [rejected] non-fast-forward"
+             # because the hand-off had been built on main's tip instead of the branch's)
+  git fetch -q --filter=blob:none --depth 1 "$REMOTE" "+refs/heads/$1:refs/handoff/$1" 2>/dev/null && return 0
+  git -c http.version=HTTP/1.1 -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=180 fetch -q --filter=blob:none --depth 1 "$REMOTE" "+refs/heads/$1:refs/handoff/$1"
 }
-if pfetch "$BRANCH"; then BASE="$(git rev-parse FETCH_HEAD)"
-else pfetch main || die "fetch (network or GitHub login)"; BASE="$(git rev-parse FETCH_HEAD)"; fi   # first run ever: start the branch from main
+if pfetch "$BRANCH"; then BASE="$(git rev-parse "refs/handoff/$BRANCH")"
+else pfetch main || die "fetch (network or GitHub login)"; BASE="$(git rev-parse refs/handoff/main)"; fi   # first run ever: start the branch from main
 
 # 3. Throw-away worktree on a detached HEAD: the working copy, its checkout and every local branch stay untouched.
 # Only worktrees this script (or the 2026-09-03 inline paste) created are cleaned up. Paths are read whole, never
@@ -291,7 +293,7 @@ else
     git push -q "$REMOTE" "HEAD:refs/heads/$BRANCH" && { push_ok=1; break; }
     say "push rejected (try $attempt of 3): $BRANCH moved meanwhile; putting this hand-off on its new tip"
     (cd "$R" && pfetch "$BRANCH") || break
-    tip="$(git -C "$R" rev-parse FETCH_HEAD)"
+    tip="$(git -C "$R" rev-parse "refs/handoff/$BRANCH")"
     git reset -q --mixed "$tip" || break        # index = the new tip; the files this run wrote stay on disk
     git add --sparse -A "$DEST"
     new="$(git diff --cached --name-only | wc -l | tr -d ' ')"
