@@ -400,5 +400,15 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
   label+sub strings whose parts are present, image alt texts, "over 30 years" (decades) and the Senators line. He kicked
   the Mac at ~00:45 UTC (upload of the 21:35 build under way). Queued for the next capture: disaster_hero.mp4 (the live
   Disaster page's film) and IMG_0398.jpg (the live Careers photograph; the repo has IMG_0396).
+  **~01:10 UTC:** both landed (PR #37): the Disaster page opens on disaster_hero.mp4 (44 MB, as the live site serves it;
+  a Mac session with ffmpeg can shrink it), Careers shows IMG_0398. **ep-app.html** rebuilt from the live `/ep-app/` page
+  on the same shell (the hand-authored draft carried 10 of its 42 headings): eight capabilities with their tags, the
+  six-layer comms stack and four scenarios, six audiences, the six tiers (Trial FREE, Family $19.99, Individual $49.99,
+  Professional $149.99, Team $199.99/seat, Enterprise $5,000+ — note the live home page's "Choose Your Plan" names
+  different tiers and prices: $0 / $9.99 / $49 / $149 / $249 / $500+; both are carried as the live site shows them,
+  his call which is current), nine hardware items with the live Amazon links, the access form (posts to /contact with
+  the role as the message), the legal cards. Two live details carried verbatim that he may want to check: the Legal
+  chapter's "atlas.hq@atlasglinn.com" (the rest of the site says atlasglinn.hq@) and the "Watch the Trailer / Brand
+  Film" buttons, left out because the capture found no film file behind them.
 - Docs to reconcile: `ARCHITECTURE.md` open-decisions table (prices are confirmed; range directions are text in
   the email, not a PDF), `mast-wp-theme/` is superseded by the static page + Worker + SFTP path.
