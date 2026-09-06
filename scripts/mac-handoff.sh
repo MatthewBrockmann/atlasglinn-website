@@ -194,6 +194,15 @@ compress_video() { # compress_video <source> <output.mp4> — 720p, then 480p, t
   rm -f "$o"; return 1
 }
 
+make_poster() { # make_poster <clip> <poster.png path in the worktree>: a QuickLook frame beside the clip, unless the branch or this run has one
+  local f="$1" p="$2" d; d="$(dirname "$p")"
+  on_branch "${p#"$W"/}" && return 0
+  [ -f "$p" ] && return 0
+  command -v qlmanage >/dev/null 2>&1 || return 1
+  mkdir -p "$d"
+  qlmanage -t -s 1600 -o "$d" "$f" >/dev/null 2>&1 && [ -f "$d/$(basename "$f").png" ] && mv "$d/$(basename "$f").png" "$p" && say "  poster: $(basename "$p")"
+}
+
 wait_stable() { # wait_stable <file>: 0 once the size has stopped changing (a clip still being copied, or an iCloud placeholder filling in)
   local f="$1" a b waited=0
   a="$(fsize "$f")"
@@ -218,7 +227,8 @@ copy_file() { # copy_file <source file> <destination directory>; returns 2 when 
   # gallery"): photographs bound for a gallery/ or range/ folder are web-sized here on the Mac — JPEG, longest side 2000 px,
   # quality 82 — because the cloud container has no image tools; clips get a poster frame beside them (qlmanage ships with
   # macOS) so the tile has a picture. scripts/photo-intake.py turns them into tiles.
-  local drop=0; case "$d" in */gallery|*/gallery/*|*/range|*/range/*) drop=1 ;; esac
+  # The top-level drop folder counts too (2026-09-06: he drops clips and photographs there, and photo-intake reads it).
+  local drop=0; case "$d" in */gallery|*/gallery/*|*/range|*/range/*|*/mast-new-web-2026|*/mast-new-web-2026/*) drop=1 ;; esac
   case "$e" in
     heic|heif)
       if command -v sips >/dev/null 2>&1 && sips -s format jpeg -s formatOptions 82 $([ "$drop" = 1 ] && echo -Z 2000) "$f" --out "$d/${b%.*}.jpg" >/dev/null 2>&1; then :; else cp "$f" "$d/$b"; fi ;;
@@ -240,9 +250,10 @@ copy_file() { # copy_file <source file> <destination directory>; returns 2 when 
           list_skipped "$f" "$s bytes; $COMPRESS_ERR"; return 2
         fi
       fi
-      if [ "$drop" = 1 ] && ! on_branch "${d#"$W"/}/${b%.*}-poster.png" && [ ! -f "$d/${b%.*}-poster.png" ] && command -v qlmanage >/dev/null 2>&1; then
-        qlmanage -t -s 1600 -o "$d" "$f" >/dev/null 2>&1 && [ -f "$d/$b.png" ] && mv "$d/$b.png" "$d/${b%.*}-poster.png"
-      fi ;;
+      # The poster is named after the clip AS STORED (X-web-poster.png beside X-web.mp4): photo-intake.py pairs them by stem.
+      # (Before 2026-09-06 a compressed clip's poster carried the source name and was never paired.)
+      local stored="$d/$b"; [ "$s" -le $((MAX_MB * 1000000)) ] || stored="$web"
+      if [ "$drop" = 1 ]; then make_poster "$f" "${stored%.*}-poster.png"; fi ;;
     *) cp "$f" "$d/$b" ;;
   esac
 }
@@ -292,7 +303,17 @@ for src in "${SOURCES[@]}"; do
       # A file the branch already holds under this name (as itself, web-sized, or compressed) is not copied again — the
       # branch is read without its blobs. To send a changed photograph again, give it a new name.
       dd="$DEST/$name${sub:+/$sub}"
-      if on_branch "$dd/$bn" || on_branch "$dd/${bn%.*}.jpg" || on_branch "$dd/${bn%.*}-web.mp4"; then copied=$((copied + 1)); continue; fi
+      if on_branch "$dd/$bn" || on_branch "$dd/${bn%.*}.jpg" || on_branch "$dd/${bn%.*}-web.mp4"; then
+        copied=$((copied + 1))
+        # A clip the branch already holds but without its poster (top-level drops before 2026-09-06 made none): the poster
+        # is made now, named after the stored clip, so photo-intake.py can pair it with the tile it already imported.
+        case "$(printf '%s' "${bn##*.}" | tr '[:upper:]' '[:lower:]')" in
+          mov|mp4|m4v|avi|mkv)
+            stem="$bn"; on_branch "$dd/$bn" || stem="${bn%.*}-web.mp4"
+            make_poster "$f" "$OUT/$name${sub:+/$sub}/${stem%.*}-poster.png" || true ;;
+        esac
+        continue
+      fi
       if copy_file "$f" "$OUT/$name${sub:+/$sub}"; then copied=$((copied + 1)); else skipped=$((skipped + 1)); fi
     done < <(find "$src" -type f -not -name '.*' -print0)
   elif [ -f "$src" ]; then
