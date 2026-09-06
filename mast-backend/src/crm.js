@@ -160,12 +160,8 @@ export async function handleSubscribe(request, env, cors, json) {
     newsletter_opt_in: true, consent_text: body.consent_text || 'Send me MAST Solutions course dates and news. Unsubscribe any time.', attribution,
   });
   await recordEvent(env, { visitor: attribution.visitor, email, page: attribution.page, action: 'subscribe', label: cut(body.source, 60) || 'newsletter', attribution }).catch(() => {});
-  let mailchimp = { skipped: 'not_configured' };
-  if (mailchimpConfig(env)) {
-    const [p] = buildProfiles({ contacts: [{ id, created_at: new Date().toISOString(), kind: 'subscribe', email, name: body.name || '', phone: body.phone || '', company: body.company || '', newsletter_opt_in: 1, newsletter_opted_in_at: new Date().toISOString() }] });
-    mailchimp = await mailchimpUpsert(env, p).catch((e) => ({ ok: false, error: e.message }));
-  }
-  return json({ ok: true, stored: !!id, mailchimp: mailchimp.ok ? 'synced' : (mailchimp.skipped || 'failed') }, 200, cors);
+  const synced = await syncLead(env, { id, kind: 'subscribe', email, name: body.name || '', phone: body.phone || '', company: body.company || '', newsletter_opt_in: 1 });
+  return json({ ok: true, stored: !!id, synced: Object.fromEntries(Object.entries(synced).filter(([k]) => k !== 'skipped').map(([k, v]) => [k, v && v.ok ? 'synced' : (v && v.skipped) || 'failed'])) }, 200, cors);
 }
 
 /* ─────────────────────────────── Profiles ─────────────────────────────── */
@@ -344,7 +340,7 @@ export async function crmSnapshot(env, { view = 'full', limit = 5000, now = new 
   };
   const journeys = {};
   for (const l of log) { const k = journeys[l.kind] || (journeys[l.kind] = { sent: 0, failed: 0, sending: 0 }); k[l.status] = (k[l.status] || 0) + 1; }
-  const leads = contacts.filter((c) => c.kind !== 'subscribe');
+  const leads = contacts.filter((c) => c.kind !== 'subscribe' && c.kind !== 'smoke');   // the runner's smoke-test messages are not leads
   const stats = {
     profiles: customers.length,
     opted_in: customers.filter((c) => c.opt_in).length,
@@ -360,6 +356,7 @@ export async function crmSnapshot(env, { view = 'full', limit = 5000, now = new 
     accounts: { total: accounts.length, verified: accounts.filter((a) => a.verified_at).length },
     funnel, journeys,
     mailchimp: mailchimpConfig(env) ? 'configured' : 'not configured (MAILCHIMP_API_KEY, MAILCHIMP_AUDIENCE_ID)',
+    providers: providers(env),
   };
   const out = { generated_at: now.toISOString(), stats, segments };
   if (view !== 'summary') { out.customers = customers; out.leads = leads.slice(0, 500); }
@@ -431,26 +428,100 @@ export async function mailchimpUpsert(env, p) {
   return { ok: true, status: res.status };
 }
 
-/** Push every opted-in profile once (the staff page's "Sync" button). */
+/* Brevo — the other list tool on the domain (atlasglinn.com's DNS carries brevo-code and spf.brevo.com, 2026-09-06). Same
+   rule as Mailchimp: opted-in profiles only. BREVO_API_KEY (+ optional numeric BREVO_LIST_ID). */
+export function brevoConfig(env) {
+  const key = nonEmpty(env && env.BREVO_API_KEY);
+  if (!key) return null;
+  const list = parseInt(env.BREVO_LIST_ID, 10);
+  return { key, list: Number.isFinite(list) ? list : null };
+}
+
+export async function brevoUpsert(env, p) {
+  const cfg = brevoConfig(env);
+  if (!cfg) return { skipped: 'not_configured' };
+  if (!p || !p.opt_in) return { skipped: 'not_opted_in' };
+  const { first, last } = splitName(p.name);
+  const lastClass = p.classes && p.classes.length ? p.classes[p.classes.length - 1] : null;
+  const body = { email: p.email, updateEnabled: true, attributes: { FIRSTNAME: first, LASTNAME: last, SEGMENT: p.segment || '', LASTCLASS: lastClass ? lastClass.name : '', TAGS: tagsFor(p).join(',') } };
+  if (cfg.list) body.listIds = [cfg.list];
+  const res = await fetch('https://api.brevo.com/v3/contacts', { method: 'POST', headers: { 'api-key': cfg.key, 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) });
+  if (!res.ok) { const t = await res.text().catch(() => ''); console.error('[Brevo] ' + res.status + ' for ' + p.email + ': ' + t.slice(0, 200)); return { ok: false, status: res.status }; }
+  return { ok: true, status: res.status };
+}
+
+/* HubSpot — the CRM of record when he wants one outside D1 (the HubSpot connector is installed on his claude.ai org,
+   2026-09-06). Every profile and every lead goes, not only the opted-in: a CRM record is a business record, marketing
+   consent is a separate property. HUBSPOT_TOKEN = a private-app token with crm.objects.contacts write. */
+export function hubspotConfig(env) {
+  const token = nonEmpty(env && env.HUBSPOT_TOKEN);
+  return token ? { token } : null;
+}
+
+export async function hubspotUpsert(env, p) {
+  const cfg = hubspotConfig(env);
+  if (!cfg) return { skipped: 'not_configured' };
+  if (!p || !isEmail(p.email)) return { skipped: 'no_email' };
+  const { first, last } = splitName(p.name);
+  const properties = { email: p.email, firstname: first, lastname: last, phone: p.phone || '', company: p.organization || '',
+    lifecyclestage: p.classes && p.classes.length ? 'customer' : 'lead' };
+  const res = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/batch/upsert', {
+    method: 'POST', headers: { Authorization: 'Bearer ' + cfg.token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inputs: [{ idProperty: 'email', id: p.email, properties }] }),
+  });
+  if (!res.ok) { const t = await res.text().catch(() => ''); console.error('[HubSpot] ' + res.status + ' for ' + p.email + ': ' + t.slice(0, 200)); return { ok: false, status: res.status }; }
+  return { ok: true, status: res.status };
+}
+
+export function providers(env) {
+  return { mailchimp: !!mailchimpConfig(env), brevo: !!brevoConfig(env), hubspot: !!hubspotConfig(env) };
+}
+
+/** Push every profile once (the staff page's "Sync" button): opted-in to the list tools, everyone to the CRM. */
 export async function syncAudience(env, customers) {
-  const cfg = mailchimpConfig(env);
-  const out = { configured: !!cfg, attempted: 0, ok: 0, failed: 0, not_opted_in: 0 };
+  const on = providers(env);
+  const out = { configured: on, mailchimp: { attempted: 0, ok: 0, failed: 0 }, brevo: { attempted: 0, ok: 0, failed: 0 }, hubspot: { attempted: 0, ok: 0, failed: 0 }, not_opted_in: 0 };
+  const push = async (name, fn, p) => {
+    out[name].attempted += 1;
+    const r = await fn(env, p).catch((e) => { console.error('[' + name + '] failed:', e.message); return { ok: false }; });
+    if (r.ok) out[name].ok += 1; else out[name].failed += 1;
+  };
   for (const p of customers) {
+    if (on.hubspot) await push('hubspot', hubspotUpsert, p);
     if (!p.opt_in) { out.not_opted_in += 1; continue; }
-    if (!cfg) continue;
-    out.attempted += 1;
-    const r = await mailchimpUpsert(env, p).catch((e) => { console.error('[Mailchimp] failed:', e.message); return { ok: false }; });
-    if (r.ok) out.ok += 1; else out.failed += 1;
+    if (on.mailchimp) await push('mailchimp', mailchimpUpsert, p);
+    if (on.brevo) await push('brevo', brevoUpsert, p);
   }
+  // kept for the page and the tests: the marketing-list totals
+  out.attempted = out.mailchimp.attempted + out.brevo.attempted; out.ok = out.mailchimp.ok + out.brevo.ok; out.failed = out.mailchimp.failed + out.brevo.failed;
   return out;
 }
 
-/** Webhook hook: after a paid registration, upsert the customer when — and only when — they ticked the newsletter box. */
-export async function mailchimpOnPayment(env, registration, record) {
-  if (!registration || Number(registration.newsletter_opt_in) !== 1) return { skipped: 'not_opted_in' };
-  if (!mailchimpConfig(env)) return { skipped: 'not_configured' };
+/** Webhook hook: after a paid registration — CRM record always (when configured), marketing lists only with the tick. */
+export async function syncOnPayment(env, registration, record) {
+  if (!registration) return { skipped: 'no_registration' };
+  const on = providers(env);
+  if (!on.mailchimp && !on.brevo && !on.hubspot) return { skipped: 'not_configured' };
   const [p] = buildProfiles({ orders: record ? [{ ...record, status: 'paid' }] : [], registrations: [{ ...registration, status: 'paid' }] });
-  return mailchimpUpsert(env, p);
+  const out = {};
+  if (on.hubspot) out.hubspot = await hubspotUpsert(env, p).catch((e) => ({ ok: false, error: e.message }));
+  if (Number(registration.newsletter_opt_in) !== 1) { out.lists = 'not_opted_in'; return out; }
+  if (on.mailchimp) out.mailchimp = await mailchimpUpsert(env, p).catch((e) => ({ ok: false, error: e.message }));
+  if (on.brevo) out.brevo = await brevoUpsert(env, p).catch((e) => ({ ok: false, error: e.message }));
+  return out;
+}
+export const mailchimpOnPayment = syncOnPayment;   // the earlier name
+
+/** A new lead (contact form, gear quote, sign-up): the CRM record when HubSpot is on; lists only from /subscribe with consent. */
+export async function syncLead(env, lead) {
+  const on = providers(env);
+  if (!on.hubspot && !(lead.newsletter_opt_in && (on.mailchimp || on.brevo))) return { skipped: 'not_configured' };
+  const [p] = buildProfiles({ contacts: [{ ...lead, created_at: lead.created_at || new Date().toISOString() }] });
+  const out = {};
+  if (on.hubspot) out.hubspot = await hubspotUpsert(env, p).catch((e) => ({ ok: false, error: e.message }));
+  if (p.opt_in && on.mailchimp) out.mailchimp = await mailchimpUpsert(env, p).catch((e) => ({ ok: false, error: e.message }));
+  if (p.opt_in && on.brevo) out.brevo = await brevoUpsert(env, p).catch((e) => ({ ok: false, error: e.message }));
+  return out;
 }
 
 /* ─────────────────────────────── Journeys (daily cron) ─────────────────────────────── */
@@ -610,7 +681,7 @@ async function api(path,opt){const key=keyEl.value.trim();try{sessionStorage.set
   const r=await fetch(path,Object.assign({headers:{'X-Admin-Key':key}},opt||{}));if(r.status===401){$('#msg').textContent='wrong key';throw new Error('401')}return r}
 async function load(){$('#msg').textContent='loading…';const r=await api('/admin/crm');data=await r.json();render()}
 function render(){const s=data.stats,f=s.funnel;
-  $('#cards').innerHTML=[['Profiles',s.profiles],['Leads 30d',s.leads.last_30_days],['Opted in',s.opted_in],['Paid orders',s.orders.paid],['Revenue',money(s.revenue_cents.total)],['Last 30 days',money(s.revenue_cents.last_30_days)],['Visitors 30d',f.visitors],['Accounts',s.accounts.verified+' / '+s.accounts.total],['Awaiting review',(s.registrations.by_status||{}).review||0],['Mailchimp',s.mailchimp.startsWith('configured')?'on':'off']].map(([k,v])=>'<div class="card"><b>'+esc(v)+'</b><span>'+esc(k)+'</span></div>').join('');
+  $('#cards').innerHTML=[['Profiles',s.profiles],['Leads 30d',s.leads.last_30_days],['Opted in',s.opted_in],['Paid orders',s.orders.paid],['Revenue',money(s.revenue_cents.total)],['Last 30 days',money(s.revenue_cents.last_30_days)],['Visitors 30d',f.visitors],['Accounts',s.accounts.verified+' / '+s.accounts.total],['Awaiting review',(s.registrations.by_status||{}).review||0],['Lists · CRM',['mailchimp','brevo','hubspot'].filter((k)=>(s.providers||{})[k]).join(' + ')||'off']].map(([k,v])=>'<div class="card"><b>'+esc(v)+'</b><span>'+esc(k)+'</span></div>').join('');
   $('#funnel').innerHTML='<div><b>Funnel, last 30 days</b><span class="muted">visitors</span></div>'+[['Page views',f.views],['Opened a class',f.opened_class],['Picked a date',f.picked_date],['Started registration',f.started_registration],['Went to checkout',f.checkout],['Paid',f.paid]].map(([k,v])=>'<div><span>'+k+'</span><span>'+v+'</span></div>').join('')+'<div style="margin-top:.5rem"><b>Top pages</b></div>'+rowsOf(f.top_pages,(v)=>v)+'<div style="margin-top:.5rem"><b>Classes opened</b></div>'+rowsOf(f.top_classes_opened,(v)=>v)+'<div style="margin-top:.5rem"><b>Videos played</b></div>'+rowsOf(f.videos_played,(v)=>v);
   $('#bysku').innerHTML='<div><b>Revenue by course</b></div>'+rowsOf(s.revenue_by_sku_cents,money)+'<div style="margin-top:.6rem"><b>Seats on upcoming weekends</b></div>'+rowsOf(s.seats_upcoming,(v)=>v);
   $('#bysrc').innerHTML='<div><b>Revenue by source (UTM)</b></div>'+rowsOf(s.revenue_by_source_cents,money)+'<div style="margin-top:.6rem"><b>Traffic by source</b></div>'+rowsOf(f.top_sources,(v)=>v)+'<div style="margin-top:.6rem"><b>Devices</b></div>'+rowsOf(f.devices,(v)=>v)+'<div style="margin-top:.6rem"><b>Leads by kind</b></div>'+rowsOf(s.leads.by_kind,(v)=>v);
@@ -628,7 +699,7 @@ $('#tab-people').onclick=()=>setTab('people');$('#tab-leads').onclick=()=>setTab
 $('#load').onclick=()=>load().catch((e)=>{if(e.message!=='401')$('#msg').textContent='failed: '+e.message});
 $('#q').oninput=()=>data&&render();keyEl.onkeydown=(e)=>{if(e.key==='Enter')$('#load').click()};
 $('#csv').onclick=async()=>{const r=await api('/admin/audience.csv');const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='mast-audience-'+new Date().toISOString().slice(0,10)+'.csv';a.click()};
-$('#sync').onclick=async()=>{$('#msg').textContent='syncing…';const r=await api('/admin/sync',{method:'POST'});const j=await r.json();$('#msg').textContent=j.configured?('Mailchimp: '+j.ok+' upserted, '+j.failed+' failed, '+j.not_opted_in+' without opt-in left out'):'Mailchimp is not configured on the Worker (MAILCHIMP_API_KEY, MAILCHIMP_AUDIENCE_ID); the CSV export works meanwhile'};
+$('#sync').onclick=async()=>{$('#msg').textContent='syncing…';const r=await api('/admin/sync',{method:'POST'});const j=await r.json();const on=Object.entries(j.configured||{}).filter(([k,v])=>v).map(([k])=>k);$('#msg').textContent=on.length?on.map((k)=>k+': '+j[k].ok+' ok'+(j[k].failed?', '+j[k].failed+' failed':'')).join(' · ')+' · '+j.not_opted_in+' without opt-in kept off the lists':'No list or CRM configured on the Worker (MAILCHIMP_API_KEY + MAILCHIMP_AUDIENCE_ID, BREVO_API_KEY, or HUBSPOT_TOKEN); the CSV export works meanwhile'};
 if(keyEl.value)$('#load').click();
 </script></body></html>`;
 }

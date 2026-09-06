@@ -160,6 +160,26 @@ at the egress proxy, so live crawls/audits need a session whose environment
 network policy allows general web access. The toolchain itself still loads,
 and its test suite runs offline.
 
+## Claude marketing + CRM toolchain (Brockmann, 2026-09-06: "Look at the marketing and CRM - web site GitHub or connectors + Claude options and install")
+
+Surveyed the same day: the website repo, the brain repo's vetted skill packs, the claude.ai connector registry, and the plugin
+catalog. What runs where:
+
+| Piece | Status | To finish |
+|---|---|---|
+| CRM in the Worker (`mast-backend/src/crm.js`: leads, beacon, attribution, profiles, segments, audience CSV, journeys, `/admin`) | ✅ merged, tests pass; **running after the Mac's next Worker deploy** | Flip `JOURNEYS_ENABLED` after he approves the three emails |
+| Marketing skills, 29 of them, `.claude/skills/mkt-*` (vendored from the brain's vetted `coreyhaines31/marketingskills`, MIT; see `.claude/skills/MARKETING-SKILLS-NOTICE.md`) | ✅ installed and loaded (the harness lists them); ✅ run once: `/mkt-revops` wrote `mast-backend/MARKETING-PLAYBOOK.md` | — |
+| Anthropic `marketing` plugin (brand-review, campaign-plan, email-sequence, performance-report…) and `small-business` plugin (lead-triage, crm-cleanup, run-campaign…) | ✅ enabled on his claude.ai org already | Their MCP servers (HubSpot, Klaviyo, Supermetrics…) connect per tool |
+| **HubSpot** connector | installed on his org, **not enabled in this chat**; the Worker's `HUBSPOT_TOKEN` upsert is a no-op until the token is set | Enable in the chat's connector settings; a private-app token → `wrangler secret put HUBSPOT_TOKEN` |
+| **Mailchimp**, **Brevo** (both appear in atlasglinn.com's DNS) | Worker adapters built (opt-in gated); connectors not installed | Keys → `wrangler secret put …`; the connectors are optional (campaign drafting from chat) |
+| **Stripe**, **Cloudflare** connectors | installed, **need reconnect** | Reconnect in claude.ai → Connectors; Cloudflare reconnected = deploys and Worker secrets from a cloud session, no Mac |
+| PostHog / Resend connectors | not installed; the Worker's own beacon covers the funnel | Optional |
+| The old WordPress site | used the theme's `yit-newsletter` (Mailchimp / MailPoet ajax subscribe), WooCommerce, Contact Form 7; the live shop pages post to `wp-json/iwa|aimpoint/v1/subscribe` (notify-me) | Whatever list those built lives in his Mailchimp / Brevo accounts; the CSV export from `/admin` is the way to merge |
+
+Rules: keys never in git (`wrangler secret put` on the Mac, or `WORKER_<NAME>` repository secrets once the Cloudflare
+secrets exist); eligibility answers never reach any provider; marketing lists get opted-in addresses only, the CRM (HubSpot)
+gets every lead and customer.
+
 ## Mac → cloud handoff (the only Terminal command)
 
 Cloud sessions run in a container and cannot see Brockmann's Mac; Cowork and a
