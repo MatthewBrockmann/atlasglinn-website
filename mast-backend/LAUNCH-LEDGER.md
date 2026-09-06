@@ -87,6 +87,18 @@ address served the build uploaded at 14:41 UTC. YOU RUN THIS, in a browser: GoDa
 atlasglinn.com → Manage → **Flush Cache** (also in wp-admin's top bar). `wp-upload.sh` now prints both Last-Modified dates
 after an upload; the probe in `_probe.txt` confirms the flush (age 0 / MISS on the plain address).
 
+**B00 — Resend is failing on the live Worker (smoke test 2026-09-06 18:03 UTC, run 34050490356).** From a GitHub runner:
+`/health` 200 · `/catalog` 200 (22 classes from D1) · `/weekends` 200 (15 weekends, 2026-09-26 → 2027-04-24) · CORS preflight
+204 for atlasglinn.com · `/account/me` 401 (accounts are ON: `ACCOUNT_SECRET` is set) · `/create-booking` 200 with a live
+Stripe Checkout Session (`cs_live_…`, unpaid, for MAST-HG-FUND) · **`/contact` 502 "We could not send your message"** = the
+Worker reached Resend and Resend refused. Every Worker email rides that call (staff alerts, receipts, agreement PDFs, account
+codes), so until it is fixed nothing is emailed and new student sign-ups fail. The Worker's log line names the reason
+(Cloudflare dashboard → Workers → mast-booking-backend → Logs, or `npx wrangler tail mast-booking-backend` on the Mac):
+a 401 is the API key (the burned key was to be revoked and a new one put with `wrangler secret put RESEND_API_KEY`), a 403
+"domain is not verified" is Resend → Domains → mastsolutions.com. DNS at 18:03: `send` carries **two** `v=spf1` rows
+(permerror), the apex has **no** Microsoft SPF, Microsoft DKIM selectors are absent; `_dmarc` p=none. Re-run:
+`smoke-worker.yml` (Actions → Run workflow; report in `_worker-smoke.txt` on `claude/desktop-assets`).
+
 1. ~~"merge 8"~~ — **merged 2026-09-05 ~03:50 UTC** on his word ("MERGE PR8"), main = 8d886b8; **PR #9 merged** by him
    (main 143525c) and the Worker redeployed from it at version 84a18bca (migrations 001–003 applied); **PR #10 merged 2026-09-05
    04:19 UTC** (student accounts + the $1 test seat removed), main = 99af86d. **Worker redeployed from 99af86d ~04:25 UTC**

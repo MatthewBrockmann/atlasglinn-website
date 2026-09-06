@@ -986,7 +986,10 @@ async function handleContact(request, env, cors) {
     await sendEmail(env, { to: list(env.NOTIFY_EMAIL), reply_to: email, subject, text });
   } catch (e) {
     console.error('[Contact] send failed:', e.message);
-    return json({ error: 'We could not send your message. Please call (281) 654-8100.' }, 502, cors);
+    // The upstream status alone (never Resend's detail) rides along, so the runner smoke test can tell an API-key problem
+    // (resend_401) from an unverified sending domain (resend_403) without the Cloudflare log (owner on the road, 2026-09-06).
+    const m = /^Resend (\d{3})/.exec(e.message || '');
+    return json({ error: 'We could not send your message. Please call (281) 654-8100.', upstream: m ? 'resend_' + m[1] : 'send_failed' }, 502, cors);
   }
   console.log('[Contact] Sent:', kind, email);
   return json({ ok: true }, 200, cors);
