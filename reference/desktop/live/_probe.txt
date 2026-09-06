@@ -1,4 +1,4 @@
-captured 2026-09-05T21:22:24Z by capture-live from main 56c0ea5
+captured 2026-09-06T00:52:46Z by capture-live from main 0f860b1
 200 text/html; charset=UTF-8 85111  https://atlasglinn.com/  title=[Atlas Glinn - Elite Security Solutions, Risk Management & Training] wordpress_generator=0
 200 text/html 75930  https://atlasglinn.com/index.html  title=[Atlas Glinn | Executive Protection, Risk Management & Training — Houston, TX] wordpress_generator=0
 200 text/html 73709  https://atlasglinn.com/about.html  title=[About Atlas Glinn | Elite Security Leadership — Houston, TX] wordpress_generator=0
