@@ -98,6 +98,14 @@ a 401 is the API key (the burned key was to be revoked and a new one put with `w
 "domain is not verified" is Resend → Domains → mastsolutions.com. DNS at 18:03: `send` carries **two** `v=spf1` rows
 (permerror), the apex has **no** Microsoft SPF, Microsoft DKIM selectors are absent; `_dmarc` p=none. Re-run:
 `smoke-worker.yml` (Actions → Run workflow; report in `_worker-smoke.txt` on `claude/desktop-assets`).
+**Diagnosed 18:32 UTC** (Worker redeployed by his kick with the field hint): `/contact` → 502 `upstream:
+"resend_422:validation_error field=to"`. Resend rejects the **recipient list**, which the Worker builds only from the
+`NOTIFY_EMAIL` secret: the value on the Worker is not an email address (he had asked "Is this the range address?" when
+setting it, so it may hold the street address). The key and the domain are not the cause. Fix, his Mac: `cd
+~/Library/Caches/atlasglinn/atlasglinn-website/mast-backend && npx wrangler secret put NOTIFY_EMAIL --name
+mast-booking-backend`, one plain address (or several separated by commas), nothing else; a secret put republishes the Worker.
+**DNS fixed and verified 18:25 UTC** at ns27: apex `v=spf1 include:spf.protection.outlook.com -all` present, `send` down to
+the one Resend SPF row (his first attempt had landed on mastsolutionssearch.com, the look-alike zone beside it in GoDaddy).
 
 1. ~~"merge 8"~~ — **merged 2026-09-05 ~03:50 UTC** on his word ("MERGE PR8"), main = 8d886b8; **PR #9 merged** by him
    (main 143525c) and the Worker redeployed from it at version 84a18bca (migrations 001–003 applied); **PR #10 merged 2026-09-05
