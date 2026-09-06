@@ -159,6 +159,7 @@ EXTRA_CSS = r"""
   .foot.site { margin:3.2rem auto 0; line-height:2.4; text-align:center; letter-spacing:.22em; max-width:900px; }
   .foot.site .fg { color:var(--gold-champagne); margin-right:.9rem; }
   .foot.site .badges { margin:1.2rem auto .8rem; }
+  .team.nopic { grid-template-columns:1fr; }   /* a team member without a photograph: the bio takes the row */
   /* Atlas EP page: the live page's capability tags and tier prices. */
   .tags { margin-top:.8rem; display:flex; flex-wrap:wrap; gap:.35rem; }
   .tags span { font-family:'Share Tech Mono',monospace; font-size:.56rem; letter-spacing:.2em; text-transform:uppercase; color:var(--gold-champagne); border:1px solid rgba(201,168,76,.3); padding:.15rem .45rem; }
@@ -762,7 +763,9 @@ CLINE_BIO = ('As the Chief Operating Officer at Atlas Glinn, Michael Cline bring
 GLOVER_BIO = ('Anthony Glover serves as the Houston Region Operations Manager and Level 3 Private Protection Officer at Atlas Glinn, a role he assumed in January 2026. A seasoned security leader with over a decade of experience in the private sector, Glover directs multi-site protective operations, oversees agent deployment and performance, and drives operational strategy across the Houston region. He leads a team of security professionals delivering 24/7 protection. Prior to his promotion, Glover served as Site Supervisor at Atlas Glinn, managing a six-agent detail providing round-the-clock protection. Before joining Atlas Glinn, he spent seven years in Chicago&rsquo;s high-risk environment protecting families and children, developing deep expertise in conflict resolution, de-escalation, and discreet protective operations.')
 RENOBATO_BIO = ('J. Rene&eacute; Renobato serves as Office Manager and Executive Assistant to CEO Matthew Brockmann. A seasoned operations professional with over 25 years of management experience, she oversees daily administrative operations, manages executive scheduling, and ensures seamless coordination across security, training, and consulting divisions. Renobato holds a Bachelor of Arts in Communication from the University of Houston and a Master of Business Administration from Marylhurst University. Prior to joining the team, she built a distinguished career in operations management across firms including AvalonBay/Archstone Communities, Windsor Communities, and EQS Construction &mdash; managing portfolios of up to 794 units with teams of 20+. A recipient of the Houston Apartment Association&rsquo;s On-Site Manager of the Year award and a Property of the Year finalist, she brings proven expertise in budget planning, vendor relations, financial reporting, and process optimization to every aspect of her role.')
 def member(img, crop, cap, name, role, paras):
-    return (f'<div class="team rise"><div class="portrait" style="background-image:url(\'{img}\');{crop}"><div class="cap">{cap}</div></div>'
+    """img=None: no portrait panel at all (Brockmann, 2026-09-06: "No photo Renobato"); the bio takes the full width."""
+    portrait = f'<div class="portrait" style="background-image:url(\'{img}\');{crop}"><div class="cap">{cap}</div></div>' if img else ''
+    return (f'<div class="team rise{"" if img else " nopic"}">{portrait}'
             f'<div class="bio"><h3>{name}</h3><div class="role">{role}</div>' + ''.join(f'<p>{p}</p>' for p in paras) + '</div></div>')
 build('about.html',
       'About Atlas Glinn | Elite Security Leadership — Houston, TX',
@@ -775,7 +778,7 @@ build('about.html',
         member(FOUNDER, FOUNDER_CROP, 'Founder &amp; CEO', 'Matthew Brockmann', 'Founder &amp; CEO', [FOUNDER_LEAD, BROCKMANN_BIO])
         + member(CLINE, 'background-position:center 15%', 'Chief Operating Officer', 'Michael Cline', 'Chief Operating Officer', [CLINE_BIO])
         + member(GLOVER, 'background-position:center 12%', 'Houston Region Operations Manager', 'Anthony Glover', 'Level 3 &amp; PPO &mdash; Houston Region Operations Manager', [GLOVER_BIO])
-        + member(LOGO, 'background-size:70% auto;background-position:center;background-color:#0b1221', 'Office Manager', 'J. Rene&eacute; Renobato', 'MBA, CAM, CAPS &mdash; Office Manager &amp; Executive Assistant to the CEO', [RENOBATO_BIO]))),
+        + member(None, '', '', 'J. Rene&eacute; Renobato', 'MBA, CAM, CAPS &mdash; Office Manager &amp; Executive Assistant to the CEO', [RENOBATO_BIO]))),   # no photograph, his call (2026-09-06)
     ('In Action', section(3, 'Atlas Glinn In Action', f'Behind the {blue("Mission.")}', 'Training, operations, and the people behind the mission.',
         '<div class="yt-grid rise">' + film_card(CLIP_TEAM, CAREERS_HERO, 'Atlas Glinn Team', 'Behind the scenes with our executive protection team')
         + film_card(CLIP_FORGE, TRAINING, 'MAST Solutions &mdash; Forge &amp; Legend', 'Training excellence through MAST Solutions') + '</div>')),
