@@ -65,10 +65,14 @@ else
   case "$(git -C "${R:-.}" remote get-url origin 2>/dev/null || true)" in *atlasglinn-website*) ;; *)
     R="$(find "$HOME" -maxdepth 6 -type d -name .git -path '*/atlasglinn-website/.git' -not -path '*/Library/*' 2>/dev/null | head -1)"; R="${R%/.git}";; esac
 fi
-if [ -z "$R" ] || ! git -C "$R" fetch -q origin "${REF#origin/}" 2>/dev/null; then
+# Partial pulls (2026-09-06): blobs over 10 MB are left on GitHub until a checkout needs one. A 44 MB film on main stalled
+# the pull on a poor connection ("curl 56 Recv failure", "early EOF") and nothing uploaded; the first pull with the filter
+# turns the clone into a partial clone, later pulls keep the setting.
+FILTER='--filter=blob:limit=10m'
+if [ -z "$R" ] || ! git -C "$R" fetch -q $FILTER origin "${REF#origin/}" 2>/dev/null; then
   say "the clone at ${R:-<none>} cannot fetch; using the private clone at $CACHE_REPO"
-  if [ ! -d "$CACHE_REPO/.git" ]; then mkdir -p "$(dirname "$CACHE_REPO")"; git clone -q --single-branch -b main https://github.com/MatthewBrockmann/atlasglinn-website.git "$CACHE_REPO"; fi
-  R="$CACHE_REPO"; git -C "$R" fetch -q origin "${REF#origin/}"
+  if [ ! -d "$CACHE_REPO/.git" ]; then mkdir -p "$(dirname "$CACHE_REPO")"; git clone -q $FILTER --single-branch -b main https://github.com/MatthewBrockmann/atlasglinn-website.git "$CACHE_REPO"; fi
+  R="$CACHE_REPO"; git -C "$R" fetch -q $FILTER origin "${REF#origin/}" || git -C "$R" -c http.version=HTTP/1.1 -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=180 fetch -q $FILTER origin "${REF#origin/}"
 fi
 # node for the Worker deploy: LaunchAgents do not read the shell profile, so look where nvm, Volta and Homebrew put it.
 for d in /opt/homebrew/bin /usr/local/bin "$HOME/.volta/bin" "$HOME"/.nvm/versions/node/*/bin; do [ -x "$d/npx" ] && PATH="$d:$PATH" && break; done; export PATH
@@ -77,7 +81,7 @@ W="$(mktemp -d /tmp/wp-upload.XXXXXX)/wt"
 cleanup() { cd / ; git -C "$R" worktree remove --force "$W" >/dev/null 2>&1 || true; rm -f "${ASKPASS:-}" 2>/dev/null || true; }
 trap cleanup EXIT
 say "Fetching $REF"
-git -C "$R" fetch -q origin "${REF#origin/}"
+git -C "$R" fetch -q $FILTER origin "${REF#origin/}"
 # --if-changed (the hourly LaunchAgent from scripts/mac-autopilot.sh): upload only when origin/main moved since the last
 # successful upload; otherwise say so and stop. The stamp is written after the live check passes.
 HEADSHA="$(git -C "$R" rev-parse FETCH_HEAD)"; STAMP="$HOME/.cache/wp-upload/last-uploaded"
