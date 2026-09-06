@@ -59,8 +59,11 @@ changes. `build()` appends the live footer (`FOOT_SITE`: four link groups, badge
 chapter; the contact form is the live field set (the page script joins first/last name and checks the confirm email);
 residential and training open on the live hero films. The two deliberate departures: "over 30 years" reads "decades"
 (his 2026-09-05 instruction) and the "two sitting U.S. Senators" line is not carried (his 2026-09-04 correction).
-`ep-app.html`, `signup.html`, `privacy.html`, `terms.html` and the articles are hand-authored. Rebuilt forms post JSON to
-the booking Worker's `POST /contact`.
+`ep-app.html` is generated too since 2026-09-06 (the live `/ep-app/` page word for word: eight capabilities, the
+six-layer comms stack, six audiences, six tiers, nine hardware items with the live Amazon links, the access form, the
+legal notice; the hand-authored draft it replaced carried 10 of the live page's 42 headings). `signup.html`,
+`privacy.html`, `terms.html` and the articles are hand-authored. Rebuilt forms post JSON to the booking Worker's
+`POST /contact` (the Atlas EP access form sends its role as the message).
 
 **Imagery rule (Brockmann, 2026-09-04):** an Atlas page uses only what the current
 atlasglinn.com page uses in that section (the approved list at the top of

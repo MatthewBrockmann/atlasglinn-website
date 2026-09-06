@@ -8,8 +8,8 @@ where the repo has them and WordPress-hosted where it does not (scripts/handoff-
 
 Edit THIS FILE and re-run it; never hand-edit the generated pages, the next run overwrites them:
   index.html, executive-protection.html, residential-protection.html, disaster-recovery.html, training.html,
-  technology.html, cuas-aerodefense.html, uas.html, about.html, careers.html, contact.html
-ep-app.html and signup.html are not generated here.
+  technology.html, cuas-aerodefense.html, uas.html, about.html, careers.html, contact.html, ep-app.html
+signup.html is not generated here.
 
 Preview vs publish (Brockmann, 2026-09-04: "let me review it before we publish"):
   python3 scripts/assemble-atlas.py             writes preview/<page>.html  (noindex, assets via ../, live pages untouched)
@@ -111,7 +111,7 @@ NAV = [
     ('technology.html', 'Technology', 'Atlas EP, AI surveillance, drones'),
     ('cuas-aerodefense.html', 'Counter-Drone', 'AirWarden by AeroDefense'),
     ('uas.html', 'Autonomous UAS', 'Sunflower Labs'),
-    ('signup.html', 'Atlas EP App', 'On the App Store'),
+    ('ep-app.html', 'Atlas EP App', 'Now in Early Access'),   # the live menu's Atlas EP App entry goes to the platform page
     ('about.html', 'About', 'Mission and team'),
     ('careers.html', 'Careers', 'Open positions'),
     ('contact.html', 'Contact Us', PHONE),
@@ -159,6 +159,11 @@ EXTRA_CSS = r"""
   .foot.site { margin:3.2rem auto 0; line-height:2.4; text-align:center; letter-spacing:.22em; max-width:900px; }
   .foot.site .fg { color:var(--gold-champagne); margin-right:.9rem; }
   .foot.site .badges { margin:1.2rem auto .8rem; }
+  /* Atlas EP page: the live page's capability tags and tier prices. */
+  .tags { margin-top:.8rem; display:flex; flex-wrap:wrap; gap:.35rem; }
+  .tags span { font-family:'Share Tech Mono',monospace; font-size:.56rem; letter-spacing:.2em; text-transform:uppercase; color:var(--gold-champagne); border:1px solid rgba(201,168,76,.3); padding:.15rem .45rem; }
+  .card .price { margin:.6rem 0 .9rem; color:var(--text); } .card .price b { font-family:'Orbitron',sans-serif; font-size:1.5rem; color:var(--gold-champagne); }
+  .card .cta-button { display:inline-block; margin-top:.4rem; }
   .card h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.55rem; line-height:1.35; }
   .card p { font-size:.95rem; color:var(--text-dim); line-height:1.55; font-weight:300; }
   .card ul { margin:.4rem 0 0 1rem; color:var(--text-dim); font-size:.92rem; line-height:1.6; }
@@ -225,6 +230,7 @@ FORM_JS = r"""
       if (data.first_name !== undefined || data.last_name !== undefined) {
         data.name = [data.first_name, data.last_name].map(s => (s || '').trim()).filter(Boolean).join(' '); delete data.first_name; delete data.last_name;
       }
+      if (data.role !== undefined && !data.message) { data.message = 'Atlas EP access request · Role: ' + (data.role || '(not chosen)'); }   // the Atlas EP access form has no message field
       if (data.confirm_email !== undefined) {
         if (data.confirm_email.trim().toLowerCase() !== (data.email || '').trim().toLowerCase()) { msg.textContent = 'The two email addresses do not match.'; msg.className = 'form-msg err'; return; }
         delete data.confirm_email;
@@ -834,3 +840,102 @@ build('contact.html',
         cta('mastsolutions.html', 'Book Training') + cta2('index.html', 'Home &rarr;'))),
 ], photos=[(HERO_EP, None, FILM_CONTACT), (PROTECTION, None), (AG3, None)],   # the live contact page opens on the corporate-buildings film
       jsonld=jsonld_org())
+
+# ═══════════════════════════ ep-app.html ═══════════════════════════
+# The live atlasglinn.com/ep-app/ page, word for word (captured 2026-09-05 21:22 UTC; Brockmann, 2026-09-06: "Add all content
+# as in the old version - just updating the front end"). Until then ep-app.html was a hand-authored draft that carried 10 of
+# the live page's 42 headings. The live page has no photographs (a dark gradient), so the backdrops are the platform's own
+# stills from the approved list. Its "Watch the Trailer / Brand Film" buttons open films the capture could not find a file
+# for; they return when the files do. The access form posts to the Worker's /contact like every other form here.
+def tags(items): return '<div class="tags">' + ''.join(f'<span>{t}</span>' for t in items) + '</div>'
+EP_CAPS = [
+    ('🧠', 'Proactive Biometric Monitoring', 'Continuous heart rate, motion, gyroscope, and ambient audio analysis. Atlas EP detects physiological stress signatures and environmental anomalies &mdash; automatically recognizing threats before you&rsquo;re even aware of them.', ['Heart Rate', 'Motion', 'Gyro', 'Audio']),
+    ('🗺', 'Blue Force Tracking', 'Military-grade GPS tracking for teams and families. See every member on an encrypted shared map in real time. Separation alerts, geofence triggers, and anti-spoofing verification built in.', ['Military-Grade', 'Encrypted GPS', 'Real-Time']),
+    ('🔒', 'Encrypted Comms', 'AES-256 encrypted Push-to-Talk radio and secure messaging. No consumer apps, no metadata leaks, no interception risk. Military-grade communications for your detail, your family, or your team.', ['AES-256', 'PTT Radio', 'Secure Msg']),
+    ('🚨', 'Smart Emergency Chain', 'One tap fires the full chain: trusted contacts notified, 911 auto-dialed, audio/video recording activated, GPS coordinates streamed. If you can&rsquo;t press anything, biometric triggers do it for you.', ['Auto-911', 'Recording', 'GPS Stream']),
+    ('🌎', 'World Intelligence', 'Live feeds of global conflict zones, natural disaster alerts, cyber threat advisories, and flight tracking data. Know what&rsquo;s happening around you and around your principal &mdash; before it reaches the news.', ['Conflict', 'Disaster', 'Cyber', 'Flights']),
+    ('🛰', '6-Layer Comms Stack', 'Never lose communications. Six redundant layers &mdash; Cellular, WiFi, Bluetooth Mesh, Iridium Satellite, Starlink, and Garmin Sat Phone &mdash; with automatic failover. Gov and enterprise clients always have satellite backup.', ['Cellular', 'Mesh', 'Iridium', 'Starlink']),
+    ('🛡️', 'Counter-UAS Detection', 'Scans for FAA Remote ID drone signals via Bluetooth &mdash; no hardware needed. Integrated with AeroDefense AirWarden for professional deployments. Detects drone AND pilot location simultaneously.', ['Remote ID', 'AirWarden', 'Pilot GPS', 'AI Threat']),
+    ('💪', 'Cyber Defense &amp; Auto-Disconnect', 'Real-time detection of evil twin WiFi, MITM attacks, IMSI catchers, and Bluetooth spoofing. When a threat is detected, Atlas EP automatically kills compromised connections, forces LTE, alerts your team, and starts covert recording.', ['MITM Detect', 'IMSI Catcher', 'Auto-LTE', 'Zero-Tap']),
+]
+EP_LAYERS = [('📶', 'Cellular', 'LTE / 5G'), ('📡', 'WiFi', 'Venue / HQ'), ('🔗', 'Mesh', 'Bluetooth'), ('🛰️', 'Iridium', 'iRD 955'), ('✨', 'Starlink', 'Satellite WiFi'), ('📱', 'Sat Phone', 'Garmin H1i')]
+EP_SCENARIOS = [
+    ('🏙️', 'Standard EP Detail', 'Urban operations with full cell coverage. Cellular primary, Bluetooth Mesh auto-activates in garages and basements. Seamless failover.', ['Cellular', 'Mesh']),
+    ('🏔️', 'Rural / Low Coverage', 'Ranch, rural estate, hunting property. Starlink Mini at command post provides full satellite internet. Garmin as always-on backup.', ['Starlink', 'Mesh', 'Garmin']),
+    ('🌍', 'International / Denied', 'Hostile territory, embassy ops, disaster zones. All 6 layers active. Bypasses local infrastructure entirely. Cyber defense auto-disconnects from compromised networks.', ['All 6 Layers', 'Zero Trust']),
+    ('🏛️', 'Government / Enterprise', 'Federal, embassy, Fortune 500 C-suite. All 6 layers mandatory at all times. No consumer apps. AES-256 encryption. Full compliance.', ['Mandatory 6-Layer', 'AES-256']),
+]
+EP_WHO = [
+    ('🛡️', 'Executive Protection Teams', 'Blue Force Tracking, encrypted PTT, threat scoring, advance work tools, and satellite comms. The complete EP operations platform.'),
+    ('👪', 'Families &amp; Parents', 'Always know where your family is. Silent SOS, location sharing, emergency chains, and fall detection &mdash; peace of mind without being invasive.'),
+    ('🎓', 'College Students', 'Walking alone at night? Atlas EP monitors your biometrics and surroundings. One tap or automatic trigger sends your GPS and starts recording.'),
+    ('🏥', 'Healthcare Workers', 'Late shifts, parking garages, home visits. Discreet SOS, automatic duress detection, and instant emergency escalation for those who care for others.'),
+    ('🧓', 'Elderly / Fall Detection', 'AI-powered fall detection with automatic emergency response. No buttons to press, no apps to navigate. If a fall is detected, help is dispatched immediately.'),
+    ('🏢', 'Corporate Security', 'Protect executives, manage traveling employees, coordinate response teams. Enterprise dashboards, compliance reporting, and integration APIs.'),
+]
+EP_TIERS = [   # (tier, name, price, unit, note, body, button, most popular)
+    ('Trial', '7-Day Demo', 'FREE', 'All Features Unlocked', 'No credit card required', 'Full access to every tool. Test it with your team or your family before you commit.', 'Start Free Trial', False),
+    ('Personal', 'Family', '$19.99', '/month', 'Up to 6 family members', 'Location sharing, SOS, fall detection, emergency chains, and biometric monitoring for your whole family.', 'Get Started', False),
+    ('Solo', 'Individual', '$49.99', '/month', '', 'Full platform access for one operator. Every module, every integration, every intelligence feed.', 'Get Started', True),
+    ('Operator', 'Professional', '$149.99', '/month', '', 'For licensed EP agents, security professionals, and consultants. Full ops suite with priority support.', 'Get Started', False),
+    ('Squad', 'Team', '$199.99', '/seat/month', '', 'Full command dashboard, team deployment board, shared ops map, and multi-agent coordination tools.', 'Get Started', False),
+    ('Custom', 'Enterprise', '$5,000+', '/month', 'Custom deployment', 'For corporations, law enforcement, and government. Dedicated infrastructure, SLA, and white-label options.', 'Contact Sales', False),
+]
+EP_GEAR = [   # (icon, name, price, body, button, href) — the live page's Amazon links, as they are
+    ('🔄', 'Atlas EP Radar Companion', 'From $15', 'Detect humans in a room before you enter &mdash; no line of sight required. M5Stack AtomS3 Lite (ESP32-S3) uses WiFi CSI to sense occupancy through interior drywall up to ~15 ft. USB-C flash, ~10s calibration, BLE-paired to the Atlas EP iPhone app for pre-entry sweeps and covert advance work.', 'Buy on Amazon &rarr;', 'https://www.amazon.com/s?k=M5Stack+AtomS3+Lite+ESP32-S3+Dev+Kit&amp;tag=atlasglinn-20'),
+    ('📡', 'Garmin inReach Mini 2', '$399', 'Two-way satellite messaging when cellular networks fail. Global SOS coverage via the Iridium constellation. Atlas EP auto-routes through inReach when off-grid.', 'View on Amazon &rarr;', 'https://www.amazon.com/dp/B09X5FYD6T?tag=atlasglinn-20'),
+    ('⏱', 'Apple Watch Ultra 2', '$799', 'Continuous heart rate, blood oxygen, crash detection, and fall detection. Atlas EP reads biometric data in real time for proactive duress and fall alerts.', 'View on Amazon &rarr;', 'https://www.amazon.com/dp/B0CHX3JBZB?tag=atlasglinn-20'),
+    ('📷', 'Hytera HP682 DMR Radio', '$varies', 'Professional-grade encrypted digital mobile radio. DMR Tier II/III, AES-256 encryption, GPS, and Bluetooth. Integrates with Atlas EP encrypted PTT.', 'View on Amazon &rarr;', 'https://www.amazon.com/s?k=Hytera+HP682&amp;tag=atlasglinn-20'),
+    ('🌡️', 'InfiRay P2 Pro', '$299', 'Smartphone thermal camera attachment. Detects hidden cameras, identifies heat signatures behind walls, and enables thermal room sweeps for advance work.', 'View on Amazon &rarr;', 'https://www.amazon.com/dp/B0BGJMV8SV?tag=atlasglinn-20'),
+    ('🔥', 'FLIR ONE Pro', '$399', 'Professional thermal imaging for iPhone. MSX technology overlays thermal on visible imagery. Ideal for security sweeps, hidden electronics detection, and situational awareness.', 'View on Amazon &rarr;', 'https://www.amazon.com/dp/B0BXK22BTY?tag=atlasglinn-20'),
+    ('👁', 'Seek Thermal CompactPRO', '$499', '320x240 thermal sensor with 550m detection range. The highest-resolution smartphone thermal camera for professional security and surveillance detection.', 'View on Amazon &rarr;', 'https://www.amazon.com/dp/B00VHNKP0M?tag=atlasglinn-20'),
+    ('📶', 'Motorola CLP1010', '$149', 'Ultra-compact business radio for discreet team communication. Lightweight, license-free, and compatible with covert earpieces for low-profile operations.', 'View on Amazon &rarr;', 'https://www.amazon.com/s?k=Motorola+CLP1010&amp;tag=atlasglinn-20'),
+    ('🎧', 'Otto Covert Earpiece', '$79', 'Professional covert communications earpiece with clear acoustic tube. Invisible under hair or collar. Used by Secret Service, EP teams, and event security worldwide.', 'View on Amazon &rarr;', 'https://www.amazon.com/s?k=Otto+earpiece+surveillance&amp;tag=atlasglinn-20'),
+]
+def ep_access_form():
+    fields = ('<div class="row"><div><label for="ea-name">Full Name *</label><input id="ea-name" name="name" type="text" autocomplete="name" required></div>'
+              '<div><label for="ea-email">Email Address *</label><input id="ea-email" name="email" type="email" autocomplete="email" inputmode="email" required></div></div>'
+              '<div class="row"><div><label for="ea-company">Company / Organization</label><input id="ea-company" name="company" type="text" autocomplete="organization"></div>'
+              '<div><label for="ea-role">Role *</label><select id="ea-role" name="role" required><option value="">Select your role</option><option>Individual</option><option>Family</option><option>EP Team</option><option>Corporate</option><option>Government</option></select></div></div>'
+              '<label for="ea-phone">Phone (Optional)</label><input id="ea-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel">'
+              '<input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="hidden" name="request_type" value="Atlas EP access request">')
+    success = '&#9989; ACCESS REQUEST RECEIVED &mdash; The Atlas Glinn team will review your request and contact you within 24-48 hours. Welcome to the future of protection.'
+    fine = 'Your information is encrypted and never sold. Atlas Glinn LLC operates under strict confidentiality protocols. By submitting you agree to our <a href="privacy.html">Privacy Policy</a> and <a href="terms.html">Terms of Service</a>.'
+    return (f'<form class="form rise" data-endpoint="{API}/contact" data-success="{success}" novalidate>{fields}'
+            f'<button class="cta-button" type="submit">REQUEST ACCESS</button><div class="form-msg" role="status" aria-live="polite"></div><p class="fine">{fine}</p></form>')
+build('ep-app.html',
+      'Atlas EP — The First Proactive AI Protection Agent | Atlas Glinn',
+      'Atlas EP: the first proactive biometric and environmental AI protection agent — your digital bodyguard for teams, families, and individuals.',
+      LOGO, CREDITS, [
+    ('Opening', opening('Atlas EP App &middot; Now in Early Access', f'The First Proactive AI {blue("Protection Agent.")}',
+        'Your Digital Bodyguard &mdash; Always Watching, Never Intrusive. Biometric monitoring, encrypted comms, Blue Force Tracking, and AI-powered emergency chains built for everyone from EP teams to families.',
+        cta('#s7', 'Request Access') + cta2('#s2', 'See Features'))),
+    ('Capabilities', section(2, 'Core Capabilities', f'What Atlas EP {blue("Does.")}',
+        'Eight integrated systems that turn your phone into a proactive protection platform &mdash; monitoring, tracking, communicating, and responding before you even reach for a button.',
+        '<div class="stats four rise" style="margin-top:0;margin-bottom:2.4rem">' + ''.join(f'<div class="stat"><div class="stat-num">{v}</div><div class="stat-label">{l}</div></div>' for v, l in [('AES-256', 'Encryption'), ('17+', 'Modules'), ('24/7', 'AI Monitoring'), ('&lt;3s', 'Emergency Response')]) + '</div>'
+        + cards([(t, b, tags(tg), ic) for ic, t, b, tg in EP_CAPS], 'cards four'))),
+    ('Comms Stack', section(3, 'Communications', f'6-Layer Comms {blue("Stack.")}',
+        'Never lose communications. Six redundant layers with automatic failover &mdash; from cellular to satellite. Government and enterprise details always have all six active.',
+        chips([f'{ic} {n} &middot; {s}' for ic, n, s in EP_LAYERS])
+        + cards([(t, b, tags(tg), ic) for ic, t, b, tg in EP_SCENARIOS], 'cards four'))),
+    ('Who It Is For', section(4, 'Built For Everyone', f'Who Atlas EP {blue("Is For.")}',
+        'Not just for professionals. Atlas EP protects anyone who wants proactive, AI-powered safety &mdash; from elite security teams to families walking home at night.',
+        cards([(t, b, '', ic) for ic, t, b in EP_WHO]))),
+    ('Pricing', section(5, 'Pricing', f'Every Tier Gets {blue("Every Tool.")}',
+        'No feature gates. No upsells. No crippled free tier. Every Atlas EP subscriber gets every module, every capability, every update. The only difference is scale.',
+        cards([(f'{tier} &middot; {name}', body, f'<p class="price"><b>{price}</b> <span class="meta">{unit}</span>' + (f'<br><span class="meta">{note}</span>' if note else '') + f'</p><a class="cta-button" href="#s7">{btn}</a>', '', 'Most Popular' if pop else '')
+               for tier, name, price, unit, note, body, btn, pop in EP_TIERS], 'cards', numbered=False)
+        + '<p class="sub" style="margin-top:1.6rem">Every tier gets every tool. No feature gates.</p>')),
+    ('Hardware', section(6, 'Hardware Ecosystem', f'Works With {blue("Atlas EP.")}',
+        'Optional hardware that extends your protection envelope. Satellite comms, biometric sensors, thermal imaging, and tactical radios &mdash; all integrated into the Atlas EP platform.',
+        cards([(f'{name} <span class="meta">{price}</span>', body, f'<a class="secondary-cta" href="{href}" target="_blank" rel="noopener sponsored">{btn}</a>', ic) for ic, name, price, body, btn, href in EP_GEAR]))),
+    ('Request Access', section(7, 'Get Started', f'Request {blue("Access.")}',
+        'Atlas EP is in limited early access. Qualified professionals, families, and organizations are being onboarded now.',
+        ep_access_form())),
+    ('Legal', section(8, 'Legal &amp; Compliance', f'Transparency &amp; {blue("Compliance.")}', '',
+        cards([('Terms of Service', 'Review our complete terms governing use of the Atlas EP platform, data handling, and user obligations.', '<a class="secondary-cta" href="terms.html">Read Terms of Service &rarr;</a>'),
+               ('Privacy Policy', 'How we collect, store, and protect your data. Atlas EP uses AES-256 encryption and zero-knowledge architecture.', '<a class="secondary-cta" href="privacy.html">Read Privacy Policy &rarr;</a>'),
+               ('Two-Party Consent &amp; Emergency Recording Notice', 'Atlas EP may automatically activate audio and video recording when the system detects imminent threat to your safety. By using Atlas EP, you acknowledge that emergency recording may activate automatically during detected duress events. In jurisdictions requiring two-party consent for recording, Atlas EP complies by notifying all parties through audible and visual indicators when recording is active. Users are responsible for understanding and complying with local recording laws in their jurisdiction. Atlas EP is designed to prioritize life safety &mdash; emergency recordings are encrypted, time-stamped, and stored securely for evidentiary purposes only.')], numbered=False)
+        + '<p class="sub" style="margin-top:1.6rem">Questions? Contact us at <a href="mailto:atlas.hq@atlasglinn.com" style="color:var(--gold-champagne)">atlas.hq@atlasglinn.com</a></p>')),   # the live page's address, verbatim (the rest of the site uses atlasglinn.hq@)
+], photos=[(AI_SURV, None), (CCTV, None), (HERO_EP, None), (PROTECTION, None), (AI_SURV, None), (CCTV, None), (HERO_EP, None), (AI_SURV, None)],
+      jsonld=jsonld_service('Atlas EP', 'Proactive biometric and environmental AI protection agent: encrypted comms, Blue Force Tracking, emergency chains, counter-UAS detection and cyber defense for teams, families and individuals.', 'ep-app.html'))

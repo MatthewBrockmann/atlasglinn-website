@@ -282,6 +282,11 @@
   .foot.site { margin:3.2rem auto 0; line-height:2.4; text-align:center; letter-spacing:.22em; max-width:900px; }
   .foot.site .fg { color:var(--gold-champagne); margin-right:.9rem; }
   .foot.site .badges { margin:1.2rem auto .8rem; }
+  /* Atlas EP page: the live page's capability tags and tier prices. */
+  .tags { margin-top:.8rem; display:flex; flex-wrap:wrap; gap:.35rem; }
+  .tags span { font-family:'Share Tech Mono',monospace; font-size:.56rem; letter-spacing:.2em; text-transform:uppercase; color:var(--gold-champagne); border:1px solid rgba(26,107,222,.3); padding:.15rem .45rem; }
+  .card .price { margin:.6rem 0 .9rem; color:var(--text); } .card .price b { font-family:'Orbitron',sans-serif; font-size:1.5rem; color:var(--gold-champagne); }
+  .card .cta-button { display:inline-block; margin-top:.4rem; }
   .card h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.55rem; line-height:1.35; }
   .card p { font-size:.95rem; color:var(--text-dim); line-height:1.55; font-weight:300; }
   .card ul { margin:.4rem 0 0 1rem; color:var(--text-dim); font-size:.92rem; line-height:1.6; }
@@ -399,7 +404,7 @@
       <li><a href="technology.html">Technology<small>Atlas EP, AI surveillance, drones</small></a></li>
       <li><a href="cuas-aerodefense.html">Counter-Drone<small>AirWarden by AeroDefense</small></a></li>
       <li><a href="uas.html">Autonomous UAS<small>Sunflower Labs</small></a></li>
-      <li><a href="signup.html">Atlas EP App<small>On the App Store</small></a></li>
+      <li><a href="ep-app.html">Atlas EP App<small>Now in Early Access</small></a></li>
       <li><a href="about.html">About<small>Mission and team</small></a></li>
       <li><a href="careers.html">Careers<small>Open positions</small></a></li>
       <li><a href="contact.html">Contact Us<small>(281) 654-8100</small></a></li>
@@ -741,6 +746,7 @@ document.querySelectorAll('section.panel:not([data-section="01"]) .rise, section
       if (data.first_name !== undefined || data.last_name !== undefined) {
         data.name = [data.first_name, data.last_name].map(s => (s || '').trim()).filter(Boolean).join(' '); delete data.first_name; delete data.last_name;
       }
+      if (data.role !== undefined && !data.message) { data.message = 'Atlas EP access request · Role: ' + (data.role || '(not chosen)'); }   // the Atlas EP access form has no message field
       if (data.confirm_email !== undefined) {
         if (data.confirm_email.trim().toLowerCase() !== (data.email || '').trim().toLowerCase()) { msg.textContent = 'The two email addresses do not match.'; msg.className = 'form-msg err'; return; }
         delete data.confirm_email;
