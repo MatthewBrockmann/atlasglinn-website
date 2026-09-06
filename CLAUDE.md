@@ -276,7 +276,10 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   UTC:** everything answered as designed except `/contact`, which returned 502 (the Resend call failed) — the one blocker
   for every Worker email; ledger item B00. **18:32 UTC:** the hint reads `resend_422:validation_error field=to`: the
   `NOTIFY_EMAIL` secret on the Worker is not an email address; the fix is `wrangler secret put NOTIFY_EMAIL` on his Mac
-  (nothing a cloud session can run). Secrets on the Worker
+  (nothing a cloud session can run). **18:36 UTC: resolved** — after his second re-set (one plain address) `/contact`
+  answers 200 and the labelled test email went out; the whole MAST backend is verified working end to end. Lesson for
+  replies: a diagnostic line in a code fence gets pasted into his Terminal ("zsh: command not found: POST"); fence only
+  commands. Secrets on the Worker
   (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `RESEND_API_KEY`, `NOTIFY_EMAIL`, `ACCOUNT_SECRET`, `ADMIN_KEY`) are visible
   only as behaviour; `wrangler secret list` is his Mac's.
 - **"CRM":** there is no CRM system in the code. Customer records are the D1 tables (orders, registrations, accounts;

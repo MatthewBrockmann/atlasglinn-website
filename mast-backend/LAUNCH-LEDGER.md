@@ -87,7 +87,7 @@ address served the build uploaded at 14:41 UTC. YOU RUN THIS, in a browser: GoDa
 atlasglinn.com → Manage → **Flush Cache** (also in wp-admin's top bar). `wp-upload.sh` now prints both Last-Modified dates
 after an upload; the probe in `_probe.txt` confirms the flush (age 0 / MISS on the plain address).
 
-**B00 — Resend is failing on the live Worker (smoke test 2026-09-06 18:03 UTC, run 34050490356).** From a GitHub runner:
+**B00 — ~~Resend is failing on the live Worker~~ RESOLVED 2026-09-06 18:36 UTC: `/contact` → 200 `{ok:true}` (run 34052226506) after he re-set `NOTIFY_EMAIL` to one plain address; the first re-set (36 characters) still failed `field=to`, the second (22 characters, matthew@atlasglinn.com) passed. Every Worker email now goes out. History (smoke test 2026-09-06 18:03 UTC, run 34050490356):** From a GitHub runner:
 `/health` 200 · `/catalog` 200 (22 classes from D1) · `/weekends` 200 (15 weekends, 2026-09-26 → 2027-04-24) · CORS preflight
 204 for atlasglinn.com · `/account/me` 401 (accounts are ON: `ACCOUNT_SECRET` is set) · `/create-booking` 200 with a live
 Stripe Checkout Session (`cs_live_…`, unpaid, for MAST-HG-FUND) · **`/contact` 502 "We could not send your message"** = the
