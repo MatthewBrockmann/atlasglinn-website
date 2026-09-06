@@ -49,13 +49,13 @@ TRAINING      = A + 'Atlas-Glinn-Training-1024x951.jpeg'             # home Trai
 AG3           = A + 'Atlas-Glinn-3.jpg'                              # home Disaster Recovery card
 RESI_COVERAGE = A + 'Screen-Shot-2025-03-25-at-12.41.58-PM.png'      # residential Comprehensive Coverage
 # The WordPress file named after him is the detail at a press line (a scene, not a portrait): Brockmann, 2026-09-05,
-# "This is not my picture from atlasglinn.com". The live About page's portrait is matt-ceo-2026.jpg from the site's theme
-# folder (read by .github/workflows/capture-live.yml, 2026-09-05), so that is the one shown; the MAST Instructors portrait
-# (images/team/brockmann.jpg) stays available if he prefers it.
+# "This is not my picture from atlasglinn.com". The About portrait is the MAST Instructors picture he approved
+# (Brockmann, 2026-09-06, asked which of the two: "MAST portrait"); the live About page's matt-ceo-2026.jpg stays in
+# images/atlas/ as FOUNDER_LIVE, unused.
 FOUNDER_SCENE = A + 'Matthew-Brockmann-Atlas-glenn-security-ceo-protection1-scaled-e1741887403903.jpeg'
-FOUNDER       = A + 'matt-ceo-2026.jpg'
-FOUNDER_CROP  = 'background-size:auto 124%;background-position:60% 32%'   # subject stands right of centre; keeps the photographer's mark out of frame
-FOUNDER_ALT   = 'images/team/brockmann.jpg'
+FOUNDER       = 'images/team/brockmann.jpg'
+FOUNDER_CROP  = 'background-size:auto 118%;background-position:64% 22%'   # same framing as the MAST page; keeps the photographer's mark out of frame
+FOUNDER_LIVE  = A + 'matt-ceo-2026.jpg'
 CLINE         = A + 'Cline-Bio-Pic-1024x819.jpg'
 GLOVER        = A + 'anthony-glover.png'                             # live About page, theme folder (capture-live, 2026-09-05)
 CAREERS_HERO  = A + 'IMG_0398.jpg'                                   # the live Careers page's photograph (theme gallery; capture-live 2026-09-06); IMG_0396 was the April build's
@@ -490,8 +490,11 @@ build('index.html',
                  ('Cyber Defense Suite', 'Evil twin WiFi detection, jailbreak monitoring, MITM protection. Your device security is part of the mission.')], 'cards four', numbered=False)
         + '<div class="eyebrow in" style="margin-top:2.2rem">Choose Your Plan</div>'
         + '<div class="cards" style="grid-template-columns:repeat(6,1fr)">' + ''.join(f'<div class="card rise"><h3>{n}</h3><p><b style="color:var(--gold-champagne);font-size:1.3rem">{p}</b><br><span class="meta">{u}</span></p></div>' for n, p, u in [
-            ('Free', '$0', 'demo mode'), ('Personal Safety', '$9.99', '/month'), ('Operator', '$49', '/month'), ('Professional', '$149', '/month'), ('Command', '$249', '/seat/mo'), ('Enterprise', '$500+', '/seat/mo')]) + '</div>'
-        + '<div class="ctas rise" style="margin-top:2rem">' + cta('technology.html', 'Explore Atlas EP &rarr;') + '</div>')),
+            # Brockmann, 2026-09-06, asked which prices are current: the Atlas EP page's ("$19.99 / $49.99 / $149.99 / $199.99 / $5,000+"),
+            # so the home plan names the same six tiers as ep-app.html (the live home page still showed $0 / $9.99 / $49 / $149 / $249 / $500+).
+            ('Trial &middot; 7-Day Demo', 'FREE', 'All Features Unlocked'), ('Personal &middot; Family', '$19.99', '/month'), ('Solo &middot; Individual', '$49.99', '/month'),
+            ('Operator &middot; Professional', '$149.99', '/month'), ('Squad &middot; Team', '$199.99', '/seat/month'), ('Custom &middot; Enterprise', '$5,000+', '/month')]) + '</div>'
+        + '<div class="ctas rise" style="margin-top:2rem">' + cta('ep-app.html', 'Explore Atlas EP &rarr;') + '</div>')),
     ('No Press', section(6, '', '', '',
         '<p class="sub quote lead">&ldquo;We don&rsquo;t do press. We let our work speak for itself.&rdquo;</p>'
         f'<p class="sub" style="font-size:.98rem;">{PRIVACY_LINE}</p>'
@@ -936,6 +939,6 @@ build('ep-app.html',
         cards([('Terms of Service', 'Review our complete terms governing use of the Atlas EP platform, data handling, and user obligations.', '<a class="secondary-cta" href="terms.html">Read Terms of Service &rarr;</a>'),
                ('Privacy Policy', 'How we collect, store, and protect your data. Atlas EP uses AES-256 encryption and zero-knowledge architecture.', '<a class="secondary-cta" href="privacy.html">Read Privacy Policy &rarr;</a>'),
                ('Two-Party Consent &amp; Emergency Recording Notice', 'Atlas EP may automatically activate audio and video recording when the system detects imminent threat to your safety. By using Atlas EP, you acknowledge that emergency recording may activate automatically during detected duress events. In jurisdictions requiring two-party consent for recording, Atlas EP complies by notifying all parties through audible and visual indicators when recording is active. Users are responsible for understanding and complying with local recording laws in their jurisdiction. Atlas EP is designed to prioritize life safety &mdash; emergency recordings are encrypted, time-stamped, and stored securely for evidentiary purposes only.')], numbered=False)
-        + '<p class="sub" style="margin-top:1.6rem">Questions? Contact us at <a href="mailto:atlas.hq@atlasglinn.com" style="color:var(--gold-champagne)">atlas.hq@atlasglinn.com</a></p>')),   # the live page's address, verbatim (the rest of the site uses atlasglinn.hq@)
+        + f'<p class="sub" style="margin-top:1.6rem">Questions? Contact us at <a href="mailto:{EMAIL}" style="color:var(--gold-champagne)">{EMAIL}</a></p>')),   # the live page said atlas.hq@; Brockmann, 2026-09-06: atlasglinn.hq@
 ], photos=[(AI_SURV, None), (CCTV, None), (HERO_EP, None), (PROTECTION, None), (AI_SURV, None), (CCTV, None), (HERO_EP, None), (AI_SURV, None)],
       jsonld=jsonld_service('Atlas EP', 'Proactive biometric and environmental AI protection agent: encrypted comms, Blue Force Tracking, emergency chains, counter-UAS detection and cyber defense for teams, families and individuals.', 'ep-app.html'))
