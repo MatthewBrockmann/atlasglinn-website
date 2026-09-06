@@ -1,14 +1,14 @@
-smoke 2026-09-06T20:35:44Z from main 2f48c3e run 34058479290 (contact=false checkout=false)
+smoke 2026-09-06T22:46:26Z from main 05efa91 run 34064986164 (contact=false checkout=false)
 --- health
-HTTP 200 509ms  GET /health
-{"status":"MAST booking backend — ONLINE","version":"1.2.0","build":"0e9c9c2","crm":true,"directions":"sealed"}
-   build: 0e9c9c2
+HTTP 200 410ms  GET /health
+{"status":"MAST booking backend — ONLINE","version":"1.2.0","build":"2f48c3e","crm":true,"directions":"sealed"}
+   build: 2f48c3e
    CRM routes live: yes (GET /admin/crm → 401 without a key)
    range directions: sealed   [sealed = the owner's PDF decrypts on the Worker; secrets = rendered from RANGE_*; none = nothing attached; sealed-key-mismatch = re-seal with the key below]
 --- directions key (the public half of the Worker's sealing key; feeds mast-backend/seal-directions.mjs; saved beside this report as _directions-key.json)
 HTTP 200  key_id=b9104a7374d4c1d9
 --- catalog
-HTTP 200 166ms  GET /catalog
+HTTP 200 116ms  GET /catalog
    source=d1 classes=22
    MAST-HG-FUND     Handgun Fundamentals                         $225.00
    MAST-HG-LADIES   Ladies Only Handgun Fundamentals             $225.00
@@ -33,7 +33,7 @@ HTTP 200 166ms  GET /catalog
    MAST-MOTOR-P2    Motorcade P2                                 $0.00
    MAST-GEAR        Gear & Kit Considerations                    $750.00
 --- weekends
-HTTP 200 170ms  GET /weekends
+HTTP 200 62ms  GET /weekends
    weekends=15 first=2026-09-26 last=2027-04-24 statuses=['available', 'blocked']
 --- CORS preflight (Origin https://atlasglinn.com → POST /create-booking)
    HTTP/2 204 
@@ -42,7 +42,7 @@ HTTP 200 170ms  GET /weekends
    access-control-allow-methods: GET, POST, OPTIONS
    access-control-max-age: 86400
 --- accounts (GET /account/me without a token: 503 accounts_off = ACCOUNT_SECRET not set; 401 = accounts on)
-HTTP 401 43ms  GET /account/me
+HTTP 401 47ms  GET /account/me
 {"error":"Please sign in again.","code":"unauthorized"}
 --- CRM summary: skipped (no ADMIN_KEY repository secret; add it under Settings → Secrets → Actions to see counts, revenue and the funnel here)
 --- contact: skipped (input contact=false)
