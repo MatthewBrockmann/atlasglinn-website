@@ -79,7 +79,7 @@ jobs:
           print('   orders paid=%s revenue total=$%.2f last30=$%.2f' % ((s.get('orders') or {}).get('paid'), (s.get('revenue_cents') or {}).get('total', 0) / 100, (s.get('revenue_cents') or {}).get('last_30_days', 0) / 100))
           print('   registrations=%s funnel(30d)=%s' % ((s.get('registrations') or {}).get('by_status'), {k: v for k, v in (s.get('funnel') or {}).items() if not isinstance(v, list)}))
           print('   segments=%s' % {k: v.get('count') for k, v in (d.get('segments') or {}).items()})
-          print('   journeys=%s mailchimp=%s' % (s.get('journeys'), s.get('mailchimp')))
+          print('   journeys=%s providers=%s' % (s.get('journeys'), s.get('providers')))
           PY
             else echo "--- CRM summary: skipped (no ADMIN_KEY repository secret; add it under Settings → Secrets → Actions to see counts, revenue and the funnel here)"; fi
             if [ "$DO_CONTACT" = "true" ]; then

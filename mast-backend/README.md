@@ -257,6 +257,8 @@ is safe to run anywhere and proves logic, not deployment. (It needs
 | `NOTIFY_EMAIL` | secret | Staff recipient(s) for booking alerts and eligibility-review notices, comma-separated |
 | `ADMIN_KEY` | secret | Guards `GET /roster` and everything under `/admin` |
 | `MAILCHIMP_API_KEY` | secret | Marketing list (ARCHITECTURE §7). With `MAILCHIMP_AUDIENCE_ID` (and `MAILCHIMP_SERVER` when the key carries no `-usNN` suffix) the opted-in profiles are upserted on payment, on sign-up and by `/admin/sync`; without them the CSV export is the path |
+| `BREVO_API_KEY` | secret | The other list tool on the domain (atlasglinn.com's DNS carries Brevo). Opted-in profiles are upserted to Brevo the same way as Mailchimp; optional numeric `BREVO_LIST_ID` puts them on one list |
+| `HUBSPOT_TOKEN` | secret | HubSpot private-app token (`crm.objects.contacts` write). With it every profile and every new lead is upserted as a HubSpot contact by email (`lifecyclestage` lead or customer) — a CRM record, not marketing consent, so it is not gated on the newsletter tick |
 | `JOURNEYS_ENABLED` | var | `"1"` switches the daily T−7 / T−1 / T+1 emails on; `"0"` (the default) until the owner approves the texts |
 | `REVIEW_URL` | var | Optional review link in the T+1 email; without it the email asks for a reply that may be quoted |
 | `RANGE_ADDRESS` | secret | Range street address; emailed only to a paid participant, never on the site |

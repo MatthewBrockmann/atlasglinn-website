@@ -25,6 +25,8 @@ const stripeCalls = [];
 const stored = [];
 const emails = [];
 const mailchimpCalls = [];   // PUT /3.0/lists/<list>/members/<md5>
+const hubspotCalls = [];     // POST crm/v3/objects/contacts/batch/upsert
+const brevoCalls = [];       // POST /v3/contacts
 const orderRows = [];        // INSERT INTO orders as objects (the CRM reads them back)
 const contacts = [];         // CRM leads
 const events = [];           // CRM beacon
@@ -59,6 +61,8 @@ globalThis.fetch = async (url, init) => {
     emails.push(JSON.parse(init.body));
     return new Response('{}', { status: 200 });
   }
+  if (u.includes('api.hubapi.com')) { hubspotCalls.push({ url: u, auth: (init && init.headers && init.headers.Authorization) || '', body: JSON.parse(init.body) }); return new Response('{"status":"COMPLETE"}', { status: 200 }); }
+  if (u.includes('api.brevo.com')) { brevoCalls.push({ url: u, key: (init && init.headers && init.headers['api-key']) || '', body: JSON.parse(init.body) }); return new Response('{"id":1}', { status: 201 }); }
   if (u.includes('api.mailchimp.com')) {
     mailchimpCalls.push({ url: u, method: (init && init.method) || 'GET', auth: (init && init.headers && init.headers.Authorization) || '', body: JSON.parse(init.body) });
     return new Response('{"id":"x"}', { status: 200 });
@@ -790,8 +794,22 @@ console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect da
   const annCall = mailchimpCalls.find(c => c.url.endsWith('/' + createHash('md5').update('ann@example.com').digest('hex')));
   ok('sync → PUT per opted-in profile at us21.api.mailchimp.com/3.0/lists/list9/members/<md5>, FNAME/LNAME/SEGMENT/LASTCLASS + tags, none for Lee', sync.configured && sync.ok === 2 && annCall && /us21\.api\.mailchimp\.com\/3\.0\/lists\/list9\/members\//.test(annCall.url) && annCall.method === 'PUT' && annCall.body.merge_fields.FNAME === 'Ann' && annCall.body.merge_fields.LASTCLASS === 'Handgun Fundamentals' && annCall.body.tags.includes('MAST-HG-FUND') && !mailchimpCalls.some(c => c.url.endsWith('/' + createHash('md5').update('lee@example.com').digest('hex'))), JSON.stringify(sync) + ' ' + JSON.stringify(annCall || {}).slice(0, 200));
   mailchimpCalls.length = 0;
-  ok('mailchimpOnPayment: opted-in → one upsert; not opted-in → skipped', (await mailchimpOnPayment(envMc, { ...annReg, newsletter_opt_in: 1 }, { customer_email: 'ann@example.com', amount_total: 22500 })).ok && mailchimpCalls.length === 1 && (await mailchimpOnPayment(envMc, { ...annReg, newsletter_opt_in: 0 }, {})).skipped === 'not_opted_in' && mailchimpCalls.length === 1);
+  ok('syncOnPayment: opted-in → one Mailchimp upsert; not opted-in → lists skipped', (await mailchimpOnPayment(envMc, { ...annReg, newsletter_opt_in: 1 }, { customer_email: 'ann@example.com', amount_total: 22500 })).mailchimp.ok && mailchimpCalls.length === 1 && (await mailchimpOnPayment(envMc, { ...annReg, newsletter_opt_in: 0 }, {})).lists === 'not_opted_in' && mailchimpCalls.length === 1);
   ok('md5 matches Node for the member id', md5('Ann@Example.com') === createHash('md5').update('Ann@Example.com').digest('hex'));
+  // Brevo (opted-in only) and HubSpot (every profile: a CRM record is a business record; consent is a separate matter)
+  hubspotCalls.length = 0; brevoCalls.length = 0; mailchimpCalls.length = 0;
+  const envAll = { ...env, MAILCHIMP_API_KEY: 'abc123-us21', MAILCHIMP_AUDIENCE_ID: 'list9', BREVO_API_KEY: 'xkeysib-test', BREVO_LIST_ID: '7', HUBSPOT_TOKEN: 'pat-na1-test' };
+  const syncAll = await (await worker.fetch(new Request('https://api.test/admin/sync', { method: 'POST', headers: { 'X-Admin-Key': 'super-secret-admin-key' } }), envAll, ctx)).json();
+  const hsEmails = hubspotCalls.map(c => c.body.inputs[0].id), brEmails = brevoCalls.map(c => c.body.email);
+  const leeHs = hubspotCalls.find(c => c.body.inputs[0].id === 'lee@example.com'), annHs = hubspotCalls.find(c => c.body.inputs[0].id === 'ann@example.com');
+  ok('sync with all three: HubSpot gets every profile (Lee as lead, Ann as customer), Brevo and Mailchimp only the opted-in', syncAll.configured.hubspot && syncAll.hubspot.ok === syncAll.hubspot.attempted && hsEmails.includes('lee@example.com') && leeHs.body.inputs[0].properties.lifecyclestage === 'lead' && annHs.body.inputs[0].properties.lifecyclestage === 'customer' && annHs.body.inputs[0].idProperty === 'email' && brEmails.includes('ann@example.com') && brEmails.includes('news@example.com') && !brEmails.includes('lee@example.com') && brevoCalls[0].body.listIds[0] === 7 && brevoCalls[0].key === 'xkeysib-test' && leeHs.auth === 'Bearer pat-na1-test', JSON.stringify(syncAll) + ' hs=' + hsEmails.join(',') + ' br=' + brEmails.join(','));
+  hubspotCalls.length = 0; brevoCalls.length = 0;
+  const leadNow = await worker.fetch(new Request('https://api.test/contact', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com' }, body: JSON.stringify({ name: 'Cap Tain', email: 'cap@example.com', company: 'Port PD', message: 'Team block for eight.', request_type: 'private' }) }), envAll, ctx);
+  ok('a new contact-form lead reaches HubSpot at once (lifecyclestage lead, company kept) and no marketing list', leadNow.status === 200 && hubspotCalls.length === 1 && hubspotCalls[0].body.inputs[0].properties.company === 'Port PD' && hubspotCalls[0].body.inputs[0].properties.lifecyclestage === 'lead' && brevoCalls.length === 0, JSON.stringify(hubspotCalls[0] || {}).slice(0, 200));
+  hubspotCalls.length = 0; brevoCalls.length = 0;
+  const subNow = await worker.fetch(new Request('https://api.test/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com' }, body: JSON.stringify({ email: 'sub2@example.com', name: 'Sub Two', consent: true, source: 'footer' }) }), envAll, ctx);
+  const subBody = await subNow.json();
+  ok('a consented sign-up reaches HubSpot, Brevo and Mailchimp; the response names what synced', subNow.status === 200 && subBody.synced.hubspot === 'synced' && subBody.synced.brevo === 'synced' && subBody.synced.mailchimp === 'synced' && brevoCalls.length === 1 && hubspotCalls.length === 1, JSON.stringify(subBody));
 
   // Journeys: T−7 / T−1 / T+1 from the daily cron, one per participant, class and kind. Only Ann's registration stays paid here.
   for (const [id, r] of [...registrations]) if (r.customer_email !== 'ann@example.com' && (r.status === 'paid' || r.status === 'completed')) r.status = 'completed_elsewhere';

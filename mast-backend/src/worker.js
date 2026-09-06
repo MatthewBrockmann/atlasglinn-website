@@ -22,7 +22,7 @@
  */
 
 import { AGREEMENT_VERSION, fillAgreement } from './agreement.js';
-import { crmSnapshot, audienceCsv, syncAudience, mailchimpOnPayment, adminPage, attributionFrom, recordContact, markContactEmailed, recordEvent, handleEvent, handleSubscribe, runJourneys } from './crm.js';
+import { crmSnapshot, audienceCsv, syncAudience, syncOnPayment, syncLead, adminPage, attributionFrom, recordContact, markContactEmailed, recordEvent, handleEvent, handleSubscribe, runJourneys } from './crm.js';
 
 const REPLAY_WINDOW_SECONDS = 300; // reject webhook timestamps older than 5 min
 
@@ -1017,6 +1017,7 @@ async function handleContact(request, env, cors) {
   const leadKind = kind === 'capability' ? 'capability' : (meta.request_type === 'private' || meta.request_type === 'gear' || meta.request_type === 'smoke') ? meta.request_type : 'contact';
   const leadId = await recordContact(env, { kind: leadKind, name, email, phone, company: meta.company, status: meta.status, request_type: meta.request_type, message, newsletter_opt_in: body.newsletter_opt_in === true, consent_text: body.consent_text, attribution });
   recordEvent(env, { visitor: attribution.visitor, email, page: attribution.page, action: leadKind === 'gear' ? 'gear_request' : 'contact', label: meta.request_type || kind, attribution }).catch(() => {});
+  await syncLead(env, { id: leadId, kind: leadKind, email, name, phone, company: meta.company, request_type: meta.request_type, newsletter_opt_in: body.newsletter_opt_in === true ? 1 : 0 }).catch((e) => console.error('[Sync] lead failed:', e.message));
   if (!env.NOTIFY_EMAIL || !env.RESEND_API_KEY) {
     console.error('[Contact] Email not configured (need NOTIFY_EMAIL + RESEND_API_KEY). Message:\n' + text);
     return json({ error: 'The contact form is not connected yet. Please call (281) 654-8100 or email atlasglinn.hq@atlasglinn.com.' }, 503, cors);
@@ -1294,8 +1295,9 @@ async function handleWebhook(request, env, ctx, cors) {
       ctx.waitUntil(
         sendRegistrationDocuments(env, registration, record).catch((e) => console.error('[Documents] failed:', e.message))
       );
-      // Marketing list, gated on the newsletter tick (a purchase is not consent); a no-op until Mailchimp is configured.
-      ctx.waitUntil(mailchimpOnPayment(env, registration, record).catch((e) => console.error('[Mailchimp] failed:', e.message)));
+      // CRM record (HubSpot) always; marketing lists (Mailchimp, Brevo) only with the newsletter tick — a purchase is not
+      // consent. A no-op until the keys are on the Worker.
+      ctx.waitUntil(syncOnPayment(env, registration, record).catch((e) => console.error('[Sync] failed:', e.message)));
     }
   }
 
