@@ -282,9 +282,15 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   commands. Secrets on the Worker
   (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `RESEND_API_KEY`, `NOTIFY_EMAIL`, `ACCOUNT_SECRET`, `ADMIN_KEY`) are visible
   only as behaviour; `wrangler secret list` is his Mac's.
-- **"CRM":** there is no CRM system in the code. Customer records are the D1 tables (orders, registrations, accounts;
-  the `/roster` route behind `ADMIN_KEY`); `mast-backend/DATA-AND-MARKETING.md` is the plan for consent capture and a
-  CRM feed, not built. Say so rather than reporting a CRM as "working".
+- **CRM (built 2026-09-06, Brockmann: "CRM should collect data - and much more"; "look at all marketing CRM and webhook for
+  brand and market development"):** `mast-backend/src/crm.js`, first-party only, on the plan in `DATA-AND-MARKETING.md`
+  and `ARCHITECTURE.md` §7 (Mailchimp chosen; the vault holds no other CRM decision). Collects leads (`contacts`: every
+  form on both sites, stored before it is emailed), a beacon (`events`, from `TRACK_JS` in `cinematic_shell.py`, on every
+  generated page), attribution on registrations and orders (UTM, referrer, landing page, first touch, visitor id); builds
+  one profile per email with segments; exports the opted-in audience (CSV, Mailchimp when keys exist); runs the T−7 /
+  T−1 / T+1 journeys from the daily cron behind `JOURNEYS_ENABLED` (off until he approves the texts, his "show me them
+  before"). Staff page `GET /admin` (ADMIN_KEY). The schema self-applies (`migrations/006-crm.sql` is the record).
+  Rules: eligibility answers never appear anywhere in it; consent is the tick, never the purchase; fence only commands.
 - **Mailboxes:** the Claude Microsoft 365 connector in a cloud session is signed in as matthew@atlasglinn.com. The
   mastsolutions.com tenant (matthew@mastsolutions.com, the Worker's `REPLY_TO`) is a different tenant and answers
   "invalid user" from it; its mail cannot be read from a cloud session unless he connects that account too.

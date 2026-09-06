@@ -205,6 +205,15 @@ the one Resend SPF row (his first attempt had landed on mastsolutionssearch.com,
 7. **"rewrite main"**: authorized 2026-09-04, sequenced *after* his final content pass and approval. Purges the
    range address and a personal Gmail from git history; force-push; every clone re-clones.
 
+**B1 — CRM and marketing layer (built 2026-09-06, `src/crm.js`; merged = running after the Mac's next Worker deploy).**
+Leads, beacon, attribution, profiles, segments, audience export, Mailchimp upsert (gated on opt-in), T−7 / T−1 / T+1
+journeys, staff page at `/admin`. His hand, in order: (1) read the three journey emails (in the 2026-09-06 reply and
+`journeyText()` in `src/crm.js`) and say "approved" or the edits → then `JOURNEYS_ENABLED = "1"` in `wrangler.toml` and a
+deploy; (2) Mailchimp: `wrangler secret put MAILCHIMP_API_KEY` and `MAILCHIMP_AUDIENCE_ID` (open item since 2026-09-01) or
+keep the CSV export; (3) optional `REVIEW_URL` var (Google review link) for the T+1 email; (4) the `ADMIN_KEY` value as a
+GitHub repository secret so the smoke test reports the CRM counts. Instagram: the follow link is on both sites; no Instagram
+video has ever been handed off — the post URLs are needed (`scripts/handoff-urls.txt` or the paste).
+
 ## C. Open questions only he can answer
 
 1. Instructor roster: Michael Cline is listed with his Atlas Glinn title (Chief Operating Officer) — his MAST title, if

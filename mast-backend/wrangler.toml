@@ -34,6 +34,9 @@ NOTIFY_FROM = "MAST Solutions <bookings@mastsolutions.com>"
 # = NOT email"). Replies to any email the Worker sends go to REPLY_TO, a real, read mailbox; office alerts still reply to
 # the customer who wrote in.
 REPLY_TO = "matthew@mastsolutions.com"
+# CRM journeys (T−7 / T−1 / T+1 emails to booked participants, src/crm.js). "0" until Brockmann approves the three texts
+# (2026-09-06: "show me them before"); "1" switches the daily cron on. REVIEW_URL (optional) is the review link in the T+1 email.
+JOURNEYS_ENABLED = "0"
 
 
 

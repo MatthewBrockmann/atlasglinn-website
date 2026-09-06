@@ -24,6 +24,11 @@ for (const f of readdirSync(SRC).filter(n => n.endsWith('.js')).sort()) {
 const stripeCalls = [];
 const stored = [];
 const emails = [];
+const mailchimpCalls = [];   // PUT /3.0/lists/<list>/members/<md5>
+const orderRows = [];        // INSERT INTO orders as objects (the CRM reads them back)
+const contacts = [];         // CRM leads
+const events = [];           // CRM beacon
+const emailLog = [];         // journeys idempotency
 
 const stripePriceCalls = [];   // GET /v1/prices?lookup_keys[] and POST /v1/prices (membership price provisioning)
 const stripeCustomerCalls = [];   // /v1/customers (account cards)
@@ -54,6 +59,10 @@ globalThis.fetch = async (url, init) => {
     emails.push(JSON.parse(init.body));
     return new Response('{}', { status: 200 });
   }
+  if (u.includes('api.mailchimp.com')) {
+    mailchimpCalls.push({ url: u, method: (init && init.method) || 'GET', auth: (init && init.headers && init.headers.Authorization) || '', body: JSON.parse(init.body) });
+    return new Response('{"id":"x"}', { status: 200 });
+  }
   return new Response('{}', { status: 200 });
 };
 
@@ -69,7 +78,7 @@ const fakePlans = {                // memberships rows; a plan without a stripe_
   le_team: { plan_key: 'le_team', name: 'Law Enforcement', stripe_price_id: 'price_live_le', price_cents: 19500, interval: 'month' },
 };
 const sqlLog = [];
-const REG_COLS = ['id','created_at','status','sku','item_name','qty','session_date','session_label','customer_name','customer_email','customer_phone','organization','address1','address2','emergency_name','emergency_phone','emergency_relationship','eligibility_outcome_id','eligibility_status','questions_version','agreement_version','agreement_signed_name','agreement_initials','agreement_signed_at','agreement_ip','agreement_user_agent','refund_policy_version','refund_policy_accepted_at','refund_policy_ip','newsletter_opt_in','newsletter_opted_in_at','prereq_attested'];
+const REG_COLS = ['id','created_at','status','sku','item_name','qty','session_date','session_label','customer_name','customer_email','customer_phone','organization','address1','address2','emergency_name','emergency_phone','emergency_relationship','eligibility_outcome_id','eligibility_status','questions_version','agreement_version','agreement_signed_name','agreement_initials','agreement_signed_at','agreement_ip','agreement_user_agent','refund_policy_version','refund_policy_accepted_at','refund_policy_ip','newsletter_opt_in','newsletter_opted_in_at','prereq_attested','utm_source','utm_medium','utm_campaign','referrer','landing_page','first_touch_at','visitor'];
 
 const DB = {
   prepare(sql) {
@@ -103,7 +112,19 @@ const DB = {
             return null;
           },
           async run() {
-            if (sql.includes('INSERT INTO orders')) stored.push(args);
+            if (sql.includes('INSERT INTO orders')) {
+              stored.push(args);
+              const cols = sql.slice(sql.indexOf('(') + 1, sql.indexOf(')')).split(',').map(c => c.trim());
+              const vals = [...args]; vals.splice(cols.indexOf('status'), 0, 'paid');   // the SQL carries 'paid' as a literal
+              const row = Object.fromEntries(cols.map((c, i) => [c, vals[i]]));
+              if (!orderRows.some(o => o.stripe_session_id === row.stripe_session_id)) orderRows.push(row);
+            }
+            if (sql.startsWith('INSERT INTO contacts')) { const cols = sql.slice(sql.indexOf('(') + 1, sql.indexOf(')')).split(',').map(c => c.trim()); contacts.push(Object.fromEntries(cols.map((c, i) => [c, args[i]]))); return { meta: { changes: 1 } }; }
+            if (sql.startsWith('UPDATE contacts SET emailed = 1')) { const c = contacts.find(x => x.id === args[0]); if (c) c.emailed = 1; return { meta: { changes: c ? 1 : 0 } }; }
+            if (sql.startsWith('INSERT INTO events')) { const cols = sql.slice(sql.indexOf('(') + 1, sql.indexOf(')')).split(',').map(c => c.trim()); events.push(Object.fromEntries(cols.map((c, i) => [c, args[i]]))); return { meta: { changes: 1 } }; }
+            if (sql.startsWith('INSERT OR IGNORE INTO email_log')) { const [created_at, email, ref, kind, status] = args; if (emailLog.some(l => l.email === email && l.ref === ref && l.kind === kind)) return { meta: { changes: 0 } }; emailLog.push({ created_at, email, ref, kind, status }); return { meta: { changes: 1 } }; }
+            if (sql.startsWith('UPDATE email_log SET status')) { const st = /status = '(\w+)'/.exec(sql)[1]; const l = emailLog.find(x => x.email === args[0] && x.ref === args[1] && x.kind === args[2]); if (l) l.status = st; return { meta: { changes: l ? 1 : 0 } }; }
+            if (/^(CREATE TABLE|CREATE INDEX|ALTER TABLE)/.test(sql)) return { meta: { changes: 0 } };
             if (sql.includes('INSERT INTO eligibility_outcomes')) { outcomes.push(args); return { meta: { last_row_id: outcomes.length, changes: 1 } }; }
             if (sql.includes('INSERT INTO eligibility_answers')) { answers.push(args); return { meta: { last_row_id: answers.length, changes: 1 } }; }
             if (sql.startsWith('INSERT INTO accounts')) { const cols = sql.slice(sql.indexOf('(') + 1, sql.indexOf(')')).split(',').map(c => c.trim()); const row = Object.fromEntries(cols.map((c, i) => [c, args[i]])); accounts.set(row.id, row); return { meta: { changes: 1 } }; }
@@ -123,6 +144,13 @@ const DB = {
             return { meta: { changes: 0 } };
           },
           async all() {
+            if (sql.includes('FROM registrations WHERE status IN') && sql.includes('session_date = ?')) return { results: [...registrations.values()].filter(r => (r.status === 'paid' || r.status === 'completed') && r.session_date === args[0]) };
+            if (sql.includes('FROM orders')) { const list = sql.includes('WHERE sku = ?') ? orderRows.filter(o => o.sku === args[0]) : orderRows; return { results: [...list].reverse() }; }
+            if (sql.includes('FROM accounts ORDER BY')) return { results: [...accounts.values()] };
+            if (sql.includes('FROM contacts')) return { results: [...contacts].reverse() };
+            if (sql.includes('FROM events')) return { results: events.filter(e => e.created_at >= args[0]).reverse() };
+            if (sql.includes('FROM email_log')) return { results: [...emailLog] };
+            if (sql.includes('FROM offerings WHERE active')) return { results: [] };
             if (sql.includes('FROM registrations ORDER BY')) return { results: [...registrations.values()] };
             if (sql.includes('FROM registrations WHERE customer_email')) return { results: [...registrations.values()].filter(r => r.customer_email === args[0] && (r.status === 'paid' || r.status === 'completed')) };
             return { results: [] };
@@ -130,8 +158,8 @@ const DB = {
         };
       },
       async first() { return null; },
-      async run() { return { meta: { changes: 0 } }; },
-      async all() { return { results: [] }; },
+      async run() { return this._b([]).run(); },
+      async all() { return this._b([]).all(); },
     };
   },
 };
@@ -692,6 +720,101 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   ok('without ACCOUNT_SECRET the account endpoints answer 503', off.status === 503 && (await off.json()).code === 'accounts_off');
   env.ACCOUNT_SECRET = saved;
   emails.length = 0;
+}
+
+
+
+console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect data - and much more") ──');
+{
+  const { buildProfiles, audienceCsv, md5, nextCourse, mailchimpOnPayment, runJourneys, _resetSchemaMemo } = await import('./src/crm.js');
+  const { createHash } = await import('node:crypto');
+  _resetSchemaMemo();
+  const get = (path, key, extra = {}) => worker.fetch(new Request('https://api.test' + path, { headers: Object.assign(key ? { 'X-Admin-Key': key } : {}, extra.headers || {}) }), env, ctx);
+
+  // Data collection: a contact request is stored as a lead with its attribution before the email goes out.
+  contacts.length = 0; events.length = 0; emails.length = 0;
+  const attribution = { visitor: 'v_abc', utm_source: 'instagram', utm_medium: 'social', utm_campaign: 'fall-dates', referrer: 'https://l.instagram.com/', landing_page: 'https://atlasglinn.com/mastsolutions.html?utm_source=instagram', first_touch_at: '2026-09-01T12:00:00Z', page: 'https://atlasglinn.com/mastsolutions.html' };
+  const lead = await post('/contact', { kind: 'contact', request_type: 'gear', company: 'HCSO', name: 'Lee Quinn', email: 'lee@example.com', phone: '713 555 0101', message: 'Gear quote request — IWA-M12 × 6', attribution });
+  ok('a gear quote request is stored as a lead (kind gear, company, UTM, visitor) and emailed', lead.status === 200 && contacts.length === 1 && contacts[0].kind === 'gear' && contacts[0].company === 'HCSO' && contacts[0].utm_source === 'instagram' && contacts[0].visitor === 'v_abc' && contacts[0].emailed === 1, JSON.stringify(contacts[0] || {}).slice(0, 240));
+  ok('… and the beacon logs a gear_request event for the same visitor', events.some(e => e.action === 'gear_request' && e.visitor === 'v_abc' && e.utm_source === 'instagram'), JSON.stringify(events));
+  const noMail = await worker.fetch(new Request('https://api.test/contact', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com' }, body: JSON.stringify({ name: 'No Mail', email: 'nomail@example.com', message: 'hello there' }) }), { ...env, RESEND_API_KEY: '' }, ctx);
+  ok('without Resend the lead is still stored (503 to the visitor, emailed = 0)', noMail.status === 503 && contacts.some(c => c.email === 'nomail@example.com' && c.emailed === 0));
+
+  // Beacon: known actions only.
+  const ev = await post('/event', { action: 'open_class', sku: 'MAST-HG-FUND', label: 'Handgun Fundamentals', attribution });
+  const bad = await post('/event', { action: 'drop table', attribution });
+  ok('POST /event stores a known action and rejects an unknown one', ev.status === 200 && bad.status === 400 && events.some(e => e.action === 'open_class' && e.sku === 'MAST-HG-FUND'));
+
+  // Newsletter: consent is the tick.
+  const noConsent = await post('/subscribe', { email: 'news@example.com', name: 'Newsy Person' });
+  const sub = await post('/subscribe', { email: 'News@Example.com', name: 'Newsy Person', consent: true, source: 'footer', attribution });
+  const subLead = contacts.find(c => c.kind === 'subscribe');
+  ok('POST /subscribe needs consent:true, then stores the sign-up with opt-in and the consent wording', noConsent.status === 400 && sub.status === 200 && subLead && subLead.email === 'news@example.com' && subLead.newsletter_opt_in === 1 && /Unsubscribe any time/.test(subLead.consent_text), JSON.stringify(subLead || {}).slice(0, 200));
+  ok('honeypot on /subscribe → 200 and nothing stored', (await post('/subscribe', { email: 'bot@example.com', consent: true, website: 'x' })).status === 200 && !contacts.some(c => c.email === 'bot@example.com'));
+
+  // Registration carries attribution and Stripe metadata carries the UTM (so the order gets it).
+  stripeCalls.length = 0;
+  const good = goodReg();
+  const regRes = await post('/register', { ...good, sku: 'MAST-HG-FUND', customer: { ...good.customer, name: 'Ann Lee', email: 'ann@example.com' }, newsletter_opt_in: true, attribution });
+  const annReg = [...registrations.values()].find(r => r.customer_email === 'ann@example.com') || {};
+  const sd = annReg.session_date || '2026-09-26';
+  const dayAt = (k) => new Date(Date.parse(sd + 'T09:17:00Z') + k * 86400000);   // the class day plus k days, at cron time
+  ok('registration stores utm_source / landing page / visitor, and Stripe metadata carries the UTM', regRes.status === 200 && annReg && annReg.utm_source === 'instagram' && annReg.landing_page === attribution.landing_page && annReg.visitor === 'v_abc' && stripeCalls[0] && stripeCalls[0].get('metadata[utm_source]') === 'instagram', 'status=' + regRes.status + ' ' + JSON.stringify(annReg || {}).slice(0, 120) + ' ' + (await regRes.clone().text()).slice(0, 120));
+
+  // Pay it through the webhook: the order stores the UTM; Mailchimp is not configured, so nothing goes out.
+  mailchimpCalls.length = 0;
+  const paidEvent = { id: 'evt_crm_1', type: 'checkout.session.completed', data: { object: { id: 'cs_crm_1', mode: 'payment', amount_total: 22500, currency: 'usd', customer_email: 'ann@example.com', metadata: { kind: 'class_booking', registration_id: annReg.id, sku: 'MAST-HG-FUND', class_name: 'Handgun Fundamentals', qty: '1', session_date: sd, customer_name: 'Ann Lee', utm_source: 'instagram', utm_medium: 'social', utm_campaign: 'fall-dates', first_touch_at: '2026-09-01T12:00:00Z' } } } };
+  const tsN = Math.floor(Date.now() / 1000); const sig = 't=' + tsN + ',v1=' + (await sign(JSON.stringify(paidEvent), tsN));
+  const wh = await worker.fetch(new Request('https://api.test/webhook', { method: 'POST', headers: { 'stripe-signature': sig }, body: JSON.stringify(paidEvent) }), env, ctx);
+  const annOrder = orderRows.find(o => o.stripe_session_id === 'cs_crm_1');
+  ok('the paid order carries utm_source / campaign / first touch', wh.status === 200 && annOrder && annOrder.utm_source === 'instagram' && annOrder.utm_campaign === 'fall-dates' && annOrder.first_touch_at === '2026-09-01T12:00:00Z', JSON.stringify(annOrder || {}).slice(0, 200));
+  ok('Mailchimp not configured → no call even though Ann opted in', mailchimpCalls.length === 0);
+
+  // The CRM view.
+  ok('/admin/crm without the key → 401', (await get('/admin/crm')).status === 401);
+  const snap = await (await get('/admin/crm', 'super-secret-admin-key')).json();
+  const ann = (snap.customers || []).find(p => p.email === 'ann@example.com');
+  const leeP = (snap.customers || []).find(p => p.email === 'lee@example.com');
+  ok('profiles merge orders, registrations and leads by email; Ann is opted in, fundamentals-only, from instagram', ann && ann.opt_in && ann.spend_cents === 22500 && ann.classes.length === 1 && ann.flags.includes('fundamentals_only') && ann.utm_source === 'instagram', JSON.stringify(ann || {}).slice(0, 300));
+  ok('Lee is a lead (asked for gear, never booked), agency, no opt-in', leeP && leeP.flags.includes('lead') && leeP.flags.includes('gear') && leeP.segment === 'agency' && !leeP.opt_in, JSON.stringify(leeP || {}).slice(0, 200));
+  ok('stats: leads by kind, revenue by source, funnel from the beacon', snap.stats.leads.by_kind.some(b => b.key === 'gear') && snap.stats.revenue_by_source_cents.some(b => b.key === 'instagram' && b.value === 22500) && snap.stats.funnel.opened_class >= 1 && snap.stats.funnel.started_registration >= 1, JSON.stringify(snap.stats).slice(0, 300));
+  const summary = await (await get('/admin/crm?view=summary', 'super-secret-admin-key')).json();
+  ok('view=summary carries counts only — no customers, no leads', summary.stats && !summary.customers && !summary.leads);
+  const csv = await (await get('/admin/audience.csv', 'super-secret-admin-key')).text();
+  ok('audience CSV holds the opted-in only (Ann via registration, Newsy via subscribe; not Lee)', /ann@example.com/.test(csv) && /news@example.com/.test(csv) && !/lee@example.com/.test(csv) && /via_registration/.test(csv), csv.slice(0, 300));
+  ok('eligibility answers never appear in the CRM payload or the CSV', !/us_citizen|felony/i.test(JSON.stringify(snap) + csv));
+
+  // Mailchimp, once configured: sync pushes the opted-in only, with merge fields and tags, to the member's MD5 id.
+  const envMc = { ...env, MAILCHIMP_API_KEY: 'abc123-us21', MAILCHIMP_AUDIENCE_ID: 'list9' };
+  const sync = await (await worker.fetch(new Request('https://api.test/admin/sync', { method: 'POST', headers: { 'X-Admin-Key': 'super-secret-admin-key' } }), envMc, ctx)).json();
+  const annCall = mailchimpCalls.find(c => c.url.endsWith('/' + createHash('md5').update('ann@example.com').digest('hex')));
+  ok('sync → PUT per opted-in profile at us21.api.mailchimp.com/3.0/lists/list9/members/<md5>, FNAME/LNAME/SEGMENT/LASTCLASS + tags, none for Lee', sync.configured && sync.ok === 2 && annCall && /us21\.api\.mailchimp\.com\/3\.0\/lists\/list9\/members\//.test(annCall.url) && annCall.method === 'PUT' && annCall.body.merge_fields.FNAME === 'Ann' && annCall.body.merge_fields.LASTCLASS === 'Handgun Fundamentals' && annCall.body.tags.includes('MAST-HG-FUND') && !mailchimpCalls.some(c => c.url.endsWith('/' + createHash('md5').update('lee@example.com').digest('hex'))), JSON.stringify(sync) + ' ' + JSON.stringify(annCall || {}).slice(0, 200));
+  mailchimpCalls.length = 0;
+  ok('mailchimpOnPayment: opted-in → one upsert; not opted-in → skipped', (await mailchimpOnPayment(envMc, { ...annReg, newsletter_opt_in: 1 }, { customer_email: 'ann@example.com', amount_total: 22500 })).ok && mailchimpCalls.length === 1 && (await mailchimpOnPayment(envMc, { ...annReg, newsletter_opt_in: 0 }, {})).skipped === 'not_opted_in' && mailchimpCalls.length === 1);
+  ok('md5 matches Node for the member id', md5('Ann@Example.com') === createHash('md5').update('Ann@Example.com').digest('hex'));
+
+  // Journeys: T−7 / T−1 / T+1 from the daily cron, one per participant, class and kind. Only Ann's registration stays paid here.
+  for (const [id, r] of [...registrations]) if (r.customer_email !== 'ann@example.com' && (r.status === 'paid' || r.status === 'completed')) r.status = 'completed_elsewhere';
+  emails.length = 0; emailLog.length = 0;
+  const sendSpy = (m) => { emails.push(m); return Promise.resolve(); };
+  const now7 = dayAt(-7);   // Ann's class is seven days out
+  let j = await runJourneys(env, { send: sendSpy, now: now7, catalog: [{ sku: 'MAST-HG-OP', name: 'Handgun Operator', price_cents: 45000 }] });
+  ok('T−7: one reminder to the participant, no BCC, range address in it', j.t7.sent === 1 && emails.length === 1 && emails[0].to[0] === 'ann@example.com' && emails[0].bcc === false && /One week out/.test(emails[0].subject), JSON.stringify(j) + ' ' + JSON.stringify(emails[0] || {}).slice(0, 160));
+  j = await runJourneys(env, { send: sendSpy, now: now7, catalog: [] });
+  ok('the same day again → nothing sent twice (email_log)', j.t7.sent === 0 && j.t7.skipped === 1 && emails.length === 1);
+  j = await runJourneys(env, { send: sendSpy, now: dayAt(-1), catalog: [] });
+  ok('T−1: the final reminder', j.t1.sent === 1 && /Tomorrow/.test(emails[1].subject));
+  j = await runJourneys(env, { send: sendSpy, now: dayAt(1), catalog: [{ sku: 'MAST-HG-OP', name: 'Handgun Operator', price_cents: 45000 }] });
+  ok('T+1: thank-you with the review ask, the next course (Handgun Operator after Handgun Fundamentals), the Instagram link', j.thanks.sent === 1 && /Thank you/.test(emails[2].subject) && /Handgun Operator/.test(emails[2].text) && /instagram\.com\/atlasglinn_mastsolutions/.test(emails[2].text) && /quote it|REVIEW/i.test(emails[2].text), (emails[2] || {}).text);
+  const failing = async () => { throw new Error('Resend 500: down'); };
+  emailLog.length = 0;
+  j = await runJourneys(env, { send: failing, now: now7, catalog: [] });
+  ok('a failed send is logged as failed, not counted as sent', j.t7.failed === 1 && emailLog[0].status === 'failed');
+  ok('nextCourse: FUND → OP, P1 → P2, P2 → Team P2, unknown → null', nextCourse('MAST-CAR-FUND', [{ sku: 'MAST-CAR-OP', name: 'Carbine Operator', price_cents: 45000 }]).sku === 'MAST-CAR-OP' && nextCourse('MAST-SF-P1', [{ sku: 'MAST-SF-P2', name: 'SF P2', price_cents: 95000 }]).sku === 'MAST-SF-P2' && nextCourse('MAST-NVG-P2', [{ sku: 'MAST-TEAM-P2', name: 'Team P2', price_cents: 47500 }]).sku === 'MAST-TEAM-P2' && nextCourse('MAST-GEAR', []) === null);
+  const crmJson = await (await worker.fetch(new Request('https://api.test/admin/crm', { headers: { 'X-Admin-Key': 'super-secret-admin-key' } }), env, ctx)).json();
+  ok('the CRM reports the journeys log', crmJson.stats.journeys.t7 && crmJson.stats.journeys.t7.failed === 1);
+  const page = await get('/admin');
+  ok('GET /admin serves the staff page, noindex, no-store', page.status === 200 && /text\/html/.test(page.headers.get('Content-Type')) && page.headers.get('X-Robots-Tag') === 'noindex, nofollow' && /MAST · CRM/.test(await page.text()));
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

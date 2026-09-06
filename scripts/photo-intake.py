@@ -29,6 +29,11 @@ KINDS = {  # kind: (destination under the repo, tile prefix, folders to scan on 
 }
 IMAGES = {'.jpg', '.jpeg', '.png', '.webp'}
 CLIPS = {'.mp4', '.mov', '.webm', '.m4v'}
+# The Desktop folder itself (owner, 2026-09-06: "MAST WEB 2026 = JUST JPGS update to gallery but they do not" — his files sit
+# at its top level, not in gallery/ or range/). The Mac watcher hands the folder off since the same day; here only what the
+# Mac ADDED after the original WordPress dump counts as a drop, and WordPress derivative sizes (-300x200, @2x) never do.
+DROP_ROOT, DROP_SINCE = 'reference/desktop/mast-new-web-2026', '2026-09-05T17:00:00Z'
+DERIVATIVE = re.compile(r'-\d+x\d+(@2x)?\.[a-z]+$', re.I)
 
 
 def git(*args, binary=False):
@@ -41,6 +46,16 @@ def listing(folder):
         return [l for l in git('ls-tree', '-r', '--name-only', REF, '--', folder).splitlines() if l]
     except subprocess.CalledProcessError:
         return []
+
+
+def recent_drops():
+    """Top-level media the Mac added to the Desktop folder after the dump: photographs and clips he dropped there."""
+    try:
+        out = git('log', f'--since={DROP_SINCE}', '--diff-filter=A', '--name-only', '--format=', REF, '--', DROP_ROOT)
+    except subprocess.CalledProcessError:
+        return []
+    depth = DROP_ROOT.count('/') + 1
+    return sorted({l for l in out.splitlines() if l and l.count('/') == depth and not DERIVATIVE.search(l)})
 
 
 def main(dry):
@@ -56,9 +71,11 @@ def main(dry):
             tiles = [t for t in tiles if t.strip()]
         seen = json.load(open(ledger_path, encoding='utf-8')) if os.path.exists(ledger_path) else {}
         n = max([int(m.group(1)) for f in os.listdir(ddir) for m in [re.match(re.escape(prefix) + r'(\d+)\.', f)] if m], default=0)
-        for folder in folders:
-            files = listing(folder)
-            names = set(files)
+        sources = [(listing(f), None) for f in folders]
+        if kind == 'gallery':
+            sources.append((recent_drops(), set(listing(DROP_ROOT))))
+        for files, all_names in sources:
+            names = all_names if all_names is not None else set(files)
             for path in sorted(files):
                 base, ext = os.path.splitext(path)
                 ext = ext.lower()

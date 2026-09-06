@@ -144,6 +144,7 @@
   .tiles.four { grid-template-columns:repeat(4,1fr); }
   .tile { position:relative; min-height:300px; display:flex; align-items:flex-end; text-align:left; overflow:hidden; border:1px solid rgba(26,107,222,.22); background:var(--deep-navy); transition:transform .45s, border-color .45s; }
   .tile .bg { position:absolute; inset:0; background:center/cover no-repeat; transform:scale(1.04); transition:transform 5s ease; filter:saturate(.8); }
+  .tile video.bg { width:100%; height:100%; object-fit:cover; }
   .tile:hover .bg { transform:scale(1.12); }
   .tile::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.05) 0%, rgba(5,8,16,.35) 50%, rgba(5,8,16,.92) 100%); }
   .tile:hover { transform:translateY(-6px); border-color:var(--gold); }
@@ -656,7 +657,7 @@
         <div class="tile rise"><div class="bg" style="background-image:url('images/mast/disc-knife-combat.jpg');background-position:center"></div><div class="txt"><div class="num">03</div><h3>Knife Combat.</h3><p>Defensive and tactical knife.</p></div></div>
         <div class="tile rise"><div class="bg" style="background-image:url('images/mast/disc-cqb.jpg');background-position:center"></div><div class="txt"><div class="num">04</div><h3>CQB.</h3><p>Close Quarters Battle.</p></div></div>
         <div class="tile rise"><div class="bg" style="background-image:url('images/mast/disc-fitness.jpg');background-position:center 60%"></div><div class="txt"><div class="num">05</div><h3>Fitness.</h3><p>Conditioning for duty.</p></div></div>
-        <div class="tile rise"><div class="bg" style="background-image:url('images/mast/disc-medical.jpg');background-position:center"></div><div class="txt"><div class="num">06</div><h3>Medical.</h3><p>Emergency and trauma care.</p></div></div>
+        <div class="tile rise"><video class="bg" autoplay muted loop playsinline preload="metadata" poster="images/mast/mast-medical-poster.jpg" style="object-position:center 35%" aria-hidden="true"><source src="images/mast/mast-medical-teaser.mp4" type="video/mp4"></video><div class="txt"><div class="num">06</div><h3>Medical.</h3><p>Emergency and trauma care.</p></div></div>
         <div class="tile rise"><div class="bg" style="background-image:url('images/mast/disc-leadership.jpg');background-position:center 40%"></div><div class="txt"><div class="num">07</div><h3>Leadership.</h3><p>Command and decision-making.</p></div></div>
       </div>
     </div>
@@ -1421,7 +1422,7 @@ function bookable(w){ return (w.status === 'available' || w.status === 'schedule
    Nothing is checked against a roster: students from before this system are not in it ("UNLESS they have taken it prior"). */
 const attested = {};   // sku → true once the student has answered yes on this visit
 let gateIdx = null;
-function selectCourse(i){ const c = COURSES[i], lv = levelOf(c); if (!lv || lv.n < 2 || attested[c.sku]) return openCal(i); gateIdx = i; const f = lv.fund; $('gate-title').textContent = c.name; $('gate-text').innerHTML = `<b>${esc(fundLabel(f))}</b>${lv.n === 3 ? ' and a MAST P1 course' : ''} comes first. Have you completed it with MAST, or an instructor-approved equivalent?`; $('gate-no').textContent = 'No — book ' + f.name + ' first'; lastFocus = document.activeElement; $('gate-bd').classList.add('open'); $('gate').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('gate-yes').focus(), 150); }
+function selectCourse(i){ const c = COURSES[i], lv = levelOf(c); if (window.mastTrack) mastTrack('open_class', c.name, c.sku); if (!lv || lv.n < 2 || attested[c.sku]) return openCal(i); gateIdx = i; const f = lv.fund; $('gate-title').textContent = c.name; $('gate-text').innerHTML = `<b>${esc(fundLabel(f))}</b>${lv.n === 3 ? ' and a MAST P1 course' : ''} comes first. Have you completed it with MAST, or an instructor-approved equivalent?`; $('gate-no').textContent = 'No — book ' + f.name + ' first'; lastFocus = document.activeElement; $('gate-bd').classList.add('open'); $('gate').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('gate-yes').focus(), 150); }
 function closeGate(){ $('gate-bd').classList.remove('open'); $('gate').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
 function gateYes(){ const c = COURSES[gateIdx]; attested[c.sku] = true; closeGate(); openCal(gateIdx); }
 function gateNo(){ const f = levelOf(COURSES[gateIdx]).fund, fi = COURSES.indexOf(f), ci = CATS.indexOf(f.cat); closeGate(); const cat = $('cat-' + ci); if (cat && !cat.classList.contains('open')) toggleCat(ci); const row = document.querySelector(`.cr-price[data-sku="${f.sku}"]`); const rowEl = row && row.closest('.course-row'); if (rowEl) { rowEl.scrollIntoView({ block: 'center' }); rowEl.classList.add('flash'); setTimeout(() => rowEl.classList.remove('flash'), 2400); } openCal(fi); }
@@ -1441,7 +1442,7 @@ function renderCal(){
   $('cal-quick').innerHTML = WEEKENDS.map((w, wi) => bookable(w) ? `<button type="button" class="chip${chosen === wi ? ' sel' : ''}" onclick="pick(${wi})">${labelFor(w, calCourse.days).replace(/, \d{4}$/, '')}</button>` : '').join('');
   $('cal-sel').innerHTML = chosen === null ? 'Tap a highlighted date.' : `<b>${labelFor(WEEKENDS[chosen], calCourse.days)}</b>`; $('cal-go').disabled = chosen === null;
 }
-function pick(wi){ chosen = wi; const d = parseISO(WEEKENDS[wi].saturday); calMonth = new Date(d.getFullYear(), d.getMonth(), 1); renderCal(); }
+function pick(wi){ if (window.mastTrack && calCourse) mastTrack('pick_date', WEEKENDS[wi] && WEEKENDS[wi].saturday, calCourse.sku); chosen = wi; const d = parseISO(WEEKENDS[wi].saturday); calMonth = new Date(d.getFullYear(), d.getMonth(), 1); renderCal(); }
 function calContinue(){ if (chosen === null) return; $('cal-bd').classList.remove('open'); $('cal').classList.remove('open'); openSheet(); }
 
 // ── Book a Class, date first (owner, 2026-09-05). Every training weekend on one calendar; hover shows what runs; pick a weekend, then a
@@ -1519,7 +1520,7 @@ let reqKind = 'private';
 function openReqDialog(kind, title, meta, eyebrow, fine){ reqKind = kind; lastFocus = document.activeElement; $('req-eyebrow').textContent = eyebrow; $('req-title').textContent = title; $('req-meta').textContent = meta; $('req-fine').textContent = fine;
   $('req-org-wrap').hidden = kind !== 'gear'; $('req-qty-wrap').hidden = kind !== 'gear'; if ($('req-qty')) $('req-qty').value = 1; $('req-msg').value = ''; $('req-err').hidden = true;
   const b = $('req-go'); b.disabled = false; b.textContent = kind === 'gear' ? 'Request Quote' : 'Send Request'; $('req-bd').classList.add('open'); $('req').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('req-name').focus(), 60); }
-function requestGear(i){ reqIdx = i; const g = GEAR[i]; openReqDialog('gear', g.name, g.sku + ' · ' + g.brand + ' · ' + g.fam + (g.price ? ' · ' + g.price + (g.device ? ' each' : ' MAP') : ''), 'Gear quote',
+function requestGear(i){ reqIdx = i; const g = GEAR[i]; if (window.mastTrack) mastTrack('gear_request', g.name, g.sku); openReqDialog('gear', g.name, g.sku + ' · ' + g.brand + ' · ' + g.fam + (g.price ? ' · ' + g.price + (g.device ? ' each' : ' MAP') : ''), 'Gear quote',
   g.device ? 'IWA training devices need a PPC certification; orders are verified before fulfillment. 3-unit minimum, 27 per box; hazmat shipping is included. We confirm availability and shipping by email within one business day. Nothing is charged online.'
            : 'MAP price shown; dealer and volume pricing on request. We confirm availability and shipping by email within one business day. Nothing is charged online.'); }
 function requestPrivate(i){ reqIdx = i; const c = COURSES[i]; openReqDialog('private', c.name, c.meta ? c.meta.replace(/ · /g, ' · ') : '', 'Private instruction',
@@ -1535,7 +1536,7 @@ async function reqGo(){ const gear = reqKind === 'gear'; const c = gear ? GEAR[r
   const message = gear
     ? 'Gear quote request — ' + c.sku + ' ' + c.name + ' (' + c.brand + ' · ' + c.fam + ') × ' + qty + (c.price ? ' @ ' + c.price + (c.device ? ' each' : ' MAP') : '') + (org ? '\nAgency / organization / PPC: ' + org : '') + (note ? '\n\n' + note : '')
     : 'Private instruction request — ' + c.name + (c.meta ? ' (' + c.meta + ')' : '') + (note ? '\n\n' + note : '');
-  try { const r = await fetch(API + '/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'contact', request_type: reqKind, company: org, name, email, phone, message, website: $('req-web').value, page: location.href.split('#')[0] }) });
+  try { const r = await fetch(API + '/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'contact', request_type: reqKind, company: org, name, email, phone, message, website: $('req-web').value, page: location.href.split('#')[0], attribution: window.mastAttribution ? mastAttribution() : undefined }) });
     const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'Could not send the request.');
     b.textContent = 'Request sent ✓'; $('req-meta').textContent = 'Thank you, ' + name.split(' ')[0] + '. We reply within one business day.'; setTimeout(closeReq, 2400); }
   catch (e) { b.disabled = false; b.textContent = 'Send Request'; err.innerHTML = esc(e.message || 'Could not send the request.') + ' You can also email <a href="mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent((reqKind === 'gear' ? 'Gear quote — ' + c.sku + ' ' : 'Private instruction — ') + c.name) + '">atlasglinn.hq@atlasglinn.com</a>.'; err.hidden = false; }
@@ -1639,7 +1640,7 @@ function acctPrefill(){ if (!acctData) return; const a = acctData; const set = (
 const REGISTER_ENDPOINT = API + '/register';
 const QUESTIONS_VERSION = '2q-2026-09-03', AGREEMENT_VERSION = '81961f2a07675eff', REFUND_POLICY_VERSION = '2026-09-01'; // must match the Worker
 let qty = 1, regStep = 1, docScrolled = false;
-function openSheet(){ qty = 1; docScrolled = false; acctPrefill();
+function openSheet(){ qty = 1; docScrolled = false; acctPrefill(); if (window.mastTrack && calCourse) mastTrack('start_registration', calCourse.name, calCourse.sku);
   // The attestation (owner, 2026-09-04): the discipline's Fundamentals gates every other course in it; P2 also needs the P1. Pre-ticked when the student answered yes at Select Date.
   const lv = levelOf(calCourse), gate = !!(lv && lv.n >= 2); $('co-prereq-wrap').hidden = !gate; $('co-prereq').checked = gate && !!attested[calCourse.sku];
   if (gate) $('co-prereq-text').textContent = 'I have completed MAST ' + fundLabel(lv.fund) + (lv.n === 3 ? ' and a MAST P1 course' : '') + ', or an instructor-approved equivalent, before this course.';
@@ -1695,10 +1696,12 @@ async function startCheckout(){
     account_token: acctToken || undefined,   // a signed-in student books against their Stripe Customer (saved card)
   }, returns);
   try {
+    if (window.mastAttribution) payload.attribution = mastAttribution();   // first touch, UTM, referrer, landing page, visitor id → the registration, the order, the CRM
     const res = await fetch(REGISTER_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const data = await res.json().catch(() => ({}));
     if (res.status === 202 && data.review) { for (let i = 1; i <= 4; i++) $('reg-' + i).hidden = true; document.querySelectorAll('.reg-steps li').forEach(li => li.classList.remove('on')); const rv = $('reg-review'); rv.innerHTML = '<b>Thank you.</b> ' + esc(data.message || 'A member of our staff will contact you before your booking continues. Nothing has been charged.') + '<br><br>Reference ' + esc(data.registration_id || '') + ' &middot; (281) 654-8100'; rv.hidden = false; return; }
     if (!res.ok || !data.checkoutUrl) throw new Error(data.error || 'Checkout unavailable');
+    if (window.mastTrack) mastTrack('checkout', calCourse.name, calCourse.sku);
     location.href = data.checkoutUrl;
   } catch(e) { btn.disabled = false; btn.textContent = 'Continue to Secure Checkout'; fail('Could not start checkout (' + e.message + '). Please try again or call (281) 654-8100.'); }
 }
@@ -1791,6 +1794,43 @@ function toggleFold(id, openText, closeText){ const f = $(id), b = $(id + '-btn'
 function openLb(src){ const vid = /\.(mp4|webm|mov)(\?|$)/i.test(src); const img = $('lb-img'), v = $('lb-vid'); img.hidden = vid; v.hidden = !vid; if (vid) { img.removeAttribute('src'); v.src = src; v.play().catch(() => {}); } else { v.pause(); v.removeAttribute('src'); img.src = src; } $('lb-bd').classList.add('open'); $('lb').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeLb(){ const v = $('lb-vid'); v.pause(); v.removeAttribute('src'); $('lb-bd').classList.remove('open'); $('lb').classList.remove('open'); document.body.style.overflow = ''; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('lb').classList.contains('open')) closeLb(); });
+</script>
+<script>
+(function () {
+  var API = 'https://mast-booking-backend.matthew-221.workers.dev';
+  var KEY = 'mast_first_touch', VKEY = 'mast_visitor';
+  function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function read(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  var visitor = read(VKEY);
+  if (!visitor) { visitor = 'v_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); store(VKEY, visitor); }
+  var first = null; try { first = JSON.parse(read(KEY) || 'null'); } catch (e) {}
+  var q = new URLSearchParams(location.search), utm = {};
+  ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].forEach(function (k) { if (q.get(k)) utm[k] = q.get(k).slice(0, 120); });
+  if (!first || (Object.keys(utm).length && !first.utm_source)) {
+    first = Object.assign({ referrer: (document.referrer || '').slice(0, 500), landing_page: location.href.split('#')[0].slice(0, 500), first_touch_at: new Date().toISOString() }, utm);
+    store(KEY, JSON.stringify(first));
+  }
+  window.mastAttribution = function () { return Object.assign({ visitor: visitor, page: location.href.split('#')[0].slice(0, 500) }, first || {}); };
+  var sent = {};
+  window.mastTrack = function (action, label, sku) {
+    var key = action + '|' + (label || '') + '|' + (sku || '');
+    if (action !== 'view' && sent[key]) return; sent[key] = 1;
+    var body = JSON.stringify({ action: action, label: label || '', sku: sku || '', attribution: window.mastAttribution() });
+    try { if (navigator.sendBeacon && navigator.sendBeacon(API + '/event', new Blob([body], { type: 'text/plain' }))) return; } catch (e) {}
+    try { fetch(API + '/event', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: body, keepalive: true }); } catch (e) {}
+  };
+  function ready() {
+    mastTrack('view', document.title.slice(0, 120));
+    document.addEventListener('click', function (e) {
+      var el = e.target && e.target.closest ? e.target.closest('[data-track], a[href*="instagram.com"], a[href*="linkedin.com"], a[href*="youtube.com"]') : null;
+      if (!el) return;
+      if (el.dataset && el.dataset.track) { var p = el.dataset.track.split(':'); mastTrack(p[0], p[1] || el.textContent.trim().slice(0, 80), p[2] || ''); }
+      else mastTrack('follow', (el.href.match(/instagram|linkedin|youtube/) || ['social'])[0]);
+    }, true);
+    document.addEventListener('play', function (e) { var v = e.target; if (v && v.tagName === 'VIDEO') mastTrack('video_play', (v.currentSrc || v.src || '').split('/').pop().slice(0, 80)); }, true);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready); else ready();
+})();
 </script>
 </body>
 </html>
