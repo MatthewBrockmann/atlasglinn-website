@@ -367,8 +367,11 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   none because the top-level folder was not a drop dir and a compressed clip's poster carried the source stem
   (`CQB-P3-poster.png`, never paired with `CQB-P3-web.mp4`). Fixed the same evening: `make_poster` names the poster
   after the stored clip, makes it for clips already on the branch, and the top-level folder counts as a drop dir;
-  `photo-intake.py` pairs a poster that lands after its clip. The next hourly pass should bring `CQB-P3-web-poster.png`
-  and the next check-in pairs it with g14 (wired, not confirmed until seen).
+  `photo-intake.py` pairs a poster that lands after its clip. **Confirmed 2026-09-06 22:33 UTC:** the next hourly pass
+  handed off 16 posters (`CQB-P3-web-poster.png` among them, plus one for every older top-level clip) and the 22:45
+  check-in paired `g14-poster.png`. The whole drop-folder loop — drop → Mac compresses and posters → handoff branch →
+  cloud intake → page → Mac upload — has now fired end to end with artifacts seen at every step; only the Flush Cache
+  click stays a hand.
 
 ## Reply format (Brockmann, 2026-09-05: "always bring back to bottom_ wire")
 
