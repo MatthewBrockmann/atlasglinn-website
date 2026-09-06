@@ -19,6 +19,7 @@
  *     the audience or in Mailchimp. Journeys are transactional (a booked class) and go to the participant only.
  *   - Everything staff-facing is behind ADMIN_KEY (header X-Admin-Key or ?key=); /admin is noindex, no-store.
  */
+import { directionsAttachment } from './directions.js';
 
 const DAY = 86400000;
 const UTM = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
@@ -543,26 +544,48 @@ export function nextCourse(sku, catalog = []) {
 const dateOffset = (now, days) => new Date(now.getTime() + days * DAY).toISOString().slice(0, 10);
 const longDate = (ymd) => { try { return new Date(ymd + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }); } catch (_) { return ymd; } };
 
-export function journeyText(kind, reg, env, catalog) {
+/** The office numbers as the owner wrote them on the T−7 draft (2026-09-06). */
+export const OFFICE_PHONES = '(281) 654-8100, 281-415-1023';
+
+/**
+ * The numbered participant list of a registration. The booking stores the registrant's name and the seat count; the
+ * names behind additional seats arrive by reply (the confirmation asks for them), so those seats read "name pending".
+ */
+export function participantLines(reg) {
+  const seats = Math.max(1, Number(reg.qty) || 1);
+  const out = ['1. ' + (reg.customer_name || reg.customer_email || 'Participant')];
+  for (let i = 2; i <= seats; i++) {
+    out.push(i + '. Seat ' + i + ': name pending — reply with the name and email so they can complete the eligibility screening and sign the agreement before class.');
+  }
+  return out;
+}
+
+/**
+ * The three journey emails. The T−7 text is the owner's (2026-09-06, pasted back from the draft with three changes:
+ * the participant list, the directions PDF, the second phone number). `attached` says whether the range-directions PDF
+ * rides on this email (src/directions.js), which decides the wording of the directions line.
+ */
+export function journeyText(kind, reg, env, catalog, { attached = false } = {}) {
   const when = longDate(reg.session_date);
   const office = env.REPLY_TO || 'matthew@mastsolutions.com';
-  const range = env.RANGE_ADDRESS
-    ? ['Range: ' + env.RANGE_ADDRESS + (env.RANGE_COORDS ? ' (' + env.RANGE_COORDS + ')' : ''), 'Rural range: your GPS will stop you short of it. Plan for the drive.']
-    : ['Range directions: in your booking confirmation.'];
+  const range = [
+    env.RANGE_ADDRESS ? 'Range: ' + env.RANGE_ADDRESS + (env.RANGE_COORDS ? ' (' + env.RANGE_COORDS + ')' : '') : 'Range: the address is in your booking confirmation.',
+    attached ? 'Directions: the PDF attached to this email. Rural range: your GPS will stop you short of it; follow the PDF.' : 'Directions: in your booking confirmation.',
+  ];
   const instagram = 'https://www.instagram.com/atlasglinn_mastsolutions/';
   if (kind === 't7') return {
     subject: 'One week out: ' + reg.item_name + ' on ' + when,
     text: [
       reg.customer_name ? reg.customer_name.split(' ')[0] + ',' : 'Hello,', '',
       'Your class is one week away.', '',
-      'Course:  ' + reg.item_name, 'Date:    ' + when, 'Seats:   ' + (reg.qty || 1), '',
+      'Course: ' + reg.item_name, 'Date: ' + when, '',
+      'PARTICIPANTS', ...participantLines(reg), '',
       ...range, '',
-      'BEFORE YOU COME',
-      '- Eye and ear protection, a hat, closed-toe boots, water and a packed lunch. The gear list for your course came by email; reply if you need it again.',
-      '- Arrive 15 minutes early. Live-fire classes open with a mandatory safety brief; a student who misses it cannot be admitted to the range.',
-      '- Bring photo ID. If anything on your registration changed, reply to this email now.',
-      '- Weather: we train in it. Dress for the forecast; only lightning stops a range.', '',
-      'Questions: ' + office + ' · (281) 654-8100', '', 'MAST Solutions · Details matter.',
+      'BRING: eye and ear protection, a hat, closed-toe boots, water, and a packed lunch, or eat at restaurants 20 minutes away; the gear list for your course came by email; reply if you need it again.',
+      'Arrive 15 minutes early; live-fire classes open with a mandatory safety brief; a student who misses it cannot be admitted to the range.',
+      'Bring photo ID; if anything on your registration changed, reply now.',
+      'Weather: we train in it; dress for the forecast; only lightning stops a range.', '',
+      'Questions: ' + office + ' · ' + OFFICE_PHONES, '', 'MAST Solutions · Details matter.',
     ].join('\n'),
   };
   if (kind === 't1') return {
@@ -570,11 +593,12 @@ export function journeyText(kind, reg, env, catalog) {
     text: [
       reg.customer_name ? reg.customer_name.split(' ')[0] + ',' : 'Hello,', '',
       'Tomorrow is the day.', '',
-      'Course:  ' + reg.item_name, 'Date:    ' + when, '',
+      'Course: ' + reg.item_name, 'Date: ' + when, '',
+      'PARTICIPANTS', ...participantLines(reg), '',
       ...range, '',
       '- Be at the gate 15 minutes before the start time on your confirmation. The safety brief starts on time.',
       '- Photo ID, eye and ear protection, water, lunch, weather layers.',
-      '- Running late or cannot make it: call (281) 654-8100 before the start. The refund and transfer terms you accepted are in your confirmation email.', '',
+      '- Running late or cannot make it: call ' + OFFICE_PHONES + ' before the start. The refund and transfer terms you accepted are in your confirmation email.', '',
       'See you on the range.', '', 'MAST Solutions · Details matter.',
     ].join('\n'),
   };
@@ -604,6 +628,7 @@ export async function runJourneys(env, { send, now = new Date(), catalog = [] } 
   const out = { t7: { sent: 0, failed: 0, skipped: 0 }, t1: { sent: 0, failed: 0, skipped: 0 }, thanks: { sent: 0, failed: 0, skipped: 0 } };
   if (!env.DB || !send) return out;
   await ensureCrmSchema(env);
+  let directions = null;
   for (const j of JOURNEYS) {
     const date = dateOffset(now, j.offset);
     const regs = await rows(env, `SELECT ${REG_COLS} FROM registrations WHERE status IN ('paid', 'completed') AND session_date = ? ORDER BY created_at`, [date]);
@@ -617,9 +642,11 @@ export async function runJourneys(env, { send, now = new Date(), catalog = [] } 
         claimed = !!(r && r.meta && r.meta.changes);
       } catch (e) { console.error('[Journeys] claim failed:', e.message); }
       if (!claimed) { out[j.kind].skipped += 1; continue; }
-      const { subject, text } = journeyText(j.kind, reg, env, catalog);
+      // T−7 and T−1 carry the range-directions PDF (rendered once per run); the thank-you does not.
+      const attachments = j.kind === 'thanks' ? [] : (directions ??= await directionsAttachment(env));
+      const { subject, text } = journeyText(j.kind, reg, env, catalog, { attached: attachments.length > 0 });
       try {
-        await send({ to: [email], subject, text, reply_to: env.REPLY_TO || undefined, bcc: false });
+        await send({ to: [email], subject, text, reply_to: env.REPLY_TO || undefined, bcc: false, attachments: attachments.length ? attachments : undefined });
         await env.DB.prepare("UPDATE email_log SET status = 'sent' WHERE email = ? AND ref = ? AND kind = ?").bind(email, reg.id, j.kind).run().catch(() => {});
         out[j.kind].sent += 1;
       } catch (e) {

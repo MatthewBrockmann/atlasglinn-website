@@ -730,7 +730,8 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
 
 console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect data - and much more") ──');
 {
-  const { buildProfiles, audienceCsv, md5, nextCourse, mailchimpOnPayment, runJourneys, _resetSchemaMemo } = await import('./src/crm.js');
+  const { buildProfiles, audienceCsv, md5, nextCourse, mailchimpOnPayment, runJourneys, journeyText, participantLines, _resetSchemaMemo } = await import('./src/crm.js');
+  const { directionsAttachment, directionsPdf, DIRECTIONS_FILENAME } = await import('./src/directions.js');
   const { createHash } = await import('node:crypto');
   _resetSchemaMemo();
   const get = (path, key, extra = {}) => worker.fetch(new Request('https://api.test' + path, { headers: Object.assign(key ? { 'X-Admin-Key': key } : {}, extra.headers || {}) }), env, ctx);
@@ -816,14 +817,25 @@ console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect da
   emails.length = 0; emailLog.length = 0;
   const sendSpy = (m) => { emails.push(m); return Promise.resolve(); };
   const now7 = dayAt(-7);   // Ann's class is seven days out
-  let j = await runJourneys(env, { send: sendSpy, now: now7, catalog: [{ sku: 'MAST-HG-OP', name: 'Handgun Operator', price_cents: 45000 }] });
-  ok('T−7: one reminder to the participant, no BCC, range address in it', j.t7.sent === 1 && emails.length === 1 && emails[0].to[0] === 'ann@example.com' && emails[0].bcc === false && /One week out/.test(emails[0].subject), JSON.stringify(j) + ' ' + JSON.stringify(emails[0] || {}).slice(0, 160));
-  j = await runJourneys(env, { send: sendSpy, now: now7, catalog: [] });
+  // The range settings are Worker secrets; here they are stand-ins. The PDF is rendered from them (src/directions.js).
+  const envJ = { ...env, RANGE_ADDRESS: '1 Range Road, Somewhere, TX 77000', RANGE_COORDS: '30.1000, -95.2000', RANGE_DIRECTIONS: '# From Houston\n- I-45 north to the county road\n- Left at the second gate; the sign says MAST\n\nGate code comes by text the day before. The last 2 miles are gravel — allow 15 minutes.' };
+  let j = await runJourneys(envJ, { send: sendSpy, now: now7, catalog: [{ sku: 'MAST-HG-OP', name: 'Handgun Operator', price_cents: 45000 }] });
+  const t7 = emails[0] || {};
+  ok('T−7: one reminder to the participant, no BCC, range address in it', j.t7.sent === 1 && emails.length === 1 && t7.to[0] === 'ann@example.com' && t7.bcc === false && /One week out/.test(t7.subject) && /Range: 1 Range Road/.test(t7.text), JSON.stringify(j) + ' ' + JSON.stringify(t7).slice(0, 160));
+  ok("T−7 is the owner's text: PARTICIPANTS list (1. Ann …), BRING line with the restaurants, both phone numbers, Details matter", /PARTICIPANTS\n1\. Ann /.test(t7.text) && /BRING: eye and ear protection, a hat, closed-toe boots, water, and a packed lunch, or eat at restaurants 20 minutes away/.test(t7.text) && /\(281\) 654-8100, 281-415-1023/.test(t7.text) && /Weather: we train in it; dress for the forecast; only lightning stops a range\./.test(t7.text) && /MAST Solutions · Details matter\.$/.test(t7.text) && !/Seats:/.test(t7.text), t7.text);
+  ok('T−7 carries the range-directions PDF (one attachment, a real PDF) and says so', Array.isArray(t7.attachments) && t7.attachments.length === 1 && t7.attachments[0].filename === DIRECTIONS_FILENAME && /^JVBERi0/.test(t7.attachments[0].content) && /Directions: the PDF attached to this email/.test(t7.text), JSON.stringify((t7.attachments || []).map(a => ({ f: a.filename, n: (a.content || '').length }))));
+  const { PDFDocument: PDFDoc } = await import('pdf-lib');
+  const dirPdf = await PDFDoc.load(await directionsPdf(envJ));
+  const dirSize = dirPdf.getPage(0).getSize();
+  ok('the PDF is one US Letter page, titled, with the address and the Markdown rendered (a long text with an en dash and a non-Latin glyph still renders)', dirPdf.getPageCount() === 1 && dirSize.width === 612 && dirSize.height === 792 && dirPdf.getTitle() === 'MAST Solutions · Range directions' && (await PDFDoc.load(await directionsPdf({ ...envJ, RANGE_DIRECTIONS: ('Проверка – ' + 'a long line of directions that must wrap onto more than one line without losing a word ').repeat(60) }))).getPageCount() >= 2, JSON.stringify(dirSize) + ' pages=' + dirPdf.getPageCount());
+  ok('two seats → seat 2 reads "name pending" with the ask; one seat → one line', participantLines({ ...annReg, qty: 2 }).length === 2 && /^2\. Seat 2: name pending — reply with the name and email/.test(participantLines({ ...annReg, qty: 2 })[1]) && participantLines(annReg).length === 1);
+  ok('without RANGE_* on the Worker: no attachment, and the text points at the booking confirmation', (await directionsAttachment({})).length === 0 && /Directions: in your booking confirmation\./.test(journeyText('t7', annReg, { REPLY_TO: 'x@example.com' }, []).text) && /Range: the address is in your booking confirmation\./.test(journeyText('t7', annReg, {}, []).text));
+  j = await runJourneys(envJ, { send: sendSpy, now: now7, catalog: [] });
   ok('the same day again → nothing sent twice (email_log)', j.t7.sent === 0 && j.t7.skipped === 1 && emails.length === 1);
-  j = await runJourneys(env, { send: sendSpy, now: dayAt(-1), catalog: [] });
-  ok('T−1: the final reminder', j.t1.sent === 1 && /Tomorrow/.test(emails[1].subject));
+  j = await runJourneys(envJ, { send: sendSpy, now: dayAt(-1), catalog: [] });
+  ok('T−1: the final reminder, with the PDF, both numbers on the running-late line and the participant list', j.t1.sent === 1 && /Tomorrow/.test(emails[1].subject) && emails[1].attachments && emails[1].attachments[0].filename === DIRECTIONS_FILENAME && /call \(281\) 654-8100, 281-415-1023 before the start/.test(emails[1].text) && /PARTICIPANTS\n1\. Ann /.test(emails[1].text), (emails[1] || {}).text);
   j = await runJourneys(env, { send: sendSpy, now: dayAt(1), catalog: [{ sku: 'MAST-HG-OP', name: 'Handgun Operator', price_cents: 45000 }] });
-  ok('T+1: thank-you with the review ask, the next course (Handgun Operator after Handgun Fundamentals), the Instagram link', j.thanks.sent === 1 && /Thank you/.test(emails[2].subject) && /Handgun Operator/.test(emails[2].text) && /instagram\.com\/atlasglinn_mastsolutions/.test(emails[2].text) && /quote it|REVIEW/i.test(emails[2].text), (emails[2] || {}).text);
+  ok('T+1: thank-you with the review ask, the next course (Handgun Operator after Handgun Fundamentals), the Instagram link, no attachment', j.thanks.sent === 1 && /Thank you/.test(emails[2].subject) && /Handgun Operator/.test(emails[2].text) && /instagram\.com\/atlasglinn_mastsolutions/.test(emails[2].text) && /quote it|REVIEW/i.test(emails[2].text) && emails[2].attachments === undefined, (emails[2] || {}).text);
   const failing = async () => { throw new Error('Resend 500: down'); };
   emailLog.length = 0;
   j = await runJourneys(env, { send: failing, now: now7, catalog: [] });

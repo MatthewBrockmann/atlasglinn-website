@@ -284,8 +284,13 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
 
 ## MAST Worker checks (Brockmann, 2026-09-06: "make sure that the back end CRM and everything on the back end is working")
 
-- **Unit tests:** `cd mast-backend && npm ci && node test-worker.mjs` (179 pass as of 2026-09-06; `pdf-lib` must be
-  installed first, the container starts without `node_modules`).
+- **Unit tests:** `cd mast-backend && npm ci && node test-worker.mjs` (210 pass as of 2026-09-06 with the CRM block;
+  `pdf-lib` must be installed first, the container starts without `node_modules`).
+- **Which merge is running (2026-09-06):** both deploy paths pass `--var BUILD:<short sha>` (`scripts/wp-upload.sh` from
+  the Mac's hourly job, `deploy-worker.yml` on a runner) and `/health` echoes it as `build` beside `crm: true`; a plain
+  `wrangler deploy` by hand leaves `build` null. The smoke test prints `build:` and `CRM routes live:` (GET `/admin/crm`
+  without a key: 401 = the CRM build, 404 = a pre-CRM build is still running) right under the health line, so "Worker
+  deployed from <sha>" in his Terminal is confirmed from a runner, never assumed.
 - **Live:** the container has no route to `*.workers.dev`. `.github/workflows/smoke-worker.yml` (`workflow_dispatch`)
   probes the deployed Worker from a runner: `/health`, `/catalog` (SKUs, prices, D1 or seed), `/weekends`, the CORS
   preflight, `/account/me` (503 `accounts_off` = `ACCOUNT_SECRET` not set), the mail DNS of mastsolutions.com; with
@@ -309,7 +314,13 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   generated page), attribution on registrations and orders (UTM, referrer, landing page, first touch, visitor id); builds
   one profile per email with segments; exports the opted-in audience (CSV, Mailchimp when keys exist); runs the T−7 /
   T−1 / T+1 journeys from the daily cron behind `JOURNEYS_ENABLED` (off until he approves the texts, his "show me them
-  before"). Staff page `GET /admin` (ADMIN_KEY). The schema self-applies (`migrations/006-crm.sql` is the record).
+  before"). **The T−7 text is his** (2026-09-06, pasted back with three changes, all built: a numbered PARTICIPANTS
+  list — seat 2+ reads "name pending" because the booking stores one name; the range-directions PDF, rendered by
+  `src/directions.js` from the `RANGE_ADDRESS` / `RANGE_COORDS` / `RANGE_DIRECTIONS` secrets and attached to the T−7,
+  the T−1 and the booking confirmation, nothing attached when they are unset; and the second office number
+  281-415-1023 beside (281) 654-8100, `OFFICE_PHONES` in `crm.js`). His paste dropped the GPS warning from the body; it
+  lives in the PDF. T−1 and T+1 texts still await his word before `JOURNEYS_ENABLED="1"`. Staff page `GET /admin`
+  (ADMIN_KEY). The schema self-applies (`migrations/006-crm.sql` is the record).
   Rules: eligibility answers never appear anywhere in it; consent is the tick, never the purchase; fence only commands.
 - **Mailboxes:** the Claude Microsoft 365 connector in a cloud session is signed in as matthew@atlasglinn.com. The
   mastsolutions.com tenant (matthew@mastsolutions.com, the Worker's `REPLY_TO`) is a different tenant and answers
@@ -324,6 +335,10 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
 Every reply ends with a **WIRE** block: the exact `YOU RUN THIS` commands that turn what is merged into what is running
 (Worker migration/secret/deploy, the page upload), followed by the open questions carried forward. Reorder or shorten the
 text above it; never drop the block. Every review link carries a fresh `?v=<sha>` (he has reviewed stale cached builds).
+**Pending items are the very last thing in the reply** (Brockmann, 2026-09-06: "Always list pending items at the very
+bottom so I'm not scrolling to the top trying to figure out what needs to be done"): the `YOU RUN THIS` label sits outside
+the fence, the fence holds only commands (a fenced diagnostic line got pasted into his zsh), and the numbered pending list
+closes the message; nothing follows it. Ask nothing already done, and nothing unless it is broken and only he can fix it.
 
 ## Memory Rules
 

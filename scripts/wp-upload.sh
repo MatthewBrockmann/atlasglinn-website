@@ -100,7 +100,8 @@ if [ "${WORKER_DEPLOY:-1}" = 1 ] && [ -d "$R/mast-backend" ]; then
   LASTW="$(cat "$WSTAMP" 2>/dev/null || true)"
   if [ -z "$LASTW" ] || ! git -C "$R" diff --quiet "$LASTW" "$HEADSHA" -- mast-backend/ 2>/dev/null; then
     say "Worker: mast-backend/ moved since ${LASTW:0:7}; deploying ${HEADSHA:0:7}"
-    if (cd "$R/mast-backend" && { [ -d node_modules ] || npm install --no-audit --no-fund >/dev/null 2>&1; } && CI=1 npx wrangler deploy); then
+    # --var BUILD:<sha>: /health reports the commit it runs, so a runner (smoke-worker.yml) can confirm this deploy landed.
+    if (cd "$R/mast-backend" && { [ -d node_modules ] || npm install --no-audit --no-fund >/dev/null 2>&1; } && CI=1 npx wrangler deploy --var "BUILD:${HEADSHA:0:7}"); then
       echo "$HEADSHA" > "$WSTAMP"; say "Worker deployed from ${HEADSHA:0:7}"
     else
       echo "   Worker deploy failed (is wrangler logged in on this Mac? run: cd \"$R/mast-backend\" && npx wrangler whoami). The page upload continues."
