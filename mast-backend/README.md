@@ -37,7 +37,7 @@ The old Worker is left untouched — it still serves SafeGuard.
 
 | Method | Path | Purpose |
 |---|---|---|
-| `GET` | `/health` | Liveness check |
+| `GET` | `/health` | Liveness check; `build` = the commit the running deploy was made from (`wrangler deploy --var BUILD:<sha>`, set by `scripts/wp-upload.sh` and `deploy-worker.yml`; `null` after a plain `wrangler deploy`), `crm: true` since the CRM build |
 | `GET` | `/catalog` | Classes and prices the server considers authoritative |
 | `GET` | `/weekends` | Training weekends the calendar may offer |
 | `POST` | `/register` | **The registration flow**: details → two eligibility questions → agreement → refund consent → Stripe Checkout |
@@ -261,6 +261,7 @@ is safe to run anywhere and proves logic, not deployment. (It needs
 | `HUBSPOT_TOKEN` | secret | HubSpot private-app token (`crm.objects.contacts` write). With it every profile and every new lead is upserted as a HubSpot contact by email (`lifecyclestage` lead or customer) — a CRM record, not marketing consent, so it is not gated on the newsletter tick |
 | `JOURNEYS_ENABLED` | var | `"1"` switches the daily T−7 / T−1 / T+1 emails on; `"0"` (the default) until the owner approves the texts |
 | `REVIEW_URL` | var | Optional review link in the T+1 email; without it the email asks for a reply that may be quoted |
+| `BUILD` | var (deploy flag) | Not in `wrangler.toml`: passed as `--var BUILD:<short sha>` by the two deploy paths and echoed by `/health` so a runner can tell which merge is running |
 | `RANGE_ADDRESS` | secret | Range street address; emailed only to a paid participant, never on the site |
 | `RANGE_COORDS` | secret | Optional "lat, lon" for the directions line |
 | `DOC_RECIPIENTS_AGREEMENT` | secret | Range host + staff who receive the signed agreement PDF (and nothing else) |

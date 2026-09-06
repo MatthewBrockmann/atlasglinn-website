@@ -51,6 +51,9 @@ jobs:
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
+      - name: Short commit id for /health (build = the commit this deploy was made from)
+        id: sha
+        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
       - name: Deploy
         if: steps.creds.outputs.ready == 'true'
         uses: cloudflare/wrangler-action@v3
@@ -58,7 +61,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: mast-backend
-          command: deploy
+          command: deploy --var BUILD:${{ steps.sha.outputs.short }}
       # Worker secrets from a phone: a repository secret named WORKER_RESEND_API_KEY (or WORKER_<NAME> for any other
       # Worker secret) is pushed to the Worker after each deploy, so a rotated key never needs a Terminal. Leave them
       # unset and nothing happens; the value never appears in a log.

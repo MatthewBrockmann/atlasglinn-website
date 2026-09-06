@@ -42,7 +42,9 @@ export default {
 
     try {
       if (url.pathname === '/health' && request.method === 'GET') {
-        return json({ status: 'MAST booking backend — ONLINE', version: '1.1.0' }, 200, cors);
+        // build = the commit the deploy was made from (`wrangler deploy --var BUILD:<sha>`, set by scripts/wp-upload.sh and
+        // deploy-worker.yml), so a runner can tell which merge is running; crm marks the /event, /subscribe, /admin routes.
+        return json({ status: 'MAST booking backend — ONLINE', version: '1.2.0', build: env.BUILD || null, crm: true }, 200, cors);
       }
       if (url.pathname === '/catalog' && request.method === 'GET') {
         return await handleCatalog(env, cors);

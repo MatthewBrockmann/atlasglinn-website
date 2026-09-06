@@ -53,6 +53,14 @@ jobs:
           {
             echo "smoke $(date -u +%FT%TZ) from $GITHUB_REF_NAME ${GITHUB_SHA::7} run $GITHUB_RUN_ID (contact=$DO_CONTACT checkout=$DO_CHECKOUT)"
             echo "--- health"; req GET /health
+            # Which merge is running: /health carries build (the commit of the last deploy, set by wp-upload.sh / deploy-worker.yml)
+            # and crm:true since the CRM build; on an older build both are absent and GET /admin/crm is a 404 (401 once the CRM
+            # routes exist; nothing is written by the probe).
+            build=$(python3 -c 'import json,sys; d=json.load(open("/tmp/b")); print(d.get("build") or "none (deployed before the build tag, or by hand)")' 2>/dev/null || echo unknown)
+            adm=$(curl -sS -m 40 -o /dev/null -w '%{http_code}' -H "Origin: $ORIGIN" "$WORKER/admin/crm" || echo ERR)
+            case "$adm" in 401) crm="yes (GET /admin/crm → 401 without a key)";; 404) crm="NO — the Worker still runs the pre-CRM build (GET /admin/crm → 404); a deploy from the Mac or deploy-worker.yml is missing";; *) crm="unclear (GET /admin/crm → HTTP $adm)";; esac
+            echo "   build: $build"
+            echo "   CRM routes live: $crm"
             echo "--- catalog"; req GET /catalog | head -1
             python3 - /tmp/b <<'PY' || true
           import json, sys

@@ -284,8 +284,13 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
 
 ## MAST Worker checks (Brockmann, 2026-09-06: "make sure that the back end CRM and everything on the back end is working")
 
-- **Unit tests:** `cd mast-backend && npm ci && node test-worker.mjs` (179 pass as of 2026-09-06; `pdf-lib` must be
-  installed first, the container starts without `node_modules`).
+- **Unit tests:** `cd mast-backend && npm ci && node test-worker.mjs` (210 pass as of 2026-09-06 with the CRM block;
+  `pdf-lib` must be installed first, the container starts without `node_modules`).
+- **Which merge is running (2026-09-06):** both deploy paths pass `--var BUILD:<short sha>` (`scripts/wp-upload.sh` from
+  the Mac's hourly job, `deploy-worker.yml` on a runner) and `/health` echoes it as `build` beside `crm: true`; a plain
+  `wrangler deploy` by hand leaves `build` null. The smoke test prints `build:` and `CRM routes live:` (GET `/admin/crm`
+  without a key: 401 = the CRM build, 404 = a pre-CRM build is still running) right under the health line, so "Worker
+  deployed from <sha>" in his Terminal is confirmed from a runner, never assumed.
 - **Live:** the container has no route to `*.workers.dev`. `.github/workflows/smoke-worker.yml` (`workflow_dispatch`)
   probes the deployed Worker from a runner: `/health`, `/catalog` (SKUs, prices, D1 or seed), `/weekends`, the CORS
   preflight, `/account/me` (503 `accounts_off` = `ACCOUNT_SECRET` not set), the mail DNS of mastsolutions.com; with
@@ -324,6 +329,10 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
 Every reply ends with a **WIRE** block: the exact `YOU RUN THIS` commands that turn what is merged into what is running
 (Worker migration/secret/deploy, the page upload), followed by the open questions carried forward. Reorder or shorten the
 text above it; never drop the block. Every review link carries a fresh `?v=<sha>` (he has reviewed stale cached builds).
+**Pending items are the very last thing in the reply** (Brockmann, 2026-09-06: "Always list pending items at the very
+bottom so I'm not scrolling to the top trying to figure out what needs to be done"): the `YOU RUN THIS` label sits outside
+the fence, the fence holds only commands (a fenced diagnostic line got pasted into his zsh), and the numbered pending list
+closes the message; nothing follows it. Ask nothing already done, and nothing unless it is broken and only he can fix it.
 
 ## Memory Rules
 
