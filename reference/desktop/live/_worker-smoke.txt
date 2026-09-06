@@ -1,11 +1,14 @@
-smoke 2026-09-06T19:32:12Z from main ef1059d run 34055192273 (contact=false checkout=false)
+smoke 2026-09-06T20:31:09Z from main 0e9c9c2 run 34058236231 (contact=false checkout=false)
 --- health
-HTTP 200 186ms  GET /health
-{"status":"MAST booking backend — ONLINE","version":"1.1.0"}
-   build: none (deployed before the build tag, or by hand)
+HTTP 200 196ms  GET /health
+{"status":"MAST booking backend — ONLINE","version":"1.2.0","build":"0e9c9c2","crm":true,"directions":"secrets"}
+   build: 0e9c9c2
    CRM routes live: yes (GET /admin/crm → 401 without a key)
+   range directions: secrets   [sealed = the owner's PDF decrypts on the Worker; secrets = rendered from RANGE_*; none = nothing attached; sealed-key-mismatch = re-seal with the key below]
+--- directions key (the public half of the Worker's sealing key; feeds mast-backend/seal-directions.mjs; saved beside this report as _directions-key.json)
+HTTP 200  key_id=b9104a7374d4c1d9
 --- catalog
-HTTP 200 225ms  GET /catalog
+HTTP 200 165ms  GET /catalog
    source=d1 classes=22
    MAST-HG-FUND     Handgun Fundamentals                         $225.00
    MAST-HG-LADIES   Ladies Only Handgun Fundamentals             $225.00
@@ -30,7 +33,7 @@ HTTP 200 225ms  GET /catalog
    MAST-MOTOR-P2    Motorcade P2                                 $0.00
    MAST-GEAR        Gear & Kit Considerations                    $750.00
 --- weekends
-HTTP 200 155ms  GET /weekends
+HTTP 200 123ms  GET /weekends
    weekends=15 first=2026-09-26 last=2027-04-24 statuses=['available', 'blocked']
 --- CORS preflight (Origin https://atlasglinn.com → POST /create-booking)
    HTTP/2 204 
@@ -39,7 +42,7 @@ HTTP 200 155ms  GET /weekends
    access-control-allow-methods: GET, POST, OPTIONS
    access-control-max-age: 86400
 --- accounts (GET /account/me without a token: 503 accounts_off = ACCOUNT_SECRET not set; 401 = accounts on)
-HTTP 401 51ms  GET /account/me
+HTTP 401 58ms  GET /account/me
 {"error":"Please sign in again.","code":"unauthorized"}
 --- CRM summary: skipped (no ADMIN_KEY repository secret; add it under Settings → Secrets → Actions to see counts, revenue and the funnel here)
 --- contact: skipped (input contact=false)
