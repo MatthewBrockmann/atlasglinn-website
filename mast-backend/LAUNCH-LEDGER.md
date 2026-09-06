@@ -388,5 +388,17 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
   sitting U.S. Senators required" (his 2026-09-04 correction) and "over 30 years" (decades, 2026-09-05). The chapter
   titles stay the trailer shell's: he reviewed that build and said publish. Mac shut down ~21:10 UTC, mid-upload:
   whether the 149-file set finished is unknown; the hourly job redoes it the next time the Mac is on.
+  **2026-09-06 ~00:50 UTC, Brockmann: "Add all content as in the old version - just updating the front end to brand match
+  MASTsolutions."** Second pass at a finer grain (every heading level, list item, button, label, placeholder, alt, the
+  footer): the live footer (four link groups, the two badges, the rights line) now closes every page's last chapter; the
+  contact form is the live one field for field (First Name, Last Name, Email Address, Confirm Email, Phone (optional),
+  "How can we help?"; the page script joins the names and checks the confirm field before posting, the Worker is
+  unchanged); the home capability form carries the live labels and option order; the home hero button reads "Request a
+  posture assessment", EP's "Request a 30-minute posture assessment"; the live subs on Careers, the "Press Feature"
+  label, the Insights card label; the residential and training pages open on the live hero films (residential_hero.mp4,
+  training_hero.mp4, capture-live 00:52 UTC). Measured: 665 of 699 live text units present; the rest are composite
+  label+sub strings whose parts are present, image alt texts, "over 30 years" (decades) and the Senators line. He kicked
+  the Mac at ~00:45 UTC (upload of the 21:35 build under way). Queued for the next capture: disaster_hero.mp4 (the live
+  Disaster page's film) and IMG_0398.jpg (the live Careers photograph; the repo has IMG_0396).
 - Docs to reconcile: `ARCHITECTURE.md` open-decisions table (prices are confirmed; range directions are text in
   the email, not a PDF), `mast-wp-theme/` is superseded by the static page + Worker + SFTP path.

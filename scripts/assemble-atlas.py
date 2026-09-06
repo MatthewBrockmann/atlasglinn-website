@@ -75,6 +75,8 @@ FILM_TEASER   = 'images/film/atlas-glinn-and-mast-solutions-teaser.mp4'
 ABOUT_TEASER  = 'images/film/about-atlas-glinn-teaser.mp4'
 FILM_TECH     = 'images/film/technology-hero.mp4'          # live technology and uas heroes
 FILM_CONTACT  = 'images/film/corporate-buildings.mp4'      # live contact hero
+FILM_RESI     = 'images/film/residential-hero.mp4'         # live residential hero (capture-live, 2026-09-06)
+FILM_TRAIN    = 'images/film/training-hero.mp4'            # live training hero (capture-live, 2026-09-06)
 CLIP_TEAM     = 'images/film/careers-gallery.mp4'          # About "Atlas Glinn Team" clip
 CLIP_FORGE    = 'images/film/forge-legend-mast.mp4'        # About "MAST Solutions — Forge & Legend" clip
 # Pages whose current hero is a YouTube film keep that film as the first card of chapter 2.
@@ -122,6 +124,18 @@ SOCIAL = ('<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target=
           '<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a>')
 FOOT = ('&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions &middot; Executive Protection &middot; Training &middot; AI Surveillance &middot; Counter-Drone &middot; Risk Management<br>'
         '<a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a>&middot;' + SOCIAL)
+# The live site's footer, closing every page (Brockmann, 2026-09-06: "Add all content as in the old version - just updating
+# the front end"): its four link groups, the two badges and the rights line, in the shell's small-print style. build() puts
+# it at the end of the last chapter; the menu overlay keeps the short FOOT.
+def _fl(pairs): return ' &middot; '.join(f'<a href="{h}">{t}</a>' for h, t in pairs)
+FOOT_SITE = ('<span class="fg">Atlas Glinn</span>' + _fl([('index.html', 'Home'), ('executive-protection.html', 'Executive Protection'), ('residential-protection.html', 'Residential Protection'),
+                                                        ('disaster-recovery.html', 'Disaster Recovery'), ('technology.html', 'Technology'), ('ep-app.html', 'Atlas EP App')])
+             + '<br><span class="fg">MAST Solutions</span>' + _fl([('training.html', 'Training Programs'), ('ep-app.html', 'Atlas EP Platform'), ('cuas-aerodefense.html', 'Counter-Drone Solutions'), ('mastsolutions.html', 'MAST Solutions')])
+             + '<br><span class="fg">Company</span>' + _fl([('about.html', 'About Us'), ('careers.html', 'Careers'), ('about.html#s5', 'Resources'), ('contact.html', 'Contact')])
+             + f'<br><span class="fg">Connect</span>2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063 &middot; <a href="{TEL}">{PHONE}</a> &middot; <a href="mailto:{EMAIL}">{EMAIL}</a><br>' + SOCIAL
+             + f'<div class="badges"><img src="{BADGE_BEST}" alt="Best of Business 2025" loading="lazy"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"></div>'
+             + '&copy; 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br>'
+             '<a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a>')
 
 # ── Page-level styles on top of the shell: text cards, steps, specs, forms, quotes, link tiles, team blocks ──
 EXTRA_CSS = r"""
@@ -140,6 +154,10 @@ EXTRA_CSS = r"""
   /* A section photograph in the flow of the page, where the current page shows it. */
   img.figure { display:block; width:100%; max-width:900px; margin:2rem auto 0; border:1px solid rgba(201,168,76,.22); }
   .quotes .card .meta { margin-bottom:.4rem; }
+  /* The live footer at the end of every page: group names in the accent, the badges between the links and the rights line. */
+  .foot.site { margin:3.2rem auto 0; line-height:2.4; text-align:center; letter-spacing:.22em; max-width:900px; }
+  .foot.site .fg { color:var(--gold-champagne); margin-right:.9rem; }
+  .foot.site .badges { margin:1.2rem auto .8rem; }
   .card h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.55rem; line-height:1.35; }
   .card p { font-size:.95rem; color:var(--text-dim); line-height:1.55; font-weight:300; }
   .card ul { margin:.4rem 0 0 1rem; color:var(--text-dim); font-size:.92rem; line-height:1.6; }
@@ -202,6 +220,14 @@ FORM_JS = r"""
       e.preventDefault();
       const btn = f.querySelector('button[type=submit]'), msg = f.querySelector('.form-msg');
       const data = Object.fromEntries(new FormData(f).entries()); data.page = location.pathname.split('/').pop() || 'index.html';
+      // The contact page asks for first and last name and a confirming email, as the live page does; the Worker takes one name.
+      if (data.first_name !== undefined || data.last_name !== undefined) {
+        data.name = [data.first_name, data.last_name].map(s => (s || '').trim()).filter(Boolean).join(' '); delete data.first_name; delete data.last_name;
+      }
+      if (data.confirm_email !== undefined) {
+        if (data.confirm_email.trim().toLowerCase() !== (data.email || '').trim().toLowerCase()) { msg.textContent = 'The two email addresses do not match.'; msg.className = 'form-msg err'; return; }
+        delete data.confirm_email;
+      }
       btn.disabled = true; const label = btn.textContent; btn.textContent = 'Sending…'; msg.textContent = ''; msg.className = 'form-msg';
       try {
         const r = await fetch(f.dataset.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
@@ -276,24 +302,29 @@ def quotes(items):
 def contact_chapter(i, eyebrow, h2, sub, ctas):
     return section(i, eyebrow, h2, sub,
         f'<div class="contact-lines rise">{ADDRESS}<br><a href="{TEL}">{PHONE}</a> &middot; <a href="mailto:{EMAIL}">{EMAIL}</a></div>'
-        f'<div class="ctas rise">{ctas}</div><div class="foot">{FOOT}</div>')
+        f'<div class="ctas rise">{ctas}</div>')   # the site footer is added to the page's last chapter by build()
 
 def contact_form(kind='contact'):
     if kind == 'capability':
-        fields = ('<label for="cs-name">Full name</label><input id="cs-name" name="name" type="text" autocomplete="name" required>'
-                  '<div class="row"><div><label for="cs-email">Email</label><input id="cs-email" name="email" type="email" autocomplete="email" inputmode="email" required></div>'
-                  '<div><label for="cs-company">Company or agency</label><input id="cs-company" name="company" type="text" autocomplete="organization"></div></div>'
+        # The live home page's form, field for field: Full Name, Email Address, Company, the two selects, the button.
+        fields = ('<label for="cs-name">Full Name</label><input id="cs-name" name="name" type="text" autocomplete="name" placeholder="Full Name" required>'
+                  '<div class="row"><div><label for="cs-email">Email Address</label><input id="cs-email" name="email" type="email" autocomplete="email" inputmode="email" placeholder="Email Address" required></div>'
+                  '<div><label for="cs-company">Company</label><input id="cs-company" name="company" type="text" autocomplete="organization" placeholder="Company"></div></div>'
                   '<div class="row"><div><label for="cs-status">Do you currently have or need security?</label><select id="cs-status" name="status"><option>Currently have security</option><option>Need security</option><option>Evaluating options</option></select></div>'
-                  '<div><label for="cs-type">Request type</label><select id="cs-type" name="request_type"><option>General Inquiry</option><option>RFP &mdash; Request for Proposal</option><option>RFQ &mdash; Request for Quote</option></select></div></div>'
+                  '<div><label for="cs-type">RFP / RFQ</label><select id="cs-type" name="request_type"><option>RFP &mdash; Request for Proposal</option><option>RFQ &mdash; Request for Quote</option><option>General Inquiry</option></select></div></div>'
                   '<input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">'
                   '<input type="hidden" name="kind" value="capability">')
         btn, success = 'Request Capability Statement', 'Request received. We&rsquo;ll be in touch shortly.'
         fine = 'Your request goes to Atlas Glinn HQ only. See the <a href="privacy.html">Privacy Policy</a>.'
     else:
-        fields = ('<div class="row"><div><label for="ct-name">Name</label><input id="ct-name" name="name" type="text" autocomplete="name" required></div>'
-                  '<div><label for="ct-phone">Phone</label><input id="ct-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel"></div></div>'
-                  '<label for="ct-email">Email</label><input id="ct-email" name="email" type="email" autocomplete="email" inputmode="email" required>'
-                  '<label for="ct-msg">Message</label><textarea id="ct-msg" name="message" required></textarea>'
+        # The live contact page's form, field for field. FORM_JS joins the two names into `name` and checks the confirm field
+        # before posting, so the Worker's /contact sees what it always saw.
+        fields = ('<div class="row"><div><label for="ct-first">First Name</label><input id="ct-first" name="first_name" type="text" autocomplete="given-name" placeholder="First Name" required></div>'
+                  '<div><label for="ct-last">Last Name</label><input id="ct-last" name="last_name" type="text" autocomplete="family-name" placeholder="Last Name" required></div></div>'
+                  '<div class="row"><div><label for="ct-email">Email Address</label><input id="ct-email" name="email" type="email" autocomplete="email" inputmode="email" placeholder="Email Address" required></div>'
+                  '<div><label for="ct-email2">Confirm Email</label><input id="ct-email2" name="confirm_email" type="email" autocomplete="email" inputmode="email" placeholder="Confirm Email" required></div></div>'
+                  '<label for="ct-phone">Phone (optional)</label><input id="ct-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="Phone (optional)">'
+                  '<label for="ct-msg">How can we help?</label><textarea id="ct-msg" name="message" placeholder="How can we help?" required></textarea>'
                   '<input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">')
         btn, success = 'Send Message', 'Thank you for your interest in Atlas Glinn. We will respond as soon as possible.'
         fine = f'Or call <a href="{TEL}">{PHONE}</a>. Your message goes to Atlas Glinn HQ only. See the <a href="privacy.html">Privacy Policy</a>.'
@@ -326,6 +357,11 @@ def meta(title, desc, path, og_image, jsonld=''):
 def build(path, title, desc, og_image, credits, chapters, photos, jsonld=''):
     """chapters: [(label, html)]; photos: [(image, pos or None)] one per chapter."""
     n = len(chapters)
+    # The live footer closes every page, whichever chapter is last (Contact on most pages, Reviews on the rest).
+    last_label, last_html = chapters[-1]
+    k = last_html.rfind('</div>', 0, last_html.rfind('</section>'))   # inside the panel's content div, under the chapter's last block
+    assert k > 0, f'{path}: last chapter has no content div'
+    chapters = chapters[:-1] + [(last_label, last_html[:k] + f'<div class="foot site rise">{FOOT_SITE}</div>' + last_html[k:])]
     chrome = shell.chrome(credits=credits, wordmark='ATLAS GLINN',
                           photos=[(f'{k:02d}', *entry) for k, entry in enumerate(photos, 1)],
                           hud_tl='&#9679; ATLAS GLINN &middot; HOUSTON', hud_tl_href='index.html',
@@ -410,8 +446,8 @@ build('index.html',
     ('Opening', opening('Security, Training, Dignitary Protection',   # the home hero line (owner, 2026-09-05: '"Security, Training, Dignitary Protection" on the Atlas side'), replacing "34+ Years · …"
         f'{shimmer("Details")} <span class="white">Matter.</span>',
         'Discreet, adaptive security for those who cannot afford a mistake. Executive and residential protection, disaster recovery, technology, and the training behind all of it. Houston, Texas.',
-        cta('#s2', 'Our Services') + cta2('contact.html', 'Contact Us'))),
-    ('Services', section(2, 'Our Services', f'Customized {blue("Security.")}', 'Customized Security Solutions Tailored to Every Client&rsquo;s Needs.',
+        cta('contact.html', 'Request a posture assessment') + cta2('#s2', 'Our Services'))),   # the live home page's hero button
+    ('Services', section(2, 'Our Services', f'Customized {blue("Security.")}', 'Protection that doesn&rsquo;t show up in the news. Customized Security Solutions Tailored to Every Client&rsquo;s Needs.',
         tiles([
             ltile('01', 'Executive Protection', 'Discreet, adaptive security for high-level executives and dignitaries.', HERO_EP, 'executive-protection.html'),
             ltile('02', 'Residential Protection', '24/7 security guards and AI surveillance for your home and estate.', CCTV, 'residential-protection.html'),
@@ -468,7 +504,7 @@ build('executive-protection.html',
       OG_DEFAULT, CREDITS, [
     ('Opening', opening('Executive Protection', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'Discreet, adaptable security &mdash; so you focus on what matters, not on us. Our team brings decades of combined experience protecting high-level executives, dignitaries, and their families.',   # the live page's lead; its "two sitting U.S. Senators" line is the figure he called wrong (2026-09-04)
-        cta('contact.html', 'Request a Consultation') + cta2('#s2', 'Our Services'))),
+        cta('contact.html', 'Request a 30-minute posture assessment') + cta2('#s2', 'Our Services'))),   # the live page's hero button
     ('Services', section(2, 'Our Services', f'Comprehensive {blue("Protection.")}', 'Comprehensive Dignitary Protection Tailored to Your Needs.',
         cards([('Close Protection', 'Dedicated personal protection officers providing 24/7 security coverage with discreet, professional presence tailored to your lifestyle and threat profile.'),
                ('Advance Operations', 'Thorough pre-deployment reconnaissance and venue assessment. Our advance teams identify and mitigate threats before you arrive at any location.'),
@@ -541,7 +577,7 @@ build('residential-protection.html',
     ('Contact', contact_chapter(4, 'Ready to Secure Your Home?', f'Start With an {blue("Assessment.")}', 'Every engagement begins with a confidential property assessment. Reach out to discuss your family&rsquo;s security requirements.',
         cta('contact.html', 'Contact Us') + cta2('technology.html', 'View Technology') + cta2(TEL, PHONE))),
     ('Reviews', reviews_chapter(5)),
-], photos=[yt_bg(YT_RESIDENTIAL), (CCTV, None), (RESI_COVERAGE, None), (CCTV, None), (HERO_EP, None)],
+], photos=[(CCTV, None, FILM_RESI), (CCTV, None), (RESI_COVERAGE, None), (CCTV, None), (HERO_EP, None)],   # the live page opens on residential_hero.mp4 (no YouTube film there)
       jsonld=jsonld_service('Residential Protection', '24/7 guard force, AI surveillance, access control and emergency response for estates and residences in Houston, Texas.', 'residential-protection.html'))
 
 # ═══════════════════════════ disaster-recovery.html ═══════════════════════════
@@ -597,10 +633,11 @@ build('training.html',
         '<div class="yt-card"><div class="frame"><iframe src="https://www.youtube.com/embed/pSGWdaDglZE?rel=0&amp;modestbranding=1" title="Modern Shooter TV — MAST Solutions" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen></iframe></div><div class="info"><h4>Modern Shooter TV</h4><p>Lance M / Castro / Ray Cash &mdash; MAST Solutions</p></div></div>'
         '<div class="yt-card"><div class="frame"><iframe src="https://www.youtube.com/embed/OfXe_bdH6t4?rel=0&amp;modestbranding=1" title="Modern Shooter TV — Tactical Training Feature" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen></iframe></div><div class="info"><h4>Modern Shooter TV</h4><p>Tactical Training Feature</p></div></div>'
         '</div>'
+        '<div class="eyebrow in" style="margin-top:2rem">Press Feature</div>'
         '<a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener" class="post"><small>The Washington Post</small>Active Shooter: Arming American Teachers</a>'
         '<p class="sub" style="margin-top:1.4rem;font-size:.95rem">MAST Solutions featured in The Washington Post&rsquo;s coverage on active shooter preparedness and school security training. An in-depth look at how Atlas Glinn&rsquo;s training programs prepare educators and security professionals for real-world threats. <a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener">Read The Feature &rarr;</a></p>')),
     ('Reviews', reviews_chapter(5)),
-], photos=[yt_bg(YT_TRAINING), (TRAINING, None), (HERO_EP, None), (EP_MATTERS, None), (TRAINING, None)],
+], photos=[(TRAINING, None, FILM_TRAIN), (TRAINING, None), (HERO_EP, None), (EP_MATTERS, None), (TRAINING, None)],   # the live page opens on training_hero.mp4; its two Modern Shooter TV embeds are in the Media chapter
       jsonld=jsonld_service('Executive Protection and Tactical Training', 'Dignitary protection training and the seven MAST Solutions disciplines: firearms, hand combat, knife combat, CQB, fitness, medical, leadership.', 'training.html'))
 
 # ═══════════════════════════ technology.html ═══════════════════════════
@@ -745,7 +782,7 @@ build('about.html',
                ('How We Secured a CEO&rsquo;s Global Tour', 'An inside look at the coordination and planning behind protecting a Fortune 500 executive across multiple countries.', '<a class="secondary-cta" href="https://atlasglinn.com/case-studies-success-stories/how-we-secured-a-ceos-global-tour/">Read More &rarr;</a>', '', 'Case Studies'),
                ('Why Atlas Glinn&rsquo;s Security Training Sets the Standard', 'Our training programs are built on decades of real-world experience with elite military and law enforcement units.', '<a class="secondary-cta" href="https://atlasglinn.com/training-certification/why-atlas-glinns-security-training-sets-the-standard/">Read More &rarr;</a>', '', 'Training &amp; Certification'),
                ('Preparing for Natural Disasters: A Security Must', 'Why disaster preparedness is a critical component of any comprehensive security strategy.', '<a class="secondary-cta" href="https://atlasglinn.com/disaster-recovery-asset-protection/preparing-for-natural-disasters-a-security-must/">Read More &rarr;</a>', '', 'Disaster Recovery'),
-               ('5 Essential Tips for VIP Security in 2025', 'Key strategies every VIP protection detail should implement to stay ahead of evolving threats.', '<a class="secondary-cta" href="https://atlasglinn.com/executive-residential-protection/5-essential-tips-for-vip-security-in-2025/">Read More &rarr;</a>', '', 'Executive &amp; Residential Protection')], numbered=False))),
+               ('5 Essential Tips for VIP Security in 2025', 'Key strategies every VIP protection detail should implement to stay ahead of evolving threats.', '<a class="secondary-cta" href="https://atlasglinn.com/executive-residential-protection/5-essential-tips-for-vip-security-in-2025/">Read More &rarr;</a>', '', 'Executive Protection')], numbered=False))),
     ('Contact', contact_chapter(6, 'Ready to Work With Us?', f'Let&rsquo;s {blue("Talk.")}', '',
         cta('contact.html', 'Contact Us') + cta2(TEL, 'Phone: ' + PHONE) + cta2('mailto:' + EMAIL, 'Email: ' + EMAIL))),
     ('Reviews', reviews_chapter(7)),
@@ -761,12 +798,12 @@ build('careers.html',
     ('Opening', opening('Careers', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'Part-time, flexible details in Houston for licensed officers who hold themselves to the standard. Training through MAST Solutions comes with the job.',
         cta('#s2', 'Open Positions') + cta2('contact.html', 'Apply Now'))),
-    ('Positions', section(2, 'Open Positions', f'Join the {blue("Detail.")}', '',
+    ('Positions', section(2, 'Open Positions', f'Join the {blue("Detail.")}', 'We are looking for driven professionals ready to join a world-class security team.',
         cards([('Level 4 Personal Protection Officer (Flex)', 'Provide close protection, conduct risk assessments, and escort clients during travel and events. Respond to threats with precision, maintain detailed logs, collaborate with law enforcement when necessary.',
                 '<div class="meta">Houston, TX &middot; Part-Time, Flexible Schedule</div><div class="eyebrow in" style="margin:.8rem 0 .2rem;font-size:.6rem">Requirements</div>' + REQ + '<a class="cta-button" href="contact.html?subject=Level%204%20PPO%20(Flex)%20application">Apply Now</a>'),
                ('Level 3 Commissioned Security Guard (Flex)', 'Armed security at various client sites. Conduct regular patrols and inspections, respond rapidly to emergencies, collaborate with law enforcement, maintain detailed incident reports.',
                 '<div class="meta">Houston, TX &middot; Part-Time, Flexible Schedule</div><div class="eyebrow in" style="margin:.8rem 0 .2rem;font-size:.6rem">Requirements</div>' + REQ + '<a class="cta-button" href="contact.html?subject=Level%203%20Commissioned%20Security%20Guard%20(Flex)%20application">Apply Now</a>')], 'cards two', numbered=False))),
-    ('Why Atlas Glinn', section(3, 'Why Atlas Glinn', f'What Sets Us {blue("Apart.")}', '',
+    ('Why Atlas Glinn', section(3, 'Why Atlas Glinn', f'What Sets Us {blue("Apart.")}', 'What sets us apart from the rest.',
         cards([('1.5x Holiday Pay', 'Compensated at 1.5x rate for Thanksgiving, Christmas, and New Year&rsquo;s Day. 12:00 AM to 11:59 PM.'),
                ('Paid Time Off (PTO)', 'Full-time employees accrue PTO after 365 days. 4 hours per 160 hours worked, up to 48 hours per year.'),
                ('Paid Vacation', '7 days of vacation per year after 1 year of employment. Up to 14 days maximum accrual.'),

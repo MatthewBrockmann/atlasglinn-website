@@ -36,6 +36,7 @@ https://atlasglinn.com/wp-content/themes/atlasglinn/images/about-hero-new.mp4
 # YouTube stills until they land.
 https://atlasglinn.com/wp-content/uploads/2025/04/residential_hero.mp4
 https://atlasglinn.com/wp-content/uploads/2025/04/training_hero.mp4
+https://atlasglinn.com/wp-content/uploads/2025/04/disaster_hero.mp4
 # The current About page's two In Action clips, also LFS pointers here (2026-09-05).
 https://atlasglinn.com/wp-content/themes/atlasglinn/images/careers-gallery.mp4
 https://atlasglinn.com/wp-content/themes/atlasglinn/images/forge-legend-mast.mp4
@@ -43,6 +44,8 @@ https://atlasglinn.com/wp-content/themes/atlasglinn/images/forge-legend-mast.mp4
 # Anthony Glover's. Neither is in the repo.
 https://atlasglinn.com/wp-content/themes/atlasglinn/images/matt-ceo-2026.jpg
 https://atlasglinn.com/wp-content/themes/atlasglinn/images/anthony-glover.png
+# The live Careers page's photograph (theme gallery folder; the repo holds IMG_0396, the live page shows IMG_0398).
+https://atlasglinn.com/wp-content/themes/atlasglinn/images/gallery/IMG_0398.jpg
 # Added 2026-09-04 (owner: the Training Reel and the Disaster Recovery film as true embeds, no YouTube chrome). The Mac
 # fetches each as an MP4 with yt-dlp; the cloud session then trims the Training Reel's closing "2023" card, makes the
 # six-second teasers and posters, and swaps the YouTube cards for local files.

@@ -53,6 +53,12 @@ careers-gallery, forge-legend-mast; plain files, not LFS, served whole because t
 Training submenu (IWA Training Products, Aimpoint Optics) points at the MAST Gear chapter; the live shop pages are
 notify-me catalogs with no checkout. Re-run the capture before any further content pass: `actions_run_trigger`
 on `capture-live.yml`, then `git fetch origin claude/desktop-assets` and read `reference/desktop/live/`.
+**Brockmann, 2026-09-06: "Add all content as in the old version - just updating the front end to brand match
+MASTsolutions."** So: every word, link, form field, footer entry and film of the live page is carried; only the shell
+changes. `build()` appends the live footer (`FOOT_SITE`: four link groups, badges, rights line) to every page's last
+chapter; the contact form is the live field set (the page script joins first/last name and checks the confirm email);
+residential and training open on the live hero films. The two deliberate departures: "over 30 years" reads "decades"
+(his 2026-09-05 instruction) and the "two sitting U.S. Senators" line is not carried (his 2026-09-04 correction).
 `ep-app.html`, `signup.html`, `privacy.html`, `terms.html` and the articles are hand-authored. Rebuilt forms post JSON to
 the booking Worker's `POST /contact`.
 
