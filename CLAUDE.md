@@ -200,6 +200,15 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   Keychain item); `.github/workflows/deploy-worker.yml` runs the Worker tests and `wrangler deploy` (secrets
   `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) and pushes any `WORKER_<NAME>` repository secret to the Worker, so a key
   can be rotated from a phone. Without the secrets both jobs stop with a notice; the Mac's hourly upload stays the fallback.
+- **The host's cache (probe 2026-09-06):** atlasglinn.com answers through GoDaddy's Cloudflare CDN (`server: cloudflare`; the
+  nameservers are GoDaddy's `ns15/ns16.domaincontrol.com`, the A record GoDaddy's `160.153.0.38`, so it is not Brockmann's
+  Cloudflare account) and marks the static pages `cache-control: public, max-age=2678400` (31 days). The plain address keeps
+  serving the copy an edge cached first: on 2026-09-06 `/mastsolutions.html` was the previous day's build (`age` 77357 s,
+  `cf-cache-status: HIT`) while `?x=<ts>` fetched the build uploaded twenty minutes earlier, and two runners saw two different
+  copies of `/index.html`. **An upload is live only after Flush Cache** in the site's GoDaddy dashboard (Managed WordPress →
+  Manage; the same button sits in wp-admin's top bar). `wp-upload.sh` prints the plain and the cache-busted Last-Modified after
+  every upload and says so when they differ; the capture probe (`_probe.txt`) records both answers with their headers. A
+  cache-control override in the docroot `.htaccess` (WordPress's own file) is untested and is tried only with him.
 - **mastsolutions.com** has no site: it is a GoDaddy domain forward to atlasglinn.com, pointed at
   `https://atlasglinn.com/mastsolutions.html` (set 2026-09-05). It still carries DNS: Resend verifies it so the Worker can send as
   bookings@mastsolutions.com, beside the existing matthew@mastsolutions.com mail.

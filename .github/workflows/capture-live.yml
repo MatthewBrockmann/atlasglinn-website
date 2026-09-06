@@ -69,6 +69,23 @@ jobs:
               w="$(grep -c 'generator" content="WordPress' /tmp/p 2>/dev/null || true)"
               echo "$code  $u  title=[$t] wordpress_generator=$w"
             done
+            # Cache-busted copies with the host's caching headers, and the ping file the Mac's upload writes: tells a page
+            # the host's cache is holding from a page the upload never replaced (2026-09-06: /mastsolutions.html served a
+            # day-old build while /index.html was current).
+            ts="$(date +%s)"
+            echo "--- cache-busted (?v=$ts) with caching headers; gear-price / foot-site count the current builds' markers"
+            for u in https://atlasglinn.com/mastsolutions.html https://atlasglinn.com/index.html https://atlasglinn.com/about.html https://atlasglinn.com/mast-ping.txt; do
+              rm -f /tmp/p /tmp/h
+              code="$(curl -sS -L -A "$UA" --max-time 60 -D /tmp/h -o /tmp/p -w '%{http_code} %{content_type} %{size_download}' "$u?v=$ts" 2>/dev/null || echo 'ERR - -')"
+              hdr="$(grep -i -E '^(last-modified|etag|age|cache-control|x-cache|cf-cache-status|x-cacheable|x-served-by|server|via|x-varnish|x-hits|x-cache-hits):' /tmp/h 2>/dev/null | tr -d '\r' | tr '\n' ' ' | tr -s ' ' || true)"
+              g="$(grep -c 'gear-price' /tmp/p 2>/dev/null || true)"; f="$(grep -c 'foot site' /tmp/p 2>/dev/null || true)"
+              echo "$code  $u?v=  gear-price=$g foot-site=$f  [$hdr]"
+              case "$u" in *mast-ping.txt) echo "   mast-ping.txt body: $(head -c 120 /tmp/p 2>/dev/null | tr -d '\r\n')";; esac
+            done
+            echo "--- plain URL caching headers"
+            for u in https://atlasglinn.com/mastsolutions.html https://atlasglinn.com/index.html; do
+              curl -sS -L -A "$UA" --max-time 60 -o /dev/null -D - "$u" 2>/dev/null | grep -i -E '^(HTTP|last-modified|etag|age|cache-control|x-cache|cf-cache-status|x-cacheable|server|content-length|via):' | tr -d '\r' | tr '\n' ' ' | tr -s ' ' | sed "s|^|   $u  |"; echo
+            done
           } | tee out/_probe.txt
       - name: Commit to the handoff branch (sparse, blobless checkout; the branch carries large media)
         env:
@@ -88,6 +105,16 @@ jobs:
           cp ../out/* "$DEST"/
           git add -A "$DEST"
           if git diff --cached --quiet; then echo "live pages unchanged; nothing to commit"; exit 0; fi
-          git commit -q -m "Capture the live atlasglinn.com pages ($(date -u +%F %H:%M) UTC)"
-          git push -q origin "HEAD:$BRANCH"
+          git commit -q -m "Capture the live atlasglinn.com pages ($(date -u '+%F %H:%M') UTC)"
+          # The Mac's handoff commits to this branch too; if it lands first, put the capture on the new tip and retry.
+          for try in 1 2 3; do
+            git push -q origin "HEAD:$BRANCH" && break
+            echo "push rejected (try $try): $BRANCH moved meanwhile; re-basing the capture onto its new tip"
+            [ "$try" = 3 ] && exit 1
+            git fetch -q --depth 1 --filter=blob:none origin "$BRANCH"
+            git reset -q --mixed FETCH_HEAD
+            git add --ignore-removal "$DEST"
+            if git diff --cached --quiet; then echo "nothing left to commit after the move"; exit 0; fi
+            git commit -q -m "Capture the live atlasglinn.com pages ($(date -u '+%F %H:%M') UTC)"
+          done
           echo "pushed $(git rev-parse --short HEAD) to $BRANCH: $DEST/"

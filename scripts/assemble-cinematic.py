@@ -378,7 +378,7 @@ SECTIONS = f"""
   </section>
 
   <section class="panel" id="s12" data-section="12">
-    <div>
+    <div id="gear">  <!-- named anchor: the Atlas site menu's Training links (IWA Training Products, Aimpoint Optics) open mastsolutions.html#gear -->
       <div class="eyebrow">Gear &middot; Aimpoint and IWA</div>
       <h2 class="section-h">Equipment. <span class="gold">By Quote.</span></h2>
       <p class="sub">Atlas Glinn is an authorized dealer for Aimpoint optics and IWA International training devices. Aimpoint prices are MAP, with dealer and volume pricing on request and free shipping over $500. IWA devices are priced each, three-unit minimum, hazmat shipping included; a PPC certification is required and every order is verified before fulfillment. Every item is quoted, not sold from a cart. Nothing is charged online.</p>
