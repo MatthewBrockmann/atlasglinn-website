@@ -1,9 +1,11 @@
-smoke 2026-09-06T18:35:56Z from main f1f0560 run 34052226506 (contact=true checkout=false)
+smoke 2026-09-06T19:32:12Z from main ef1059d run 34055192273 (contact=false checkout=false)
 --- health
-HTTP 200 184ms  GET /health
+HTTP 200 186ms  GET /health
 {"status":"MAST booking backend — ONLINE","version":"1.1.0"}
+   build: none (deployed before the build tag, or by hand)
+   CRM routes live: yes (GET /admin/crm → 401 without a key)
 --- catalog
-HTTP 200 118ms  GET /catalog
+HTTP 200 225ms  GET /catalog
    source=d1 classes=22
    MAST-HG-FUND     Handgun Fundamentals                         $225.00
    MAST-HG-LADIES   Ladies Only Handgun Fundamentals             $225.00
@@ -28,7 +30,7 @@ HTTP 200 118ms  GET /catalog
    MAST-MOTOR-P2    Motorcade P2                                 $0.00
    MAST-GEAR        Gear & Kit Considerations                    $750.00
 --- weekends
-HTTP 200 158ms  GET /weekends
+HTTP 200 155ms  GET /weekends
    weekends=15 first=2026-09-26 last=2027-04-24 statuses=['available', 'blocked']
 --- CORS preflight (Origin https://atlasglinn.com → POST /create-booking)
    HTTP/2 204 
@@ -37,11 +39,10 @@ HTTP 200 158ms  GET /weekends
    access-control-allow-methods: GET, POST, OPTIONS
    access-control-max-age: 86400
 --- accounts (GET /account/me without a token: 503 accounts_off = ACCOUNT_SECRET not set; 401 = accounts on)
-HTTP 401 56ms  GET /account/me
+HTTP 401 51ms  GET /account/me
 {"error":"Please sign in again.","code":"unauthorized"}
---- contact (one labelled test message; the Worker emails NOTIFY_EMAIL through Resend)
-HTTP 200 189ms  POST /contact
-{"ok":true}
+--- CRM summary: skipped (no ADMIN_KEY repository secret; add it under Settings → Secrets → Actions to see counts, revenue and the funnel here)
+--- contact: skipped (input contact=false)
 --- checkout: skipped (input checkout=false)
 --- mail DNS (mastsolutions.com), asked at ns27.domaincontrol.com. (authoritative)
    TXT mastsolutions.com [auth]: "v=spf1 include:spf.protection.outlook.com -all"|"google-site-verification=u-Y9TwJZ9LUJCX-j3oLdUMC5xBwNu7ju2gBa4TGjPug"
