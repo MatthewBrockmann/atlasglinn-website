@@ -37,7 +37,8 @@ The old Worker is left untouched — it still serves SafeGuard.
 
 | Method | Path | Purpose |
 |---|---|---|
-| `GET` | `/health` | Liveness check; `build` = the commit the running deploy was made from (`wrangler deploy --var BUILD:<sha>`, set by `scripts/wp-upload.sh` and `deploy-worker.yml`; `null` after a plain `wrangler deploy`), `crm: true` since the CRM build |
+| `GET` | `/health` | Liveness check; `build` = the commit the running deploy was made from (`wrangler deploy --var BUILD:<sha>`, set by `scripts/wp-upload.sh` and `deploy-worker.yml`; `null` after a plain `wrangler deploy`), `crm: true` since the CRM build, `directions` = `sealed` (the owner's range PDF decrypts on this Worker) · `secrets` (rendered from `RANGE_*`) · `none` · a `sealed-*` failure |
+| `GET` | `/directions-key` | The public half of the Worker's sealing key (RSA-OAEP, made on first use, private half only in D1). `node mast-backend/seal-directions.mjs <pdf> <this json>` turns the private range-directions PDF into `assets/range-directions.sealed.json` (ciphertext only, committed to main); the Worker fetches and decrypts it at send time. The plaintext PDF is never in git |
 | `GET` | `/catalog` | Classes and prices the server considers authoritative |
 | `GET` | `/weekends` | Training weekends the calendar may offer |
 | `POST` | `/register` | **The registration flow**: details → two eligibility questions → agreement → refund consent → Stripe Checkout |

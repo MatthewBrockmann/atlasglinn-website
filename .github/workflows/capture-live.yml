@@ -86,6 +86,9 @@ jobs:
             for u in https://atlasglinn.com/mastsolutions.html https://atlasglinn.com/index.html; do
               curl -sS -L -A "$UA" --max-time 60 -o /dev/null -D - "$u" 2>/dev/null | grep -i -E '^(HTTP|last-modified|etag|age|cache-control|x-cache|cf-cache-status|x-cacheable|server|content-length|via):' | tr -d '\r' | tr '\n' ' ' | tr -s ' ' | sed "s|^|   $u  |"; echo
             done
+            # The Google listing behind the review link (wrangler.toml REVIEW_URL): the Maps page for the CID names the business
+            # in its title, so a wrong id shows here as a wrong or empty title.
+            echo "--- google listing for the review link: cid 4511758973651106295 → title=[$(curl -sS -L -A "$UA" --max-time 40 'https://www.google.com/maps?cid=4511758973651106295' 2>/dev/null | grep -o '<title>[^<]*' | head -1 | sed 's/<title>//')]"
           } | tee out/_probe.txt
       - name: Commit to the handoff branch (sparse, blobless checkout; the branch carries large media)
         env:

@@ -560,6 +560,14 @@ def chrome(credits, wordmark, photos, hud_tl, hud_tl_href, hud_bl, hud_br, chapt
             % (credits[0], wordmark, credits[1], ph, hud_tl_href, hud_tl, n, hud_bl, hud_br, nav))
 
 
+# The Google listing (Atlas Glinn, LLC; MAST is its division). Feature id 0x8640c3cb2d0755df:0x3e9cfce1d8a7b9f7, CID
+# 4511758973651106295, read out of the Business Profile link Brockmann pasted 2026-09-06 ("add to email as click + link +
+# add to website"). "#lrd=<ftid>,3" opens the write-a-review dialog; the Maps CID URL is the listing itself (JSON-LD sameAs).
+GOOGLE_REVIEW_URL = 'https://www.google.com/search?q=Atlas+Glinn&ludocid=4511758973651106295#lrd=0x8640c3cb2d0755df:0x3e9cfce1d8a7b9f7,3'
+GOOGLE_MAPS_URL = 'https://maps.google.com/?cid=4511758973651106295'
+REVIEW_LINK = f'<a href="{GOOGLE_REVIEW_URL}" target="_blank" rel="noopener" data-track="review">Google Reviews</a>'
+
+
 def tile(num, title, body, img, pos='center', clip=''):
     """A chapter tile. With `clip` (Brockmann, 2026-09-06: "Medical vid is not in Medical class") the background is the
     muted, looping teaser with `img` as its poster; the shared .bg hover zoom applies to the video the same way."""
