@@ -247,6 +247,13 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   against the real branch: fetch 1 s / 3 MB, add + commit + identical-file no-op all pass; on the Mac it is wired, NOT
   confirmed firing until a drop is seen to land. The permanent road fix is the GitHub page upload: enter `WP_SFTP_USER`
   / `WP_SFTP_PASSWORD` exactly as the Keychain item holds them.
+  **Resumable upload (2026-09-06, hotel Wi-Fi):** his log showed "Connection closed by remote host … Broken pipe" at
+  file 90 of the single sftp batch, and the next hour started again from file 1, so the pages (first in the list) always
+  landed and the assets at the end never did. `wp-upload.sh` now lists the host's sizes (`ls -ln` per directory), sends
+  only files missing or of another size (pages always), in batches of ten files, each its own sftp session with three
+  tries and keepalives, then lists again and prints what is still not there. A run that dies costs one batch; the next
+  run resumes. The GitHub-Actions upload (`deploy-page.yml`) carries its own copy of the single batch; a runner's
+  connection is steady, so it keeps it.
 - **Cloud (the hourly check-in):** `python3 scripts/photo-intake.py` imports what is new on the handoff ref into
   `images/mast/gallery/` (gNN) or `images/mast/range/` (aNN), appends to `images/mast/<kind>/tiles.txt` and records the
   source in `intake.json`; then `python3 scripts/assemble-cinematic.py`, commit, PR. The assembler reads the two `tiles.txt`
