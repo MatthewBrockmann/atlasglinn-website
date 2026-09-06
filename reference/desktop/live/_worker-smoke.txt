@@ -1,9 +1,9 @@
-smoke 2026-09-06T18:12:23Z from claude/mastsolutions-fable-commands-741295 4d57f00 run 34050965907 (contact=true checkout=false)
+smoke 2026-09-06T18:15:15Z from claude/mastsolutions-fable-commands-741295 fac0b9e run 34051115761 (contact=true checkout=false)
 --- health
-HTTP 200 110ms  GET /health
+HTTP 200 158ms  GET /health
 {"status":"MAST booking backend — ONLINE","version":"1.1.0"}
 --- catalog
-HTTP 200 106ms  GET /catalog
+HTTP 200 101ms  GET /catalog
    source=d1 classes=22
    MAST-HG-FUND     Handgun Fundamentals                         $225.00
    MAST-HG-LADIES   Ladies Only Handgun Fundamentals             $225.00
@@ -28,7 +28,7 @@ HTTP 200 106ms  GET /catalog
    MAST-MOTOR-P2    Motorcade P2                                 $0.00
    MAST-GEAR        Gear & Kit Considerations                    $750.00
 --- weekends
-HTTP 200 156ms  GET /weekends
+HTTP 200 89ms  GET /weekends
    weekends=15 first=2026-09-26 last=2027-04-24 statuses=['available', 'blocked']
 --- CORS preflight (Origin https://atlasglinn.com → POST /create-booking)
    HTTP/2 204 
@@ -37,20 +37,21 @@ HTTP 200 156ms  GET /weekends
    access-control-allow-methods: GET, POST, OPTIONS
    access-control-max-age: 86400
 --- accounts (GET /account/me without a token: 503 accounts_off = ACCOUNT_SECRET not set; 401 = accounts on)
-HTTP 401 120ms  GET /account/me
+HTTP 401 104ms  GET /account/me
 {"error":"Please sign in again.","code":"unauthorized"}
 --- contact (one labelled test message; the Worker emails NOTIFY_EMAIL through Resend)
-HTTP 502 193ms  POST /contact
+HTTP 502 161ms  POST /contact
 {"error":"We could not send your message. Please call (281) 654-8100.","upstream":"resend_422"}
 --- checkout: skipped (input checkout=false)
 --- mail DNS (mastsolutions.com), asked at ns27.domaincontrol.com. (authoritative)
-   TXT mastsolutions.com: "google-site-verification=u-Y9TwJZ9LUJCX-j3oLdUMC5xBwNu7ju2gBa4TGjPug"
-   MX mastsolutions.com: 0 mastsolutions-com.mail.protection.outlook.com.
-   TXT send.mastsolutions.com: "v=spf1 include:amazonses.com ~all"|"v=spf1 include:dc-fd741b8612._spfm.send.mastsolutions.com ~all"
-   MX send.mastsolutions.com: 10 feedback-smtp.us-east-1.amazonses.com.
-   TXT _dmarc.mastsolutions.com: "v=DMARC1; p=none;"
-   TXT resend._domainkey.mastsolutions.com: "p=MIGf…"
-   CNAME selector1._domainkey.mastsolutions.com: 
-   CNAME selector2._domainkey.mastsolutions.com: 
-   CNAME autodiscover.mastsolutions.com: autodiscover.outlook.com.
+   TXT mastsolutions.com [auth]: "google-site-verification=u-Y9TwJZ9LUJCX-j3oLdUMC5xBwNu7ju2gBa4TGjPug"
+   MX mastsolutions.com [auth]: 0 mastsolutions-com.mail.protection.outlook.com.
+   TXT send.mastsolutions.com [auth]: "v=spf1 include:amazonses.com ~all"|"v=spf1 include:dc-fd741b8612._spfm.send.mastsolutions.com ~all"
+   MX send.mastsolutions.com [auth]: 10 feedback-smtp.us-east-1.amazonses.com.
+   TXT _dmarc.mastsolutions.com [auth]: "v=DMARC1; p=none;"
+   TXT resend._domainkey.mastsolutions.com [auth]: "p=MIGf…"
+   CNAME selector1._domainkey.mastsolutions.com [fallback]: 
+   CNAME selector2._domainkey.mastsolutions.com [fallback]: 
+   CNAME autodiscover.mastsolutions.com [auth]: autodiscover.outlook.com.
+   (wrong-domain check) TXT mastsolutionssearch.com: "v=spf1 include:spf.protection.outlook.com -all"|
    (no v=spf1 … include:spf.protection.outlook.com on the apex TXT = Microsoft 365 mail from @mastsolutions.com is unauthenticated; two v=spf1 rows on send. = SPF permerror for Resend's envelope)
