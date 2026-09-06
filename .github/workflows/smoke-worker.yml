@@ -77,10 +77,17 @@ jobs:
               echo "--- checkout (one unpaid Stripe Checkout Session for $sku; nothing is charged)"
               req POST /create-booking "{\"sku\":\"$sku\",\"qty\":1,\"customer_email\":\"atlasglinn.hq@atlasglinn.com\",\"customer_name\":\"SMOKE TEST - ignore\",\"notes\":\"GitHub Actions smoke test run $GITHUB_RUN_ID; not a real booking\"}"
             else echo "--- checkout: skipped (input checkout=false)"; fi
-            echo "--- mail DNS (mastsolutions.com), resolver 1.1.1.1"
-            for q in "TXT mastsolutions.com" "MX mastsolutions.com" "TXT send.mastsolutions.com" "MX send.mastsolutions.com" "TXT _dmarc.mastsolutions.com" "CNAME selector1._domainkey.mastsolutions.com" "CNAME selector2._domainkey.mastsolutions.com" "CNAME autodiscover.mastsolutions.com"; do
-              set -- $q; echo "   $1 $2: $(dig +short "$1" "$2" @1.1.1.1 | sed -E 's/re_[A-Za-z0-9_]+/re_[redacted]/g' | tr '\n' '|')"
+            # Asked at the zone's own nameserver (ns27.domaincontrol.com), so a row added a minute ago shows without waiting
+            # for the hour-long TTL to run out at public resolvers; 1.1.1.1 is the fallback.
+            NS1="$(dig +short NS mastsolutions.com @1.1.1.1 | head -1)"; NS1="${NS1:-ns27.domaincontrol.com}"
+            echo "--- mail DNS (mastsolutions.com), asked at $NS1 (authoritative)"
+            for q in "TXT mastsolutions.com" "MX mastsolutions.com" "TXT send.mastsolutions.com" "MX send.mastsolutions.com" "TXT _dmarc.mastsolutions.com" "TXT resend._domainkey.mastsolutions.com" "CNAME selector1._domainkey.mastsolutions.com" "CNAME selector2._domainkey.mastsolutions.com" "CNAME autodiscover.mastsolutions.com"; do
+              set -- $q; src=auth; v="$(dig +short +time=5 +tries=1 "$1" "$2" "@$NS1" 2>/dev/null || true)"
+              if [ -z "$v" ] && ! dig +time=5 +tries=1 "$1" "$2" "@$NS1" 2>/dev/null | grep -q 'status: NOERROR'; then src=fallback; v="$(dig +short "$1" "$2" @1.1.1.1 2>/dev/null || true)"; fi
+              echo "   $1 $2 [$src]: $(printf '%s' "$v" | sed -E 's/re_[A-Za-z0-9_]+/re_[redacted]/g; s/(p=MIGf)[A-Za-z0-9+\/=]{20,}/\1…/' | tr '\n' '|')"
             done
+            # The owner's GoDaddy list also holds mastsolutionssearch.com; a row that lands there by mistake shows here.
+            echo "   (wrong-domain check) TXT mastsolutionssearch.com: $(dig +short TXT mastsolutionssearch.com @ns39.domaincontrol.com 2>/dev/null | tr '\n' '|')"
             echo "   (no v=spf1 … include:spf.protection.outlook.com on the apex TXT = Microsoft 365 mail from @mastsolutions.com is unauthenticated; two v=spf1 rows on send. = SPF permerror for Resend's envelope)"
           } | tee out/_worker-smoke.txt
           { echo '```'; cat out/_worker-smoke.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

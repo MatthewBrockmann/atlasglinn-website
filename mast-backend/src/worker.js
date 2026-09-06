@@ -988,8 +988,7 @@ async function handleContact(request, env, cors) {
     console.error('[Contact] send failed:', e.message);
     // The upstream status alone (never Resend's detail) rides along, so the runner smoke test can tell an API-key problem
     // (resend_401) from an unverified sending domain (resend_403) without the Cloudflare log (owner on the road, 2026-09-06).
-    const m = /^Resend (\d{3})/.exec(e.message || '');
-    return json({ error: 'We could not send your message. Please call (281) 654-8100.', upstream: m ? 'resend_' + m[1] : 'send_failed' }, 502, cors);
+    return json({ error: 'We could not send your message. Please call (281) 654-8100.', upstream: upstreamHint(e) }, 502, cors);
   }
   console.log('[Contact] Sent:', kind, email);
   return json({ ok: true }, 200, cors);
@@ -1361,6 +1360,23 @@ async function notify(env, r, stored) {
 // Every email the Worker sends is blind-copied to the owner (owner, 2026-09-05: "all emails to office + BCC matthew@atlasglinn,
 // matthew@mastsolutions"); BCC_ALWAYS on the Worker overrides the list. Addresses already in `to` are not copied twice.
 const BCC_DEFAULT = 'matthew@atlasglinn.com, matthew@mastsolutions.com';
+// "resend_422:validation_error field=to": the status, Resend's error name and the field its message names — never the
+// message itself or an address — so the runner smoke test can say which value on the Worker is malformed (2026-09-06:
+// /contact answered 502 with Resend 422 while the key and the domain checked out).
+function upstreamHint(e) {
+  const msg = String((e && e.message) || '');
+  const m = /^Resend (\d{3}):\s*([\s\S]*)$/.exec(msg);
+  if (!m) return 'send_failed';
+  let hint = 'resend_' + m[1];
+  try {
+    const d = JSON.parse(m[2]);
+    if (d && d.name) hint += ':' + String(d.name).replace(/[^a-z_]/gi, '').slice(0, 40);
+    const f = /`([a-z_]+)`\s*field|field\s*`([a-z_]+)`|Missing `([a-z_]+)`/i.exec(String(d && d.message || ''));
+    if (f) hint += ' field=' + (f[1] || f[2] || f[3]);
+  } catch (_) { /* not JSON: status alone */ }
+  return hint;
+}
+
 async function sendEmail(env, { to, subject, text, reply_to, attachments, bcc: copy = true }) {
   const toList = Array.isArray(to) ? to : list(to);
   // bcc:false is for one-time codes (email verification, password reset): those are the student's alone.
