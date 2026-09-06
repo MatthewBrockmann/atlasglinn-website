@@ -17,10 +17,17 @@ is a redirect stub for the preview links that were shared.
 Aimpoint optics and IWA International devices from his IWA inventory report are listed in `GEAR` in `mastsolutions-tesla.html`
 and lifted into chapter 12 of the MAST page. They are **quote requests through the existing Request dialog** (`request_type:
 'gear'` to the Worker's `/contact`), never a Stripe checkout: card networks bar weapons accessories and energetic devices from
-ordinary checkout and a listing there would put the class bookings' Stripe account at risk, and IWA devices are law enforcement /
-military / licensed-agency only (the dialog requires the agency; the office verifies before quoting). The report's costs are
-dealer costs, not prices; no price is shown until he gives retail. Add products to `GEAR`; the `.gear-card` hover is the shared
-one in `cinematic_shell.py`.
+ordinary checkout and a listing there would put the class bookings' Stripe account at risk. **Prices (Brockmann, 2026-09-06:
+"look at mem - md + brain = has pricing + add to mastsolutions too"):** `GEAR_PRICE_TABLE()` in `mastsolutions-tesla.html`
+carries them. Aimpoint = the MAP prices the live `atlasglinn.com/aimpoint-shop/` page embeds for the same 31 SKUs (Minimum
+Advertised Price; dealer and volume pricing on request; the dealer costs in his IWA inventory report are never shown). IWA =
+the shop prices in the brain vault, `04-resources/agent-memory/project_iwa_product_specs.md` (each; 3-unit minimum, 27 per
+box, hazmat shipping included as a dealer). The vault also holds his standing correction (`feedback_iwa_civilian_legal.md`):
+IWA training devices are **civilian-legal**, a PPC certification is what the order needs, not an agency; the dialog's required
+field for devices is "agency, organization or PPC certificate number" and the office verifies before fulfilment. Quote
+requests stay the mechanism on this page (the class account's Stripe must not touch energetic devices); a cart for them would
+need its own merchant account, his call. Add products to `GEAR` and their price to the table; the `.gear-card` hover is the
+shared one in `cinematic_shell.py`.
 
 ## Atlas Glinn pages (decided by Brockmann 2026-09-03: "SAME front end", mobile first)
 

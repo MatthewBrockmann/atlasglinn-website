@@ -424,5 +424,14 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
   mac-autopilot.sh and wp-upload.sh; the hourly agent fetches mac-autopilot.sh from raw main each run (`hourly`); the
   handoff agent moves to the private clone; `shrink-films.yml` re-encodes films over 10 MB on a runner. The permanent
   road fix stays the GitHub page upload, blocked only on the two SFTP secrets matching the Keychain item.
+  **~04:20 UTC, gear prices** (his "look at mem - md + brain = has pricing + add to mastsolutions too"): the MAST Gear
+  chapter now shows a price on every card. Aimpoint: MAP for all 31 SKUs, read from the script the live
+  atlasglinn.com/aimpoint-shop/ page embeds (the 2026 COM Pricelist's dealer costs stay private); IWA: the nine shop
+  prices from the brain vault ($49.99 M11-4B, $59.99 M11-7B, $42.99 M12, $48.99 M13, $38.99 M14, $55.50 M15, $69.99
+  PA-85, $89.99 TH-14, $46.99 IDC). The vault's standing correction that IWA devices are civilian-legal (PPC
+  certification, not an agency) replaces the "agencies only" wording; quote requests remain the mechanism. His answer on
+  DNS was a question ("what action?"): the two GoDaddy rows were spelled out in the reply (add TXT @ SPF for Microsoft
+  365; delete the dc-…_spfm SPF on `send`). Renobato: no photograph (PR #41). Films: disaster-hero.mp4 re-encoded to
+  3.7 MB by shrink-films.yml (ff9622a); the Mac's install paste was issued at ~04:05 UTC, result not yet seen.
 - Docs to reconcile: `ARCHITECTURE.md` open-decisions table (prices are confirmed; range directions are text in
   the email, not a PDF), `mast-wp-theme/` is superseded by the static page + Worker + SFTP path.

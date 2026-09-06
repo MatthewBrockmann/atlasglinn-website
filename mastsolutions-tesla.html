@@ -134,6 +134,8 @@
         .gear-card .gear-sku { font-family: 'Share Tech Mono', monospace; font-size: .62rem; letter-spacing: .3em; color: #1A6BDE; margin-bottom: .5rem; }
         .gear-card h4 { font-family: 'Orbitron', sans-serif; font-weight: 600; font-size: .9rem; line-height: 1.35; color: #fff; margin-bottom: .35rem; }
         .gear-card .gear-fam { font-size: .82rem; color: #8B98AD; }
+        .gear-card .gear-price { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.05rem; color: #C9A84C; margin-top: .55rem; line-height: 1; }
+        .gear-card .gear-price small { display: block; font-family: 'Share Tech Mono', monospace; font-size: .56rem; letter-spacing: .2em; text-transform: uppercase; color: #8B98AD; margin-top: .3rem; font-weight: 400; }
         .gear-card .cta-button { display: inline-block; margin-top: .9rem; padding: .55rem 1rem; font-size: .68rem; letter-spacing: .18em; }
         .gear-card.device { border-color: rgba(201,168,76,.28); }
         .gear-card.device .gear-sku { color: #C9A84C; }
@@ -498,9 +500,9 @@
     <div class="inner">
         <div class="eyebrow">Gear &middot; Aimpoint and IWA</div>
         <h2 class="h-big">Equipment. <span class="gold-shimmer">By Quote.</span></h2>
-        <p class="h-line">Atlas Glinn is an authorized dealer for Aimpoint optics and IWA International devices. Every item below is quoted, not sold from a cart: Aimpoint optics ship to verified customers at dealer pricing on request; IWA devices go to law enforcement, military and licensed agencies only, and agency verification comes before any quote. Nothing is charged online.</p>
+        <p class="h-line">Atlas Glinn is an authorized dealer for Aimpoint optics and IWA International training devices. Aimpoint prices are MAP, with dealer and volume pricing on request and free shipping over $500. IWA devices are priced each, three-unit minimum, hazmat shipping included; a PPC certification is required and every order is verified before fulfillment. Every item is quoted, not sold from a cart. Nothing is charged online.</p>
         <div class="gear-panel" id="gear-panel"></div>
-        <p class="h-line" style="font-size:.9rem;margin-top:1.6rem;">Special order. Tell us the item and quantity; we confirm availability, price, hazmat and shipping by email within one business day.</p>
+        <p class="h-line" style="font-size:.9rem;margin-top:1.6rem;">Tell us the item and quantity; we confirm availability and shipping by email within one business day.</p>
     </div>
 </section>
 
@@ -633,7 +635,7 @@
     <label>Name<input id="req-name" type="text" autocomplete="name" required></label>
     <label>Email<input id="req-email" type="email" autocomplete="email" required></label>
     <label>Phone <span class="opt">(optional)</span><input id="req-phone" type="tel" autocomplete="tel"></label>
-    <label id="req-org-wrap" hidden>Agency or organization <span class="opt">(required for IWA devices)</span><input id="req-org" type="text" autocomplete="organization"></label>
+    <label id="req-org-wrap" hidden>Agency, organization or PPC certificate number <span class="opt">(required for IWA devices)</span><input id="req-org" type="text" autocomplete="organization"></label>
     <label id="req-qty-wrap" hidden>Quantity<input id="req-qty" type="number" min="1" max="999" value="1" inputmode="numeric"></label>
     <label>Anything we should know <span class="opt">(optional)</span><textarea id="req-msg" rows="3"></textarea></label>
     <input type="text" id="req-web" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;">
@@ -1028,19 +1030,35 @@ const GEAR = [
   ['IWA-M12', 'IWA', 'Distraction', 'M12 Distraction Device'], ['IWA-M11-4B', 'IWA', 'Distraction', 'M11-4B Multibang Device'], ['IWA-M11-7B', 'IWA', 'Distraction', 'M11-7B Multibang Device'],
   ['IWA-M14', 'IWA', 'Smoke', 'M14 Smoke Deployment Device'], ['IWA-M15', 'IWA', 'Smoke', 'M15 Large Smoke Grenade'], ['IWA-PA85', 'IWA', 'Chemical', 'PA-85 Pepper PAVA Grenade'],
   ['IWA-IDC', 'IWA', 'Breaching', 'Electric Indirect Door Charge'], ['IWA-M13', 'IWA', 'Specialty', 'M13 Thermobaric Device'], ['IWA-TH14', 'IWA', 'Specialty', 'TH-14 Thermite Device'],
-].map(([sku, brand, fam, name]) => ({ sku, brand, fam, name, device: brand === 'IWA' }));
-const GEAR_BRANDS = { Aimpoint: 'Optics · dealer pricing on request · ships to verified customers', IWA: 'IWA International · law enforcement, military and licensed agencies only' };
+].map(([sku, brand, fam, name]) => ({ sku, brand, fam, name, device: brand === 'IWA', price: GEAR_PRICE_TABLE()[sku] || '' }));   // the table is a hoisted function so it can sit below, next to its note
+// Prices (owner, 2026-09-06: "brain = has pricing + add to mastsolutions too"). Aimpoint: the MAP prices the live
+// atlasglinn.com/aimpoint-shop/ page shows for the same 31 SKUs (Minimum Advertised Price; dealer and volume pricing on
+// request). IWA: the shop prices recorded in the brain vault (agent-memory/project_iwa_product_specs.md), each, 3-unit
+// minimum, hazmat shipping included as a dealer. Still quote requests, never a cart (see CLAUDE.md, Gear chapter).
+function GEAR_PRICE_TABLE(){ return {
+  'AP-200691': '$617', 'AP-201006': '$627', 'AP-200777': '$669', 'AP-200871': '$669', 'AP-200907': '$778',
+  'AP-200500': '$1,218', 'AP-200660': '$1,009', 'AP-200386': '$1,218', 'AP-200350': '$1,080', 'AP-200320': '$1,009',
+  'AP-200198': '$1,108', 'AP-200170': '$986', 'AP-200180': '$951', 'AP-200804': '$1,027',
+  'AP-12841': '$512', 'AP-200374': '$512', 'AP-200977': '$479', 'AP-200759': '$514', 'AP-200985': '$599',
+  'AP-12172': '$1,092', 'AP-12308': '$1,009', 'AP-11972': '$1,092', 'AP-12309': '$1,009',
+  'AP-200272': '$1,074', 'AP-200340': '$1,487', 'AP-200271': '$1,024', 'AP-200334': '$1,529',
+  'AP-200273': '$362', 'AP-200342': '$868', 'AP-200857': '$449', 'AP-200887': '$896',
+  'IWA-M11-4B': '$49.99', 'IWA-M11-7B': '$59.99', 'IWA-M12': '$42.99', 'IWA-M13': '$48.99', 'IWA-M14': '$38.99',
+  'IWA-M15': '$55.50', 'IWA-PA85': '$69.99', 'IWA-TH14': '$89.99', 'IWA-IDC': '$46.99' }; }
+const GEAR_BRANDS = { Aimpoint: 'Optics · MAP pricing · free shipping over $500 · authorized dealer', IWA: 'IWA International · authorized dealer · PPC certification required · 3-unit minimum, 27 per box · hazmat shipping included' };
 function renderGear(){ const p = $('gear-panel'); if (!p) return; let html = '', brand = '';
   GEAR.forEach((g, i) => { if (g.brand !== brand) { brand = g.brand; html += '<div class="gear-brand"><h3>' + esc(brand) + '</h3><span>' + esc(GEAR_BRANDS[brand] || '') + '</span></div>'; }
-    html += '<div class="gear-card' + (g.device ? ' device' : '') + '"><div class="gear-sku">' + esc(g.sku) + '</div><h4>' + esc(g.name) + '</h4><div class="gear-fam">' + esc(g.brand + ' · ' + g.fam) + '</div><button class="cta-button" type="button" onclick="requestGear(' + i + ')">Request a quote</button></div>'; });
+    html += '<div class="gear-card' + (g.device ? ' device' : '') + '"><div class="gear-sku">' + esc(g.sku) + '</div><h4>' + esc(g.name) + '</h4><div class="gear-fam">' + esc(g.brand + ' · ' + g.fam) + '</div>'
+         + (g.price ? '<div class="gear-price">' + esc(g.price) + '<small>' + (g.device ? 'each · 3-unit minimum' : 'MAP · dealer pricing on request') + '</small></div>' : '')
+         + '<button class="cta-button" type="button" onclick="requestGear(' + i + ')">Request a quote</button></div>'; });
   p.innerHTML = html; }
 let reqKind = 'private';
 function openReqDialog(kind, title, meta, eyebrow, fine){ reqKind = kind; lastFocus = document.activeElement; $('req-eyebrow').textContent = eyebrow; $('req-title').textContent = title; $('req-meta').textContent = meta; $('req-fine').textContent = fine;
   $('req-org-wrap').hidden = kind !== 'gear'; $('req-qty-wrap').hidden = kind !== 'gear'; if ($('req-qty')) $('req-qty').value = 1; $('req-msg').value = ''; $('req-err').hidden = true;
   const b = $('req-go'); b.disabled = false; b.textContent = kind === 'gear' ? 'Request Quote' : 'Send Request'; $('req-bd').classList.add('open'); $('req').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('req-name').focus(), 60); }
-function requestGear(i){ reqIdx = i; const g = GEAR[i]; openReqDialog('gear', g.name, g.sku + ' · ' + g.brand + ' · ' + g.fam, 'Gear quote',
-  g.device ? 'IWA devices are quoted to law enforcement, military and licensed agencies only. We verify the agency before we answer, then confirm availability, price, hazmat and shipping by email within one business day. Nothing is charged online.'
-           : 'Special order at dealer pricing. We confirm availability, price and shipping by email within one business day. Nothing is charged online.'); }
+function requestGear(i){ reqIdx = i; const g = GEAR[i]; openReqDialog('gear', g.name, g.sku + ' · ' + g.brand + ' · ' + g.fam + (g.price ? ' · ' + g.price + (g.device ? ' each' : ' MAP') : ''), 'Gear quote',
+  g.device ? 'IWA training devices need a PPC certification; orders are verified before fulfillment. 3-unit minimum, 27 per box; hazmat shipping is included. We confirm availability and shipping by email within one business day. Nothing is charged online.'
+           : 'MAP price shown; dealer and volume pricing on request. We confirm availability and shipping by email within one business day. Nothing is charged online.'); }
 function requestPrivate(i){ reqIdx = i; const c = COURSES[i]; openReqDialog('private', c.name, c.meta ? c.meta.replace(/ · /g, ' · ') : '', 'Private instruction',
   'We reply within one business day. Private sessions are by arrangement, not on the weekend calendar. The fee is instruction only: ammunition, range fees and gear are not included.'); }
 renderGear();   // here, not at the foot of the script: the MAST assembler keeps the script only up to its reveal observer
@@ -1049,10 +1067,10 @@ async function reqGo(){ const gear = reqKind === 'gear'; const c = gear ? GEAR[r
   const org = gear ? $('req-org').value.trim() : '', qty = gear ? Math.max(1, Math.min(999, parseInt($('req-qty').value, 10) || 1)) : 0;
   if (name.length < 2) { err.textContent = 'Enter your name.'; err.hidden = false; $('req-name').focus(); return; }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Enter a valid email address.'; err.hidden = false; $('req-email').focus(); return; }
-  if (gear && c.device && org.length < 2) { err.textContent = 'IWA devices are quoted to agencies only. Enter your agency or organization.'; err.hidden = false; $('req-org').focus(); return; }
+  if (gear && c.device && org.length < 2) { err.textContent = 'IWA devices need your agency, organization or PPC certificate number.'; err.hidden = false; $('req-org').focus(); return; }
   err.hidden = true; b.disabled = true; b.textContent = 'Sending…';
   const message = gear
-    ? 'Gear quote request — ' + c.sku + ' ' + c.name + ' (' + c.brand + ' · ' + c.fam + ') × ' + qty + (org ? '\nAgency / organization: ' + org : '') + (note ? '\n\n' + note : '')
+    ? 'Gear quote request — ' + c.sku + ' ' + c.name + ' (' + c.brand + ' · ' + c.fam + ') × ' + qty + (c.price ? ' @ ' + c.price + (c.device ? ' each' : ' MAP') : '') + (org ? '\nAgency / organization / PPC: ' + org : '') + (note ? '\n\n' + note : '')
     : 'Private instruction request — ' + c.name + (c.meta ? ' (' + c.meta + ')' : '') + (note ? '\n\n' + note : '');
   try { const r = await fetch(API + '/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'contact', request_type: reqKind, company: org, name, email, phone, message, website: $('req-web').value, page: location.href.split('#')[0] }) });
     const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'Could not send the request.');
