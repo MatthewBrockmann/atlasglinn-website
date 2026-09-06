@@ -58,7 +58,7 @@ FOUNDER_CROP  = 'background-size:auto 124%;background-position:60% 32%'   # subj
 FOUNDER_ALT   = 'images/team/brockmann.jpg'
 CLINE         = A + 'Cline-Bio-Pic-1024x819.jpg'
 GLOVER        = A + 'anthony-glover.png'                             # live About page, theme folder (capture-live, 2026-09-05)
-CAREERS_HERO  = A + 'IMG_0396-e1742749164806.jpg'
+CAREERS_HERO  = A + 'IMG_0398.jpg'                                   # the live Careers page's photograph (theme gallery; capture-live 2026-09-06); IMG_0396 was the April build's
 AI_SURV       = A + 'AI-surveillance-1.png'                          # technology Deep Sentinel section
 AERO          = A + 'AeroDefense-Partner-Atlas-Glinn.jpeg'
 UAS_IMG       = A + 'Technology-UAS-1.png'
@@ -77,6 +77,7 @@ FILM_TECH     = 'images/film/technology-hero.mp4'          # live technology and
 FILM_CONTACT  = 'images/film/corporate-buildings.mp4'      # live contact hero
 FILM_RESI     = 'images/film/residential-hero.mp4'         # live residential hero (capture-live, 2026-09-06)
 FILM_TRAIN    = 'images/film/training-hero.mp4'            # live training hero (capture-live, 2026-09-06)
+FILM_DISASTER = 'images/film/disaster-hero.mp4'            # live disaster hero (capture-live, 2026-09-06; 44 MB as the live site serves it — a Mac session with ffmpeg can shrink it)
 CLIP_TEAM     = 'images/film/careers-gallery.mp4'          # About "Atlas Glinn Team" clip
 CLIP_FORGE    = 'images/film/forge-legend-mast.mp4'        # About "MAST Solutions — Forge & Legend" clip
 # Pages whose current hero is a YouTube film keep that film as the first card of chapter 2.
@@ -606,7 +607,7 @@ build('disaster-recovery.html',
     ('Contact', contact_chapter(5, 'Don&rsquo;t Wait for the Storm', f'Plan {blue("Before.")}', 'Proactive planning saves assets and lives. Contact us to develop a disaster recovery plan before you need one.',
         cta('contact.html', 'Contact Us') + cta2('residential-protection.html', 'Residential Protection &rarr;'))),
     ('Reviews', reviews_chapter(6)),
-], photos=[yt_bg(YT_DISASTER), (PROTECTION, None), (PROTECTION, None), ('images/disaster-hurricane.jpg', None), ('images/disaster-lightning.jpg', None), ('images/disaster-commercial.jpg', None)],
+], photos=[('images/disaster-hurricane.jpg', None, FILM_DISASTER), (PROTECTION, None), (PROTECTION, None), ('images/disaster-hurricane.jpg', None), ('images/disaster-lightning.jpg', None), ('images/disaster-commercial.jpg', None)],
       jsonld=jsonld_service('Disaster Recovery and Asset Protection', 'Immediate deployment, asset safeguarding and recovery assistance for hurricanes, flooding, fire, industrial incidents and power grid failures.', 'disaster-recovery.html'))
 
 # ═══════════════════════════ training.html ═══════════════════════════
