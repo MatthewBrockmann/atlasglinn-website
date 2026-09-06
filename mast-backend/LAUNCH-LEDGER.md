@@ -410,5 +410,8 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
   the role as the message), the legal cards. Two live details carried verbatim that he may want to check: the Legal
   chapter's "atlas.hq@atlasglinn.com" (the rest of the site says atlasglinn.hq@) and the "Watch the Trailer / Brand
   Film" buttons, left out because the capture found no film file behind them.
+  **~01:50 UTC, his answers:** "MAST portrait" (About shows images/team/brockmann.jpg again; matt-ceo-2026.jpg unused),
+  the Atlas EP prices are current ($19.99 / $49.99 / $149.99 / $199.99 / $5,000+; the home plan now names the ep-app
+  tiers, and its Explore button goes to ep-app.html), and atlasglinn.hq@ everywhere (the ep-app legal line corrected).
 - Docs to reconcile: `ARCHITECTURE.md` open-decisions table (prices are confirmed; range directions are text in
   the email, not a PDF), `mast-wp-theme/` is superseded by the static page + Worker + SFTP path.

@@ -55,7 +55,11 @@ notify-me catalogs with no checkout. Re-run the capture before any further conte
 on `capture-live.yml`, then `git fetch origin claude/desktop-assets` and read `reference/desktop/live/`.
 **Brockmann, 2026-09-06: "Add all content as in the old version - just updating the front end to brand match
 MASTsolutions."** So: every word, link, form field, footer entry and film of the live page is carried; only the shell
-changes. `build()` appends the live footer (`FOOT_SITE`: four link groups, badges, rights line) to every page's last
+changes. Three live-site inconsistencies he settled the same day: the About portrait is the **MAST portrait**
+(`images/team/brockmann.jpg`; the live page's `matt-ceo-2026.jpg` stays unused as `FOUNDER_LIVE`), the current Atlas EP
+prices are the ep-app page's (**$19.99 / $49.99 / $149.99 / $199.99 / $5,000+**; the home "Choose Your Plan" names those
+six tiers), and the contact address everywhere is **atlasglinn.hq@** (the live ep-app page's `atlas.hq@` was a slip).
+`build()` appends the live footer (`FOOT_SITE`: four link groups, badges, rights line) to every page's last
 chapter; the contact form is the live field set (the page script joins first/last name and checks the confirm email);
 residential and training open on the live hero films. The two deliberate departures: "over 30 years" reads "decades"
 (his 2026-09-05 instruction) and the "two sitting U.S. Senators" line is not carried (his 2026-09-04 correction).
