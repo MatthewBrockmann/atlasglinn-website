@@ -381,9 +381,9 @@ SECTIONS = f"""
     <div>
       <div class="eyebrow">Gear &middot; Aimpoint and IWA</div>
       <h2 class="section-h">Equipment. <span class="gold">By Quote.</span></h2>
-      <p class="sub">Atlas Glinn is an authorized dealer for Aimpoint optics and IWA International devices. Every item below is quoted, not sold from a cart: Aimpoint optics ship to verified customers at dealer pricing on request; IWA devices go to law enforcement, military and licensed agencies only, and agency verification comes before any quote. Nothing is charged online.</p>
+      <p class="sub">Atlas Glinn is an authorized dealer for Aimpoint optics and IWA International training devices. Aimpoint prices are MAP, with dealer and volume pricing on request and free shipping over $500. IWA devices are priced each, three-unit minimum, hazmat shipping included; a PPC certification is required and every order is verified before fulfillment. Every item is quoted, not sold from a cart. Nothing is charged online.</p>
       <div class="gear-panel rise" id="gear-panel"></div>
-      <p class="gate-fine" style="max-width:820px;margin:1.6rem auto 0;">Special order. Tell us the item and quantity; we confirm availability, price, hazmat and shipping by email within one business day.</p>
+      <p class="gate-fine" style="max-width:820px;margin:1.6rem auto 0;">Tell us the item and quantity; we confirm availability and shipping by email within one business day.</p>
     </div>
   </section>
 
