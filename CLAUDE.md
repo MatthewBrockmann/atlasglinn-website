@@ -334,10 +334,12 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   <that json>` writes `mast-backend/assets/range-directions.sealed.json` (ciphertext only; the script refuses a PDF
   inside the repo; `.gitignore` blocks the plaintext), and the Worker fetches that file from main at send time,
   decrypts it and attaches it to the confirmation, the T−7 and the T−1 — preferred over the `RANGE_*` render. `/health`
-  says `directions: sealed | secrets | none | sealed-key-mismatch`. Sequence to finish (no paste): the key route is
-  live after the Mac's next hourly deploy → run the smoke test → seal → merge → the Worker picks the file up within
-  the hour (no deploy). A new PDF = he hands it to a session, the session re-seals and merges. **Do not ask him for
-  the PDF again**; if the upload is gone, the sealed file on main is the copy the Worker uses.
+  says `directions: sealed | secrets | none | sealed-key-mismatch`. **Done 2026-09-06 20:32 UTC:** the Mac's hourly job
+  deployed `0e9c9c2` (smoke 20:31: `build: 0e9c9c2`, `directions: secrets`, key `b9104a7374d4c1d9`), the PDF was
+  sealed to that key and merged in #57; the Worker picks the file up on its next fetch (memo 5 min on a miss, 1 h on
+  a hit). A new PDF = he hands it to a session, the session re-seals and merges. **Do not ask him for the PDF
+  again**; if the upload is gone, the sealed file on main is the copy the Worker uses (the Worker's D1 key opens it;
+  no one else can).
 - **Google review link (Brockmann, 2026-09-06: "add to email as click + link + add to website"):** derived from the
   Business Profile link he pasted (its `stick=` token decodes to feature id `0x8640c3cb2d0755df:0x3e9cfce1d8a7b9f7`,
   CID 4511758973651106295): `REVIEW_URL` in `wrangler.toml` (T+1 email), `GOOGLE_REVIEW_URL` / `REVIEW_LINK` in
@@ -358,8 +360,15 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   being written, avconvert failed, and nothing retried it. Now `mac-handoff.sh` waits for a stable size (up to 90 s),
   records avconvert's reason in SKIPPED.txt, tries `PresetLowQuality` last, and takes a lock (`$TMPDIR/atlasglinn-
   handoff.lock`); `mac-autopilot.sh hourly` runs a handoff pass over the drop folders after the page upload, so a
-  skipped clip lands within the hour with no paste (the hourly job fetches the script from main). Wired, NOT confirmed
-  firing until the clip is seen on the branch.
+  skipped clip lands within the hour with no paste (the hourly job fetches the script from main). **Confirmed firing
+  2026-09-06 20:23 UTC:** the hourly pass handed off `CQB-P3-web.mp4` (5.4 MB, compressed on the Mac) and cleared
+  SKIPPED.txt; photo-intake made it gallery tile g14 (#57). It has no poster: the container cannot make one (the
+  Playwright Chromium has no H.264, and `/opt/pw-browsers/ffmpeg-*/ffmpeg-linux` has no mp4 demuxer), and the Mac made
+  none because the top-level folder was not a drop dir and a compressed clip's poster carried the source stem
+  (`CQB-P3-poster.png`, never paired with `CQB-P3-web.mp4`). Fixed the same evening: `make_poster` names the poster
+  after the stored clip, makes it for clips already on the branch, and the top-level folder counts as a drop dir;
+  `photo-intake.py` pairs a poster that lands after its clip. The next hourly pass should bring `CQB-P3-web-poster.png`
+  and the next check-in pairs it with g14 (wired, not confirmed until seen).
 
 ## Reply format (Brockmann, 2026-09-05: "always bring back to bottom_ wire")
 

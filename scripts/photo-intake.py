@@ -74,8 +74,10 @@ def main(dry):
         sources = [(listing(f), None) for f in folders]
         if kind == 'gallery':
             sources.append((recent_drops(), set(listing(DROP_ROOT))))
+        known = set()
         for files, all_names in sources:
             names = all_names if all_names is not None else set(files)
+            known |= names
             for path in sorted(files):
                 base, ext = os.path.splitext(path)
                 ext = ext.lower()
@@ -95,6 +97,23 @@ def main(dry):
                     seen[path] = name
                     tiles.append(f'{os.path.basename(dest)}/{name}')
                 added.append((kind, path, name))
+        # A poster that lands after its clip was imported (the Mac made none for top-level drops before 2026-09-06, and
+        # a compressed clip's poster carried the wrong stem): pair it with the tile that already exists.
+        for path, name in list(seen.items()):
+            base, ext = os.path.splitext(path)
+            if ext.lower() not in CLIPS or base.endswith('-poster'):
+                continue
+            stem = os.path.splitext(name)[0]
+            if any(os.path.exists(os.path.join(ddir, stem + '-poster' + e)) for e in ('.png', '.jpg')):
+                continue
+            poster_src = next((p for p in (base + '-poster.png', base + '-poster.jpg', path + '.png') if p in known), None)
+            if not poster_src:
+                continue
+            pname = stem + '-poster' + os.path.splitext(poster_src)[1].lower()
+            if not dry:
+                open(os.path.join(ddir, pname), 'wb').write(git('show', f'{REF}:{poster_src}', binary=True))
+                seen[poster_src] = pname
+            added.append((kind, poster_src, pname))
         if not dry and any(a[0] == kind for a in added):
             if not head:
                 head = [f'# {kind}: one tile per line in display order (paths relative to images/mast/); photo-intake.py appends, a person reorders or removes.']
