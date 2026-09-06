@@ -186,7 +186,7 @@ fi
 # The host answers through Cloudflare and marks the static pages "cache-control: public, max-age=2678400" (31 days); the
 # plain address keeps serving whatever copy an edge cached first, long after an upload (probe 2026-09-06: the plain
 # /mastsolutions.html was a day-old build, age 77357 s, HIT, while ?x= fetched the new one). Say so, with the way out.
-hdrs() { curl -sL -A "wp-upload-check" -o /dev/null -D - "$1" 2>/dev/null | tr -d '\r' | awk -v k="$2" 'tolower($1)==k":" {sub(/^[^:]*: */,""); v=$0} END{print v}'; }   # last block: the final answer after any redirect
+hdrs() { curl -sL -A "wp-upload-check" -o /dev/null -D - "$1" 2>/dev/null | tr -d '\r' | awk -v k="$2" 'tolower($1)==k":" {sub(/^[^:]*: */,""); v=$0} END{print v}' || true; }   # last block: the final answer after any redirect; never fails under set -e
 NEW_LM="$(hdrs "https://atlasglinn.com/mastsolutions.html?x=$TS" last-modified)"
 PLAIN_LM="$(hdrs "https://atlasglinn.com/mastsolutions.html" last-modified)"
 PLAIN_CF="$(hdrs "https://atlasglinn.com/mastsolutions.html" cf-cache-status)"
