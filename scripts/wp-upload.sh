@@ -13,7 +13,9 @@
 # has no route to the host.
 #
 # Steps: 1) fetch REF into a detached worktree  2) list mastsolutions.html + every local file it and its linked
-# hand-authored pages reference  3) upload  4) confirm the live page is the new one (registration flow present).
+# hand-authored pages reference  3) list the host's sizes and upload only what is missing, in batches of ten with retries
+# (a dropped connection costs one batch; the next run resumes)  4) confirm the live page is the new one and say whether the
+# host's cache still serves the previous one.
 set -euo pipefail
 HOST="${WP_SFTP_HOST:-1127220.us12.ssh.myftpupload.com}"   # GoDaddy moved the site 2026-09-03; hp6.9a2 is the old host
 DOCROOT="${WP_DOCROOT:-html}"   # the SFTP login lands in the account home; WordPress (the web root) is its html/ folder.
@@ -78,7 +80,7 @@ fi
 for d in /opt/homebrew/bin /usr/local/bin "$HOME/.volta/bin" "$HOME"/.nvm/versions/node/*/bin; do [ -x "$d/npx" ] && PATH="$d:$PATH" && break; done; export PATH
 
 W="$(mktemp -d /tmp/wp-upload.XXXXXX)/wt"
-cleanup() { cd / ; git -C "$R" worktree remove --force "$W" >/dev/null 2>&1 || true; rm -f "${ASKPASS:-}" 2>/dev/null || true; }
+cleanup() { cd / ; git -C "$R" worktree remove --force "$W" >/dev/null 2>&1 || true; rm -f "${ASKPASS:-}" 2>/dev/null || true; [ -n "${TMPD:-}" ] && rm -rf "$TMPD" 2>/dev/null || true; }
 trap cleanup EXIT
 say "Fetching $REF"
 git -C "$R" fetch -q $FILTER origin "${REF#origin/}"
@@ -155,17 +157,78 @@ else
   [ -n "$SFTP_USER" ] || { echo "no username"; exit 1; }
 fi
 BATCH="$(mktemp /tmp/wp-upload-batch.XXXXXX)"
-{
-  echo "cd $DOCROOT"   # no leading dash: if the web root is not there the batch stops instead of filling the home directory
-  printf '%s\n' "$LIST" | xargs -I{} dirname {} | sort -u | grep -v '^\.$' | awk '{ n=split($0,a,"/"); p=""; for(i=1;i<=n;i++){ p=(p==""?a[i]:p"/"a[i]); print "-mkdir " p } }' | sort -u
-  printf '%s\n' "$LIST" | awk '{ print "put " $0 " " $0 }'
-  echo "put -P mast-ping.txt mast-ping.txt"
-} > "$BATCH"
+# Resumable upload (2026-09-06, hotel Wi-Fi: "Connection closed by remote host … Broken pipe" at file 90 of 120, and the
+# next hour started the whole batch from the first file again). The host's sizes are listed first; a file already there at
+# its local size is not sent again (pages are always sent: a regenerated page can keep its size). What remains goes in
+# batches of ten, each its own sftp session with three tries, so a dropped connection costs one batch and the next run
+# resumes with only what is missing. Keepalives hold a session through the slow transfers. stdin, not -b: -b switches on
+# BatchMode, which refuses the Keychain password.
+SFTP_OPTS="-o StrictHostKeyChecking=accept-new -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o ConnectTimeout=40"
+TMPD="$(mktemp -d /tmp/wp-upload-batches.XXXXXX)"
+sftp_run() { sftp $SFTP_OPTS "$SFTP_USER@$HOST" < "$1"; }
+remote_sizes() {   # "<size>TAB<path>" for every regular file in the directories the list touches (ls -ln: the client formats
+                   # the line and prefixes the directory; the echoed command line names the directory as a fallback)
+  { echo "cd $DOCROOT"; echo "-ls -ln"; printf '%s\n' "$LIST" | xargs -I{} dirname {} | sort -u | grep -v '^\.$' | sed 's/^/-ls -ln /' || true; } > "$TMPD/ls"
+  sftp_run "$TMPD/ls" 2>/dev/null | awk '/^sftp> *-?ls -ln/ { cur = ($NF ~ /^-ln$/) ? "" : $NF; next }
+    $1 ~ /^-/ && NF >= 9 { n = $9; for (i = 10; i <= NF; i++) n = n " " $i; if (cur != "" && index(n, "/") == 0) n = cur "/" n; print $5 "\t" n }' || true
+}
+compare() {   # $1 list  $2 remote sizes  $3 out: the files to send; prints the summary
+python3 - "$1" "$2" "$3" "${4:-send}" <<'PY'
+import os, sys
+lst = [l.strip() for l in open(sys.argv[1]) if l.strip()]
+remote = {}
+for line in open(sys.argv[2]):
+    if '\t' not in line: continue
+    size, name = line.rstrip('\n').split('\t', 1)
+    if size.isdigit(): remote[name.strip()] = int(size)
+if sys.argv[4] == 'send':
+    todo = [p for p in lst if p.endswith('.html') or remote.get(p) != os.path.getsize(p)]
+    open(sys.argv[3], 'w').write(''.join(p + '\n' for p in todo))
+    mb = sum(os.path.getsize(p) for p in todo) / 1048576
+    note = '' if remote else ' (the host listed nothing, so everything goes)'
+    print('   %d of %d files are already on the host at their size; sending %d (%.1f MB)%s' % (len(lst) - len(todo), len(lst), len(todo), mb, note))
+else:
+    if not remote: print('   could not list the host afterwards; the next run checks again'); sys.exit(0)
+    missing = [p for p in lst if remote.get(p) != os.path.getsize(p)]
+    open(sys.argv[3], 'w').write(''.join(p + '\n' for p in missing))
+    if missing: print('   NOT on the host at their size after this run (%d): %s%s' % (len(missing), ', '.join(missing[:6]), ' …' if len(missing) > 6 else ''))
+    else: print('   verified: all %d files are on the host at their size' % len(lst))
+PY
+}
+say "Comparing with the host"
+printf '%s\n' "$LIST" > "$TMPD/list"
+remote_sizes > "$TMPD/remote"
+compare "$TMPD/list" "$TMPD/remote" "$TMPD/todo"
+NEED="$(grep -c . "$TMPD/todo" || true)"
 echo "served by upload $(date -u +%FT%TZ)" > mast-ping.txt
-if [ -n "$ASKPASS" ]; then say "Uploading $COUNT files to $SFTP_USER@$HOST:$DOCROOT/ (password from the Keychain)"
-else say "Uploading $COUNT files to $SFTP_USER@$HOST:$DOCROOT/ (password prompt comes from sftp; typing is hidden)"; fi
-sftp -o StrictHostKeyChecking=accept-new "$SFTP_USER@$HOST" < "$BATCH"
-rm -f "$BATCH"; [ -n "$ASKPASS" ] && rm -f "$ASKPASS"
+if [ "$NEED" = 0 ]; then
+  say "Nothing to send: every file is on the host already"
+else
+  if [ -n "$ASKPASS" ]; then say "Uploading $NEED files to $SFTP_USER@$HOST:$DOCROOT/ in batches of 10 (password from the Keychain)"
+  else say "Uploading $NEED files to $SFTP_USER@$HOST:$DOCROOT/ in batches of 10 (password prompt comes from sftp; typing is hidden)"; fi
+  { echo "cd $DOCROOT"   # no leading dash: if the web root is not there the batch stops instead of filling the home directory
+    xargs -I{} dirname {} < "$TMPD/todo" | sort -u | grep -v '^\.$' | awk '{ n=split($0,a,"/"); p=""; for(i=1;i<=n;i++){ p=(p==""?a[i]:p"/"a[i]); print "-mkdir " p } }' | sort -u || true
+  } > "$TMPD/mk"
+  sftp_run "$TMPD/mk" >/dev/null 2>&1 || true
+  split -l 10 "$TMPD/todo" "$TMPD/part."
+  sent=0; failed=0
+  for part in "$TMPD"/part.*; do
+    n="$(grep -c . "$part" || true)"
+    { echo "cd $DOCROOT"; awk '{ print "put " $0 " " $0 }' "$part"; } > "$BATCH"
+    ok=0
+    for try in 1 2 3; do
+      if sftp_run "$BATCH" > "$TMPD/log" 2>&1; then ok=1; break; fi
+      echo "   batch of $n: connection lost on try $try ($(grep -v '^sftp>' "$TMPD/log" | tail -1 | cut -c1-80)); retrying in 8 s"; sleep 8
+    done
+    if [ "$ok" = 1 ]; then sent=$((sent + n)); echo "   $sent of $NEED sent (through $(tail -n 1 "$part"))"
+    else failed=$((failed + n)); echo "   batch of $n gave up after 3 tries; the next run resends what is missing"; fi
+  done
+  { echo "cd $DOCROOT"; echo "put -P mast-ping.txt mast-ping.txt"; } > "$BATCH"; sftp_run "$BATCH" >/dev/null 2>&1 || true
+  remote_sizes > "$TMPD/remote2"
+  compare "$TMPD/list" "$TMPD/remote2" "$TMPD/missing" verify
+  [ "$failed" = 0 ] || say "$failed files did not go up this run. Run the upload again (or let the hourly job): it resumes with only the missing files."
+fi
+rm -f "$BATCH"
 
 say "Checking the live site"
 sleep 2
