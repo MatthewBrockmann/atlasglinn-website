@@ -22,6 +22,10 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/MatthewBrockmann/atlasglinn-website/main/scripts/mac-handoff.sh | bash -s -- ~/Desktop/some-folder ~/Downloads/clip.mov
 #
+# Built for a poor connection (2026-09-06): the handoff branch is fetched without
+# its media (commits and trees only, one commit deep, about 3 MB) into a worktree
+# that materialises nothing; a run downloads and pushes only what it adds.
+#
 # What it does, in order: finds (or clones) the repo, fetches, opens a throw-away
 # detached worktree on the handoff branch's tip (your working copy, your checkout
 # and your local branches are never touched), copies each source into reference/desktop/ (folders keep their structure,
@@ -83,8 +87,10 @@ fetch_media() {   # $1 = url, $2 = empty directory to download into; prints the 
 }
 is_lfs_pointer() { [ -f "$1" ] && [ "$(fsize "$1")" -lt 400 ] && head -c 40 "$1" 2>/dev/null | grep -q '^version https://git-lfs'; }
 
-# 1. Locate or clone the repo.
+# 1. Locate or clone the repo. The private clone under ~/Library/Caches comes first (2026-09-06): the Desktop clone is
+# iCloud-synced and iCloud evicts its git objects ("mmap failed: Resource deadlock avoided"), so it cannot fetch.
 R="${HANDOFF_REPO:-}"
+if [ -z "$R" ] && [ -d "$HOME/Library/Caches/atlasglinn/atlasglinn-website/.git" ]; then R="$HOME/Library/Caches/atlasglinn/atlasglinn-website"; fi
 if [ -z "$R" ]; then
   R="$(find "$HOME" -maxdepth 4 -type d -name atlasglinn-website -not -path '*/Library/*' -not -path '*/.Trash/*' 2>/dev/null | head -1)"
 fi
@@ -113,11 +119,15 @@ URL_LIST="$(curl -fsSL "https://raw.githubusercontent.com/MatthewBrockmann/atlas
 if [ -n "$URL_LIST" ]; then while IFS= read -r u; do [ -n "$u" ] && DEFAULT_SOURCES+=("$u"); done <<< "$URL_LIST"; fi
 if [ "${HANDOFF_ONLY:-0}" = "1" ]; then SOURCES=("$@"); else SOURCES=("${DEFAULT_SOURCES[@]}" "$@"); fi
 
-# 2. Fetch. If the handoff branch already exists remotely, build on it.
-git fetch -q "$REMOTE" main || die "fetch (network or GitHub login)"
-BASE="$(git rev-parse FETCH_HEAD)"
-# Build on the handoff branch when it already exists remotely (a failed fetch clobbers FETCH_HEAD, hence the order).
-if git fetch -q "$REMOTE" "$BRANCH" 2>/dev/null; then BASE="$(git rev-parse FETCH_HEAD)"; fi
+# 2. Fetch — blobless and one commit deep (2026-09-06). The handoff branch's tip tree is over 1 GB of media; on a poor
+# connection the old full fetch never finished. Commits and trees only, about 3 MB; the worktree below materialises
+# nothing, so a run downloads only what it must. A second try goes over HTTP/1.1 with a slow-link timeout.
+pfetch() {
+  git fetch -q --filter=blob:none --depth 1 "$REMOTE" "$1" 2>/dev/null && return 0
+  git -c http.version=HTTP/1.1 -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=180 fetch -q --filter=blob:none --depth 1 "$REMOTE" "$1"
+}
+if pfetch "$BRANCH"; then BASE="$(git rev-parse FETCH_HEAD)"
+else pfetch main || die "fetch (network or GitHub login)"; BASE="$(git rev-parse FETCH_HEAD)"; fi   # first run ever: start the branch from main
 
 # 3. Throw-away worktree on a detached HEAD: the working copy, its checkout and every local branch stay untouched.
 # Only worktrees this script (or the 2026-09-03 inline paste) created are cleaned up. Paths are read whole, never
@@ -131,13 +141,20 @@ git worktree list --porcelain | while IFS= read -r line; do
 done
 git worktree prune
 W="$(mktemp -d "${TMPDIR:-/tmp}/handoff-XXXXXX")/wt"
-git worktree add -q --detach "$W" "$BASE" || die "worktree"
+git worktree add -q --detach --no-checkout "$W" "$BASE" || die "worktree"
+# Sparse with an empty pattern: the index holds the whole branch, the folder holds nothing until this run writes into it.
+git -C "$W" sparse-checkout init --no-cone >/dev/null 2>&1 && git -C "$W" sparse-checkout set --no-cone '/__none__' >/dev/null 2>&1 || die "sparse checkout (needs git 2.36 or newer)"
+git -C "$W" reset -q --hard || die "worktree index"
+# What the branch already holds under $DEST, read from its trees (no blob is ever fetched for these checks).
+BRANCH_LIST="$(git -C "$W" ls-tree -r --name-only "$BASE" -- "$DEST" 2>/dev/null || true)"
+on_branch() { local p="${1#./}"; p="${p//\/.\///}"; printf '%s\n' "$BRANCH_LIST" | grep -qxF -- "$p"; }   # on_branch <path from the repo root>
+branch_has() { printf '%s\n' "$BRANCH_LIST" | grep -qF -- "$1"; }                                       # branch_has <substring of a path>
 
 # 4. Copy.
 OUT="$W/$DEST"
 mkdir -p "$OUT"
 printf '# Handed off from the Mac. Stored as plain files, not LFS, so GitHub Pages and cloud sessions can read them.\n* -filter -diff -merge\n' > "$OUT/.gitattributes"
-rm -f "$OUT/SKIPPED.txt"
+rm -f "$OUT/SKIPPED.txt"; git -C "$W" rm --sparse -q --cached "$DEST/SKIPPED.txt" >/dev/null 2>&1 || true   # rewritten below when something is skipped
 copied=0; skipped=0; missing=0
 
 list_skipped() { printf '%s (%s)\n' "$1" "$2" >> "$OUT/SKIPPED.txt"; }
@@ -186,15 +203,15 @@ copy_file() { # copy_file <source file> <destination directory>; returns 2 when 
     mov|mp4|m4v|avi|mkv)
       if [ "$s" -le $((MAX_MB * 1000000)) ]; then cp "$f" "$d/$b"; else
         web="$d/${b%.*}-web.mp4"
-        # The sidecar records the source size, so an unchanged source is not recompressed and a changed one is.
-        if [ -f "$web" ] && [ "$(cat "$web.srcsize" 2>/dev/null)" = "$s" ]; then :
+        # The sidecar records the source size, so an unchanged source is not recompressed and a changed one is (read from the branch).
+        if on_branch "${web#"$W"/}" && [ "$(git -C "$W" show "$BASE:${web#"$W"/}.srcsize" 2>/dev/null)" = "$s" ]; then :
         elif compress_video "$f" "$web"; then printf '%s\n' "$s" > "$web.srcsize"
         else
           say "  too big for GitHub even after compression, listed instead: $b ($((s / 1000000)) MB)"
           list_skipped "$f" "$s bytes"; return 2
         fi
       fi
-      if [ "$drop" = 1 ] && [ ! -f "$d/${b%.*}-poster.png" ] && command -v qlmanage >/dev/null 2>&1; then
+      if [ "$drop" = 1 ] && ! on_branch "${d#"$W"/}/${b%.*}-poster.png" && [ ! -f "$d/${b%.*}-poster.png" ] && command -v qlmanage >/dev/null 2>&1; then
         qlmanage -t -s 1600 -o "$d" "$f" >/dev/null 2>&1 && [ -f "$d/$b.png" ] && mv "$d/$b.png" "$d/${b%.*}-poster.png"
       fi ;;
     *) cp "$f" "$d/$b" ;;
@@ -205,7 +222,7 @@ for src in "${SOURCES[@]}"; do
   if is_url "$src" && is_media_url "$src"; then
     id="$(media_id "$src")"
     # Already on the branch (the file, or its compressed copy) — the id sits in square brackets in the name.
-    if [ -n "$id" ] && [ "$id" != "$src" ] && ls "$OUT"/*"[$id]"* >/dev/null 2>&1; then copied=$((copied + 1)); continue; fi
+    if [ -n "$id" ] && [ "$id" != "$src" ] && branch_has "[$id]"; then copied=$((copied + 1)); continue; fi
     say "video:  $src"
     d="$(mktemp -d "${TMPDIR:-/tmp}/handoff-dl-XXXXXX")"
     if f="$(fetch_media "$src" "$d")" && [ -n "$f" ] && [ -f "$d/$f" ]; then
@@ -226,15 +243,10 @@ for src in "${SOURCES[@]}"; do
     fi
   elif is_url "$src"; then
     name="$(basename "$src")"
-    # Skip the download only when the server reports the same byte size as what the branch already holds
-    # (the file itself, or the recorded source size of its compressed copy); otherwise fetch it again.
-    have=""
-    if [ -f "$OUT/$name" ]; then have="$(fsize "$OUT/$name")"
-    elif [ -f "$OUT/${name%.*}-web.mp4.srcsize" ]; then have="$(cat "$OUT/${name%.*}-web.mp4.srcsize")"; fi
-    if [ -n "$have" ]; then
-      remote_size="$(curl -fsSIL "$src" 2>/dev/null | tr -d '\r' | awk 'tolower($1)=="content-length:"{s=$2} END{print s}')"
-      if [ -n "$remote_size" ] && [ "$remote_size" = "$have" ]; then copied=$((copied + 1)); continue; fi
-    fi
+    # Already on the branch by name (the file, or its compressed copy) → not downloaded again; the branch is read without
+    # its blobs, so sizes cannot be compared here. HANDOFF_REFRESH=1 forces a new download; the live site's own files are
+    # refreshed daily by .github/workflows/capture-live.yml anyway.
+    if [ "${HANDOFF_REFRESH:-0}" != "1" ] && { on_branch "$DEST/$name" || on_branch "$DEST/${name%.*}-web.mp4"; }; then copied=$((copied + 1)); continue; fi
     say "url:    $src"
     dl="$(mktemp -d "${TMPDIR:-/tmp}/handoff-dl-XXXXXX")/$name"
     if curl -fsSL -o "$dl" "$src"; then
@@ -247,8 +259,12 @@ for src in "${SOURCES[@]}"; do
     name="$(basename "$src" | tr '[:upper:] ' '[:lower:]-')"
     say "folder: $src -> $DEST/$name/"
     while IFS= read -r -d '' f; do
-      rel="${f#"$src"/}"
-      if copy_file "$f" "$OUT/$name/$(dirname "$rel")"; then copied=$((copied + 1)); else skipped=$((skipped + 1)); fi
+      rel="${f#"$src"/}"; sub="$(dirname "$rel")"; sub="${sub#.}"; sub="${sub#/}"; bn="$(basename "$f")"
+      # A file the branch already holds under this name (as itself, web-sized, or compressed) is not copied again — the
+      # branch is read without its blobs. To send a changed photograph again, give it a new name.
+      dd="$DEST/$name${sub:+/$sub}"
+      if on_branch "$dd/$bn" || on_branch "$dd/${bn%.*}.jpg" || on_branch "$dd/${bn%.*}-web.mp4"; then copied=$((copied + 1)); continue; fi
+      if copy_file "$f" "$OUT/$name${sub:+/$sub}"; then copied=$((copied + 1)); else skipped=$((skipped + 1)); fi
     done < <(find "$src" -type f -not -name '.*' -print0)
   elif [ -f "$src" ]; then
     say "file:   $src"
@@ -260,7 +276,7 @@ done
 
 # 5. Commit and push.
 cd "$W" || die "cannot enter worktree"
-git add -A "$DEST"
+git add --sparse -A "$DEST"   # --sparse: the paths sit outside the (empty) sparse cone on purpose
 new="$(git diff --cached --name-only | wc -l | tr -d ' ')"
 if [ "$new" = "0" ]; then
   say "NOTHING NEW: everything is already on $BRANCH"
