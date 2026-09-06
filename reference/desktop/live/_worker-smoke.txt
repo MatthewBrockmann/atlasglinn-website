@@ -1,9 +1,9 @@
-smoke 2026-09-06T18:32:17Z from main 7cd3a6a run 34052031691 (contact=true checkout=false)
+smoke 2026-09-06T18:34:42Z from main f1f0560 run 34052159811 (contact=true checkout=false)
 --- health
-HTTP 200 209ms  GET /health
+HTTP 200 165ms  GET /health
 {"status":"MAST booking backend — ONLINE","version":"1.1.0"}
 --- catalog
-HTTP 200 165ms  GET /catalog
+HTTP 200 248ms  GET /catalog
    source=d1 classes=22
    MAST-HG-FUND     Handgun Fundamentals                         $225.00
    MAST-HG-LADIES   Ladies Only Handgun Fundamentals             $225.00
@@ -28,7 +28,7 @@ HTTP 200 165ms  GET /catalog
    MAST-MOTOR-P2    Motorcade P2                                 $0.00
    MAST-GEAR        Gear & Kit Considerations                    $750.00
 --- weekends
-HTTP 200 128ms  GET /weekends
+HTTP 200 159ms  GET /weekends
    weekends=15 first=2026-09-26 last=2027-04-24 statuses=['available', 'blocked']
 --- CORS preflight (Origin https://atlasglinn.com → POST /create-booking)
    HTTP/2 204 
@@ -37,10 +37,10 @@ HTTP 200 128ms  GET /weekends
    access-control-allow-methods: GET, POST, OPTIONS
    access-control-max-age: 86400
 --- accounts (GET /account/me without a token: 503 accounts_off = ACCOUNT_SECRET not set; 401 = accounts on)
-HTTP 401 129ms  GET /account/me
+HTTP 401 167ms  GET /account/me
 {"error":"Please sign in again.","code":"unauthorized"}
 --- contact (one labelled test message; the Worker emails NOTIFY_EMAIL through Resend)
-HTTP 502 218ms  POST /contact
+HTTP 502 281ms  POST /contact
 {"error":"We could not send your message. Please call (281) 654-8100.","upstream":"resend_422:validation_error field=to"}
 --- checkout: skipped (input checkout=false)
 --- mail DNS (mastsolutions.com), asked at ns27.domaincontrol.com. (authoritative)
