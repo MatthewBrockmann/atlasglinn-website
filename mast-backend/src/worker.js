@@ -22,7 +22,8 @@
  */
 
 import { AGREEMENT_VERSION, fillAgreement } from './agreement.js';
-import { directionsAttachment } from './directions.js';
+import { directionsAttachment, directionsStatus } from './directions.js';
+import { publicKeyInfo } from './sealed.js';
 import { crmSnapshot, audienceCsv, syncAudience, syncOnPayment, syncLead, adminPage, attributionFrom, recordContact, markContactEmailed, recordEvent, handleEvent, handleSubscribe, runJourneys } from './crm.js';
 
 const REPLAY_WINDOW_SECONDS = 300; // reject webhook timestamps older than 5 min
@@ -45,7 +46,14 @@ export default {
       if (url.pathname === '/health' && request.method === 'GET') {
         // build = the commit the deploy was made from (`wrangler deploy --var BUILD:<sha>`, set by scripts/wp-upload.sh and
         // deploy-worker.yml), so a runner can tell which merge is running; crm marks the /event, /subscribe, /admin routes.
-        return json({ status: 'MAST booking backend — ONLINE', version: '1.2.0', build: env.BUILD || null, crm: true }, 200, cors);
+        // directions: sealed = the owner's range PDF decrypts on this Worker (src/sealed.js); secrets = rendered from RANGE_*; none.
+        const directions = await directionsStatus(env).catch((e) => 'error: ' + e.message);
+        return json({ status: 'MAST booking backend — ONLINE', version: '1.2.0', build: env.BUILD || null, crm: true, directions }, 200, cors);
+      }
+      if (url.pathname === '/directions-key' && request.method === 'GET') {
+        // The public half of the Worker's sealing key (never the private half). Anyone may read it; only main decides what is sealed.
+        if (!env.DB) return json({ error: 'Database not bound' }, 503, cors);
+        return json(await publicKeyInfo(env), 200, { ...cors, 'Cache-Control': 'no-store' });
       }
       if (url.pathname === '/catalog' && request.method === 'GET') {
         return await handleCatalog(env, cors);

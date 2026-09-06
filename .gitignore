@@ -14,3 +14,7 @@ __pycache__/
 # Worker dependencies (installed by npm install in mast-backend/)
 mast-backend/node_modules/
 mast-backend/package-lock.json
+
+# The range address is private and this repo is public: the plaintext directions PDF never enters git (seal it: mast-backend/seal-directions.mjs)
+mast-backend/assets/*irections*.pdf
+MAST_Range_Directions*.pdf

@@ -123,6 +123,10 @@ case "${1:-}" in
     say "Both started; give them a few minutes, then: bash $CACHE/scripts/mac-autopilot.sh status" ;;
   hourly)   # the wp-upload LaunchAgent's command: this script is pulled fresh from main each hour, so fixes reach the Mac without a paste
     ensure_cache || exit 0
-    ATLAS_REPO="$CACHE" exec /bin/bash "$CACHE/scripts/wp-upload.sh" --if-changed ;;
+    ATLAS_REPO="$CACHE" /bin/bash "$CACHE/scripts/wp-upload.sh" --if-changed || true
+    # Retry pass over the drop folders (2026-09-06: CQB-P3.MOV was seen by the watcher while still copying and listed in
+    # SKIPPED.txt with nothing to retry it). mac-handoff.sh skips what the branch already holds, so a quiet hour costs a
+    # 3 MB fetch; a clip that was still being written lands here.
+    if [ -d "$DROP" ]; then HANDOFF_ONLY=1 HANDOFF_REPO="$(handoff_repo)" /bin/bash "$(handoff_repo)/scripts/mac-handoff.sh" "$DROP/gallery" "$DROP/range" "$DROP" || true; fi ;;
   *) echo "usage: bash scripts/mac-autopilot.sh install | status | kick | uninstall"; exit 1 ;;
 esac

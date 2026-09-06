@@ -61,6 +61,11 @@ jobs:
             case "$adm" in 401) crm="yes (GET /admin/crm → 401 without a key)";; 404) crm="NO — the Worker still runs the pre-CRM build (GET /admin/crm → 404); a deploy from the Mac or deploy-worker.yml is missing";; *) crm="unclear (GET /admin/crm → HTTP $adm)";; esac
             echo "   build: $build"
             echo "   CRM routes live: $crm"
+            echo "   range directions: $(python3 -c 'import json; print(json.load(open("/tmp/b")).get("directions"))' 2>/dev/null)   [sealed = the owner's PDF decrypts on the Worker; secrets = rendered from RANGE_*; none = nothing attached; sealed-key-mismatch = re-seal with the key below]"
+            echo "--- directions key (the public half of the Worker's sealing key; feeds mast-backend/seal-directions.mjs; saved beside this report as _directions-key.json)"
+            code=$(curl -sS -m 40 -o out/_directions-key.json -w '%{http_code}' "$WORKER/directions-key" || echo ERR)
+            echo "HTTP $code  key_id=$(python3 -c 'import json; print(json.load(open("out/_directions-key.json")).get("key_id"))' 2>/dev/null || echo '-')"
+            [ "$code" = 200 ] || rm -f out/_directions-key.json
             echo "--- catalog"; req GET /catalog | head -1
             python3 - /tmp/b <<'PY' || true
           import json, sys
@@ -129,6 +134,7 @@ jobs:
           git checkout -q -b "$BRANCH" FETCH_HEAD
           mkdir -p "$DEST"
           cp ../out/_worker-smoke.txt "$DEST"/
+          [ -f ../out/_directions-key.json ] && cp ../out/_directions-key.json "$DEST"/
           git add -A "$DEST"
           if git diff --cached --quiet; then echo "report unchanged; nothing to commit"; exit 0; fi
           git commit -q -m "Worker smoke test ($(date -u '+%F %H:%M') UTC)"

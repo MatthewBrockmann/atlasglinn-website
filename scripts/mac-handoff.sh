@@ -53,6 +53,14 @@ REMOTE="${HANDOFF_REMOTE:-origin}"
 DESK="$HOME/Desktop"
 
 say() { printf '%s\n' "$*"; }
+# One handoff at a time: the watcher and the hourly retry pass share the private clone (2026-09-06). mkdir is atomic on
+# macOS without flock; a lock older than two hours is a crashed run and is taken over.
+LOCK="${TMPDIR:-/tmp}/atlasglinn-handoff.lock"
+if ! mkdir "$LOCK" 2>/dev/null; then
+  if [ -n "$(find "$LOCK" -maxdepth 0 -mmin +120 2>/dev/null)" ]; then rmdir "$LOCK" 2>/dev/null; mkdir "$LOCK" 2>/dev/null || { say "another handoff is running; this pass is skipped"; exit 0; }
+  else say "another handoff is running; this pass is skipped"; exit 0; fi
+fi
+trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 die() { say "FAILED: $*"; exit 1; }
 fsize() { stat -f%z "$1" 2>/dev/null || stat -c%s "$1"; }
 is_url() { case "$1" in http://*|https://*) return 0 ;; *) return 1 ;; esac; }
@@ -170,16 +178,30 @@ fetch_lfs() { # fetch_lfs <pointer file inside a git clone> — replaces it with
   ! is_lfs_pointer "$f"
 }
 
-compress_video() { # compress_video <source> <output.mp4> — 720p, then 480p; 0 if the result fits the limit
-  local f="$1" o="$2" p
-  command -v avconvert >/dev/null 2>&1 || return 1
-  for p in Preset1280x720 Preset640x480; do
+COMPRESS_ERR=""
+compress_video() { # compress_video <source> <output.mp4> — 720p, then 480p, then the low preset; 0 if the result fits the limit
+  local f="$1" o="$2" p err=""
+  COMPRESS_ERR=""
+  command -v avconvert >/dev/null 2>&1 || { COMPRESS_ERR="avconvert not found"; return 1; }
+  for p in Preset1280x720 Preset640x480 PresetLowQuality; do
     rm -f "$o"
-    if avconvert --preset "$p" --source "$f" --output "$o" --replace >/dev/null 2>&1 && [ "$(fsize "$o")" -le $((MAX_MB * 1000000)) ]; then
+    if err="$(avconvert --preset "$p" --source "$f" --output "$o" --replace 2>&1 >/dev/null)" && [ "$(fsize "$o")" -le $((MAX_MB * 1000000)) ]; then
       say "  compressed with $p to fit GitHub: $(basename "$f") -> $(basename "$o")"; return 0
     fi
   done
+  # The reason goes into SKIPPED.txt (2026-09-06: CQB-P3.MOV, 370 MB, was listed with its size and nothing else).
+  COMPRESS_ERR="$(printf '%s' "$err" | tail -n 1 | cut -c1-160)"; [ -n "$COMPRESS_ERR" ] || COMPRESS_ERR="still over ${MAX_MB} MB after $p"
   rm -f "$o"; return 1
+}
+
+wait_stable() { # wait_stable <file>: 0 once the size has stopped changing (a clip still being copied, or an iCloud placeholder filling in)
+  local f="$1" a b waited=0
+  a="$(fsize "$f")"
+  while :; do
+    sleep 5; waited=$((waited + 5)); b="$(fsize "$f")"
+    [ "$b" = "$a" ] && return 0
+    a="$b"; [ "$waited" -ge 90 ] && return 1
+  done
 }
 
 copy_file() { # copy_file <source file> <destination directory>; returns 2 when the file was listed instead of copied
@@ -203,14 +225,19 @@ copy_file() { # copy_file <source file> <destination directory>; returns 2 when 
     jpg|jpeg|png|webp|tif|tiff)
       if [ "$drop" = 1 ] && command -v sips >/dev/null 2>&1 && sips -s format jpeg -s formatOptions 82 -Z 2000 "$f" --out "$d/${b%.*}.jpg" >/dev/null 2>&1; then :; else cp "$f" "$d/$b"; fi ;;
     mov|mp4|m4v|avi|mkv)
+      # The watcher fires the moment a clip appears, often while it is still being written; a clip read too early fails in
+      # avconvert and used to be listed for good. Wait for a stable size first; a clip still growing after 90 s is left for
+      # the next pass (the hourly job retries the drop folders).
+      if ! wait_stable "$f"; then say "  still being written, left for the next pass: $b"; list_skipped "$f" "still copying"; return 2; fi
+      s="$(fsize "$f")"
       if [ "$s" -le $((MAX_MB * 1000000)) ]; then cp "$f" "$d/$b"; else
         web="$d/${b%.*}-web.mp4"
         # The sidecar records the source size, so an unchanged source is not recompressed and a changed one is (read from the branch).
         if on_branch "${web#"$W"/}" && [ "$(git -C "$W" show "$BASE:${web#"$W"/}.srcsize" 2>/dev/null)" = "$s" ]; then :
         elif compress_video "$f" "$web"; then printf '%s\n' "$s" > "$web.srcsize"
         else
-          say "  too big for GitHub even after compression, listed instead: $b ($((s / 1000000)) MB)"
-          list_skipped "$f" "$s bytes"; return 2
+          say "  too big for GitHub even after compression, listed instead: $b ($((s / 1000000)) MB) — $COMPRESS_ERR"
+          list_skipped "$f" "$s bytes; $COMPRESS_ERR"; return 2
         fi
       fi
       if [ "$drop" = 1 ] && ! on_branch "${d#"$W"/}/${b%.*}-poster.png" && [ ! -f "$d/${b%.*}-poster.png" ] && command -v qlmanage >/dev/null 2>&1; then

@@ -36,8 +36,11 @@ const stripePriceCalls = [];   // GET /v1/prices?lookup_keys[] and POST /v1/pric
 const stripeCustomerCalls = [];   // /v1/customers (account cards)
 let fakeDefaultCard = null;         // what GET /v1/customers/<id>?expand=... returns as the default payment method
 const fakePrices = [];         // prices "in Stripe" ({ id, lookup_key })
+let sealedJson = null;         // what raw.githubusercontent.com serves for the sealed range directions (null = 404)
+const workerKeys = new Map();  // worker_keys rows (the sealing key pair)
 globalThis.fetch = async (url, init) => {
   const u = String(url);
+  if (u.includes('raw.githubusercontent.com')) return sealedJson ? new Response(JSON.stringify(sealedJson), { status: 200 }) : new Response('404: Not Found', { status: 404 });
   if (u.includes('api.stripe.com/v1/prices')) {
     const method = (init && init.method) || 'GET';
     stripePriceCalls.push({ method, url: u, body: init && init.body ? new URLSearchParams(init.body) : null });
@@ -92,6 +95,7 @@ const DB = {
       _b(args) {
         return {
           async first() {
+            if (sql.includes('FROM worker_keys')) return workerKeys.get(args[0]) || null;
             if (sql.includes('SUM(qty)') && sql.includes('FROM registrations')) {
               let n = 0;
               for (const r of registrations.values()) if (r.sku === args[0] && r.session_date === args[1] && (r.status === 'paid' || (r.status === 'pending' && r.created_at > args[2]))) n += Number(r.qty || 1);
@@ -128,6 +132,7 @@ const DB = {
             if (sql.startsWith('INSERT INTO events')) { const cols = sql.slice(sql.indexOf('(') + 1, sql.indexOf(')')).split(',').map(c => c.trim()); events.push(Object.fromEntries(cols.map((c, i) => [c, args[i]]))); return { meta: { changes: 1 } }; }
             if (sql.startsWith('INSERT OR IGNORE INTO email_log')) { const [created_at, email, ref, kind, status] = args; if (emailLog.some(l => l.email === email && l.ref === ref && l.kind === kind)) return { meta: { changes: 0 } }; emailLog.push({ created_at, email, ref, kind, status }); return { meta: { changes: 1 } }; }
             if (sql.startsWith('UPDATE email_log SET status')) { const st = /status = '(\w+)'/.exec(sql)[1]; const l = emailLog.find(x => x.email === args[0] && x.ref === args[1] && x.kind === args[2]); if (l) l.status = st; return { meta: { changes: l ? 1 : 0 } }; }
+            if (sql.startsWith('INSERT OR IGNORE INTO worker_keys')) { const [name, created_at, key_id, public_jwk, private_jwk] = args; if (!workerKeys.has(name)) workerKeys.set(name, { name, created_at, key_id, public_jwk, private_jwk }); return { meta: { changes: 1 } }; }
             if (/^(CREATE TABLE|CREATE INDEX|ALTER TABLE)/.test(sql)) return { meta: { changes: 0 } };
             if (sql.includes('INSERT INTO eligibility_outcomes')) { outcomes.push(args); return { meta: { last_row_id: outcomes.length, changes: 1 } }; }
             if (sql.includes('INSERT INTO eligibility_answers')) { answers.push(args); return { meta: { last_row_id: answers.length, changes: 1 } }; }
@@ -833,7 +838,7 @@ console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect da
   j = await runJourneys(envJ, { send: sendSpy, now: now7, catalog: [] });
   ok('the same day again → nothing sent twice (email_log)', j.t7.sent === 0 && j.t7.skipped === 1 && emails.length === 1);
   j = await runJourneys(envJ, { send: sendSpy, now: dayAt(-1), catalog: [] });
-  ok('T−1: the final reminder, with the PDF, both numbers on the running-late line and the participant list', j.t1.sent === 1 && /Tomorrow/.test(emails[1].subject) && emails[1].attachments && emails[1].attachments[0].filename === DIRECTIONS_FILENAME && /call \(281\) 654-8100, 281-415-1023 before the start/.test(emails[1].text) && /PARTICIPANTS\n1\. Ann /.test(emails[1].text), (emails[1] || {}).text);
+  ok('T−1: the final reminder, with the PDF, both numbers on the running-late line and the participant list', j.t1.sent === 1 && /Tomorrow/.test(emails[1].subject) && emails[1].attachments && emails[1].attachments[0].filename === DIRECTIONS_FILENAME && /Running late or unable to make it\? Call \(281\) 654-8100 or 281-415-1023 before the start; the refund and transfer terms/.test(emails[1].text) && /PARTICIPANTS\n1\. Ann /.test(emails[1].text), (emails[1] || {}).text);
   j = await runJourneys(env, { send: sendSpy, now: dayAt(1), catalog: [{ sku: 'MAST-HG-OP', name: 'Handgun Operator', price_cents: 45000 }] });
   ok('T+1: thank-you with the review ask, the next course (Handgun Operator after Handgun Fundamentals), the Instagram link, no attachment', j.thanks.sent === 1 && /Thank you/.test(emails[2].subject) && /Handgun Operator/.test(emails[2].text) && /instagram\.com\/atlasglinn_mastsolutions/.test(emails[2].text) && /quote it|REVIEW/i.test(emails[2].text) && emails[2].attachments === undefined, (emails[2] || {}).text);
   const failing = async () => { throw new Error('Resend 500: down'); };
@@ -845,6 +850,36 @@ console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect da
   ok('the CRM reports the journeys log', crmJson.stats.journeys.t7 && crmJson.stats.journeys.t7.failed === 1);
   const page = await get('/admin');
   ok('GET /admin serves the staff page, noindex, no-store', page.status === 200 && /text\/html/.test(page.headers.get('Content-Type')) && page.headers.get('X-Robots-Tag') === 'noindex, nofollow' && /MAST · CRM/.test(await page.text()));
+
+  // Sealed range directions (src/sealed.js): the Worker's RSA key pair lives in D1, the public half is served, the sealed file
+  // on main is decrypted at send time and preferred over the secrets render. The plaintext PDF is never in git.
+  const { seal, unseal, _resetSealedMemo } = await import('./src/sealed.js');
+  const { _resetDirectionsMemo } = await import('./src/directions.js');
+  const hget = (p) => worker.fetch(new Request('https://api.test' + p, { headers: { Origin: 'https://mastsolutions.com' } }), env, ctx);
+  _resetSealedMemo(); _resetDirectionsMemo(); sealedJson = null;
+  const k1 = await (await hget('/directions-key')).json();
+  const k2 = await (await hget('/directions-key')).json();
+  ok('GET /directions-key publishes an RSA-OAEP public key (JWK, no private part) with a stable key_id kept in D1', k1.public_jwk && k1.public_jwk.kty === 'RSA' && k1.public_jwk.n && !k1.public_jwk.d && k1.key_id.length === 16 && k2.key_id === k1.key_id && workerKeys.size === 1 && !JSON.stringify(k1).includes('"d"'), JSON.stringify(k1).slice(0, 120));
+  const realPdf = await directionsPdf({ RANGE_ADDRESS: 'The real PDF stands in here', RANGE_DIRECTIONS: '# Real route' });
+  sealedJson = await seal(k1.public_jwk, realPdf, { filename: 'MAST-Range-Directions.pdf' });
+  ok('the sealed file carries ciphertext only: no plaintext, the AES key wrapped to the Worker key, the sha256 and size of the PDF', sealedJson.key_id === k1.key_id && !JSON.stringify(sealedJson).includes('stands in here') && !Buffer.from(sealedJson.ciphertext, 'base64').toString('latin1').includes('%PDF') && sealedJson.wrapped_key.length > 300 && sealedJson.bytes === realPdf.length && /^[0-9a-f]{64}$/.test(sealedJson.sha256), JSON.stringify(Object.keys(sealedJson)));
+  _resetSealedMemo(); _resetDirectionsMemo();
+  const health = await (await hget('/health')).json();
+  const att = await directionsAttachment(envJ);
+  ok('/health reports directions: sealed, and the attachment IS the sealed PDF (byte-identical), preferred over the secrets render', health.directions === 'sealed' && health.crm === true && att.length === 1 && Buffer.compare(Buffer.from(att[0].content, 'base64'), Buffer.from(realPdf)) === 0, JSON.stringify(health) + ' att=' + att.length);
+  const priv = JSON.parse(workerKeys.get('directions').private_jwk);
+  ok('unseal with the D1 private key round-trips; a tampered ciphertext is rejected', Buffer.compare(Buffer.from(await unseal(priv, sealedJson)), Buffer.from(realPdf)) === 0 && await unseal(priv, { ...sealedJson, ciphertext: sealedJson.ciphertext.slice(0, -8) + 'AAAAAAAA' }).then(() => false, () => true));
+  sealedJson = { ...sealedJson, key_id: 'deadbeefdeadbeef' };
+  _resetSealedMemo(); _resetDirectionsMemo();
+  const h2 = await (await hget('/health')).json();
+  const att2 = await directionsAttachment(envJ);
+  ok('a sealed file for another key: /health says sealed-key-mismatch, and the secrets render is the fallback (never silence)', h2.directions === 'sealed-key-mismatch' && att2.length === 1 && Buffer.compare(Buffer.from(att2[0].content, 'base64'), Buffer.from(realPdf)) !== 0, JSON.stringify(h2));
+  sealedJson = null; _resetSealedMemo(); _resetDirectionsMemo();
+  ok('no sealed file (404) and no secrets: /health says none and nothing is attached', (await (await hget('/health')).json()).directions === 'none' && (await directionsAttachment({ DB: env.DB })).length === 0);
+  sealedJson = await seal(k1.public_jwk, realPdf); _resetSealedMemo(); _resetDirectionsMemo(); emails.length = 0; emailLog.length = 0;
+  j = await runJourneys(envJ, { send: sendSpy, now: now7, catalog: [] });
+  ok('T−7 attaches the sealed (real) PDF when it exists', j.t7.sent === 1 && emails[0].attachments && emails[0].attachments[0].filename === 'MAST-Range-Directions.pdf' && Buffer.compare(Buffer.from(emails[0].attachments[0].content, 'base64'), Buffer.from(realPdf)) === 0);
+  sealedJson = null; _resetSealedMemo(); _resetDirectionsMemo();
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

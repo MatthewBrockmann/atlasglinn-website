@@ -319,8 +319,32 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   `src/directions.js` from the `RANGE_ADDRESS` / `RANGE_COORDS` / `RANGE_DIRECTIONS` secrets and attached to the T−7,
   the T−1 and the booking confirmation, nothing attached when they are unset; and the second office number
   281-415-1023 beside (281) 654-8100, `OFFICE_PHONES` in `crm.js`). His paste dropped the GPS warning from the body; it
-  lives in the PDF. T−1 and T+1 texts still await his word before `JOURNEYS_ENABLED="1"`. Staff page `GET /admin`
-  (ADMIN_KEY). The schema self-applies (`migrations/006-crm.sql` is the record).
+  lives in the PDF. **All three texts are his since 2026-09-06** (the T−1 and T+1 came back the same evening; T−1 says
+  "Running late or unable to make it? Call (281) 654-8100 or 281-415-1023"; T+1 keeps the reply-and-quote ask and adds
+  "or leave a Google review: REVIEW_URL", "we will hold two seats together", "anytime"), so `JOURNEYS_ENABLED = "1"` in
+  `wrangler.toml`: the 09:17 UTC cron sends them from the next deploy on. Staff page `GET /admin` (ADMIN_KEY). The
+  schema self-applies (`migrations/006-crm.sql` is the record).
+- **Range directions PDF (Brockmann, 2026-09-06: "I HAVE GIVEN YOU THE ACTUAL PDF FOR RANGE DIRECTIONS"):** his
+  `MAST_Range_Directions.pdf` (3 pages: address for the GPS, map pin, the route past the green house, ten steps, the
+  checklist; 134 KB, sha256 `bc2960bdf4735b9d…`) arrived as a chat upload (`/root/.claude/uploads/<session>/`, this
+  session only). **It never enters git in the clear: the repo is public and the address is private.** Path built the
+  same day (`mast-backend/src/sealed.js`): the Worker keeps an RSA-OAEP key pair in D1 (`worker_keys`, made on first
+  use), `GET /directions-key` serves the public half (the smoke test saves it as
+  `reference/desktop/live/_directions-key.json` on the handoff branch), `node mast-backend/seal-directions.mjs <pdf>
+  <that json>` writes `mast-backend/assets/range-directions.sealed.json` (ciphertext only; the script refuses a PDF
+  inside the repo; `.gitignore` blocks the plaintext), and the Worker fetches that file from main at send time,
+  decrypts it and attaches it to the confirmation, the T−7 and the T−1 — preferred over the `RANGE_*` render. `/health`
+  says `directions: sealed | secrets | none | sealed-key-mismatch`. Sequence to finish (no paste): the key route is
+  live after the Mac's next hourly deploy → run the smoke test → seal → merge → the Worker picks the file up within
+  the hour (no deploy). A new PDF = he hands it to a session, the session re-seals and merges. **Do not ask him for
+  the PDF again**; if the upload is gone, the sealed file on main is the copy the Worker uses.
+- **Google review link (Brockmann, 2026-09-06: "add to email as click + link + add to website"):** derived from the
+  Business Profile link he pasted (its `stick=` token decodes to feature id `0x8640c3cb2d0755df:0x3e9cfce1d8a7b9f7`,
+  CID 4511758973651106295): `REVIEW_URL` in `wrangler.toml` (T+1 email), `GOOGLE_REVIEW_URL` / `REVIEW_LINK` in
+  `cinematic_shell.py` (every Atlas footer, the MAST footer, a "Review us on Google" button in the MAST Testimonials
+  chapter, the Maps CID URL in both JSON-LD `sameAs`). The container cannot reach Google; `capture-live.yml` prints
+  the Maps page title for the CID so a wrong id shows as a wrong title. The `#lrd=…,3` form opens the write dialog; if
+  he wants the short `g.page/r/…/review` link instead, it is in his Business Profile under "Ask for reviews".
   Rules: eligibility answers never appear anywhere in it; consent is the tick, never the purchase; fence only commands.
 - **Mailboxes:** the Claude Microsoft 365 connector in a cloud session is signed in as matthew@atlasglinn.com. The
   mastsolutions.com tenant (matthew@mastsolutions.com, the Worker's `REPLY_TO`) is a different tenant and answers
@@ -329,6 +353,13 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   `images/mast/gallery/` (gNN) or `images/mast/range/` (aNN), appends to `images/mast/<kind>/tiles.txt` and records the
   source in `intake.json`; then `python3 scripts/assemble-cinematic.py`, commit, PR. The assembler reads the two `tiles.txt`
   files; a person reorders or removes tiles by editing them. The merge of that PR is the one hand left.
+- **Clips seen while still copying (2026-09-06):** his `CQB-P3.MOV` (370 MB, dropped in the top-level folder) reached
+  the handoff branch only as a line in `reference/desktop/SKIPPED.txt`: the watcher fired while the file was still
+  being written, avconvert failed, and nothing retried it. Now `mac-handoff.sh` waits for a stable size (up to 90 s),
+  records avconvert's reason in SKIPPED.txt, tries `PresetLowQuality` last, and takes a lock (`$TMPDIR/atlasglinn-
+  handoff.lock`); `mac-autopilot.sh hourly` runs a handoff pass over the drop folders after the page upload, so a
+  skipped clip lands within the hour with no paste (the hourly job fetches the script from main). Wired, NOT confirmed
+  firing until the clip is seen on the branch.
 
 ## Reply format (Brockmann, 2026-09-05: "always bring back to bottom_ wire")
 
@@ -339,6 +370,11 @@ text above it; never drop the block. Every review link carries a fresh `?v=<sha>
 bottom so I'm not scrolling to the top trying to figure out what needs to be done"): the `YOU RUN THIS` label sits outside
 the fence, the fence holds only commands (a fenced diagnostic line got pasted into his zsh), and the numbered pending list
 closes the message; nothing follows it. Ask nothing already done, and nothing unless it is broken and only he can fix it.
+**Before asking for any file or fact (Brockmann, 2026-09-06: "ask me to show you exactly what I did three or four days
+ago … not cost effective"):** look in this file, `mast-backend/LAUNCH-LEDGER.md`, the handoff branch
+(`git ls-tree -r --name-only origin/claude/desktop-assets`), the session uploads (`/root/.claude/uploads/<session>/`) and
+the vault memory he points at. A thing he handed over once is recorded here with where it went; asking for it again is
+the failure he is paying for.
 
 ## Memory Rules
 

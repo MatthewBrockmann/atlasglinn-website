@@ -122,7 +122,7 @@ SOCIAL = ('<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target=
           '<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;'
           '<a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a>&middot;'
           '<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;'
-          '<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a>')
+          '<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a>&middot;' + shell.REVIEW_LINK)
 FOOT = ('&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions &middot; Executive Protection &middot; Training &middot; AI Surveillance &middot; Counter-Drone &middot; Risk Management<br>'
         '<a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a>&middot;' + SOCIAL)
 # The live site's footer, closing every page (Brockmann, 2026-09-06: "Add all content as in the old version - just updating
@@ -347,7 +347,7 @@ def jsonld_org():
             '  "founder": { "@type": "Person", "name": "Matthew Brockmann", "jobTitle": "Founder & CEO" },\n'
             '  "address": { "@type": "PostalAddress", "streetAddress": "2450 Fondren Rd, Suite 255", "addressLocality": "Houston", "addressRegion": "TX", "postalCode": "77063", "addressCountry": "US" },\n'
             '  "telephone": "+1-281-654-8100",\n  "email": "atlasglinn.hq@atlasglinn.com",\n'
-            '  "sameAs": ["https://www.instagram.com/atlasglinn_mastsolutions/", "https://www.linkedin.com/in/mastsolutions1/", "https://www.youtube.com/@atlasglinn", "https://www.facebook.com/mastsolutions", "https://www.yelp.com/biz/atlas-glinn-houston"]\n}\n</script>\n')
+            '  "sameAs": ["https://www.instagram.com/atlasglinn_mastsolutions/", "https://www.linkedin.com/in/mastsolutions1/", "https://www.youtube.com/@atlasglinn", "https://www.facebook.com/mastsolutions", "https://www.yelp.com/biz/atlas-glinn-houston", "https://maps.google.com/?cid=4511758973651106295"]\n}\n</script>\n')
 
 def jsonld_service(name, desc, path):
     return ('<script type="application/ld+json">\n{\n  "@context": "https://schema.org",\n  "@type": "Service",\n'

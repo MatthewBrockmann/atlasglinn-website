@@ -544,8 +544,9 @@ export function nextCourse(sku, catalog = []) {
 const dateOffset = (now, days) => new Date(now.getTime() + days * DAY).toISOString().slice(0, 10);
 const longDate = (ymd) => { try { return new Date(ymd + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }); } catch (_) { return ymd; } };
 
-/** The office numbers as the owner wrote them on the T−7 draft (2026-09-06). */
+/** The office numbers as the owner wrote them (2026-09-06): the comma form on the T−7 Questions line, "or" on the T−1 call line. */
 export const OFFICE_PHONES = '(281) 654-8100, 281-415-1023';
+export const OFFICE_PHONES_OR = '(281) 654-8100 or 281-415-1023';
 
 /**
  * The numbered participant list of a registration. The booking stores the registrant's name and the seat count; the
@@ -596,24 +597,28 @@ export function journeyText(kind, reg, env, catalog, { attached = false } = {}) 
       'Course: ' + reg.item_name, 'Date: ' + when, '',
       'PARTICIPANTS', ...participantLines(reg), '',
       ...range, '',
-      '- Be at the gate 15 minutes before the start time on your confirmation. The safety brief starts on time.',
-      '- Photo ID, eye and ear protection, water, lunch, weather layers.',
-      '- Running late or cannot make it: call ' + OFFICE_PHONES + ' before the start. The refund and transfer terms you accepted are in your confirmation email.', '',
+      // The owner's T−1 text (2026-09-06): "Course, date, and range address are as above."
+      'Be at the gate 15 minutes before the start time on your confirmation; the safety brief starts on time.',
+      'Photo ID, eye and ear protection, water, lunch, weather layers.',
+      'Running late or unable to make it? Call ' + OFFICE_PHONES_OR + ' before the start; the refund and transfer terms you accepted are in your confirmation email.', '',
       'See you on the range.', '', 'MAST Solutions · Details matter.',
     ].join('\n'),
   };
+  // The owner's T+1 text (2026-09-06): the reply ask stays, and the Google review link is added when REVIEW_URL is set.
   const next = nextCourse(reg.sku, catalog);
-  const review = env.REVIEW_URL ? 'Two minutes that help the next student find us: ' + env.REVIEW_URL : 'Two minutes that help the next student find us: reply with a line about your day and whether we may quote it.';
+  const page = env.SITE_URL || 'https://atlasglinn.com/mastsolutions.html';
+  const review = 'Two minutes that help the next student find us: reply with a line about your day and whether we may quote it'
+    + (env.REVIEW_URL ? ', or leave a Google review: ' + env.REVIEW_URL : '') + '.';
   return {
     subject: 'Thank you from MAST — ' + reg.item_name,
     text: [
       reg.customer_name ? reg.customer_name.split(' ')[0] + ',' : 'Hello,', '',
       'Thank you for training with us at ' + reg.item_name + ' on ' + when + '.', '',
       review, '',
-      next ? 'NEXT STEP: ' + next.name + '. Your seat in ' + reg.item_name + ' is the prerequisite; the next dates are on the page: ' + (env.SITE_URL || 'https://atlasglinn.com/mastsolutions.html') : 'NEXT STEP: the next dates are on the page: ' + (env.SITE_URL || 'https://atlasglinn.com/mastsolutions.html'),
-      'Bring a teammate: reply with a name and we hold two seats together.', '',
-      'Range days, drills and class photos: ' + instagram, '',
-      'Reply to this email any time; it reaches the instructors.', '', 'MAST Solutions · Details matter.',
+      next ? 'NEXT STEP: ' + next.name + '. Your seat in ' + reg.item_name + ' is the prerequisite. The next dates are on the page: ' + page : 'NEXT STEP: the next dates are on the page: ' + page,
+      'Bring a teammate: reply with a name, and we will hold two seats together.', '',
+      'Range days, drills, and class photos: ' + instagram, '',
+      'Reply to this email anytime; it reaches the instructors.', '', 'MAST Solutions · Details matter.',
     ].join('\n'),
   };
 }
