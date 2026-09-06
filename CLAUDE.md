@@ -272,7 +272,9 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   `contact=true` (default) one labelled test message goes through `/contact` so the Resend → `NOTIFY_EMAIL` path is
   exercised for real; with `checkout=true` one unpaid Stripe Checkout Session is created for the first bookable SKU
   (nothing charged; the abandoned registration is dropped by the daily cron). Report:
-  `claude/desktop-assets:reference/desktop/live/_worker-smoke.txt` and the job summary. Secrets on the Worker
+  `claude/desktop-assets:reference/desktop/live/_worker-smoke.txt` and the job summary. **First run, 2026-09-06 18:03
+  UTC:** everything answered as designed except `/contact`, which returned 502 (the Resend call failed) — the one blocker
+  for every Worker email; ledger item B00. Secrets on the Worker
   (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `RESEND_API_KEY`, `NOTIFY_EMAIL`, `ACCOUNT_SECRET`, `ADMIN_KEY`) are visible
   only as behaviour; `wrangler secret list` is his Mac's.
 - **"CRM":** there is no CRM system in the code. Customer records are the D1 tables (orders, registrations, accounts;
