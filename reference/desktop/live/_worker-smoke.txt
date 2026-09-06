@@ -1,0 +1,57 @@
+smoke 2026-09-06T18:03:17Z from main 2567082 run 34050490356 (contact=true checkout=true)
+--- health
+HTTP 200 137ms  GET /health
+{"status":"MAST booking backend — ONLINE","version":"1.1.0"}
+--- catalog
+HTTP 200 396ms  GET /catalog
+   source=d1 classes=22
+   MAST-HG-FUND     Handgun Fundamentals                         $225.00
+   MAST-HG-LADIES   Ladies Only Handgun Fundamentals             $225.00
+   MAST-HG-OP       Handgun Operator                             $450.00
+   MAST-CAR-FUND    Carbine Fundamentals                         $225.00
+   MAST-CAR-OP      Carbine Operator                             $450.00
+   MAST-SG-FUND     Shotgun Fundamentals                         $225.00
+   MAST-SUB-FUND    Sub-Gun Fundamentals                         $225.00
+   MAST-SUB-P1      Sub-Gun P1                                   $250.00
+   MAST-SF-P1       Select-Fire M4A1 / MK18 Operator P1          $500.00
+   MAST-SF-P2       Select-Fire M4A1 / MK18 Operator P2          $950.00
+   MAST-LL-FUND     Low-Light Fundamentals                       $225.00
+   MAST-LL-P1       Low-Light Operator P1                        $450.00
+   MAST-NVG-P1      Low-Light / No-Light NVG Operator P1         $500.00
+   MAST-NVG-P2      NVG Operator P2                              $950.00
+   MAST-TEAM-P1     Team Tactics P1                              $450.00
+   MAST-TEAM-P2     Team Tactics P2                              $475.00
+   MAST-HPP-P1      Home & Property Protection P1                $250.00
+   MAST-VEH-P1      Vehicular Tactics P1                         $225.00
+   MAST-VEH-P2      Vehicular Tactics / Team Tactics P2          $500.00
+   MAST-MOTOR-P1    Motorcade P1                                 $0.00
+   MAST-MOTOR-P2    Motorcade P2                                 $0.00
+   MAST-GEAR        Gear & Kit Considerations                    $750.00
+--- weekends
+HTTP 200 134ms  GET /weekends
+   weekends=15 first=2026-09-26 last=2027-04-24 statuses=['available', 'blocked']
+--- CORS preflight (Origin https://atlasglinn.com → POST /create-booking)
+   HTTP/2 204 
+   access-control-allow-origin: https://atlasglinn.com
+   access-control-allow-headers: Content-Type, Authorization
+   access-control-allow-methods: GET, POST, OPTIONS
+   access-control-max-age: 86400
+--- accounts (GET /account/me without a token: 503 accounts_off = ACCOUNT_SECRET not set; 401 = accounts on)
+HTTP 401 57ms  GET /account/me
+{"error":"Please sign in again.","code":"unauthorized"}
+--- contact (one labelled test message; the Worker emails NOTIFY_EMAIL through Resend)
+HTTP 502 217ms  POST /contact
+{"error":"We could not send your message. Please call (281) 654-8100."}
+--- checkout (one unpaid Stripe Checkout Session for MAST-HG-FUND; nothing is charged)
+HTTP 200 541ms  POST /create-booking
+{"checkoutUrl":"https://checkout.stripe.com/…","sessionId":"cs_live_a1yk97Qh95e5kfWQTPju1pDmwAPJ3B7M1oRkfhoBr8NnCGuxfJHwoacL0p"}
+--- mail DNS (mastsolutions.com), resolver 1.1.1.1
+   TXT mastsolutions.com: "google-site-verification=u-Y9TwJZ9LUJCX-j3oLdUMC5xBwNu7ju2gBa4TGjPug"|
+   MX mastsolutions.com: 0 mastsolutions-com.mail.protection.outlook.com.|
+   TXT send.mastsolutions.com: "v=spf1 include:amazonses.com ~all"|"v=spf1 include:dc-fd741b8612._spfm.send.mastsolutions.com ~all"|
+   MX send.mastsolutions.com: 10 feedback-smtp.us-east-1.amazonses.com.|
+   TXT _dmarc.mastsolutions.com: "v=DMARC1; p=none;"|
+   CNAME selector1._domainkey.mastsolutions.com: 
+   CNAME selector2._domainkey.mastsolutions.com: 
+   CNAME autodiscover.mastsolutions.com: autodiscover.outlook.com.|
+   (no v=spf1 … include:spf.protection.outlook.com on the apex TXT = Microsoft 365 mail from @mastsolutions.com is unauthenticated; two v=spf1 rows on send. = SPF permerror for Resend's envelope)
