@@ -230,9 +230,14 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   with a slow-link timeout; the hourly LaunchAgent fetches `mac-autopilot.sh` from raw main each run and runs its `hourly`
   command, so script fixes reach the Mac without a paste; `.github/workflows/shrink-films.yml` re-encodes any film over
   10 MB on a runner (720p, crf 30, muted) and commits it to main. The handoff agent now runs from the private clone too
-  (the Desktop clone is iCloud-broken); `mac-handoff.sh` still fetches the 1.1 GB handoff branch whole, so on a poor
-  connection it fails until it is reworked to a blobless fetch with a sparse worktree (open item). The permanent road
-  fix is the GitHub page upload: enter `WP_SFTP_USER` / `WP_SFTP_PASSWORD` exactly as the Keychain item holds them.
+  (the Desktop clone is iCloud-broken). `mac-handoff.sh` (same day) fetches the handoff branch blobless and one commit
+  deep (about 3 MB instead of the 1.1 GB tip tree), opens the worktree with an empty sparse pattern (nothing
+  materialised), checks what the branch holds through `git ls-tree` (`on_branch` / `branch_has`, trees only) and adds
+  with `git add --sparse`; a file already on the branch under its name is not copied or downloaded again
+  (`HANDOFF_REFRESH=1` forces URLs; rename a changed photograph to resend it). Mechanics verified in the container
+  against the real branch: fetch 1 s / 3 MB, add + commit + identical-file no-op all pass; on the Mac it is wired, NOT
+  confirmed firing until a drop is seen to land. The permanent road fix is the GitHub page upload: enter `WP_SFTP_USER`
+  / `WP_SFTP_PASSWORD` exactly as the Keychain item holds them.
 - **Cloud (the hourly check-in):** `python3 scripts/photo-intake.py` imports what is new on the handoff ref into
   `images/mast/gallery/` (gNN) or `images/mast/range/` (aNN), appends to `images/mast/<kind>/tiles.txt` and records the
   source in `intake.json`; then `python3 scripts/assemble-cinematic.py`, commit, PR. The assembler reads the two `tiles.txt`

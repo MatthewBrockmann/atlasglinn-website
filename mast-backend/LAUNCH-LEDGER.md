@@ -433,5 +433,9 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
   DNS was a question ("what action?"): the two GoDaddy rows were spelled out in the reply (add TXT @ SPF for Microsoft
   365; delete the dc-…_spfm SPF on `send`). Renobato: no photograph (PR #41). Films: disaster-hero.mp4 re-encoded to
   3.7 MB by shrink-films.yml (ff9622a); the Mac's install paste was issued at ~04:05 UTC, result not yet seen.
+  **~04:45 UTC, handoff rework for poor connections:** `mac-handoff.sh` now fetches the handoff branch blobless and one
+  commit deep (3 MB, 1 s against the real branch from the container, versus its 1.1 GB tip tree), works in a worktree
+  with an empty sparse pattern, checks the branch through `ls-tree`, adds with `--sparse`; the private clone is
+  preferred. Wired, not confirmed firing: the next drop into the Desktop folders is the test.
 - Docs to reconcile: `ARCHITECTURE.md` open-decisions table (prices are confirmed; range directions are text in
   the email, not a PDF), `mast-wp-theme/` is superseded by the static page + Worker + SFTP path.
