@@ -69,6 +69,23 @@ jobs:
               w="$(grep -c 'generator" content="WordPress' /tmp/p 2>/dev/null || true)"
               echo "$code  $u  title=[$t] wordpress_generator=$w"
             done
+            # Cache-busted copies with the host's caching headers, and the ping file the Mac's upload writes: tells a page
+            # the host's cache is holding from a page the upload never replaced (2026-09-06: /mastsolutions.html served a
+            # day-old build while /index.html was current).
+            ts="$(date +%s)"
+            echo "--- cache-busted (?v=$ts) with caching headers; gear-price / foot-site count the current builds' markers"
+            for u in https://atlasglinn.com/mastsolutions.html https://atlasglinn.com/index.html https://atlasglinn.com/about.html https://atlasglinn.com/mast-ping.txt; do
+              rm -f /tmp/p /tmp/h
+              code="$(curl -sS -L -A "$UA" --max-time 60 -D /tmp/h -o /tmp/p -w '%{http_code} %{content_type} %{size_download}' "$u?v=$ts" 2>/dev/null || echo 'ERR - -')"
+              hdr="$(grep -i -E '^(last-modified|etag|age|cache-control|x-cache|cf-cache-status|x-cacheable|x-served-by|server|via|x-varnish|x-hits|x-cache-hits):' /tmp/h 2>/dev/null | tr -d '\r' | tr '\n' ' ' | tr -s ' ' || true)"
+              g="$(grep -c 'gear-price' /tmp/p 2>/dev/null || true)"; f="$(grep -c 'foot site' /tmp/p 2>/dev/null || true)"
+              echo "$code  $u?v=  gear-price=$g foot-site=$f  [$hdr]"
+              case "$u" in *mast-ping.txt) echo "   mast-ping.txt body: $(head -c 120 /tmp/p 2>/dev/null | tr -d '\r\n')";; esac
+            done
+            echo "--- plain URL caching headers"
+            for u in https://atlasglinn.com/mastsolutions.html https://atlasglinn.com/index.html; do
+              curl -sS -L -A "$UA" --max-time 60 -o /dev/null -D - "$u" 2>/dev/null | grep -i -E '^(HTTP|last-modified|etag|age|cache-control|x-cache|cf-cache-status|x-cacheable|server|content-length|via):' | tr -d '\r' | tr '\n' ' ' | tr -s ' ' | sed "s|^|   $u  |"; echo
+            done
           } | tee out/_probe.txt
       - name: Commit to the handoff branch (sparse, blobless checkout; the branch carries large media)
         env:
