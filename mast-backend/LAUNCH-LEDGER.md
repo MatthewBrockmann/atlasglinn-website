@@ -413,5 +413,16 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
   **~01:50 UTC, his answers:** "MAST portrait" (About shows images/team/brockmann.jpg again; matt-ceo-2026.jpg unused),
   the Atlas EP prices are current ($19.99 / $49.99 / $149.99 / $199.99 / $5,000+; the home plan now names the ep-app
   tiers, and its Explore button goes to ep-app.html), and atlasglinn.hq@ everywhere (the ep-app legal line corrected).
+  PR #39.
+  **~01:55 UTC, his `status` paste:** `last uploaded page: none`, private clone at 0f860b1, wp-upload log "error: RPC
+  failed; curl 56 Recv failure: Operation timed out … early EOF … unpack-objects failed" twice; handoff log "mmap failed:
+  Resource deadlock avoided / FAILED: fetch" (the Desktop clone, iCloud). So **no Atlas build after 0f860b1 has reached
+  the host**, and the 0f860b1 upload itself never wrote its stamp (the Mac was shut down mid-run at 21:10 UTC; the probe
+  had seen /index.html, /about.html and images/atlas/* there). Measured: main's tip tree 233 MB (images/film 91 MB,
+  images/mast 101 MB); what the Mac had to pull since 0f860b1: 56 MB, 44 MB of it the disaster film; the handoff
+  branch's tip tree 1,143 MB. Fixes: partial pulls (`--filter=blob:limit=10m`) with an HTTP/1.1 retry in
+  mac-autopilot.sh and wp-upload.sh; the hourly agent fetches mac-autopilot.sh from raw main each run (`hourly`); the
+  handoff agent moves to the private clone; `shrink-films.yml` re-encodes films over 10 MB on a runner. The permanent
+  road fix stays the GitHub page upload, blocked only on the two SFTP secrets matching the Keychain item.
 - Docs to reconcile: `ARCHITECTURE.md` open-decisions table (prices are confirmed; range directions are text in
   the email, not a PDF), `mast-wp-theme/` is superseded by the static page + Worker + SFTP path.

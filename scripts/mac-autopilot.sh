@@ -30,22 +30,26 @@ H_PLIST="$AGENTS/$H_LABEL.plist"; U_PLIST="$AGENTS/$U_LABEL.plist"
 UID_="$(id -u)"
 export GIT_LFS_SKIP_SMUDGE=1   # the page's clips are plain blobs; LFS pointers in the tree stay pointers (no LFS bandwidth)
 
-# The handoff agent keeps working from whichever clone it was installed with (the Desktop clone pushes the handoff branch
-# fine); a fresh install without one uses the private clone.
-handoff_repo() {
-  local r=""
-  [ -f "$H_PLIST" ] && r="$(sed -n 's/.*HANDOFF_REPO="\([^"]*\)".*/\1/p' "$H_PLIST" | head -1 || true)"
-  [ -n "$r" ] && [ -d "$r/.git" ] && { echo "$r"; return; }
-  r="$(find "$HOME/Desktop" -maxdepth 4 -type d -name atlasglinn-website 2>/dev/null | head -1 || true)"
-  [ -n "$r" ] && [ -d "$r/.git" ] && { echo "$r"; return; }
-  echo "$CACHE"
+# Both agents work from the private clone. (Until 2026-09-06 the handoff agent kept the Desktop clone it was installed
+# with; iCloud evicts that clone's git objects — "mmap failed: Resource deadlock avoided" in its log — so it cannot fetch.)
+handoff_repo() { echo "$CACHE"; }
+# Films over 10 MB stay on GitHub until a checkout needs one: on 2026-09-06 a 44 MB film on main stalled the Mac's pull on
+# the road ("curl 56 Recv failure: Operation timed out", "early EOF") and nothing uploaded. main's tree is ~230 MB, so a
+# fresh clone is never the answer on a poor connection; the partial pull keeps the hourly delta small, and a second try
+# goes over HTTP/1.1 with a slow-link timeout instead of the default.
+FILTER='--filter=blob:limit=10m'
+fetch_main() {
+  git -C "$CACHE" fetch -q $FILTER origin main 2>/dev/null && return 0
+  say "pull of main failed once; trying again over HTTP/1.1"
+  git -C "$CACHE" -c http.version=HTTP/1.1 -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=180 fetch -q $FILTER origin main
 }
 ensure_cache() {
   if [ ! -d "$CACHE/.git" ]; then
     say "Making the private clone at $CACHE (outside iCloud)"; mkdir -p "$(dirname "$CACHE")"
-    git clone -q --single-branch -b main "$REPO_URL" "$CACHE"
+    git clone -q $FILTER --single-branch -b main "$REPO_URL" "$CACHE"
   fi
-  git -C "$CACHE" fetch -q origin main && git -C "$CACHE" reset -q --hard origin/main
+  fetch_main || { say "could not pull main (network); nothing changed — the hourly job tries again in an hour"; return 1; }
+  git -C "$CACHE" reset -q --hard origin/main
 }
 
 plist_handoff() {
@@ -74,7 +78,7 @@ cat <<EOF
   <key>Label</key><string>$U_LABEL</string>
   <key>ProgramArguments</key><array>
     <string>/bin/bash</string><string>-c</string>
-    <string>export PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin GIT_LFS_SKIP_SMUDGE=1 ATLAS_REPO="$CACHE"; cd "$CACHE" &amp;&amp; git fetch -q origin main &amp;&amp; git reset -q --hard origin/main; exec /bin/bash "$CACHE/scripts/wp-upload.sh" --if-changed</string>
+    <string>export PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin GIT_LFS_SKIP_SMUDGE=1; if /usr/bin/curl -fsSL --max-time 60 https://raw.githubusercontent.com/MatthewBrockmann/atlasglinn-website/main/scripts/mac-autopilot.sh -o "$HOME/Library/Caches/atlasglinn/mac-autopilot.sh"; then exec /bin/bash "$HOME/Library/Caches/atlasglinn/mac-autopilot.sh" hourly; else exec /bin/bash "$CACHE/scripts/mac-autopilot.sh" hourly; fi</string>
   </array>
   <key>StartInterval</key><integer>3600</integer>
   <key>RunAtLoad</key><true/>
@@ -89,7 +93,7 @@ load() { launchctl bootstrap "gui/$UID_" "$AGENTS/$1.plist" 2>/dev/null || launc
 case "${1:-}" in
   install)
     security find-generic-password -s mast-wp-sftp >/dev/null 2>&1 || { echo "save the SFTP login first: bash scripts/wp-upload.sh --save-login"; exit 1; }
-    ensure_cache
+    ensure_cache || true   # a failed pull does not stop the install; the hourly job keeps trying
     HR="$(handoff_repo)"
     mkdir -p "$DROP/gallery" "$DROP/range" "$AGENTS" "$LOGS"
     unload "$H_LABEL"; unload "$U_LABEL"
@@ -112,10 +116,13 @@ case "${1:-}" in
     done
     say "last uploaded page:    $(cat "$HOME/.cache/wp-upload/last-uploaded" 2>/dev/null || echo none)"
     say "last Worker deploy:    $(cat "$HOME/.cache/wp-upload/last-worker-deploy" 2>/dev/null || echo none)"
-    say "private clone:         $( [ -d "$CACHE/.git" ] && git -C "$CACHE" rev-parse --short HEAD 2>/dev/null || echo 'not made yet' )" ;;
+    say "private clone:         $( [ -d "$CACHE/.git" ] && git -C "$CACHE" rev-parse --short HEAD 2>/dev/null || echo 'not made yet' )  (pull filter: $( git -C "$CACHE" config remote.origin.partialclonefilter 2>/dev/null || echo 'none — run install once' ))" ;;
   kick)
     launchctl kickstart -k "gui/$UID_/$H_LABEL" 2>/dev/null || launchctl start "$H_LABEL"
     launchctl kickstart -k "gui/$UID_/$U_LABEL" 2>/dev/null || launchctl start "$U_LABEL"
     say "Both started; give them a few minutes, then: bash $CACHE/scripts/mac-autopilot.sh status" ;;
+  hourly)   # the wp-upload LaunchAgent's command: this script is pulled fresh from main each hour, so fixes reach the Mac without a paste
+    ensure_cache || exit 0
+    ATLAS_REPO="$CACHE" exec /bin/bash "$CACHE/scripts/wp-upload.sh" --if-changed ;;
   *) echo "usage: bash scripts/mac-autopilot.sh install | status | kick | uninstall"; exit 1 ;;
 esac

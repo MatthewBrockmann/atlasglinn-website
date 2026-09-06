@@ -216,6 +216,16 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   script from the clone, so script changes reach it on their own).
   `status` shows loaded state and logs; `kick` runs both now. Mac-local by physics: a cloud session cannot install, see or
   confirm them ("wired, NOT confirmed firing" until a drop is seen to land).
+  **Poor-connection lesson (2026-09-06, on the road):** his `status` showed `last uploaded page: none` with "curl 56 Recv
+  failure: Operation timed out" / "early EOF" — the clone could not pull the 56 MB of new objects (a 44 MB disaster film
+  among them). main's tree is ~230 MB, so a fresh clone is never the fix. Now: `mac-autopilot.sh` and `wp-upload.sh` pull
+  with `--filter=blob:limit=10m` (films over 10 MB stay on GitHub until a checkout needs one) and retry once over HTTP/1.1
+  with a slow-link timeout; the hourly LaunchAgent fetches `mac-autopilot.sh` from raw main each run and runs its `hourly`
+  command, so script fixes reach the Mac without a paste; `.github/workflows/shrink-films.yml` re-encodes any film over
+  10 MB on a runner (720p, crf 30, muted) and commits it to main. The handoff agent now runs from the private clone too
+  (the Desktop clone is iCloud-broken); `mac-handoff.sh` still fetches the 1.1 GB handoff branch whole, so on a poor
+  connection it fails until it is reworked to a blobless fetch with a sparse worktree (open item). The permanent road
+  fix is the GitHub page upload: enter `WP_SFTP_USER` / `WP_SFTP_PASSWORD` exactly as the Keychain item holds them.
 - **Cloud (the hourly check-in):** `python3 scripts/photo-intake.py` imports what is new on the handoff ref into
   `images/mast/gallery/` (gNN) or `images/mast/range/` (aNN), appends to `images/mast/<kind>/tiles.txt` and records the
   source in `intake.json`; then `python3 scripts/assemble-cinematic.py`, commit, PR. The assembler reads the two `tiles.txt`

@@ -1,0 +1,56 @@
+# Re-encodes any film in images/film/ over the size limit on a GitHub runner (ffmpeg is on ubuntu-latest; the cloud
+# container has none) and commits the smaller file to main. Why (2026-09-06): the live Disaster page's hero film came over
+# at 44 MB, and the Mac's hourly job could no longer pull main on the road ("curl 56 Recv failure", "early EOF"), so
+# nothing uploaded. Background films are muted loops; 720p, crf 30, no audio is what they need. Runs on request and
+# whenever a film lands on main.
+name: Shrink films
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit_mb:
+        description: 'Re-encode films larger than this many MB'
+        required: false
+        default: '10'
+  push:
+    branches: [main]
+    paths: ['images/film/*.mp4']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shrink-films
+  cancel-in-progress: false
+
+jobs:
+  shrink:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Re-encode films over the limit
+        env:
+          LIMIT_MB: ${{ github.event.inputs.limit_mb || '10' }}
+        run: |
+          command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null; }
+          limit=$((LIMIT_MB * 1000000)); changed=0
+          for f in images/film/*.mp4; do
+            s=$(stat -c %s "$f"); [ "$s" -gt "$limit" ] || continue
+            echo "== $f: $((s / 1000000)) MB, over ${LIMIT_MB} MB"
+            ffmpeg -v error -y -i "$f" -vf "scale='min(1280,iw)':-2" -c:v libx264 -preset slow -crf 30 -pix_fmt yuv420p -an -movflags +faststart /tmp/out.mp4
+            n=$(stat -c %s /tmp/out.mp4)
+            if [ "$n" -gt "$limit" ]; then   # still too big: keep the opening, the shell loops it anyway
+              ffmpeg -v error -y -i "$f" -t 24 -vf "scale='min(1280,iw)':-2" -c:v libx264 -preset slow -crf 31 -pix_fmt yuv420p -an -movflags +faststart /tmp/out.mp4
+              n=$(stat -c %s /tmp/out.mp4)
+            fi
+            if [ "$n" -lt "$s" ]; then mv /tmp/out.mp4 "$f"; changed=$((changed + 1)); echo "   -> $((n / 1000000)) MB"; else echo "   no gain, kept"; fi
+          done
+          echo "changed=$changed" >> "$GITHUB_ENV"
+      - name: Commit the smaller files
+        if: env.changed != '0'
+        run: |
+          git config user.name "shrink-films"; git config user.email "actions@users.noreply.github.com"
+          git add images/film
+          git commit -q -m "images/film: re-encoded the films over the size limit (720p, crf 30, muted) so the Mac can pull main again"
+          git push -q origin HEAD:main
+          echo "pushed $(git rev-parse --short HEAD)"
