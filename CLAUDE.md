@@ -206,7 +206,8 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   serving the copy an edge cached first: on 2026-09-06 `/mastsolutions.html` was the previous day's build (`age` 77357 s,
   `cf-cache-status: HIT`) while `?x=<ts>` fetched the build uploaded twenty minutes earlier, and two runners saw two different
   copies of `/index.html`. **An upload is live only after Flush Cache** in the site's GoDaddy dashboard (Managed WordPress →
-  Manage; the same button sits in wp-admin's top bar). `wp-upload.sh` prints the plain and the cache-busted Last-Modified after
+  Manage; the same button sits in wp-admin's top bar; **verified 2026-09-06 15:57 UTC:** after his flush the plain
+  `/mastsolutions.html` served that day's upload at `age: 2`, so the flush clears the static files too). `wp-upload.sh` prints the plain and the cache-busted Last-Modified after
   every upload and says so when they differ; the capture probe (`_probe.txt`) records both answers with their headers. A
   cache-control override in the docroot `.htaccess` (WordPress's own file) is untested and is tried only with him.
 - **mastsolutions.com** has no site: it is a GoDaddy domain forward to atlasglinn.com, pointed at
