@@ -283,7 +283,23 @@ if [ "$new" = "0" ]; then
 else
   git -c user.name="Matthew Brockmann" -c user.email="matthew@atlasglinn.com" \
     commit -q -m "Hand off from Mac: $new file(s) on $(date '+%Y-%m-%d %H:%M')" || die "commit"
-  git push -q "$REMOTE" "HEAD:refs/heads/$BRANCH" || die "push (network or GitHub login; if the branch moved meanwhile, just re-run)"
+  # The capture-live job (GitHub) and other runs commit to this branch too; when one of them lands between step 2 and
+  # here the push comes back "non-fast-forward" (owner's Mac, 2026-09-06). Take the new tip, stage the same files on it
+  # and push again, up to three times, instead of failing and waiting for a re-run.
+  push_ok=0
+  for attempt in 1 2 3; do
+    git push -q "$REMOTE" "HEAD:refs/heads/$BRANCH" && { push_ok=1; break; }
+    say "push rejected (try $attempt of 3): $BRANCH moved meanwhile; putting this hand-off on its new tip"
+    (cd "$R" && pfetch "$BRANCH") || break
+    tip="$(git -C "$R" rev-parse FETCH_HEAD)"
+    git reset -q --mixed "$tip" || break        # index = the new tip; the files this run wrote stay on disk
+    git add --sparse -A "$DEST"
+    new="$(git diff --cached --name-only | wc -l | tr -d ' ')"
+    if [ "$new" = "0" ]; then say "NOTHING NEW after all: the new tip already carries these files"; push_ok=1; break; fi
+    git -c user.name="Matthew Brockmann" -c user.email="matthew@atlasglinn.com" \
+      commit -q -m "Hand off from Mac: $new file(s) on $(date '+%Y-%m-%d %H:%M')" || break
+  done
+  [ "$push_ok" = 1 ] || die "push (network or GitHub login; if it keeps failing, run it again in a minute)"
 fi
 total="$(git ls-files "$DEST" | wc -l | tr -d ' ')"
 say "DONE: $new new or changed, $copied handled, $skipped listed instead, $missing not found. $total files now on branch $BRANCH."

@@ -105,6 +105,16 @@ jobs:
           cp ../out/* "$DEST"/
           git add -A "$DEST"
           if git diff --cached --quiet; then echo "live pages unchanged; nothing to commit"; exit 0; fi
-          git commit -q -m "Capture the live atlasglinn.com pages ($(date -u +%F %H:%M) UTC)"
-          git push -q origin "HEAD:$BRANCH"
+          git commit -q -m "Capture the live atlasglinn.com pages ($(date -u '+%F %H:%M') UTC)"
+          # The Mac's handoff commits to this branch too; if it lands first, put the capture on the new tip and retry.
+          for try in 1 2 3; do
+            git push -q origin "HEAD:$BRANCH" && break
+            echo "push rejected (try $try): $BRANCH moved meanwhile; re-basing the capture onto its new tip"
+            [ "$try" = 3 ] && exit 1
+            git fetch -q --depth 1 --filter=blob:none origin "$BRANCH"
+            git reset -q --mixed FETCH_HEAD
+            git add --ignore-removal "$DEST"
+            if git diff --cached --quiet; then echo "nothing left to commit after the move"; exit 0; fi
+            git commit -q -m "Capture the live atlasglinn.com pages ($(date -u '+%F %H:%M') UTC)"
+          done
           echo "pushed $(git rev-parse --short HEAD) to $BRANCH: $DEST/"

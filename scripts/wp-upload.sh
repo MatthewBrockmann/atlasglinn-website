@@ -183,6 +183,20 @@ if curl -sfL "https://atlasglinn.com/mast-ping.txt?x=$TS" | grep -q "served by u
 else
   echo "   note: mast-ping.txt still shows an older copy or a 404; the host's cache is holding it. The page above is what counts."
 fi
+# The host answers through Cloudflare and marks the static pages "cache-control: public, max-age=2678400" (31 days); the
+# plain address keeps serving whatever copy an edge cached first, long after an upload (probe 2026-09-06: the plain
+# /mastsolutions.html was a day-old build, age 77357 s, HIT, while ?x= fetched the new one). Say so, with the way out.
+hdrs() { curl -sL -A "wp-upload-check" -o /dev/null -D - "$1" 2>/dev/null | tr -d '\r' | awk -v k="$2" 'tolower($1)==k":" {sub(/^[^:]*: */,""); print; exit}'; }
+NEW_LM="$(hdrs "https://atlasglinn.com/mastsolutions.html?x=$TS" last-modified)"
+PLAIN_LM="$(hdrs "https://atlasglinn.com/mastsolutions.html" last-modified)"
+PLAIN_CF="$(hdrs "https://atlasglinn.com/mastsolutions.html" cf-cache-status)"
+PLAIN_AGE="$(hdrs "https://atlasglinn.com/mastsolutions.html" age)"
+if [ -n "$NEW_LM" ] && [ -n "$PLAIN_LM" ] && [ "$NEW_LM" != "$PLAIN_LM" ]; then
+  echo "   CACHE: the plain address https://atlasglinn.com/mastsolutions.html still serves the page uploaded $PLAIN_LM (Cloudflare ${PLAIN_CF:-?}, age ${PLAIN_AGE:-?} s); this upload is $NEW_LM."
+  echo "   Visitors see the old page until the host's cache is flushed: GoDaddy → My Products → Managed WordPress → atlasglinn.com → Manage → Flush Cache. Same for /index.html and the other pages."
+elif [ -n "$PLAIN_LM" ]; then
+  echo "   the plain address serves this upload ($PLAIN_LM, Cloudflare ${PLAIN_CF:-?})"
+fi
 for a in images/mast/mast-cqb-poster.jpg vendor/three.module.js; do
   code=$(curl -sL -o /dev/null -w '%{http_code}' "https://atlasglinn.com/$a"); echo "   $a → $code"
 done

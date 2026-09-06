@@ -80,6 +80,13 @@ Detail files: `README.md`, `ARCHITECTURE.md`, `DATA-AND-MARKETING.md`, `RETENTIO
 
 ## B. Before launch — owner's hand, in order
 
+**B0 — Flush the host's cache after every upload (added 2026-09-06 from the capture probe).** atlasglinn.com answers through
+GoDaddy's Cloudflare CDN, which keeps the static pages for up to 31 days (`cache-control: public, max-age=2678400`). On
+2026-09-06 the plain `/mastsolutions.html` still served the 2026-09-05 16:39 build (HIT, age 77357 s) while the cache-busted
+address served the build uploaded at 14:41 UTC. YOU RUN THIS, in a browser: GoDaddy → My Products → Managed WordPress →
+atlasglinn.com → Manage → **Flush Cache** (also in wp-admin's top bar). `wp-upload.sh` now prints both Last-Modified dates
+after an upload; the probe in `_probe.txt` confirms the flush (age 0 / MISS on the plain address).
+
 1. ~~"merge 8"~~ — **merged 2026-09-05 ~03:50 UTC** on his word ("MERGE PR8"), main = 8d886b8; **PR #9 merged** by him
    (main 143525c) and the Worker redeployed from it at version 84a18bca (migrations 001–003 applied); **PR #10 merged 2026-09-05
    04:19 UTC** (student accounts + the $1 test seat removed), main = 99af86d. **Worker redeployed from 99af86d ~04:25 UTC**
