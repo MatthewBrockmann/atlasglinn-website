@@ -46,6 +46,13 @@ The old Worker is left untouched — it still serves SafeGuard.
 | `POST` | `/contact` | Site contact form and capability-statement requests (honeypot, validation, one email to `NOTIFY_EMAIL` with reply-to the sender) |
 | `POST` | `/webhook` | Stripe events; persists orders, links registrations, sends the documents |
 | `GET` | `/roster?key=…` | Admin: recent bookings (`&sku=MAST-DA`), or `&view=registrations` for the screening → payment records, review items first |
+| `POST` | `/event` | First-party beacon from the pages (`action` in a fixed list: view, open_class, pick_date, start_registration, checkout, contact, gear_request, video_play, follow…), with the visitor id and first-touch attribution; feeds the CRM funnel |
+| `POST` | `/subscribe` | Newsletter sign-up: `{email, name?, consent: true, source?, attribution?}`; stored as a lead with the consent wording, upserted to Mailchimp when configured |
+| `GET` | `/admin` | The staff CRM page (noindex, no-store); the key goes in the page and travels as `X-Admin-Key` |
+| `GET` | `/admin/crm?key=…` | Profiles (orders + registrations + accounts + leads merged by email), segments, funnel, revenue by course and by UTM source, journeys log; `&view=summary` = counts only |
+| `GET` | `/admin/audience.csv?key=…` | The opted-in audience as CSV (Mailchimp / any list tool imports it) |
+| `POST` | `/admin/sync?key=…` | Push every opted-in profile to Mailchimp (no-op until `MAILCHIMP_*` exist) |
+| `POST` | `/admin/journeys?key=…` | Run today's T−7 / T−1 / T+1 emails now (idempotent through `email_log`) |
 | `POST` | `/account/register` | Student account sign-up (email, password ≥ 10, name, phone). Answers **202 pending** and emails a 6-digit code; no token until the code comes back. An unverified address can be signed up again (the slot is taken over), so nobody can squat a student's email |
 | `POST` | `/account/verify` | `{email, code}` → the account goes live; answers the sign-in token. 15-minute codes, five tries, one at a time |
 | `POST` | `/account/resend` | New verification code (at most once a minute); always 200 so it does not reveal which emails have accounts |
@@ -219,6 +226,23 @@ The suite stubs Stripe, Resend, and D1 — it never touches a live service, so i
 is safe to run anywhere and proves logic, not deployment. (It needs
 `npm install` once, for pdf-lib.)
 
+
+## CRM and marketing (2026-09-06)
+
+`src/crm.js` — first-party only, per `DATA-AND-MARKETING.md` ("build the CDP pattern, skip the DMP"):
+
+- **Collects** every inquiry as a lead in `contacts` (contact form, capability statement, private instruction, gear quotes, the
+  Atlas EP access form, newsletter sign-ups) *before* it is emailed, with UTM, referrer, landing page, first touch and the
+  visitor id the pages keep in localStorage; a beacon (`/event`) records views and the moments that lead to a seat; the
+  registration and the order carry the same attribution (revenue per channel in SQL).
+- **Profiles** one record per email across orders, registrations, accounts and leads; segments: opted_in, lead,
+  fundamentals_only, win_back, abandoned_30d, upcoming, review, agency, gear, account.
+- **Activates** the opted-in audience as CSV or to Mailchimp (gated on the tick, never on a purchase), and the journeys from
+  the daily cron: T−7 and T−1 reminders, T+1 thank-you with the review ask, the next course and the Instagram link — one
+  per participant, class and kind (`email_log`), transactional, no unsubscribe.
+- **Never** eligibility answers: not in the CRM payload, the CSV, Mailchimp or the beacon.
+- Schema (`migrations/006-crm.sql`) is applied by the Worker itself on first use.
+
 ## Configuration reference
 
 | Name | Kind | Purpose |
@@ -231,7 +255,10 @@ is safe to run anywhere and proves logic, not deployment. (It needs
 | `STRIPE_WEBHOOK_SECRET` | secret | Webhook signature verification |
 | `RESEND_API_KEY` | secret | All email: staff notices, participant confirmation, agreement delivery |
 | `NOTIFY_EMAIL` | secret | Staff recipient(s) for booking alerts and eligibility-review notices, comma-separated |
-| `ADMIN_KEY` | secret | Guards `GET /roster` |
+| `ADMIN_KEY` | secret | Guards `GET /roster` and everything under `/admin` |
+| `MAILCHIMP_API_KEY` | secret | Marketing list (ARCHITECTURE §7). With `MAILCHIMP_AUDIENCE_ID` (and `MAILCHIMP_SERVER` when the key carries no `-usNN` suffix) the opted-in profiles are upserted on payment, on sign-up and by `/admin/sync`; without them the CSV export is the path |
+| `JOURNEYS_ENABLED` | var | `"1"` switches the daily T−7 / T−1 / T+1 emails on; `"0"` (the default) until the owner approves the texts |
+| `REVIEW_URL` | var | Optional review link in the T+1 email; without it the email asks for a reply that may be quoted |
 | `RANGE_ADDRESS` | secret | Range street address; emailed only to a paid participant, never on the site |
 | `RANGE_COORDS` | secret | Optional "lat, lon" for the directions line |
 | `DOC_RECIPIENTS_AGREEMENT` | secret | Range host + staff who receive the signed agreement PDF (and nothing else) |

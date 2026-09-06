@@ -448,6 +448,11 @@ On successful payment, upsert the contact:
 **Blocked:** memory records no Mailchimp API key in Keychain. Needed:
 `MAILCHIMP_API_KEY`, audience ID, and server prefix (e.g. `us21`).
 
+**Built 2026-09-06 (`src/crm.js`):** the upsert above exists and runs on payment, on `/subscribe` and from the staff page's
+Sync button, gated on the newsletter tick; until the three secrets are on the Worker it is a no-op and `/admin/audience.csv`
+is the export. The rest of the CDP pattern (leads, beacon, attribution, profiles, segments, T−7 / T−1 / T+1 journeys) is in
+the same file; see README "CRM and marketing".
+
 Keep transactional mail on **Resend** and marketing on **Mailchimp**. Mixing them
 risks a marketing unsubscribe silently killing someone's class reminders.
 

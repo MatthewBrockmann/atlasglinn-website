@@ -35,6 +35,7 @@ jobs:
         env:
           DO_CONTACT: ${{ inputs.contact }}
           DO_CHECKOUT: ${{ inputs.checkout }}
+          ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
         run: |
           mkdir -p out
           req() {   # method path [json]: prints "HTTP <code> <ms>ms" and the body (Stripe checkout URLs cut to their host)
@@ -68,6 +69,19 @@ jobs:
             echo "--- CORS preflight (Origin $ORIGIN → POST /create-booking)"
             curl -sS -m 40 -o /dev/null -D - -X OPTIONS -H "Origin: $ORIGIN" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type" "$WORKER/create-booking" | tr -d '\r' | grep -iE '^(HTTP|access-control-)' | sed 's/^/   /' || true
             echo "--- accounts (GET /account/me without a token: 503 accounts_off = ACCOUNT_SECRET not set; 401 = accounts on)"; req GET /account/me
+            if [ -n "$ADMIN_KEY" ]; then
+              echo "--- CRM summary (GET /admin/crm?view=summary with the ADMIN_KEY repository secret; counts and revenue only, no people)"
+              code=$(curl -sS -m 40 -o /tmp/b -w '%{http_code}' -H "X-Admin-Key: $ADMIN_KEY" "$WORKER/admin/crm?view=summary" || echo ERR); echo "HTTP $code"
+              python3 - /tmp/b <<'PY' || head -c 400 /tmp/b
+          import json, sys
+          d = json.load(open(sys.argv[1])); s = d.get('stats', {})
+          print('   profiles=%s opted_in=%s leads=%s subscribers=%s accounts=%s' % (s.get('profiles'), s.get('opted_in'), (s.get('leads') or {}).get('total'), s.get('subscribers'), (s.get('accounts') or {}).get('verified')))
+          print('   orders paid=%s revenue total=$%.2f last30=$%.2f' % ((s.get('orders') or {}).get('paid'), (s.get('revenue_cents') or {}).get('total', 0) / 100, (s.get('revenue_cents') or {}).get('last_30_days', 0) / 100))
+          print('   registrations=%s funnel(30d)=%s' % ((s.get('registrations') or {}).get('by_status'), {k: v for k, v in (s.get('funnel') or {}).items() if not isinstance(v, list)}))
+          print('   segments=%s' % {k: v.get('count') for k, v in (d.get('segments') or {}).items()})
+          print('   journeys=%s mailchimp=%s' % (s.get('journeys'), s.get('mailchimp')))
+          PY
+            else echo "--- CRM summary: skipped (no ADMIN_KEY repository secret; add it under Settings → Secrets → Actions to see counts, revenue and the funnel here)"; fi
             if [ "$DO_CONTACT" = "true" ]; then
               echo "--- contact (one labelled test message; the Worker emails NOTIFY_EMAIL through Resend)"
               req POST /contact "{\"name\":\"Smoke test (GitHub Actions)\",\"email\":\"atlasglinn.hq@atlasglinn.com\",\"message\":\"Automated smoke test of the MAST Worker, run $GITHUB_RUN_ID at $(date -u +%FT%TZ). If you read this, the /contact route, Resend and the NOTIFY_EMAIL mailbox all work. No reply needed.\",\"request_type\":\"smoke\",\"page\":\"github-actions\"}"

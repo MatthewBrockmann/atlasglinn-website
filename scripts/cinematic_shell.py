@@ -120,6 +120,7 @@ CSS_A = r"""
   .tiles.four { grid-template-columns:repeat(4,1fr); }
   .tile { position:relative; min-height:300px; display:flex; align-items:flex-end; text-align:left; overflow:hidden; border:1px solid rgba(201,168,76,.22); background:var(--deep-navy); transition:transform .45s, border-color .45s; }
   .tile .bg { position:absolute; inset:0; background:center/cover no-repeat; transform:scale(1.04); transition:transform 5s ease; filter:saturate(.8); }
+  .tile video.bg { width:100%; height:100%; object-fit:cover; }
   .tile:hover .bg { transform:scale(1.12); }
   .tile::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.05) 0%, rgba(5,8,16,.35) 50%, rgba(5,8,16,.92) 100%); }
   .tile:hover { transform:translateY(-6px); border-color:var(--gold); }
@@ -559,14 +560,66 @@ def chrome(credits, wordmark, photos, hud_tl, hud_tl_href, hud_bl, hud_br, chapt
             % (credits[0], wordmark, credits[1], ph, hud_tl_href, hud_tl, n, hud_bl, hud_br, nav))
 
 
-def tile(num, title, body, img, pos='center'):
-    return ('<div class="tile rise"><div class="bg" style="background-image:url(\'%s\');background-position:%s"></div>'
-            '<div class="txt"><div class="num">%s</div><h3>%s</h3><p>%s</p></div></div>' % (img, pos, num, title, body))
+def tile(num, title, body, img, pos='center', clip=''):
+    """A chapter tile. With `clip` (Brockmann, 2026-09-06: "Medical vid is not in Medical class") the background is the
+    muted, looping teaser with `img` as its poster; the shared .bg hover zoom applies to the video the same way."""
+    if clip:
+        bg = ('<video class="bg" autoplay muted loop playsinline preload="metadata" poster="%s" style="object-position:%s" aria-hidden="true">'
+              '<source src="%s" type="video/mp4"></video>' % (img, pos, clip))
+    else:
+        bg = '<div class="bg" style="background-image:url(\'%s\');background-position:%s"></div>' % (img, pos)
+    return ('<div class="tile rise">' + bg +
+            '<div class="txt"><div class="num">%s</div><h3>%s</h3><p>%s</p></div></div>' % (num, title, body))
+
+
+# First-party tracker (CRM, Brockmann 2026-09-06: "CRM should collect data - and much more"). No third party: the page keeps
+# its first touch (UTM, referrer, landing page, a random visitor id) in localStorage, sends one view per page and the moments
+# that lead to a seat to the Worker's /event, and hands the same attribution to every form post as `attribution`.
+# `mastAttribution()` and `mastTrack(action, label, sku)` are globals for the booking script; clicks on [data-track] and
+# every <video> play are picked up here.
+TRACK_JS = r"""
+(function () {
+  var API = 'https://mast-booking-backend.matthew-221.workers.dev';
+  var KEY = 'mast_first_touch', VKEY = 'mast_visitor';
+  function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function read(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  var visitor = read(VKEY);
+  if (!visitor) { visitor = 'v_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); store(VKEY, visitor); }
+  var first = null; try { first = JSON.parse(read(KEY) || 'null'); } catch (e) {}
+  var q = new URLSearchParams(location.search), utm = {};
+  ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].forEach(function (k) { if (q.get(k)) utm[k] = q.get(k).slice(0, 120); });
+  if (!first || (Object.keys(utm).length && !first.utm_source)) {
+    first = Object.assign({ referrer: (document.referrer || '').slice(0, 500), landing_page: location.href.split('#')[0].slice(0, 500), first_touch_at: new Date().toISOString() }, utm);
+    store(KEY, JSON.stringify(first));
+  }
+  window.mastAttribution = function () { return Object.assign({ visitor: visitor, page: location.href.split('#')[0].slice(0, 500) }, first || {}); };
+  var sent = {};
+  window.mastTrack = function (action, label, sku) {
+    var key = action + '|' + (label || '') + '|' + (sku || '');
+    if (action !== 'view' && sent[key]) return; sent[key] = 1;
+    var body = JSON.stringify({ action: action, label: label || '', sku: sku || '', attribution: window.mastAttribution() });
+    try { if (navigator.sendBeacon && navigator.sendBeacon(API + '/event', new Blob([body], { type: 'text/plain' }))) return; } catch (e) {}
+    try { fetch(API + '/event', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: body, keepalive: true }); } catch (e) {}
+  };
+  function ready() {
+    mastTrack('view', document.title.slice(0, 120));
+    document.addEventListener('click', function (e) {
+      var el = e.target && e.target.closest ? e.target.closest('[data-track], a[href*="instagram.com"], a[href*="linkedin.com"], a[href*="youtube.com"]') : null;
+      if (!el) return;
+      if (el.dataset && el.dataset.track) { var p = el.dataset.track.split(':'); mastTrack(p[0], p[1] || el.textContent.trim().slice(0, 80), p[2] || ''); }
+      else mastTrack('follow', (el.href.match(/instagram|linkedin|youtube/) || ['social'])[0]);
+    }, true);
+    document.addEventListener('play', function (e) { var v = e.target; if (v && v.tagName === 'VIDEO') mastTrack('video_play', (v.currentSrc || v.src || '').split('/').pop().slice(0, 80)); }, true);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready); else ready();
+})();
+"""
 
 
 def tail(three_js, classic_js=''):
     return ('\n<script type="module">' + three_js + '</script>\n'
-            + ('<script>' + classic_js + '</script>\n' if classic_js else '') + '</body>\n</html>\n')
+            + ('<script>' + classic_js + '</script>\n' if classic_js else '')
+            + '<script>' + TRACK_JS + '</script>\n' + '</body>\n</html>\n')
 
 
 # ── Site navigation for the multi-page Atlas Glinn build: a MENU control in the HUD row and a full-screen overlay. ──

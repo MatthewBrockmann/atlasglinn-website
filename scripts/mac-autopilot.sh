@@ -61,9 +61,9 @@ cat <<EOF
   <key>Label</key><string>$H_LABEL</string>
   <key>ProgramArguments</key><array>
     <string>/bin/bash</string><string>-c</string>
-    <string>export PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin; export HANDOFF_ONLY=1 HANDOFF_REPO="$R"; exec /bin/bash "$R/scripts/mac-handoff.sh" "$DROP/gallery" "$DROP/range"</string>
+    <string>export PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin; export HANDOFF_ONLY=1 HANDOFF_REPO="$R"; exec /bin/bash "$R/scripts/mac-handoff.sh" "$DROP/gallery" "$DROP/range" "$DROP"</string>
   </array>
-  <key>WatchPaths</key><array><string>$DROP/gallery</string><string>$DROP/range</string></array>
+  <key>WatchPaths</key><array><string>$DROP/gallery</string><string>$DROP/range</string><string>$DROP</string></array>
   <key>ThrottleInterval</key><integer>120</integer>
   <key>StandardOutPath</key><string>$LOGS/atlasglinn-handoff.log</string>
   <key>StandardErrorPath</key><string>$LOGS/atlasglinn-handoff.log</string>

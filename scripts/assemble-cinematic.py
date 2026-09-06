@@ -90,8 +90,8 @@ assert 'function openCal' in js and 'function startCheckout' in js and "['testim
 assert 'hero-yt' not in js and 'REVIEWS' not in js, 'hero/reviews code leaked into booking js'
 
 # ── 4. Page ──
-def tile(num, title, body, img, pos='center'):
-    return shell.tile(num, title, body, 'images/mast/' + img, pos)
+def tile(num, title, body, img, pos='center', clip=''):
+    return shell.tile(num, title, body, 'images/mast/' + img, pos, ('images/mast/' + clip) if clip else '')
 
 CHROME = shell.chrome(
     credits=('A Houston Operation', 'Since 2005'), wordmark='MAST Solutions',
@@ -284,7 +284,7 @@ SECTIONS = f"""
         {tile('03', 'Knife Combat.', 'Defensive and tactical knife.', 'disc-knife-combat.jpg')}
         {tile('04', 'CQB.', 'Close Quarters Battle.', 'disc-cqb.jpg')}
         {tile('05', 'Fitness.', 'Conditioning for duty.', 'disc-fitness.jpg', 'center 60%')}
-        {tile('06', 'Medical.', 'Emergency and trauma care.', 'disc-medical.jpg')}
+        {tile('06', 'Medical.', 'Emergency and trauma care.', 'mast-medical-poster.jpg', 'center 35%', clip='mast-medical-teaser.mp4')}
         {tile('07', 'Leadership.', 'Command and decision-making.', 'disc-leadership.jpg', 'center 40%')}
       </div>
     </div>

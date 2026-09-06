@@ -22,6 +22,7 @@
  */
 
 import { AGREEMENT_VERSION, fillAgreement } from './agreement.js';
+import { crmSnapshot, audienceCsv, syncAudience, mailchimpOnPayment, adminPage, attributionFrom, recordContact, markContactEmailed, recordEvent, handleEvent, handleSubscribe, runJourneys } from './crm.js';
 
 const REPLAY_WINDOW_SECONDS = 300; // reject webhook timestamps older than 5 min
 
@@ -78,6 +79,14 @@ export default {
       if (url.pathname === '/roster' && request.method === 'GET') {
         return await handleRoster(request, env, cors);
       }
+      // CRM + marketing (owner, 2026-09-06: "CRM should collect data - and much more"): the beacon and the newsletter form
+      // are public; everything under /admin is the staff tool behind ADMIN_KEY.
+      if (url.pathname === '/event' && request.method === 'POST') return await handleEvent(request, env, cors, json);
+      if (url.pathname === '/subscribe' && request.method === 'POST') return await handleSubscribe(request, env, cors, json);
+      if (url.pathname === '/admin' && request.method === 'GET') {
+        return new Response(adminPage(), { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' } });
+      }
+      if (url.pathname.startsWith('/admin/')) return await handleAdmin(request, env, cors, url);
       return json({ error: 'Not found' }, 404, cors);
     } catch (err) {
       console.error('[Worker] Unhandled:', err.stack || err.message);
@@ -88,6 +97,12 @@ export default {
   /** Daily cron (wrangler.toml [triggers]). */
   async scheduled(event, env, ctx) {
     ctx.waitUntil(runRetention(env).catch((e) => console.error('[Retention] failed:', e.message)));
+    // T−7 / T−1 / T+1 to booked participants (DATA-AND-MARKETING.md "Triggered journeys"); one per participant, class and kind.
+    // Off until the owner has read the three emails (his 2026-09-06 "show me them before"): JOURNEYS_ENABLED = "1" in wrangler.toml [vars]
+    // switches the cron on; POST /admin/journeys (staff, ADMIN_KEY) runs a day by hand meanwhile.
+    if (String(env.JOURNEYS_ENABLED) === '1') {
+      ctx.waitUntil(runJourneys(env, { send: (m) => sendEmail(env, m), catalog: await catalogRows(env) }).catch((e) => console.error('[Journeys] failed:', e.message)));
+    } else console.log('[Journeys] off (JOURNEYS_ENABLED is not "1")');
   },
 };
 
@@ -644,6 +659,8 @@ async function handleBooking(request, env, cors) {
     'metadata[organization]': str(body.organization),
     'metadata[notes]': str(body.notes),
     'metadata[source]': 'mastsolutions',
+    'metadata[utm_source]': attributionFrom(body, request).utm_source || '', 'metadata[utm_medium]': attributionFrom(body, request).utm_medium || '',
+    'metadata[utm_campaign]': attributionFrom(body, request).utm_campaign || '', 'metadata[first_touch_at]': attributionFrom(body, request).first_touch_at || '',
   });
 
   await applyAccountCustomer(env, payload, body.account_token, 'Booking');
@@ -805,6 +822,12 @@ async function handleRegister(request, env, cors) {
     newsletter_opt_in: optIn ? 1 : 0, newsletter_opted_in_at: optIn ? now : null,
     prereq_attested: prereq && prereqAttested ? 1 : 0,
   };
+  // Attribution (CRM, 2026-09-06): first touch, UTM, referrer, landing page and the visitor id travel with the registration
+  // and, through Stripe's metadata, onto the order the webhook stores — revenue per channel in SQL, not in a dashboard.
+  const attribution = attributionFrom(body, request);
+  Object.assign(reg, { utm_source: attribution.utm_source || null, utm_medium: attribution.utm_medium || null, utm_campaign: attribution.utm_campaign || null,
+    referrer: attribution.referrer || null, landing_page: attribution.landing_page || null, first_touch_at: attribution.first_touch_at || null, visitor: attribution.visitor || null });
+  recordEvent(env, { visitor: attribution.visitor, email, page: attribution.page, action: 'start_registration', label: offering.name, sku: offering.sku, attribution }).catch(() => {});
 
   // 6. Persist: the outcome (kept), the answers (purged on schedule), the registration.
   try {
@@ -849,6 +872,8 @@ async function handleRegister(request, env, cors) {
     'metadata[organization]': reg.organization,
     'metadata[notes]': '',
     'metadata[source]': 'mastsolutions',
+    'metadata[utm_source]': reg.utm_source || '', 'metadata[utm_medium]': reg.utm_medium || '', 'metadata[utm_campaign]': reg.utm_campaign || '',
+    'metadata[first_touch_at]': reg.first_touch_at || '',
   });
   await applyAccountCustomer(env, payload, body.account_token, 'Register');
   const result = await createStripeSession(payload, env, 'Register');
@@ -888,17 +913,26 @@ const REG_COLUMNS = [
   'refund_policy_version', 'refund_policy_accepted_at', 'refund_policy_ip',
   'newsletter_opt_in', 'newsletter_opted_in_at',
   'prereq_attested',
+  'utm_source', 'utm_medium', 'utm_campaign', 'referrer', 'landing_page', 'first_touch_at', 'visitor',
 ];
 
 async function storeRegistration(env, reg) {
   if (!env.DB) throw new Error('D1 not bound');
-  await env.DB.prepare(
-    `INSERT INTO registrations (${REG_COLUMNS.join(', ')}) VALUES (${REG_COLUMNS.map(() => '?').join(',')})`
-  ).bind(...REG_COLUMNS.map((c) => (reg[c] === undefined ? null : reg[c]))).run();
+  const insertWith = (cols) => env.DB.prepare(
+    `INSERT INTO registrations (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(',')})`
+  ).bind(...cols.map((c) => (reg[c] === undefined ? null : reg[c]))).run();
+  try { await insertWith(REG_COLUMNS); }
+  catch (e) {
+    // A table that predates the attribution columns (crm.js adds them on first use; a race on the very first request):
+    // the registration itself is what matters, so store it without them.
+    if (!/no column|no such column|has no column/i.test(String(e.message))) throw e;
+    await insertWith(REG_COLUMNS.filter((c) => !REG_ATTRIBUTION.has(c)));
+  }
   console.log('[Register] Stored:', reg.id, reg.status, reg.item_name, reg.customer_email);
 }
 
 const REG_UPDATABLE = new Set(['status', 'stripe_session_id', 'paid_at', 'documents_sent_at', 'customer_phone']);
+const REG_ATTRIBUTION = new Set(['utm_source', 'utm_medium', 'utm_campaign', 'referrer', 'landing_page', 'first_touch_at', 'visitor']);
 
 async function updateRegistration(env, id, fields) {
   if (!env.DB) return;
@@ -978,12 +1012,18 @@ async function handleContact(request, env, cors) {
     'Page:     ' + (meta.page || '—'),
     'Received: ' + new Date().toISOString(),
   ].filter((l) => l !== null).join('\n');
+  // The lead is stored before anything is sent (CRM, 2026-09-06): a mail failure never loses an inquiry.
+  const attribution = attributionFrom(body, request);
+  const leadKind = kind === 'capability' ? 'capability' : (meta.request_type === 'private' || meta.request_type === 'gear' || meta.request_type === 'smoke') ? meta.request_type : 'contact';
+  const leadId = await recordContact(env, { kind: leadKind, name, email, phone, company: meta.company, status: meta.status, request_type: meta.request_type, message, newsletter_opt_in: body.newsletter_opt_in === true, consent_text: body.consent_text, attribution });
+  recordEvent(env, { visitor: attribution.visitor, email, page: attribution.page, action: leadKind === 'gear' ? 'gear_request' : 'contact', label: meta.request_type || kind, attribution }).catch(() => {});
   if (!env.NOTIFY_EMAIL || !env.RESEND_API_KEY) {
     console.error('[Contact] Email not configured (need NOTIFY_EMAIL + RESEND_API_KEY). Message:\n' + text);
     return json({ error: 'The contact form is not connected yet. Please call (281) 654-8100 or email atlasglinn.hq@atlasglinn.com.' }, 503, cors);
   }
   try {
     await sendEmail(env, { to: list(env.NOTIFY_EMAIL), reply_to: email, subject, text });
+    await markContactEmailed(env, leadId);
   } catch (e) {
     console.error('[Contact] send failed:', e.message);
     // The upstream status alone (never Resend's detail) rides along, so the runner smoke test can tell an API-key problem
@@ -1229,6 +1269,7 @@ async function handleWebhook(request, env, ctx, cors) {
       customer_phone: session.customer_details?.phone || '',
       organization: meta.organization || '',
       notes: meta.notes || '',
+      utm_source: meta.utm_source || '', utm_medium: meta.utm_medium || '', utm_campaign: meta.utm_campaign || '', first_touch_at: meta.first_touch_at || '',
       created_at: new Date().toISOString(),
     };
 
@@ -1253,6 +1294,8 @@ async function handleWebhook(request, env, ctx, cors) {
       ctx.waitUntil(
         sendRegistrationDocuments(env, registration, record).catch((e) => console.error('[Documents] failed:', e.message))
       );
+      // Marketing list, gated on the newsletter tick (a purchase is not consent); a no-op until Mailchimp is configured.
+      ctx.waitUntil(mailchimpOnPayment(env, registration, record).catch((e) => console.error('[Mailchimp] failed:', e.message)));
     }
   }
 
@@ -1277,22 +1320,33 @@ async function storeOrder(env, r) {
     console.error('[Order] D1 not bound — ORDER NOT PERSISTED:', JSON.stringify(r));
     return false;
   }
+  const base = [
+    r.stripe_session_id, r.stripe_event_id, r.kind, r.sku, r.item_name,
+    r.session_date || null, r.session_label || null, r.qty,
+    r.amount_total, r.currency, r.customer_email, r.customer_name, r.customer_phone,
+    r.organization, r.notes, r.created_at,
+  ];
+  const insertBase = () => env.DB.prepare(
+    `INSERT INTO orders (
+       stripe_session_id, stripe_event_id, kind, sku, item_name, session_date, session_label, qty,
+       amount_total, currency, customer_email, customer_name, customer_phone,
+       organization, notes, status, created_at
+     ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'paid',?)
+     ON CONFLICT(stripe_session_id) DO NOTHING`
+  ).bind(...base).run();
+  const insertWithUtm = () => env.DB.prepare(
+    `INSERT INTO orders (
+       stripe_session_id, stripe_event_id, kind, sku, item_name, session_date, session_label, qty,
+       amount_total, currency, customer_email, customer_name, customer_phone,
+       organization, notes, status, created_at, utm_source, utm_medium, utm_campaign, first_touch_at
+     ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'paid',?,?,?,?,?)
+     ON CONFLICT(stripe_session_id) DO NOTHING`
+  ).bind(...base, r.utm_source || null, r.utm_medium || null, r.utm_campaign || null, r.first_touch_at || null).run();
   try {
-    await env.DB.prepare(
-      `INSERT INTO orders (
-         stripe_session_id, stripe_event_id, kind, sku, item_name, session_date, session_label, qty,
-         amount_total, currency, customer_email, customer_name, customer_phone,
-         organization, notes, status, created_at
-       ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'paid',?)
-       ON CONFLICT(stripe_session_id) DO NOTHING`
-    )
-      .bind(
-        r.stripe_session_id, r.stripe_event_id, r.kind, r.sku, r.item_name,
-        r.session_date || null, r.session_label || null, r.qty,
-        r.amount_total, r.currency, r.customer_email, r.customer_name, r.customer_phone,
-        r.organization, r.notes, r.created_at
-      )
-      .run();
+    // Attribution columns when the table has them (schema.sql; crm.js adds them to an older table on first use); the
+    // order itself never waits on them.
+    try { await insertWithUtm(); }
+    catch (e) { if (!/no column|no such column|has no column/i.test(String(e.message))) throw e; await insertBase(); }
     console.log('[Order] Stored:', r.stripe_session_id, r.item_name, r.customer_email);
     return true;
   } catch (e) {
@@ -1524,6 +1578,47 @@ function toBase64(bytes) {
   let s = '';
   for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
   return btoa(s);
+}
+
+/* ─────────────────────────── CRM (staff) ─────────────────────────── */
+
+function adminKeyOk(request, env, url) {
+  const key = request.headers.get('X-Admin-Key') || url.searchParams.get('key') || '';
+  return !!(env.ADMIN_KEY && key && timingSafeEqual(key, env.ADMIN_KEY));
+}
+
+/** The catalog as rows (D1 offerings when present, else the seed) for the journeys' next-course line. */
+async function catalogRows(env) {
+  if (env.DB) {
+    try {
+      const { results } = await env.DB.prepare('SELECT sku, name, price_cents FROM offerings WHERE active = 1 ORDER BY sort_order, name').all();
+      if (results && results.length) return results;
+    } catch (_) { /* seed below */ }
+  }
+  return SEED_CLASSES;
+}
+
+async function handleAdmin(request, env, cors, url) {
+  if (!adminKeyOk(request, env, url)) return json({ error: 'Unauthorized' }, 401, cors);
+  if (!env.DB) return json({ error: 'Database not bound' }, 503, cors);
+  const noStore = { ...cors, 'Cache-Control': 'no-store' };
+  if (url.pathname === '/admin/crm' && request.method === 'GET') {
+    const snap = await crmSnapshot(env, { view: url.searchParams.get('view') === 'summary' ? 'summary' : 'full' });
+    return json(snap, 200, noStore);
+  }
+  if (url.pathname === '/admin/audience.csv' && request.method === 'GET') {
+    const { customers } = await crmSnapshot(env);
+    return new Response(audienceCsv(customers), { status: 200, headers: { ...noStore, 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="mast-audience.csv"' } });
+  }
+  if (url.pathname === '/admin/sync' && request.method === 'POST') {
+    const { customers } = await crmSnapshot(env);
+    return json(await syncAudience(env, customers), 200, noStore);
+  }
+  if (url.pathname === '/admin/journeys' && request.method === 'POST') {
+    // Run today's journeys now instead of at 09:17 UTC (idempotent: email_log).
+    return json(await runJourneys(env, { send: (m) => sendEmail(env, m), catalog: await catalogRows(env) }), 200, noStore);
+  }
+  return json({ error: 'Not found' }, 404, cors);
 }
 
 /* ─────────────────────────── Admin roster ─────────────────────────── */

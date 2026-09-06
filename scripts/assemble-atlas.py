@@ -237,6 +237,7 @@ FORM_JS = r"""
         delete data.confirm_email;
       }
       btn.disabled = true; const label = btn.textContent; btn.textContent = 'Sending…'; msg.textContent = ''; msg.className = 'form-msg';
+      if (window.mastAttribution) data.attribution = mastAttribution();   // first touch, UTM, referrer, landing page, visitor id → the CRM lead
       try {
         const r = await fetch(f.dataset.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
         const j = await r.json().catch(() => ({}));

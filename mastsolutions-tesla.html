@@ -958,7 +958,7 @@ function bookable(w){ return (w.status === 'available' || w.status === 'schedule
    Nothing is checked against a roster: students from before this system are not in it ("UNLESS they have taken it prior"). */
 const attested = {};   // sku → true once the student has answered yes on this visit
 let gateIdx = null;
-function selectCourse(i){ const c = COURSES[i], lv = levelOf(c); if (!lv || lv.n < 2 || attested[c.sku]) return openCal(i); gateIdx = i; const f = lv.fund; $('gate-title').textContent = c.name; $('gate-text').innerHTML = `<b>${esc(fundLabel(f))}</b>${lv.n === 3 ? ' and a MAST P1 course' : ''} comes first. Have you completed it with MAST, or an instructor-approved equivalent?`; $('gate-no').textContent = 'No — book ' + f.name + ' first'; lastFocus = document.activeElement; $('gate-bd').classList.add('open'); $('gate').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('gate-yes').focus(), 150); }
+function selectCourse(i){ const c = COURSES[i], lv = levelOf(c); if (window.mastTrack) mastTrack('open_class', c.name, c.sku); if (!lv || lv.n < 2 || attested[c.sku]) return openCal(i); gateIdx = i; const f = lv.fund; $('gate-title').textContent = c.name; $('gate-text').innerHTML = `<b>${esc(fundLabel(f))}</b>${lv.n === 3 ? ' and a MAST P1 course' : ''} comes first. Have you completed it with MAST, or an instructor-approved equivalent?`; $('gate-no').textContent = 'No — book ' + f.name + ' first'; lastFocus = document.activeElement; $('gate-bd').classList.add('open'); $('gate').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('gate-yes').focus(), 150); }
 function closeGate(){ $('gate-bd').classList.remove('open'); $('gate').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
 function gateYes(){ const c = COURSES[gateIdx]; attested[c.sku] = true; closeGate(); openCal(gateIdx); }
 function gateNo(){ const f = levelOf(COURSES[gateIdx]).fund, fi = COURSES.indexOf(f), ci = CATS.indexOf(f.cat); closeGate(); const cat = $('cat-' + ci); if (cat && !cat.classList.contains('open')) toggleCat(ci); const row = document.querySelector(`.cr-price[data-sku="${f.sku}"]`); const rowEl = row && row.closest('.course-row'); if (rowEl) { rowEl.scrollIntoView({ block: 'center' }); rowEl.classList.add('flash'); setTimeout(() => rowEl.classList.remove('flash'), 2400); } openCal(fi); }
@@ -978,7 +978,7 @@ function renderCal(){
   $('cal-quick').innerHTML = WEEKENDS.map((w, wi) => bookable(w) ? `<button type="button" class="chip${chosen === wi ? ' sel' : ''}" onclick="pick(${wi})">${labelFor(w, calCourse.days).replace(/, \d{4}$/, '')}</button>` : '').join('');
   $('cal-sel').innerHTML = chosen === null ? 'Tap a highlighted date.' : `<b>${labelFor(WEEKENDS[chosen], calCourse.days)}</b>`; $('cal-go').disabled = chosen === null;
 }
-function pick(wi){ chosen = wi; const d = parseISO(WEEKENDS[wi].saturday); calMonth = new Date(d.getFullYear(), d.getMonth(), 1); renderCal(); }
+function pick(wi){ if (window.mastTrack && calCourse) mastTrack('pick_date', WEEKENDS[wi] && WEEKENDS[wi].saturday, calCourse.sku); chosen = wi; const d = parseISO(WEEKENDS[wi].saturday); calMonth = new Date(d.getFullYear(), d.getMonth(), 1); renderCal(); }
 function calContinue(){ if (chosen === null) return; $('cal-bd').classList.remove('open'); $('cal').classList.remove('open'); openSheet(); }
 
 // ── Book a Class, date first (owner, 2026-09-05). Every training weekend on one calendar; hover shows what runs; pick a weekend, then a
@@ -1056,7 +1056,7 @@ let reqKind = 'private';
 function openReqDialog(kind, title, meta, eyebrow, fine){ reqKind = kind; lastFocus = document.activeElement; $('req-eyebrow').textContent = eyebrow; $('req-title').textContent = title; $('req-meta').textContent = meta; $('req-fine').textContent = fine;
   $('req-org-wrap').hidden = kind !== 'gear'; $('req-qty-wrap').hidden = kind !== 'gear'; if ($('req-qty')) $('req-qty').value = 1; $('req-msg').value = ''; $('req-err').hidden = true;
   const b = $('req-go'); b.disabled = false; b.textContent = kind === 'gear' ? 'Request Quote' : 'Send Request'; $('req-bd').classList.add('open'); $('req').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('req-name').focus(), 60); }
-function requestGear(i){ reqIdx = i; const g = GEAR[i]; openReqDialog('gear', g.name, g.sku + ' · ' + g.brand + ' · ' + g.fam + (g.price ? ' · ' + g.price + (g.device ? ' each' : ' MAP') : ''), 'Gear quote',
+function requestGear(i){ reqIdx = i; const g = GEAR[i]; if (window.mastTrack) mastTrack('gear_request', g.name, g.sku); openReqDialog('gear', g.name, g.sku + ' · ' + g.brand + ' · ' + g.fam + (g.price ? ' · ' + g.price + (g.device ? ' each' : ' MAP') : ''), 'Gear quote',
   g.device ? 'IWA training devices need a PPC certification; orders are verified before fulfillment. 3-unit minimum, 27 per box; hazmat shipping is included. We confirm availability and shipping by email within one business day. Nothing is charged online.'
            : 'MAP price shown; dealer and volume pricing on request. We confirm availability and shipping by email within one business day. Nothing is charged online.'); }
 function requestPrivate(i){ reqIdx = i; const c = COURSES[i]; openReqDialog('private', c.name, c.meta ? c.meta.replace(/ · /g, ' · ') : '', 'Private instruction',
@@ -1072,7 +1072,7 @@ async function reqGo(){ const gear = reqKind === 'gear'; const c = gear ? GEAR[r
   const message = gear
     ? 'Gear quote request — ' + c.sku + ' ' + c.name + ' (' + c.brand + ' · ' + c.fam + ') × ' + qty + (c.price ? ' @ ' + c.price + (c.device ? ' each' : ' MAP') : '') + (org ? '\nAgency / organization / PPC: ' + org : '') + (note ? '\n\n' + note : '')
     : 'Private instruction request — ' + c.name + (c.meta ? ' (' + c.meta + ')' : '') + (note ? '\n\n' + note : '');
-  try { const r = await fetch(API + '/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'contact', request_type: reqKind, company: org, name, email, phone, message, website: $('req-web').value, page: location.href.split('#')[0] }) });
+  try { const r = await fetch(API + '/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'contact', request_type: reqKind, company: org, name, email, phone, message, website: $('req-web').value, page: location.href.split('#')[0], attribution: window.mastAttribution ? mastAttribution() : undefined }) });
     const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'Could not send the request.');
     b.textContent = 'Request sent ✓'; $('req-meta').textContent = 'Thank you, ' + name.split(' ')[0] + '. We reply within one business day.'; setTimeout(closeReq, 2400); }
   catch (e) { b.disabled = false; b.textContent = 'Send Request'; err.innerHTML = esc(e.message || 'Could not send the request.') + ' You can also email <a href="mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent((reqKind === 'gear' ? 'Gear quote — ' + c.sku + ' ' : 'Private instruction — ') + c.name) + '">atlasglinn.hq@atlasglinn.com</a>.'; err.hidden = false; }
@@ -1176,7 +1176,7 @@ function acctPrefill(){ if (!acctData) return; const a = acctData; const set = (
 const REGISTER_ENDPOINT = API + '/register';
 const QUESTIONS_VERSION = '2q-2026-09-03', AGREEMENT_VERSION = '81961f2a07675eff', REFUND_POLICY_VERSION = '2026-09-01'; // must match the Worker
 let qty = 1, regStep = 1, docScrolled = false;
-function openSheet(){ qty = 1; docScrolled = false; acctPrefill();
+function openSheet(){ qty = 1; docScrolled = false; acctPrefill(); if (window.mastTrack && calCourse) mastTrack('start_registration', calCourse.name, calCourse.sku);
   // The attestation (owner, 2026-09-04): the discipline's Fundamentals gates every other course in it; P2 also needs the P1. Pre-ticked when the student answered yes at Select Date.
   const lv = levelOf(calCourse), gate = !!(lv && lv.n >= 2); $('co-prereq-wrap').hidden = !gate; $('co-prereq').checked = gate && !!attested[calCourse.sku];
   if (gate) $('co-prereq-text').textContent = 'I have completed MAST ' + fundLabel(lv.fund) + (lv.n === 3 ? ' and a MAST P1 course' : '') + ', or an instructor-approved equivalent, before this course.';
@@ -1232,10 +1232,12 @@ async function startCheckout(){
     account_token: acctToken || undefined,   // a signed-in student books against their Stripe Customer (saved card)
   }, returns);
   try {
+    if (window.mastAttribution) payload.attribution = mastAttribution();   // first touch, UTM, referrer, landing page, visitor id → the registration, the order, the CRM
     const res = await fetch(REGISTER_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const data = await res.json().catch(() => ({}));
     if (res.status === 202 && data.review) { for (let i = 1; i <= 4; i++) $('reg-' + i).hidden = true; document.querySelectorAll('.reg-steps li').forEach(li => li.classList.remove('on')); const rv = $('reg-review'); rv.innerHTML = '<b>Thank you.</b> ' + esc(data.message || 'A member of our staff will contact you before your booking continues. Nothing has been charged.') + '<br><br>Reference ' + esc(data.registration_id || '') + ' &middot; (281) 654-8100'; rv.hidden = false; return; }
     if (!res.ok || !data.checkoutUrl) throw new Error(data.error || 'Checkout unavailable');
+    if (window.mastTrack) mastTrack('checkout', calCourse.name, calCourse.sku);
     location.href = data.checkoutUrl;
   } catch(e) { btn.disabled = false; btn.textContent = 'Continue to Secure Checkout'; fail('Could not start checkout (' + e.message + '). Please try again or call (281) 654-8100.'); }
 }
