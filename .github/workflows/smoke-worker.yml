@@ -1,0 +1,116 @@
+# Live check of the MAST booking Worker from a GitHub runner (the cloud container has no route to workers.dev).
+# Read-only by default: /health, /catalog, /weekends, the CORS preflight, /account/me (503 accounts_off = ACCOUNT_SECRET
+# not set on the Worker; 401 = accounts on) and the mail DNS of mastsolutions.com. With contact=true it posts one clearly
+# labelled test message through /contact — the Worker emails it to NOTIFY_EMAIL through Resend, so the owner can confirm
+# the mail path end to end. With checkout=true it creates one unpaid Stripe Checkout Session for the first bookable SKU
+# and prints the host of the URL it gets back (nothing is charged; the session expires on its own and the daily cron
+# drops the abandoned registration). Results go to the job summary and to
+# claude/desktop-assets:reference/desktop/live/_worker-smoke.txt, readable from any session with
+#   git fetch origin claude/desktop-assets:refs/remotes/origin/claude/desktop-assets
+#   git show origin/claude/desktop-assets:reference/desktop/live/_worker-smoke.txt
+name: Smoke-test the MAST Worker
+on:
+  workflow_dispatch:
+    inputs:
+      contact:
+        description: "POST one labelled test message to /contact (the Worker emails NOTIFY_EMAIL)"
+        type: boolean
+        default: true
+      checkout:
+        description: "Create one unpaid Stripe Checkout Session through /create-booking"
+        type: boolean
+        default: false
+permissions:
+  contents: write
+env:
+  WORKER: https://mast-booking-backend.matthew-221.workers.dev
+  ORIGIN: https://atlasglinn.com
+  BRANCH: claude/desktop-assets
+  DEST: reference/desktop/live
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe the Worker
+        env:
+          DO_CONTACT: ${{ inputs.contact }}
+          DO_CHECKOUT: ${{ inputs.checkout }}
+        run: |
+          mkdir -p out
+          req() {   # method path [json]: prints "HTTP <code> <ms>ms" and the body (Stripe checkout URLs cut to their host)
+            local m="$1" p="$2" body="${3:-}" t0 t1 code
+            t0=$(date +%s%N)
+            if [ -n "$body" ]; then
+              code=$(curl -sS -m 40 -o /tmp/b -w '%{http_code}' -X "$m" -H "Content-Type: application/json" -H "Origin: $ORIGIN" --data "$body" "$WORKER$p" || echo ERR)
+            else
+              code=$(curl -sS -m 40 -o /tmp/b -w '%{http_code}' -X "$m" -H "Origin: $ORIGIN" "$WORKER$p" || echo ERR)
+            fi
+            t1=$(date +%s%N)
+            echo "HTTP $code $(( (t1 - t0) / 1000000 ))ms  $m $p"
+            sed -E 's#(https://checkout\.stripe\.com/)[^" ]*#\1…#g' /tmp/b | head -c 1500; echo
+          }
+          {
+            echo "smoke $(date -u +%FT%TZ) from $GITHUB_REF_NAME ${GITHUB_SHA::7} run $GITHUB_RUN_ID (contact=$DO_CONTACT checkout=$DO_CHECKOUT)"
+            echo "--- health"; req GET /health
+            echo "--- catalog"; req GET /catalog | head -1
+            python3 - /tmp/b <<'PY' || true
+          import json, sys
+          d = json.load(open(sys.argv[1])); cl = d.get('classes', [])
+          print('   source=%s classes=%d' % (d.get('source'), len(cl)))
+          for c in cl: print('   %-16s %-44s $%.2f' % (c.get('sku'), (c.get('name') or '')[:44], (c.get('price_cents') or 0) / 100))
+          PY
+            echo "--- weekends"; req GET /weekends | head -1
+            python3 - /tmp/b <<'PY' || true
+          import json, sys
+          d = json.load(open(sys.argv[1])); w = d.get('weekends', [])
+          print('   weekends=%d first=%s last=%s statuses=%s' % (len(w), w[0].get('saturday') if w else None, w[-1].get('saturday') if w else None, sorted(set(str(x.get('status')) for x in w))))
+          PY
+            echo "--- CORS preflight (Origin $ORIGIN → POST /create-booking)"
+            curl -sS -m 40 -o /dev/null -D - -X OPTIONS -H "Origin: $ORIGIN" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type" "$WORKER/create-booking" | tr -d '\r' | grep -iE '^(HTTP|access-control-)' | sed 's/^/   /' || true
+            echo "--- accounts (GET /account/me without a token: 503 accounts_off = ACCOUNT_SECRET not set; 401 = accounts on)"; req GET /account/me
+            if [ "$DO_CONTACT" = "true" ]; then
+              echo "--- contact (one labelled test message; the Worker emails NOTIFY_EMAIL through Resend)"
+              req POST /contact "{\"name\":\"Smoke test (GitHub Actions)\",\"email\":\"atlasglinn.hq@atlasglinn.com\",\"message\":\"Automated smoke test of the MAST Worker, run $GITHUB_RUN_ID at $(date -u +%FT%TZ). If you read this, the /contact route, Resend and the NOTIFY_EMAIL mailbox all work. No reply needed.\",\"request_type\":\"smoke\",\"page\":\"github-actions\"}"
+            else echo "--- contact: skipped (input contact=false)"; fi
+            if [ "$DO_CHECKOUT" = "true" ]; then
+              sku=$(curl -sS -m 40 "$WORKER/catalog" | python3 -c 'import json,sys; cl=[c for c in json.load(sys.stdin).get("classes",[]) if (c.get("price_cents") or 0)>=100]; print(cl[0]["sku"] if cl else "")')
+              echo "--- checkout (one unpaid Stripe Checkout Session for $sku; nothing is charged)"
+              req POST /create-booking "{\"sku\":\"$sku\",\"qty\":1,\"customer_email\":\"atlasglinn.hq@atlasglinn.com\",\"customer_name\":\"SMOKE TEST - ignore\",\"notes\":\"GitHub Actions smoke test run $GITHUB_RUN_ID; not a real booking\"}"
+            else echo "--- checkout: skipped (input checkout=false)"; fi
+            echo "--- mail DNS (mastsolutions.com), resolver 1.1.1.1"
+            for q in "TXT mastsolutions.com" "MX mastsolutions.com" "TXT send.mastsolutions.com" "MX send.mastsolutions.com" "TXT _dmarc.mastsolutions.com" "CNAME selector1._domainkey.mastsolutions.com" "CNAME selector2._domainkey.mastsolutions.com" "CNAME autodiscover.mastsolutions.com"; do
+              set -- $q; echo "   $1 $2: $(dig +short "$1" "$2" @1.1.1.1 | sed -E 's/re_[A-Za-z0-9_]+/re_[redacted]/g' | tr '\n' '|')"
+            done
+            echo "   (no v=spf1 … include:spf.protection.outlook.com on the apex TXT = Microsoft 365 mail from @mastsolutions.com is unauthenticated; two v=spf1 rows on send. = SPF permerror for Resend's envelope)"
+          } | tee out/_worker-smoke.txt
+          { echo '```'; cat out/_worker-smoke.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit the report to the handoff branch (sparse, blobless checkout)
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          git config --global user.name "smoke-worker"
+          git config --global user.email "actions@users.noreply.github.com"
+          mkdir handoff && cd handoff
+          git init -q
+          git remote add origin "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git sparse-checkout init --cone
+          git sparse-checkout set "$DEST"
+          git fetch -q --depth 1 --filter=blob:none origin "$BRANCH"
+          git checkout -q -b "$BRANCH" FETCH_HEAD
+          mkdir -p "$DEST"
+          cp ../out/_worker-smoke.txt "$DEST"/
+          git add -A "$DEST"
+          if git diff --cached --quiet; then echo "report unchanged; nothing to commit"; exit 0; fi
+          git commit -q -m "Worker smoke test ($(date -u '+%F %H:%M') UTC)"
+          for try in 1 2 3; do
+            git push -q origin "HEAD:$BRANCH" && break
+            echo "push rejected (try $try): $BRANCH moved meanwhile; re-basing onto its new tip"
+            [ "$try" = 3 ] && exit 1
+            git fetch -q --depth 1 --filter=blob:none origin "$BRANCH"
+            git reset -q --mixed FETCH_HEAD
+            git add --ignore-removal "$DEST"
+            if git diff --cached --quiet; then echo "nothing left to commit after the move"; exit 0; fi
+            git commit -q -m "Worker smoke test ($(date -u '+%F %H:%M') UTC)"
+          done
+          echo "pushed $(git rev-parse --short HEAD) to $BRANCH: $DEST/_worker-smoke.txt"

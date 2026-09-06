@@ -255,6 +255,32 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   tries and keepalives, then lists again and prints what is still not there. A run that dies costs one batch; the next
   run resumes. The GitHub-Actions upload (`deploy-page.yml`) carries its own copy of the single batch; a runner's
   connection is steady, so it keeps it.
+  **Shared-clone race (2026-09-06):** both LaunchAgents run in the one private clone, and `kick` starts them together. Each
+  used `FETCH_HEAD` after its own fetch, so the other agent's fetch could land in between: his status showed "Worker
+  deployed from 70170fc" (a handoff-branch commit; the page worktree would have been that branch's old tree) and every
+  kick's hand-off ended "! [rejected] non-fast-forward" because it had been built on main's tip. Now `wp-upload.sh` fetches
+  into and reads `refs/remotes/origin/main` and `mac-handoff.sh` into `refs/handoff/<branch>`; neither touches
+  `FETCH_HEAD` again. Rule for any new script in that clone: name the ref you fetch into, never read `FETCH_HEAD`.
+
+## MAST Worker checks (Brockmann, 2026-09-06: "make sure that the back end CRM and everything on the back end is working")
+
+- **Unit tests:** `cd mast-backend && npm ci && node test-worker.mjs` (179 pass as of 2026-09-06; `pdf-lib` must be
+  installed first, the container starts without `node_modules`).
+- **Live:** the container has no route to `*.workers.dev`. `.github/workflows/smoke-worker.yml` (`workflow_dispatch`)
+  probes the deployed Worker from a runner: `/health`, `/catalog` (SKUs, prices, D1 or seed), `/weekends`, the CORS
+  preflight, `/account/me` (503 `accounts_off` = `ACCOUNT_SECRET` not set), the mail DNS of mastsolutions.com; with
+  `contact=true` (default) one labelled test message goes through `/contact` so the Resend → `NOTIFY_EMAIL` path is
+  exercised for real; with `checkout=true` one unpaid Stripe Checkout Session is created for the first bookable SKU
+  (nothing charged; the abandoned registration is dropped by the daily cron). Report:
+  `claude/desktop-assets:reference/desktop/live/_worker-smoke.txt` and the job summary. Secrets on the Worker
+  (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `RESEND_API_KEY`, `NOTIFY_EMAIL`, `ACCOUNT_SECRET`, `ADMIN_KEY`) are visible
+  only as behaviour; `wrangler secret list` is his Mac's.
+- **"CRM":** there is no CRM system in the code. Customer records are the D1 tables (orders, registrations, accounts;
+  the `/roster` route behind `ADMIN_KEY`); `mast-backend/DATA-AND-MARKETING.md` is the plan for consent capture and a
+  CRM feed, not built. Say so rather than reporting a CRM as "working".
+- **Mailboxes:** the Claude Microsoft 365 connector in a cloud session is signed in as matthew@atlasglinn.com. The
+  mastsolutions.com tenant (matthew@mastsolutions.com, the Worker's `REPLY_TO`) is a different tenant and answers
+  "invalid user" from it; its mail cannot be read from a cloud session unless he connects that account too.
 - **Cloud (the hourly check-in):** `python3 scripts/photo-intake.py` imports what is new on the handoff ref into
   `images/mast/gallery/` (gNN) or `images/mast/range/` (aNN), appends to `images/mast/<kind>/tiles.txt` and records the
   source in `intake.json`; then `python3 scripts/assemble-cinematic.py`, commit, PR. The assembler reads the two `tiles.txt`
