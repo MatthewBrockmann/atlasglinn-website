@@ -228,7 +228,9 @@ else
     if [ "$ok" = 1 ]; then sent=$((sent + n)); echo "   $sent of $NEED sent (through $(tail -n 1 "$part"))"
     else failed=$((failed + n)); echo "   batch of $n gave up after 3 tries; the next run resends what is missing"; fi
   done
-  { echo "cd $DOCROOT"; echo "put -P mast-ping.txt mast-ping.txt"; } > "$BATCH"; sftp_run "$BATCH" >/dev/null 2>&1 || true
+  # Last, after every page and asset: the ping and build-manifest.json (scripts/build_manifest.py) — the pages compare
+  # their own hash with it and reload themselves past the CDN cache, so a stale plain URL heals without Flush Cache.
+  { echo "cd $DOCROOT"; echo "put -P mast-ping.txt mast-ping.txt"; [ -f build-manifest.json ] && echo "put -P build-manifest.json build-manifest.json"; } > "$BATCH"; sftp_run "$BATCH" >/dev/null 2>&1 || true
   remote_sizes > "$TMPD/remote2"
   compare "$TMPD/list" "$TMPD/remote2" "$TMPD/missing" verify
   [ "$failed" = 0 ] || say "$failed files did not go up this run. Run the upload again (or let the hourly job): it resumes with only the missing files."

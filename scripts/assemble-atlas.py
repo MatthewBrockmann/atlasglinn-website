@@ -387,6 +387,8 @@ def build(path, title, desc, og_image, credits, chapters, photos, jsonld=''):
     out = os.path.join(REPO, OUT_DIR, path)
     os.makedirs(os.path.dirname(out), exist_ok=True)
     open(out, 'w', encoding='utf-8').write(html)
+    if PUBLISH:
+        import build_manifest; build_manifest.stamp_and_write([out])   # the page's own hash + build-manifest.json (self-refresh)
     print('wrote', OUT_DIR + path, len(html.encode('utf-8')), 'bytes,', n, 'chapters')
 
 # No `M = 'images/mast/'` here on purpose: the Atlas pages draw only from the approved list above; build() enforces it.

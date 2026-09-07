@@ -98,6 +98,8 @@ jobs:
             echo "cd $DOCROOT"
             xargs -I{} dirname {} < files.txt | sort -u | grep -v '^\.$' | awk '{ n=split($0,a,"/"); p=""; for(i=1;i<=n;i++){ p=(p==""?a[i]:p"/"a[i]); print "-mkdir " p } }' | sort -u
             awk '{ print "put " $0 " " $0 }' files.txt
+            # Last: the manifest the pages compare themselves against (scripts/build_manifest.py; self-refresh past the CDN cache).
+            [ -f build-manifest.json ] && echo "put -P build-manifest.json build-manifest.json"
           } > batch.txt
           if ! sshpass -e sftp -oBatchMode=no -o StrictHostKeyChecking=accept-new -b batch.txt "$SFTP_USER@$HOST" > sftp.log 2>&1; then
             tail -20 sftp.log

@@ -600,4 +600,5 @@ assert html.count('__BOOKING_CSS__') == 0 and '.cat-btn {' in html and 'h1.mega 
 # mastsolutions.html. The Atlas-frame build lives on as mastsolutions-atlas.html; the old cinematic URL is a stub redirect.
 out = f'{REPO}/mastsolutions.html'
 open(out, 'w', encoding='utf-8').write(html)
+import build_manifest; build_manifest.stamp_and_write([out])   # the page's own hash + build-manifest.json (self-refresh against the CDN cache)
 print('wrote', out, len(html.encode('utf-8')), 'bytes')
