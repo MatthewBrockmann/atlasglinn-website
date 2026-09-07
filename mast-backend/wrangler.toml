@@ -37,10 +37,11 @@ REPLY_TO = "matthew@mastsolutions.com"
 # CRM journeys (T−7 / T−1 / T+1 emails to booked participants, src/crm.js). Switched on 2026-09-06: Brockmann pasted all
 # three texts back with his edits the same day ("show me them before" → done), so the daily cron sends them.
 JOURNEYS_ENABLED = "1"
-# The Google review link in the T+1 email and on both sites. Built from the Atlas Glinn listing's feature id
-# (0x8640c3cb2d0755df:0x3e9cfce1d8a7b9f7, CID 4511758973651106295, read out of the Business Profile link he pasted
-# 2026-09-06); "#lrd=<ftid>,3" opens the write-a-review dialog on that listing.
-REVIEW_URL = "https://www.google.com/search?q=Atlas+Glinn&ludocid=4511758973651106295#lrd=0x8640c3cb2d0755df:0x3e9cfce1d8a7b9f7,3"
+# The Google review link in the T+1 email and on both sites (same value as GOOGLE_REVIEW_URL in scripts/cinematic_shell.py).
+# 2026-09-07, Brockmann from his phone: "The google review is wrong" - the search-dialog link built from the id in his
+# Business Profile paste was replaced by the Maps Search URL by name and address: it always lands on the listing, where
+# "Write a review" is one tap. Swap in the g.page/r/.../review short link from his Business Profile when he provides it.
+REVIEW_URL = "https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063"
 # The sealed range-directions PDF (src/sealed.js): fetched from main and decrypted with the key in D1. Unset = the default
 # raw URL of mast-backend/assets/range-directions.sealed.json on main; "off" disables it.
 # DIRECTIONS_SEALED_URL = "https://raw.githubusercontent.com/MatthewBrockmann/atlasglinn-website/main/mast-backend/assets/range-directions.sealed.json"

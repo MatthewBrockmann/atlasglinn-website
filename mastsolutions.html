@@ -782,10 +782,14 @@
   </section>
 
   <section class="panel" id="s12" data-section="12">
-    <div id="gear">  <!-- named anchor: the Atlas site menu's Training links (IWA Training Products, Aimpoint Optics) open mastsolutions.html#gear -->
-      <div class="eyebrow">Gear &middot; Aimpoint and IWA</div>
+    <div id="gear">  <!-- named anchor: the Atlas site menu's Training link (IWA Training Products) opens mastsolutions.html#gear -->
+      <!-- Aimpoint hidden 2026-09-07 (owner: "hide Aimpoint for now"): GEAR_HIDDEN in mastsolutions-tesla.html keeps the cards off;
+           when it comes back, the eyebrow reads "Gear · Aimpoint and IWA" and the sub gets its Aimpoint sentence again
+           ("Atlas Glinn is an authorized dealer for Aimpoint optics and IWA International training devices. Aimpoint prices are
+           MAP, with dealer and volume pricing on request and free shipping over $500."). -->
+      <div class="eyebrow">Gear &middot; IWA</div>
       <h2 class="section-h">Equipment. <span class="gold">By Quote.</span></h2>
-      <p class="sub">Atlas Glinn is an authorized dealer for Aimpoint optics and IWA International training devices. Aimpoint prices are MAP, with dealer and volume pricing on request and free shipping over $500. IWA devices are priced each, three-unit minimum, hazmat shipping included; a PPC certification is required and every order is verified before fulfillment. Every item is quoted, not sold from a cart. Nothing is charged online.</p>
+      <p class="sub">Atlas Glinn is an authorized dealer for IWA International training devices. IWA devices are priced each, three-unit minimum, hazmat shipping included; a PPC certification is required and every order is verified before fulfillment. Every item is quoted, not sold from a cart. Nothing is charged online.</p>
       <div class="gear-panel rise" id="gear-panel"></div>
       <p class="gate-fine" style="max-width:820px;margin:1.6rem auto 0;">Tell us the item and quantity; we confirm availability and shipping by email within one business day.</p>
     </div>
@@ -1512,8 +1516,11 @@ function GEAR_PRICE_TABLE(){ return {
   'IWA-M11-4B': '$49.99', 'IWA-M11-7B': '$59.99', 'IWA-M12': '$42.99', 'IWA-M13': '$48.99', 'IWA-M14': '$38.99',
   'IWA-M15': '$55.50', 'IWA-PA85': '$69.99', 'IWA-TH14': '$89.99', 'IWA-IDC': '$46.99' }; }
 const GEAR_BRANDS = { Aimpoint: 'Optics · MAP pricing · free shipping over $500 · authorized dealer', IWA: 'IWA International · authorized dealer · PPC certification required · 3-unit minimum, 27 per box · hazmat shipping included' };
+// Brands kept off the page for now (owner, 2026-09-07: "hide Aimpoint for now"). The items and prices stay in GEAR so the
+// chapter comes back with one edit here; the assembler's chapter text and the Atlas Training submenu follow this list.
+const GEAR_HIDDEN = ['Aimpoint'];
 function renderGear(){ const p = $('gear-panel'); if (!p) return; let html = '', brand = '';
-  GEAR.forEach((g, i) => { if (g.brand !== brand) { brand = g.brand; html += '<div class="gear-brand"><h3>' + esc(brand) + '</h3><span>' + esc(GEAR_BRANDS[brand] || '') + '</span></div>'; }
+  GEAR.forEach((g, i) => { if (GEAR_HIDDEN.includes(g.brand)) return; if (g.brand !== brand) { brand = g.brand; html += '<div class="gear-brand"><h3>' + esc(brand) + '</h3><span>' + esc(GEAR_BRANDS[brand] || '') + '</span></div>'; }
     html += '<div class="gear-card' + (g.device ? ' device' : '') + '"><div class="gear-sku">' + esc(g.sku) + '</div><h4>' + esc(g.name) + '</h4><div class="gear-fam">' + esc(g.brand + ' · ' + g.fam) + '</div>'
          + (g.price ? '<div class="gear-price">' + esc(g.price) + '<small>' + (g.device ? 'each · 3-unit minimum' : 'MAP · dealer pricing on request') + '</small></div>' : '')
          + '<button class="cta-button" type="button" onclick="requestGear(' + i + ')">Request a quote</button></div>'; });

@@ -1046,8 +1046,11 @@ function GEAR_PRICE_TABLE(){ return {
   'IWA-M11-4B': '$49.99', 'IWA-M11-7B': '$59.99', 'IWA-M12': '$42.99', 'IWA-M13': '$48.99', 'IWA-M14': '$38.99',
   'IWA-M15': '$55.50', 'IWA-PA85': '$69.99', 'IWA-TH14': '$89.99', 'IWA-IDC': '$46.99' }; }
 const GEAR_BRANDS = { Aimpoint: 'Optics · MAP pricing · free shipping over $500 · authorized dealer', IWA: 'IWA International · authorized dealer · PPC certification required · 3-unit minimum, 27 per box · hazmat shipping included' };
+// Brands kept off the page for now (owner, 2026-09-07: "hide Aimpoint for now"). The items and prices stay in GEAR so the
+// chapter comes back with one edit here; the assembler's chapter text and the Atlas Training submenu follow this list.
+const GEAR_HIDDEN = ['Aimpoint'];
 function renderGear(){ const p = $('gear-panel'); if (!p) return; let html = '', brand = '';
-  GEAR.forEach((g, i) => { if (g.brand !== brand) { brand = g.brand; html += '<div class="gear-brand"><h3>' + esc(brand) + '</h3><span>' + esc(GEAR_BRANDS[brand] || '') + '</span></div>'; }
+  GEAR.forEach((g, i) => { if (GEAR_HIDDEN.includes(g.brand)) return; if (g.brand !== brand) { brand = g.brand; html += '<div class="gear-brand"><h3>' + esc(brand) + '</h3><span>' + esc(GEAR_BRANDS[brand] || '') + '</span></div>'; }
     html += '<div class="gear-card' + (g.device ? ' device' : '') + '"><div class="gear-sku">' + esc(g.sku) + '</div><h4>' + esc(g.name) + '</h4><div class="gear-fam">' + esc(g.brand + ' · ' + g.fam) + '</div>'
          + (g.price ? '<div class="gear-price">' + esc(g.price) + '<small>' + (g.device ? 'each · 3-unit minimum' : 'MAP · dealer pricing on request') + '</small></div>' : '')
          + '<button class="cta-button" type="button" onclick="requestGear(' + i + ')">Request a quote</button></div>'; });
