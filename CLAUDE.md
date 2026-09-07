@@ -177,6 +177,7 @@ catalog. What runs where:
 | **HubSpot** connector | installed on his org, **not enabled in this chat**; the Worker's `HUBSPOT_TOKEN` upsert is a no-op until the token is set | Enable in the chat's connector settings; a private-app token → `wrangler secret put HUBSPOT_TOKEN` |
 | **Mailchimp**, **Brevo** (both appear in atlasglinn.com's DNS) | Worker adapters built (opt-in gated); connectors not installed | Keys → `wrangler secret put …`; the connectors are optional (campaign drafting from chat) |
 | **Stripe**, **Cloudflare** connectors | installed, **need reconnect** | Reconnect in claude.ai → Connectors; Cloudflare reconnected = deploys and Worker secrets from a cloud session, no Mac |
+| **Cloudflare token for the runner** (`deploy-worker.yml`) | **2026-09-07: Brockmann said "Cloudflare is in secrets for you to connect"; two dispatches later the job printed `present: none`** — nothing named `CLOUDFLARE_API_TOKEN` / `CF_API_TOKEN` / `CLOUDFLARE_TOKEN` (or an account id) reached the repository's Actions, the container had no such env var, and the Cloudflare MCP server still asked for auth. So the token sits somewhere else: a Claude Code *environment* secret (reaches only a **new** session's container), a GitHub Variable / environment / Codespaces secret, or another repo | The job's notice names the one place that works: Settings → Secrets and variables → Actions → **Repository secrets** → `CLOUDFLARE_API_TOKEN` (account id optional). If it is a Claude environment secret, a new session sees it as an env var and can run `wrangler deploy` itself; check `env | grep -i cloudflare` first thing |
 | PostHog / Resend connectors | not installed; the Worker's own beacon covers the funnel | Optional |
 | The old WordPress site | used the theme's `yit-newsletter` (Mailchimp / MailPoet ajax subscribe), WooCommerce, Contact Form 7; the live shop pages post to `wp-json/iwa|aimpoint/v1/subscribe` (notify-me) | Whatever list those built lives in his Mailchimp / Brevo accounts; the CSV export from `/admin` is the way to merge |
 
@@ -361,7 +362,10 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   (`google.com/maps/search/?api=1&query=Atlas+Glinn,+2450+Fondren+Rd+Suite+255,+Houston,+TX+77063`): it always lands on
   the listing, where "Write a review" is one tap. The container cannot reach Google; `capture-live.yml` fetches the Maps
   search page and the CID page from a runner and prints any `ChIJ…` place id and whether "Atlas Glinn" appears — a
-  verified place id turns into the one-tap `search.google.com/local/writereview?placeid=…` link. The short
+  verified place id turns into the one-tap `search.google.com/local/writereview?placeid=…` link. **Probe 2026-09-07
+  15:55 UTC:** the CID page (`maps?cid=4511758973651106295`) does not mention Atlas Glinn at all — that decoded id was
+  some other listing, which is why his phone called the link wrong; the address search page names Atlas Glinn but
+  exposes no `ChIJ` id to a runner (JS shell). So the address link stands until he pastes the g.page link. The short
   `g.page/r/…/review` link from his Business Profile ("Ask for reviews") is the other way to one tap; take it when he
   pastes it. Never build a review link from a decoded id again without a runner check that names the business.
   Rules: eligibility answers never appear anywhere in it; consent is the tick, never the purchase; fence only commands.
