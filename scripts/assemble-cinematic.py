@@ -602,3 +602,20 @@ out = f'{REPO}/mastsolutions.html'
 open(out, 'w', encoding='utf-8').write(html)
 import build_manifest; build_manifest.stamp_and_write([out])   # the page's own hash + build-manifest.json (self-refresh against the CDN cache)
 print('wrote', out, len(html.encode('utf-8')), 'bytes')
+
+# mastsolutions.com's own copy (Brockmann, 2026-09-07: "when I use www.mastsolutions.com it should be that url not - atlasglinn/").
+# The same page as index.html for the cPanel host whose primary domain is mastsolutions.com: canonical, og:url and the
+# JSON-LD url become https://mastsolutions.com/, links to the Atlas pages become absolute (they stay on atlasglinn.com), links
+# to this page itself become "/", and the assets stay relative (the publish job copies the same asset tree beside it).
+# .github/workflows/deploy-mastsolutions.yml uploads dist/mastsolutions/ when the cPanel secrets exist.
+import json as _json
+ms = html.replace('https://atlasglinn.com/mastsolutions.html', 'https://mastsolutions.com/')
+ms = re.sub(r'href="mastsolutions\.html(#[^"]*)?"', lambda m: 'href="/%s"' % (m.group(1) or ''), ms)
+ms = re.sub(r'href="([a-z0-9-]+\.html(?:#[^"]*)?)"', r'href="https://atlasglinn.com/\1"', ms)
+os.makedirs(f'{REPO}/dist/mastsolutions', exist_ok=True)
+ms_out = f'{REPO}/dist/mastsolutions/index.html'
+open(ms_out, 'w', encoding='utf-8').write(ms)
+build_manifest.stamp(ms_out)
+open(f'{REPO}/dist/mastsolutions/build-manifest.json', 'w', encoding='utf-8').write(_json.dumps({'index.html': build_manifest.digest(open(ms_out, encoding='utf-8').read())}) + '\n')
+assert 'href="index.html"' not in ms and 'https://mastsolutions.com/' in ms, 'mastsolutions.com copy not rewritten'
+print('wrote', ms_out, 'for mastsolutions.com')

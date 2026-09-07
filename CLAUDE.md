@@ -242,9 +242,26 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   hash differs, reloads once to `?v=<hash>` (a URL the CDN has not seen). `wp-upload.sh` and `deploy-page.yml` put the
   manifest on the host last. `_probe.txt` prints `self-refresh: <page> plain build=… manifest=… fresh|stale`. Flush Cache
   is no longer a step in the WIRE; if he wants it anyway, wp-admin's top bar on any browser has the same button.
-- **mastsolutions.com** has no site: it is a GoDaddy domain forward to atlasglinn.com, pointed at
+- **mastsolutions.com** has no site *yet*: it is a GoDaddy domain forward to atlasglinn.com, pointed at
   `https://atlasglinn.com/mastsolutions.html` (set 2026-09-05). It still carries DNS: Resend verifies it so the Worker can send as
   bookings@mastsolutions.com, beside the existing matthew@mastsolutions.com mail.
+  **2026-09-07 (his host.godaddy.com screenshot + "when I use www.mastsolutions.com it should be that url not -
+  atlasglinn/ … You have access to WordPress and GoDaddy. Fix"):** he also owns a GoDaddy **Linux / cPanel hosting**
+  account whose *primary domain is mastsolutions.com* and which lists atlasglinn.com too (its DKIM table shows both,
+  "Enable" on each; the cPanel username is in his screenshot and deliberately not written here). No session has
+  WordPress, GoDaddy-hosting or cPanel access: the GoDaddy connector only checks domain availability, there is no
+  WordPress connector, and the container cannot reach the host. What was built instead:
+  `python3 scripts/assemble-cinematic.py` now also writes `dist/mastsolutions/index.html` (+ its `build-manifest.json`):
+  the MAST page with canonical / og:url / JSON-LD url `https://mastsolutions.com/`, self-links `/`, Atlas links absolute
+  to atlasglinn.com, assets relative; `.github/workflows/deploy-mastsolutions.yml` uploads it and the asset tree into
+  that cPanel account's document root over SFTP, enables cPanel DKIM for both domains through the UAPI, and prints the
+  cPanel IP against the current A records — once **three repository secrets** exist: `CPANEL_HOST`, `CPANEL_USER`,
+  `CPANEL_PASSWORD`. `ALLOWED_ORIGINS` carries `https://www.mastsolutions.com` since the same day. **Still his hand:**
+  the DNS (GoDaddy → Domains → mastsolutions.com → DNS: remove the forward, `A @ → <cPanel IP>`, `CNAME www →
+  mastsolutions.com`; www has no record at all today) and Microsoft 365 DKIM — the smoke DNS shows *no*
+  `selector1/selector2._domainkey` CNAMEs on mastsolutions.com, so M365 mail from @mastsolutions.com carries no DKIM;
+  that is switched on in the M365 admin center (Defender → Email authentication → DKIM), which hands back the two
+  CNAMEs for GoDaddy DNS. cPanel's "Enable" only signs mail the cPanel server itself sends.
 - An earlier session put HTML straight into WordPress (`wp-content/themes/atlasglinn/ep-trailer.html`) from a Mac session
   with the WordPress admin. A cloud session cannot: the container has no route to atlasglinn.com and holds no credentials.
   The static page + Worker + SFTP path replaced `mast-wp-theme/`.

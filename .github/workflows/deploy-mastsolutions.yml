@@ -1,0 +1,152 @@
+# Publishes the MAST page as mastsolutions.com's own site (Brockmann, 2026-09-07: "when I use www.mastsolutions.com it
+# should be that url not - atlasglinn/") and turns on cPanel DKIM for both domains ("DK - not enabled?"), from a GitHub
+# runner — the cloud container cannot reach the host and no session holds his logins.
+#
+# The host is the GoDaddy Linux (cPanel) hosting account whose primary domain is mastsolutions.com (his host.godaddy.com
+# screenshot, 2026-09-07; atlasglinn.com is listed on it too). Three repository secrets make this job work
+# (Settings → Secrets and variables → Actions → Repository secrets):
+#   CPANEL_HOST       the server name or IP of that cPanel account (host.godaddy.com → the account → Settings → "Server" /
+#                     "Hostname", e.g. xxxx.prod.iad2.secureserver.net; the shared IP works too)
+#   CPANEL_USER       the cPanel login shown under Account Settings
+#   CPANEL_PASSWORD   the cPanel password (the "Change" row can set a new one; it never appears in a log here)
+# Until they exist the job stops with a notice. It never touches WordPress on atlasglinn.com; that upload is deploy-page.yml
+# and the Mac's hourly job.
+#
+# What it does when the secrets are there:
+#   1. builds nothing — main already carries dist/mastsolutions/index.html (assemble-cinematic.py writes it beside
+#      mastsolutions.html: canonical https://mastsolutions.com/, Atlas links absolute) and build-manifest.json for it;
+#   2. asks cPanel (UAPI over HTTPS :2083) for the primary domain's document root and IP;
+#   3. uploads index.html, the manifest and the page's assets over SFTP into that document root (sizes compared first);
+#   4. enables DKIM for mastsolutions.com and atlasglinn.com through cPanel's EmailAuth API and prints the validation;
+#   5. reads the DNS of mastsolutions.com / www and says whether they already point at the cPanel IP — the one thing left
+#      to a hand is that DNS change (GoDaddy → Domains → mastsolutions.com → DNS: remove the forward, A @ → <ip>,
+#      CNAME www → mastsolutions.com), and this job prints the exact values.
+name: Publish mastsolutions.com (cPanel)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'dist/mastsolutions/**'
+      - '.github/workflows/deploy-mastsolutions.yml'
+concurrency:
+  group: deploy-mastsolutions
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - name: Check for cPanel credentials
+        id: creds
+        env:
+          H: ${{ secrets.CPANEL_HOST }}
+          U: ${{ secrets.CPANEL_USER }}
+          P: ${{ secrets.CPANEL_PASSWORD }}
+        run: |
+          have=""; [ -n "$H" ] && have="$have CPANEL_HOST"; [ -n "$U" ] && have="$have CPANEL_USER"; [ -n "$P" ] && have="$have CPANEL_PASSWORD"
+          echo "present:${have:- none}"
+          if [ -z "$H" ] || [ -z "$U" ] || [ -z "$P" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::mastsolutions.com not published: repository secrets present:${have:- none}. Needed: CPANEL_HOST, CPANEL_USER, CPANEL_PASSWORD (Settings → Secrets and variables → Actions → Repository secrets)."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Ask cPanel for the document root and IP
+        if: steps.creds.outputs.ready == 'true'
+        id: cp
+        env:
+          H: ${{ secrets.CPANEL_HOST }}
+          U: ${{ secrets.CPANEL_USER }}
+          P: ${{ secrets.CPANEL_PASSWORD }}
+        run: |
+          set -e
+          curl -sS -m 60 -k -u "$U:$P" "https://$H:2083/execute/DomainInfo/domains_data?format=hash" -o domains.json || { echo "::error::cPanel API unreachable at https://$H:2083 (wrong CPANEL_HOST, or the login was refused)"; exit 1; }
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          d = json.load(open('domains.json'))
+          if d.get('status') != 1: raise SystemExit('cPanel said: ' + '; '.join(d.get('errors') or ['unknown error']))
+          m = d['data']['main_domain']
+          print('docroot=' + m['documentroot']); print('ip=' + m.get('ip', '')); print('domain=' + m['domain'])
+          PY
+          echo "primary domain: $(grep '^domain=' "$GITHUB_OUTPUT" | tail -1)  docroot: $(grep '^docroot=' "$GITHUB_OUTPUT" | tail -1)  ip: $(grep '^ip=' "$GITHUB_OUTPUT" | tail -1)"
+      - name: Stage the site (index.html, manifest, the page's assets)
+        if: steps.creds.outputs.ready == 'true'
+        run: |
+          set -e
+          test -f dist/mastsolutions/index.html || { echo "::error::dist/mastsolutions/index.html missing — run python3 scripts/assemble-cinematic.py and commit"; exit 1; }
+          mkdir -p stage
+          cp dist/mastsolutions/index.html stage/index.html
+          cp dist/mastsolutions/build-manifest.json stage/build-manifest.json
+          # The same asset lister as scripts/wp-upload.sh / deploy-page.yml, run against the page (assets are relative to the repo root).
+          python3 - dist/mastsolutions/index.html > assets.txt <<'PY'
+          import os, re, sys
+          page = sys.argv[1]; seen = []
+          attr = re.compile(r'''(?:src|href|poster)=["']([^"'#?]+)|url\(['"]?([^)'"?#]+)|from\s+['"]\.?/?([^'"]+\.js)['"]|['"]((?:images|vendor)/[^'"?#\s]+)['"]''')
+          queue = []
+          for m in attr.finditer(open(page, encoding='utf-8', errors='ignore').read()):
+              u = (m.group(1) or m.group(2) or m.group(3) or m.group(4) or '').strip()
+              if not u or u.startswith(('http', '//', 'mailto:', 'tel:', 'data:', 'javascript:')) or u.endswith('.html'): continue
+              u = os.path.normpath(u)
+              if u.startswith('..') or not os.path.isfile(u) or u in seen: continue
+              seen.append(u); queue.append(u)
+          while queue:   # css/js may pull more files
+              p = queue.pop(0)
+              if not p.endswith(('.css', '.js')): continue
+              for m in attr.finditer(open(p, encoding='utf-8', errors='ignore').read()):
+                  u = (m.group(1) or m.group(2) or m.group(3) or m.group(4) or '').strip()
+                  if not u or u.startswith(('http', '//', 'data:')): continue
+                  u = os.path.normpath(os.path.join(os.path.dirname(p), u))
+                  if u.startswith('..') or not os.path.isfile(u) or u in seen: continue
+                  seen.append(u); queue.append(u)
+          print('\n'.join(seen))
+          PY
+          if grep -l 'git-lfs.github.com/spec' $(cat assets.txt) 2>/dev/null | head -1 | grep -q .; then echo "::error::LFS pointer among the assets; nothing uploaded"; exit 1; fi
+          while IFS= read -r f; do [ -n "$f" ] && mkdir -p "stage/$(dirname "$f")" && cp "$f" "stage/$f"; done < assets.txt
+          echo "$(find stage -type f | wc -l) files staged ($(du -sh stage | cut -f1))"
+      - name: Upload over SFTP into the document root
+        if: steps.creds.outputs.ready == 'true'
+        env:
+          H: ${{ secrets.CPANEL_HOST }}
+          SFTP_USER: ${{ secrets.CPANEL_USER }}
+          SSHPASS: ${{ secrets.CPANEL_PASSWORD }}
+          DOCROOT: ${{ steps.cp.outputs.docroot }}
+        run: |
+          set -e
+          sudo apt-get install -y -qq sshpass >/dev/null
+          cd stage
+          { echo "cd $DOCROOT"
+            find . -type d -not -path . | sed 's#^\./##' | awk '{ n=split($0,a,"/"); p=""; for(i=1;i<=n;i++){ p=(p==""?a[i]:p"/"a[i]); print "-mkdir " p } }' | sort -u
+            find . -type f -not -name index.html -not -name build-manifest.json | sed 's#^\./##' | awk '{ print "put " $0 " " $0 }'
+            echo "put index.html index.html"; echo "put build-manifest.json build-manifest.json"   # the page and its manifest last
+          } > ../batch.txt
+          if ! sshpass -e sftp -oBatchMode=no -o StrictHostKeyChecking=accept-new -b ../batch.txt "$SFTP_USER@$H" > ../sftp.log 2>&1; then
+            tail -20 ../sftp.log; grep -q 'Permission denied' ../sftp.log && echo "::error::The host refused the SFTP login (CPANEL_USER / CPANEL_PASSWORD)"; exit 1
+          fi
+          echo "uploaded $(find . -type f | wc -l) files to $H:$DOCROOT/"
+      - name: Enable DKIM for both domains (cPanel mail; Microsoft 365 DKIM is separate)
+        if: steps.creds.outputs.ready == 'true'
+        env:
+          H: ${{ secrets.CPANEL_HOST }}
+          U: ${{ secrets.CPANEL_USER }}
+          P: ${{ secrets.CPANEL_PASSWORD }}
+        run: |
+          for d in mastsolutions.com atlasglinn.com; do
+            r="$(curl -sS -m 60 -k -u "$U:$P" "https://$H:2083/execute/EmailAuth/enable_dkim?domain=$d" || echo '{"status":0,"errors":["unreachable"]}')"
+            echo "enable_dkim $d → $(printf '%s' "$r" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("ok" if d.get("status")==1 else "failed: "+"; ".join(d.get("errors") or [])); [print("   ", x.get("msg") or x) for x in (d.get("data") or [])]' 2>/dev/null || printf '%s' "$r" | head -c 300)"
+          done
+          curl -sS -m 60 -k -u "$U:$P" "https://$H:2083/execute/EmailAuth/validate_current_dkims?domain=mastsolutions.com&domain-1=atlasglinn.com" | python3 -c 'import json,sys; d=json.load(sys.stdin); [print("dkim", x.get("domain"), "valid" if x.get("state")=="VALID" else x.get("state"), "-", (x.get("records") or [{}])[0].get("state","")) for x in (d.get("data") or [])]' 2>/dev/null || true
+          echo "note: this is cPanel's DKIM (selector default). Mail actually sent from Microsoft 365 needs selector1/selector2 CNAMEs from the M365 admin center (Defender → Email authentication → DKIM); smoke-worker.yml shows whether those exist."
+      - name: Where the names point, versus the cPanel IP
+        if: steps.creds.outputs.ready == 'true'
+        env:
+          IP: ${{ steps.cp.outputs.ip }}
+        run: |
+          a="$(dig +short A mastsolutions.com @1.1.1.1 | tr '\n' ' ')"; w="$(dig +short www.mastsolutions.com @1.1.1.1 | tr '\n' ' ')"
+          echo "cPanel IP: $IP"; echo "A mastsolutions.com: ${a:-none}"; echo "www.mastsolutions.com: ${w:-none}"
+          case " $a " in *" $IP "*) echo "mastsolutions.com already points at the cPanel host";; *) echo "::notice::DNS still needs a hand: in GoDaddy → Domains → mastsolutions.com → DNS remove the forwarding to atlasglinn.com, set A @ → $IP, and add CNAME www → mastsolutions.com. Until then mastsolutions.com keeps forwarding.";; esac
+          for u in https://mastsolutions.com/ https://www.mastsolutions.com/; do
+            echo "$u → $(curl -sS -m 30 -o /tmp/p -w '%{http_code} %{redirect_url}' "$u" 2>/dev/null || echo ERR)  build=[$(grep -o '<meta name="build" content="[0-9a-f]*"' /tmp/p 2>/dev/null | sed 's/.*content="//; s/"$//')]"
+          done
