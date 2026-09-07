@@ -234,6 +234,13 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   `/mastsolutions.html` served that day's upload at `age: 2`, so the flush clears the static files too). `wp-upload.sh` prints the plain and the cache-busted Last-Modified after
   every upload and says so when they differ; the capture probe (`_probe.txt`) records both answers with their headers. A
   cache-control override in the docroot `.htaccess` (WordPress's own file) is untested and is tried only with him.
+  **Self-refresh, 2026-09-07 (Brockmann from his phone: "Can't find flush in app. Not on web"):** the flush button is not
+  in the GoDaddy phone app, and his 7:06 am flush was undone by the 9:42 am upload anyway. So the pages heal themselves:
+  every generated page carries its own content hash (`<meta name="build">`, stamped by `scripts/build_manifest.py` when
+  the assemblers write it) and a head script fetches `build-manifest.json?<now>` (never cached) and, when the host's
+  hash differs, reloads once to `?v=<hash>` (a URL the CDN has not seen). `wp-upload.sh` and `deploy-page.yml` put the
+  manifest on the host last. `_probe.txt` prints `self-refresh: <page> plain build=… manifest=… fresh|stale`. Flush Cache
+  is no longer a step in the WIRE; if he wants it anyway, wp-admin's top bar on any browser has the same button.
 - **mastsolutions.com** has no site: it is a GoDaddy domain forward to atlasglinn.com, pointed at
   `https://atlasglinn.com/mastsolutions.html` (set 2026-09-05). It still carries DNS: Resend verifies it so the Worker can send as
   bookings@mastsolutions.com, beside the existing matthew@mastsolutions.com mail.

@@ -86,6 +86,16 @@ jobs:
             for u in https://atlasglinn.com/mastsolutions.html https://atlasglinn.com/index.html; do
               curl -sS -L -A "$UA" --max-time 60 -o /dev/null -D - "$u" 2>/dev/null | grep -i -E '^(HTTP|last-modified|etag|age|cache-control|x-cache|cf-cache-status|x-cacheable|server|content-length|via):' | tr -d '\r' | tr '\n' ' ' | tr -s ' ' | sed "s|^|   $u  |"; echo
             done
+            # Self-refresh check (scripts/build_manifest.py): the plain URL's page carries its own hash in <meta name="build">;
+            # build-manifest.json (fetched uncached) says what the host holds. "stale" here is what a visitor's browser heals
+            # with one reload to ?v=<hash>; "fresh" needs nothing; "no manifest" = the upload has not carried it yet.
+            mf="$(curl -sS -L -A "$UA" --max-time 40 "https://atlasglinn.com/build-manifest.json?$ts" 2>/dev/null || true)"
+            for u in mastsolutions.html index.html about.html; do
+              b="$(curl -sS -L -A "$UA" --max-time 60 "https://atlasglinn.com/$u" 2>/dev/null | grep -o '<meta name="build" content="[0-9a-f]*"' | head -1 | sed 's/.*content="//; s/"$//')"
+              want="$(printf '%s' "$mf" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get(sys.argv[1],""))' "$u" 2>/dev/null || true)"
+              state="no manifest"; [ -n "$want" ] && { [ "$b" = "$want" ] && state=fresh || state="stale → self-refresh to ?v=$want"; }
+              echo "--- self-refresh: $u  plain build=[${b:-none}]  manifest=[${want:-none}]  $state"
+            done
             # The Google listing behind the review link (wrangler.toml REVIEW_URL / cinematic_shell.py GOOGLE_REVIEW_URL). The Maps
             # search page by name and address carries the place id (ChIJ…) and the business name in its initial data when
             # Google serves it to a runner; a place id here is what a one-tap write-review link needs

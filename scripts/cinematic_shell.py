@@ -527,10 +527,24 @@ def three(sections=9, palette=MAST):
     return _recolor(js, palette)
 
 
+# Self-refresh against the host's CDN cache (2026-09-07, Brockmann from his phone: "Can't find flush in app"). The page
+# carries its own hash in <meta name="build"> (stamped by scripts/build_manifest.py after the assembler writes it) and
+# compares it with build-manifest.json fetched with a one-off query string; a stale page reloads itself once at
+# ?v=<current hash>, a URL the CDN has not cached, so the origin's fresh copy comes back. Current pages do nothing; a
+# missing manifest (hand-authored page, old host) does nothing; the ?v= guard stops any loop.
+REFRESH_JS = ("(function(){try{var m=document.querySelector('meta[name=\"build\"]');if(!m||!m.content)return;"
+              "var mine=m.content,p=location.pathname.split('/').pop()||'index.html';"
+              "fetch('build-manifest.json?'+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null})"
+              ".then(function(j){var want=j&&j[p];if(!want||want===mine)return;var q=new URLSearchParams(location.search);"
+              "if(q.get('v')===want)return;q.set('v',want);location.replace(location.pathname+'?'+q.toString()+location.hash)})"
+              ".catch(function(){})}catch(e){}})();")
+
+
 def head(meta_html, css_text):
     return ('<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n'
             '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n'
-            + meta_html + '<style>' + css_text + '</style>\n</head>\n<body>\n')
+            '<meta name="build" content="">\n'
+            + meta_html + '<style>' + css_text + '</style>\n</head>\n<body>\n<script>' + REFRESH_JS + '</script>\n')
 
 
 def chrome(credits, wordmark, photos, hud_tl, hud_tl_href, hud_bl, hud_br, chapters):
