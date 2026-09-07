@@ -237,6 +237,13 @@ else
 fi
 rm -f "$BATCH"
 
+# Flush the host's cache from here (scripts/wp-flush.sh: the WordPress application password in the Keychain item
+# wp_app_password_claude, or WP-CLI over SSH), so the plain URLs serve this upload without a dashboard click. Measured,
+# never assumed: it prints before/after and writes ~/.cache/wp-upload/last-flush. WP_FLUSH=0 skips it.
+if [ "${WP_FLUSH:-1}" = 1 ] && [ -f "$R/scripts/wp-flush.sh" ]; then
+  say "Flushing the host's cache"; bash "$R/scripts/wp-flush.sh" 2>&1 | sed 's/^/   /' || true
+fi
+
 say "Checking the live site"
 sleep 2
 # -L: the site answers on www.atlasglinn.com and redirects the bare domain; the checks follow that. The page itself is the

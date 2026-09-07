@@ -177,7 +177,7 @@ catalog. What runs where:
 | **HubSpot** connector | installed on his org, **not enabled in this chat**; the Worker's `HUBSPOT_TOKEN` upsert is a no-op until the token is set | Enable in the chat's connector settings; a private-app token → `wrangler secret put HUBSPOT_TOKEN` |
 | **Mailchimp**, **Brevo** (both appear in atlasglinn.com's DNS) | Worker adapters built (opt-in gated); connectors not installed | Keys → `wrangler secret put …`; the connectors are optional (campaign drafting from chat) |
 | **Stripe**, **Cloudflare** connectors | installed, **need reconnect** | Reconnect in claude.ai → Connectors; Cloudflare reconnected = deploys and Worker secrets from a cloud session, no Mac |
-| **Cloudflare token for the runner** (`deploy-worker.yml`) | **2026-09-07: Brockmann said "Cloudflare is in secrets for you to connect"; two dispatches later the job printed `present: none`** — nothing named `CLOUDFLARE_API_TOKEN` / `CF_API_TOKEN` / `CLOUDFLARE_TOKEN` (or an account id) reached the repository's Actions, the container had no such env var, and the Cloudflare MCP server still asked for auth. So the token sits somewhere else: a Claude Code *environment* secret (reaches only a **new** session's container), a GitHub Variable / environment / Codespaces secret, or another repo | The job's notice names the one place that works: Settings → Secrets and variables → Actions → **Repository secrets** → `CLOUDFLARE_API_TOKEN` (account id optional). If it is a Claude environment secret, a new session sees it as an env var and can run `wrangler deploy` itself; check `env | grep -i cloudflare` first thing |
+| **Cloudflare token for the runner** (`deploy-worker.yml`) | **2026-09-07: Brockmann said "Cloudflare is in secrets for you to connect" and later "I already gave you the Cloudflare API token. There are more than one token"; two dispatches printed `present: none`** — nothing named `CLOUDFLARE_API_TOKEN` / `CF_API_TOKEN` / `CLOUDFLARE_TOKEN` (or an account id) reached the repository's Actions; the container (started 18:13 UTC that day) had no such env var; the Cloudflare MCP server still asked for auth. **Searched the same day, on his word "memory plus brain plus obsidian plus MD":** the brain vault at its 2026-09-07 07:12 CDT tip (`grep -ri` over every .md/.yml/.json for cloudflare/token), its `_ATLAS-FRONT.md`, `_connectivity-ledger.md`, the September daily notes, `security-posture-2026-08-09.md` ("Cloudflare API token: No") and `feedback_check_keychain_confirm_install.md` ("no existing cloudflared creds found: cloudflared, CF_API_TOKEN, cloudflare-api-token"); this repo; the handoff branch; the session transcripts. No record of a Cloudflare token handed to any session, and no Keychain item name for one. The token exists (his dashboard screenshot: Manage account → Account API tokens) but nothing reachable from a session holds it | The job's notice names the one place that works: Settings → Secrets and variables → Actions → **Repository secrets** → `CLOUDFLARE_API_TOKEN` (account id optional). A Mac session could also save it as a Keychain item (`cloudflare_api_token`) for `wrangler deploy` there. Whichever he chooses, a ledger line goes into the vault's `_connectivity-ledger.md` per its rule |
 | PostHog / Resend connectors | not installed; the Worker's own beacon covers the funnel | Optional |
 | The old WordPress site | used the theme's `yit-newsletter` (Mailchimp / MailPoet ajax subscribe), WooCommerce, Contact Form 7; the live shop pages post to `wp-json/iwa|aimpoint/v1/subscribe` (notify-me) | Whatever list those built lives in his Mailchimp / Brevo accounts; the CSV export from `/admin` is the way to merge |
 
@@ -242,6 +242,15 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   hash differs, reloads once to `?v=<hash>` (a URL the CDN has not seen). `wp-upload.sh` and `deploy-page.yml` put the
   manifest on the host last. `_probe.txt` prints `self-refresh: <page> plain build=… manifest=… fresh|stale`. Flush Cache
   is no longer a step in the WIRE; if he wants it anyway, wp-admin's top bar on any browser has the same button.
+  **The flush itself is the Mac's now (2026-09-07, "You do actually have GoDaddy access"; the vault says how):**
+  `04-resources/agent-memory/project_atlasglinn_wordpress.md` records the WP admin user and its application password in
+  the Keychain item `wp_app_password_claude` (rotated 2026-09-03; "REST API works with app password") and that GoDaddy
+  clears its cache when WordPress content changes. `scripts/wp-flush.sh` (run by `wp-upload.sh` after every upload)
+  saves a private `cache-bust` page over REST with that password (WP-CLI over SSH with the `mast-wp-sftp` login as the
+  fallback), then measures the plain `/mastsolutions.html` against the cache-busted copy and writes
+  `~/.cache/wp-upload/last-flush`; `mac-autopilot.sh status` shows it. Wired, NOT confirmed firing until a probe shows
+  the plain URL fresh after an upload with no click. Nothing of this reaches a cloud session: the container cannot open
+  the host and holds no Keychain.
   **Landed 2026-09-07 18:14 UTC** (the Mac's upload; probe 18:17: manifest on the host, every stamped page current at its
   `?v=`). The copies the CDN cached *before* that upload carry no stamp and no script (plain `/mastsolutions.html` =
   the 11:18 build cached 12:06; `/index.html` = 14:42 cached 15:26), so they cannot heal themselves: **one last flush**
@@ -256,9 +265,20 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   **2026-09-07 (his host.godaddy.com screenshot + "when I use www.mastsolutions.com it should be that url not -
   atlasglinn/ … You have access to WordPress and GoDaddy. Fix"):** he also owns a GoDaddy **Linux / cPanel hosting**
   account whose *primary domain is mastsolutions.com* and which lists atlasglinn.com too (its DKIM table shows both,
-  "Enable" on each; the cPanel username is in his screenshot and deliberately not written here). No session has
-  WordPress, GoDaddy-hosting or cPanel access: the GoDaddy connector only checks domain availability, there is no
-  WordPress connector, and the container cannot reach the host. What was built instead:
+  "Enable" on each; the cPanel username is in his screenshot and deliberately not written here). **What access exists,
+  measured 2026-09-07 against the brain vault (tip 7c111da), this repo, the handoff branch, the transcripts and this
+  container:** (1) WordPress on atlasglinn.com — a *Mac* session has it: the admin application password in the Keychain
+  item `wp_app_password_claude` and the SFTP/SSH login `mast-wp-sftp` (`project_atlasglinn_wordpress.md`; WP-CLI over
+  SSH; REST works). (2) GoDaddy — the API key pair `godaddy_api_key` / `godaddy_api_secret` lived in the Keychain in
+  April 2026 (DNS via curl, `project_atlas_ep_open_threads_2026_04_27.md`) and went with the **2026-05-04 Keychain
+  wipe** (`project_session_2026_05_04_keychain_wipe.md`); the 2026-07-04 daily, `_daily-scan-log.md:251` and
+  `_tooling-requirements.md` all record "no GoDaddy API credential in Keychain" since. The cloud connector only checks
+  domain availability. (3) cPanel — the word appears **nowhere** in the vault, this repo or any transcript; the account in
+  his screenshot is new to every session. (4) The container cannot open atlasglinn.com, host.godaddy.com,
+  api.godaddy.com or api.cloudflare.com (egress 000). So: WordPress yes, from the Mac (now used by `scripts/wp-flush.sh`);
+  GoDaddy DNS no, until a key pair is minted again (his browser, developer.godaddy.com; his account must still qualify
+  for the Domains API) and saved as those two Keychain items; cPanel no, until its login exists somewhere a runner or the
+  Mac can read. What was built for the cPanel path:
   `python3 scripts/assemble-cinematic.py` now also writes `dist/mastsolutions/index.html` (+ its `build-manifest.json`):
   the MAST page with canonical / og:url / JSON-LD url `https://mastsolutions.com/`, self-links `/`, Atlas links absolute
   to atlasglinn.com, assets relative; `.github/workflows/deploy-mastsolutions.yml` uploads it and the asset tree into
