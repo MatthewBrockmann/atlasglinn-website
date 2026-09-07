@@ -242,6 +242,14 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   hash differs, reloads once to `?v=<hash>` (a URL the CDN has not seen). `wp-upload.sh` and `deploy-page.yml` put the
   manifest on the host last. `_probe.txt` prints `self-refresh: <page> plain build=… manifest=… fresh|stale`. Flush Cache
   is no longer a step in the WIRE; if he wants it anyway, wp-admin's top bar on any browser has the same button.
+  **Landed 2026-09-07 18:14 UTC** (the Mac's upload; probe 18:17: manifest on the host, every stamped page current at its
+  `?v=`). The copies the CDN cached *before* that upload carry no stamp and no script (plain `/mastsolutions.html` =
+  the 11:18 build cached 12:06; `/index.html` = 14:42 cached 15:26), so they cannot heal themselves: **one last flush**
+  after 18:14 UTC clears them, and no flush is needed after any later upload. Probe DNS the same run: `mastsolutions.com`
+  A → 15.197.225.128 / 3.33.251.168 (GoDaddy's forwarding servers), `www.mastsolutions.com` has **no record**,
+  `atlasglinn.com` A 160.153.0.38, `www.atlasglinn.com` CNAME → atlasglinn.com; **neither domain has the Microsoft 365
+  `selector1/selector2._domainkey` CNAMEs** (atlasglinn.com's SPF names outlook, Mailchimp `servers.mcsv.net` and Brevo;
+  its DMARC is `p=none` reporting to Brevo).
 - **mastsolutions.com** has no site *yet*: it is a GoDaddy domain forward to atlasglinn.com, pointed at
   `https://atlasglinn.com/mastsolutions.html` (set 2026-09-05). It still carries DNS: Resend verifies it so the Worker can send as
   bookings@mastsolutions.com, beside the existing matthew@mastsolutions.com mail.
