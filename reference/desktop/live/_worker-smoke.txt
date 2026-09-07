@@ -1,6 +1,6 @@
-smoke 2026-09-07T18:17:02Z from main b25b57b run 34151000832 (contact=false checkout=false)
+smoke 2026-09-07T18:45:00Z from main 5580986 run 34152876645 (contact=false checkout=false)
 --- health
-HTTP 200 575ms  GET /health
+HTTP 200 397ms  GET /health
 {"status":"MAST booking backend — ONLINE","version":"1.2.0","build":"c5132f7","crm":true,"directions":"sealed"}
    build: c5132f7
    CRM routes live: yes (GET /admin/crm → 401 without a key)
@@ -8,7 +8,7 @@ HTTP 200 575ms  GET /health
 --- directions key (the public half of the Worker's sealing key; feeds mast-backend/seal-directions.mjs; saved beside this report as _directions-key.json)
 HTTP 200  key_id=b9104a7374d4c1d9
 --- catalog
-HTTP 200 143ms  GET /catalog
+HTTP 200 148ms  GET /catalog
    source=d1 classes=22
    MAST-HG-FUND     Handgun Fundamentals                         $225.00
    MAST-HG-LADIES   Ladies Only Handgun Fundamentals             $225.00
@@ -33,7 +33,7 @@ HTTP 200 143ms  GET /catalog
    MAST-MOTOR-P2    Motorcade P2                                 $0.00
    MAST-GEAR        Gear & Kit Considerations                    $750.00
 --- weekends
-HTTP 200 129ms  GET /weekends
+HTTP 200 109ms  GET /weekends
    weekends=15 first=2026-09-26 last=2027-04-24 statuses=['available', 'blocked']
 --- CORS preflight (Origin https://atlasglinn.com → POST /create-booking)
    HTTP/2 204 
@@ -42,18 +42,18 @@ HTTP 200 129ms  GET /weekends
    access-control-allow-methods: GET, POST, OPTIONS
    access-control-max-age: 86400
 --- accounts (GET /account/me without a token: 503 accounts_off = ACCOUNT_SECRET not set; 401 = accounts on)
-HTTP 401 47ms  GET /account/me
+HTTP 401 149ms  GET /account/me
 {"error":"Please sign in again.","code":"unauthorized"}
 --- CRM summary: skipped (no ADMIN_KEY repository secret; add it under Settings → Secrets → Actions to see counts, revenue and the funnel here)
 --- contact: skipped (input contact=false)
 --- checkout: skipped (input checkout=false)
---- mail DNS (mastsolutions.com), asked at ns27.domaincontrol.com. (authoritative)
-   A mastsolutions.com [auth]: 15.197.225.128|3.33.251.168
-   CNAME www.mastsolutions.com [fallback]: 
-   A www.mastsolutions.com [fallback]: 
+--- mail DNS (mastsolutions.com), asked at ns28.domaincontrol.com. (authoritative)
+   A mastsolutions.com [auth]: 185.199.111.153|185.199.110.153|185.199.108.153|185.199.109.153|15.197.225.128|3.33.251.168
+   CNAME www.mastsolutions.com [auth]: matthewbrockmann.github.io.
+   A www.mastsolutions.com [auth]: matthewbrockmann.github.io.
    A atlasglinn.com [fallback]: 160.153.0.38
    CNAME www.atlasglinn.com [fallback]: atlasglinn.com.
-   TXT mastsolutions.com [auth]: "v=spf1 include:spf.protection.outlook.com -all"|"google-site-verification=u-Y9TwJZ9LUJCX-j3oLdUMC5xBwNu7ju2gBa4TGjPug"
+   TXT mastsolutions.com [auth]: "v=spf1 include:secureserver.net -all"|"google-site-verification=u-Y9TwJZ9LUJCX-j3oLdUMC5xBwNu7ju2gBa4TGjPug"
    MX mastsolutions.com [auth]: 0 mastsolutions-com.mail.protection.outlook.com.
    TXT send.mastsolutions.com [auth]: 
    MX send.mastsolutions.com [auth]: 10 feedback-smtp.us-east-1.amazonses.com.
@@ -62,7 +62,7 @@ HTTP 401 47ms  GET /account/me
    CNAME selector1._domainkey.mastsolutions.com [fallback]: 
    CNAME selector2._domainkey.mastsolutions.com [fallback]: 
    CNAME autodiscover.mastsolutions.com [auth]: autodiscover.outlook.com.
-   TXT atlasglinn.com [fallback]: "brevo-code:57cd18b6f64db536cc14e8293306b804"|"v=spf1 include:spf.protection.outlook.com include:servers.mcsv.net include:spf.brevo.com ~all"|"v=verifydomain MS=3406305"|"google-site-verification=8ndz0nAQFFs0_kFld2vZ4e3E0wnDR9LbP6bai5HK-g0"
+   TXT atlasglinn.com [fallback]: "brevo-code:57cd18b6f64db536cc14e8293306b804"|"v=spf1 include:servers.mcsv.net include:spf.brevo.com include:secureserver.net ~all"|"v=verifydomain MS=3406305"|"google-site-verification=8ndz0nAQFFs0_kFld2vZ4e3E0wnDR9LbP6bai5HK-g0"
    TXT _dmarc.atlasglinn.com [fallback]: "v=DMARC1; p=none; rua=mailto:rua@dmarc.brevo.com"
    CNAME selector1._domainkey.atlasglinn.com [fallback]: 
    CNAME selector2._domainkey.atlasglinn.com [fallback]: 
