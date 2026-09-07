@@ -27,7 +27,11 @@ IWA training devices are **civilian-legal**, a PPC certification is what the ord
 field for devices is "agency, organization or PPC certificate number" and the office verifies before fulfilment. Quote
 requests stay the mechanism on this page (the class account's Stripe must not touch energetic devices); a cart for them would
 need its own merchant account, his call. Add products to `GEAR` and their price to the table; the `.gear-card` hover is the
-shared one in `cinematic_shell.py`.
+shared one in `cinematic_shell.py`. **Aimpoint hidden (Brockmann, 2026-09-07 from the live site: "hide Aimpoint for
+now"):** `GEAR_HIDDEN = ['Aimpoint']` in `mastsolutions-tesla.html` keeps the cards off (items and prices stay in `GEAR`),
+the chapter reads "Gear · IWA" (the Aimpoint sentence is parked in a comment beside it in `assemble-cinematic.py`), and
+the Atlas Training submenu's "Aimpoint Optics" entry is commented out in `assemble-atlas.py`. Bringing it back is those
+three edits on his word.
 
 ## Atlas Glinn pages (decided by Brockmann 2026-09-03: "SAME front end", mobile first)
 
@@ -344,9 +348,15 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   Business Profile link he pasted (its `stick=` token decodes to feature id `0x8640c3cb2d0755df:0x3e9cfce1d8a7b9f7`,
   CID 4511758973651106295): `REVIEW_URL` in `wrangler.toml` (T+1 email), `GOOGLE_REVIEW_URL` / `REVIEW_LINK` in
   `cinematic_shell.py` (every Atlas footer, the MAST footer, a "Review us on Google" button in the MAST Testimonials
-  chapter, the Maps CID URL in both JSON-LD `sameAs`). The container cannot reach Google; `capture-live.yml` prints
-  the Maps page title for the CID so a wrong id shows as a wrong title. The `#lrd=…,3` form opens the write dialog; if
-  he wants the short `g.page/r/…/review` link instead, it is in his Business Profile under "Ask for reviews".
+  chapter, the Maps CID URL in both JSON-LD `sameAs`). **2026-09-07, from his phone: "The google review is wrong."** The
+  `#lrd=<ftid>,3` search-dialog link built from that id did not open the right thing, so both constants and
+  `REVIEW_URL` now carry the Maps Search URL by name and address
+  (`google.com/maps/search/?api=1&query=Atlas+Glinn,+2450+Fondren+Rd+Suite+255,+Houston,+TX+77063`): it always lands on
+  the listing, where "Write a review" is one tap. The container cannot reach Google; `capture-live.yml` fetches the Maps
+  search page and the CID page from a runner and prints any `ChIJ…` place id and whether "Atlas Glinn" appears — a
+  verified place id turns into the one-tap `search.google.com/local/writereview?placeid=…` link. The short
+  `g.page/r/…/review` link from his Business Profile ("Ask for reviews") is the other way to one tap; take it when he
+  pastes it. Never build a review link from a decoded id again without a runner check that names the business.
   Rules: eligibility answers never appear anywhere in it; consent is the tick, never the purchase; fence only commands.
 - **Mailboxes:** the Claude Microsoft 365 connector in a cloud session is signed in as matthew@atlasglinn.com. The
   mastsolutions.com tenant (matthew@mastsolutions.com, the Worker's `REPLY_TO`) is a different tenant and answers
