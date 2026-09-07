@@ -177,6 +177,7 @@ catalog. What runs where:
 | **HubSpot** connector | installed on his org, **not enabled in this chat**; the Worker's `HUBSPOT_TOKEN` upsert is a no-op until the token is set | Enable in the chat's connector settings; a private-app token → `wrangler secret put HUBSPOT_TOKEN` |
 | **Mailchimp**, **Brevo** (both appear in atlasglinn.com's DNS) | Worker adapters built (opt-in gated); connectors not installed | Keys → `wrangler secret put …`; the connectors are optional (campaign drafting from chat) |
 | **Stripe**, **Cloudflare** connectors | installed, **need reconnect** | Reconnect in claude.ai → Connectors; Cloudflare reconnected = deploys and Worker secrets from a cloud session, no Mac |
+| **Cloudflare token for the runner** (`deploy-worker.yml`) | **2026-09-07: Brockmann said "Cloudflare is in secrets for you to connect"; two dispatches later the job printed `present: none`** — nothing named `CLOUDFLARE_API_TOKEN` / `CF_API_TOKEN` / `CLOUDFLARE_TOKEN` (or an account id) reached the repository's Actions, the container had no such env var, and the Cloudflare MCP server still asked for auth. So the token sits somewhere else: a Claude Code *environment* secret (reaches only a **new** session's container), a GitHub Variable / environment / Codespaces secret, or another repo | The job's notice names the one place that works: Settings → Secrets and variables → Actions → **Repository secrets** → `CLOUDFLARE_API_TOKEN` (account id optional). If it is a Claude environment secret, a new session sees it as an env var and can run `wrangler deploy` itself; check `env | grep -i cloudflare` first thing |
 | PostHog / Resend connectors | not installed; the Worker's own beacon covers the funnel | Optional |
 | The old WordPress site | used the theme's `yit-newsletter` (Mailchimp / MailPoet ajax subscribe), WooCommerce, Contact Form 7; the live shop pages post to `wp-json/iwa|aimpoint/v1/subscribe` (notify-me) | Whatever list those built lives in his Mailchimp / Brevo accounts; the CSV export from `/admin` is the way to merge |
 
@@ -241,9 +242,26 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   hash differs, reloads once to `?v=<hash>` (a URL the CDN has not seen). `wp-upload.sh` and `deploy-page.yml` put the
   manifest on the host last. `_probe.txt` prints `self-refresh: <page> plain build=… manifest=… fresh|stale`. Flush Cache
   is no longer a step in the WIRE; if he wants it anyway, wp-admin's top bar on any browser has the same button.
-- **mastsolutions.com** has no site: it is a GoDaddy domain forward to atlasglinn.com, pointed at
+- **mastsolutions.com** has no site *yet*: it is a GoDaddy domain forward to atlasglinn.com, pointed at
   `https://atlasglinn.com/mastsolutions.html` (set 2026-09-05). It still carries DNS: Resend verifies it so the Worker can send as
   bookings@mastsolutions.com, beside the existing matthew@mastsolutions.com mail.
+  **2026-09-07 (his host.godaddy.com screenshot + "when I use www.mastsolutions.com it should be that url not -
+  atlasglinn/ … You have access to WordPress and GoDaddy. Fix"):** he also owns a GoDaddy **Linux / cPanel hosting**
+  account whose *primary domain is mastsolutions.com* and which lists atlasglinn.com too (its DKIM table shows both,
+  "Enable" on each; the cPanel username is in his screenshot and deliberately not written here). No session has
+  WordPress, GoDaddy-hosting or cPanel access: the GoDaddy connector only checks domain availability, there is no
+  WordPress connector, and the container cannot reach the host. What was built instead:
+  `python3 scripts/assemble-cinematic.py` now also writes `dist/mastsolutions/index.html` (+ its `build-manifest.json`):
+  the MAST page with canonical / og:url / JSON-LD url `https://mastsolutions.com/`, self-links `/`, Atlas links absolute
+  to atlasglinn.com, assets relative; `.github/workflows/deploy-mastsolutions.yml` uploads it and the asset tree into
+  that cPanel account's document root over SFTP, enables cPanel DKIM for both domains through the UAPI, and prints the
+  cPanel IP against the current A records — once **three repository secrets** exist: `CPANEL_HOST`, `CPANEL_USER`,
+  `CPANEL_PASSWORD`. `ALLOWED_ORIGINS` carries `https://www.mastsolutions.com` since the same day. **Still his hand:**
+  the DNS (GoDaddy → Domains → mastsolutions.com → DNS: remove the forward, `A @ → <cPanel IP>`, `CNAME www →
+  mastsolutions.com`; www has no record at all today) and Microsoft 365 DKIM — the smoke DNS shows *no*
+  `selector1/selector2._domainkey` CNAMEs on mastsolutions.com, so M365 mail from @mastsolutions.com carries no DKIM;
+  that is switched on in the M365 admin center (Defender → Email authentication → DKIM), which hands back the two
+  CNAMEs for GoDaddy DNS. cPanel's "Enable" only signs mail the cPanel server itself sends.
 - An earlier session put HTML straight into WordPress (`wp-content/themes/atlasglinn/ep-trailer.html`) from a Mac session
   with the WordPress admin. A cloud session cannot: the container has no route to atlasglinn.com and holds no credentials.
   The static page + Worker + SFTP path replaced `mast-wp-theme/`.
@@ -361,7 +379,10 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   (`google.com/maps/search/?api=1&query=Atlas+Glinn,+2450+Fondren+Rd+Suite+255,+Houston,+TX+77063`): it always lands on
   the listing, where "Write a review" is one tap. The container cannot reach Google; `capture-live.yml` fetches the Maps
   search page and the CID page from a runner and prints any `ChIJ…` place id and whether "Atlas Glinn" appears — a
-  verified place id turns into the one-tap `search.google.com/local/writereview?placeid=…` link. The short
+  verified place id turns into the one-tap `search.google.com/local/writereview?placeid=…` link. **Probe 2026-09-07
+  15:55 UTC:** the CID page (`maps?cid=4511758973651106295`) does not mention Atlas Glinn at all — that decoded id was
+  some other listing, which is why his phone called the link wrong; the address search page names Atlas Glinn but
+  exposes no `ChIJ` id to a runner (JS shell). So the address link stands until he pastes the g.page link. The short
   `g.page/r/…/review` link from his Business Profile ("Ask for reviews") is the other way to one tap; take it when he
   pastes it. Never build a review link from a decoded id again without a runner check that names the business.
   Rules: eligibility answers never appear anywhere in it; consent is the tick, never the purchase; fence only commands.

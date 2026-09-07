@@ -108,7 +108,8 @@ jobs:
             # for the hour-long TTL to run out at public resolvers; 1.1.1.1 is the fallback.
             NS1="$(dig +short NS mastsolutions.com @1.1.1.1 | head -1)"; NS1="${NS1:-ns27.domaincontrol.com}"
             echo "--- mail DNS (mastsolutions.com), asked at $NS1 (authoritative)"
-            for q in "TXT mastsolutions.com" "MX mastsolutions.com" "TXT send.mastsolutions.com" "MX send.mastsolutions.com" "TXT _dmarc.mastsolutions.com" "TXT resend._domainkey.mastsolutions.com" "CNAME selector1._domainkey.mastsolutions.com" "CNAME selector2._domainkey.mastsolutions.com" "CNAME autodiscover.mastsolutions.com"; do
+            # A / CNAME rows first (2026-09-07, "when I use www.mastsolutions.com it should be that url"): where the two hosts point today.
+            for q in "A mastsolutions.com" "CNAME www.mastsolutions.com" "A www.mastsolutions.com" "A atlasglinn.com" "CNAME www.atlasglinn.com" "TXT mastsolutions.com" "MX mastsolutions.com" "TXT send.mastsolutions.com" "MX send.mastsolutions.com" "TXT _dmarc.mastsolutions.com" "TXT resend._domainkey.mastsolutions.com" "CNAME selector1._domainkey.mastsolutions.com" "CNAME selector2._domainkey.mastsolutions.com" "CNAME autodiscover.mastsolutions.com" "TXT atlasglinn.com" "TXT _dmarc.atlasglinn.com" "CNAME selector1._domainkey.atlasglinn.com" "CNAME selector2._domainkey.atlasglinn.com"; do
               set -- $q; src=auth; v="$(dig +short +time=5 +tries=1 "$1" "$2" "@$NS1" 2>/dev/null || true)"
               if [ -z "$v" ] && ! dig +time=5 +tries=1 "$1" "$2" "@$NS1" 2>/dev/null | grep -q 'status: NOERROR'; then src=fallback; v="$(dig +short "$1" "$2" @1.1.1.1 2>/dev/null || true)"; fi
               echo "   $1 $2 [$src]: $(printf '%s' "$v" | sed -E 's/re_[A-Za-z0-9_]+/re_[redacted]/g; s/(p=MIGf)[A-Za-z0-9+\/=]{20,}/\1…/' | tr '\n' '|')"
