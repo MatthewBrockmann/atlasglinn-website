@@ -107,7 +107,7 @@ NAV = [
     ('mastsolutions.html', 'MAST Solutions', 'Book a course'),
     # The live Training submenu (capture-live, 2026-09-05). Both product lines are quoted through the MAST Gear chapter.
     ('mastsolutions.html#gear', 'IWA Training Products', 'Flashbangs, smoke &amp; diversionary devices'),
-    ('mastsolutions.html#gear', 'Aimpoint Optics', 'Red dot sights &amp; magnifiers'),
+    # ('mastsolutions.html#gear', 'Aimpoint Optics', 'Red dot sights &amp; magnifiers'),   # hidden 2026-09-07 (owner: "hide Aimpoint for now"); GEAR_HIDDEN in mastsolutions-tesla.html
     ('technology.html', 'Technology', 'Atlas EP, AI surveillance, drones'),
     ('cuas-aerodefense.html', 'Counter-Drone', 'AirWarden by AeroDefense'),
     ('uas.html', 'Autonomous UAS', 'Sunflower Labs'),

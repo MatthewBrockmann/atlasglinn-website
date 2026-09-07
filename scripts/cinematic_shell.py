@@ -560,11 +560,13 @@ def chrome(credits, wordmark, photos, hud_tl, hud_tl_href, hud_bl, hud_br, chapt
             % (credits[0], wordmark, credits[1], ph, hud_tl_href, hud_tl, n, hud_bl, hud_br, nav))
 
 
-# The Google listing (Atlas Glinn, LLC; MAST is its division). Feature id 0x8640c3cb2d0755df:0x3e9cfce1d8a7b9f7, CID
-# 4511758973651106295, read out of the Business Profile link Brockmann pasted 2026-09-06 ("add to email as click + link +
-# add to website"). "#lrd=<ftid>,3" opens the write-a-review dialog; the Maps CID URL is the listing itself (JSON-LD sameAs).
-GOOGLE_REVIEW_URL = 'https://www.google.com/search?q=Atlas+Glinn&ludocid=4511758973651106295#lrd=0x8640c3cb2d0755df:0x3e9cfce1d8a7b9f7,3'
-GOOGLE_MAPS_URL = 'https://maps.google.com/?cid=4511758973651106295'
+# The Google listing (Atlas Glinn, LLC; MAST is its division). Brockmann, 2026-09-07 from his phone: "The google review is
+# wrong" — the "#lrd=<ftid>,3" search-dialog link built from the id in his Business Profile paste did not open the right
+# thing, so the button now uses the Maps Search URL by name and address (Google resolves it to the listing on the phone's
+# Maps app or the web, where "Write a review" is one tap; never a wrong listing). A one-tap write-review link needs the
+# place id or the g.page short link from his Business Profile ("Ask for reviews"); capture-live.yml probes for the id.
+GOOGLE_REVIEW_URL = 'https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063'
+GOOGLE_MAPS_URL = GOOGLE_REVIEW_URL
 REVIEW_LINK = f'<a href="{GOOGLE_REVIEW_URL}" target="_blank" rel="noopener" data-track="review">Google Reviews</a>'
 
 
