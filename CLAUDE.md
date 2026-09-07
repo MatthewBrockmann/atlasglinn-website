@@ -278,7 +278,20 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   api.godaddy.com or api.cloudflare.com (egress 000). So: WordPress yes, from the Mac (now used by `scripts/wp-flush.sh`);
   GoDaddy DNS no, until a key pair is minted again (his browser, developer.godaddy.com; his account must still qualify
   for the Domains API) and saved as those two Keychain items; cPanel no, until its login exists somewhere a runner or the
-  Mac can read. What was built for the cPanel path:
+  Mac can read. **The route that needs no login at all — GitHub Pages (2026-09-07 18:29 UTC, first run of
+  `.github/workflows/pages-mastsolutions.yml`):** the runner deployed `dist/mastsolutions/` (index.html, manifest, the
+  asset tree) to this repository's Pages site with its own token — deploy reported success. Two facts from that run:
+  the repository *already had* a Pages site whose custom domain is **atlasglinn.com** (`cname=atlasglinn.com`,
+  `status=built`; the root `CNAME` file is its trace — harmless today because atlasglinn.com's DNS points at GoDaddy,
+  not GitHub, and GitHub only serves a domain whose DNS reaches it), and the workflow token **cannot change the custom
+  domain** (PUT /pages → 403; a `CNAME` file in an Actions artifact is ignored). So the Pages site now holds the MAST page
+  under the wrong name until one field changes by hand: **Settings → Pages → Custom domain → `mastsolutions.com`** (that
+  also stops the site claiming atlasglinn.com). Order: that field first, then the GoDaddy DNS rows (four `A @` to
+  185.199.108.153 / .109 / .110 / .111 — the "Parked" A record is *edited*, not deleted — `CNAME www →
+  matthewbrockmann.github.io`, forward removed); GitHub issues the certificate within the hour and "Enforce HTTPS" can
+  be ticked after. Every later merge that touches `dist/mastsolutions/` republishes on its own. Follow-up once it
+  serves: point the atlasglinn.com copy's canonical at mastsolutions.com (two copies of one page otherwise). What was
+  built for the cPanel path (kept as the alternative; unused while Pages serves):
   `python3 scripts/assemble-cinematic.py` now also writes `dist/mastsolutions/index.html` (+ its `build-manifest.json`):
   the MAST page with canonical / og:url / JSON-LD url `https://mastsolutions.com/`, self-links `/`, Atlas links absolute
   to atlasglinn.com, assets relative; `.github/workflows/deploy-mastsolutions.yml` uploads it and the asset tree into
