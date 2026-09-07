@@ -116,6 +116,7 @@ case "${1:-}" in
     done
     say "last uploaded page:    $(cat "$HOME/.cache/wp-upload/last-uploaded" 2>/dev/null || echo none)"
     say "last Worker deploy:    $(cat "$HOME/.cache/wp-upload/last-worker-deploy" 2>/dev/null || echo none)"
+    say "last cache flush:      $(cat "$HOME/.cache/wp-upload/last-flush" 2>/dev/null || echo 'none yet (scripts/wp-flush.sh runs after each upload)')"
     say "private clone:         $( [ -d "$CACHE/.git" ] && git -C "$CACHE" rev-parse --short HEAD 2>/dev/null || echo 'not made yet' )  (pull filter: $( git -C "$CACHE" config remote.origin.partialclonefilter 2>/dev/null || echo 'none — run install once' ))" ;;
   kick)
     launchctl kickstart -k "gui/$UID_/$H_LABEL" 2>/dev/null || launchctl start "$H_LABEL"

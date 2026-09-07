@@ -1,0 +1,102 @@
+# mastsolutions.com served from GitHub Pages — no host login, no secret, nothing on the Mac (2026-09-07).
+#
+# Brockmann: "when I use www.mastsolutions.com it should be that url not - atlasglinn/". The cPanel route
+# (deploy-mastsolutions.yml) waits on three secrets nobody reachable holds; this one needs none: the runner's own token
+# creates or switches the repository's Pages site to "GitHub Actions" builds, deploys dist/mastsolutions/index.html with
+# the page's asset tree and its build-manifest.json, checks the deployment answers with the MAST page, then sets the
+# custom domain mastsolutions.com. The only hand left is the DNS at GoDaddy, and the last step prints the exact rows:
+#   A     @    185.199.108.153 / 185.199.109.153 / 185.199.110.153 / 185.199.111.153   (replace the "Parked" A record)
+#   CNAME www  matthewbrockmann.github.io
+# plus removing the forward to atlasglinn.com. GitHub issues the HTTPS certificate once DNS points here.
+name: Publish mastsolutions.com (GitHub Pages)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'dist/mastsolutions/**'
+      - '.github/workflows/pages-mastsolutions.yml'
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages-mastsolutions
+  cancel-in-progress: false
+env:
+  DOMAIN: mastsolutions.com
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stage the site (index.html, manifest, the page's assets)
+        run: |
+          set -e
+          test -f dist/mastsolutions/index.html || { echo "::error::dist/mastsolutions/index.html missing — run python3 scripts/assemble-cinematic.py and commit"; exit 1; }
+          mkdir -p stage
+          cp dist/mastsolutions/index.html stage/index.html
+          cp dist/mastsolutions/build-manifest.json stage/build-manifest.json
+          printf '%s\n' "$DOMAIN" > stage/CNAME
+          touch stage/.nojekyll
+          python3 - dist/mastsolutions/index.html > assets.txt <<'PY'
+          import os, re, sys
+          page = sys.argv[1]; seen = []
+          attr = re.compile(r'''(?:src|href|poster)=["']([^"'#?]+)|url\(['"]?([^)'"?#]+)|from\s+['"]\.?/?([^'"]+\.js)['"]|['"]((?:images|vendor)/[^'"?#\s]+)['"]''')
+          queue = []
+          for m in attr.finditer(open(page, encoding='utf-8', errors='ignore').read()):
+              u = (m.group(1) or m.group(2) or m.group(3) or m.group(4) or '').strip()
+              if not u or u.startswith(('http', '//', 'mailto:', 'tel:', 'data:', 'javascript:')) or u.endswith('.html'): continue
+              u = os.path.normpath(u)
+              if u.startswith('..') or not os.path.isfile(u) or u in seen: continue
+              seen.append(u); queue.append(u)
+          while queue:
+              p = queue.pop(0)
+              if not p.endswith(('.css', '.js')): continue
+              for m in attr.finditer(open(p, encoding='utf-8', errors='ignore').read()):
+                  u = (m.group(1) or m.group(2) or m.group(3) or m.group(4) or '').strip()
+                  if not u or u.startswith(('http', '//', 'data:')): continue
+                  u = os.path.normpath(os.path.join(os.path.dirname(p), u))
+                  if u.startswith('..') or not os.path.isfile(u) or u in seen: continue
+                  seen.append(u); queue.append(u)
+          print('\n'.join(seen))
+          PY
+          if grep -l 'git-lfs.github.com/spec' $(cat assets.txt) 2>/dev/null | head -1 | grep -q .; then echo "::error::LFS pointer among the assets; nothing published"; exit 1; fi
+          while IFS= read -r f; do [ -n "$f" ] && mkdir -p "stage/$(dirname "$f")" && cp "$f" "stage/$f"; done < assets.txt
+          echo "$(find stage -type f | wc -l) files staged ($(du -sh stage | cut -f1))"
+      - name: Make sure the Pages site exists and builds from Actions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          cur="$(gh api "repos/$GITHUB_REPOSITORY/pages" 2>/dev/null)"; rc=$?
+          if [ $rc -ne 0 ]; then
+            echo "no Pages site yet; creating one built by Actions"
+            gh api -X POST "repos/$GITHUB_REPOSITORY/pages" -f build_type=workflow >/dev/null && echo "created" || echo "::warning::could not create the Pages site with the workflow token; Settings → Pages → Source: GitHub Actions does it by hand"
+          else
+            echo "Pages site: build_type=$(printf '%s' "$cur" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("build_type"), "cname=" + str(d.get("cname")), "https=" + str(d.get("https_enforced")))')"
+            printf '%s' "$cur" | grep -q '"build_type": *"workflow"' || { gh api -X PUT "repos/$GITHUB_REPOSITORY/pages" -f build_type=workflow >/dev/null && echo "switched to Actions builds" || echo "::warning::could not switch the Pages source with the workflow token; Settings → Pages → Source: GitHub Actions does it by hand"; }
+          fi
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: false
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: stage
+      - id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Set the custom domain and print the DNS rows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          if gh api -X PUT "repos/$GITHUB_REPOSITORY/pages" -f cname="$DOMAIN" >/dev/null 2>&1; then echo "custom domain set: $DOMAIN"; else echo "::warning::custom domain not set by the workflow token — Settings → Pages → Custom domain: $DOMAIN (one field)"; fi
+          sleep 5; gh api "repos/$GITHUB_REPOSITORY/pages" 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print("Pages:", d.get("html_url"), "cname=" + str(d.get("cname")), "status=" + str(d.get("status")), "https=" + str(d.get("https_enforced")))'
+          echo "--- DNS at GoDaddy (Domains → $DOMAIN → DNS) — what must be there for this to serve:"
+          echo "   A      @    185.199.108.153"; echo "   A      @    185.199.109.153"; echo "   A      @    185.199.110.153"; echo "   A      @    185.199.111.153"
+          echo "   CNAME  www  matthewbrockmann.github.io"; echo "   and remove the forwarding to atlasglinn.com"
+          echo "--- DNS now:"; echo "   A $DOMAIN: $(dig +short A $DOMAIN @1.1.1.1 | tr '\n' ' ')"; echo "   www.$DOMAIN: $(dig +short www.$DOMAIN @1.1.1.1 | tr '\n' ' ')"
+          for u in "https://$DOMAIN/" "https://www.$DOMAIN/"; do echo "   $u → $(curl -sS -m 30 -o /tmp/p -w '%{http_code} %{redirect_url}' "$u" 2>/dev/null || echo unreachable)  title=[$(grep -o '<title>[^<]*' /tmp/p 2>/dev/null | head -1 | sed 's/<title>//')]"; done
