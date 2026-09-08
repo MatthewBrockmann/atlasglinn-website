@@ -116,6 +116,22 @@ jobs:
             done
             # The owner's GoDaddy list also holds mastsolutionssearch.com; a row that lands there by mistake shows here.
             echo "   (wrong-domain check) TXT mastsolutionssearch.com: $(dig +short TXT mastsolutionssearch.com @ns39.domaincontrol.com 2>/dev/null | tr '\n' '|')"
+            # Microsoft 365 DKIM rows, derived instead of asked for (2026-09-08, owner: "Enabled = NO CNAMES"): Exchange's public
+            # GetFederationInformation names the tenant's onmicrosoft.com domain; M365's two CNAME targets follow from it, and a
+            # TXT lookup on each target says whether the tenant has published the key yet (no key = "Create DKIM keys" first).
+            for d in mastsolutions.com atlasglinn.com; do
+              body='<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:a="http://www.w3.org/2005/08/addressing"><soap:Header><a:Action soap:mustUnderstand="1">http://schemas.microsoft.com/exchange/2010/Autodiscover/Autodiscover/GetFederationInformation</a:Action><a:To soap:mustUnderstand="1">https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc</a:To><a:ReplyTo><a:Address>http://www.w3.org/2005/08/addressing/anonymous</a:Address></a:ReplyTo></soap:Header><soap:Body><GetFederationInformationRequestMessage xmlns="http://schemas.microsoft.com/exchange/2010/Autodiscover"><Request><Domain>'"$d"'</Domain></Request></GetFederationInformationRequestMessage></soap:Body></soap:Envelope>'
+              tenant="$(curl -sS -m 30 -X POST https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc -H 'Content-Type: text/xml; charset=utf-8' -H 'SOAPAction: "http://schemas.microsoft.com/exchange/2010/Autodiscover/Autodiscover/GetFederationInformation"' -H 'User-Agent: AutodiscoverClient' --data "$body" 2>/dev/null | grep -o '<Domain>[^<]*\.onmicrosoft\.com</Domain>' | grep -v 'mail\.onmicrosoft' | head -1 | sed 's/<[^>]*>//g')"
+              dd="$(printf '%s' "$d" | tr . -)"
+              echo "--- Microsoft 365 DKIM rows for $d (tenant: ${tenant:-not found via autodiscover})"
+              if [ -n "$tenant" ]; then
+                for s in selector1 selector2; do
+                  tgt="$s-$dd._domainkey.$tenant"
+                  key="$(dig +short TXT "$tgt" @1.1.1.1 2>/dev/null | head -c 30)"
+                  echo "   CNAME  $s._domainkey  ->  $tgt   [key published by Microsoft: $([ -n "$key" ] && echo yes || echo "NO - Defender > DKIM > $d > Create DKIM keys first")]"
+                done
+              fi
+            done
             echo "   (no v=spf1 … include:spf.protection.outlook.com on the apex TXT = Microsoft 365 mail from @mastsolutions.com is unauthenticated; two v=spf1 rows on send. = SPF permerror for Resend's envelope)"
           } | tee out/_worker-smoke.txt
           { echo '```'; cat out/_worker-smoke.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
