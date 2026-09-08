@@ -127,6 +127,9 @@ jobs:
                           rewritten.append('%s: /%s -> %s' % (page, m.group(2), cand)); return m.group(1) + cand
                   return m.group(0)
               html = absref.sub(rel, html)
+              # The MAST page is not staged under the preview; on this host it is served at "/", so the menu and footer
+              # links to mastsolutions.html (with or without #gear) point there instead of 404ing.
+              html = re.sub(r'href=["\']mastsolutions\.html(#[^"\']*)?["\']', lambda m: 'href="/%s"' % (m.group(1) or ''), html)
               open(os.path.join(out, os.path.basename(page)), 'w', encoding='utf-8').write(html)
           print('%d pages staged noindex, %d root-absolute references made relative' % (len(pages), len(rewritten)))
           for r in rewritten: print('  ' + r)
