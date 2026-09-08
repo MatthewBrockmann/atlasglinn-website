@@ -284,11 +284,15 @@ const SEGMENT_TEXT = {
 
 /* ───────────────────────────── D1 reads ───────────────────────────── */
 
-/** The digest's reads: a SELECT that fails must reject, never read as a week of zeros. */
-async function rowsStrict(env, sql, binds = []) {
+/** The digest's reads: a SELECT that fails must reject, never read as a week of zeros — the fallback pair included. */
+async function rowsStrict(env, sql, binds = [], fallbackSql) {
   if (!env.DB) return [];
-  const { results } = await env.DB.prepare(sql).bind(...binds).all();
-  return results || [];
+  try { const { results } = await env.DB.prepare(sql).bind(...binds).all(); return results || []; }
+  catch (e) {
+    if (!fallbackSql) throw e;
+    const { results } = await env.DB.prepare(fallbackSql).bind(...binds).all();
+    return results || [];
+  }
 }
 
 async function rows(env, sql, binds = [], fallbackSql) {
@@ -311,20 +315,25 @@ const bucket = (list, keyOf, valueOf = () => 1) => {
 };
 const distinct = (list, f) => new Set(list.map(f).filter(Boolean)).size;
 
-/** Everything the staff page and the audience export need. `view: "summary"` leaves the people out (counts only). */
-export async function crmSnapshot(env, { view = 'full', limit = 5000, now = new Date() } = {}) {
+/**
+ * Everything the staff page and the audience export need. `view: "summary"` leaves the people out (counts only).
+ * `strict` makes every read here reject instead of reading as an empty table: the staff page prefers a partial page to
+ * an error, the digest prefers no email to a LIFETIME block of zeros.
+ */
+export async function crmSnapshot(env, { view = 'full', limit = 5000, now = new Date(), strict = false } = {}) {
   await ensureCrmSchema(env);
-  const orders = await rows(env,
+  const read = strict ? (sql, binds, fallbackSql) => rowsStrict(env, sql, binds, fallbackSql) : (sql, binds, fallbackSql) => rows(env, sql, binds, fallbackSql);
+  const orders = await read(
     `SELECT ${ORDER_COLS}, utm_source, utm_medium, utm_campaign, first_touch_at FROM orders ORDER BY created_at DESC LIMIT ${limit}`, [],
     `SELECT ${ORDER_COLS} FROM orders ORDER BY created_at DESC LIMIT ${limit}`);
-  const registrations = await rows(env,
+  const registrations = await read(
     `SELECT ${REG_COLS}, utm_source, utm_medium, utm_campaign, referrer, landing_page, first_touch_at FROM registrations ORDER BY created_at DESC LIMIT ${limit}`, [],
     `SELECT ${REG_COLS} FROM registrations ORDER BY created_at DESC LIMIT ${limit}`);
-  const accounts = await rows(env, `SELECT id, email, name, phone, organization, standards_passed, created_at, verified_at, last_login_at FROM accounts ORDER BY created_at DESC LIMIT ${limit}`);
-  const contacts = await rows(env, `SELECT id, created_at, kind, name, email, phone, company, status, request_type, page, referrer, landing_page, utm_source, utm_medium, utm_campaign, visitor, newsletter_opt_in, emailed FROM contacts ORDER BY created_at DESC LIMIT ${limit}`);
+  const accounts = await read(`SELECT id, email, name, phone, organization, standards_passed, created_at, verified_at, last_login_at FROM accounts ORDER BY created_at DESC LIMIT ${limit}`);
+  const contacts = await read(`SELECT id, created_at, kind, name, email, phone, company, status, request_type, page, referrer, landing_page, utm_source, utm_medium, utm_campaign, visitor, newsletter_opt_in, emailed FROM contacts ORDER BY created_at DESC LIMIT ${limit}`);
   const since30 = new Date(now.getTime() - 30 * DAY).toISOString();
-  const events = await rows(env, `SELECT created_at, visitor, email, page, action, label, sku, referrer, utm_source, device, country FROM events WHERE created_at >= ? ORDER BY created_at DESC LIMIT 20000`, [since30]);
-  const log = await rows(env, 'SELECT kind, status, created_at FROM email_log ORDER BY created_at DESC LIMIT 5000');
+  const events = await read(`SELECT created_at, visitor, email, page, action, label, sku, referrer, utm_source, device, country FROM events WHERE created_at >= ? ORDER BY created_at DESC LIMIT 20000`, [since30]);
+  const log = await read('SELECT kind, status, created_at FROM email_log ORDER BY created_at DESC LIMIT 5000');
 
   const customers = buildProfiles({ orders, registrations, accounts, contacts }, now);
   const today = now.toISOString().slice(0, 10);
@@ -417,7 +426,11 @@ export function weeklyDigestText({ contacts = [], orders = [], registrations = [
   // A membership is a subscription, not a seat: it counts in Paid orders and Revenue and nowhere else.
   const classNow = paidNow.filter((o) => o.kind !== 'membership'), classPrev = paidPrev.filter((o) => o.kind !== 'membership');
   const memberNow = paidNow.filter((o) => o.kind === 'membership'), memberPrev = paidPrev.filter((o) => o.kind === 'membership');
-  const verified = accounts.filter((a) => a.verified_at);   // an unverified sign-up is deleted by the next day's purge
+  // Windowed on verified_at, not created_at: a sign-up that verifies days later belongs to the week it verified in
+  // (an unverified sign-up is deleted by the next day's purge, so it never reaches this row).
+  const verified = accounts.filter((a) => a.verified_at);
+  const verifiedNow = verified.filter((a) => a.verified_at >= startThis);
+  const verifiedPrev = verified.filter((a) => a.verified_at >= startPrev && a.verified_at < startThis);
   const open = leads.filter((c) => !c.emailed).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
   const askedFor = (c) => c.request_type || c.kind;
   const priorByType = new Map(bucket(leadsPrev, askedFor).map((b) => [b.key, b.value]));
@@ -434,11 +447,11 @@ export function weeklyDigestText({ contacts = [], orders = [], registrations = [
   for (const b of bucket(leadsNow, askedFor)) out.push('  ' + b.key.padEnd(16) + String(b.value) + '  (prev ' + (priorByType.get(b.key) || 0) + ')');
   out.push(
     row('Office not notified', recent(open).length + ' of ' + leadsNow.length + ' new'),
-    row('New verified accounts', recent(verified).length, prior(verified).length),
+    row('Accounts verified', verifiedNow.length, verifiedPrev.length),
     row('Registrations', recent(registrations).length, prior(registrations).length),
     row('Paid orders', paidNow.length, paidPrev.length),
     row('Seats sold', seats(classNow), seats(classPrev)),
-    row('Memberships', memberNow.length, memberPrev.length),
+    row('Memberships', memberNow.length + ' · ' + usd(cash(memberNow)), memberPrev.length + ' · ' + usd(cash(memberPrev))),
     row('Revenue', usd(cash(paidNow)), usd(cash(paidPrev))),
     '',
     'TOP CLASSES BOOKED (paid, last 7 days)',
@@ -469,9 +482,9 @@ export function weeklyDigestText({ contacts = [], orders = [], registrations = [
   return out.join('\n');
 }
 
-/** The digest for the live database. */
+/** The digest for the live database. Every read is strict, the snapshot's included: a D1 error sends nothing at all. */
 export async function weeklyDigest(env, { now = new Date(), limit = 5000 } = {}) {
-  const { stats } = await crmSnapshot(env, { view: 'summary', limit, now });
+  const { stats } = await crmSnapshot(env, { view: 'summary', limit, now, strict: true });
   const contacts = await rowsStrict(env, `SELECT id, created_at, kind, name, email, request_type, emailed FROM contacts ORDER BY created_at DESC LIMIT ${limit}`);
   const orders = await rowsStrict(env, `SELECT ${ORDER_COLS} FROM orders ORDER BY created_at DESC LIMIT ${limit}`);
   const registrations = await rowsStrict(env, `SELECT id, created_at, status, sku, item_name, qty FROM registrations ORDER BY created_at DESC LIMIT ${limit}`);
@@ -817,7 +830,7 @@ td .f{display:inline-block;border:1px solid var(--line);border-radius:4px;paddin
 <div class="tabs"><button id="tab-people" class="on">People</button><button id="tab-leads">Leads</button></div>
 <div class="chips" id="chips"></div>
 <div class="wrap" id="people"><table><thead><tr><th>Customer</th><th>Contact</th><th>Segment</th><th>Classes</th><th>Spend</th><th>Last / next</th><th>Source</th><th>Flags</th></tr></thead><tbody id="rows"></tbody></table></div>
-<div class="wrap" id="leads" hidden><table><thead><tr><th>When</th><th>Kind</th><th>Who</th><th>Contact</th><th>Company / status</th><th>Page · source</th><th>Emailed</th></tr></thead><tbody id="leadrows"></tbody></table></div></main>
+<div class="wrap" id="leads" hidden><table><thead><tr><th>When</th><th>Kind</th><th>Who</th><th>Contact</th><th>Company / status</th><th>Page · source</th><th>Office notified</th></tr></thead><tbody id="leadrows"></tbody></table></div></main>
 <script>
 const $=(s)=>document.querySelector(s);let data=null,filter=null,tab='people';
 const keyEl=$('#key');try{keyEl.value=sessionStorage.getItem('mast_admin_key')||''}catch(e){}

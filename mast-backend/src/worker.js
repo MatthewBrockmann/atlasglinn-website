@@ -116,8 +116,9 @@ export default {
     } else console.log('[Journeys] off (JOURNEYS_ENABLED is not "1")');
     // Monday (owner, 2026-09-08: "weekly CRM Emails to matthew@atlasglinn.com + Matthew@mastsolutions.com"), and Tuesday or
     // Wednesday as the retry: a Resend outage on Monday used to cost the week its digest. sendWeeklyDigest is the idempotent
-    // half — it reads email_log and no-ops when the week already went out, so a doubled Monday fire still sends once. It is
-    // queued alongside the purge in its own promise with its own catch: a CRM read that fails cannot reach the retention run.
+    // half — it claims the week in email_log before it sends and no-ops when the week is already claimed, so a doubled
+    // Monday fire still sends once. It is queued alongside the purge in its own promise with its own catch: a CRM read that
+    // fails cannot reach the retention run.
     const weekday = new Date(event && event.scheduledTime).getUTCDay();
     if (weekday >= 1 && weekday <= 3) {
       ctx.waitUntil(sendWeeklyDigest(env, new Date(event.scheduledTime)).catch((e) => console.error('[Digest] failed:', e.message)));
@@ -1583,32 +1584,59 @@ async function sendRegistrationDocuments(env, reg, record) {
   console.log('[Documents] Sent for', reg.id, pdfB64 ? 'with agreement PDF' : 'WITHOUT agreement PDF');
 }
 
+/* The week's claim in email_log: one row per ISO week, and the recipients are not its identity — reordering
+   CRM_DIGEST_TO must not buy the week a second digest. Thirty minutes is longer than any run and shorter than the
+   gap to the next cron, so a 'sending' row older than that is a crashed run and not a race. */
+const DIGEST_CLAIM_EMAIL = 'crm-digest';
+const DIGEST_CLAIM_STALE_MS = 30 * 60 * 1000;
+
 /**
  * One CRM digest a week to CRM_DIGEST_TO (wrangler.toml [vars]). Same text as GET /admin/crm?view=weekly, so a
  * runner without the mailbox reads exactly what was sent. Unconfigured = logged and skipped, like the review notice.
- * Once per ISO week, claimed in email_log (kind 'digest', ref the week) the way the journeys claim theirs — except the
- * row is written only after Resend has taken it, so a failed Monday leaves the week open for the Tuesday cron to retry.
- * weeklyDigest itself rejects on a failed read, so a D1 outage sends nothing rather than a week of zeros.
+ * Once per ISO week, claimed in email_log (kind 'digest', ref the week) the way the journeys claim theirs — CLAIM
+ * BEFORE SEND: the row is written 'sending' before Resend is called and flipped to 'sent' after, so a week that has
+ * been claimed is never mailed twice however the run ends. A run that fails deletes its own claim, leaving the week
+ * open for the Tuesday or Wednesday cron; a claim that cannot be written or read sends nothing at all, because a
+ * fail-open dedupe read is how a week gets mailed twice. weeklyDigest itself rejects on a failed read, so a D1
+ * outage sends nothing rather than a week of zeros.
  */
 async function sendWeeklyDigest(env, now = new Date()) {
   const to = list(env.CRM_DIGEST_TO);
   const period = weeklyDigestPeriod(now);
   const ref = period.split('·').pop().trim();
-  if (to.length && env.DB) {
-    const already = await env.DB.prepare("SELECT 1 AS n FROM email_log WHERE email = ? AND ref = ? AND kind = 'digest' LIMIT 1")
-      .bind(env.CRM_DIGEST_TO, ref).first().catch(() => null);
-    if (already) { console.log('[Digest]', ref, 'already sent — nothing to do'); return { sent: 0, skipped: true }; }
-  }
-  const text = await weeklyDigest(env, { now });
+  if (!env.DB) { console.error('[Digest] no DB binding — skipping'); return { sent: 0, skipped: true }; }
   if (!to.length || !env.RESEND_API_KEY) {
-    console.error('[Digest] Email not configured (need CRM_DIGEST_TO + RESEND_API_KEY). Digest:\n' + text);
+    console.error('[Digest] Email not configured (need CRM_DIGEST_TO + RESEND_API_KEY). Digest:\n' + await weeklyDigest(env, { now }));
     return { sent: 0 };
   }
-  await sendEmail(env, { to, subject: 'MAST CRM weekly — ' + period, text });
-  if (env.DB) {
-    await env.DB.prepare('INSERT OR IGNORE INTO email_log (created_at, email, ref, kind, status) VALUES (?, ?, ?, ?, ?)')
-      .bind(now.toISOString(), env.CRM_DIGEST_TO, ref, 'digest', 'sent').run().catch((e) => console.error('[Digest] log failed:', e.message));
+  try {
+    const claim = await env.DB.prepare('INSERT OR IGNORE INTO email_log (created_at, email, ref, kind, status) VALUES (?, ?, ?, ?, ?)')
+      .bind(now.toISOString(), DIGEST_CLAIM_EMAIL, ref, 'digest', 'sending').run();
+    if (!(claim && claim.meta && claim.meta.changes)) {
+      const held = await env.DB.prepare("SELECT status, created_at FROM email_log WHERE email = ? AND ref = ? AND kind = 'digest' LIMIT 1")
+        .bind(DIGEST_CLAIM_EMAIL, ref).first();
+      if (held && held.status === 'sent') { console.log('[Digest]', ref, 'already sent — nothing to do'); return { sent: 0, skipped: true }; }
+      const crashed = held && held.status === 'sending' && Date.parse(held.created_at) < now.getTime() - DIGEST_CLAIM_STALE_MS;
+      if (!crashed) { console.log('[Digest]', ref, 'is claimed — nothing to do'); return { sent: 0, skipped: true }; }
+      console.warn('[Digest]', ref, 'was claimed at', held.created_at, 'and never finished — taking it over');
+      await env.DB.prepare('UPDATE email_log SET created_at = ? WHERE email = ? AND ref = ? AND kind = ?')
+        .bind(now.toISOString(), DIGEST_CLAIM_EMAIL, ref, 'digest').run();
+    }
+  } catch (e) {
+    console.error('[Digest] claim failed:', e.message);
+    return { sent: 0, skipped: true };
   }
+  try {
+    const text = await weeklyDigest(env, { now });
+    await sendEmail(env, { to, subject: 'MAST CRM weekly — ' + period, text });
+  } catch (e) {
+    // The row is the week's lock, not a record of a send: release it so the Tuesday or Wednesday cron carries the week.
+    await env.DB.prepare("DELETE FROM email_log WHERE email = ? AND ref = ? AND kind = ? AND status = 'sending'")
+      .bind(DIGEST_CLAIM_EMAIL, ref, 'digest').run().catch((err) => console.error('[Digest] release failed:', err.message));
+    throw e;
+  }
+  await env.DB.prepare("UPDATE email_log SET status = 'sent' WHERE email = ? AND ref = ? AND kind = ?")
+    .bind(DIGEST_CLAIM_EMAIL, ref, 'digest').run().catch((e) => console.error('[Digest] log failed:', e.message));
   console.log('[Digest] Sent to', to.join(', '));
   return { sent: to.length };
 }
