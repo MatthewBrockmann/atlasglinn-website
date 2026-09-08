@@ -63,6 +63,7 @@ AI_SURV       = A + 'AI-surveillance-1.png'                          # technolog
 AERO          = A + 'AeroDefense-Partner-Atlas-Glinn.jpeg'
 UAS_IMG       = A + 'Technology-UAS-1.png'
 LOGO          = A + 'Atlas-Glinn-Logo-Rev1-1.png'
+LOGO_MARK     = A + 'Atlas-Glinn-Logo-Rev1-2-e1744918824251.png'   # the mark the live site carries in its nav, on every page
 BADGE_BEST    = A + 'BEST_OF_BusinessRate_2025_Atlas_Glinn.png'
 FILM_POSTER   = 'images/film/atlas-glinn-and-mast-solutions-poster.jpg'       # frame of the home-page film
 ABOUT_POSTER  = 'images/film/about-atlas-glinn-poster.jpg'                    # frame of the About film
@@ -103,7 +104,7 @@ NAV = [
     ('executive-protection.html', 'Executive Protection', 'Dignitary and close protection'),
     ('residential-protection.html', 'Residential Protection', 'Estates, guard force, AI surveillance'),
     ('disaster-recovery.html', 'Disaster Recovery', 'Asset protection when it counts'),
-    ('training.html', 'Training', 'Dignitary protection curriculum'),
+    ('training.html', 'Training', 'EP, firearms, tactical &amp; security courses'),
     ('mastsolutions.html', 'MAST Solutions', 'Book a course'),
     # The live Training submenu (capture-live, 2026-09-05). Both product lines are quoted through the MAST Gear chapter.
     ('mastsolutions.html#gear', 'IWA Training Products', 'Flashbangs, smoke &amp; diversionary devices'),
@@ -123,6 +124,12 @@ SOCIAL = ('<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target=
           '<a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a>&middot;'
           '<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;'
           '<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a>&middot;' + shell.REVIEW_LINK)
+def badge_pair(cls):
+    """The live site's two badges: the image with its caption under it, as the current pages print them."""
+    return (f'<div class="{cls}">'
+            f'<div class="badge-item"><img src="{BADGE_BEST}" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div>'
+            '<div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div>')
+
 FOOT = ('&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions &middot; Executive Protection &middot; Training &middot; AI Surveillance &middot; Counter-Drone &middot; Risk Management<br>'
         '<a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a>&middot;' + SOCIAL)
 # The live site's footer, closing every page (Brockmann, 2026-09-06: "Add all content as in the old version - just updating
@@ -134,8 +141,8 @@ FOOT_SITE = ('<span class="fg">Atlas Glinn</span>' + _fl([('index.html', 'Home')
              + '<br><span class="fg">MAST Solutions</span>' + _fl([('training.html', 'Training Programs'), ('ep-app.html', 'Atlas EP Platform'), ('cuas-aerodefense.html', 'Counter-Drone Solutions'), ('mastsolutions.html', 'MAST Solutions')])
              + '<br><span class="fg">Company</span>' + _fl([('about.html', 'About Us'), ('careers.html', 'Careers'), ('about.html#s5', 'Resources'), ('contact.html', 'Contact')])
              + f'<br><span class="fg">Connect</span>2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063 &middot; <a href="{TEL}">{PHONE}</a> &middot; <a href="mailto:{EMAIL}">{EMAIL}</a><br>' + SOCIAL
-             + f'<div class="badges"><img src="{BADGE_BEST}" alt="Best of Business 2025" loading="lazy"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"></div>'
-             + '&copy; 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br>'
+             + badge_pair('badges')
+             + '<a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br>'
              '<a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a>')
 
 # ── Page-level styles on top of the shell: text cards, steps, specs, forms, quotes, link tiles, team blocks ──
@@ -210,6 +217,10 @@ EXTRA_CSS = r"""
   .stats.four { grid-template-columns:repeat(4,1fr); max-width:1100px; }
   .badges { display:flex; gap:1.4rem; justify-content:center; align-items:center; flex-wrap:wrap; margin-top:2rem; }
   .badges img { height:84px; width:auto; border:0; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); }
+  .badges .badge-item { text-align:center; }
+  .badges .badge-item p { margin-top:.8rem; font-family:'Orbitron',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-champagne); }
+  /* The live nav's logo mark, in the top-left header line. */
+  .hud.tl img.hud-logo { height:18px; width:auto; vertical-align:-5px; margin-right:.5rem; filter:drop-shadow(0 0 12px rgba(201,168,76,.55)); }
   .lede { font-size:clamp(1.05rem,1.4vw,1.3rem); color:var(--text); max-width:820px; margin:0 auto 2rem; line-height:1.6; font-weight:300; }
   .lede b { color:var(--gold-champagne); font-weight:600; }
   .partner { display:grid; grid-template-columns:1fr minmax(240px,420px); gap:1.6rem; max-width:1150px; margin:0 auto; text-align:left; align-items:center; }
@@ -373,7 +384,7 @@ def build(path, title, desc, og_image, credits, chapters, photos, jsonld=''):
     chapters = chapters[:-1] + [(last_label, last_html[:k] + f'<div class="foot site rise">{FOOT_SITE}</div>' + last_html[k:])]
     chrome = shell.chrome(credits=credits, wordmark='ATLAS GLINN',
                           photos=[(f'{k:02d}', *entry) for k, entry in enumerate(photos, 1)],
-                          hud_tl='&#9679; ATLAS GLINN &middot; HOUSTON', hud_tl_href='index.html',
+                          hud_tl=f'<img class="hud-logo" src="{LOGO_MARK}" alt="ATLAS GLINN" loading="lazy">ATLAS GLINN &middot; HOUSTON', hud_tl_href='index.html',
                           hud_bl='HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W', hud_br='DETAILS MATTER',
                           chapters=[(f's{k}', f'{k:02d} &middot; {label}') for k, (label, _) in enumerate(chapters, 1)])
     body = ('\n' + chrome + shell.sitenav(NAV, path, FOOT) + '\n<div class="content">\n' + ''.join(h for _, h in chapters) + '\n</div>\n')
@@ -415,6 +426,7 @@ _LIVE_RE = re.compile(r'href="(%s)(?:[?#][^"]*)?"' % '|'.join(re.escape(p) for p
 
 CREDITS = ('Houston &middot; Texas', 'Executive Protection &middot; Intelligence &middot; Training')
 OG_DEFAULT = HERO_EP
+# held back 2026-09-08: not on the live site; publish only on Brockmann's word
 PRIVACY_LINE = ('Former Head of Security, Sen. Ted Cruz; security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump, '
                 'named as media exist. Other high-profile and high-net-worth individuals follow our privacy standards. We don&rsquo;t do media. Names appear only where the media captured them.')
 
@@ -443,7 +455,7 @@ STARS = '&#9733;&#9733;&#9733;&#9733;&#9733;'
 def reviews_chapter(i):
     body = ('<div class="quotes">' + ''.join(f'<div class="card rise"><div class="meta">{lab}</div><div class="stars">{STARS}</div><p>&ldquo;{q}&rdquo;</p><div class="by">{by}</div></div>' for lab, q, by in REVIEWS) + '</div>'
             + '<div class="ctas rise" style="margin-top:2rem">' + cta2('https://www.google.com/search?q=Atlas+Glinn+Houston+reviews', 'Google Reviews &rarr;') + cta2('https://www.linkedin.com/in/mastsolutions1/', 'LinkedIn &rarr;') + '</div>'
-            + f'<div class="badges rise"><img src="{BADGE_BEST}" alt="Best of Business 2025" loading="lazy"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"></div>')
+            + badge_pair('badges rise'))
     return section(i, 'Reviews', f'Google Reviews &amp; LinkedIn {blue("Recommendations.")}', f'<span class="stars">{STARS}</span> 5.0 &middot; Google Reviews', body)
 
 def partner(paras, ctas, img, alt):
@@ -455,32 +467,22 @@ build('index.html',
       'Elite security services by Atlas Glinn: dignitary and executive protection, residential security, secure transport, disaster recovery, AI surveillance and counter-drone solutions, and tactical training through MAST Solutions. Houston, Texas.',
       OG_DEFAULT, CREDITS, [
     ('Opening', opening('Security, Training, Dignitary Protection',   # the home hero line (owner, 2026-09-05: '"Security, Training, Dignitary Protection" on the Atlas side'), replacing "34+ Years · …"
-        f'{shimmer("Details")} <span class="white">Matter.</span>',
-        'Discreet, adaptive security for those who cannot afford a mistake. Executive and residential protection, disaster recovery, technology, and the training behind all of it. Houston, Texas.',
+        f'{shimmer("Details")} <span class="white">Matter.</span>', '',   # the live home page has no hero sub-paragraph
         cta('contact.html', 'Request a posture assessment') + cta2('#s2', 'Our Services'))),   # the live home page's hero button
-    ('Services', section(2, 'Our Services', f'Customized {blue("Security.")}', 'Protection that doesn&rsquo;t show up in the news. Customized Security Solutions Tailored to Every Client&rsquo;s Needs.',
+    ('Services', section(2, 'Our Services', f'Customized {blue("Security.")}', 'Protection that doesn&rsquo;t show up in the news.',
         tiles([
             ltile('01', 'Executive Protection', 'Discreet, adaptive security for high-level executives and dignitaries.', HERO_EP, 'executive-protection.html'),
             ltile('02', 'Residential Protection', '24/7 security guards and AI surveillance for your home and estate.', CCTV, 'residential-protection.html'),
             ltile('03', 'Secure Transport', 'Armed drivers, route planning, and tactical escort for motorcade operations.', PROTECTION, 'executive-protection.html#s7'),
             ltile('04', 'Training Programs', 'Rigorous training for real-world challenges. Delivered by operators, for operators.', TRAINING, 'training.html'),
-            ltile('05', 'AI Surveillance', 'AI-powered intelligence gathering, threat assessment, and real-time analytics.', CCTV, 'technology.html'),
-            ltile('06', 'Disaster Recovery', 'Rapid response and asset protection during crisis situations.', AG3, 'disaster-recovery.html'),
+            ltile('05', 'Disaster Recovery', 'Rapid response and asset protection during crisis situations.', AG3, 'disaster-recovery.html'),
         ]))),
-    # Brockmann, 2026-09-04: "Hours of experience is wrong, and number of US senators is wrong" (the current site said
-    # 1,500 hours / 2 senators). Brockmann, 2026-09-05: "34 years of expertise = change to decades", so the bio says
-    # decades, the tile counts three decades, and no page states the year figure; three senators are named in the protectee
-    # line; the trained count rolls to an odd number ("seven twenty nine or something like that") until he has the exact one.
-    ('By the Numbers', section(3, 'Atlas Glinn &middot; Houston', f'By the {blue("Numbers.")}', '',
-        '<div class="stats four rise"><div class="stat"><div class="stat-num" data-count="3">0</div><div class="stat-label">Decades of Experience</div></div>'
-        '<div class="stat"><div class="stat-num" data-count="3">0</div><div class="stat-label">U.S. Senators Protected</div></div>'
-        '<div class="stat"><div class="stat-num" data-count="17">0</div><div class="stat-label">Partnerships</div></div>'
-        '<div class="stat"><div class="stat-num" data-count="1701" data-suffix="+">0</div><div class="stat-label">Professionals Trained</div></div></div>')),   # same metric as the MAST page's 1,701+ (owner, 2026-09-05: "Y")
-    ('The Film', section(4, 'Atlas Glinn &amp; MAST Solutions', f'Watch the {blue("Film.")}', 'Twenty-seven seconds of the work: motorcade operations, the shoothouse, and the team behind both companies.',
+    # No counters chapter: the live site states none of these figures on any page (audit 2026-09-08).
+    ('The Film', section(3, 'Atlas Glinn &amp; MAST Solutions', f'Watch the {blue("Film.")}', '',
         '<div class="yt-grid one rise">' + film_card('images/film/atlas-glinn-and-mast-solutions.mp4', 'images/film/atlas-glinn-and-mast-solutions-poster.jpg', 'Atlas Glinn &amp; MAST Solutions', 'The film from the atlasglinn.com home page') + '</div>')),
     # The live home page's Atlas EP section, word for word: the lead line, "AI Intelligence Features" (four), "Operator
     # Benefits" (four), the plans. (Before 2026-09-05 the eight features were listed twice and the lead named a year figure.)
-    ('Atlas EP', section(5, 'Built By Atlas Glinn', f'The Atlas EP {blue("Platform.")}',
+    ('Atlas EP', section(4, 'Built By Atlas Glinn', f'The Atlas EP {blue("Platform.")}',
         'We didn&rsquo;t just build a security company &mdash; we built the intelligence platform behind it. Because the right tech didn&rsquo;t exist yet.',
         '<div class="eyebrow in">AI Intelligence Features</div>'
         + cards([('AI Threat Analysis &amp; Scoring', 'Real-time threat intelligence powered by Anthropic Claude AI. Automated situation reports, risk scoring, and predictive threat modeling.'),
@@ -493,22 +495,22 @@ build('index.html',
                  ('Counter-Surveillance Sweep', 'BLE + IR camera detection for room sweeps. Identify hidden surveillance devices before your principal arrives.'),
                  ('Cyber Defense Suite', 'Evil twin WiFi detection, jailbreak monitoring, MITM protection. Your device security is part of the mission.')], 'cards four', numbered=False)
         + '<div class="eyebrow in" style="margin-top:2.2rem">Choose Your Plan</div>'
-        + '<div class="cards" style="grid-template-columns:repeat(6,1fr)">' + ''.join(f'<div class="card rise"><h3>{n}</h3><p><b style="color:var(--gold-champagne);font-size:1.3rem">{p}</b><br><span class="meta">{u}</span></p></div>' for n, p, u in [
-            # Brockmann, 2026-09-06, asked which prices are current: the Atlas EP page's ("$19.99 / $49.99 / $149.99 / $199.99 / $5,000+"),
-            # so the home plan names the same six tiers as ep-app.html (the live home page still showed $0 / $9.99 / $49 / $149 / $249 / $500+).
-            ('Trial &middot; 7-Day Demo', 'FREE', 'All Features Unlocked'), ('Personal &middot; Family', '$19.99', '/month'), ('Solo &middot; Individual', '$49.99', '/month'),
-            ('Operator &middot; Professional', '$149.99', '/month'), ('Squad &middot; Team', '$199.99', '/seat/month'), ('Custom &middot; Enterprise', '$5,000+', '/month')]) + '</div>'
+        # The four tiers Brockmann decided on 2026-09-08. They supersede both the live home table ($0 / $9.99 / $49 / $149 /
+        # $249 / $500+) and the live Atlas EP page's six; Solo, Trial, Personal Safety and Command are gone.
+        + '<div class="cards four">' + ''.join(f'<div class="card rise"><h3>{n}</h3><p><b style="color:var(--gold-champagne);font-size:1.3rem">{p}</b><br><span class="meta">{u}</span></p></div>' for n, p, u in [
+            ('Family', '$19.99', '/month &middot; up to 6'), ('Operator', '$149.99', '/month &middot; 1'),
+            ('Protection Team', '$199.99', '/seat/month &middot; unlimited seats'), ('Enterprise', '$5,000+', '/month &middot; custom')]) + '</div>'
+        + '<p class="sub" style="margin-top:1.2rem">Every tier pairs with a Protectee.</p>'
         + '<div class="ctas rise" style="margin-top:2rem">' + cta('ep-app.html', 'Explore Atlas EP &rarr;') + '</div>')),
-    ('No Press', section(6, '', '', '',
+    ('No Press', section(5, '', '', '',
         '<p class="sub quote lead">&ldquo;We don&rsquo;t do press. We let our work speak for itself.&rdquo;</p>'
-        f'<p class="sub" style="font-size:.98rem;">{PRIVACY_LINE}</p>'
         '<div class="eyebrow" style="margin-top:2rem;">Request the Capability Statement</div>'
         '<p class="sub" style="margin-bottom:1.4rem">Submit your request and we&rsquo;ll send our capability statement directly to your email.</p>' + contact_form('capability'),
         badge='We Don&rsquo;t Do Press.')),
-    ('Reviews', reviews_chapter(7)),   # the live home page's Reviews block: the six Google / LinkedIn quotes under their labels
-    ('Contact', contact_chapter(8, 'Get in Touch', f'Protecting What {blue("Matters Most.")}', 'From U.S. Senators to Fortune 500 executives &mdash; discreet, adaptive protection at the highest level.',
+    ('Reviews', reviews_chapter(6)),   # the live home page's Reviews block: the six Google / LinkedIn quotes under their labels
+    ('Contact', contact_chapter(7, 'Get in Touch', f'Protecting What {blue("Matters Most.")}', 'From U.S. Senators to Fortune 500 executives &mdash; discreet, adaptive protection at the highest level.',
         cta('contact.html', 'Contact Us') + cta2('mastsolutions.html', 'Book Training &rarr;'))),
-], photos=[(FILM_POSTER, None, FILM_TEASER), (HERO_EP, None), (PROTECTION, None), (FILM_POSTER, None), (CCTV, None), (EP_MATTERS, None), (AG3, None), (HERO_EP, None)],
+], photos=[(FILM_POSTER, None, FILM_TEASER), (HERO_EP, None), (FILM_POSTER, None), (CCTV, None), (EP_MATTERS, None), (AG3, None), (HERO_EP, None)],
       jsonld=jsonld_org())
 
 # ═══════════════════════════ executive-protection.html ═══════════════════════════
@@ -527,7 +529,7 @@ build('executive-protection.html',
                ('Crisis Management', 'Rapid response protocols and contingency planning for high-threat scenarios. Expert coordination during emergencies to protect lives and assets.'),
                ('Emergency Response', 'Immediate tactical response capabilities including evacuation procedures, medical coordination, and real-time threat neutralization protocols.')]))),
     ('Who Leads', section(3, 'Who Leads the Detail', f'Led From {blue("Experience.")}',
-        'Led by the former Head of Security for Senator Ted Cruz, who has provided security for U.S. Senators Josh Hawley and Eric &ldquo;Bulldog&rdquo; Schmitt, a former Vice President, and Ivanka Trump (named only where media coverage exists), we understand the complexity of executive safety in an ever-changing threat landscape.',
+        'Built around the standard two sitting U.S. Senators required.',   # the live page's line, under the same lead
         '<p class="sub quote lead">&ldquo;At Atlas Glinn, we understand that details matter. Our team of highly trained professionals is dedicated to providing exceptional dignitary protection tailored to your unique needs. Whether you require discreet, low-profile security or a highly visible presence, we adapt seamlessly to ensure your safety and peace of mind.&rdquo;</p>'
         '<div class="ctas rise">' + cta2('about.html', 'Meet the Team') + '</div>')),
     ('OPORD', section(4, 'Method', f'The OPORD {blue("Framework.")}', 'Atlas Glinn applies military-grade Operations Order (OPORD) methodology to every executive protection engagement.',
@@ -710,6 +712,7 @@ build('cuas-aerodefense.html',
     ('Integration', section(6, 'Autonomous Drone Integration', f'Detection &rarr; Alert &rarr; {blue("Autonomous Response.")}',
         'Atlas Glinn integrates AirWarden counter-drone detection with Sunflower Labs autonomous drone systems for comprehensive perimeter protection. When a threat is detected, autonomous response drones can be deployed to visually verify and track incursions in real time.',
         '<p class="sub">This layered approach combines passive RF detection with active autonomous response &mdash; delivering a complete airspace security solution that stays ahead of evolving threats.</p>'
+        '<p class="sub">Detection &rarr; Alert &rarr; Autonomous Response</p>'   # the live page's line, above its Layered Airspace Security label
         '<div class="ctas rise">' + cta2('uas.html', 'Learn About UAS Drones') + '</div>'
         '<p class="sub" style="margin-top:1.4rem;font-family:\'Share Tech Mono\',monospace;font-size:.7rem;letter-spacing:.25em;text-transform:uppercase">Layered Airspace Security</p>')),
     ('Stay Ahead', section(7, 'Stay Ahead', f'Stay {blue("Ahead.")}', 'Stay ahead of drone-related risks with Atlas Glinn&rsquo;s expertise in counter-drone strategies. Our team brings decades of security experience to every deployment, ensuring your airspace remains secure and your operations uninterrupted.',
@@ -757,6 +760,7 @@ build('uas.html',
       jsonld=jsonld_service('Autonomous UAS Security', 'Sunflower Labs Beehive autonomous drone surveillance with AI detection of people, vehicles and animals, integrated by Atlas Glinn.', 'uas.html'))
 
 # ═══════════════════════════ about.html ═══════════════════════════
+# held back 2026-09-08: not on the live site; publish only on Brockmann's word
 BROCKMANN_BIO = ('Matthew Brockmann is the visionary founder of both MAST Solutions and Atlas Glinn, bringing decades of expertise in security, training, and dignitary protection. A seasoned civilian contractor, he specializes in Military, Law Enforcement, and Homeland Security Special Response Teams (SRT), with extensive experience collaborating with elite Tier 1 Operators from units like Navy SEALs, Recon Marines, and USASOC. His career began in 1991 at Gunsite under Col. Jeff Cooper. '
                  + PRIVACY_LINE + ' He is a certified Firearms Instructor for civilians, law enforcement, and agencies, and a Gracie Jiu-Jitsu practitioner.')
 # The live About page's team, word for word (capture-live, 2026-09-05): its founder lead, and the two members the April
@@ -778,7 +782,7 @@ build('about.html',
         'Our mission is to provide you with unparalleled peace of mind, safeguarding what matters most &mdash; your safety, your assets, and your way of life. With a foundation built on elite expertise and a relentless pursuit of excellence, we deliver tailored protection solutions that blend seamlessly into your world.',
         cta('#s2', 'Meet the Team') + cta2('contact.html', 'Contact Us'))),
     ('Team', section(2, 'Meet the Team', f'Precision. Discretion. {blue("Commitment.")}', 'We redefine security with precision, discretion, and unwavering commitment.',
-        member(FOUNDER, FOUNDER_CROP, 'Founder &amp; CEO', 'Matthew Brockmann', 'Founder &amp; CEO', [FOUNDER_LEAD, BROCKMANN_BIO])
+        member(FOUNDER, FOUNDER_CROP, 'Founder &amp; CEO', 'Matthew Brockmann', 'Founder &amp; CEO', [FOUNDER_LEAD])
         + member(CLINE, 'background-position:center 15%', 'Chief Operating Officer', 'Michael Cline', 'Chief Operating Officer', [CLINE_BIO])
         + member(GLOVER, 'background-position:center 12%', 'Houston Region Operations Manager', 'Anthony Glover', 'Level 3 &amp; PPO &mdash; Houston Region Operations Manager', [GLOVER_BIO])
         + member(None, '', '', 'J. Rene&eacute; Renobato', 'MBA, CAM, CAPS &mdash; Office Manager &amp; Executive Assistant to the CEO', [RENOBATO_BIO]))),   # no photograph, his call (2026-09-06)
@@ -793,12 +797,12 @@ build('about.html',
                 ('I highly recommend Matthew &amp; his team for your security &amp; training needs.', 'Charles W. &middot; Business Operations Manager'),
                 ('Matthew is a highly skilled individual with ample knowledge of firearm operations, safety &amp; security.', 'Alf T. &middot; Senior Operations Advisor')]))),
     ('Insights', section(5, 'Insights &amp; Resources', f'From the {blue("Field.")}', 'Expert perspectives on security, protection, and preparedness',
-        cards([('Raising the Bar: Why the Security Industry Needs Higher Standards', 'Discover why Atlas Glinn is leading the charge to elevate training standards across the security industry.', '<a class="secondary-cta" href="https://atlasglinn.com/training-certification/raising-the-bar-why-the-security-industry-needs-higher-standards-and-how-atlas-glinn-is-leading-the-charge/">Read More &rarr;</a>', '', 'Training &amp; Certification'),
-               ('Why Real-World Experience Matters in Executive Protection', 'A lesson from the front lines on why field-tested expertise outperforms theory every time.', '<a class="secondary-cta" href="https://atlasglinn.com/case-studies-success-stories/why-real-world-experience-matters-in-executive-protection-a-lesson-from-the-front-lines/">Read More &rarr;</a>', '', 'Case Studies'),
-               ('How We Secured a CEO&rsquo;s Global Tour', 'An inside look at the coordination and planning behind protecting a Fortune 500 executive across multiple countries.', '<a class="secondary-cta" href="https://atlasglinn.com/case-studies-success-stories/how-we-secured-a-ceos-global-tour/">Read More &rarr;</a>', '', 'Case Studies'),
-               ('Why Atlas Glinn&rsquo;s Security Training Sets the Standard', 'Our training programs are built on decades of real-world experience with elite military and law enforcement units.', '<a class="secondary-cta" href="https://atlasglinn.com/training-certification/why-atlas-glinns-security-training-sets-the-standard/">Read More &rarr;</a>', '', 'Training &amp; Certification'),
-               ('Preparing for Natural Disasters: A Security Must', 'Why disaster preparedness is a critical component of any comprehensive security strategy.', '<a class="secondary-cta" href="https://atlasglinn.com/disaster-recovery-asset-protection/preparing-for-natural-disasters-a-security-must/">Read More &rarr;</a>', '', 'Disaster Recovery'),
-               ('5 Essential Tips for VIP Security in 2025', 'Key strategies every VIP protection detail should implement to stay ahead of evolving threats.', '<a class="secondary-cta" href="https://atlasglinn.com/executive-residential-protection/5-essential-tips-for-vip-security-in-2025/">Read More &rarr;</a>', '', 'Executive Protection')], numbered=False))),
+        cards([('Raising the Bar: Why the Security Industry Needs Higher Standards', 'Discover why Atlas Glinn is leading the charge to elevate training standards across the security industry.', '<a class="secondary-cta" href="training.html">Read More &rarr;</a>', '', 'Training &amp; Certification'),
+               ('Why Real-World Experience Matters in Executive Protection', 'A lesson from the front lines on why field-tested expertise outperforms theory every time.', '<a class="secondary-cta" href="executive-protection.html">Read More &rarr;</a>', '', 'Case Studies'),
+               ('How We Secured a CEO&rsquo;s Global Tour', 'An inside look at the coordination and planning behind protecting a Fortune 500 executive across multiple countries.', '<a class="secondary-cta" href="executive-protection.html">Read More &rarr;</a>', '', 'Case Studies'),
+               ('Why Atlas Glinn&rsquo;s Security Training Sets the Standard', 'Our training programs are built on decades of real-world experience with elite military and law enforcement units.', '<a class="secondary-cta" href="training.html">Read More &rarr;</a>', '', 'Training &amp; Certification'),
+               ('Preparing for Natural Disasters: A Security Must', 'Why disaster preparedness is a critical component of any comprehensive security strategy.', '<a class="secondary-cta" href="disaster-recovery.html">Read More &rarr;</a>', '', 'Disaster Recovery'),
+               ('5 Essential Tips for VIP Security in 2025', 'Key strategies every VIP protection detail should implement to stay ahead of evolving threats.', '<a class="secondary-cta" href="executive-protection.html">Read More &rarr;</a>', '', 'Executive Protection')], numbered=False))),
     ('Contact', contact_chapter(6, 'Ready to Work With Us?', f'Let&rsquo;s {blue("Talk.")}', '',
         cta('contact.html', 'Contact Us') + cta2(TEL, 'Phone: ' + PHONE) + cta2('mailto:' + EMAIL, 'Email: ' + EMAIL))),
     ('Reviews', reviews_chapter(7)),
@@ -882,13 +886,11 @@ EP_WHO = [
     ('🧓', 'Elderly / Fall Detection', 'AI-powered fall detection with automatic emergency response. No buttons to press, no apps to navigate. If a fall is detected, help is dispatched immediately.'),
     ('🏢', 'Corporate Security', 'Protect executives, manage traveling employees, coordinate response teams. Enterprise dashboards, compliance reporting, and integration APIs.'),
 ]
-EP_TIERS = [   # (tier, name, price, unit, note, body, button, most popular)
-    ('Trial', '7-Day Demo', 'FREE', 'All Features Unlocked', 'No credit card required', 'Full access to every tool. Test it with your team or your family before you commit.', 'Start Free Trial', False),
-    ('Personal', 'Family', '$19.99', '/month', 'Up to 6 family members', 'Location sharing, SOS, fall detection, emergency chains, and biometric monitoring for your whole family.', 'Get Started', False),
-    ('Solo', 'Individual', '$49.99', '/month', '', 'Full platform access for one operator. Every module, every integration, every intelligence feed.', 'Get Started', True),
-    ('Operator', 'Professional', '$149.99', '/month', '', 'For licensed EP agents, security professionals, and consultants. Full ops suite with priority support.', 'Get Started', False),
-    ('Squad', 'Team', '$199.99', '/seat/month', '', 'Full command dashboard, team deployment board, shared ops map, and multi-agent coordination tools.', 'Get Started', False),
-    ('Custom', 'Enterprise', '$5,000+', '/month', 'Custom deployment', 'For corporations, law enforcement, and government. Dedicated infrastructure, SLA, and white-label options.', 'Contact Sales', False),
+EP_TIERS = [   # (name, price, unit, note, body, button) — the four tiers Brockmann decided on 2026-09-08; they supersede the live page's six
+    ('Family', '$19.99', '/month', 'Up to 6 family members', 'Location sharing, SOS, fall detection, emergency chains, and biometric monitoring for your whole family.', 'Get Started'),
+    ('Operator', '$149.99', '/month', 'One operator', 'For licensed EP agents, security professionals, and consultants. Full ops suite with priority support.', 'Get Started'),
+    ('Protection Team', '$199.99', '/seat/month', 'Unlimited seats', 'Full command dashboard, team deployment board, shared ops map, and multi-agent coordination tools.', 'Get Started'),
+    ('Enterprise', '$5,000+', '/month', 'Custom deployment', 'For corporations, law enforcement, and government. Dedicated infrastructure, SLA, and white-label options.', 'Contact Sales'),
 ]
 EP_GEAR = [   # (icon, name, price, body, button, href) — the live page's Amazon links, as they are
     ('🔄', 'Atlas EP Radar Companion', 'From $15', 'Detect humans in a room before you enter &mdash; no line of sight required. M5Stack AtomS3 Lite (ESP32-S3) uses WiFi CSI to sense occupancy through interior drywall up to ~15 ft. USB-C flash, ~10s calibration, BLE-paired to the Atlas EP iPhone app for pre-entry sweeps and covert advance work.', 'Buy on Amazon &rarr;', 'https://www.amazon.com/s?k=M5Stack+AtomS3+Lite+ESP32-S3+Dev+Kit&amp;tag=atlasglinn-20'),
@@ -918,33 +920,40 @@ build('ep-app.html',
       LOGO, CREDITS, [
     ('Opening', opening('Atlas EP App &middot; Now in Early Access', f'The First Proactive AI {blue("Protection Agent.")}',
         'Your Digital Bodyguard &mdash; Always Watching, Never Intrusive. Biometric monitoring, encrypted comms, Blue Force Tracking, and AI-powered emergency chains built for everyone from EP teams to families.',
-        cta('#s7', 'Request Access') + cta2('#s2', 'See Features'))),
-    ('Capabilities', section(2, 'Core Capabilities', f'What Atlas EP {blue("Does.")}',
+        cta('#s8', 'Request Access') + cta2('#s3', 'See Features'))),
+    # The live page's trailer block: its label, its button and its caption, opening the brand film the live page opens.
+    ('Trailer', section(2, 'WATCH THE TRAILER', '', '',
+        '<div class="ctas rise">' + cta2('https://atlasglinn.com/wp-content/themes/atlasglinn/ep-trailer.html', 'WATCH BRAND FILM') + '</div>'
+        '<p class="sub" style="margin-top:1.2rem">150-second cinematic brand film &mdash; real-world scenarios, automatic protection, professional-grade tools</p>')),
+    ('Capabilities', section(3, 'Core Capabilities', f'What Atlas EP {blue("Does.")}',
         'Eight integrated systems that turn your phone into a proactive protection platform &mdash; monitoring, tracking, communicating, and responding before you even reach for a button.',
         '<div class="stats four rise" style="margin-top:0;margin-bottom:2.4rem">' + ''.join(f'<div class="stat"><div class="stat-num">{v}</div><div class="stat-label">{l}</div></div>' for v, l in [('AES-256', 'Encryption'), ('17+', 'Modules'), ('24/7', 'AI Monitoring'), ('&lt;3s', 'Emergency Response')]) + '</div>'
         + cards([(t, b, tags(tg), ic) for ic, t, b, tg in EP_CAPS], 'cards four'))),
-    ('Comms Stack', section(3, 'Communications', f'6-Layer Comms {blue("Stack.")}',
+    ('Comms Stack', section(4, 'Communications', f'6-Layer Comms {blue("Stack.")}',
         'Never lose communications. Six redundant layers with automatic failover &mdash; from cellular to satellite. Government and enterprise details always have all six active.',
         chips([f'{ic} {n} &middot; {s}' for ic, n, s in EP_LAYERS])
         + cards([(t, b, tags(tg), ic) for ic, t, b, tg in EP_SCENARIOS], 'cards four'))),
-    ('Who It Is For', section(4, 'Built For Everyone', f'Who Atlas EP {blue("Is For.")}',
+    ('Who It Is For', section(5, 'Built For Everyone', f'Who Atlas EP {blue("Is For.")}',
         'Not just for professionals. Atlas EP protects anyone who wants proactive, AI-powered safety &mdash; from elite security teams to families walking home at night.',
         cards([(t, b, '', ic) for ic, t, b in EP_WHO]))),
-    ('Pricing', section(5, 'Pricing', f'Every Tier Gets {blue("Every Tool.")}',
+    ('Pricing', section(6, 'Pricing', f'Every Tier Gets {blue("Every Tool.")}',
         'No feature gates. No upsells. No crippled free tier. Every Atlas EP subscriber gets every module, every capability, every update. The only difference is scale.',
-        cards([(f'{tier} &middot; {name}', body, f'<p class="price"><b>{price}</b> <span class="meta">{unit}</span>' + (f'<br><span class="meta">{note}</span>' if note else '') + f'</p><a class="cta-button" href="#s7">{btn}</a>', '', 'Most Popular' if pop else '')
-               for tier, name, price, unit, note, body, btn, pop in EP_TIERS], 'cards', numbered=False)
-        + '<p class="sub" style="margin-top:1.6rem">Every tier gets every tool. No feature gates.</p>')),
-    ('Hardware', section(6, 'Hardware Ecosystem', f'Works With {blue("Atlas EP.")}',
+        cards([(name, body, f'<p class="price"><b>{price}</b> <span class="meta">{unit}</span>' + (f'<br><span class="meta">{note}</span>' if note else '') + f'</p><a class="cta-button" href="#s8">{btn}</a>')
+               for name, price, unit, note, body, btn in EP_TIERS], 'cards four', numbered=False)
+        + '<p class="sub" style="margin-top:1.6rem">Every tier gets every tool. No feature gates.</p>'
+        + '<p class="sub">Every tier pairs with a Protectee.</p>')),
+    ('Hardware', section(7, 'Hardware Ecosystem', f'Works With {blue("Atlas EP.")}',
         'Optional hardware that extends your protection envelope. Satellite comms, biometric sensors, thermal imaging, and tactical radios &mdash; all integrated into the Atlas EP platform.',
         cards([(f'{name} <span class="meta">{price}</span>', body, f'<a class="secondary-cta" href="{href}" target="_blank" rel="noopener sponsored">{btn}</a>', ic) for ic, name, price, body, btn, href in EP_GEAR]))),
-    ('Request Access', section(7, 'Get Started', f'Request {blue("Access.")}',
+    ('Request Access', section(8, 'Get Started', f'Request {blue("Access.")}',
         'Atlas EP is in limited early access. Qualified professionals, families, and organizations are being onboarded now.',
-        ep_access_form())),
-    ('Legal', section(8, 'Legal &amp; Compliance', f'Transparency &amp; {blue("Compliance.")}', '',
+        ep_access_form() + '<div class="ctas rise" style="margin-top:1.6rem">' + cta2('contact.html', 'Talk To A Coordinator') + '</div>')),
+    ('Legal', section(9, 'Legal &amp; Compliance', f'Transparency &amp; {blue("Compliance.")}', '',
         cards([('Terms of Service', 'Review our complete terms governing use of the Atlas EP platform, data handling, and user obligations.', '<a class="secondary-cta" href="terms.html">Read Terms of Service &rarr;</a>'),
                ('Privacy Policy', 'How we collect, store, and protect your data. Atlas EP uses AES-256 encryption and zero-knowledge architecture.', '<a class="secondary-cta" href="privacy.html">Read Privacy Policy &rarr;</a>'),
                ('Two-Party Consent &amp; Emergency Recording Notice', 'Atlas EP may automatically activate audio and video recording when the system detects imminent threat to your safety. By using Atlas EP, you acknowledge that emergency recording may activate automatically during detected duress events. In jurisdictions requiring two-party consent for recording, Atlas EP complies by notifying all parties through audible and visual indicators when recording is active. Users are responsible for understanding and complying with local recording laws in their jurisdiction. Atlas EP is designed to prioritize life safety &mdash; emergency recordings are encrypted, time-stamped, and stored securely for evidentiary purposes only.')], numbered=False)
-        + f'<p class="sub" style="margin-top:1.6rem">Questions? Contact us at <a href="mailto:{EMAIL}" style="color:var(--gold-champagne)">{EMAIL}</a></p>')),   # the live page said atlas.hq@; Brockmann, 2026-09-06: atlasglinn.hq@
-], photos=[(AI_SURV, None), (CCTV, None), (HERO_EP, None), (PROTECTION, None), (AI_SURV, None), (CCTV, None), (HERO_EP, None), (AI_SURV, None)],
+        + '<p class="sub" style="margin-top:1.6rem">Questions? Contact us at <a href="mailto:atlas.hq@atlasglinn.com" style="color:var(--gold-champagne)">atlas.hq@atlasglinn.com</a></p>'   # the live page's address on this page (audit 2026-09-08); the site address stays atlasglinn.hq@
+        + '<p class="sub" style="margin-top:1.6rem">Elite Security. No Compromise. Protecting those who matter most with AI-powered technology and decades of operational experience.</p>'
+        + chips(['Houston, TX', 'Licensed PPO', 'AES-256 Encrypted']))),   # the live page's credential tags
+], photos=[(AI_SURV, None), (HERO_EP, None), (CCTV, None), (HERO_EP, None), (PROTECTION, None), (AI_SURV, None), (CCTV, None), (HERO_EP, None), (AI_SURV, None)],
       jsonld=jsonld_service('Atlas EP', 'Proactive biometric and environmental AI protection agent: encrypted comms, Blue Force Tracking, emergency chains, counter-UAS detection and cyber defense for teams, families and individuals.', 'ep-app.html'))

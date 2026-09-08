@@ -20,6 +20,10 @@ on:
         description: "Create one unpaid Stripe Checkout Session through /create-booking"
         type: boolean
         default: false
+      account:
+        description: "Exercise sign-up: POST /account/register for matthew+smoke<run>@atlasglinn.com (the Worker emails a code), then a wrong-password /account/login"
+        type: boolean
+        default: false
 permissions:
   contents: write
 env:
@@ -35,6 +39,7 @@ jobs:
         env:
           DO_CONTACT: ${{ inputs.contact }}
           DO_CHECKOUT: ${{ inputs.checkout }}
+          DO_ACCOUNT: ${{ inputs.account }}
           ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
         run: |
           mkdir -p out
@@ -51,7 +56,7 @@ jobs:
             sed -E 's#(https://checkout\.stripe\.com/)[^" ]*#\1…#g' /tmp/b | head -c 1500; echo
           }
           {
-            echo "smoke $(date -u +%FT%TZ) from $GITHUB_REF_NAME ${GITHUB_SHA::7} run $GITHUB_RUN_ID (contact=$DO_CONTACT checkout=$DO_CHECKOUT)"
+            echo "smoke $(date -u +%FT%TZ) from $GITHUB_REF_NAME ${GITHUB_SHA::7} run $GITHUB_RUN_ID (contact=$DO_CONTACT checkout=$DO_CHECKOUT account=$DO_ACCOUNT)"
             echo "--- health"; req GET /health
             # Which merge is running: /health carries build (the commit of the last deploy, set by wp-upload.sh / deploy-worker.yml)
             # and crm:true since the CRM build; on an older build both are absent and GET /admin/crm is a 404 (401 once the CRM
@@ -104,6 +109,21 @@ jobs:
               echo "--- checkout (one unpaid Stripe Checkout Session for $sku; nothing is charged)"
               req POST /create-booking "{\"sku\":\"$sku\",\"qty\":1,\"customer_email\":\"atlasglinn.hq@atlasglinn.com\",\"customer_name\":\"SMOKE TEST - ignore\",\"notes\":\"GitHub Actions smoke test run $GITHUB_RUN_ID; not a real booking\"}"
             else echo "--- checkout: skipped (input checkout=false)"; fi
+            if [ "$DO_ACCOUNT" = "true" ]; then
+              # 2026-09-08, owner: "Sign in / ADD ACCOUNT does not work — check all sign up capability + email". The page's
+              # sign-up posts /account/register and waits for an emailed code; the answer here says which half is broken:
+              # 200 = account row written and the code went out through Resend (the owner's mailbox gets it via plus-addressing)
+              # 503 accounts_off = ACCOUNT_SECRET missing on the Worker · 503 email_off = RESEND_API_KEY missing · 5xx email_failed = Resend rejected it
+              em="matthew+smoke$GITHUB_RUN_ID@atlasglinn.com"; pw="Smoke-$GITHUB_RUN_ID-Pass-Word"
+              echo "--- account sign-up (POST /account/register for $em)"
+              req POST /account/register "{\"email\":\"$em\",\"password\":\"$pw\",\"name\":\"Smoke test (GitHub Actions)\"}"
+              echo "--- account sign-in, wrong password (expect 401 or 403 unverified, never 5xx)"
+              req POST /account/login "{\"email\":\"$em\",\"password\":\"not-the-password-1\"}"
+            else echo "--- account: skipped (input account=false)"; fi
+            echo "--- sitemaps and robots (what Search Console can fetch)"
+            for u in https://www.mastsolutions.com/sitemap.xml https://www.mastsolutions.com/robots.txt https://atlasglinn.com/wp-sitemap.xml https://atlasglinn.com/sitemap.xml https://atlasglinn.com/sitemap_index.xml https://atlasglinn.com/robots.txt; do
+              printf '   %s  HTTP %s\n' "$u" "$(curl -sS -m 30 -o /tmp/s -w '%{http_code}' -A 'Mozilla/5.0 (compatible; smoke-worker)' "$u" 2>/dev/null || echo ERR)"; [ -s /tmp/s ] && head -c 160 /tmp/s | tr '\n' ' ' | sed 's/^/      /' && echo
+            done
             # Asked at the zone's own nameserver (ns27.domaincontrol.com), so a row added a minute ago shows without waiting
             # for the hour-long TTL to run out at public resolvers; 1.1.1.1 is the fallback.
             NS1="$(dig +short NS mastsolutions.com @1.1.1.1 | head -1)"; NS1="${NS1:-ns27.domaincontrol.com}"
