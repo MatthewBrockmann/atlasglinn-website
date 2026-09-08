@@ -29,12 +29,16 @@ groups = {None: []}; media = None
 for line in css_src.splitlines():
     t = line.strip()
     if t.startswith('@media'):
+        if t.count('{') == t.count('}'):   # self-contained one-liner: it wraps nothing, so lift it verbatim
+            if any(w in t for w in want): groups[None].append(t)
+            continue
         media = t.rstrip('{').strip(); groups.setdefault(media, []); continue
     if t == '}' and media: media = None; continue
     if any(t.startswith(w) for w in want) and '{' in t:
         groups[media].append(t)
 booking_css = '\n'.join(groups[None]) + ''.join('\n' + m + ' {\n' + '\n'.join(r) + '\n}' for m, r in groups.items() if m and r)
 assert '@media (max-width: 768px) {' in booking_css, 'phone modal rules lost their media wrapper'
+assert not any('}' in (m or '') for m in groups), 'a one-line @media became a group key — the lifted CSS is invalid'
 # recolor Atlas blue → trailer gold, Atlas surfaces → trailer surfaces, Inconsolata → Share Tech Mono
 rep = {'#1A6BDE': '#C9A84C', 'rgba(26,107,222,': 'rgba(201,168,76,', '#0f1622': '#0B1221', '#080C14': '#050810',
        "'Inconsolata', monospace": "'Share Tech Mono', monospace", 'rgba(8,12,20,': 'rgba(5,8,16,'}
