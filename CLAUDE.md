@@ -315,19 +315,33 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   `tick` the last cron tick, in coarse buckets with no raw timestamp on a public response. **`fp=0;tick=never` means
   WP-Cron is not running it; `fp=1;tick=fresh` means healthy and idle.** `wp-flush.sh` prints that line on every run and
   says so plainly when the tick is stale; `wp-upload.sh` says the purge is coming.
-  **The deploy fails closed** (rounds 3–4, tested): **sftp does not report per-command failure for a batch arriving on
+  **The deploy fails closed** (rounds 3–5, tested): **sftp does not report per-command failure for a batch arriving on
   stdin** — OpenSSH aborts on a failed `put`/`rm` only under `-b`, and `-b` sets BatchMode, which refuses the Keychain
   askpass — so the session's exit code and its text are printed as an ADVISORY and decide nothing. **The served
   fingerprint is the proof:** the run requires the `b=<sha1-8>` the host publishes to equal the sha1 of the file it
   just sent, one retry after 15 s, then a non-zero exit with the SERVED value in the heartbeat (a same-version copy
-  already on the host used to pass). **`--remove` is proven by a second sftp session running a bare `ls` on the remote
-  path — and only when that session PROVES it reached the host and NAMES the path** (round 4): the capture must carry
-  the `sftp> ls` echo OpenSSH writes for a command read off stdin, the session must exit 0, and a line must say that
-  *this* file is not found. The path listed back is `rm-failed`; **everything else is `rm-unknown` and exits non-zero**
-  — a session that never connected, a login banner or a shell's own `command not found` that merely contains the words
-  "not found", a subsystem or auth failure, a "not found" about another path, a non-zero exit. Searching the whole
-  session for "not found" first (what round 3 did) meant a Mac with no `sftp` binary reported a successful removal, so
-  `sftp` is now a preflight check beside the Keychain one and an unknown argument aborts instead of meaning "install".
+  already on the host used to pass). **A header is only READ off a whole answer (round 5), and the rule that refused a
+  claim is printed:** curl's exit code is captured and a non-zero one — `--max-redirs` exhausted (47), a timeout, a
+  reset mid-chain — means **no header from that dump is parsed at all**, because curl has already printed the hops it
+  followed and one of them can carry the exact fingerprint just uploaded; the status is taken **only** from curl's own
+  tagged `ATLAS_HTTP_CODE:<3 digits>` write-out line (a bare `%{http_code}` tail let a header line's digits stand in as
+  the status when curl printed no write-out) or the code is `000` and the read is refused; and the **FINAL block must
+  be a 200** — a 3xx there is a truncated chain, and a header on any other status is not a page a reader was served.
+  **`--remove` is proven by a second sftp session running a bare `ls` on the remote path — and only when that session
+  PROVES it reached the host and NAMES the path** (round 4): the capture must carry the `sftp> ls` echo OpenSSH writes
+  for a command read off stdin, the session must exit 0, and a line must be **sftp's own** answer — anchored on its
+  `Can't ls: `/`ls: ` prefix — saying that *this* file is not found. **Round 5 tightened three things there:** a line
+  LISTING the file **wins, and is read before any "gone" text** (one session can carry both a banner saying "not
+  found" and the listing itself, and the listing is the fact); the name is matched **exactly**, bounded by
+  start/whitespace/quote/slash on the left and quote/whitespace/end on the right, so `atlas-cache-watch.php.bak` and
+  `old-atlas-cache-watch.php` are other files (a substring match claimed a removal off a neighbour's absence); and the
+  capture is **stripped of carriage returns** before it is classified. The path listed back is `rm-failed`;
+  **everything else is `rm-unknown` and exits non-zero** — a session that never connected, a login banner or a shell's
+  own `command not found` that merely contains the words "not found", a subsystem or auth failure, a "not found" about
+  another path, a non-zero exit. Searching the whole session for "not found" first (what round 3 did) meant a Mac with
+  no `sftp` binary reported a successful removal, so `sftp` is now a preflight check beside the Keychain one; an
+  unknown argument aborts instead of meaning "install", and the argument **COUNT** is checked before the value, so
+  `--remove --install` dies before anything is sent instead of silently acting on the first word.
   The header is advisory only there, because the plugin stops sending it whenever
   `ATLAS_CACHE_WATCH_DISABLED`/`_UNINSTALL` is defined, so header-absence would report a removal that never happened.
   Every abort before the verdict stamps `aborted-<reason>` over the heartbeat, the probe follows redirects and reads
@@ -341,7 +355,12 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   lock, unschedules the tick and does nothing else. Heartbeat: `~/.cache/wp-upload/last-watch-deploy`.
   **Tests:** `php wp-ops/tests/atlas-cache-watch-test.php` (stub WordPress + stub `WPaaS\Cache_V2`, 6 scenarios, 106
   assertions) and `bash scripts/tests/wp-cache-watch-deploy-test.sh` (stub sftp/curl/security/shasum/sleep, no host
-  touched, 139 cases). Both carry pinned counts — a scenario that dies after its first assertion used to report green —
+  touched, 175 cases). Every gate above is pinned by a scenario, not by a grep of the script's own source: round 5
+  replaced the six `wire/*` text checks with cases only a working gate survives, and each was proved by breaking that
+  gate in a scratch copy and watching the case fail (drop the aborted-chain rule and the run reports `deployed` off a
+  301 hop; drop the listed-wins ordering and a session that lists the file reports `removed`; drop the argument-count
+  check and `--remove --install` deletes the file and exits 0). Both carry pinned counts — a scenario that dies after
+  its first assertion used to report green —
   and both run in CI on `wp-ops/**`, `scripts/wp-*.sh` or `scripts/tests/**` (`.github/workflows/wp-ops-tests.yml`,
   no secrets; the job's Syntax step is `bash -n "$s" || exit 1`, because `bash -e` does not fail on the left side of an
   `&&`, and it must NOT be made a required check while those paths filters exist — a PR that misses them never starts

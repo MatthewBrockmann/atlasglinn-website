@@ -13,7 +13,9 @@
 #   bash scripts/wp-cache-watch-deploy.sh --remove   # delete it, then require an sftp `ls` to say it is gone
 #
 # Any other argument is an error and nothing is sent: an unrecognised one used to fall through to MODE=install, so a
-# typo'd `--remvoe` uploaded the plugin instead of deleting it.
+# typo'd `--remvoe` uploaded the plugin instead of deleting it. The COUNT is checked first and at most one is allowed,
+# because `--remove --install` reads as a removal to a human and used to be taken as a removal-then-ignored-word by
+# this script: a command that means two things must reach no host at all.
 #
 # The file sent is always wp-ops/atlas-cache-watch.php from the checkout this script runs in (ATLAS_WATCH_SRC overrides
 # it). There is no download fallback: fetching the plugin from a branch over HTTP would put unpinned remote code into
@@ -26,23 +28,31 @@
 # sftp does not report per-command failure for a batch that arrives on stdin: OpenSSH aborts on a failed put or rm only
 # under -b, and -b switches on BatchMode, which refuses the Keychain askpass this script depends on. The session's exit
 # code is therefore NOT a signal, and neither is its text. Both are printed as an advisory line and neither decides
-# anything. The only exit code this run reads is the `ls` session's in 2, and only in the safe direction: a non-zero
-# exit there can REFUSE a claim, never make one. What decides:
-#   1. install — the fingerprint the host SERVES is the proof. The plugin publishes b=<first 8 of sha1 of its own file>;
-#      this run requires that to equal the sha1 of the file it just sent, so only the exact bytes uploaded count as
-#      deployed (a same-version copy already on the host answers identically and used to pass). Absent, an older
-#      version, a same-version copy with different bytes, or a site that will not answer → one retry after 15 s, then a
-#      non-zero exit with the SERVED value in the heartbeat. Nothing else is treated as verified.
+# anything. TWO exit codes are read — the `ls` session's in 2 and curl's in the probe — and both only in the safe
+# direction: a non-zero exit there can REFUSE a claim, never make one. What decides:
+#   1. install — the fingerprint the host SERVES is the proof, and it is only READ off a completed chain that ended in
+#      a 200. The plugin publishes b=<first 8 of sha1 of its own file>; this run requires that to equal the sha1 of the
+#      file it just sent, so only the exact bytes uploaded count as deployed (a same-version copy already on the host
+#      answers identically and used to pass). Absent, an older version, a same-version copy with different bytes, or a
+#      site that will not answer → one retry after 15 s, then a non-zero exit with the SERVED value in the heartbeat.
+#      Nothing else is treated as verified.
 #   2. --remove — a second sftp session runs a bare `ls` on the remote path, and "removed" is claimed only when that
 #      session proves it REACHED THE HOST and its answer NAMES THE PATH. OpenSSH echoes each stdin command after its
 #      "sftp> " prompt, so the capture must carry that `sftp> ls` echo; the session must exit 0; and a non-prompt line
-#      must read `Can't ls: "<path>" not found` (or `ls: … <file> … No such file`). A line that lists the path back is
-#      rm-failed. Anything else is rm-unknown and exits non-zero — a session that never connected, a login banner or a
-#      shell's own `command not found` that merely CONTAINS the words "not found", a subsystem or auth failure, a
-#      non-zero exit, or a "not found" naming some other path. Grepping the whole session for /not found/ first is what
-#      made a machine with no sftp binary read as a successful removal, which is why `sftp` is now a preflight check
-#      beside the Keychain one. The header is not the test, because the plugin stops sending it whenever
-#      ATLAS_CACHE_WATCH_DISABLED or ATLAS_CACHE_WATCH_UNINSTALL is defined — its absence would then say "removed"
+#      must be sftp's OWN answer — anchored on its `Can't ls: `/`ls: ` prefix — naming this file as not found. The
+#      capture is stripped of carriage returns before any of that is read, because a stray \r is not whitespace to
+#      every locale and the word boundaries below would miss a listing that carried one.
+#      A line that LISTS the file WINS, and is read BEFORE any "gone" text: one session can carry both a banner saying
+#      "not found" and the listing itself, and the listing is the fact — so that shape is rm-failed, not removed. The
+#      name is matched EXACTLY, bounded by start/whitespace/quote/slash on the left and quote/whitespace/end on the
+#      right, so atlas-cache-watch.php.bak and old-atlas-cache-watch.php are other files; a substring match read
+#      either of them as this one. Anything else is rm-unknown and exits non-zero — a session that never connected, a
+#      login banner or a shell's own `command not found` that merely CONTAINS the words "not found", a subsystem or
+#      auth failure, a non-zero exit, or a "not found" naming some other path. Grepping the whole session for
+#      /not found/ first is what made a machine with no sftp binary read as a successful removal, which is why `sftp`
+#      is now a preflight check beside the Keychain one. The header is not the test, because the plugin stops sending
+#      it whenever ATLAS_CACHE_WATCH_DISABLED or ATLAS_CACHE_WATCH_UNINSTALL is defined — its absence would then say
+#      "removed"
 #      about a file still sitting on the host. The header probe stays as an advisory line, and the line the verdict was
 #      read off is printed beside it.
 # --remove deletes the file and stops the watcher, but LEAVES its two options and its cron event in the database (a
@@ -53,12 +63,20 @@
 # The check uses a cache-busting query string because GoDaddy's page cache can answer a plain URL at the edge, without
 # WordPress and so without the header; it follows redirects (-L --max-redirs 3) and reads the header out of the FINAL
 # response block of the -D - chain, so a header sent by a 301 hop is never credited to the page a reader lands on.
+# THREE rules decide whether that dump may be read at all, and the one that fired is printed: curl's own exit code must
+# be 0 (a chain that ABORTED — --max-redirs exhausted, a timeout, a reset mid-chain — has already printed its hops, and
+# crediting a header off one of them is exactly the false success this closed); the status must arrive on curl's own
+# tagged `ATLAS_HTTP_CODE:<3 digits>` write-out line, or the code is 000 and the read is refused (a bare `%{http_code}`
+# tail used to let a header line's digits stand in as the status when curl printed no write-out at all); and the FINAL
+# block's status must be 200 — a 3xx there is a truncated chain, and any other status is not a page a reader was
+# served, so no header on it credits a deploy.
 # Heartbeat: ~/.cache/wp-upload/last-watch-deploy = "<time> <version> <result> served=<header|none> http=<code>",
 # and every abort before the verdict stamps `aborted-<reason>` there, so a stale "deployed" from an earlier run can
 # never be read as this one. The log path is printed either way and the log is emailed when ~/.claude/bin/atlas-email
 # is present.
 #
-# Tests: bash scripts/tests/wp-cache-watch-deploy-test.sh (stub sftp/curl/security/shasum/sleep, no host touched).
+# Tests: bash scripts/tests/wp-cache-watch-deploy-test.sh (stub sftp/curl/security/shasum/sleep, no host touched; 175
+# cases as of round 5, each gate above pinned by a scenario rather than by a grep of this file).
 set -u
 HOST="${WP_SFTP_HOST:-1127220.us12.ssh.myftpupload.com}"
 DOCROOT="${WP_DOCROOT:-html}"
@@ -103,6 +121,11 @@ die() { ABORT="$1"; shift; say "$*"; exit 1; }
 
 # Parsed here, below die(), because an unknown argument has to ABORT — and an abort has to be able to stamp the
 # heartbeat. It used to fall through to MODE=install, so a typo'd `--remvoe` uploaded the plugin instead of removing it.
+# The count is read before the value: with two arguments this script used to act on the first and drop the rest in
+# silence, so `--remove --install` deleted the file while its author had written the word install.
+if [ "$#" -gt 1 ]; then
+  die bad-arg "this script takes at most one argument and was given $# (\"$*\") — say --install or --remove, never both; nothing was sent"
+fi
 case "${1:-}" in
   ""|--install) MODE=install;;
   --remove)     MODE=remove;;
@@ -159,6 +182,7 @@ else
 fi
 say "sftp batch:"; sed 's/^/   /' "$B" | tee -a "$LOG"
 out="$(sftp_run)"; rc=$?
+out="$(printf '%s\n' "$out" | tr -d '\r')"
 say "sftp $U@$HOST → exit $rc: $(flat "$out")"
 WARN="$(sftp_trouble "$out")"
 advisory "$rc" "$WARN"
@@ -170,24 +194,40 @@ advisory "$rc" "$WARN"
 # lands on. Taking the last matching header line anywhere in the dump — which is what this did — credits a 301 hop's
 # header to a final response that sent none. The HTTP status is captured with the header, because "no header" on a 502
 # means the site is down, not that the plugin is gone.
-PROBE_RC=1; PROBE_CODE=""; PROBE_HDR=""
+PROBE_RC=1; PROBE_CODE="000"; PROBE_FINAL=""; PROBE_HDR=""; PROBE_WHY=""; RULE=""
 probe() {
-  local raw
-  raw="$(curl -sI -L --max-redirs 3 -o /dev/null -D - -w '\n%{http_code}' -m 30 -A "wp-cache-watch-deploy" "$WP_BASE/?atlas-watch=$(date +%s)" 2>/dev/null)"
+  local raw parsed
+  PROBE_RC=1; PROBE_CODE="000"; PROBE_FINAL=""; PROBE_HDR=""; PROBE_WHY=""
+  raw="$(curl -sI -L --max-redirs 3 -o /dev/null -D - -w '\nATLAS_HTTP_CODE:%{http_code}\n' -m 30 -A "wp-cache-watch-deploy" "$WP_BASE/?atlas-watch=$(date +%s)" 2>/dev/null)"
   PROBE_RC=$?
+  # An ABORTED chain is not read AT ALL. curl has already written every hop it followed by the time --max-redirs is
+  # exhausted (or a timeout or a reset ends it), and those hops carry headers — a 301 from the plugin's own host among
+  # them. Parsing that dump credited a header no reader was ever served, which is the whole false-success class here.
+  if [ "$PROBE_RC" -ne 0 ]; then
+    PROBE_WHY="curl exited $PROBE_RC, so the chain never completed and nothing it printed is a response a reader was served"
+    return 0
+  fi
   raw="$(printf '%s\n' "$raw" | tr -d '\r')"
-  PROBE_CODE="$(printf '%s\n' "$raw" | tail -1 | tr -dc '0-9')"
-  # One block per response, closed by a blank line; `cur` is the header seen in the block being read and `last` the one
-  # from the most recent block that actually was a response (curl's -w output trails the dump as a block of its own).
-  PROBE_HDR="$(printf '%s\n' "$raw" | awk '
-    /^[[:space:]]*$/                  { if (resp) last=cur; cur=""; resp=0; next }
-    toupper(substr($0,1,5))=="HTTP/"  { resp=1; cur=""; next }
+  # The status comes off curl's OWN tagged write-out line and nothing else. A bare `%{http_code}` tail meant that a
+  # curl which printed no write-out left `tail -1 | tr -dc 0-9` reading the digits out of whatever header line came
+  # last — a content-length could be read as an HTTP status. No tagged line of the right shape = code 000 = refused.
+  PROBE_CODE="$(printf '%s\n' "$raw" | grep -Ex 'ATLAS_HTTP_CODE:[0-9]{3}' | tail -1 | cut -d: -f2)"
+  if [ -z "$PROBE_CODE" ]; then
+    PROBE_CODE="000"
+    PROBE_WHY="curl printed no ATLAS_HTTP_CODE:<3 digits> line, so the status of that read is unknown"
+    return 0
+  fi
+  # One block per response, closed by a blank line; `cur`/`st` are the header and status of the block being read and
+  # `last`/`lastst` those of the most recent block that actually was a response (the tagged write-out line trails the
+  # dump and is not one). The LAST response block is the page a reader lands on, and its status is read here so a
+  # truncated chain that ends on a 3xx can be refused from the dump side as well as from curl's exit code.
+  parsed="$(printf '%s\n' "$raw" | awk '
+    /^[[:space:]]*$/                  { if (resp) { last=cur; lastst=st } cur=""; st=""; resp=0; next }
+    toupper(substr($0,1,5))=="HTTP/"  { resp=1; cur=""; st=$2; next }
     tolower($1)=="x-atlas-cache-watch:" { v=$0; sub(/^[^:]*: */, "", v); cur=v; next }
-    END                               { if (resp) last=cur; print last }')"
-}
-reachable() {
-  [ "$PROBE_RC" = 0 ] || return 1
-  case "$PROBE_CODE" in 2??) return 0;; *) return 1;; esac
+    END                               { if (resp) { last=cur; lastst=st } print lastst; print last }')"
+  PROBE_FINAL="$(printf '%s\n' "$parsed" | sed -n 1p)"
+  PROBE_HDR="$(printf '%s\n' "$parsed" | sed -n 2p)"
 }
 served_build() {
   case "$PROBE_HDR" in
@@ -195,16 +235,34 @@ served_build() {
     *) printf '';;
   esac
 }
-# A header that is THERE proves the plugin ran, whatever status the page carried (send_headers fires on a 404 too), so
-# reachability only decides what its ABSENCE means: on a 2xx the plugin is not loaded, on anything else nothing can be
-# concluded and this run says so instead of guessing.
+# A header is only evidence when the read that carried it was a whole answer: a completed chain (curl exit 0), a status
+# that arrived on curl's own tagged line, and a FINAL block of 200. Each gate names itself in RULE, so the log says
+# which one refused the claim rather than leaving "not deployed" to be guessed at.
 classify() {
-  case "$PROBE_HDR" in
-    "$VER;"*) if [ "$(served_build)" = "$FP" ]; then result="deployed"; else result="fingerprint-mismatch"; fi; return;;
+  RULE=""
+  if [ "$PROBE_RC" -ne 0 ]; then
+    result="probe-failed"; RULE="rule aborted-chain: $PROBE_WHY — no header from that read was parsed"; return
+  fi
+  if [ "$PROBE_CODE" = 000 ]; then
+    result="probe-failed"; RULE="rule no-status: $PROBE_WHY — no header from that read was parsed"; return
+  fi
+  case "$PROBE_FINAL" in
+    3??) result="probe-failed"; RULE="rule truncated-chain: the FINAL response block is http $PROBE_FINAL — a redirect at the end of a -L chain means the chain did not finish, so that block is a hop and its header is the hop's"; return;;
   esac
-  if [ -n "$PROBE_HDR" ]; then result="version-mismatch"
-  elif reachable; then result="header-absent"
-  else result="unreachable"; fi
+  if [ "$PROBE_CODE" != 200 ] || [ "$PROBE_FINAL" != 200 ]; then
+    result="probe-failed"; RULE="rule not-200: the final response block is http ${PROBE_FINAL:-none} and curl reported $PROBE_CODE — only a 200 is a page a reader was served, so no header on it credits a deploy"; return
+  fi
+  case "$PROBE_HDR" in
+    "$VER;"*)
+      if [ "$(served_build)" = "$FP" ]; then
+        result="deployed"; RULE="rule served-fingerprint: a completed chain ended in http 200 whose header carries v$VER build $FP"
+      else
+        result="fingerprint-mismatch"; RULE="rule served-fingerprint: the 200 answer carries build \"$(served_build)\", not the $FP just sent"
+      fi
+      return;;
+  esac
+  if [ -n "$PROBE_HDR" ]; then result="version-mismatch"; RULE="rule served-fingerprint: the 200 answer carries \"$PROBE_HDR\", not v$VER"
+  else result="header-absent"; RULE="rule header-absent: the chain ended in http 200 and that response carried no X-Atlas-Cache-Watch"; fi
 }
 
 if [ "$MODE" = remove ]; then
@@ -217,23 +275,33 @@ if [ "$MODE" = remove ]; then
   printf -- 'ls "%s"\n' "$REMOTE" > "$B"
   say "sftp proof batch:"; sed 's/^/   /' "$B" | tee -a "$LOG"
   lsout="$(sftp_run)"; lsrc=$?
+  # Carriage returns come off BEFORE anything is classified: a stray \r sits between the name and the end of its line,
+  # and it is not [[:space:]] to every locale, so a listing that carried one could slip past the boundaries below.
+  lsout="$(printf '%s\n' "$lsout" | tr -d '\r')"
   say "sftp ls → exit $lsrc: $(flat "$lsout")"
   BASE="$(basename "$REMOTE")"
-  BASE_RE="$(printf '%s' "$BASE" | sed 's/[][\.*^$\/]/\\&/g')"
+  BASE_RE="$(printf '%s' "$BASE" | sed 's#[][\\.*^$+?(){}|/]#\\&#g')"
+  # The name must be THE name: bounded left by start, whitespace, a quote or a slash, and right by a quote, whitespace
+  # or end of line. A substring match read `atlas-cache-watch.php.bak` and `old-atlas-cache-watch.php` as this file —
+  # in the "gone" direction that is a removal claimed off another file's absence.
+  Q="\"'"
+  NAME_RE="(^|[[:space:]${Q}/])${BASE_RE}([${Q}[:space:]]|\$)"
   # When stdin is not a tty OpenSSH echoes each command after its "sftp> " prompt. That echo is the only thing in the
   # capture that proves the command ran ON THE HOST — and it is also why the path appears in the output of a successful
   # `ls` AND of a failed one, so the echo and the banner are dropped before the answer itself is read.
   CONNECTED=0
   printf '%s\n' "$lsout" | grep -Eq '^sftp> *ls([[:space:]]|$)' && CONNECTED=1
   lsclean="$(printf '%s\n' "$lsout" | grep -v '^sftp>' | grep -v '^Connected to ')"
-  EV_GONE="$(printf '%s\n' "$lsclean" | grep -Ei "^(can't ls|ls): .*${BASE_RE}.*(no such file|not found)" | head -1)"
-  [ -n "$EV_GONE" ] || EV_GONE="$(printf '%s\n' "$lsclean" | grep -Fx "Can't ls: \"$REMOTE\" not found" | head -1)"
-  EV_LISTED="$(printf '%s\n' "$lsclean" | grep -Evi "can't|cannot|no such file|not found|permission denied|connection closed|failure" | grep -F "$BASE" | head -1)"
+  # A line that LISTS the file is the fact, and it is read FIRST. One session can carry both a banner saying "not
+  # found" and the listing itself; testing "gone" first called that a removal. EV_GONE is anchored on sftp's own
+  # `Can't ls: `/`ls: ` prefix, so a banner or a shell error that merely contains the words is not an answer.
+  EV_LISTED="$(printf '%s\n' "$lsclean" | grep -Evi "can't|cannot|no such file|not found|permission denied|connection closed|failure" | grep -E "$NAME_RE" | head -1)"
+  EV_GONE="$(printf '%s\n' "$lsclean" | grep -Ei "^(can't ls|ls): " | grep -E "$NAME_RE" | grep -Ei "no such file|not found" | head -1)"
   if [ "$lsrc" -ne 0 ]; then result="rm-unknown"; EV="the ls session exited $lsrc, so nothing it printed is an answer"
   elif [ "$CONNECTED" != 1 ]; then result="rm-unknown"; EV="no \"sftp> ls\" echo in that output — the command never ran on the host"
-  elif [ -n "$EV_GONE" ]; then result="removed"; EV="$EV_GONE"
   elif [ -n "$EV_LISTED" ]; then result="rm-failed"; EV="$EV_LISTED"
-  else result="rm-unknown"; EV="the session connected but no line in it names $BASE"
+  elif [ -n "$EV_GONE" ]; then result="removed"; EV="$EV_GONE"
+  else result="rm-unknown"; EV="the session connected but no line in it names $BASE — neither listed, nor as sftp's own \"Can't ls: … not found\""
   fi
   say "   ls classified $result — evidence: $EV"
   probe
@@ -248,7 +316,7 @@ if [ "$MODE" = remove ]; then
   if [ -n "$PROBE_HDR" ]; then
     say "   advisory: X-Atlas-Cache-Watch: $PROBE_HDR is still being served (http ${PROBE_CODE:-none}) — an edge or opcache copy can answer after the file is gone; the ls above is the verdict"
   else
-    say "   advisory: no X-Atlas-Cache-Watch header on the front end (http ${PROBE_CODE:-none}, curl exit $PROBE_RC) — on its own that proves nothing, a disabled plugin sends no header either"
+    say "   advisory: no X-Atlas-Cache-Watch header on the front end (http ${PROBE_CODE:-none}, curl exit $PROBE_RC${PROBE_WHY:+ — $PROBE_WHY}) — on its own that proves nothing, a disabled plugin sends no header either"
   fi
   stamp "$result" "${PROBE_HDR:-none}" "${PROBE_CODE:-none}"
   case "$result" in
@@ -259,21 +327,21 @@ else
   say "verify: curl -sI -L \"$WP_BASE/?atlas-watch=\$(date +%s)\" | grep X-Atlas-Cache-Watch"
   probe; classify
   if [ "$result" != deployed ]; then
-    say "verify: $result on the first read (http ${PROBE_CODE:-none}, header \"${PROBE_HDR:-none}\") — the host may still be answering from its page cache or from opcache; retrying once in 15 s"
+    say "verify: $result on the first read (http ${PROBE_CODE:-none}, header \"${PROBE_HDR:-none}\") — $RULE; the host may still be answering from its page cache or from opcache, so retrying once in 15 s"
     sleep 15
     probe; classify
   fi
   case "$result" in
     deployed)
-      say "verify: X-Atlas-Cache-Watch: $PROBE_HDR — v$VER build $FP is loaded on the host (the bytes just sent)";;
+      say "verify: X-Atlas-Cache-Watch: $PROBE_HDR — v$VER build $FP is loaded on the host (the bytes just sent). $RULE";;
     fingerprint-mismatch)
       say "verify: the host answers v$VER but build \"$(served_build)\", and the file just sent is build $FP — a different copy of the same version is still loaded (opcache, or the upload landed in another docroot). Header: $PROBE_HDR";;
     version-mismatch)
       say "verify: the host answers X-Atlas-Cache-Watch: $PROBE_HDR, but the file just sent is v$VER — an older copy is still loaded";;
     header-absent)
       say "verify: still no X-Atlas-Cache-Watch header after the retry, and the site answered http $PROBE_CODE — the plugin is not loading (wrong docroot, mu-plugins not read, or every answer came from the edge). Nothing else on the host was changed.";;
-    unreachable)
-      say "verify: UNKNOWN — the site did not answer (curl exit $PROBE_RC, http ${PROBE_CODE:-none}). Whether the plugin is loaded cannot be read from here, so this run claims nothing either way.";;
+    probe-failed)
+      say "verify: UNKNOWN — this run has no readable answer from the site (curl exit $PROBE_RC, http $PROBE_CODE, final block ${PROBE_FINAL:-none}). $RULE. Whether the plugin is loaded cannot be read from here, so this run claims nothing either way.";;
   esac
   case "$PROBE_HDR" in
     *";age="*)

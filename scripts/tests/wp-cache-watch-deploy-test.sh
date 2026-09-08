@@ -5,9 +5,10 @@
 #   bash scripts/tests/wp-cache-watch-deploy-test.sh
 #
 # It prints PASS/FAIL per case and exits non-zero if any case fails, if the run produced fewer cases than the count
-# pinned at the bottom, or if it dies before printing its summary — a harness that stops early used to look green.
+# pinned at the bottom (175, measured at round 5), or if it dies before printing its summary — a harness that stops
+# early used to look green.
 #
-# What it holds down, case by case, after round 3:
+# What it holds down, case by case, after rounds 3-5:
 #   · sftp's exit code and its text are ADVISORY. A batch on stdin does not abort on a failed put or rm (that needs -b,
 #     which sets BatchMode and refuses the Keychain askpass), so a run whose sftp said "Permission denied" and whose
 #     host serves an old build must still fail — on the fingerprint, not on the exit code — and a run whose sftp exited
@@ -28,6 +29,22 @@
 #     never be read as this run's.
 #   · the probe follows redirects, and the header is read from the FINAL response block of the -D - chain: a header on
 #     a 301 hop belongs to the hop, and crediting it would report a deploy from a response no reader ever sees.
+#   · round 5, the probe: a chain that ABORTED is not read at all. curl exits 47 when --max-redirs is exhausted having
+#     already printed its hops, and one of them can carry the exact fingerprint just uploaded — so curl's exit code is
+#     captured and a non-zero one refuses the read before a single header is parsed. The status is taken ONLY from
+#     curl's own tagged `ATLAS_HTTP_CODE:<3 digits>` write-out line (a bare `%{http_code}` tail let a header line's
+#     digits stand in as the status when curl printed no write-out), and the FINAL block must be a 200: a 3xx there is
+#     a truncated chain, and a header on any other status is not a page a reader was served. The rule that fired is
+#     printed and asserted, so a case cannot pass on the right verdict for the wrong reason.
+#   · round 5, --remove: a line LISTING the file wins over any "gone" text in the same session, the name is matched
+#     EXACTLY (bounded by start/whitespace/quote/slash and quote/whitespace/end, so `.bak` and `old-` neighbours are
+#     other files), the capture is stripped of carriage returns before it is classified, and "gone" must carry sftp's
+#     own `Can't ls: `/`ls: ` prefix rather than merely containing the words.
+#   · round 5, arguments: the COUNT is checked before the value, so `--remove --install` dies without sending anything
+#     instead of silently acting on the first word.
+#   · round 5, the gates are pinned by BEHAVIOUR. Five of the six `wire/*` checks were greps of the script's own source
+#     — a gate can be present and dead and still pass a grep. Each is now a scenario only a working gate survives, and
+#     each was proved by breaking that gate in a scratch copy of the script and watching the case fail.
 #   · scripts/wp-flush.sh's cascade heredoc carries the plugin's redaction and its exact allowlist (it runs on the host,
 #     where no scenario can reach it, so it is checked as text here).
 #
@@ -68,6 +85,13 @@ REMOTE_PATH="html/wp-content/mu-plugins/atlas-cache-watch.php"
 # sshd and stopped there. Every one of them carries "not found"/"no such file"/an error while the file is untouched on
 # the host, and every one used to be read as a successful removal. `banner-present` connects, prints a banner with the
 # words in it, and then LISTS the file. `gone-other` connects and says "not found" about a different path.
+#
+# Round 5 adds the shapes that pin each gate BEHAVIOURALLY, so a gate deleted from the script fails a case instead of a
+# grep: `noecho` is a perfect "not found" with no `sftp> ls` echo (the command never ran on the host); `gone-noprefix`
+# is a banner naming this file as not found WITHOUT sftp's own `Can't ls: ` prefix; `gone-and-present` says both, and
+# the listing has to win; `gone-suffix` says "not found" about atlas-cache-watch.php.bak; `present-adjacent` says this
+# file is gone and lists the .bak, which is a removal unless the name match is a substring one; `gone-crlf` is the same
+# session with CRLF line endings.
 cat > "$STUB/sftp" <<'EOS'
 #!/usr/bin/env bash
 n=$(( $(cat "$STUB_STATE/sftp.n" 2>/dev/null || echo 0) + 1 )); printf '%s\n' "$n" > "$STUB_STATE/sftp.n"
@@ -120,6 +144,42 @@ case "$batch" in
         printf 'Connection closed\n'
         printf 'sftp> \n'
         exit "${STUB_LS_RC:-255}";;
+      noecho)
+        printf 'Connected to stub.\n'
+        printf 'Can'"'"'t ls: "%s" not found\n' "$p"
+        exit "${STUB_LS_RC:-0}";;
+      gone-noprefix)
+        printf 'Connected to stub.\n'
+        printf 'sftp> ls "%s"\n' "$p"
+        printf 'Notice: atlas-cache-watch.php not found in the legacy panel index.\n'
+        printf 'sftp> \n'
+        exit "${STUB_LS_RC:-0}";;
+      gone-and-present)
+        printf 'Connected to stub.\n'
+        printf 'sftp> ls "%s"\n' "$p"
+        printf 'Can'"'"'t ls: "%s" not found\n' "$p"
+        printf '%s\n' "$p"
+        printf 'sftp> \n'
+        exit "${STUB_LS_RC:-0}";;
+      gone-suffix)
+        printf 'Connected to stub.\n'
+        printf 'sftp> ls "%s"\n' "$p"
+        printf 'Can'"'"'t ls: "%s.bak" not found\n' "$p"
+        printf 'sftp> \n'
+        exit "${STUB_LS_RC:-0}";;
+      present-adjacent)
+        printf 'Connected to stub.\n'
+        printf 'sftp> ls "%s"\n' "$p"
+        printf 'Can'"'"'t ls: "%s" not found\n' "$p"
+        printf '%s.bak\n' "$p"
+        printf 'sftp> \n'
+        exit "${STUB_LS_RC:-0}";;
+      gone-crlf)
+        printf 'Connected to stub.\r\n'
+        printf 'sftp> ls "%s"\r\n' "$p"
+        printf 'Can'"'"'t ls: "%s" not found\r\n' "$p"
+        printf 'sftp> \r\n'
+        exit "${STUB_LS_RC:-0}";;
       *)
         printf 'Connected to stub.\n'
         printf 'sftp> ls "%s"\n' "$p"
@@ -134,13 +194,17 @@ printf 'Connected to stub.\n'
 printf 'sftp> \n'
 exit "${STUB_SFTP_RC:-0}"
 EOS
-# curl -sI -L -D - prints EVERY response in the chain and -w '%{http_code}' reports the LAST one, so STUB_REDIRECT=1
-# emits a 301 hop (carrying a deliberately wrong header) followed by the real answer.
+# curl -sI -L -D - prints EVERY response in the chain and -w reports the LAST one, so STUB_REDIRECT=1 emits a 301 hop
+# (carrying whatever STUB_HDR_HOP says) followed by the real answer. Two round-5 shapes live here:
+#   · STUB_CURL_RC != 0 is a chain that ABORTED — the hops it already followed are printed, then it exits, and it
+#     writes NO final block and NO write-out line. That is what --max-redirs 3 exceeded (exit 47) looks like, and it
+#     is the shape that let a header on a hop be credited as a deploy.
+#   · STUB_NO_CODE=1 prints the whole dump and omits the tagged write-out line, which is the only place the script
+#     will read a status from.
 cat > "$STUB/curl" <<'EOS'
 #!/usr/bin/env bash
 n=$(( $(cat "$STUB_STATE/curl.n" 2>/dev/null || echo 0) + 1 )); printf '%s\n' "$n" > "$STUB_STATE/curl.n"
 printf '%s\n' "$*" >> "$STUB_STATE/curl.args"
-[ "${STUB_CURL_RC:-0}" != 0 ] && exit "${STUB_CURL_RC:-0}"
 if [ "$n" = 1 ]; then code="${STUB_CODE:-200}"; hdr="${STUB_HDR:-}"; else code="${STUB_CODE2:-200}"; hdr="${STUB_HDR2:-}"; fi
 if [ "${STUB_REDIRECT:-0}" = 1 ]; then
   printf 'HTTP/2 301\r\n'
@@ -148,12 +212,14 @@ if [ "${STUB_REDIRECT:-0}" = 1 ]; then
   printf 'x-atlas-cache-watch: %s\r\n' "${STUB_HDR_HOP:-0.0.1;b=deadbeef;age=old;cdn=no;fp=0;tick=never}"
   printf '\r\n'
 fi
+[ "${STUB_CURL_RC:-0}" != 0 ] && exit "${STUB_CURL_RC:-0}"
 printf 'HTTP/2 %s\r\n' "$code"
 printf 'server: nginx\r\n'
 printf 'content-type: text/html; charset=UTF-8\r\n'
 [ -n "$hdr" ] && printf 'x-atlas-cache-watch: %s\r\n' "$hdr"
 printf '\r\n'
-printf '\n%s' "$code"
+[ "${STUB_NO_CODE:-0}" = 1 ] || printf '\nATLAS_HTTP_CODE:%s\n' "$code"
+exit 0
 EOS
 cat > "$STUB/security" <<'EOS'
 #!/usr/bin/env bash
@@ -204,7 +270,7 @@ b() { if "$@" >/dev/null 2>&1; then printf 1; else printf 0; fi; }
 eq() { if [ "$1" = "$2" ]; then printf 1; else printf 0; fi; }
 reset_case() {
   C_SFTP_RC=0; C_SFTP_OUT=""; C_LS_MODE=gone; C_LS_RC=0
-  C_CURL_RC=0; C_CODE=200; C_CODE2=200; C_HDR=""; C_HDR2=""; C_REDIRECT=0; C_HOP=""
+  C_CURL_RC=0; C_CODE=200; C_CODE2=200; C_HDR=""; C_HDR2=""; C_REDIRECT=0; C_HOP=""; C_NO_CODE=0
   C_NO_KC=0; C_SRC="$PLUGIN"; C_HOME=""; C_NO_SFTP=0
 }
 calls() { cat "$STATE/$1.n" 2>/dev/null || printf 0; }
@@ -217,7 +283,7 @@ run_case() {
   PATH="$CASE_PATH" HOME="$CHOME" STUB_STATE="$STATE" STUB_PW="$STUB_PW" \
     STUB_SFTP_RC="$C_SFTP_RC" STUB_SFTP_OUT="$C_SFTP_OUT" STUB_LS_MODE="$C_LS_MODE" STUB_LS_RC="$C_LS_RC" \
     STUB_CURL_RC="$C_CURL_RC" STUB_CODE="$C_CODE" STUB_CODE2="$C_CODE2" STUB_REDIRECT="$C_REDIRECT" \
-    STUB_HDR_HOP="$C_HOP" \
+    STUB_HDR_HOP="$C_HOP" STUB_NO_CODE="$C_NO_CODE" \
     STUB_HDR="$C_HDR" STUB_HDR2="$C_HDR2" STUB_NO_KEYCHAIN="$C_NO_KC" ATLAS_WATCH_SRC="$C_SRC" \
     "$BASH" "$SCRIPT" "$@" > "$OUT" 2>&1
   RC=$?
@@ -288,14 +354,18 @@ t "retry-succeeds/exit-0"       "$(eq "$RC" 0)" "exit $RC"
 t "retry-succeeds/two-probes"   "$(eq "$(calls curl)" 2)" "curl calls $(calls curl)"
 t "retry-succeeds/deployed"     "$(b grep -q 'DEPLOYED-OBSERVED' "$OUT")"
 
-# ── 8. the header is proof even when the page itself is a 404, and its absence proves nothing when curl fails ───────
-reset_case; C_CODE=404; C_CODE2=404; C_HDR="$GOOD"; C_HDR2="$GOOD"; run_case deployed-on-404
-t "deployed-on-404/exit-0"      "$(eq "$RC" 0)" "exit $RC"
-t "deployed-on-404/deployed"    "$(b grep -q 'DEPLOYED-OBSERVED' "$OUT")"
+# ── 8. round 5: the final block has to be a 200. A perfect header on a 404 is not a page a reader was served, and ──
+# ── the absence of one proves nothing when curl never finished ──────────────────────────────────────────────────────
+reset_case; C_CODE=404; C_CODE2=404; C_HDR="$GOOD"; C_HDR2="$GOOD"; run_case header-on-404
+t "header-on-404/exit-non-zero"  "$(b test "$RC" -ne 0)" "exit $RC"
+t "header-on-404/no-deployed-claim" "$(b bash -c '! grep -q DEPLOYED-OBSERVED "$1"' _ "$OUT")" "$(grep -m1 'verify:' "$OUT")"
+t "header-on-404/names-the-rule" "$(b grep -q 'rule not-200' "$OUT")" "$(grep -m1 'rule ' "$OUT")"
+t "header-on-404/heartbeat"      "$(b grep -q 'probe-failed served=' "$STAMPF")" "$STAMPV"
 reset_case; C_CURL_RC=7; run_case install-curl-fails
 t "install-curl-fails/exit-non-zero" "$(b test "$RC" -ne 0)" "exit $RC"
 t "install-curl-fails/says-unknown"  "$(b grep -q 'UNKNOWN' "$OUT")"
-t "install-curl-fails/heartbeat"     "$(b grep -q 'unreachable' "$STAMPF")" "$STAMPV"
+t "install-curl-fails/heartbeat"     "$(b grep -q 'probe-failed served=none http=000' "$STAMPF")" "$STAMPV"
+t "install-curl-fails/names-the-rule" "$(b grep -q 'rule aborted-chain' "$OUT")" "$(grep -m1 'rule ' "$OUT")"
 t "install-curl-fails/no-absent-claim" "$(b bash -c '! grep -q "plugin is not loading" "$1"' _ "$OUT")"
 
 # ── 9. a redirect chain: the FINAL response is the one classified, not the hop ──────────────────────────────────────
@@ -455,15 +525,93 @@ t "plugin/allowlist-is-exact" \
   "$(b grep -Fq "array('WPaaS\\\\Cache_V2', 'WPaaS\\\\Cache')" "$PLUGIN")"
 t "plugin/no-prefix-allowlist"  "$(b bash -c '! grep -Fq "strpos(ltrim(" "$1"' _ "$PLUGIN")"
 
-# ── 18. the script's own header must not claim the exit code is the test, and the round-4 gates must be IN it ───────
+# ── 18. round 5: every gate is pinned by BEHAVIOUR, not by a grep of the script ─────────────────────────────────────
+# Five of the six checks here used to read the script's own source for the line that implements a gate. A gate can be
+# present and dead — commented out downstream, or overwritten by a later branch — and the grep still passes. Each one
+# is now a scenario that only a WORKING gate can survive: delete the gate from a copy of the script and the case
+# below fails. (Round 5 negative controls were run against a scratch copy for exactly that, one gate at a time.)
+
+# the `sftp> ls` echo is what proves the command ran ON the host: a perfect "not found" without it is not an answer
+reset_case; C_LS_MODE=noecho; C_LS_RC=0; run_case wire-echo-required --remove
+t "wire/echo-required-rm-unknown" "$(b grep -q 'rm-unknown' "$STAMPF")" "$STAMPV"
+t "wire/echo-required-exit-non-zero" "$(b test "$RC" -ne 0)" "exit $RC"
+t "wire/echo-required-no-removed-claim" "$(b bash -c '! grep -q "the file is gone" "$1"' _ "$OUT")" "$(grep -m1 'classified' "$OUT")"
+
+# "not found" naming THIS file, from a banner rather than from sftp — the `Can't ls: `/`ls: ` anchor is the difference
+reset_case; C_LS_MODE=gone-noprefix; C_LS_RC=0; run_case wire-anchor-required --remove
+t "wire/anchor-required-rm-unknown" "$(b grep -q 'rm-unknown' "$STAMPF")" "$STAMPV"
+t "wire/anchor-required-no-removed-claim" "$(b bash -c '! grep -q "the file is gone" "$1"' _ "$OUT")" "$(grep -m1 'classified' "$OUT")"
+
+# a session that says BOTH — the listing is the fact, and it has to be read before the "gone" text
+reset_case; C_LS_MODE=gone-and-present; C_LS_RC=0; run_case wire-listed-wins --remove
+t "wire/listed-wins-rm-failed"   "$(b grep -q 'rm-failed' "$STAMPF")" "$STAMPV"
+t "wire/listed-wins-says-still-listed" "$(b grep -q 'STILL LISTED' "$OUT")" "$(grep -m1 'classified' "$OUT")"
+t "wire/listed-wins-exit-non-zero" "$(b test "$RC" -ne 0)" "exit $RC"
+
+# the "not found" is about atlas-cache-watch.php.bak — a substring match reads it as this file and claims a removal
+reset_case; C_LS_MODE=gone-suffix; C_LS_RC=0; run_case wire-exact-name-gone --remove
+t "wire/exact-name-gone-rm-unknown" "$(b grep -q 'rm-unknown' "$STAMPF")" "$STAMPV"
+t "wire/exact-name-gone-no-removed-claim" "$(b bash -c '! grep -q "the file is gone" "$1"' _ "$OUT")" "$(grep -m1 'classified' "$OUT")"
+
+# this file IS gone and a .bak of it is listed: a substring match calls that rm-failed, an exact one calls it removed
+reset_case; C_LS_MODE=present-adjacent; C_LS_RC=0; run_case wire-exact-name-listed --remove
+t "wire/exact-name-listed-removed" "$(b grep -q 'removed served=' "$STAMPF")" "$STAMPV"
+t "wire/exact-name-listed-exit-0"  "$(eq "$RC" 0)" "exit $RC"
+
+# a CRLF session: same verdict, and no carriage return may survive into the log or the emailed evidence line
+reset_case; C_LS_MODE=gone-crlf; C_LS_RC=0; run_case wire-crlf --remove
+t "wire/crlf-removed"            "$(b grep -q 'removed served=' "$STAMPF")" "$STAMPV"
+t "wire/crlf-exit-0"             "$(eq "$RC" 0)" "exit $RC"
+t "wire/crlf-no-cr-in-output"    "$(b bash -c '! grep -q "$(printf "\r")" "$1"' _ "$OUT")" "a carriage return reached the log"
+
+# a perfect "gone" answer over a session that exited non-zero is still not an answer
+reset_case; C_LS_MODE=gone; C_LS_RC=1; run_case wire-lsrc-gone --remove
+t "wire/lsrc-gone-rm-unknown"    "$(b grep -q 'rm-unknown' "$STAMPF")" "$STAMPV"
+t "wire/lsrc-gone-names-the-exit" "$(b grep -q 'ls session exited 1' "$OUT")" "$(grep -m1 'classified' "$OUT")"
+
+# no sftp on the machine: the install path must die before it reaches for the host, exactly as --remove does
+reset_case; C_NO_SFTP=1; run_case wire-no-sftp-install
+t "wire/no-sftp-install-nothing-sent" "$(eq "$(calls sftp)" 0)" "sftp calls $(calls sftp)"
+t "wire/no-sftp-install-nothing-probed" "$(eq "$(calls curl)" 0)" "curl calls $(calls curl)"
+t "wire/no-sftp-install-heartbeat" "$(b grep -q 'aborted-no-sftp' "$STAMPF")" "$STAMPV"
+t "wire/no-sftp-install-no-deployed-claim" "$(b bash -c '! grep -q DEPLOYED-OBSERVED "$1"' _ "$OUT")"
+
+# ── 18b. round 5: the probe. An ABORTED chain is not evidence, whatever its hops carried ────────────────────────────
+# curl exits 47 when --max-redirs is exhausted, having already printed the hops it followed — and one of them carries
+# the exact fingerprint this run just uploaded. Reading headers out of that dump is a deploy claimed off a response no
+# reader was ever served, which is the last false-success path in this script.
+reset_case; C_REDIRECT=1; C_HOP="$GOOD"; C_CURL_RC=47; run_case probe-aborted-chain
+t "probe-aborted/exit-non-zero"  "$(b test "$RC" -ne 0)" "exit $RC"
+t "probe-aborted/no-deployed-claim" "$(b bash -c '! grep -q DEPLOYED-OBSERVED "$1"' _ "$OUT")" "$(grep -m1 'verify:' "$OUT")"
+t "probe-aborted/hop-header-not-parsed" "$(b bash -c '! grep -q "$2" "$1"' _ "$OUT" "$GOOD")" "the aborted chain's hop header was read"
+t "probe-aborted/names-the-rule" "$(b grep -q 'rule aborted-chain' "$OUT")" "$(grep -m1 'rule ' "$OUT")"
+t "probe-aborted/heartbeat"      "$(b grep -q 'probe-failed served=none http=000' "$STAMPF")" "$STAMPV"
+
+# a chain that COMPLETED but whose final block is itself a 3xx: truncated, so its header belongs to a hop
+reset_case; C_REDIRECT=1; C_CODE=301; C_CODE2=301; C_HDR="$GOOD"; C_HDR2="$GOOD"; run_case probe-final-3xx
+t "probe-final-3xx/exit-non-zero" "$(b test "$RC" -ne 0)" "exit $RC"
+t "probe-final-3xx/no-deployed-claim" "$(b bash -c '! grep -q DEPLOYED-OBSERVED "$1"' _ "$OUT")" "$(grep -m1 'verify:' "$OUT")"
+t "probe-final-3xx/names-the-rule" "$(b grep -q 'rule truncated-chain' "$OUT")" "$(grep -m1 'rule ' "$OUT")"
+t "probe-final-3xx/heartbeat"    "$(b grep -q 'probe-failed served=' "$STAMPF")" "$STAMPV"
+
+# the status is READ, never inferred: no tagged write-out line = code 000 = the read is refused, header or no header
+reset_case; C_NO_CODE=1; C_HDR="$GOOD"; C_HDR2="$GOOD"; run_case probe-no-code-line
+t "probe-no-code/exit-non-zero"  "$(b test "$RC" -ne 0)" "exit $RC"
+t "probe-no-code/no-deployed-claim" "$(b bash -c '! grep -q DEPLOYED-OBSERVED "$1"' _ "$OUT")" "$(grep -m1 'verify:' "$OUT")"
+t "probe-no-code/names-the-rule" "$(b grep -q 'rule no-status' "$OUT")" "$(grep -m1 'rule ' "$OUT")"
+t "probe-no-code/heartbeat-000"  "$(b grep -q 'probe-failed served=none http=000' "$STAMPF")" "$STAMPV"
+
+# ── 18c. round 5: the argument COUNT, checked before the value and before anything is sent ──────────────────────────
+reset_case; run_case bad-argc --remove --install
+t "bad-argc/exit-non-zero"       "$(b test "$RC" -ne 0)" "exit $RC"
+t "bad-argc/nothing-sent"        "$(eq "$(calls sftp)" 0)" "sftp calls $(calls sftp)"
+t "bad-argc/nothing-probed"      "$(eq "$(calls curl)" 0)" "curl calls $(calls curl)"
+t "bad-argc/names-the-count"     "$(b grep -q 'given 2' "$OUT")" "$(head -2 "$OUT" | tr '\n' ' ')"
+t "bad-argc/heartbeat-aborted"   "$(b grep -q 'aborted-bad-arg' "$STAMPF")" "$STAMPV"
+
+# ── 18d. the script's own header must not claim the exit code is the test, and must say what the gates now are ──────
 t "doc/says-rc-is-not-a-signal" "$(b grep -q 'does not report per-command failure' "$SCRIPT")"
 t "doc/no-exit-code-enforced-claim" "$(b bash -c '! grep -q "exit code is tested" "$1"' _ "$SCRIPT")"
-t "wire/sftp-preflight-present"  "$(b grep -q 'command -v sftp >/dev/null 2>&1 || die no-sftp' "$SCRIPT")"
-t "wire/arg-case-refuses-unknown" "$(b grep -q 'die bad-arg' "$SCRIPT")"
-t "wire/ls-requires-the-echo"    "$(b grep -q "grep -Eq '\^sftp> \*ls" "$SCRIPT")"
-t "wire/ls-requires-the-path"    "$(b grep -q 'BASE_RE' "$SCRIPT")"
-t "wire/ls-rc-forces-unknown"    "$(b grep -q 'lsrc" -ne 0 \]; then result="rm-unknown"' "$SCRIPT")"
-t "wire/probe-reads-last-block"  "$(b grep -q 'if (resp) last=cur' "$SCRIPT")"
 t "doc/header-says-names-the-path" "$(b grep -q 'NAMES THE PATH' "$SCRIPT")"
 t "doc/header-says-final-block"  "$(b grep -q 'LAST response block' "$SCRIPT")"
 
@@ -472,7 +620,7 @@ LEAK="$(grep -rl "$STUB_PW" "$WORK" 2>/dev/null | grep -v "^$STUB/" | head -3 | 
 t "no-secret-in-any-output" "$(b test -z "$LEAK")" "found in: $LEAK"
 
 # ── the harness guards itself: a run that stops early prints fewer cases than this ──────────────────────────────────
-EXPECTED_CASES=139
+EXPECTED_CASES=175
 TOTAL=$((PASSN + FAILN))
 if [ "$TOTAL" -lt "$EXPECTED_CASES" ]; then
   FAILN=$((FAILN+1))
