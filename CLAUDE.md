@@ -33,15 +33,43 @@ the chapter reads "Gear · IWA" (the Aimpoint sentence is parked in a comment be
 the Atlas Training submenu's "Aimpoint Optics" entry is commented out in `assemble-atlas.py`. Bringing it back is those
 three edits on his word.
 
-**Experiences chapter, hidden (Brockmann, 2026-09-08: "add in Courses = 'EXPERIENCES' Couples + groups = Pics and Content
-coming"):** `EXPERIENCES` in `mastsolutions-tesla.html` holds the two entries, Couples and Groups, and `renderExperiences()`
-appends them to the course catalog as one more accordion titled "Experiences", in the class-card style. They are not courses:
-no SKU, no D1 catalog row, no price. The card's button opens the same Request dialog the private-instruction rows use
-(`request_type: 'experience'` to the Worker's `/contact`) with the experience name in the message. **`EXPERIENCES_HIDDEN =
-true` keeps the whole accordion off the page** until he has the pictures and the copy — his "Pics and Content coming" — so
-today the two names exist only inside the page script, the way `GEAR_HIDDEN` keeps the Aimpoint cards off. Publishing is one
-edit: set it to `false`, replace each `desc` (they all read the placeholder "Details, photos and dates coming soon."), then
-re-run the assembler. Pricing or booking would need a catalog row and a SKU — his call, not a follow-on to this.
+**Experiences chapter (Brockmann, 2026-09-08: "add in Courses = 'EXPERIENCES' Couples + groups = Pics and Content coming",
+then by email the four he wants):** `EXPERIENCES` in `mastsolutions-tesla.html` holds them — Couples Range Experience, Date
+Night at the Range, Bachelor Party at the Range, Corporate Team Training — and `renderExperiences()` appends them to the
+course catalog as one more accordion titled "Experiences", in the class-card style. They are not courses: no SKU, no D1
+catalog row, no price. **They are placeholders by his direction:** *"$pricing and write-ups can be done later - Placeholder
+for calendar + how to book + package details = can be emailed for details for right now."* So each card carries the name,
+one line ("Package details and pricing are being finalized. Email us for details."), the calendar placeholder ("Dates
+announced soon") and a How to book button that opens the same Request dialog the private-instruction rows use
+(`request_type: 'experience'` to the Worker's `/contact`) with the experience name in the message. **No price, no duration,
+no date and no package contents until he supplies them** — `EXPERIENCES_HIDDEN` is `false` now, and the two earlier
+placeholder entries (Couples, Groups) are gone. Pricing or booking would need a catalog row and a SKU — his call.
+
+**Every date is a waiting list (Brockmann, 2026-09-08: "Every Page should have BOOK CLASS + link to Calendar + ALL DATES
+for now CLASS FILLED until i get the info to you", corrected minutes later to "Not class filled-. Join waiting list"):**
+`WAITLIST_ALL_DATES` is one constant at the top of the booking script in `mastsolutions-tesla.html`. While it is `true`,
+every path into checkout — the catalog row, the weekend calendar's per-class action, and both answers to the prerequisite
+gate — reads **Join waiting list** and goes through `bookCourse()` to the Request dialog as `request_type: 'waitlist'`,
+carrying the course name and, when a weekend was chosen in the Book a Class calendar, that weekend. **The prerequisite gate
+still runs first.** `bookCourse()` is the single door, so the label and the destination cannot drift apart; the assembler
+folds the action label at build time and then asserts the words "Select Date" appear nowhere in the built page. Set the
+constant to `false` and the calendar → checkout path is exactly what it was (verified by diffing the built booking script
+against `main`). A Worker-side `BOOKINGS_PAUSED` flag is what should replace this constant once the schedule is real — the
+pause is then one deploy, not a rebuild of both pages. The Worker files an unknown `request_type` as `leadKind 'contact'`
+with the "Website contact:" subject, so `'experience'` and `'waitlist'` are stored and emailed today; the nicer subject
+lines are a Worker follow-up, not part of this.
+
+**Classes chapter, Range-style (Brockmann, 2026-09-08, over a screenshot of this chapter's heading and one of the Range
+chapter's CLICK TO VIEW button: "Delete this + add like the range + CLICK TO VIEW = gets rid of scrolling + Book Course =
+cal+ courses show", and on the heading itself "Delete SS 2 + Course Catalog enough"):** chapter `s6` is now the eyebrow, its
+one line and two controls in the Range chapter's style. **CLICK TO VIEW** opens `CATALOG_MODAL` — the same `#catalog` panel
+the booking script fills, the same accordions, course rows and prerequisite gate, in a dialog of the `#dcal` / `#req` family
+rather than in the page flow, so the chapter no longer scrolls. It is spliced **before** the calendar, gate and request
+dialogs, which share its z-index and must paint over it. **BOOK COURSE** calls `openDCal()` and is this chapter's
+Book-a-Class control (one button, not two). The backdrop is his photograph (*"For Cources - THIS BACKGROUND PIC NOT THE
+SS"*): `images/mast/courses-instructor.jpg` at `background-position 50% 15%` — the file is 1024x950 and his head sits in its
+top fifth, so a 16:9 cover from the centre crops it away. `courses-low-light.jpg` stays in the repo; chapter 07 still uses
+it.
 
 **Account credentials (Brockmann, 2026-09-08: "Need to add 'CREDENTIALS' to the account if LE Teacher"):** the account panel
 carries a Credentials block — type (`none` / `le` / `teacher`), agency or school, credential or badge number — saved by the
