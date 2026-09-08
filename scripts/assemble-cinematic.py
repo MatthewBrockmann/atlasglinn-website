@@ -108,7 +108,8 @@ CHROME = shell.chrome(
             ('03', 'images/mast/ship-deck-operators.jpg', 'center top'),   # the deck photograph cut to its lower half, so the four operators sit in the upper band behind the heading, not behind the tiles (owner, 2026-09-05: "Bring the ship up and the operators visible", then "SHOW THE OPERATORS on deck in background")
             ('04', 'images/mast/disc-cqb.jpg', None),
             ('05', 'images/mast/range/a08.jpg', 'center 45%'),   # the aerial (r01.jpg never existed: the old-site set is r001–r024)
-            ('06', 'images/mast/courses-low-light.jpg', None), ('07', 'images/mast/courses-low-light.jpg', 'center 60%'),
+            ('06', 'images/mast/courses-instructor.jpg', '50% 15%'),   # his photo (owner, 2026-09-08: "For Cources - THIS BACKGROUND PIC NOT THE SS"); near-square, the head sits in the top fifth, so 16:9 cover is anchored high
+            ('07', 'images/mast/courses-low-light.jpg', 'center 60%'),
             ('08', 'images/mast/gallery/g06.jpg', 'center 45%'),   # the carbine from behind the car (owner, 2026-09-05: "Replace this background with the attached JPG", on the Instructors chapter)
             ('09', 'images/mast/vehicular.jpg', None), ('10', 'images/mast/instructing-le.jpg', 'center 30%'),
             ('11', 'images/mast/privacy-aircraft.jpg', None), ('12', 'images/mast/disc-firearms.jpg', 'center 30%'), ('13', 'images/mast/contact-zodiac.jpg', None)],
@@ -352,7 +353,7 @@ SECTIONS = f"""
   <section class="panel" id="s6" data-section="06">
     <div>
       <div class="eyebrow">Course Catalog</div>
-      <h2 class="section-h">The <span class="gold">Classes.</span></h2>
+      <!-- no chapter title here (owner, 2026-09-08: "Delete SS 2 + Course Catalog enough") -->
       {BOOK_CTA}
       <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Fundamentals first, unless you have taken it before. Each discipline&rsquo;s Fundamentals course opens its other courses, and Select Date asks before the calendar opens.</b> P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
       <div class="catalog-wrap rise"><div class="glass"><div class="catalog-panel" id="catalog"></div></div>
@@ -706,6 +707,8 @@ assert 'BOOKING_ENDPOINT' not in html and 'offeredOn(wi)' not in html, 'dead boo
 assert ('const SECTIONS = %d;' % len(CHAPTERS)) in html and html.count('SECTION 01 / %02d' % len(CHAPTERS)) == 1, \
     'the HUD counter and the camera path must both count the chapters in CHAPTERS'
 assert 'classes run on every training weekend' in html, 'the calendar reads a class count against one date again'
+assert 'The <span class="gold">Classes.</span>' not in html and "images/mast/courses-instructor.jpg');background-position:50% 15%" in html, \
+    'the Classes chapter title is back or the Courses backdrop is not his photo (owner, 2026-09-08)'
 assert '#intro-seq.gone' in html and 'i.classList.add("gone")' in html, \
     'the splash releases the pointer on dismissal again: its tap lands on the CTA underneath'
 assert 'if(done||!i.isConnected||i.classList.contains("done")){document.removeEventListener("keydown",onKey);return}' in html, \
