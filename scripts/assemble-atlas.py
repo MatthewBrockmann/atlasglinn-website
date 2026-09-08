@@ -125,8 +125,8 @@ TOPNAV = [
     ('disaster-recovery.html', 'Disaster Recovery', None, 'Asset protection when it counts'),
     ('training.html', 'Training', [
         ('training.html', '&#9881;', 'Training Programs', 'EP, firearms, tactical &amp; security courses'),
-        ('mastsolutions.html', '&#127919;', 'MAST Solutions', 'Book a course'),
-        ('mastsolutions.html#gear', '&#128163;', 'IWA Training Products', 'Flashbangs, smoke &amp; diversionary devices'),
+        ('https://www.mastsolutions.com/', '&#127919;', 'MAST Solutions', 'Book a course'),
+        ('https://www.mastsolutions.com/#gear', '&#128163;', 'IWA Training Products', 'Flashbangs, smoke &amp; diversionary devices'),
     ], 'EP, firearms, tactical &amp; security courses'),
     ('technology.html', 'Technology', [
         ('technology.html', '&#128225;', 'Technology', 'Atlas EP, AI surveillance, drones'),
@@ -159,7 +159,7 @@ def badge_pair(cls):
 FOOTER_GROUPS = [
     ('Atlas Glinn', [('index.html', 'Home'), ('executive-protection.html', 'Executive Protection'), ('residential-protection.html', 'Residential Protection'),
                      ('disaster-recovery.html', 'Disaster Recovery'), ('technology.html', 'Technology'), ('ep-app.html', 'Atlas EP App')]),
-    ('MAST Solutions', [('training.html', 'Training Programs'), ('ep-app.html', 'Atlas EP Platform'), ('cuas-aerodefense.html', 'Counter-Drone Solutions'), ('uas.html', 'Autonomous UAS'), ('mastsolutions.html', 'MAST Solutions')]),
+    ('MAST Solutions', [('training.html', 'Training Programs'), ('ep-app.html', 'Atlas EP Platform'), ('cuas-aerodefense.html', 'Counter-Drone Solutions'), ('uas.html', 'Autonomous UAS'), ('https://www.mastsolutions.com/', 'MAST Solutions')]),
     ('Company', [('about.html', 'About Us'), ('careers.html', 'Careers'), ('contact.html', 'Contact')]),
 ]
 
@@ -542,7 +542,7 @@ build('index.html',
         badge='We Don&rsquo;t Do Press.')),
     ('Reviews', reviews_chapter(6)),   # the live home page's Reviews block: the six Google / LinkedIn quotes under their labels
     ('Contact', contact_chapter(7, 'Get in Touch', f'Protecting What {blue("Matters Most.")}', 'From U.S. Senators to Fortune 500 executives &mdash; discreet, adaptive protection at the highest level.',
-        cta('contact.html', 'Contact Us') + cta2('mastsolutions.html', 'Book Training &rarr;'))),
+        cta('contact.html', 'Contact Us') + cta2('https://www.mastsolutions.com/', 'Book Training &rarr;'))),
 ], photos=[(FILM_POSTER, None, FILM_TEASER), (HERO_EP, None), (FILM_POSTER, None), (CCTV, None), (EP_MATTERS, None), (AG3, None), (HERO_EP, None)],
       jsonld=jsonld_org())
 
@@ -594,7 +594,7 @@ build('executive-protection.html',
                  ('Range of Ops', 'Operational radius, response times, and jurisdictional boundaries.'), ('Advance Recon', 'Advance team reconnaissance &mdash; site surveys, threat ID, and venue clearance.'),
                  ('Schedule Tempo', 'Schedule and locations tempo &mdash; timing, transitions, and movement patterns.')]))),
     ('Transport', section(7, 'Secure Transport', f'Moving {blue("Safely.")}', 'Armed drivers, route planning, and tactical escort for motorcade operations. Motorcade and vehicular tactics are taught at MAST Solutions and run by the same people.',
-        '<div class="ctas rise">' + cta('contact.html', 'Plan a Movement') + cta2('mastsolutions.html', 'Vehicular Tactics Courses') + '</div>')),
+        '<div class="ctas rise">' + cta('contact.html', 'Plan a Movement') + cta2('https://www.mastsolutions.com/', 'Vehicular Tactics Courses') + '</div>')),
     ('Contact', contact_chapter(8, 'Protecting What Matters Most', f'From Senators to {blue("Fortune 500.")}', 'From U.S. Senators to Fortune 500 executives &mdash; discreet, adaptive protection at the highest level.',
         cta('contact.html', 'Contact Us') + cta2('residential-protection.html', 'Residential Protection &rarr;'))),
     ('Reviews', reviews_chapter(9)),
@@ -665,7 +665,7 @@ build('training.html',
       TRAINING, CREDITS, [
     ('Opening', opening('Dignitary Protection Training', f'{shimmer("Details")} <span class="white">Matter.</span>',
         'At Atlas Glinn, our lead instructor brings decades of experience, safeguarding dignitaries globally. We offer unparalleled Dignitary Protection training for professionals seeking to excel in high-stakes environments.',   # live: "over 30 years"; Brockmann 2026-09-05: decades, no year figure
-        cta('mastsolutions.html', 'Explore MAST Solutions') + cta2('#s2', 'Focus Areas'))),
+        cta('https://www.mastsolutions.com/', 'Explore MAST Solutions') + cta2('#s2', 'Focus Areas'))),
     ('Focus Areas', section(2, 'Training', f'Core Training {blue("Focus Areas.")}', '',
         cards([('Advanced Threat Assessment &amp; Risk Management', 'Learn to identify, evaluate, and mitigate threats before they materialize. Comprehensive risk analysis methodologies used by top-tier protection teams worldwide.', '', '🔎'),
                ('Tactical Driving &amp; Motorcade Operations', 'Master evasive driving techniques, route planning, and multi-vehicle motorcade coordination for secure ground transportation in any environment.', '', '🚗'),
@@ -676,7 +676,7 @@ build('training.html',
         cards([('Firearms', 'Advanced marksmanship and weapon handling', '', '🎯'), ('Hand Combat', 'Close-quarters fighting techniques', '', '🥊'), ('Knife Combat', 'Defensive and tactical knife skills', '', '🗡'), ('CQB', 'Close Quarters Battle operations', '', '⚔'),
                ('Fitness', 'Peak physical conditioning for duty', '', '💪'), ('Medical', 'Emergency medical &amp; trauma care', '', '⚕'), ('Leadership', 'Command, decision-making, dynamics', '', '⭐')], 'cards four')
         + '<p class="sub" style="margin-top:1.6rem">These seven disciplines are the foundation of every MAST Solutions program.</p>'
-        + '<div class="ctas rise">' + cta('mastsolutions.html', 'Explore MAST Solutions') + '</div>')),
+        + '<div class="ctas rise">' + cta('https://www.mastsolutions.com/', 'Explore MAST Solutions') + '</div>')),
     ('Media', section(4, 'Training Media', f'Featured on Modern Shooter TV and {blue("The Washington Post.")}', '',
         '<div class="yt-grid rise">'
         '<div class="yt-card"><div class="frame"><iframe src="https://www.youtube.com/embed/pSGWdaDglZE?rel=0&amp;modestbranding=1" title="Modern Shooter TV — MAST Solutions" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen></iframe></div><div class="info"><h4>Modern Shooter TV</h4><p>Lance M / Castro / Ray Cash &mdash; MAST Solutions</p></div></div>'
@@ -883,7 +883,7 @@ build('contact.html',
         '<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener" style="color:var(--gold-champagne);text-decoration:none">Instagram</a> &middot; <a href="https://www.linkedin.com/in/mastsolutions1" target="_blank" rel="noopener" style="color:var(--gold-champagne);text-decoration:none">LinkedIn</a> &middot; <a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener" style="color:var(--gold-champagne);text-decoration:none">Yelp</a>',
         contact_form('contact'))),
     ('Details', contact_chapter(3, 'Atlas Glinn, LLC', f'Details {blue("Matter.")}', 'Executive Protection &middot; Training &middot; AI Surveillance &middot; Counter-Drone Solutions &middot; Risk Management',
-        cta('mastsolutions.html', 'Book Training') + cta2('index.html', 'Home &rarr;'))),
+        cta('https://www.mastsolutions.com/', 'Book Training') + cta2('index.html', 'Home &rarr;'))),
 ], photos=[(HERO_EP, None, FILM_CONTACT), (PROTECTION, None), (AG3, None)],   # the live contact page opens on the corporate-buildings film
       jsonld=jsonld_org())
 
