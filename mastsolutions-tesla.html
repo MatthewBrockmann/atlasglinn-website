@@ -1055,7 +1055,7 @@ const GEAR = [
 // Prices (owner, 2026-09-06: "brain = has pricing + add to mastsolutions too"). Aimpoint: the MAP prices the live
 // atlasglinn.com/aimpoint-shop/ page shows for the same 31 SKUs (Minimum Advertised Price; dealer and volume pricing on
 // request). IWA: the shop prices recorded in the brain vault (agent-memory/project_iwa_product_specs.md), each, 3-unit
-// minimum, hazmat shipping included as a dealer. Still quote requests, never a cart (see CLAUDE.md, Gear chapter).
+// minimum, hazmat shipping included as a dealer. Still quote requests, never a cart (see CLAUDE.md, Store chapter).
 function GEAR_PRICE_TABLE(){ return {
   'AP-200691': '$617', 'AP-201006': '$627', 'AP-200777': '$669', 'AP-200871': '$669', 'AP-200907': '$778',
   'AP-200500': '$1,218', 'AP-200660': '$1,009', 'AP-200386': '$1,218', 'AP-200350': '$1,080', 'AP-200320': '$1,009',
@@ -1102,7 +1102,7 @@ let reqKind = 'private';
 function openReqDialog(kind, title, meta, eyebrow, fine){ reqKind = kind; lastFocus = document.activeElement; $('req-eyebrow').textContent = eyebrow; $('req-title').textContent = title; $('req-meta').textContent = meta; $('req-fine').textContent = fine;
   $('req-org-wrap').hidden = kind !== 'gear'; $('req-qty-wrap').hidden = kind !== 'gear'; if ($('req-qty')) $('req-qty').value = 1; $('req-msg').value = ''; $('req-err').hidden = true;
   const b = $('req-go'); b.disabled = false; b.textContent = kind === 'gear' ? 'Request Quote' : 'Send Request'; $('req-bd').classList.add('open'); $('req').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('req-name').focus(), 60); }
-function requestGear(i){ reqIdx = i; const g = GEAR[i]; if (window.mastTrack) mastTrack('gear_request', g.name, g.sku); openReqDialog('gear', g.name, g.sku + ' · ' + g.brand + ' · ' + g.fam + (g.price ? ' · ' + g.price + (g.device ? ' each' : ' MAP') : ''), 'Gear quote',
+function requestGear(i){ reqIdx = i; const g = GEAR[i]; if (window.mastTrack) mastTrack('gear_request', g.name, g.sku); openReqDialog('gear', g.name, g.sku + ' · ' + g.brand + ' · ' + g.fam + (g.price ? ' · ' + g.price + (g.device ? ' each' : ' MAP') : ''), 'Store quote',
   (gearOut(g) ? 'This device is currently out of stock; we confirm availability by email. ' : '')
   + (g.device ? 'IWA training devices need a PPC certification; orders are verified before fulfillment. 3-unit minimum, 27 per box; hazmat shipping is included. We confirm availability and shipping by email within one business day. Nothing is charged online.'
               : 'MAP price shown; dealer and volume pricing on request. We confirm availability and shipping by email within one business day. Nothing is charged online.')); }
