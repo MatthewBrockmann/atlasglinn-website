@@ -162,6 +162,69 @@ MAST Instructors chapter: the WordPress file named after him is a press-line sce
 atlasglinn.com", 2026-09-05), kept only as a backdrop. `scripts/compare-atlas.py` writes `preview/compare.html`, the
 section-by-section "as is vs new" sheet he reviews from.
 
+**The root switch — `wp-ops/atlas-static-root.php` (built 2026-09-08, rounds 2 and 3 the same day, NOT deployed).** The web
+server hands out real files before WordPress runs, so `/index.html` and `/about.html` already serve the uploaded static
+pages; `/` and the section permalinks are still WordPress, because no file is named there. This must-use plugin closes
+that on `muplugins_loaded`: an allowlist of fourteen paths — `/` → `index.html` and `/<slug>` → `<slug>.html` for
+about, careers, contact, cuas-aerodefense, disaster-recovery, ep-app, executive-protection, residential-protection,
+technology, training, uas, privacy, terms — read straight from the docroot and exited. Those are the **14 allowlisted
+pages, which is not the uploaded set**: `wp-upload.sh` uploads 17, and the three it sends that are not allowlisted —
+`mastsolutions.html`, `mast-capability-statement.html`, `signup.html` — keep answering at their own `.html` names and
+nowhere else. Exact and case-sensitive, so it is a prefix of nothing: **`/training` is a page, `/training/shop/` is the
+live IWA shop and never matches** (three pinned cases). **The query decides as much as the path:** a page is served
+only when the query is empty or every parameter name is a tracking tag (`utm_*`, `fbclid`, `gclid`, `msclkid`,
+`ttclid`, `mc_cid`, `mc_eid`, `ref`, `v`) — **any other name is WordPress's**, which is what leaves
+`/?wc-ajax=get_refreshed_fragments` (the shop's cart fragments), `/?s=`, `/?rest_route=`, `/?feed=`, `/?p=`,
+`/?preview=true`, `/?elementor-preview=` and every other query-var route on `/` working. That is also the escape:
+`?wp=1` is the documented one and `?anything=1` does the same. **Two names in that list are generic rather than
+vendor-specific** and are worth knowing about: `ref` is the referrer tag half the web uses, and `v` is in the list on
+purpose because the go-live probe below is `https://atlasglinn.com/?v=<unix ts>` and it has to reach the plugin past
+the edge cache. That generality is the risk in the allowlist — if anything on this site ever reads a `ref` or a `v`
+parameter, a static page answers it instead, and `?wp=1` is the escape until the name comes back out of the list.
+`/about/` is a 301 to `/about` because the pages' asset links are relative and would 404 one directory down, and **the 301 keeps the query** (`/about/?utm_source=x` →
+`/about?utm_source=x`), while `/about/?p=1` never reaches the redirect at all. **The 301 is sent only when the target
+page passes the same servability check the serve path runs** (round 3): otherwise a page that is missing, zero-byte or
+truncated has its own working WordPress permalink — `/privacy/`, `/careers/` — 301'd to a URL where the plugin falls
+through and WordPress renders the slug, which is a loop where the host puts the trailing slash back and a 404 where it
+does not. It carries `Cache-Control: public, max-age=300` and the same `Vary`, so a redirect a browser or an edge has
+already stored is never more than five minutes out of reach of the two kill switches. A page that is missing, a
+symlink, outside the docroot, unreadable, empty, **truncated (no closing `</html>` — the SFTP transfer that died
+halfway)**, or whose bytes would leave wrapped in an output buffer that refuses to drop, falls through to WordPress
+with one `error_log` line rather than putting a broken 200 or a mis-counted `Content-Length` into the CDN. It writes
+nothing — no option, no cron event, no REST route — so removing the file removes the feature. **Deploy is GATED on Brockmann
+replying "go"** to the review email (the brain vault's `00-rules/website-go-live-gate.md`: the root switch is a
+separate, gated deploy). **Two kill switches:** `define('ATLAS_STATIC_ROOT_DISABLED', true);` in wp-config.php, or —
+the one to use, since the saved login is SFTP-only — an empty file named `.atlas-static-root-off` dropped beside the
+plugin in mu-plugins. **The header to look for** is `X-Atlas-Static-Root: 1.2.0;file=<name>;b=<first 8 of sha1 of the
+plugin file>`; a URL without it is one WordPress answered, and `b=` is what proves a re-upload actually replaced the
+bytes (the response's `ETag` is a different digest — the first 8 of sha1 of the page).
+`php wp-ops/tests/atlas-static-root-test.php` is the harness (fake docroot, fake `$_SERVER`, 282 pinned cases across
+five scenarios, no host and no network). **Guard detection is measured each round, not assumed: 37 mutants — one guard
+deleted per mutant — run 2026-09-08, 36 detected.** 35 of them go red as root. The 36th is `is_readable()`, which uid 0
+cannot make false (it reads a `chmod 000` file anyway), so the harness prints `SKIP` with that reason rather than a
+pass that tests nothing, and the mutant was re-run under uid 65534 where it does go red — that one is an
+**environment-only exception, not an untested guard**, and on the host PHP runs unprivileged. The 37th is an
+**equivalent mutant**: dropping the `is_string()` type guard in the If-Modified-Since parser changes no result on any
+value a request header can carry (10 inputs measured, 0 differing), so there is nothing for a case to detect. Running
+the harness costs nothing and cleans up after itself — each child gets its own bounded `error_log` under `ulimit -f`
+inside one run directory the runner deletes on the way out, including after it kills a child at the deadline. That is
+not decoration: on 2026-09-08 a mutant of this suite spun, logged a notice per iteration to PHP's default unbounded
+`error_log`, and put 3.47 GB into the system temp directory before anyone noticed. **CACHE — the deploy is not done
+when the file lands.** GoDaddy's WPaaS/Cloudflare layer keeps serving the WordPress `/` it already cached, so `curl -sI https://atlasglinn.com/ | grep -i x-atlas-static-root`
+can print **nothing while the plugin is installed and firing correctly**, and nothing purges it on its own:
+`atlas-cache-watch` fingerprints the docroot's `*.html` plus `build-manifest.json` and `mast-ping.txt`, so dropping a
+file into `mu-plugins` does **not** move the fingerprint and does **not** trip the watcher. So the deploy carries one
+more step — re-upload `mast-ping.txt` with a fresh stamp (that moves the fingerprint and the watcher flushes within 15
+min) or click Flush Cache in the dashboard — and the verification is **cache-busted URL first**
+(`https://atlasglinn.com/?v=<unix ts>`, and `v` is in the tracking allowlist precisely so this probe still reaches the
+plugin), **then the plain URL after the flush**. Header on the first and nothing on the second = stale edge cache, not
+a broken plugin. **There is no deploy script here on purpose:** once `claude/wp-cache-watch` merges,
+`scripts/wp-cache-watch-deploy.sh` is generalised to take a plugin path and sends this file the same way. Go-live
+follow-up before the switch flips: the eleven slug pages plus
+`privacy`/`terms` still carry `<link rel="canonical">` and `og:url` pointing at their `.html` names (only `index.html`
+already says `https://atlasglinn.com/`), so `scripts/assemble-atlas.py` `meta()` — and `sitemap.xml` — want the slug
+URLs, or serving `/about` with a canonical of `/about.html` splits the page in search.
+
 ## Privacy statement rule (Brockmann, 2026-09-03; repeated 2026-09-05)
 
 `privacy.html` is his text, confirmed 2026-09-03 and carried on both sites. It **never names infrastructure, hosting,

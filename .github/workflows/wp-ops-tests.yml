@@ -38,7 +38,7 @@ jobs:
       # && list, so `bash -n "$s" && echo ok` swallowed every syntax error in the loop and the step still went green.
       - name: Syntax
         run: |
-          for f in wp-ops/atlas-cache-watch.php wp-ops/tests/atlas-cache-watch-test.php; do
+          for f in wp-ops/atlas-cache-watch.php wp-ops/tests/atlas-cache-watch-test.php wp-ops/atlas-static-root.php wp-ops/tests/atlas-static-root-test.php; do
             php -l "$f" || exit 1
           done
           for s in scripts/wp-cache-watch-deploy.sh scripts/wp-flush.sh scripts/tests/wp-cache-watch-deploy-test.sh; do
@@ -51,3 +51,11 @@ jobs:
 
       - name: Deploy-script harness (stub sftp/curl, no host)
         run: bash scripts/tests/wp-cache-watch-deploy-test.sh
+
+      # The root-switch harness was fired-observed but wired to nothing until 2026-09-08 (round-3 verifier): a commit could
+      # change wp-ops/atlas-static-root.php and CI went green without running one of its 282 cases. Every child PHP it
+      # spawns writes error_log into its own run directory under a file-size ulimit, because a mutant once wrote 3.47 GB.
+      - name: Static-root harness (fake docroot, 282 pinned cases)
+        run: |
+          ulimit -f 200000
+          php -d error_log="$RUNNER_TEMP/atlas-static-root-parent.log" -d log_errors_max_len=1024 wp-ops/tests/atlas-static-root-test.php
