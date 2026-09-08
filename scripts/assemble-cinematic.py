@@ -464,12 +464,12 @@ META = """<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><l
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
 <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
 <meta name="keywords" content="MAST Solutions, tactical training Houston, firearms training Houston TX, carbine course, select-fire training, NVG course, CQB course, team tactics, Atlas Glinn training, Matthew Brockmann">
-<link rel="canonical" href="https://atlasglinn.com/mastsolutions.html">
+<link rel="canonical" href="https://www.mastsolutions.com/">
 <meta property="og:title" content="MAST Solutions | Details Matter | Tactical Training, Houston TX">
 <meta property="og:description" content="Twenty-one courses, one standard. Firearms through select-fire and night vision, CQB, combatives, medical, leadership. Houston, Texas since 2005. Book a weekend online.">
 <meta property="og:image" content="https://atlasglinn.com/images/mast/hero-casualty-carry.jpg">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://atlasglinn.com/mastsolutions.html">
+<meta property="og:url" content="https://www.mastsolutions.com/">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="robots" content="index, follow">
 <meta name="author" content="Atlas Glinn, LLC">
@@ -486,7 +486,7 @@ META = """<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><l
   "image": "https://atlasglinn.com/images/mast/hero-casualty-carry.jpg",
   "address": { "@type": "PostalAddress", "streetAddress": "2450 Fondren Rd, Suite 255", "addressLocality": "Houston", "addressRegion": "TX", "postalCode": "77063", "addressCountry": "US" },
   "telephone": "+1-281-654-8100",
-  "url": "https://atlasglinn.com/mastsolutions.html",
+  "url": "https://www.mastsolutions.com/",
   "sameAs": [
     "https://www.instagram.com/atlasglinn_mastsolutions/",
     "https://www.linkedin.com/in/mastsolutions1/",
@@ -604,12 +604,14 @@ import build_manifest; build_manifest.stamp_and_write([out])   # the page's own 
 print('wrote', out, len(html.encode('utf-8')), 'bytes')
 
 # mastsolutions.com's own copy (Brockmann, 2026-09-07: "when I use www.mastsolutions.com it should be that url not - atlasglinn/").
-# The same page as index.html for the cPanel host whose primary domain is mastsolutions.com: canonical, og:url and the
-# JSON-LD url become https://mastsolutions.com/, links to the Atlas pages become absolute (they stay on atlasglinn.com), links
-# to this page itself become "/", and the assets stay relative (the publish job copies the same asset tree beside it).
-# .github/workflows/deploy-mastsolutions.yml uploads dist/mastsolutions/ when the cPanel secrets exist.
+# Live since 2026-09-08 04:16 UTC at https://www.mastsolutions.com/ from GitHub Pages (.github/workflows/pages-mastsolutions.yml
+# publishes dist/mastsolutions/ on every change; the apex forwards to www at GoDaddy). Since then the canonical, og:url and
+# JSON-LD url of BOTH copies are https://www.mastsolutions.com/ (META above), so search engines see one page; in this copy the
+# remaining links to this page itself become "/", links to the Atlas pages become absolute (they stay on atlasglinn.com), and
+# the assets stay relative (the publish job copies the same asset tree beside it). deploy-mastsolutions.yml (cPanel) is the
+# unused alternative.
 import json as _json
-ms = html.replace('https://atlasglinn.com/mastsolutions.html', 'https://mastsolutions.com/')
+ms = html.replace('https://atlasglinn.com/mastsolutions.html', 'https://www.mastsolutions.com/')
 ms = re.sub(r'href="mastsolutions\.html(#[^"]*)?"', lambda m: 'href="/%s"' % (m.group(1) or ''), ms)
 ms = re.sub(r'href="([a-z0-9-]+\.html(?:#[^"]*)?)"', r'href="https://atlasglinn.com/\1"', ms)
 os.makedirs(f'{REPO}/dist/mastsolutions', exist_ok=True)
@@ -617,5 +619,5 @@ ms_out = f'{REPO}/dist/mastsolutions/index.html'
 open(ms_out, 'w', encoding='utf-8').write(ms)
 build_manifest.stamp(ms_out)
 open(f'{REPO}/dist/mastsolutions/build-manifest.json', 'w', encoding='utf-8').write(_json.dumps({'index.html': build_manifest.digest(open(ms_out, encoding='utf-8').read())}) + '\n')
-assert 'href="index.html"' not in ms and 'https://mastsolutions.com/' in ms, 'mastsolutions.com copy not rewritten'
+assert 'href="index.html"' not in ms and 'https://www.mastsolutions.com/' in ms and 'atlasglinn.com/mastsolutions.html' not in ms, 'mastsolutions.com copy not rewritten'
 print('wrote', ms_out, 'for mastsolutions.com')

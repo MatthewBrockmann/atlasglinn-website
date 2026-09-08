@@ -318,8 +318,21 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   static files or it did not run; only the Mac's `~/.cache/wp-upload/last-flush` heartbeat can say which, and he has no
   laptop on the road. Until then the visible copies of both pages are a day old for anyone whose edge cached them; the
   one-tap fallback from a phone is wp-admin's top bar → Flush Cache (`https://www.atlasglinn.com/wp-admin/`), which
-  the GoDaddy app and dashboard do not show him. Follow-up once it
-  serves: point the atlasglinn.com copy's canonical at mastsolutions.com (two copies of one page otherwise). What was
+  the GoDaddy app and dashboard do not show him. **LIVE 2026-09-08 04:16 UTC (Pages run #6):** his taps on the
+  phone: the two forwarding A rows could not be deleted (grey trash with a "?" even after the forward was gone), so
+  the plan flipped to the www host: Forwarding `mastsolutions.com → https://www.mastsolutions.com` (301), the four
+  185.199 A rows removed, `CNAME www → matthewbrockmann.github.io` kept, GitHub custom domain **www.mastsolutions.com**
+  (GitHub committed it to the root `CNAME` at 04:02 UTC). Runner: `Pages: https://www.mastsolutions.com/
+  cname=www.mastsolutions.com status=built https=True`; `https://mastsolutions.com/ → 301 https://www.mastsolutions.com/`;
+  `https://www.mastsolutions.com/ → 200 title=[MAST Solutions | Details Matter | Tactical Training, Houston TX]`. So
+  the MAST page is served at its own address with a certificate; the Pages workflow's DOMAIN is now
+  `www.mastsolutions.com` and its guidance names the forward + www CNAME. The follow-up was done in the same pass:
+  canonical, og:url and JSON-LD url of **both** copies read `https://www.mastsolutions.com/` (the atlasglinn.com copy
+  stays online and points at the domain). **Flush, same probe:** the Mac uploaded again at 04:11 UTC with no click
+  and the plain `/mastsolutions.html` / `/index.html` were still the 12:26 / 15:51 copies — two uploads, two REST
+  flushes, nothing purged: the private-page save does not clear static files. `wp-flush.sh` now re-measures after the
+  REST save and runs the WP-CLI path over SSH when the plain URL is still stale (#71); confirmed only when a probe
+  reads fresh. What was
   built for the cPanel path (kept as the alternative; unused while Pages serves):
   `python3 scripts/assemble-cinematic.py` now also writes `dist/mastsolutions/index.html` (+ its `build-manifest.json`):
   the MAST page with canonical / og:url / JSON-LD url `https://mastsolutions.com/`, self-links `/`, Atlas links absolute
