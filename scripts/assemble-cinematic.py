@@ -621,3 +621,23 @@ build_manifest.stamp(ms_out)
 open(f'{REPO}/dist/mastsolutions/build-manifest.json', 'w', encoding='utf-8').write(_json.dumps({'index.html': build_manifest.digest(open(ms_out, encoding='utf-8').read())}) + '\n')
 assert 'href="index.html"' not in ms and 'https://www.mastsolutions.com/' in ms and 'atlasglinn.com/mastsolutions.html' not in ms, 'mastsolutions.com copy not rewritten'
 print('wrote', ms_out, 'for mastsolutions.com')
+
+# robots.txt + sitemap.xml for www.mastsolutions.com (2026-09-08). The root robots.txt / sitemap.xml are atlasglinn.com's
+# and are NOT staged for the Pages site, so until now Google's fetch of https://www.mastsolutions.com/robots.txt was a 404
+# (allowed by default, but no sitemap pointer) and Search Console had nothing to submit. One URL: the site is one page.
+# The same crawler allow-list as the root robots.txt (AI answer engines welcomed), pointed at this domain's sitemap.
+import datetime as _dt
+_ms_lastmod = _dt.date.today().isoformat()
+_ms_robots = '\n'.join(
+    ['# www.mastsolutions.com — MAST Solutions (Atlas Glinn, LLC), Houston TX', '', 'User-agent: *', 'Allow: /', '']
+    + sum([[f'User-agent: {ua}', 'Allow: /', ''] for ua in
+           ('GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'PerplexityBot', 'ClaudeBot', 'Claude-Web', 'Google-Extended', 'Applebot-Extended', 'CCBot')], [])
+    + ['Sitemap: https://www.mastsolutions.com/sitemap.xml']) + '\n'
+_ms_sitemap = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+               '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+               '  <url>\n    <loc>https://www.mastsolutions.com/</loc>\n'
+               f'    <lastmod>{_ms_lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>1.0</priority>\n  </url>\n'
+               '</urlset>\n')
+open(f'{REPO}/dist/mastsolutions/robots.txt', 'w', encoding='utf-8').write(_ms_robots)
+open(f'{REPO}/dist/mastsolutions/sitemap.xml', 'w', encoding='utf-8').write(_ms_sitemap)
+print('wrote dist/mastsolutions/robots.txt + sitemap.xml')
