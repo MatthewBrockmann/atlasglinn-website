@@ -22,6 +22,9 @@ on:
 permissions:
   contents: read
 
+# NOT a required status check while the paths filters above are here: a pull request that touches nothing under them
+# never starts this job, so a required context would sit pending forever and block the merge. Making it required means
+# dropping the filters (or adding a paths-ignore twin that reports success) first.
 jobs:
   harnesses:
     runs-on: ubuntu-latest
@@ -31,12 +34,16 @@ jobs:
       - name: Versions
         run: php -v | head -1; bash --version | head -1
 
+      # `|| exit 1`, never `&& echo ok`: the job's shell is `bash -e`, and -e is EXEMPT from the left-hand side of an
+      # && list, so `bash -n "$s" && echo ok` swallowed every syntax error in the loop and the step still went green.
       - name: Syntax
         run: |
-          php -l wp-ops/atlas-cache-watch.php
-          php -l wp-ops/tests/atlas-cache-watch-test.php
+          for f in wp-ops/atlas-cache-watch.php wp-ops/tests/atlas-cache-watch-test.php; do
+            php -l "$f" || exit 1
+          done
           for s in scripts/wp-cache-watch-deploy.sh scripts/wp-flush.sh scripts/tests/wp-cache-watch-deploy-test.sh; do
-            bash -n "$s" && echo "bash -n ok: $s"
+            bash -n "$s" || exit 1
+            echo "bash -n ok: $s"
           done
 
       - name: Plugin harness (stub WordPress, 6 scenarios)

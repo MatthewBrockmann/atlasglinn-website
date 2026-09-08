@@ -315,18 +315,25 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   `tick` the last cron tick, in coarse buckets with no raw timestamp on a public response. **`fp=0;tick=never` means
   WP-Cron is not running it; `fp=1;tick=fresh` means healthy and idle.** `wp-flush.sh` prints that line on every run and
   says so plainly when the tick is stale; `wp-upload.sh` says the purge is coming.
-  **The deploy fails closed** (round 3, tested): **sftp does not report per-command failure for a batch arriving on
+  **The deploy fails closed** (rounds 3–4, tested): **sftp does not report per-command failure for a batch arriving on
   stdin** — OpenSSH aborts on a failed `put`/`rm` only under `-b`, and `-b` sets BatchMode, which refuses the Keychain
   askpass — so the session's exit code and its text are printed as an ADVISORY and decide nothing. **The served
   fingerprint is the proof:** the run requires the `b=<sha1-8>` the host publishes to equal the sha1 of the file it
   just sent, one retry after 15 s, then a non-zero exit with the SERVED value in the heartbeat (a same-version copy
   already on the host used to pass). **`--remove` is proven by a second sftp session running a bare `ls` on the remote
-  path** — "not found" is `removed`, the path listed back is `rm-failed`, anything else is `rm-unknown` and exits
-  non-zero; the header is advisory only there, because the plugin stops sending it whenever
+  path — and only when that session PROVES it reached the host and NAMES the path** (round 4): the capture must carry
+  the `sftp> ls` echo OpenSSH writes for a command read off stdin, the session must exit 0, and a line must say that
+  *this* file is not found. The path listed back is `rm-failed`; **everything else is `rm-unknown` and exits non-zero**
+  — a session that never connected, a login banner or a shell's own `command not found` that merely contains the words
+  "not found", a subsystem or auth failure, a "not found" about another path, a non-zero exit. Searching the whole
+  session for "not found" first (what round 3 did) meant a Mac with no `sftp` binary reported a successful removal, so
+  `sftp` is now a preflight check beside the Keychain one and an unknown argument aborts instead of meaning "install".
+  The header is advisory only there, because the plugin stops sending it whenever
   `ATLAS_CACHE_WATCH_DISABLED`/`_UNINSTALL` is defined, so header-absence would report a removal that never happened.
-  Every abort before the verdict stamps `aborted-<reason>` over the heartbeat, the probe follows redirects so the final
-  response is the one classified, and there is no download fallback — the file always comes from the checkout the
-  script runs in.
+  Every abort before the verdict stamps `aborted-<reason>` over the heartbeat, the probe follows redirects and reads
+  the header from the **FINAL response block of the `-D -` chain** (a header on a 301 hop is the hop's, and crediting
+  it would report a deploy from a response no reader sees), and there is no download fallback — the file always comes
+  from the checkout the script runs in.
   **How to disable:** `define('ATLAS_CACHE_WATCH_DISABLED', true);` in `wp-config.php`, or
   `bash scripts/wp-cache-watch-deploy.sh --remove`. **`--remove` deletes the file but leaves the two options and the
   cron event** — a must-use plugin gets no uninstall hook. To clear those, set
@@ -334,9 +341,11 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   lock, unschedules the tick and does nothing else. Heartbeat: `~/.cache/wp-upload/last-watch-deploy`.
   **Tests:** `php wp-ops/tests/atlas-cache-watch-test.php` (stub WordPress + stub `WPaaS\Cache_V2`, 6 scenarios, 106
   assertions) and `bash scripts/tests/wp-cache-watch-deploy-test.sh` (stub sftp/curl/security/shasum/sleep, no host
-  touched, 95 cases). Both carry pinned counts — a scenario that dies after its first assertion used to report green —
+  touched, 139 cases). Both carry pinned counts — a scenario that dies after its first assertion used to report green —
   and both run in CI on `wp-ops/**`, `scripts/wp-*.sh` or `scripts/tests/**` (`.github/workflows/wp-ops-tests.yml`,
-  no secrets).
+  no secrets; the job's Syntax step is `bash -n "$s" || exit 1`, because `bash -e` does not fail on the left side of an
+  `&&`, and it must NOT be made a required check while those paths filters exist — a PR that misses them never starts
+  it and the context would hang pending).
   **Merged, NOT deployed:** the plugin is in the repo and nothing is on the host until the deploy script runs from the
   Mac; the header is what proves it.
 - **mastsolutions.com** has no site *yet*: it is a GoDaddy domain forward to atlasglinn.com, pointed at

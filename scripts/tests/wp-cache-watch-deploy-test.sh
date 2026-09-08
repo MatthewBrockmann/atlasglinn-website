@@ -17,10 +17,17 @@
 #   · the version alone is not proof; the build fingerprint the plugin publishes has to equal the file just sent.
 #   · a missing header gets exactly one retry and then a non-zero exit.
 #   · --remove is decided by an sftp `ls` of the same path, never by the header: a plugin still on the host but disabled
-#     by a wp-config constant sends no header either. Listed = rm-failed, "not found" = removed, anything else unknown.
+#     by a wp-config constant sends no header either. And the words are not the answer — round 4: "removed" needs the
+#     session to have REACHED the host (the `sftp> ls` echo OpenSSH writes for a command read off stdin), to have exited
+#     0, and to have named THIS path as missing. A shell's `command not found`, a login banner or a subsystem failure
+#     carrying the words "not found", a "not found" about some other path, or a non-zero exit are all rm-unknown, even
+#     when the file is still there; a banner that says "not found" over a session that lists the file is rm-failed.
+#   · `sftp` itself is a preflight check, so a machine without it aborts instead of reading its shell's error as a host
+#     answer; and an argument the script does not know aborts before anything is sent (it used to mean "install").
 #   · every abort before the verdict stamps `aborted-<reason>` over the heartbeat, so a previous run's `deployed` can
 #     never be read as this run's.
-#   · the probe follows redirects, and it is the FINAL response that is classified.
+#   · the probe follows redirects, and the header is read from the FINAL response block of the -D - chain: a header on
+#     a 301 hop belongs to the hop, and crediting it would report a deploy from a response no reader ever sees.
 #   · scripts/wp-flush.sh's cascade heredoc carries the plugin's redaction and its exact allowlist (it runs on the host,
 #     where no scenario can reach it, so it is checked as text here).
 #
@@ -52,29 +59,77 @@ REMOTE_PATH="html/wp-content/mu-plugins/atlas-cache-watch.php"
 
 # ── stubs ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 # sftp answers two kinds of batch. A `put`/`rm` batch returns STUB_SFTP_RC and whatever STUB_SFTP_OUT says (the point of
-# the round-3 cases: rc and text are advisory). An `ls` batch answers per STUB_LS_MODE — and it echoes the command after
-# the "sftp> " prompt exactly as OpenSSH does when stdin is not a tty, so the path appears in the output of a successful
-# ls AND of a failed one; the script has to read past the echo.
+# the round-3 cases: rc and text are advisory). An `ls` batch answers per STUB_LS_MODE — and when it gets far enough it
+# echoes the command after the "sftp> " prompt exactly as OpenSSH does when stdin is not a tty, so the path appears in
+# the output of a successful ls AND of a failed one; the script has to read past the echo.
+#
+# The modes that print no echo are the round-4 point: `cmdnotfound` is what a shell says when the binary is missing,
+# `banner` is a login banner that happens to contain the words, `subsystem` and `authfail` are sessions that reached
+# sshd and stopped there. Every one of them carries "not found"/"no such file"/an error while the file is untouched on
+# the host, and every one used to be read as a successful removal. `banner-present` connects, prints a banner with the
+# words in it, and then LISTS the file. `gone-other` connects and says "not found" about a different path.
 cat > "$STUB/sftp" <<'EOS'
 #!/usr/bin/env bash
 n=$(( $(cat "$STUB_STATE/sftp.n" 2>/dev/null || echo 0) + 1 )); printf '%s\n' "$n" > "$STUB_STATE/sftp.n"
 printf '%s\n' "$*" >> "$STUB_STATE/sftp.args"
 batch="$(cat)"
 printf '%s\n' "$batch" >> "$STUB_STATE/sftp.stdin"
-printf 'Connected to stub.\n'
 case "$batch" in
   ls\ *)
     p="$(printf '%s\n' "$batch" | sed -n 's/^ls "\(.*\)"$/\1/p' | head -1)"
-    printf 'sftp> ls "%s"\n' "$p"
     case "${STUB_LS_MODE:-gone}" in
-      present) printf '%s\n' "$p";;
-      fail)    printf 'Connection closed\n'; printf 'sftp> \n'; exit "${STUB_LS_RC:-255}";;
-      *)       printf 'Can'"'"'t ls: "%s" not found\n' "$p";;
+      cmdnotfound)
+        printf 'bash: sftp: command not found\n'
+        exit "${STUB_LS_RC:-127}";;
+      banner)
+        printf 'Notice: the legacy control panel is not found on this account.\n'
+        printf 'This service allows sftp connections only.\n'
+        printf 'Connection closed\n'
+        exit "${STUB_LS_RC:-255}";;
+      subsystem)
+        printf 'subsystem request failed on channel 0\n'
+        printf 'Connection closed\n'
+        exit "${STUB_LS_RC:-255}";;
+      authfail)
+        printf 'Permission denied, please try again.\n'
+        printf 'stub@host: Permission denied (publickey,password).\n'
+        printf 'Connection closed\n'
+        exit "${STUB_LS_RC:-255}";;
+      banner-present)
+        printf 'Notice: the legacy control panel is not found on this account.\n'
+        printf 'Connected to stub.\n'
+        printf 'sftp> ls "%s"\n' "$p"
+        printf '%s\n' "$p"
+        printf 'sftp> \n'
+        exit "${STUB_LS_RC:-0}";;
+      gone-other)
+        printf 'Connected to stub.\n'
+        printf 'sftp> ls "%s"\n' "$p"
+        printf 'Can'"'"'t ls: "html/wp-content/mu-plugins/some-other-plugin.php" not found\n'
+        printf 'sftp> \n'
+        exit "${STUB_LS_RC:-0}";;
+      present)
+        printf 'Connected to stub.\n'
+        printf 'sftp> ls "%s"\n' "$p"
+        printf '%s\n' "$p"
+        printf 'sftp> \n'
+        exit "${STUB_LS_RC:-0}";;
+      fail)
+        printf 'Connected to stub.\n'
+        printf 'sftp> ls "%s"\n' "$p"
+        printf 'Connection closed\n'
+        printf 'sftp> \n'
+        exit "${STUB_LS_RC:-255}";;
+      *)
+        printf 'Connected to stub.\n'
+        printf 'sftp> ls "%s"\n' "$p"
+        printf 'Can'"'"'t ls: "%s" not found\n' "$p"
+        printf 'sftp> \n'
+        exit "${STUB_LS_RC:-0}";;
     esac
-    printf 'sftp> \n'
-    exit "${STUB_LS_RC:-0}"
     ;;
 esac
+printf 'Connected to stub.\n'
 [ -n "${STUB_SFTP_OUT:-}" ] && printf '%s\n' "$STUB_SFTP_OUT"
 printf 'sftp> \n'
 exit "${STUB_SFTP_RC:-0}"
@@ -121,6 +176,27 @@ exit 0
 EOS
 chmod 755 "$STUB"/*
 
+# For the preflight case: a PATH carrying every tool the script needs EXCEPT sftp. It is built by symlinking the real
+# PATH rather than by unsetting one entry, because leaving the system dirs on PATH would let a run that skipped the
+# check find the REAL sftp and open a session to the real host. Nothing here can: there is no sftp binary to find.
+NOSFTP="$WORK/bin-nosftp"; mkdir -p "$NOSFTP"
+_ifs="$IFS"; IFS=:
+for d in $PATH; do
+  IFS="$_ifs"
+  [ -d "$d" ] || { IFS=:; continue; }
+  for f in "$d"/*; do
+    bn="${f##*/}"
+    case "$bn" in sftp|ssh|scp|curl|security|shasum|sleep) continue;; esac
+    [ -x "$f" ] || continue
+    [ -e "$NOSFTP/$bn" ] || ln -s "$f" "$NOSFTP/$bn" 2>/dev/null || true
+  done
+  IFS=:
+done
+IFS="$_ifs"
+for stub in curl security shasum sleep; do rm -f "$NOSFTP/$stub"; cp "$STUB/$stub" "$NOSFTP/$stub"; done
+chmod 755 "$NOSFTP"/curl "$NOSFTP"/security "$NOSFTP"/shasum "$NOSFTP"/sleep
+[ -e "$NOSFTP/sftp" ] && { echo "FAIL harness: the no-sftp PATH has an sftp on it"; exit 1; }
+
 # ── runner ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 PASSN=0; FAILN=0
 t() { if [ "${2:-0}" = 1 ]; then PASSN=$((PASSN+1)); printf 'PASS %s\n' "$1"; else FAILN=$((FAILN+1)); printf 'FAIL %s%s\n' "$1" "${3:+ — $3}"; fi; }
@@ -128,19 +204,22 @@ b() { if "$@" >/dev/null 2>&1; then printf 1; else printf 0; fi; }
 eq() { if [ "$1" = "$2" ]; then printf 1; else printf 0; fi; }
 reset_case() {
   C_SFTP_RC=0; C_SFTP_OUT=""; C_LS_MODE=gone; C_LS_RC=0
-  C_CURL_RC=0; C_CODE=200; C_CODE2=200; C_HDR=""; C_HDR2=""; C_REDIRECT=0
-  C_NO_KC=0; C_SRC="$PLUGIN"; C_HOME=""
+  C_CURL_RC=0; C_CODE=200; C_CODE2=200; C_HDR=""; C_HDR2=""; C_REDIRECT=0; C_HOP=""
+  C_NO_KC=0; C_SRC="$PLUGIN"; C_HOME=""; C_NO_SFTP=0
 }
 calls() { cat "$STATE/$1.n" 2>/dev/null || printf 0; }
 run_case() {
   CASE="$1"; shift
   STATE="$WORK/$CASE/state"; CHOME="$WORK/${C_HOME:-$CASE}/home"; OUT="$WORK/$CASE/out"
   mkdir -p "$STATE" "$CHOME"
-  PATH="$STUB:$PATH" HOME="$CHOME" STUB_STATE="$STATE" STUB_PW="$STUB_PW" \
+  CASE_PATH="$STUB:$PATH"; [ "$C_NO_SFTP" = 1 ] && CASE_PATH="$NOSFTP"
+  # "$BASH", not `bash`: the case that runs on the sftp-less PATH must not depend on that PATH to find its shell.
+  PATH="$CASE_PATH" HOME="$CHOME" STUB_STATE="$STATE" STUB_PW="$STUB_PW" \
     STUB_SFTP_RC="$C_SFTP_RC" STUB_SFTP_OUT="$C_SFTP_OUT" STUB_LS_MODE="$C_LS_MODE" STUB_LS_RC="$C_LS_RC" \
     STUB_CURL_RC="$C_CURL_RC" STUB_CODE="$C_CODE" STUB_CODE2="$C_CODE2" STUB_REDIRECT="$C_REDIRECT" \
+    STUB_HDR_HOP="$C_HOP" \
     STUB_HDR="$C_HDR" STUB_HDR2="$C_HDR2" STUB_NO_KEYCHAIN="$C_NO_KC" ATLAS_WATCH_SRC="$C_SRC" \
-    bash "$SCRIPT" "$@" > "$OUT" 2>&1
+    "$BASH" "$SCRIPT" "$@" > "$OUT" 2>&1
   RC=$?
   STAMPF="$CHOME/.cache/wp-upload/last-watch-deploy"
   STAMPV="$(cat "$STAMPF" 2>/dev/null || printf '')"
@@ -227,6 +306,14 @@ t "redirect/one-probe"          "$(eq "$(calls curl)" 1)" "curl calls $(calls cu
 t "redirect/hop-header-ignored" "$(b bash -c '! grep -q "deadbeef" "$1"' _ "$OUT")" "the 301 hop's header was classified"
 t "redirect/heartbeat-final"    "$(b grep -q "deployed served=$GOOD http=200" "$STAMPF")" "$STAMPV"
 
+# ── 9b. the hop carries a PERFECT header and the final response carries none — last-header-wins used to call this a ──
+# ── deploy, and the page a reader lands on has no plugin on it at all ───────────────────────────────────────────────
+reset_case; C_REDIRECT=1; C_HOP="$GOOD"; C_HDR=""; C_HDR2=""; run_case redirect-hop-only
+t "redirect-hop-only/exit-non-zero" "$(b test "$RC" -ne 0)" "exit $RC"
+t "redirect-hop-only/no-deployed-claim" "$(b bash -c '! grep -q DEPLOYED-OBSERVED "$1"' _ "$OUT")" "$(grep -m1 'verify:' "$OUT")"
+t "redirect-hop-only/header-absent"  "$(b grep -q 'header-absent served=none http=200' "$STAMPF")" "$STAMPV"
+t "redirect-hop-only/retried-once"   "$(eq "$(calls curl)" 2)" "curl calls $(calls curl)"
+
 # ── 10. --remove: the ls says the path is not there ─────────────────────────────────────────────────────────────────
 reset_case; C_LS_MODE=gone; run_case remove-ok --remove
 t "remove-ok/exit-0"            "$(eq "$RC" 0)" "exit $RC"
@@ -255,6 +342,47 @@ t "remove-ls-fails/heartbeat-unknown" "$(b grep -q 'rm-unknown' "$STAMPF")" "$ST
 t "remove-ls-fails/says-unknown"  "$(b grep -q 'UNKNOWN' "$OUT")"
 t "remove-ls-fails/no-removed-claim" "$(b bash -c '! grep -q "the file is gone" "$1"' _ "$OUT")"
 
+# ── 12b. --remove: the words "not found" without a session — every shape that used to read as a removal ─────────────
+# Each of these carries /not found|no such file|error/ text while the file is untouched on the host. The old classifier
+# grepped the whole session for those words FIRST, so each one of them reported "removed" and exited 0.
+reset_case; C_LS_MODE=cmdnotfound; C_LS_RC=0; run_case remove-cmd-not-found --remove
+t "remove-cmdnotfound/exit-non-zero"  "$(b test "$RC" -ne 0)" "exit $RC"
+t "remove-cmdnotfound/rm-unknown"     "$(b grep -q 'rm-unknown' "$STAMPF")" "$STAMPV"
+t "remove-cmdnotfound/no-removed-claim" "$(b bash -c '! grep -q "the file is gone" "$1"' _ "$OUT")" "$(grep -m1 'verify:' "$OUT")"
+t "remove-cmdnotfound/names-the-missing-echo" "$(b grep -q 'never ran on the host' "$OUT")" "$(grep -m1 'classified' "$OUT")"
+
+reset_case; C_LS_MODE=banner; C_LS_RC=255; run_case remove-banner --remove
+t "remove-banner/exit-non-zero"       "$(b test "$RC" -ne 0)" "exit $RC"
+t "remove-banner/rm-unknown"          "$(b grep -q 'rm-unknown' "$STAMPF")" "$STAMPV"
+t "remove-banner/no-removed-claim"    "$(b bash -c '! grep -q "the file is gone" "$1"' _ "$OUT")"
+
+reset_case; C_LS_MODE=subsystem; C_LS_RC=255; run_case remove-subsystem --remove
+t "remove-subsystem/exit-non-zero"    "$(b test "$RC" -ne 0)" "exit $RC"
+t "remove-subsystem/rm-unknown"       "$(b grep -q 'rm-unknown' "$STAMPF")" "$STAMPV"
+
+reset_case; C_LS_MODE=authfail; C_LS_RC=255; run_case remove-authfail --remove
+t "remove-authfail/exit-non-zero"     "$(b test "$RC" -ne 0)" "exit $RC"
+t "remove-authfail/rm-unknown"        "$(b grep -q 'rm-unknown' "$STAMPF")" "$STAMPV"
+
+# connected, exit 0, banner says "not found" — and the ls lists the file: still there, and the run has to say so
+reset_case; C_LS_MODE=banner-present; C_LS_RC=0; run_case remove-banner-present --remove
+t "remove-banner-present/exit-non-zero" "$(b test "$RC" -ne 0)" "exit $RC"
+t "remove-banner-present/rm-failed"     "$(b grep -q 'rm-failed' "$STAMPF")" "$STAMPV"
+t "remove-banner-present/says-still-listed" "$(b grep -q 'STILL LISTED' "$OUT")"
+t "remove-banner-present/evidence-is-the-listing" "$(b grep -q "evidence: $REMOTE_PATH" "$OUT")" "$(grep -m1 'classified' "$OUT")"
+
+# connected and exit 0, but the "not found" is about a different file
+reset_case; C_LS_MODE=gone-other; C_LS_RC=0; run_case remove-other-path --remove
+t "remove-other-path/exit-non-zero"   "$(b test "$RC" -ne 0)" "exit $RC"
+t "remove-other-path/rm-unknown"      "$(b grep -q 'rm-unknown' "$STAMPF")" "$STAMPV"
+t "remove-other-path/no-removed-claim" "$(b bash -c '! grep -q "the file is gone" "$1"' _ "$OUT")"
+
+# the ls listed the file but the session also exited non-zero: unknown, never a removal and never a bare rm-failed
+reset_case; C_LS_MODE=present; C_LS_RC=255; run_case remove-present-rc255 --remove
+t "remove-present-rc255/exit-non-zero" "$(b test "$RC" -ne 0)" "exit $RC"
+t "remove-present-rc255/rm-unknown"    "$(b grep -q 'rm-unknown' "$STAMPF")" "$STAMPV"
+t "remove-present-rc255/evidence-names-the-exit" "$(b grep -q 'ls session exited 255' "$OUT")" "$(grep -m1 'classified' "$OUT")"
+
 # ── 13. --remove: the header is still served, but the ls says gone — the header is advisory ─────────────────────────
 reset_case; C_LS_MODE=gone; C_HDR="$GOOD"; C_HDR2="$GOOD"; run_case remove-header-lags --remove
 t "remove-header-lags/exit-0"    "$(eq "$RC" 0)" "exit $RC"
@@ -278,6 +406,25 @@ t "missing-source/nothing-sent"  "$(eq "$(calls sftp)" 0)" "sftp calls $(calls s
 t "missing-source/no-download"   "$(b grep -q 'never downloads one' "$OUT")"
 t "missing-source/no-raw-url"    "$(b bash -c '! grep -q raw.githubusercontent "$1"' _ "$SCRIPT")"
 t "missing-source/heartbeat-aborted" "$(b grep -q 'aborted-no-source' "$STAMPF")" "$STAMPV"
+
+# ── 15b. no sftp on this machine at all: the removal cannot be attempted, so nothing may be claimed about it ────────
+# The case runs on a PATH with no sftp binary anywhere, so even a run that skipped the check could not reach a host.
+reset_case; C_NO_SFTP=1; run_case no-sftp --remove
+t "no-sftp/exit-non-zero"       "$(b test "$RC" -ne 0)" "exit $RC"
+t "no-sftp/nothing-attempted"   "$(eq "$(calls sftp)" 0)" "sftp calls $(calls sftp)"
+t "no-sftp/heartbeat-aborted"   "$(b grep -q 'aborted-no-sftp' "$STAMPF")" "$STAMPV"
+t "no-sftp/no-removed-claim"    "$(b bash -c '! grep -q "the file is gone" "$1"' _ "$OUT")" "$(tail -3 "$OUT" | tr '\n' ' ')"
+
+# ── 15c. an argument the script does not know must not mean "install" ───────────────────────────────────────────────
+reset_case; run_case bad-arg --remvoe
+t "bad-arg/exit-non-zero"       "$(b test "$RC" -ne 0)" "exit $RC"
+t "bad-arg/nothing-sent"        "$(eq "$(calls sftp)" 0)" "sftp calls $(calls sftp)"
+t "bad-arg/nothing-probed"      "$(eq "$(calls curl)" 0)" "curl calls $(calls curl)"
+t "bad-arg/names-the-argument"  "$(b grep -q -- '--remvoe' "$OUT")" "$(head -2 "$OUT" | tr '\n' ' ')"
+t "bad-arg/heartbeat-aborted"   "$(b grep -q 'aborted-bad-arg' "$STAMPF")" "$STAMPV"
+reset_case; C_HDR="$GOOD"; C_HDR2="$GOOD"; run_case install-word --install
+t "install-word/exit-0"         "$(eq "$RC" 0)" "exit $RC"
+t "install-word/uploaded"       "$(b grep -q '^put ' "$STATE/sftp.stdin")" "$(cat "$STATE/sftp.stdin" 2>/dev/null | tr '\n' ' ')"
 
 # ── 16. an abort must not leave the PREVIOUS run's verdict standing in the heartbeat ────────────────────────────────
 reset_case; C_HOME=abort-stamp; C_HDR="$GOOD"; C_HDR2="$GOOD"; run_case abort-stamp-deploy
@@ -308,16 +455,24 @@ t "plugin/allowlist-is-exact" \
   "$(b grep -Fq "array('WPaaS\\\\Cache_V2', 'WPaaS\\\\Cache')" "$PLUGIN")"
 t "plugin/no-prefix-allowlist"  "$(b bash -c '! grep -Fq "strpos(ltrim(" "$1"' _ "$PLUGIN")"
 
-# ── 18. the script's own header must not claim the exit code is the test ────────────────────────────────────────────
+# ── 18. the script's own header must not claim the exit code is the test, and the round-4 gates must be IN it ───────
 t "doc/says-rc-is-not-a-signal" "$(b grep -q 'does not report per-command failure' "$SCRIPT")"
 t "doc/no-exit-code-enforced-claim" "$(b bash -c '! grep -q "exit code is tested" "$1"' _ "$SCRIPT")"
+t "wire/sftp-preflight-present"  "$(b grep -q 'command -v sftp >/dev/null 2>&1 || die no-sftp' "$SCRIPT")"
+t "wire/arg-case-refuses-unknown" "$(b grep -q 'die bad-arg' "$SCRIPT")"
+t "wire/ls-requires-the-echo"    "$(b grep -q "grep -Eq '\^sftp> \*ls" "$SCRIPT")"
+t "wire/ls-requires-the-path"    "$(b grep -q 'BASE_RE' "$SCRIPT")"
+t "wire/ls-rc-forces-unknown"    "$(b grep -q 'lsrc" -ne 0 \]; then result="rm-unknown"' "$SCRIPT")"
+t "wire/probe-reads-last-block"  "$(b grep -q 'if (resp) last=cur' "$SCRIPT")"
+t "doc/header-says-names-the-path" "$(b grep -q 'NAMES THE PATH' "$SCRIPT")"
+t "doc/header-says-final-block"  "$(b grep -q 'LAST response block' "$SCRIPT")"
 
 # ── 19. the stub password never appears anywhere this run wrote ─────────────────────────────────────────────────────
 LEAK="$(grep -rl "$STUB_PW" "$WORK" 2>/dev/null | grep -v "^$STUB/" | head -3 | tr '\n' ' ')"
 t "no-secret-in-any-output" "$(b test -z "$LEAK")" "found in: $LEAK"
 
 # ── the harness guards itself: a run that stops early prints fewer cases than this ──────────────────────────────────
-EXPECTED_CASES=95
+EXPECTED_CASES=139
 TOTAL=$((PASSN + FAILN))
 if [ "$TOTAL" -lt "$EXPECTED_CASES" ]; then
   FAILN=$((FAILN+1))
