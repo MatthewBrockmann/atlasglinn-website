@@ -614,6 +614,14 @@ import json as _json
 ms = html.replace('https://atlasglinn.com/mastsolutions.html', 'https://www.mastsolutions.com/')
 ms = re.sub(r'href="mastsolutions\.html(#[^"]*)?"', lambda m: 'href="/%s"' % (m.group(1) or ''), ms)
 ms = re.sub(r'href="([a-z0-9-]+\.html(?:#[^"]*)?)"', r'href="https://atlasglinn.com/\1"', ms)
+# Search Console ownership for www.mastsolutions.com (2026-09-08). Verification by DNS TXT failed: the zone carries
+# google-site-verification=u-Y9Tw… (another Google account's token) while atlasglinn.com's zone — the property his
+# Search Console already shows — carries 8ndz0nAQ…. Same account, so the HTML-tag method verifies a URL-prefix
+# property https://www.mastsolutions.com/ with no DNS row. The token is public (it is in atlasglinn.com's DNS); only
+# this copy gets it, the atlasglinn.com copy of the page stays untouched.
+ms = ms.replace('<meta name="robots" content="index, follow">',
+                '<meta name="robots" content="index, follow">\n<meta name="google-site-verification" content="8ndz0nAQFFs0_kFld2vZ4e3E0wnDR9LbP6bai5HK-g0">', 1)
+assert ms.count('google-site-verification') == 1, 'verification meta not placed'
 os.makedirs(f'{REPO}/dist/mastsolutions', exist_ok=True)
 ms_out = f'{REPO}/dist/mastsolutions/index.html'
 open(ms_out, 'w', encoding='utf-8').write(ms)
