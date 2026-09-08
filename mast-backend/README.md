@@ -408,7 +408,12 @@ where `401` came back for a verified one — and the same overwrite let a strang
 owner had started and not finished. Now **nothing on an existing row is written**: verified or not, the row keeps its
 password, its name and its token version, and the sign-up only re-sends the code (throttled). The password the stranger
 typed never authenticates, so `/account/login` answers them `401 bad_login`, exactly as a verified address does. The
-same PBKDF2 hash is computed and discarded on that path, so the answer costs the same time it costs everywhere else.
+same PBKDF2 hash is computed and discarded on that path, so the branch that stores nothing costs what the branches that
+store something cost. **One residual, measured rather than glossed:** a brand-new address runs one extra statement (its
+`INSERT`) that neither existing-address branch runs. Both paths await a PBKDF2 hash and a Resend round trip either way,
+so that single D1 statement sits inside a couple of hundred milliseconds of work that happens on both — but it is a
+difference, and it is the reason the statement-count parity claimed above is claimed for `/account/forgot`,
+`/account/resend`, `/account/reset` and `/account/verify` and not for `/account/register`.
 
 **Which raises the obvious question — how does the real owner get their address back?** Through the mailbox, which is the
 only evidence of ownership this system has. `POST /account/forgot` now serves **unverified** accounts as well, and a
