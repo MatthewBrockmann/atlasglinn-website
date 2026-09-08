@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Assemble the Atlas Glinn pages on the cinematic shell (scripts/cinematic_shell.py, ATLAS blue palette).
 
-Brockmann, 2026-09-03: "use SAME front end and redo Atlasglinn.com", mobile first. Every page here is chapters on the
-Tier 3 trailer shell that carries mastsolutions.html, with a site menu (MENU button, full-screen overlay) so the
-pages reach each other. Copy is the site's own copy, kept word for word where it makes a claim; images are local
-where the repo has them and WordPress-hosted where it does not (scripts/handoff-urls.txt brings those over).
+Brockmann, 2026-09-03: "use SAME front end and redo Atlasglinn.com", mobile first. Then 2026-09-08, on the chapter
+preview: "too many clicks to get to content and back is confusing - look at how easy the current site is and rebuild"
+and "atlasglinn needs to mimic the current site with the new build". So every page keeps the Tier 3 trailer's palette,
+type, buttons, cards and emblem scene, and takes the live site's shape: a sticky top bar with the live menu and its
+Training dropdown, the Enter / Skip Intro splash, a full-bleed muted hero film with a sound toggle, one continuous
+scroll of sections (the `id="sN"` anchors still land), the live footer and a back-to-top control. The classic layout
+lives in scripts/atlas_shell.py; mastsolutions.html is untouched. Copy is the site's own copy, kept word for word
+where it makes a claim; images are local where the repo has them and WordPress-hosted where it does not
+(scripts/handoff-urls.txt brings those over).
 
 Edit THIS FILE and re-run it; never hand-edit the generated pages, the next run overwrites them:
   index.html, executive-protection.html, residential-protection.html, disaster-recovery.html, training.html,
@@ -29,6 +34,7 @@ def _previewize(html):
     return html.replace('<meta name="robots" content="index, follow">', '<meta name="robots" content="noindex, nofollow">', 1)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cinematic_shell as shell
+import atlas_shell as atlas
 
 API = 'https://mast-booking-backend.matthew-221.workers.dev'
 SITE = 'https://atlasglinn.com/'
@@ -99,51 +105,70 @@ def yt_card(vid, title, sub, end=None):
     return (f'<div class="yt-grid one rise"><div class="yt-card"><div class="frame"><iframe src="https://www.youtube.com/embed/{vid}?rel=0&amp;modestbranding=1&amp;playsinline=1{"&amp;end=%d" % end if end else ""}" title="{title}" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>'
             f'<div class="info"><h4>{title}</h4><p>{sub}</p></div></div></div>')
 
-NAV = [
-    ('index.html', 'Home', 'Atlas Glinn, LLC'),
-    ('executive-protection.html', 'Executive Protection', 'Dignitary and close protection'),
-    ('residential-protection.html', 'Residential Protection', 'Estates, guard force, AI surveillance'),
-    ('disaster-recovery.html', 'Disaster Recovery', 'Asset protection when it counts'),
-    ('training.html', 'Training', 'EP, firearms, tactical &amp; security courses'),
-    ('mastsolutions.html', 'MAST Solutions', 'Book a course'),
-    # The live Training submenu (capture-live, 2026-09-05). Both product lines are quoted through the MAST Gear chapter.
-    ('mastsolutions.html#gear', 'IWA Training Products', 'Flashbangs, smoke &amp; diversionary devices'),
-    # ('mastsolutions.html#gear', 'Aimpoint Optics', 'Red dot sights &amp; magnifiers'),   # hidden 2026-09-07 (owner: "hide Aimpoint for now"); GEAR_HIDDEN in mastsolutions-tesla.html
-    ('technology.html', 'Technology', 'Atlas EP, AI surveillance, drones'),
-    ('cuas-aerodefense.html', 'Counter-Drone', 'AirWarden by AeroDefense'),
-    ('uas.html', 'Autonomous UAS', 'Sunflower Labs'),
-    ('ep-app.html', 'Atlas EP App', 'Now in Early Access'),   # the live menu's Atlas EP App entry goes to the platform page
-    ('about.html', 'About', 'Mission and team'),
-    ('careers.html', 'Careers', 'Open positions'),
-    ('contact.html', 'Contact Us', PHONE),
-    ('privacy.html', 'Privacy Policy', 'What we keep, and for how long'),
+# The live site's top bar, item for item (capture-live: reference/desktop/live/index.html <nav id="main-nav">). The
+# Training dropdown carries the two banners the live menu carries; Aimpoint Optics is the third on the live site and
+# stays hidden here (owner, 2026-09-07: "hide Aimpoint for now"). No live page's bar has a Sign in. The descriptor on
+# each item is the line the live menu prints under its label, word for word; Technology carries the live menu's
+# Counter-Drone, Autonomous UAS and Atlas EP App entries, so uas.html is one tap from every page.
+TOPNAV = [
+    ('index.html', 'Home', None, 'Atlas Glinn, LLC'),
+    ('executive-protection.html', 'Executive Protection', None, 'Dignitary and close protection'),
+    ('residential-protection.html', 'Residential Protection', None, 'Estates, guard force, AI surveillance'),
+    ('disaster-recovery.html', 'Disaster Recovery', None, 'Asset protection when it counts'),
+    ('training.html', 'Training', [
+        ('training.html', '&#9881;', 'Training Programs', 'EP, firearms, tactical &amp; security courses'),
+        ('mastsolutions.html', '&#127919;', 'MAST Solutions', 'Book a course'),
+        ('mastsolutions.html#gear', '&#128163;', 'IWA Training Products', 'Flashbangs, smoke &amp; diversionary devices'),
+    ], 'EP, firearms, tactical &amp; security courses'),
+    ('technology.html', 'Technology', [
+        ('technology.html', '&#128225;', 'Technology', 'Atlas EP, AI surveillance, drones'),
+        ('cuas-aerodefense.html', '&#128737;', 'Counter-Drone', 'AirWarden by AeroDefense'),
+        ('uas.html', '&#128641;', 'Autonomous UAS', 'Sunflower Labs'),
+        ('ep-app.html', '&#128241;', 'Atlas EP App', 'Now in Early Access'),
+    ], 'Atlas EP, AI surveillance, drones'),
+    ('about.html', 'About', None, 'Mission and team'),
+    ('careers.html', 'Careers', None, 'Open positions'),
+    ('contact.html', 'Contact Us', 'cta', PHONE),
+    ('privacy.html', 'Privacy Policy', 'mobile', 'What we keep, and for how long'),
 ]
 
-SOCIAL = ('<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;'
-          '<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;'
-          '<a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a>&middot;'
-          '<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;'
-          '<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a>&middot;' + shell.REVIEW_LINK)
+SOCIAL_LINKS = [('https://www.instagram.com/atlasglinn_mastsolutions/', 'Instagram'),
+                ('https://www.linkedin.com/in/mastsolutions1/', 'LinkedIn'),
+                ('https://www.youtube.com/@atlasglinn', 'YouTube'),
+                ('https://www.facebook.com/mastsolutions', 'Facebook'),
+                ('https://www.yelp.com/biz/atlas-glinn-houston', 'Yelp')]
+SOCIAL_ROW = ''.join(f'<a href="{u}" target="_blank" rel="noopener">{t}</a>' for u, t in SOCIAL_LINKS) + shell.REVIEW_LINK
+
+
 def badge_pair(cls):
     """The live site's two badges: the image with its caption under it, as the current pages print them."""
     return (f'<div class="{cls}">'
             f'<div class="badge-item"><img src="{BADGE_BEST}" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div>'
             '<div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div>')
 
-FOOT = ('&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions &middot; Executive Protection &middot; Training &middot; AI Surveillance &middot; Counter-Drone &middot; Risk Management<br>'
-        '<a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a>&middot;' + SOCIAL)
-# The live site's footer, closing every page (Brockmann, 2026-09-06: "Add all content as in the old version - just updating
-# the front end"): its four link groups, the two badges and the rights line, in the shell's small-print style. build() puts
-# it at the end of the last chapter; the menu overlay keeps the short FOOT.
-def _fl(pairs): return ' &middot; '.join(f'<a href="{h}">{t}</a>' for h, t in pairs)
-FOOT_SITE = ('<span class="fg">Atlas Glinn</span>' + _fl([('index.html', 'Home'), ('executive-protection.html', 'Executive Protection'), ('residential-protection.html', 'Residential Protection'),
-                                                        ('disaster-recovery.html', 'Disaster Recovery'), ('technology.html', 'Technology'), ('ep-app.html', 'Atlas EP App')])
-             + '<br><span class="fg">MAST Solutions</span>' + _fl([('training.html', 'Training Programs'), ('ep-app.html', 'Atlas EP Platform'), ('cuas-aerodefense.html', 'Counter-Drone Solutions'), ('mastsolutions.html', 'MAST Solutions')])
-             + '<br><span class="fg">Company</span>' + _fl([('about.html', 'About Us'), ('careers.html', 'Careers'), ('about.html#s5', 'Resources'), ('contact.html', 'Contact')])
-             + f'<br><span class="fg">Connect</span>2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063 &middot; <a href="{TEL}">{PHONE}</a> &middot; <a href="mailto:{EMAIL}">{EMAIL}</a><br>' + SOCIAL
-             + badge_pair('badges')
-             + '<a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br>'
-             '<a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a>')
+# The live footer, closing every page: the two badges, its four link groups, the address block with the socials, and
+# the rights line. Same links, same wording, in the shell's type.
+FOOTER_GROUPS = [
+    ('Atlas Glinn', [('index.html', 'Home'), ('executive-protection.html', 'Executive Protection'), ('residential-protection.html', 'Residential Protection'),
+                     ('disaster-recovery.html', 'Disaster Recovery'), ('technology.html', 'Technology'), ('ep-app.html', 'Atlas EP App')]),
+    ('MAST Solutions', [('training.html', 'Training Programs'), ('ep-app.html', 'Atlas EP Platform'), ('cuas-aerodefense.html', 'Counter-Drone Solutions'), ('uas.html', 'Autonomous UAS'), ('mastsolutions.html', 'MAST Solutions')]),
+    ('Company', [('about.html', 'About Us'), ('careers.html', 'Careers'), ('about.html#s5', 'Resources'), ('contact.html', 'Contact')]),
+]
+
+
+def site_footer():
+    groups = ''.join('<div class="footer-section"><h4>%s</h4><ul>' % head
+                     + ''.join(f'<li><a href="{u}">{t}</a></li>' for u, t in links) + '</ul></div>'
+                     for head, links in FOOTER_GROUPS)
+    connect = ('<div class="footer-section"><h4>Connect</h4>'
+               f'<p>2450 Fondren Rd, Suite 255<br>Houston, TX 77063<br><a href="{TEL}">{PHONE}</a><br><a href="mailto:{EMAIL}">{EMAIL}</a></p>'
+               f'<div class="footer-social">{SOCIAL_ROW}</div></div>')
+    return (badge_pair('footer-awards') + '<div class="footer-grid">' + groups + connect + '</div>'
+            + '<div class="footer-bottom">'
+            '<a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> '
+            '2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br>'
+            '<a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a></div>')
+
 
 # ── Page-level styles on top of the shell: text cards, steps, specs, forms, quotes, link tiles, team blocks ──
 EXTRA_CSS = r"""
@@ -162,10 +187,6 @@ EXTRA_CSS = r"""
   /* A section photograph in the flow of the page, where the current page shows it. */
   img.figure { display:block; width:100%; max-width:900px; margin:2rem auto 0; border:1px solid rgba(201,168,76,.22); }
   .quotes .card .meta { margin-bottom:.4rem; }
-  /* The live footer at the end of every page: group names in the accent, the badges between the links and the rights line. */
-  .foot.site { margin:3.2rem auto 0; line-height:2.4; text-align:center; letter-spacing:.22em; max-width:900px; }
-  .foot.site .fg { color:var(--gold-champagne); margin-right:.9rem; }
-  .foot.site .badges { margin:1.2rem auto .8rem; }
   .team.nopic { grid-template-columns:1fr; }   /* a team member without a photograph: the bio takes the row */
   /* Atlas EP page: the live page's capability tags and tier prices. */
   .tags { margin-top:.8rem; display:flex; flex-wrap:wrap; gap:.35rem; }
@@ -219,8 +240,6 @@ EXTRA_CSS = r"""
   .badges img { height:84px; width:auto; border:0; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); }
   .badges .badge-item { text-align:center; }
   .badges .badge-item p { margin-top:.8rem; font-family:'Orbitron',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-champagne); }
-  /* The live nav's logo mark, in the top-left header line. */
-  .hud.tl img.hud-logo { height:18px; width:auto; vertical-align:-5px; margin-right:.5rem; filter:drop-shadow(0 0 12px rgba(201,168,76,.55)); }
   .lede { font-size:clamp(1.05rem,1.4vw,1.3rem); color:var(--text); max-width:820px; margin:0 auto 2rem; line-height:1.6; font-weight:300; }
   .lede b { color:var(--gold-champagne); font-weight:600; }
   .partner { display:grid; grid-template-columns:1fr minmax(240px,420px); gap:1.6rem; max-width:1150px; margin:0 auto; text-align:left; align-items:center; }
@@ -263,8 +282,10 @@ FORM_JS = r"""
 
 # ── Chapter builders ──
 def opening(eyebrow, h1, sub, ctas, num='01'):
+    """The hero: build() drops the page's film, its scrim and the sound toggle in at the marker."""
     return f'''
-  <section class="panel" id="s1" data-section="{num}">
+  <section class="panel hero" id="s1" data-section="{num}">
+    <!--HERO-MEDIA-->
     <div>
       <div class="eyebrow">{eyebrow}</div>
       <h1 class="mega">{h1}</h1>
@@ -370,26 +391,26 @@ def meta(title, desc, path, og_image, jsonld=''):
     url = SITE + ('' if path == 'index.html' else path)
     if not og_image.startswith('http'): og_image = SITE + og_image   # share cards need an absolute URL; local images are repo paths
     return (f'<title>{title}</title>\n<meta name="description" content="{desc}">\n<link rel="canonical" href="{url}">\n'
+            f'<link rel="icon" href="{LOGO_MARK}" type="image/png">\n'
             f'<meta property="og:title" content="{title}">\n<meta property="og:description" content="{desc}">\n<meta property="og:image" content="{og_image}">\n'
             f'<meta property="og:type" content="website">\n<meta property="og:url" content="{url}">\n<meta name="twitter:card" content="summary_large_image">\n'
             '<meta name="robots" content="index, follow">\n<meta name="author" content="Atlas Glinn, LLC">\n<meta name="theme-color" content="#050810">\n' + jsonld)
 
 def build(path, title, desc, og_image, credits, chapters, photos, jsonld=''):
-    """chapters: [(label, html)]; photos: [(image, pos or None)] one per chapter."""
+    """chapters: [(label, html)]; photos: [(image, pos or None[, film])] one per section, in order. The first entry's
+    film is the hero: it autoplays muted and full-bleed behind the opening headline, with the live sound toggle. Every
+    section stays in one scroll and keeps its `id="sN"`, so every link that ever pointed at one still lands."""
     n = len(chapters)
-    # The live footer closes every page, whichever chapter is last (Contact on most pages, Reviews on the rest).
-    last_label, last_html = chapters[-1]
-    k = last_html.rfind('</div>', 0, last_html.rfind('</section>'))   # inside the panel's content div, under the chapter's last block
-    assert k > 0, f'{path}: last chapter has no content div'
-    chapters = chapters[:-1] + [(last_label, last_html[:k] + f'<div class="foot site rise">{FOOT_SITE}</div>' + last_html[k:])]
-    chrome = shell.chrome(credits=credits, wordmark='ATLAS GLINN',
-                          photos=[(f'{k:02d}', *entry) for k, entry in enumerate(photos, 1)],
-                          hud_tl=f'<img class="hud-logo" src="{LOGO_MARK}" alt="ATLAS GLINN" loading="lazy">ATLAS GLINN &middot; HOUSTON', hud_tl_href='index.html',
-                          hud_bl='HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W', hud_br='DETAILS MATTER',
-                          chapters=[(f's{k}', f'{k:02d} &middot; {label}') for k, (label, _) in enumerate(chapters, 1)])
-    body = ('\n' + chrome + shell.sitenav(NAV, path, FOOT) + '\n<div class="content">\n' + ''.join(h for _, h in chapters) + '\n</div>\n')
-    css = shell.css(shell.ATLAS, '', shell._recolor(shell.SITENAV_CSS + EXTRA_CSS, shell.ATLAS)) + HERO_CSS
-    html = shell.head(meta(title, desc, path, og_image, jsonld), css) + body + shell.tail(shell.three(n, shell.ATLAS), shell.SITENAV_JS + FORM_JS)
+    assert len(photos) == n, f'{path}: {len(photos)} backdrops for {n} sections'
+    assert len(photos[0]) <= 3 and all(len(e) == 2 for e in photos[1:]), f'{path}: only the opening section takes a film'
+    first_label, first_html = chapters[0]
+    assert '<!--HERO-MEDIA-->' in first_html, f'{path}: the opening section is not a hero'
+    chapters = [(first_label, first_html.replace('<!--HERO-MEDIA-->', atlas.hero_media(*photos[0])))] + chapters[1:]
+    chrome = atlas.chrome(credits[0], 'ATLAS GLINN', credits[1], [(img, pos) for img, pos, *_ in photos])
+    body = ('\n' + chrome + atlas.nav(TOPNAV, path, LOGO_MARK) + '\n<div class="content">\n'
+            + ''.join(h for _, h in chapters) + '\n</div>\n' + atlas.footer(site_footer()) + atlas.BACK_TO_TOP)
+    css = atlas.css(shell.ATLAS, EXTRA_CSS) + HERO_CSS
+    html = shell.head(meta(title, desc, path, og_image, jsonld), css) + body + shell.tail(atlas.three(n, shell.ATLAS), atlas.CLASSIC_JS + FORM_JS)
     for banned in ('images/mast/', 'images/gallery/', 'deep-sentinel', 'man-s-hand-holding-drone'):
         assert banned not in html, f'{path}: {banned} is not approved Atlas Glinn imagery'
     if LIVE_LINKS:
@@ -519,7 +540,7 @@ build('executive-protection.html',
       'Expert dignitary protection services by Atlas Glinn. Discreet, adaptable security for U.S. Senators, Fortune 500 executives, dignitaries, and their families. Houston, TX.',
       OG_DEFAULT, CREDITS, [
     ('Opening', opening('Executive Protection', f'{shimmer("Details")} <span class="white">Matter.</span>',
-        'Discreet, adaptable security &mdash; so you focus on what matters, not on us. Our team brings decades of combined experience protecting high-level executives, dignitaries, and their families.',   # the live page's lead; its "two sitting U.S. Senators" line is the figure he called wrong (2026-09-04)
+        'Discreet, adaptable security &mdash; so you focus on what matters, not on us. Our team brings decades of combined experience protecting high-level executives, dignitaries, and their families.',   # the live page's lead
         cta('contact.html', 'Request a 30-minute posture assessment') + cta2('#s2', 'Our Services'))),   # the live page's hero button
     ('Services', section(2, 'Our Services', f'Comprehensive {blue("Protection.")}', 'Comprehensive Dignitary Protection Tailored to Your Needs.',
         cards([('Close Protection', 'Dedicated personal protection officers providing 24/7 security coverage with discreet, professional presence tailored to your lifestyle and threat profile.'),
@@ -529,7 +550,7 @@ build('executive-protection.html',
                ('Crisis Management', 'Rapid response protocols and contingency planning for high-threat scenarios. Expert coordination during emergencies to protect lives and assets.'),
                ('Emergency Response', 'Immediate tactical response capabilities including evacuation procedures, medical coordination, and real-time threat neutralization protocols.')]))),
     ('Who Leads', section(3, 'Who Leads the Detail', f'Led From {blue("Experience.")}',
-        'Built around the standard two sitting U.S. Senators required.',   # the live page's line, under the same lead
+        '',   # the live page's "two sitting U.S. Senators" line is the figure he called wrong (2026-09-04); removed
         '<p class="sub quote lead">&ldquo;At Atlas Glinn, we understand that details matter. Our team of highly trained professionals is dedicated to providing exceptional dignitary protection tailored to your unique needs. Whether you require discreet, low-profile security or a highly visible presence, we adapt seamlessly to ensure your safety and peace of mind.&rdquo;</p>'
         '<div class="ctas rise">' + cta2('about.html', 'Meet the Team') + '</div>')),
     ('OPORD', section(4, 'Method', f'The OPORD {blue("Framework.")}', 'Atlas Glinn applies military-grade Operations Order (OPORD) methodology to every executive protection engagement.',
@@ -765,7 +786,7 @@ BROCKMANN_BIO = ('Matthew Brockmann is the visionary founder of both MAST Soluti
                  + PRIVACY_LINE + ' He is a certified Firearms Instructor for civilians, law enforcement, and agencies, and a Gracie Jiu-Jitsu practitioner.')
 # The live About page's team, word for word (capture-live, 2026-09-05): its founder lead, and the two members the April
 # build did not have. Renobato has no photograph on the live page (an icon), so her block carries the wordmark.
-FOUNDER_LEAD = ('When a principal&rsquo;s safety is non-negotiable, the margin for error is exactly zero. That&rsquo;s the standard Matthew Brockmann built his work around &mdash; running protection details where intent, baseline cues, and seconds decide outcomes. He founded MAST Solutions in 2005. Atlas Glinn followed. Atlas EP &mdash; the intelligence platform &mdash; came after, because the right tech didn&rsquo;t exist yet.')
+FOUNDER_LEAD = ('When a principal&rsquo;s safety is non-negotiable, the margin for error is exactly zero. That&rsquo;s the standard Matthew Brockmann built his work around &mdash; running protection details where intent, baseline cues, and seconds decide outcomes. He founded MAST Solutions in 2005. Atlas Glinn followed in 2019. Atlas EP &mdash; the intelligence platform &mdash; came after, because the right tech didn&rsquo;t exist yet.')
 CLINE_BIO = ('As the Chief Operating Officer at Atlas Glinn, Michael Cline brings a wealth of experience and a strategic vision to the company. With a distinguished 12-year career as a Navy SEAL, Michael has honed exceptional leadership, discipline, and problem-solving skills that are now pivotal in driving Atlas Glinn&rsquo;s operational excellence.')
 GLOVER_BIO = ('Anthony Glover serves as the Houston Region Operations Manager and Level 3 Private Protection Officer at Atlas Glinn, a role he assumed in January 2026. A seasoned security leader with over a decade of experience in the private sector, Glover directs multi-site protective operations, oversees agent deployment and performance, and drives operational strategy across the Houston region. He leads a team of security professionals delivering 24/7 protection. Prior to his promotion, Glover served as Site Supervisor at Atlas Glinn, managing a six-agent detail providing round-the-clock protection. Before joining Atlas Glinn, he spent seven years in Chicago&rsquo;s high-risk environment protecting families and children, developing deep expertise in conflict resolution, de-escalation, and discreet protective operations.')
 RENOBATO_BIO = ('J. Rene&eacute; Renobato serves as Office Manager and Executive Assistant to CEO Matthew Brockmann. A seasoned operations professional with over 25 years of management experience, she oversees daily administrative operations, manages executive scheduling, and ensures seamless coordination across security, training, and consulting divisions. Renobato holds a Bachelor of Arts in Communication from the University of Houston and a Master of Business Administration from Marylhurst University. Prior to joining the team, she built a distinguished career in operations management across firms including AvalonBay/Archstone Communities, Windsor Communities, and EQS Construction &mdash; managing portfolios of up to 794 units with teams of 20+. A recipient of the Houston Apartment Association&rsquo;s On-Site Manager of the Year award and a Property of the Year finalist, she brings proven expertise in budget planning, vendor relations, financial reporting, and process optimization to every aspect of her role.')
@@ -952,7 +973,7 @@ build('ep-app.html',
         cards([('Terms of Service', 'Review our complete terms governing use of the Atlas EP platform, data handling, and user obligations.', '<a class="secondary-cta" href="terms.html">Read Terms of Service &rarr;</a>'),
                ('Privacy Policy', 'How we collect, store, and protect your data. Atlas EP uses AES-256 encryption and zero-knowledge architecture.', '<a class="secondary-cta" href="privacy.html">Read Privacy Policy &rarr;</a>'),
                ('Two-Party Consent &amp; Emergency Recording Notice', 'Atlas EP may automatically activate audio and video recording when the system detects imminent threat to your safety. By using Atlas EP, you acknowledge that emergency recording may activate automatically during detected duress events. In jurisdictions requiring two-party consent for recording, Atlas EP complies by notifying all parties through audible and visual indicators when recording is active. Users are responsible for understanding and complying with local recording laws in their jurisdiction. Atlas EP is designed to prioritize life safety &mdash; emergency recordings are encrypted, time-stamped, and stored securely for evidentiary purposes only.')], numbered=False)
-        + '<p class="sub" style="margin-top:1.6rem">Questions? Contact us at <a href="mailto:atlas.hq@atlasglinn.com" style="color:var(--gold-champagne)">atlas.hq@atlasglinn.com</a></p>'   # the live page's address on this page (audit 2026-09-08); the site address stays atlasglinn.hq@
+        + f'<p class="sub" style="margin-top:1.6rem">Questions? Contact us at <a href="mailto:{EMAIL}" style="color:var(--gold-champagne)">{EMAIL}</a></p>'   # his 2026-09-06 decision stands over the live atlas.hq@
         + '<p class="sub" style="margin-top:1.6rem">Elite Security. No Compromise. Protecting those who matter most with AI-powered technology and decades of operational experience.</p>'
         + chips(['Houston, TX', 'Licensed PPO', 'AES-256 Encrypted']))),   # the live page's credential tags
 ], photos=[(AI_SURV, None), (HERO_EP, None), (CCTV, None), (HERO_EP, None), (PROTECTION, None), (AI_SURV, None), (CCTV, None), (HERO_EP, None), (AI_SURV, None)],
