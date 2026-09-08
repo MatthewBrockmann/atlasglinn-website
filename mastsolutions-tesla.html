@@ -881,7 +881,7 @@
 <script>
 'use strict';
 const API = 'https://mast-booking-backend.matthew-221.workers.dev';
-const BOOKING_ENDPOINT = API + '/create-booking', CATALOG_ENDPOINT = API + '/catalog', WEEKENDS_ENDPOINT = API + '/weekends';
+const CATALOG_ENDPOINT = API + '/catalog', WEEKENDS_ENDPOINT = API + '/weekends';
 
 const COURSES = [
   /* Private instruction — listed first (owner, 2026-09-04). No price and no dates on the page; the sheet PDF is linked when supplied — by arrangement, not on the weekend calendar. Priced per the owner's 2026-09 progression sheet. */
@@ -943,9 +943,13 @@ const CATS = [...new Set(COURSES.map(c => c.cat))];
 /* Accordion headers read 'All <category>' unless named here (owner, 2026-09-04: "all gear" = Kit and Load Out Considerations; "all protective" = Home, Vehicular, Motorcade). */
 const CAT_LABELS = { 'Gear': 'Kit and Load Out Considerations', 'Protective': 'Home, Vehicular, Motorcade' };
 const CAT_NOTES = { 'Private Instruction': 'The path: Handgun Fundamentals &rarr; Medical &rarr; Concealment &rarr; Environmental Considerations &rarr; Kit &harr; Vehicle Bag &rarr; Carbine &harr; Shoot-house &rarr; Shotgun &harr; Vehicular &rarr; Low-Light + No-Light, the capstone. Paired phases run in either order. Sessions are scheduled by arrangement, not on the weekend calendar. Instruction only; ammunition, range fees and gear are separate.' };
+/* The panel that opens on arrival is the first BOOKABLE category, not index 0: Private Instruction is listed first (owner,
+   2026-09-04) and every one of its rows is `request:true`, so index 0 landed each visitor on BY ARRANGEMENT with no Select
+   Date anywhere. Private Instruction keeps its place at the top of the list and stays one tap away. */
+const DEFAULT_CAT = Math.max(0, CATS.findIndex(cat => COURSES.some(c => c.cat === cat && !c.request && c.price_cents > 0)));
 $('catalog').innerHTML = CATS.map((cat, ci) => {
   const items = COURSES.map((c, i) => ({ c, i })).filter(x => x.c.cat === cat);
-  return `<div class="cat${ci === 0 ? ' open' : ''}" id="cat-${ci}"><button class="cat-btn" aria-expanded="${ci === 0}" onclick="toggleCat(${ci})"><span class="cat-name">${esc(CAT_LABELS[cat] || 'All ' + cat)}</span><span class="cat-count">${items.length} ${cat === 'Private Instruction' ? 'option' : 'course'}${items.length > 1 ? 's' : ''}</span><span class="cat-chev" aria-hidden="true">&#9662;</span></button><div class="cat-panel">` + (CAT_NOTES[cat] ? `<p class="cat-note">${CAT_NOTES[cat]}</p>` : '') +
+  return `<div class="cat${ci === DEFAULT_CAT ? ' open' : ''}" id="cat-${ci}"><button class="cat-btn" aria-expanded="${ci === DEFAULT_CAT}" onclick="toggleCat(${ci})"><span class="cat-name">${esc(CAT_LABELS[cat] || 'All ' + cat)}</span><span class="cat-count">${items.length} ${cat === 'Private Instruction' ? 'option' : 'course'}${items.length > 1 ? 's' : ''}</span><span class="cat-chev" aria-hidden="true">&#9662;</span></button><div class="cat-panel">` + (CAT_NOTES[cat] ? `<p class="cat-note">${CAT_NOTES[cat]}</p>` : '') +
     items.map(({ c, i }) => c.request
       ? `<div class="course-row call">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div>${c.pdf ? `<a class="cr-pdf" href="${esc(c.pdf)}" target="_blank" rel="noopener">Private instruction sheet (PDF) &rarr;</a>` : ''}</div><div class="cr-side"><div class="cr-price">BY<small>ARRANGEMENT</small></div><button class="cta-button cr-btn" type="button" onclick="requestPrivate(${i})">Request</button></div></div>`
       : c.price_cents
@@ -998,7 +1002,7 @@ function calContinue(){ if (chosen === null) return; $('cal-bd').classList.remov
 //    class from tabs by discipline ("All" opens every tab); Select hands the class to the normal gate → calendar (the weekend already
 //    chosen) → registration. Until the course→weekend map exists every bookable course runs every weekend (his accepted hole).
 let dcalMonth = null, dcalPick = null, dcalTab = 'All', preChosen = null;
-function offeredOn(wi){ return COURSES.map((c, i) => ({ c, i })).filter(({ c }) => !c.request && c.price_cents > 0 && c.days > 0); }
+function offeredOn(){ return COURSES.map((c, i) => ({ c, i })).filter(({ c }) => !c.request && c.price_cents > 0 && c.days > 0); }
 function openDCal(){ dcalPick = null; dcalTab = 'All'; lastFocus = document.activeElement; const first = WEEKENDS.find(bookable) || WEEKENDS[0]; const fd = parseISO(first.saturday); dcalMonth = new Date(fd.getFullYear(), fd.getMonth(), 1); renderDCal(); $('dcal-bd').classList.add('open'); $('dcal').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeDCal(){ $('dcal-bd').classList.remove('open'); $('dcal').classList.remove('open'); document.body.style.overflow = ''; }
 function dcalShift(n){ const { min, max } = calBounds(); const next = new Date(dcalMonth.getFullYear(), dcalMonth.getMonth() + n, 1); if (next < min || next > max) return; dcalMonth = next; renderDCal(); }
@@ -1007,12 +1011,12 @@ function renderDCal(){
   const dayMap = {}; WEEKENDS.forEach((w, wi) => weekendDates(w, 2).forEach(d => { dayMap[keyOf(d)] = wi; }));
   const y = dcalMonth.getFullYear(), m = dcalMonth.getMonth(); const gridStart = new Date(y, m, 1 - new Date(y, m, 1).getDay()); let html = '';
   for (let k = 0; k < 42; k++) { const d = new Date(gridStart); d.setDate(gridStart.getDate() + k); const wi = dayMap[keyOf(d)]; const other = d.getMonth() !== m; let cls = 'day' + (other ? ' other' : ''), attrs = '';
-    if (wi !== undefined && !other) { const w = WEEKENDS[wi]; if (bookable(w)) { cls += ' wk' + (dcalPick === wi ? ' sel' : ''); attrs = ` onclick="dcalPickDay(${wi})" title="${esc(w.label)} · ${offeredOn(wi).length} classes offered · tap to choose"`; } else { cls += ' blk' + (isPast(w) ? ' past' : ''); attrs = ' title="Unavailable"'; } }
+    if (wi !== undefined && !other) { const w = WEEKENDS[wi]; if (bookable(w)) { cls += ' wk' + (dcalPick === wi ? ' sel' : ''); attrs = ` onclick="dcalPickDay(${wi})" title="${esc(w.label)} · ${offeredOn().length} classes run on training weekends · tap to choose"`; } else { cls += ' blk' + (isPast(w) ? ' past' : ''); attrs = ' title="Unavailable"'; } }
     html += `<div class="${cls}"${attrs}>${d.getDate()}</div>`; }
   $('dcal-grid').innerHTML = html;
   $('dcal-quick').innerHTML = WEEKENDS.map((w, wi) => bookable(w) ? `<button type="button" class="chip${dcalPick === wi ? ' sel' : ''}" onclick="dcalPickDay(${wi})">${labelFor(w, 2).replace(/, \d{4}$/, '')}</button>` : '').join('');
   const box = $('dcal-classes'); box.hidden = dcalPick === null; if (dcalPick === null) return;
-  const items = offeredOn(dcalPick); $('dcal-sel').innerHTML = `<b>${labelFor(WEEKENDS[dcalPick], 2)}</b> &middot; ${items.length} classes &middot; choose one`;
+  const items = offeredOn(); $('dcal-sel').innerHTML = `<b>${labelFor(WEEKENDS[dcalPick], 2)}</b> &middot; ${items.length} classes &middot; choose one`;
   const cats = ['All', ...CATS.filter(cat => items.some(({ c }) => c.cat === cat))];
   $('dcal-tabs').innerHTML = cats.map(cat => `<button type="button" class="chip${dcalTab === cat ? ' sel' : ''}" onclick="dcalTabSet(this.dataset.cat)" data-cat="${esc(cat)}">${esc(cat === 'All' ? 'All classes' : (CAT_LABELS[cat] || cat))}</button>`).join('');
   $('dcal-list').innerHTML = items.filter(({ c }) => dcalTab === 'All' || c.cat === dcalTab).map(({ c, i }) => `<div class="cal-item"><div><b class="cal-name">${esc(c.name)}</b><small>${metaHtml(c)}</small></div><div class="cal-item-price">${money(c.price_cents)}</div><button type="button" class="cta-button small" onclick="dcalChoose(${i})">Select</button></div>`).join('');
@@ -1077,6 +1081,11 @@ function requestGear(i){ reqIdx = i; const g = GEAR[i]; if (window.mastTrack) ma
            : 'MAP price shown; dealer and volume pricing on request. We confirm availability and shipping by email within one business day. Nothing is charged online.'); }
 function requestPrivate(i){ reqIdx = i; const c = COURSES[i]; openReqDialog('private', c.name, c.meta ? c.meta.replace(/ · /g, ' · ') : '', 'Private instruction',
   'We reply within one business day. Private sessions are by arrangement, not on the weekend calendar. The fee is instruction only: ammunition, range fees and gear are not included.'); }
+/* Capability statement (2026-09-08): the agencies-and-procurement request goes through the same dialog and the same
+   POST /contact as gear, private instruction and Experiences, so it lands in the CRM with its attribution. It carries no
+   catalog row — reqGo branches on the kind rather than indexing an array. */
+function requestCapability(){ reqIdx = null; if (window.mastTrack) mastTrack('capability_request', 'Capability Statement'); openReqDialog('capability', 'Capability Statement', 'Agencies, units and procurement officers', 'Capability',
+  'We reply within one business day with the capability statement. Tell us your agency or unit and what you are sourcing.'); }
 renderGear();   // here, not at the foot of the script: the MAST assembler keeps the script only up to its reveal observer
 
 /* ── Experiences (owner, 2026-09-08: "add in Courses = 'EXPERIENCES' Couples + groups = Pics and Content coming"). A chapter of
@@ -1098,13 +1107,15 @@ function requestExperience(i){ reqIdx = i; const x = EXPERIENCES[i]; if (window.
   'We reply within one business day. Experiences are arranged around your group, not on the weekend calendar; dates, pricing and what is included come back in that reply.'); }
 renderExperiences();
 function closeReq(){ $('req-bd').classList.remove('open'); $('req').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
-async function reqGo(){ const gear = reqKind === 'gear', exp = reqKind === 'experience'; const c = gear ? GEAR[reqIdx] : exp ? EXPERIENCES[reqIdx] : COURSES[reqIdx]; const name = $('req-name').value.trim(), email = $('req-email').value.trim(), phone = $('req-phone').value.trim(), note = $('req-msg').value.trim(); const err = $('req-err'), b = $('req-go');
+async function reqGo(){ const gear = reqKind === 'gear', exp = reqKind === 'experience', cap = reqKind === 'capability'; const c = cap ? null : gear ? GEAR[reqIdx] : exp ? EXPERIENCES[reqIdx] : COURSES[reqIdx]; const name = $('req-name').value.trim(), email = $('req-email').value.trim(), phone = $('req-phone').value.trim(), note = $('req-msg').value.trim(); const err = $('req-err'), b = $('req-go');
   const org = gear ? $('req-org').value.trim() : '', qty = gear ? Math.max(1, Math.min(999, parseInt($('req-qty').value, 10) || 1)) : 0;
   if (name.length < 2) { err.textContent = 'Enter your name.'; err.hidden = false; $('req-name').focus(); return; }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Enter a valid email address.'; err.hidden = false; $('req-email').focus(); return; }
   if (gear && c.device && org.length < 2) { err.textContent = 'IWA devices need your agency, organization or PPC certificate number.'; err.hidden = false; $('req-org').focus(); return; }
   err.hidden = true; b.disabled = true; b.textContent = 'Sending…';
-  const message = exp
+  const message = cap
+    ? 'Capability statement request — agencies, units and procurement officers' + (note ? '\n\n' + note : '')
+    : exp
     ? 'Experience enquiry — ' + c.name + ' (no dates or pricing published yet)' + (note ? '\n\n' + note : '')
     : gear
     ? 'Gear quote request — ' + c.sku + ' ' + c.name + ' (' + c.brand + ' · ' + c.fam + ') × ' + qty + (c.price ? ' @ ' + c.price + (c.device ? ' each' : ' MAP') : '') + (org ? '\nAgency / organization / PPC: ' + org : '') + (note ? '\n\n' + note : '')
@@ -1112,7 +1123,7 @@ async function reqGo(){ const gear = reqKind === 'gear', exp = reqKind === 'expe
   try { const r = await fetch(API + '/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'contact', request_type: reqKind, company: org, name, email, phone, message, website: $('req-web').value, page: location.href.split('#')[0], attribution: window.mastAttribution ? mastAttribution() : undefined }) });
     const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'Could not send the request.');
     b.textContent = 'Request sent ✓'; $('req-meta').textContent = 'Thank you, ' + name.split(' ')[0] + '. We reply within one business day.'; setTimeout(closeReq, 2400); }
-  catch (e) { b.disabled = false; b.textContent = 'Send Request'; err.innerHTML = esc(e.message || 'Could not send the request.') + ' You can also email <a href="mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent((gear ? 'Gear quote — ' + c.sku + ' ' : exp ? 'Experience — ' : 'Private instruction — ') + c.name) + '">atlasglinn.hq@atlasglinn.com</a>.'; err.hidden = false; }
+  catch (e) { b.disabled = false; b.textContent = 'Send Request'; err.innerHTML = esc(e.message || 'Could not send the request.') + ' You can also email <a href="mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent(cap ? 'MAST Solutions Capability Statement Request' : (gear ? 'Gear quote — ' + c.sku + ' ' : exp ? 'Experience — ' : 'Private instruction — ') + c.name) + '">atlasglinn.hq@atlasglinn.com</a>.'; err.hidden = false; }
 }
 document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if ($('dcal').classList.contains('open')) closeDCal(); if ($('req').classList.contains('open')) closeReq(); if ($('acct').classList.contains('open')) closeAcct(); });
 
