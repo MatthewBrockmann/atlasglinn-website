@@ -19,6 +19,14 @@
 # (agent-memory/project_session_2026_04_30_atlasglinn_careers_form.md:25-27). Method B now fires that exact cascade through
 # `wp eval-file` over the same SSH login, so the button is no longer the fallback.
 #
+# 2026-09-08 18:46 UTC — the measurement that moved the purge onto the host: the saved login `mast-wp-sftp` answers
+# "This service allows sftp connections only." The migrated host gives that login no shell, so Method B cannot run at
+# all until SSH is enabled in GoDaddy's dashboard (Managed WordPress → Settings → Production Site → SSH), and the
+# WordPress application password is not in this Mac's Keychain either. The automatic purge therefore lives on the host:
+# the must-use plugin wp-ops/atlas-cache-watch.php (put there by scripts/wp-cache-watch-deploy.sh over SFTP, which is
+# the one thing that does work) fires the same WPaaS cascade from WP-Cron within 15 minutes of an upload, and
+# immediately when the `cache-bust` page below is saved. This script stays the measurement and the manual path.
+#
 # Method A (REST): a private page with slug `cache-bust` (created once, never public) gets its content updated with the
 # time; the GoDaddy system plugin purges the site cache on that save. Method B (SSH): `wp cli cmd-dump` is searched for a
 # GoDaddy/WPaaS cache command, which is run beside `wp cache flush`. Both are measured: the plain URL's Last-Modified must
@@ -36,6 +44,18 @@ kc_acct() { security find-generic-password -s "$1" 2>/dev/null | sed -n 's/^ *"a
 TS="$(date -u +%FT%TZ)"
 before_plain="$(hdr "$SITE" last-modified)"; busted="$(hdr "$SITE?x=$(date +%s)" last-modified)"
 say "before: plain Last-Modified [$before_plain]  cache-busted [$busted]"
+# Is the host's own watcher deployed? Its header exists only on a WordPress-rendered answer, so ask for a URL the CDN
+# has not cached — a static .html is served without running a line of PHP and carries no header.
+watch="$(hdr "$WP_BASE/?atlas-watch=$(date +%s)" x-atlas-cache-watch)"
+if [ -n "$watch" ]; then
+  wver="${watch%%;*}"; wlast="${watch#*last=}"; wlast="${wlast%%;*}"; wcdn="${watch#*cdn=}"
+  if [ "${wlast:-0}" -gt 0 ] 2>/dev/null; then
+    wwhen="$(date -r "$wlast" -u +%FT%TZ 2>/dev/null || date -u -d "@$wlast" +%FT%TZ 2>/dev/null || printf '%s' "$wlast")"
+  else wwhen="never"; fi
+  say "watcher v$wver, last purge $wwhen, cdn=$wcdn"
+else
+  say "watcher: not deployed on the host (no X-Atlas-Cache-Watch header); bash scripts/wp-cache-watch-deploy.sh puts it there"
+fi
 if [ -n "$before_plain" ] && [ "$before_plain" = "$busted" ]; then
   say "nothing to flush: the plain URL already serves the latest upload"; echo "$TS none already-fresh" > "$STAMP"; exit 0
 fi
@@ -97,7 +117,15 @@ try:
 except Exception: pass' | head -5)"
     say "SSH: cache commands found: ${cmds:-none}"
     out="$(ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "$U@$HOST" "cd $DOCROOT && wp cache flush 2>&1$(printf '%s\n' "$cmds" | grep -v '^$' | sed 's/^/ ; wp /' | tr -d '\n' | sed 's/ ; wp cache flush//')" 2>&1 | tail -3)"
-    say "SSH: $out"; [ -n "$method" ] || method="ssh"
+    say "SSH: $out"
+    case "$out" in
+      *"sftp connections only"*|*"This service allows sftp"*)
+        method="ssh-unavailable"
+        say "SSH: the saved login has no shell; enable SSH in the GoDaddy dashboard or rely on the mu-plugin watcher (scripts/wp-cache-watch-deploy.sh)";;
+      *) [ -n "$method" ] || method="ssh";;
+    esac
+    # Everything below needs a shell, and each attempt costs another 20-second connect, so an SFTP-only login skips it.
+    if [ "$method" != "ssh-unavailable" ]; then
     # The dashboard button's own cascade (WPaaS\Cache_V2: Varnish ban + Cloudflare CDN purge + transients + object cache),
     # run inside WordPress by WP-CLI with the mu-plugins loaded. The PHP travels on ssh's stdin — nothing to quote — into a
     # file in the login's home for the one call, then it is removed. Reflection covers the methods being non-public.
@@ -159,6 +187,7 @@ PHP
       rm -f "$D"
       printf '%s\n' "${diag:-DIAG: no output (ssh failed)}"
     fi
+    fi   # end of the block that needs a shell
     rm -f "$A"
   else
     say "no Keychain item '$KC_SFTP' (the SFTP/SSH login); SSH flush skipped"
@@ -173,6 +202,6 @@ say "after:  plain Last-Modified [$after_plain] (cf-cache-status $cf) → $resul
 if [ "$result" = cleared ]; then
   say "LOOP STATUS: GoDaddy cache flush — FIRED-OBSERVED (plain URL now serves the latest upload) via ${method}; heartbeat $STAMP ✓"
 else
-  say "LOOP STATUS: GoDaddy cache flush — ran (${method:-no method available}) but the plain URL still serves [$after_plain]; the dashboard's Flush Cache is the fallback. Heartbeat $STAMP."
+  say "LOOP STATUS: GoDaddy cache flush — ran (${method:-no method available}) but the plain URL still serves [$after_plain]; the mu-plugin watcher purges within 15 minutes of an upload (scripts/wp-cache-watch-deploy.sh); the dashboard's Flush Cache is the manual fallback. Heartbeat $STAMP."
 fi
 [ "$result" = cleared ]

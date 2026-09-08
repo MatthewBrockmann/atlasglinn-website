@@ -268,8 +268,9 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   `04-resources/agent-memory/project_atlasglinn_wordpress.md` records the WP admin user and its application password in
   the Keychain item `wp_app_password_claude` (rotated 2026-09-03; "REST API works with app password") and that GoDaddy
   clears its cache when WordPress content changes. `scripts/wp-flush.sh` (run by `wp-upload.sh` after every upload)
-  saves a private `cache-bust` page over REST with that password (WP-CLI over SSH with the `mast-wp-sftp` login as the
-  fallback), then measures the plain `/mastsolutions.html` against the cache-busted copy and writes
+  saves a private `cache-bust` page over REST with that password (WP-CLI over SSH with the `mast-wp-sftp` login *was*
+  the fallback — **measured 2026-09-08 18:46 UTC, that login is SFTP-only and has no shell**, so Method B cannot run
+  until SSH is switched on in the dashboard; see the watcher paragraph below), then measures the plain `/mastsolutions.html` against the cache-busted copy and writes
   `~/.cache/wp-upload/last-flush`; `mac-autopilot.sh status` shows it. Wired, NOT confirmed firing until a probe shows
   the plain URL fresh after an upload with no click. Nothing of this reaches a cloud session: the container cannot open
   the host and holds no Keychain.
@@ -281,6 +282,28 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   `atlasglinn.com` A 160.153.0.38, `www.atlasglinn.com` CNAME → atlasglinn.com; **neither domain has the Microsoft 365
   `selector1/selector2._domainkey` CNAMEs** (atlasglinn.com's SPF names outlook, Mailchimp `servers.mcsv.net` and Brevo;
   its DMARC is `p=none` reporting to Brevo).
+  **The purge moved onto the host, 2026-09-08: `wp-ops/atlas-cache-watch.php`.** The saved login proved SFTP-only at
+  18:46 UTC (no shell, so `wp eval-file` never ran) and the application password is not on this Mac, so neither remote
+  method in `wp-flush.sh` can reach the cache — but the SFTP upload still lands, and WordPress on the host can see what
+  it changed. `scripts/wp-cache-watch-deploy.sh` puts a must-use plugin at
+  `html/wp-content/mu-plugins/atlas-cache-watch.php`. There it fingerprints every `*.html` directly in the docroot plus
+  `build-manifest.json` and `mast-ping.txt` (`name:mtime:size`, sha1) on a 15-minute WP-Cron tick — the upload cadence —
+  and when the fingerprint moves it runs the dashboard button's own cascade: `WPaaS\Cache_V2` `do_ban()` +
+  `flush_cdn()` + `flush_transients()` + `flush_object_cache()` through reflection, each step's result recorded, a
+  two-minute lock against a second run, and `wp_cache_flush()` with `class=null` recorded when no WPaaS class is there
+  (so a reader knows the CDN was *not* purged). It also fires on `save_post_page` when the saved page's slug is
+  `cache-bust`, which makes `wp-flush.sh`'s Method A real the day the application password is back.
+  **Why no endpoint:** a token-protected REST route was considered and rejected — it would add a remote-control surface
+  to a production site for a job that needs no caller. The plugin reacts only to what WordPress already observes (its
+  own cron tick, its own save): no HTTP input, no REST route, no admin UI, no file writes, two options and one cron
+  hook. **How it is seen from outside:** front-end answers carry `X-Atlas-Cache-Watch: <version>;last=<unix>;cdn=<ok|no|none>`,
+  so `curl -sI "https://www.atlasglinn.com/?atlas-watch=$(date +%s)"` says whether it is deployed and when it last
+  purged — the query string matters, because a cached answer never runs a line of PHP and carries no header.
+  `wp-flush.sh` prints that line on every run (`watcher v… last purge … cdn=…`) and `wp-upload.sh` says the purge is
+  coming. **How to disable:** `bash scripts/wp-cache-watch-deploy.sh --remove` (deletes the file over SFTP and confirms
+  the header is gone), or `define('ATLAS_CACHE_WATCH_DISABLED', true);` in `wp-config.php`. Heartbeat:
+  `~/.cache/wp-upload/last-watch-deploy`. **Merged, NOT deployed:** the plugin is in the repo and nothing is on the host
+  until the deploy script runs from the Mac; the header is what proves it.
 - **mastsolutions.com** has no site *yet*: it is a GoDaddy domain forward to atlasglinn.com, pointed at
   `https://atlasglinn.com/mastsolutions.html` (set 2026-09-05). It still carries DNS: Resend verifies it so the Worker can send as
   bookings@mastsolutions.com, beside the existing matthew@mastsolutions.com mail.
@@ -291,13 +314,18 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   measured 2026-09-07 against the brain vault (tip 7c111da), this repo, the handoff branch, the transcripts and this
   container:** (1) WordPress on atlasglinn.com — a *Mac* session has it: the admin application password in the Keychain
   item `wp_app_password_claude` and the SFTP/SSH login `mast-wp-sftp` (`project_atlasglinn_wordpress.md`; WP-CLI over
-  SSH; REST works). (2) GoDaddy — the API key pair `godaddy_api_key` / `godaddy_api_secret` lived in the Keychain in
+  SSH; REST works). **Corrected 2026-09-08 18:46 UTC — neither half of that survived the migration to
+  `1127220.us12.ssh.myftpupload.com`:** `mast-wp-sftp` answers "This service allows sftp connections only." (no shell,
+  so no WP-CLI) and `wp_app_password_claude` is **not** in this Mac's Keychain, so the REST path has no password to
+  use. SFTP is the whole of the Mac's WordPress access today; SSH is Brockmann's switch in the GoDaddy dashboard. (2) GoDaddy — the API key pair `godaddy_api_key` / `godaddy_api_secret` lived in the Keychain in
   April 2026 (DNS via curl, `project_atlas_ep_open_threads_2026_04_27.md`) and went with the **2026-05-04 Keychain
   wipe** (`project_session_2026_05_04_keychain_wipe.md`); the 2026-07-04 daily, `_daily-scan-log.md:251` and
   `_tooling-requirements.md` all record "no GoDaddy API credential in Keychain" since. The cloud connector only checks
   domain availability. (3) cPanel — the word appears **nowhere** in the vault, this repo or any transcript; the account in
   his screenshot is new to every session. (4) The container cannot open atlasglinn.com, host.godaddy.com,
-  api.godaddy.com or api.cloudflare.com (egress 000). So: WordPress yes, from the Mac (now used by `scripts/wp-flush.sh`);
+  api.godaddy.com or api.cloudflare.com (egress 000). So: WordPress yes, from the Mac but **over SFTP only** (`scripts/wp-upload.sh`, `scripts/wp-cache-watch-deploy.sh`;
+  `scripts/wp-flush.sh` measures and reports, and its two remote methods are both blocked until SSH is enabled or the
+  application password is back);
   GoDaddy DNS no, until a key pair is minted again (his browser, developer.godaddy.com; his account must still qualify
   for the Domains API) and saved as those two Keychain items; cPanel no, until its login exists somewhere a runner or the
   Mac can read. **The route that needs no login at all — GitHub Pages (2026-09-07 18:29 UTC, first run of
