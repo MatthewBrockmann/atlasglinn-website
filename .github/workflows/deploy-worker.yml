@@ -93,7 +93,7 @@ jobs:
         run: |
           set -e
           GUARDS="migrations/007-account-credentials.sql|accounts|credential_type,credential_org,credential_id,credential_status,credential_submitted_at
-          migrations/008-rate-limits.sql|accounts|failed_logins,locked_until"
+          migrations/008-rate-limits.sql|accounts|failed_logins,locked_until,signup_notice_sent_at"
           echo "$GUARDS" | while IFS= read -r g; do
             g="$(echo "$g" | xargs)"; [ -n "$g" ] || continue
             f="${g%%|*}"; rest="${g#*|}"; tbl="${rest%%|*}"; cols="${rest#*|}"

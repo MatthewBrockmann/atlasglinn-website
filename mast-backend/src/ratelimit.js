@@ -12,9 +12,13 @@
  * The per-account lock is what stops one address being ground through offline-speed guessing; the per-IP counter is what
  * stops one host spraying a password across many addresses, and what caps the seat-hold and email-sending routes.
  *
- * A D1 failure inside the limiter FAILS CLOSED (429) on every route but /event: a booking or a sign-in refused for a
- * minute is recoverable, an unmetered guessing window is not. /event is a first-party beacon — losing its writes during a
- * D1 outage is worse than letting it through.
+ * A D1 failure inside the limiter FAILS CLOSED (429) on every limited route: a booking or a sign-in refused for a
+ * minute is recoverable, an unmetered guessing window is not.
+ *
+ * /event is deliberately NOT in the table (security review round 2, 2026-09-08). It is a page-view beacon, so limiting
+ * it in D1 turns every page view into a D1 write — the counter costs more than the route it guards. It used to be listed
+ * with failOpen, which meant the writes happened on every view and the limit did nothing in the outage it was written
+ * for. Nothing else opts out; failOpen is gone with it.
  */
 
 const MINUTE = 60000;
@@ -22,47 +26,95 @@ export const WINDOW_MS = 10 * MINUTE;
 
 /**
  * "<METHOD> <path>" → the bucket its counter lives in and how many requests one IP gets per window.
- * forgot and resend share the 'code' bucket: both mail a 6-digit code to whatever address is posted, so they are one
- * email-sending budget, not two.
+ * forgot, resend and reset share the 'code' bucket: all three belong to one password-reset budget — two of them mail a
+ * 6-digit code to whatever address is posted and the third spends guesses against one, so they are not three budgets.
+ * The consequence is deliberate and worth naming: burning reset guesses eats into the same window as asking for a new
+ * code, so a caller who spends 5 of the 20 on wrong codes cannot ask for a fresh one until the window rolls.
  */
 export const RATE_ROUTES = {
   'POST /account/login': { bucket: 'login', limit: 20 },
   'POST /account/register': { bucket: 'signup', limit: 5 },
   'POST /account/forgot': { bucket: 'code', limit: 5 },
   'POST /account/resend': { bucket: 'code', limit: 5 },
+  'POST /account/reset': { bucket: 'code', limit: 20 },
   'POST /account/verify': { bucket: 'verify', limit: 20 },
   'POST /register': { bucket: 'seat', limit: 10 },
+  'POST /create-booking': { bucket: 'seat', limit: 10 },
+  'POST /create-membership': { bucket: 'seat', limit: 10 },
   'POST /contact': { bucket: 'contact', limit: 30 },
-  'POST /event': { bucket: 'event', limit: 30, failOpen: true },
+  'POST /subscribe': { bucket: 'subscribe', limit: 10 },
+  'GET /roster': { bucket: 'admin', limit: 60 },
 };
+
+/**
+ * Path prefixes, any method — the staff tool is a tree of routes behind ADMIN_KEY, and an exact-path table would leave
+ * every route added to it unlimited by default. /admin and everything under it share the 'admin' bucket with /roster.
+ */
+export const RATE_PREFIXES = [
+  { path: '/admin', rule: { bucket: 'admin', limit: 60 } },
+];
+
+/** The rule for one request, exact path first and then the prefixes. null = the route is not limited. */
+export function ruleFor(method, pathname) {
+  const exact = RATE_ROUTES[method + ' ' + pathname];
+  if (exact) return exact;
+  for (const p of RATE_PREFIXES) if (pathname === p.path || pathname.startsWith(p.path + '/')) return p.rule;
+  return null;
+}
 
 export const RATE_SCHEMA = [
   'CREATE TABLE IF NOT EXISTS rate_limits (key TEXT PRIMARY KEY, window_start TEXT NOT NULL, count INTEGER NOT NULL DEFAULT 0)',
   'CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits (window_start)',
   'ALTER TABLE accounts ADD COLUMN failed_logins INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE accounts ADD COLUMN locked_until TEXT',
+  // The "someone tried to sign up with your address" notice throttles on its own column. It used to share verify_sent_at,
+  // which let a stranger's sign-up attempt suppress the owner's own /account/forgot and /account/resend for a minute
+  // (security review round 2, 2026-09-08). Carried here as well as in migrations/008 because that file has not been
+  // applied to the live database yet.
+  'ALTER TABLE accounts ADD COLUMN signup_notice_sent_at TEXT',
 ];
 
 let schemaReady = null;
-/** Idempotent; once per isolate. Mirrors ensureCrmSchema: the ALTERs that already happened raise "duplicate column". */
+/**
+ * Idempotent; once per isolate. Mirrors ensureCrmSchema: the ALTERs that already happened raise "duplicate column", which
+ * is the success case, not a failure.
+ *
+ * SUCCESS ONLY IS MEMOISED. It used to return true whatever happened, so one statement failing once — a locked database,
+ * a D1 blip on the very first request of an isolate — left the isolate believing the schema was there and never trying
+ * again (security review round 2, 2026-09-08). A run with a genuinely failed step now clears the memo, so the next
+ * request retries it.
+ */
 export function ensureRateSchema(env) {
   if (!env || !env.DB) return Promise.resolve(false);
   if (!schemaReady) {
-    schemaReady = (async () => {
+    let attempt;
+    attempt = (async () => {
+      let allOk = true;
       for (const s of RATE_SCHEMA) {
         try { await env.DB.prepare(s).run(); }
-        catch (e) { if (!/duplicate column|already exists/i.test(String(e && e.message))) console.error('[Rate] schema step failed:', s.slice(0, 48), e.message); }
+        catch (e) {
+          if (/duplicate column|already exists/i.test(String(e && e.message))) continue;
+          allOk = false;
+          console.error('[Rate] schema step failed:', s.slice(0, 48), e.message);
+        }
       }
-      return true;
-    })().catch((e) => { schemaReady = null; console.error('[Rate] schema failed:', e.message); return false; });
+      if (!allOk && schemaReady === attempt) schemaReady = null;
+      return allOk;
+    })().catch((e) => { if (schemaReady === attempt) schemaReady = null; console.error('[Rate] schema failed:', e.message); return false; });
+    schemaReady = attempt;
   }
   return schemaReady;
 }
 export function _resetRateSchemaMemo() { schemaReady = null; }   // tests
 
-/** The caller as Cloudflare sees it. 'unknown' keeps one shared bucket rather than an unmetered hole. */
+/**
+ * The caller as Cloudflare sees it. CF-Connecting-IP ONLY: X-Forwarded-For is a request header anyone can set, so
+ * falling back to it let a caller choose their own counter key and step out of every per-IP limit by rotating a string
+ * (security review round 2, 2026-09-08). Without the Cloudflare header every such caller shares the one 'unknown'
+ * bucket — a shared limit, not an unmetered hole, and limited routes still fail closed.
+ */
 export function clientIp(request) {
-  return request.headers.get('CF-Connecting-IP') || (request.headers.get('X-Forwarded-For') || '').split(',')[0].trim() || '';
+  return request.headers.get('CF-Connecting-IP') || '';
 }
 
 const seconds = (ms) => Math.max(1, Math.ceil(ms / 1000));
@@ -73,7 +125,7 @@ const seconds = (ms) => Math.max(1, Math.ceil(ms / 1000));
  * The row is created first so every decision below is one conditional UPDATE against a row that exists.
  */
 export async function checkRate(request, env, method, pathname) {
-  const rule = RATE_ROUTES[method + ' ' + pathname];
+  const rule = ruleFor(method, pathname);
   if (!rule) return null;
   const key = rule.bucket + ':' + (clientIp(request) || 'unknown');
   const now = Date.now();
@@ -92,7 +144,7 @@ export async function checkRate(request, env, method, pathname) {
     return { retry_after: seconds(started + WINDOW_MS - now) };
   } catch (e) {
     console.error('[Rate] limiter failed on ' + method + ' ' + pathname + ':', e.message);
-    return rule.failOpen ? null : { retry_after: 60, degraded: true };
+    return { retry_after: 60, degraded: true };
   }
 }
 
@@ -140,6 +192,58 @@ export async function noteFailedLogin(env, acct) {
     acct.locked_until = until;
     return lockedFor(acct);
   } catch (e) { console.error('[Rate] failed-login counter:', e.message); return 0; }
+}
+
+/* ──────────── Failed sign-ins per (IP, address), whether or not the address has an account ────────────
+   The per-account lock above cannot fire for an address that has no row, so the sixth wrong password answered 429 for a
+   real address and 401 for an invented one — a one-request existence oracle, and a cheap one (security review round 2,
+   2026-09-08). This counter is keyed on the pair (CF-Connecting-IP, normalised address) and lives in rate_limits, so an
+   address with no account locks on exactly the attempt one with an account locks on, with the same body.
+
+   key    'loginfail:<ip>:<address>'
+   count  consecutive failures
+   window_start  the ISO time the lock runs out, or NO_LOCK while there is none. The daily purge drops both, so a partial
+                 count also resets once a day.
+
+   What this does NOT make symmetric, stated rather than claimed away: the account lock is global and this one is per
+   connection, so five failures from one address followed by a sixth from ANOTHER still answers 429 for a real account
+   and 401 for an invented one. Closing that would mean locking on the address alone, which hands a stranger the power to
+   lock a customer out and lets an attacker grow this table with addresses they invent. The remaining probe costs five
+   requests from one address plus a sixth from a second, against a 20-per-window sign-in limit. */
+const NO_LOCK = '1970-01-01T00:00:00.000Z';
+const identityKey = (ip, email) => 'loginfail:' + (ip || 'unknown') + ':' + String(email || '').trim().toLowerCase();
+
+/** Seconds left on the (IP, address) lock, or 0. Read before the password is hashed, for both paths. */
+export async function identityLockedFor(env, ip, email, now = Date.now()) {
+  if (!env || !env.DB) return 0;
+  const row = await env.DB.prepare('SELECT window_start, count FROM rate_limits WHERE key = ?').bind(identityKey(ip, email)).first().catch(() => null);
+  const until = row && row.window_start ? Date.parse(row.window_start) : 0;
+  return Number.isFinite(until) && until > now ? seconds(until - now) : 0;
+}
+
+/** A wrong password, on any address. Same ladder as the per-account lock so the two fire on the same attempt. */
+export async function noteFailedIdentity(env, ip, email) {
+  if (!env || !env.DB) return 0;
+  const key = identityKey(ip, email);
+  try {
+    await ensureRateSchema(env);
+    await env.DB.prepare('INSERT OR IGNORE INTO rate_limits (key, window_start, count) VALUES (?, ?, ?)').bind(key, NO_LOCK, 0).run();
+    const bumped = await env.DB.prepare('UPDATE rate_limits SET count = count + 1 WHERE key = ?').bind(key).run();
+    if (!bumped || !bumped.meta || !bumped.meta.changes) return 0;
+    const row = await env.DB.prepare('SELECT window_start, count FROM rate_limits WHERE key = ?').bind(key).first();
+    const n = row && typeof row.count === 'number' ? row.count : 0;
+    if (!n || n % LOGIN_FAILURES_PER_LOCK !== 0) return 0;
+    const until = new Date(Date.now() + lockMs(n)).toISOString();
+    // Never shorten a longer lock a parallel request already wrote.
+    await env.DB.prepare('UPDATE rate_limits SET window_start = ? WHERE key = ? AND window_start < ?').bind(until, key, until).run();
+    return seconds(Date.parse(until) - Date.now());
+  } catch (e) { console.error('[Rate] identity failure counter:', e.message); return 0; }
+}
+
+/** The right password clears the pair, exactly as it clears the account counter. */
+export async function clearFailedIdentity(env, ip, email) {
+  if (!env || !env.DB) return;
+  await env.DB.prepare('DELETE FROM rate_limits WHERE key = ?').bind(identityKey(ip, email)).run().catch((e) => console.error('[Rate] identity clear failed:', e.message));
 }
 
 /** Any successful authentication clears the counter and the lock. Best-effort: an unmigrated column never blocks a sign-in. */

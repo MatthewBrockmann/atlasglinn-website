@@ -132,7 +132,7 @@ wrangler d1 execute mast_bookings --remote --file=migrations/003-membership-team
 wrangler d1 execute mast_bookings --remote --file=migrations/004-accounts.sql          # once: student accounts (owner, 2026-09-05)
 wrangler d1 execute mast_bookings --remote --file=migrations/005-account-verification.sql  # once, after 004: email verification + password reset columns (a second run fails with "duplicate column", which means it is already applied)
 wrangler d1 execute mast_bookings --remote --file=migrations/007-account-credentials.sql   # once, after 005: LE / teacher credential columns (006 is applied by the Worker itself)
-wrangler d1 execute mast_bookings --remote --file=migrations/008-rate-limits.sql           # once, after 007: rate_limits table + the sign-in lockout columns
+wrangler d1 execute mast_bookings --remote --file=migrations/008-rate-limits.sql           # once, after 007: rate_limits table, the sign-in lockout columns and accounts.signup_notice_sent_at
 
 # 3. Secrets (never commit these)
 wrangler secret put STRIPE_SECRET_KEY        # sk_test_… first, sk_live_… when ready
@@ -272,8 +272,11 @@ row and still drives attribution.
 ## Rate limiting, lockout and seat holds (security review, 2026-09-08)
 
 Everything below is D1 only — no new Cloudflare binding, nothing to provision. `migrations/008-rate-limits.sql` is the
-schema; `src/ratelimit.js` also self-heals the same three objects on first use, so a Worker deployed ahead of the
-migration still limits.
+schema — the `rate_limits` table, the two sign-in lockout columns and `accounts.signup_notice_sent_at`; `src/ratelimit.js`
+also self-heals the same objects on first use, so a Worker deployed ahead of the migration still limits. **Only a run in
+which every statement succeeded is memoised** (round 2): a step that genuinely failed leaves the memo unset so the next
+request retries it, where it used to record "done" and never try again for the life of the isolate. A `duplicate column`
+error is the already-applied case and counts as success.
 
 **Per account.** Five wrong passwords lock the account for 15 minutes, doubling at every further five up to a day. A
 locked account is answered **before** the PBKDF2 runs, so guess six costs the Worker nothing — and the right password is
@@ -281,36 +284,122 @@ refused too, which is the point. Any successful sign-in, verification or reset c
 failing attempt itself always answers the plain 401; the lock shows on the next one, so the fifth wrong password does not
 announce that the address exists.
 
-**Per IP** (`CF-Connecting-IP`), in 10-minute windows:
+**Per (connection, address) — and this is what makes the lock symmetric** (round 2). The per-account lock cannot fire for
+an address that has no account row, so the *sixth* wrong password used to answer `429 locked` for a real address and
+`401` for an invented one: five throwaway guesses bought a definitive yes-or-no on any address. A second counter, keyed
+on `(CF-Connecting-IP, normalised address)` and kept in `rate_limits`, now locks an unknown address on exactly the
+attempt a known one locks on, with the same body — and both paths return before any hashing, so they cost the same time
+as well. **What is still not symmetric, stated rather than claimed away:** the account lock is global and this one is per
+connection, so five failures from one address followed by a sixth from *another* still answers 429 for a real account and
+401 for an invented one. Closing that would mean locking on the address alone, which hands a stranger the power to lock a
+customer out and lets an attacker grow the table with addresses they invent. The remaining probe costs six requests from
+two addresses against a 20-per-window sign-in limit.
+
+**Per IP**, in 10-minute windows. The address is `CF-Connecting-IP` **and nothing else** (round 2): the old
+`X-Forwarded-For` fallback was a header the caller sets, so rotating it bought a fresh window and stepped out of every
+limit below. A request without the Cloudflare header shares the single `unknown` bucket.
 
 | Route | Per window |
 |---|---|
 | `POST /account/login` | 20 |
 | `POST /account/register` | 5 |
-| `POST /account/forgot` + `POST /account/resend` | 5 **shared** — both mail a code to whatever address is posted, so they are one email budget |
+| `POST /account/forgot` + `POST /account/resend` + `POST /account/reset` | 20 **shared** — one password-reset budget: two of them mail a code to whatever address is posted and the third spends guesses against one. forgot and resend stop at 5 within it |
 | `POST /account/verify` | 20 |
-| `POST /register` | 10 |
+| `POST /register` + `POST /create-booking` + `POST /create-membership` | 10 **shared** — all three open a Stripe Checkout Session, which costs money; the two legacy routes were unlimited until round 2 |
 | `POST /contact` | 30 |
-| `POST /event` | 30 |
+| `POST /subscribe` | 10 |
+| `GET /roster` + **every** `/admin` route | 60 **shared** — matched by path PREFIX, so a route added under `/admin` is limited the day it is added rather than the day someone remembers to list it |
+| `POST /event` | **not limited — deliberately** |
+
+`/event` is a page-view beacon. Limiting it in D1 would turn every page view into a D1 write, so the counter would cost
+more than the route it guards; it was previously listed with `failOpen`, which meant those writes happened on every view
+and the limit did nothing during the one outage it was written for. It is out of the table entirely, and `failOpen` went
+with it — **every limited route now fails CLOSED (429) when D1 fails**, because a booking refused for a minute is
+recoverable and an unmetered guessing window is not.
 
 Over the limit answers `429 {code:'rate_limited', retry_after}` with a `Retry-After` header. Every increment is a single
-conditional UPDATE, so concurrent requests can neither share nor skip a count. **A D1 failure inside the limiter fails
-CLOSED (429) on every route but `/event`**: a booking refused for a minute is recoverable, an unmetered guessing window is
-not; the beacon is the one place where losing writes is worse than letting them through. The daily cron drops counter
-rows older than a day.
+conditional UPDATE, so concurrent requests can neither share nor skip a count. The daily cron drops counter rows older
+than a day.
 
-**Seat holds.** A pending registration holds its seats only once it carries a Stripe session id, and only for 15 minutes
-(it was 30, and a row that never reached Stripe held seats the whole time — two requests at `qty: 10` emptied a class for
-free). Two live holds at a time per connection and per address; a third answers `429 {code:'too_many_holds'}`. The paid
-path and the webhook are unchanged.
+One consequence worth naming rather than discovering: because `reset` shares the `code` bucket, spending guesses on wrong
+codes eats the same window as asking for a new code, so a caller who burns five wrong codes cannot request a fresh one
+until the window rolls.
+
+**Seat holds.** A pending registration holds its seats for one of two windows, and nothing outside them:
+
+| Row | Holds for |
+|---|---|
+| pending, **with** a Stripe session id | 15 minutes (it was 30) |
+| pending, **without** one | 2 minutes from `created_at` |
+
+Round 1 made the session id the whole condition. That closed a free denial of service — a row that never reached Stripe
+used to hold seats for 30 minutes, so two requests at `qty: 10` emptied a class for nothing — but it opened an oversell
+race the width of a full Stripe round trip: the row is written *before* the Checkout Session is created and stamped
+*after*, so between those two points it held nothing and honest simultaneous buyers all passed the capacity check. The
+short window is that gap plus room for a slow API call. The Stripe call did not move; a row that has not been stamped in
+two minutes is a request that failed, and it goes back to holding nothing.
+
+**One predicate, used everywhere.** Capacity and both hold caps ask the same question, so a stale session-less row
+neither holds a seat nor counts against anybody.
+
+Two live holds at a time per connection, and two under one address **from that connection**; a third answers
+`429 {code:'too_many_holds'}`. The address half is bound to the pair (round 2) because `customer_email` is typed by
+whoever posts the form: a cap on the address alone let a stranger take two holds under a known customer's address and
+answer that customer's own booking with a 429. The trade is that holds under one address from *different* connections no
+longer add up — the per-connection cap and the 10-per-window seat limit are what bound those. Because the pair is a
+subset of the connection and both caps are 2, the connection cap is what actually refuses today; the pair is counted
+separately so that raising the connection cap later cannot silently uncap one address. The paid path and the webhook are
+unchanged.
+
+Both hold caps need a real client address to count anything, and `agreement_ip` is signed-agreement evidence, so no
+placeholder is ever written into it: a request arriving without `CF-Connecting-IP` is bounded by the limiter's shared
+`unknown` bucket (10 per window on the seat routes) rather than by the hold cap. In front of Cloudflare that header is
+always present.
 
 **No account oracle.** `POST /account/register` answers the same `202 {pending:true}` envelope for a new address, an
 unverified one and a **verified** one — the old `409 exists` and `429 too_soon` each turned the route into an address
 checker. When the address already has an account nothing on it changes and its real owner is emailed *"someone tried to
-create an account with this address — sign in instead"* (no code, throttled to one a minute). `POST /account/verify`
-answers one generic `400 {code:'bad_code'}` for an unknown address, an already-verified address and simply the wrong six
-digits, doing the same HMAC work either way; the `tries_left` field is gone, because it only ever appeared for an address
-that exists.
+create an account with this address — sign in instead"* (no code, throttled to one a minute).
+
+Round 2 closed the three ways that answer could still be told apart:
+
+- **`expired` was the oracle, and the comment claiming otherwise was wrong.** `POST /account/verify` and
+  `POST /account/reset` used to answer `400 {code:'expired'}` where an unknown address got `400 {code:'bad_code'}`, on
+  the stated grounds that *"both need a live code to reach"*. `checkCode` returns `expired` precisely when there is **no**
+  live code — the ordinary state of every account — so one unauthenticated request against `/account/reset` separated a
+  real verified address from an invented one, with no code and, until this round, no rate limit on the route at all.
+  `locked` went the same way: only an address that has an account could ever produce it. Both routes now answer one
+  `400 {code:'bad_code'}` for every outcome but success. The code is still burned on the fifth wrong try; it no longer
+  says so. (The *message* still reads "or it has expired" — that advice is now given to every caller, including one
+  holding an address with no account.)
+- **The sign-up notice no longer shares a throttle column with the code path.** It stamps
+  `accounts.signup_notice_sent_at`, never `verify_sent_at`. Writing the shared column meant a stranger POSTing
+  `/account/register` at a verified address suppressed *that owner's* own `/account/forgot` and `/account/resend` for the
+  next minute — 200 with no mail — which held the password reset shut, and the reset is the documented way out of a
+  sign-in lockout.
+- **A refusing mail provider answers the same on both paths.** When Resend fails, a new address and a verified one both
+  get `502 {code:'email_failed'}`, and a retry inside the throttle window gets `202` on both. Previously the new address
+  got 502 and the verified one 202, which said exactly what the rest of the route was built to hide.
+
+**Repository-side guards changed in the same round.** They are not Worker code, but they are the reason a finding about
+this backend reaches a person, so they belong with it:
+
+- **The smoke report stopped eating its own headline.** `.github/workflows/smoke-worker.yml` redacts business figures out
+  of `_worker-smoke.txt` before it is committed to a branch. Its pattern carried a bare `\$[0-9]` alternative, which
+  matched **every line of the catalog price table** — `MAST-DA  Direct Action  $695.00` — and redacted the
+  server-side-pricing invariant, the first thing this backend exists to prove, out of the committed file. The pattern is
+  now anchored to the CRM fields by name (`revenue`, `funnel`, `segments`, `leads`, `profiles`, `orders`, `subscribers`,
+  `opted_in`, `registrations`, plus `revenue total=` and `last30=`, whose words are separated by a space). Fired against
+  samples built from the workflow's own `printf` formats: every price line survives, every CRM figure line is redacted.
+- **`.github/scripts/ci_cred_scan.py` learned four classes and stopped truncating.** Added: fine-grained GitHub PATs
+  (`github_pat_…`), `-----BEGIN … PRIVATE KEY-----` blocks, Cloudflare API tokens (40 characters of `[A-Za-z0-9_-]` with
+  no prefix of their own, so the context word is the anchor) and AWS secret access keys (40 base64 characters beside
+  `aws_secret` / `secret_access_key`). Lines are no longer cut at 8,000 characters — they are scanned whole, in
+  overlapping 8,000-character windows, so a secret in a minified bundle or a one-line JSON blob is looked at instead of
+  skipped. The one `ALLOW` entry is anchored on the elided key body `\n...\n` in a documentation file rather than on the
+  file, so pasting a real key into that same file still fires.
+- **`deploy-mastsolutions.yml` declares `permissions: contents: read`.** Nothing in that job writes to the repository, and
+  declaring the block at all is what drops every other scope to none.
 
 ## Configuration reference
 

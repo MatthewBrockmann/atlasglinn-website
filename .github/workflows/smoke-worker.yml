@@ -162,10 +162,13 @@ jobs:
           # above already never reaches this file, and this catches whatever a future edit adds that does.
           python3 - out/_worker-smoke.txt <<'PY'
           import re, sys
-          # The brief's set was revenue|$[0-9]|leads:|profiles:|orders: — the CRM block prints "profiles=412 leads=93",
-          # with '=', so the colon-only form matched nothing it was written for. Both separators, plus the other count
-          # fields on the same line, or this guard is decorative.
-          pat = re.compile(r'revenue|funnel|segments|\$[0-9]|(?:leads|profiles|orders|subscribers|opted_in|registrations)\s*[:=]', re.I)
+          # Anchored to the CRM fields by NAME, and never to money on its own. The bare '$[0-9]' alternative that used to
+          # sit here matched every line of the CATALOG PRICE TABLE — "MAST-HG-FUND  Handgun Fundamentals  $225.00" — and
+          # redacted the server-side-pricing invariant, the headline thing this report exists to prove, out of the
+          # committed file (security review round 2, 2026-09-08). The CRM block prints "profiles=412 leads=93" with '=',
+          # so both separators are matched; 'revenue total=' and 'last30=' are named because the words on that line are
+          # separated by a space and no name-then-separator form reaches them.
+          pat = re.compile(r'funnel|segments|revenue total=|last30=|(?:revenue|leads|profiles|orders|subscribers|opted_in|registrations)\s*[:=]', re.I)
           path = sys.argv[1]; out = []; hits = 0
           for line in open(path, encoding='utf-8', errors='replace').read().split('\n'):
               if pat.search(line): out.append('   [redacted by the smoke report guard]'); hits += 1

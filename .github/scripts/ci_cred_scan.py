@@ -37,6 +37,7 @@ PATTERNS = [
     ('RevenueCat key', re.compile(r'\bappl_[A-Za-z0-9]{20,}')),
     ('Slack token', re.compile(r'\bxox[bpaers]-[A-Za-z0-9\-]{10,}')),
     ('GitHub token', re.compile(r'\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}')),
+    ('GitHub fine-grained PAT', re.compile(r'\bgithub_pat_[A-Za-z0-9_]{20,}')),
     ('GitLab token', re.compile(r'\bglpat-[A-Za-z0-9_\-]{20,}')),
     ('AWS access key id', re.compile(r'\bAKIA[A-Z0-9]{16}\b')),
     ('JWT', re.compile(r'\beyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}')),
@@ -46,11 +47,47 @@ PATTERNS = [
     # An opaque 32–40 hex blob sitting next to a key-ish name — the class that got missed once (AISStream, 2026-05-09).
     ('key-adjacent hex blob', re.compile(
         r'(?i)(?:api[_\-]?key|access[_\-]?token|secret|_key|_token)["\'\s:=]{1,8}([a-f0-9]{32,40})\b')),
+    # A private key of any flavour. Non-capturing, so the report names the header rather than an empty group.
+    ('private key block', re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH |DSA |)PRIVATE KEY-----')),
+    # Cloudflare API tokens are 40 characters of [A-Za-z0-9_-] with no prefix to anchor on, so the context is the anchor.
+    # This repository deploys a Worker; a token pasted beside the word that names it is the shape to catch.
+    ('Cloudflare API token', re.compile(
+        r'(?i)(?:cloudflare|CF_|cf_api|api_token)[^\n]{0,48}?["\'\s:=]([A-Za-z0-9_\-]{40})(?![A-Za-z0-9_\-])')),
+    # An AWS secret access key is 40 base64 characters and, like the Cloudflare one, has no prefix of its own — AKIA…
+    # above only catches the id that travels with it.
+    ('AWS secret access key', re.compile(
+        r'(?i)(?:aws_secret|secret_access_key)[^\n]{0,48}?["\'\s:=]([A-Za-z0-9/+=]{40})(?![A-Za-z0-9/+=])')),
 ]
 
-# Narrow, explicit false positives. Each entry is (path suffix, pattern name, substring that must be in the match).
+# Long lines are scanned WHOLE, in overlapping windows. Truncating at 8000 characters (what this did until 2026-09-08)
+# meant a secret in a minified bundle or a one-line JSON blob was simply not looked at; the overlap is wider than any
+# pattern here, so a match lying across a window boundary is still found.
+CHUNK = 8000
+OVERLAP = 512
+
+
+def windows(line):
+    if len(line) <= CHUNK:
+        return [line]
+    out, start = [], 0
+    while start < len(line):
+        out.append(line[start:start + CHUNK])
+        if start + CHUNK >= len(line):
+            break
+        start += CHUNK - OVERLAP
+    return out
+
+# Narrow, explicit false positives. Each entry is (path suffix, pattern name, substring that must be present ON THE LINE).
 # Adding to this list is a code review, not a workaround: it names the file, the class and the exact value shape.
-ALLOW = []
+#
+# The third field is matched against the LINE, not against the matched value, so an entry can be anchored on the thing
+# that makes it harmless rather than on the thing that makes it look like a secret. Anchoring on the file alone would
+# disarm the scanner for that file forever, which is how an allow list stops being a review.
+ALLOW = [
+    # A documented example of the shape of a Google service-account JSON. The key body on that line is the three-dot
+    # elision '\\n...\\n', so the entry only holds while the body stays elided: paste a real key in and it fires.
+    ('.claude/skills/seo-google/references/auth-setup.md', 'private key block', '\\n...\\n'),
+]
 
 
 def masked(value):
@@ -74,8 +111,8 @@ def skip(path):
     return path == '.github/scripts/ci_cred_scan.py'
 
 
-def allowed(path, name, match):
-    return any(path.endswith(p) and name == n and s in match for p, n, s in ALLOW)
+def allowed(path, name, line):
+    return any(path.endswith(p) and name == n and s in line for p, n, s in ALLOW)
 
 
 def main():
@@ -94,17 +131,20 @@ def main():
             continue
         scanned += 1
         for n, line in enumerate(lines, 1):
-            if len(line) > 8000:
-                line = line[:8000]
-            for name, rx in PATTERNS:
-                m = rx.search(line)
-                if not m:
-                    continue
-                value = m.group(1) if rx.groups else m.group(0)
-                if allowed(rel, name, m.group(0)):
-                    continue
-                hits.append((rel, n, name, value))
-                break
+            found = False
+            for chunk in windows(line):
+                for name, rx in PATTERNS:
+                    m = rx.search(chunk)
+                    if not m:
+                        continue
+                    value = m.group(1) if rx.groups else m.group(0)
+                    if allowed(rel, name, chunk):
+                        continue
+                    hits.append((rel, n, name, value))
+                    found = True
+                    break
+                if found:       # one hit per line is enough to fail the run and name the file
+                    break
 
     print('cred-scan: %d tracked files scanned' % scanned)
     if not hits:

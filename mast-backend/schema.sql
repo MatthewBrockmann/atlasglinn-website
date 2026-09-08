@@ -308,14 +308,22 @@ CREATE TABLE IF NOT EXISTS accounts (
   -- lock the account for 15 minutes, doubling at every further five up to a day; while locked /account/login answers 429
   -- before any PBKDF2 runs. Any successful sign-in, verification or reset clears both.
   failed_logins           INTEGER NOT NULL DEFAULT 0,
-  locked_until            TEXT
+  locked_until            TEXT,
+  -- The "someone tried to sign up with your address" notice, throttled on its own column so a stranger's attempt cannot
+  -- suppress this account holder's own /account/forgot and /account/resend (security review round 2, 2026-09-08).
+  signup_notice_sent_at   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email);
 
 -- ── Per-IP request counters (migrations/008-rate-limits.sql on a live database) ──
--- One row per (bucket, CF-Connecting-IP): login, signup, code (forgot + resend), verify, seat, contact, event. Fixed
--- windows that roll — the first request after a window has run out starts a new one. Every increment is a single
--- conditional UPDATE, so concurrent requests can neither share nor skip a count. The daily cron drops rows older than a day.
+-- One row per (bucket, CF-Connecting-IP): login, signup, code (forgot + resend + reset), verify, seat, contact,
+-- subscribe, admin. Fixed windows that roll — the first request after a window has run out starts a new one. Every
+-- increment is a single conditional UPDATE, so concurrent requests can neither share nor skip a count. /event is NOT
+-- counted here: it is a page-view beacon and limiting it would turn every page view into a D1 write.
+--
+-- The same table also carries 'loginfail:<ip>:<address>' rows — consecutive failed sign-ins for one pair, count in
+-- count and the lock expiry in window_start — so an address with no account locks on the same attempt as one that has
+-- an account. The daily cron drops rows older than a day, which is also how a partial failure count resets.
 CREATE TABLE IF NOT EXISTS rate_limits (
   key          TEXT PRIMARY KEY,
   window_start TEXT NOT NULL,

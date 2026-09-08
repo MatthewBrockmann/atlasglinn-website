@@ -29,6 +29,11 @@ on:
     paths:
       - 'dist/mastsolutions/**'
       - '.github/workflows/deploy-mastsolutions.yml'
+# Nothing in this job writes to the repository: it checks out, asks cPanel, uploads over SFTP and reads DNS. Declaring
+# the block at all is what drops every other scope (packages, actions, id-token …) to none; contents:read is what the
+# checkout needs and the most this job may ever have.
+permissions:
+  contents: read
 concurrency:
   group: deploy-mastsolutions
   cancel-in-progress: false

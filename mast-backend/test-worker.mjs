@@ -37,6 +37,7 @@ const stripePriceCalls = [];   // GET /v1/prices?lookup_keys[] and POST /v1/pric
 const stripeCustomerCalls = [];   // /v1/customers (account cards)
 let fakeDefaultCard = null;         // what GET /v1/customers/<id>?expand=... returns as the default payment method
 const fakePrices = [];         // prices "in Stripe" ({ id, lookup_key })
+let stripeGate = null;         // set to a promise to hold the Checkout Session call open (the oversell-race test)
 let sealedJson = null;         // what raw.githubusercontent.com serves for the sealed range directions (null = 404)
 const workerKeys = new Map();  // worker_keys rows (the sealing key pair)
 globalThis.fetch = async (url, init) => {
@@ -59,6 +60,7 @@ globalThis.fetch = async (url, init) => {
   if (u.includes('api.stripe.com/v1/setup_intents')) return new Response(JSON.stringify({ id: 'seti_1', payment_method: 'pm_saved_1' }), { status: 200 });
   if (u.includes('api.stripe.com')) {
     stripeCalls.push(new URLSearchParams(init.body));
+    if (stripeGate) await stripeGate;   // held open by the oversell-race test; null everywhere else
     return new Response(JSON.stringify({ id: 'cs_test_123', url: 'https://checkout.stripe.com/pay/cs_test_123' }), { status: 200 });
   }
   if (String(url).includes('api.resend.com')) {
@@ -86,6 +88,9 @@ const fakePlans = {                // memberships rows; a plan without a stripe_
   red_team: { plan_key: 'red_team', name: 'Red Team', stripe_price_id: '', price_cents: 25000, interval: 'month' },
   le_team: { plan_key: 'le_team', name: 'Law Enforcement', stripe_price_id: 'price_live_le', price_cents: 19500, interval: 'month' },
 };
+// The Worker's HOLDING_SEATS predicate, in JavaScript: a pending row holds a seat for 15 minutes once it carries a
+// Stripe session id, and for 2 minutes before that.
+const holdsASeat = (r, live, fresh) => r.status === 'pending' && (r.stripe_session_id ? r.created_at > live : r.created_at > fresh);
 const rateLimits = new Map();      // rate_limits rows: key -> { key, window_start, count }
 const resetLimits = () => rateLimits.clear();   // a fresh window; the per-IP limits get their own block below
 let rateFail = false;              // flip on to make every rate_limits statement throw (the fail-closed test)
@@ -102,16 +107,19 @@ const DB = {
           async first() {
             if (sql.includes('FROM worker_keys')) return workerKeys.get(args[0]) || null;
             if (sql.includes('SUM(qty)') && sql.includes('FROM registrations')) {
-              // A pending row only holds seats once Stripe gave it a session id (security review 2026-09-08).
-              const needsSession = sql.includes('stripe_session_id IS NOT NULL');
+              // The Worker's HOLDING_SEATS predicate: with a session id the hold is 15 minutes, without one 2 minutes
+              // (security review round 2, 2026-09-08). Both cutoffs are bound, live first.
+              const [live, fresh] = [args[2], args[3]];
               let n = 0;
-              for (const r of registrations.values()) if (r.sku === args[0] && r.session_date === args[1] && (r.status === 'paid' || (r.status === 'pending' && (!needsSession || r.stripe_session_id) && r.created_at > args[2]))) n += Number(r.qty || 1);
+              for (const r of registrations.values()) if (r.sku === args[0] && r.session_date === args[1] && (r.status === 'paid' || holdsASeat(r, live, fresh))) n += Number(r.qty || 1);
               return { n };
             }
             if (sql.includes('COUNT(*)') && sql.includes('FROM registrations') && sql.includes("status = 'pending'")) {
-              const col = (/AND (\w+) = \?/.exec(sql) || [])[1];
+              // Same predicate, then the trailing "AND <col> = ?" clauses: one for the connection, two for the pair.
+              const cols = [...sql.matchAll(/AND (\w+) = \?/g)].map((m) => m[1]);
+              const [live, fresh] = [args[0], args[1]];
               let n = 0;
-              for (const r of registrations.values()) if (r.status === 'pending' && r.created_at > args[0] && r[col] === args[1]) n++;
+              for (const r of registrations.values()) if (holdsASeat(r, live, fresh) && cols.every((c, i) => r[c] === args[2 + i])) n++;
               return { n };
             }
             if (sql.includes('FROM rate_limits')) { if (rateFail) throw new Error('D1_ERROR: rate_limits unavailable'); const row = rateLimits.get(args[0]); return row ? { ...row } : null; }
@@ -153,8 +161,12 @@ const DB = {
             if (sql.includes('rate_limits')) {
               if (rateFail) throw new Error('D1_ERROR: rate_limits unavailable');
               if (sql.startsWith('INSERT OR IGNORE INTO rate_limits')) { const [key, window_start, count] = args; if (rateLimits.has(key)) return { meta: { changes: 0 } }; rateLimits.set(key, { key, window_start, count }); return { meta: { changes: 1 } }; }
-              if (sql.startsWith('UPDATE rate_limits SET window_start')) { const [window_start, count, key, cutoff] = args; const r = rateLimits.get(key); if (!r || !(r.window_start <= cutoff)) return { meta: { changes: 0 } }; r.window_start = window_start; r.count = count; return { meta: { changes: 1 } }; }
-              if (sql.startsWith('UPDATE rate_limits SET count = count + 1')) { const [key, limit] = args; const r = rateLimits.get(key); if (!r || !(r.count < limit)) return { meta: { changes: 0 } }; r.count += 1; return { meta: { changes: 1 } }; }
+              if (sql.startsWith('UPDATE rate_limits SET window_start = ?, count = ?')) { const [window_start, count, key, cutoff] = args; const r = rateLimits.get(key); if (!r || !(r.window_start <= cutoff)) return { meta: { changes: 0 } }; r.window_start = window_start; r.count = count; return { meta: { changes: 1 } }; }
+              if (sql.startsWith('UPDATE rate_limits SET count = count + 1 WHERE key = ? AND count < ?')) { const [key, limit] = args; const r = rateLimits.get(key); if (!r || !(r.count < limit)) return { meta: { changes: 0 } }; r.count += 1; return { meta: { changes: 1 } }; }
+              // The (ip, address) sign-in failure counter: an unconditional bump, and a lock expiry that is never shortened.
+              if (sql.startsWith('UPDATE rate_limits SET count = count + 1 WHERE key = ?')) { const r = rateLimits.get(args[0]); if (!r) return { meta: { changes: 0 } }; r.count += 1; return { meta: { changes: 1 } }; }
+              if (sql.startsWith('UPDATE rate_limits SET window_start = ? WHERE key = ? AND window_start <')) { const [until, key, floor] = args; const r = rateLimits.get(key); if (!r || !(r.window_start < floor)) return { meta: { changes: 0 } }; r.window_start = until; return { meta: { changes: 1 } }; }
+              if (sql.startsWith('DELETE FROM rate_limits WHERE key = ?')) { const had = rateLimits.delete(args[0]); return { meta: { changes: had ? 1 : 0 } }; }
               if (sql.startsWith('DELETE FROM rate_limits')) { let n = 0; for (const [k, r] of [...rateLimits]) if (r.window_start < args[0]) { rateLimits.delete(k); n++; } return { meta: { changes: n } }; }
               return { meta: { changes: 0 } };
             }
@@ -758,7 +770,9 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   await post('/account/register', { email: 'locked@example.com', password: 'a long enough password' });
   const lockCode = codeIn(emails[0]); const statuses = [];
   for (let i = 0; i < 5; i++) statuses.push((await post('/account/verify', { email: 'locked@example.com', code: lockCode === '111111' ? '222222' : '111111' })).status);
-  ok('four wrong codes → 400, the fifth → 429 and the code is burned', statuses.join() === '400,400,400,400,429' && (await post('/account/verify', { email: 'locked@example.com', code: lockCode })).status === 400, statuses.join());
+  // The fifth try still burns the code; it no longer SAYS so. A 429 'locked' was only ever reachable on an address that
+  // has an account, so it separated a real address from an invented one at the sixth request (round 2, 2026-09-08).
+  ok('five wrong codes all answer the same 400, and the fifth still burns the code', statuses.join() === '400,400,400,400,400' && !rowFor('locked@example.com').verify_code_hash && (await post('/account/verify', { email: 'locked@example.com', code: lockCode })).status === 400, statuses.join());
   emails.length = 0;
   ok('resend within a minute → the same 200 and no email (no account enumeration)', (await post('/account/resend', { email: 'locked@example.com' })).status === 200 && emails.length === 0);
   rowFor('locked@example.com').verify_sent_at = new Date(Date.now() - 120000).toISOString();
@@ -771,10 +785,16 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   const raceCode = codeIn(emails[0]);
   const raced = await Promise.all(Array.from({ length: 8 }, (_, i) => post('/account/verify', { email: 'raced@example.com', code: String(900000 + i) === raceCode ? '000000' : String(900000 + i) })));
   const raceStatuses = raced.map((r) => r.status);
-  ok('eight concurrent wrong guesses → at most four 400s, the rest 429, and the code is burned', raceStatuses.filter((s) => s === 400).length <= 4 && raceStatuses.filter((s) => s === 429).length >= 4 && (await post('/account/verify', { email: 'raced@example.com', code: raceCode })).status !== 200, raceStatuses.join());
+  const raceBodies = new Set(await Promise.all(raced.map((r) => r.clone().text())));
+  // The claim-first UPDATE inside checkCode still bounds the comparisons at five however many arrive at once; what
+  // changed is that all eight answers are now one answer, so the count cannot be read off the status codes either.
+  ok('eight concurrent wrong guesses answer 400 with one identical body, and the code is burned', raceStatuses.every((s) => s === 400) && raceBodies.size === 1 && !rowFor('raced@example.com').verify_code_hash && (await post('/account/verify', { email: 'raced@example.com', code: raceCode })).status !== 200, raceStatuses.join() + ' bodies=' + raceBodies.size);
   // forgotten password (Codex P2)
   emails.length = 0;
   ok('forgot for an unknown email → 200 and no email', (await post('/account/forgot', { email: 'nobody@example.com' })).status === 200 && emails.length === 0);
+  // Pinned explicitly: the sign-up attempts above no longer touch verify_sent_at (they throttle on signup_notice_sent_at),
+  // so this assertion has to set up the state it is about instead of inheriting it from a stranger's request.
+  rowFor('student@example.com').verify_sent_at = new Date().toISOString();
   ok('forgot within a minute of the last code → the same 200 and no email (no account enumeration)', (await post('/account/forgot', { email: 'student@example.com' })).status === 200 && emails.length === 0);
   rowFor('student@example.com').verify_sent_at = new Date(Date.now() - 120000).toISOString();   // the sign-up code went out a while ago
   const forgot = await post('/account/forgot', { email: 'student@example.com' });
@@ -865,7 +885,9 @@ console.log('\n── Rate limiting, lockout and seat holds (security review, 20
   resetLimits();
   const beacon = [];
   for (let i = 0; i < 32; i++) beacon.push((await from('/event', { action: 'view', page: 'p' }, '198.51.100.11')).status);
-  ok('the beacon is 30 per window from one address, then 429', beacon.slice(0, 30).every((c) => c === 200) && beacon[30] === 429, beacon.slice(28).join());
+  // The beacon is deliberately NOT limited (round 2, 2026-09-08): a counter in D1 would turn every page view into a D1
+  // write, which costs more than the route it guards. No 429, and no counter row written for it.
+  ok('the page-view beacon is not limited at all: 32 views answer 200 and write no counter row', beacon.every((c) => c === 200) && ![...rateLimits.keys()].some((k) => k.startsWith('event:')), beacon.filter((c) => c !== 200).length + ' non-200, rows=' + [...rateLimits.keys()].join());
 
   // ── the limiter's own D1 failure ──
   resetLimits(); rateFail = true;
@@ -875,7 +897,9 @@ console.log('\n── Rate limiting, lockout and seat holds (security review, 20
   rateFail = false;
   ok('a D1 failure in the limiter FAILS CLOSED on sign-in → 429, never a free guessing window', failLogin.status === 429 && (await failLogin.json()).code === 'rate_limited', String(failLogin.status));
   ok('… and fails closed on /register too', failReg.status === 429, String(failReg.status));
-  ok('… but /event fails OPEN: losing the first-party beacon is worse than letting it through', failEvent.status === 200, String(failEvent.status));
+  // /event answers 200 with every rate_limits statement throwing, which is the proof it never reaches the limiter at all
+  // — a route that did reach it would fail closed like the two above.
+  ok('… and /event is untouched by a limiter outage, because it never reaches the limiter', failEvent.status === 200, String(failEvent.status));
   ok('the limiter recovers on the next request once D1 is back', (await from('/account/login', { email: 'lockme@example.com', password: 'a long enough password' }, '198.51.100.13')).status === 200);
 
   // ── seat holds ──
@@ -889,31 +913,52 @@ console.log('\n── Rate limiting, lockout and seat holds (security review, 20
   const heldRow = registrations.get(h1.registration_id);
   ok('a booking stores the registration, then reaches Stripe, then stamps the session id on it', heldRow && heldRow.status === 'pending' && heldRow.stripe_session_id === 'cs_test_123' && stripeCalls.length === 1, JSON.stringify(heldRow && { s: heldRow.status, sid: heldRow.stripe_session_id }));
 
-  // a pending row with no Stripe session id holds nothing — the DoS the old 30-minute hold allowed
+  // A pending row with no Stripe session id holds its seats for TWO MINUTES and then nothing (round 2, 2026-09-08).
+  // Round 1 made the session id the whole condition, which widened the oversell race to a full Stripe round trip: honest
+  // simultaneous buyers all passed the capacity check while every one of their rows was still session-less.
   registrations.set('reg_no_session', { id: 'reg_no_session', created_at: new Date().toISOString(), status: 'pending', sku: HOLD_SKU, session_date: HOLD_DATE, qty: 16, customer_email: 'ghost@example.com', agreement_ip: '198.51.100.99', stripe_session_id: null });
+  const inWindow = await from('/register', holdBody(2), '198.51.100.21'); const iw = await inWindow.json();
+  ok('a session-less row seconds old DOES hold its 16 seats: two honest buyers cannot oversell across the Stripe call', inWindow.status === 409 && iw.code === 'sold_out', String(inWindow.status) + ' ' + JSON.stringify(iw).slice(0, 120));
+  registrations.get('reg_no_session').created_at = new Date(Date.now() - 3 * 60000).toISOString();
   const past = await from('/register', holdBody(2), '198.51.100.21');
-  ok('16 seats held by a pending row that never reached Stripe count for nothing: the next booking still sells', past.status === 200, String(past.status) + ' ' + JSON.stringify(await past.clone().json()).slice(0, 120));
+  ok('… and three minutes later that same row holds nothing: a POST that never reached Stripe cannot empty a class', past.status === 200, String(past.status) + ' ' + JSON.stringify(await past.clone().json()).slice(0, 120));
   registrations.get('reg_no_session').stripe_session_id = 'cs_test_ghost';
+  registrations.get('reg_no_session').created_at = new Date(Date.now() - 3 * 60000).toISOString();
   const blocked = await from('/register', holdBody(3), '198.51.100.22'); const bb = await blocked.json();
-  ok('… and the moment that same row carries a session id it holds all 16 and the class is sold out', blocked.status === 409 && bb.code === 'sold_out', String(blocked.status) + ' ' + JSON.stringify(bb).slice(0, 120));
+  ok('… and the moment that same row carries a session id it holds all 16 again, for the full 15 minutes', blocked.status === 409 && bb.code === 'sold_out', String(blocked.status) + ' ' + JSON.stringify(bb).slice(0, 120));
   registrations.delete('reg_no_session');
+  for (const r of [...registrations.values()]) if (r.sku === HOLD_SKU && r.session_date === HOLD_DATE && r.id !== h1.registration_id) registrations.delete(r.id);
 
-  // the hold is 15 minutes, not 30
+  // The two windows, read straight off the predicate the Worker uses.
+  const HELD = "(status = 'pending' AND ((stripe_session_id IS NOT NULL AND created_at > ?) OR (stripe_session_id IS NULL AND created_at > ?)))";
+  const seatsNow = async () => Number((await env.DB.prepare(`SELECT COALESCE(SUM(qty), 0) AS n FROM registrations WHERE sku = ? AND session_date = ? AND (status = 'paid' OR ${HELD})`)
+    .bind(HOLD_SKU, HOLD_DATE, new Date(Date.now() - 15 * 60000).toISOString(), new Date(Date.now() - 2 * 60000).toISOString()).first()).n);
   const aged = registrations.get(h1.registration_id);
   aged.created_at = new Date(Date.now() - 20 * 60000).toISOString();
-  const seats = await env.DB.prepare("SELECT COALESCE(SUM(qty), 0) AS n FROM registrations WHERE sku = ? AND session_date = ? AND (status = 'paid' OR (status = 'pending' AND stripe_session_id IS NOT NULL AND created_at > ?))")
-    .bind(HOLD_SKU, HOLD_DATE, new Date(Date.now() - 15 * 60000).toISOString()).first();
-  ok('a hold 20 minutes old no longer counts: the hold is 15 minutes, not the old 30', Number(seats.n) === 1, JSON.stringify(seats));
+  ok('a hold WITH a session id 20 minutes old no longer counts: that window is 15 minutes, not the old 30', (await seatsNow()) === 0, 'seats=' + (await seatsNow()));
+  aged.created_at = new Date(Date.now() - 10 * 60000).toISOString();
+  ok('… and at 10 minutes it still counts', (await seatsNow()) === 1, 'seats=' + (await seatsNow()));
+  aged.stripe_session_id = null;
+  ok('the same row without a session id holds nothing at 10 minutes: the pre-Stripe window is 2 minutes', (await seatsNow()) === 0, 'seats=' + (await seatsNow()));
+  aged.created_at = new Date(Date.now() - 60000).toISOString();
+  ok('… and holds its seat at 1 minute', (await seatsNow()) === 1, 'seats=' + (await seatsNow()));
+  registrations.delete(h1.registration_id);
 
   // two live holds per address, and two per connection
   resetLimits();
   for (const r of [...registrations.values()]) if (r.sku === HOLD_SKU && r.session_date === HOLD_DATE) registrations.delete(r.id);
   const sameEmail = { name: 'Repeat Booker', email: 'repeat@example.com', phone: '(713) 555-0100', organization: '' };
-  const e1 = await from('/register', goodReg({ sku: HOLD_SKU, prerequisite: undefined, session_date: HOLD_DATE, qty: 1, customer: sameEmail }), '198.51.100.30');
-  const e2 = await from('/register', goodReg({ sku: HOLD_SKU, prerequisite: undefined, session_date: HOLD_DATE, qty: 1, customer: sameEmail }), '198.51.100.31');
-  const e3 = await from('/register', goodReg({ sku: HOLD_SKU, prerequisite: undefined, session_date: HOLD_DATE, qty: 1, customer: sameEmail }), '198.51.100.32');
+  const one = (ip) => from('/register', goodReg({ sku: HOLD_SKU, prerequisite: undefined, session_date: HOLD_DATE, qty: 1, customer: sameEmail }), ip);
+  const e1 = await one('198.51.100.30'); const e2 = await one('198.51.100.30'); const e3 = await one('198.51.100.30');
   const e3b = await e3.json();
-  ok('two live holds per address, and the third is refused with 429 too_many_holds', e1.status === 200 && e2.status === 200 && e3.status === 429 && e3b.code === 'too_many_holds' && e3.headers.get('Retry-After') === '900', [e1.status, e2.status, e3.status].join() + ' ' + JSON.stringify(e3b).slice(0, 140));
+  ok('two live holds per address from one connection, and the third is refused with 429 too_many_holds', e1.status === 200 && e2.status === 200 && e3.status === 429 && e3b.code === 'too_many_holds' && e3.headers.get('Retry-After') === '900', [e1.status, e2.status, e3.status].join() + ' ' + JSON.stringify(e3b).slice(0, 140));
+  // The cap is bound to the PAIR (round 2, 2026-09-08). customer_email is typed by whoever posts the form, so a cap on
+  // the address alone let a stranger take two holds under a known customer's address and answer that customer's own
+  // booking with 429. The trade is stated rather than hidden: holds under one address from DIFFERENT connections no
+  // longer add up, and the per-connection cap plus the 10-per-window seat limit are what bound them.
+  for (const r of [...registrations.values()]) if (r.sku === HOLD_SKU && r.session_date === HOLD_DATE) registrations.delete(r.id);
+  const s1 = await one('198.51.100.33'); const s2 = await one('198.51.100.34'); const s3 = await one('198.51.100.35');
+  ok('a stranger cannot lock a known customer out by typing their address: holds from other connections do not count against them', s1.status === 200 && s2.status === 200 && s3.status === 200, [s1.status, s2.status, s3.status].join());
 
   resetLimits();
   for (const r of [...registrations.values()]) if (r.sku === HOLD_SKU && r.session_date === HOLD_DATE) registrations.delete(r.id);
@@ -950,6 +995,203 @@ console.log('\n── Rate limiting, lockout and seat holds (security review, 20
   ok('the daily cron drops rate-limit rows older than a day and keeps live ones', !rateLimits.has('login:1.2.3.4') && rateLimits.has('login:5.6.7.8'), [...rateLimits.keys()].join());
   resetLimits();
   emails.length = 0;
+}
+
+console.log('\n── Account oracles, limiter coverage and schema retry (security review round 2, 2026-09-08) ──');
+{
+  const { ensureRateSchema, _resetRateSchemaMemo, RATE_SCHEMA, ruleFor, clientIp } = await import('./src/ratelimit.js');
+  const from = (path, body, ip, extra = {}) => worker.fetch(new Request('https://api.test' + path, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': ip, ...extra }, body: JSON.stringify(body),
+  }), env, ctx);
+  const getFrom = (path, ip) => worker.fetch(new Request('https://api.test' + path, { method: 'GET', headers: { Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': ip } }), env, ctx);
+  const rowFor = (email) => [...accounts.values()].find((a) => a.email === email);
+  const codeIn = (m) => (/\b(\d{6})\b/.exec((m && m.text) || '') || [])[1];
+  const same = async (a, b) => a.status === b.status && (await a.clone().text()) === (await b.clone().text());
+  // A verified account to probe against, and the address of one that has never existed.
+  const make = async (email, password) => {
+    emails.length = 0;
+    await post('/account/register', { email, password });
+    const code = codeIn(emails[0]);
+    await post('/account/verify', { email, code });
+    return rowFor(email);
+  };
+  const GHOST = 'no-such-person-at-all@example.com';
+  // No live code — what every real account looks like when nobody has just asked for one. This is the state that used to
+  // answer 'expired' where an invented address answered 'bad_code'.
+  const clearCodeOn = (email) => Object.assign(rowFor(email), { verify_kind: null, verify_code_hash: null, verify_expires_at: null, verify_attempts: 0 });
+
+  // ── H2-1: POST /account/reset was a one-request account-existence oracle ──
+  resetLimits();
+  await make('oracle@example.com', 'a long enough password');
+  const rKnown = await post('/account/reset', { email: 'oracle@example.com', code: '123456', password: 'a replacement password' });
+  const rGhost = await post('/account/reset', { email: GHOST, code: '123456', password: 'a replacement password' });
+  ok('reset against a VERIFIED address with no live code answers what an unknown address answers, byte for byte', await same(rKnown, rGhost) && rKnown.status === 400 && (await rKnown.clone().json()).code === 'bad_code', rKnown.status + ' ' + (await rKnown.clone().text()) + '  vs  ' + rGhost.status + ' ' + (await rGhost.clone().text()));
+  // and with a live code: wrong digits, and then a burned code, answer the same thing too
+  rowFor('oracle@example.com').verify_sent_at = new Date(Date.now() - 120000).toISOString();
+  emails.length = 0;
+  await post('/account/forgot', { email: 'oracle@example.com' });
+  const liveCode = codeIn(emails[0]);
+  const rWrong = await post('/account/reset', { email: 'oracle@example.com', code: liveCode === '123456' ? '654321' : '123456', password: 'a replacement password' });
+  ok('… and with a live code, wrong digits answer it too', await same(rWrong, rGhost), rWrong.status + ' ' + (await rWrong.clone().text()));
+  const burn = [];
+  for (let i = 0; i < 5; i++) burn.push((await post('/account/reset', { email: 'oracle@example.com', code: '000' + String(100 + i), password: 'a replacement password' })).status);
+  const rBurned = await post('/account/reset', { email: 'oracle@example.com', code: liveCode, password: 'a replacement password' });
+  ok('… and once the tries are spent the answer is still that one answer, and the code is burned', burn.every((s) => s === 400) && (await same(rBurned, rGhost)) && !rowFor('oracle@example.com').verify_code_hash, burn.join() + ' then ' + rBurned.status);
+
+  // ── H2-1: the same shape on POST /account/verify ──
+  resetLimits(); emails.length = 0;
+  await post('/account/register', { email: 'unverified-real@example.com', password: 'a long enough password' });
+  await clearCodeOn('unverified-real@example.com');   // a real, unverified account with NO live code — the ordinary state
+  const vKnown = await post('/account/verify', { email: 'unverified-real@example.com', code: '123456' });
+  const vGhost = await post('/account/verify', { email: GHOST, code: '123456' });
+  ok('verify against a REAL unverified address with no live code answers what an unknown address answers, byte for byte', await same(vKnown, vGhost) && vKnown.status === 400 && (await vKnown.clone().json()).code === 'bad_code', vKnown.status + ' ' + (await vKnown.clone().text()) + '  vs  ' + vGhost.status + ' ' + (await vGhost.clone().text()));
+  // The MESSAGE still says "or it has expired" — that is the advice both old answers used to carry, and it is now given
+  // to every caller including one holding an address that has no account. What must never come back is the machine-
+  // readable code, which is what a script would branch on.
+  const codesSeen = await Promise.all([rKnown, rWrong, rBurned, vKnown, vGhost, rGhost].map(async (r) => (await r.clone().json()).code));
+  ok('every one of those answers carries code bad_code — never expired, never locked', codesSeen.every((c) => c === 'bad_code'), codesSeen.join());
+
+  // ── H2-3: the sixth wrong password, for an address that has an account and one that does not ──
+  resetLimits();
+  await make('locksym@example.com', 'a long enough password');
+  const ONE = '198.51.100.70';
+  const real = [], ghost = [];
+  for (let i = 0; i < 5; i++) real.push((await from('/account/login', { email: 'locksym@example.com', password: 'wrong password ' + i }, ONE)).status);
+  for (let i = 0; i < 5; i++) ghost.push((await from('/account/login', { email: GHOST, password: 'wrong password ' + i }, ONE)).status);
+  const sixReal = await from('/account/login', { email: 'locksym@example.com', password: 'wrong password 6' }, ONE);
+  const sixGhost = await from('/account/login', { email: GHOST, password: 'wrong password 6' }, ONE);
+  ok('five wrong passwords answer 401 whether or not the address has an account', real.join() === '401,401,401,401,401' && ghost.join() === '401,401,401,401,401', real.join() + ' / ' + ghost.join());
+  ok('the SIXTH answers 429 locked for both — an invented address locks exactly as a real one does', sixReal.status === 429 && sixGhost.status === 429 && (await sixReal.clone().json()).code === 'locked' && (await sixGhost.clone().json()).code === 'locked' && (await same(sixReal, sixGhost)), sixReal.status + ' ' + (await sixReal.clone().text()) + '  vs  ' + sixGhost.status + ' ' + (await sixGhost.clone().text()));
+  ok('… and the lock is per (connection, address): a different address from the same connection is unaffected', (await from('/account/login', { email: 'oracle@example.com', password: 'not it either' }, ONE)).status === 401);
+  ok('the right password clears the pair: a sign-in after four failures leaves no lock behind', await (async () => {
+    const IP2 = '198.51.100.71';
+    for (let i = 0; i < 4; i++) await from('/account/login', { email: 'locksym@example.com', password: 'wrong ' + i }, IP2);
+    rowFor('locksym@example.com').failed_logins = 0; rowFor('locksym@example.com').locked_until = null;   // the per-account half, cleared separately
+    const good = await from('/account/login', { email: 'locksym@example.com', password: 'a long enough password' }, IP2);
+    const after = [];
+    for (let i = 0; i < 5; i++) after.push((await from('/account/login', { email: 'locksym@example.com', password: 'wrong again ' + i }, IP2)).status);
+    return good.status === 200 && after.join() === '401,401,401,401,401';
+  })());
+
+  // ── H2-2: a stranger's sign-up attempt must not hold the owner's reset shut ──
+  resetLimits();
+  const owner = await make('holdshut@example.com', 'the owners real password');
+  owner.verify_sent_at = new Date(Date.now() - 120000).toISOString();
+  const verifyStampBefore = rowFor('holdshut@example.com').verify_sent_at;
+  emails.length = 0;
+  const attack = await from('/account/register', { email: 'holdshut@example.com', password: 'the attackers password' }, '198.51.100.80');
+  ok('a stranger signing up at a verified address still gets the same 202 envelope, and the owner is told', attack.status === 202 && emails.length === 1 && /Someone tried to create a MAST Solutions account/.test(emails[0].subject), attack.status + ' emails=' + emails.length);
+  ok('… and it stamped signup_notice_sent_at, NOT verify_sent_at', !!rowFor('holdshut@example.com').signup_notice_sent_at && rowFor('holdshut@example.com').verify_sent_at === verifyStampBefore, JSON.stringify({ notice: rowFor('holdshut@example.com').signup_notice_sent_at, verify: rowFor('holdshut@example.com').verify_sent_at }));
+  emails.length = 0;
+  const reset = await from('/account/forgot', { email: 'holdshut@example.com' }, '198.51.100.81');
+  ok('… so the owner\'s own password reset still goes out: the stranger cannot hold it shut', reset.status === 200 && emails.length === 1 && /Reset your MAST Solutions password/.test(emails[0].subject) && !!codeIn(emails[0]), reset.status + ' emails=' + emails.length + ' ' + (emails[0] && emails[0].subject));
+  emails.length = 0;
+  const attack2 = await from('/account/register', { email: 'holdshut@example.com', password: 'the attackers password' }, '198.51.100.82');
+  ok('… and the notice itself is still throttled to one a minute on its own column', attack2.status === 202 && emails.length === 0, attack2.status + ' emails=' + emails.length);
+
+  // ── H2-7: when Resend refuses, both sign-up paths answer the same thing ──
+  resetLimits();
+  const notTooSoon = rowFor('holdshut@example.com'); notTooSoon.signup_notice_sent_at = new Date(Date.now() - 120000).toISOString();
+  resendStatus = 500;
+  const failNew = await from('/account/register', { email: 'brand-new-address@example.com', password: 'a long enough password' }, '198.51.100.83');
+  const failKnown = await from('/account/register', { email: 'holdshut@example.com', password: 'the attackers password' }, '198.51.100.84');
+  resendStatus = 200;
+  ok('a Resend outage answers identically for a new address and a verified one — 502 email_failed either way', failNew.status === 502 && (await failNew.clone().json()).code === 'email_failed' && (await same(failNew, failKnown)), failNew.status + ' ' + (await failNew.clone().text()) + '  vs  ' + failKnown.status + ' ' + (await failKnown.clone().text()));
+  // and the throttled retry is 202 on both paths too, so the second request does not separate them either
+  const soonNew = await from('/account/register', { email: 'brand-new-address@example.com', password: 'a long enough password' }, '198.51.100.85');
+  const soonKnown = await from('/account/register', { email: 'holdshut@example.com', password: 'the attackers password' }, '198.51.100.86');
+  // The envelope names the address the caller typed — their own input, not a fact about the database — so the two bodies
+  // are compared with that address blanked out.
+  const shape = async (r, email) => (await r.clone().text()).split(email).join('<ADDRESS>');
+  ok('… and a retry inside the throttle window answers the same 202 on both paths, so the second request separates them no better', soonNew.status === soonKnown.status && soonNew.status === 202 && (await shape(soonNew, 'brand-new-address@example.com')) === (await shape(soonKnown, 'holdshut@example.com')), soonNew.status + ' ' + (await soonNew.clone().text()) + '  vs  ' + soonKnown.status + ' ' + (await soonKnown.clone().text()));
+
+  // ── H2-5: honest concurrent buyers cannot oversell across the Stripe round trip ──
+  const RACE_SKU = 'MAST-HG-OP', RACE_DATE = '2026-12-12';   // capacity 10 in the fake catalog
+  for (const r of [...registrations.values()]) if (r.sku === RACE_SKU && r.session_date === RACE_DATE) registrations.delete(r.id);
+  resetLimits();
+  const buyer = (n, qty) => goodReg({ sku: RACE_SKU, prerequisite: { required: true, attested: true }, session_date: RACE_DATE, qty, customer: { name: 'Racer ' + n, email: 'racer' + n + '@example.com', phone: '(713) 555-0100', organization: '' } });
+  // The race exactly as it happens: buyer A's row is written BEFORE the Stripe call and stamped with a session id AFTER
+  // it, so the whole round trip is a window in which A's row exists and — under round 1's rule — held nothing. Buyer B
+  // arrives inside that window. Nothing about the Stripe call moves; the gate only holds it open long enough to look.
+  let release; stripeGate = new Promise((r) => { release = r; });
+  const aPending = from('/register', buyer(1, 8), '198.51.100.91');
+  await new Promise((r) => setTimeout(r, 30));   // A has stored its row and is now waiting on Stripe
+  const aRow = [...registrations.values()].find((r) => r.customer_email === 'racer1@example.com' && r.session_date === RACE_DATE);
+  // Snapshotted here, not read later: the row is a live object and A stamps its session id the moment the gate opens.
+  const midFlight = aRow && { status: aRow.status, sid: aRow.stripe_session_id || null, qty: aRow.qty };
+  const b = await from('/register', buyer(2, 8), '198.51.100.92'); const bb2 = await b.clone().json();
+  release(); stripeGate = null;
+  const a = await aPending;
+  ok('buyer A holds its 8 seats while it is still inside the Stripe call — row stored, session id not yet stamped', !!midFlight && midFlight.status === 'pending' && !midFlight.sid && midFlight.qty === 8, JSON.stringify(midFlight));
+  ok('… and the session id is stamped only once Stripe answers', aRow.stripe_session_id === 'cs_test_123', String(aRow.stripe_session_id));
+  ok('… so buyer B, arriving in that window, is refused: the round-trip-wide oversell race is closed', a.status === 200 && b.status === 409 && bb2.code === 'sold_out', 'A=' + a.status + ' B=' + b.status + ' ' + JSON.stringify(bb2).slice(0, 90));
+  // and the other way: the same row, unstamped and three minutes old, is a request that failed and holds nothing
+  const stale = [...registrations.values()].find((r) => r.customer_email === 'racer1@example.com' && r.session_date === RACE_DATE);
+  stale.stripe_session_id = null; stale.created_at = new Date(Date.now() - 3 * 60000).toISOString();
+  const c = await from('/register', buyer(3, 8), '198.51.100.93');
+  ok('… while a row that never got its session id and has not moved in three minutes holds nothing at all', c.status === 200, String(c.status));
+  for (const r of [...registrations.values()]) if (r.sku === RACE_SKU && r.session_date === RACE_DATE) registrations.delete(r.id);
+
+  // The fake D1 answers these queries in JavaScript rather than executing their SQL, so the assertions above would still
+  // pass if the Worker's predicate text lost a branch. The SQL itself is therefore read back out of the log: one
+  // definition of "holding a seat", used by capacity AND by both hold caps, or the tests are checking the fake.
+  const twoTier = (s) => /stripe_session_id IS NOT NULL AND created_at > \?/.test(s) && /stripe_session_id IS NULL AND created_at > \?/.test(s);
+  const capacitySql = sqlLog.filter((s) => s.includes('SUM(qty)') && s.includes('FROM registrations'));
+  const holdSql = sqlLog.filter((s) => s.includes('COUNT(*)') && s.includes('FROM registrations') && s.includes("status = 'pending'"));
+  ok('the capacity query and both hold-cap queries carry the SAME two-tier predicate, in SQL', capacitySql.length > 0 && holdSql.length > 0 && capacitySql.every(twoTier) && holdSql.every(twoTier), 'capacity=' + capacitySql.length + ' holds=' + holdSql.length + ' bad=' + [...capacitySql, ...holdSql].filter((s) => !twoTier(s)).length);
+  ok('… and the address cap is bound to the connection AND the address, never the address alone', holdSql.some((s) => /agreement_ip = \? AND customer_email = \?/.test(s)) && !holdSql.some((s) => /AND customer_email = \?/.test(s) && !/agreement_ip/.test(s)), holdSql.length + ' variants');
+
+  // ── H2-9: the routes that were never limited ──
+  resetLimits();
+  const resets = [];
+  for (let i = 0; i < 21; i++) resets.push((await from('/account/reset', { email: GHOST, code: '123456', password: 'a long enough password' }, '198.51.100.100')).status);
+  ok('/account/reset is limited at last — 20 per window from one address, then 429', resets.slice(0, 20).every((s) => s === 400) && resets[20] === 429, resets[19] + ',' + resets[20]);
+  ok('… in the shared code budget: forgot is refused once that window is spent', (await from('/account/forgot', { email: GHOST }, '198.51.100.100')).status === 429);
+  resetLimits();
+  const staff = [];
+  for (let i = 0; i < 61; i++) staff.push((await getFrom(i % 2 ? '/roster' : '/admin/crm', '198.51.100.101')).status);
+  ok('/roster and every /admin route share one 60-per-window budget, and it is enforced without a key', staff.slice(0, 60).every((s) => s === 401) && staff[60] === 429, staff[59] + ',' + staff[60]);
+  ok('… and the /admin rule is a PREFIX, so a route added under it is limited the day it is added', ruleFor('GET', '/admin/anything-added-later').bucket === 'admin' && ruleFor('POST', '/admin/sync').limit === 60 && ruleFor('GET', '/admin').bucket === 'admin' && ruleFor('GET', '/health') === null);
+  resetLimits();
+  const subs = [];
+  for (let i = 0; i < 11; i++) subs.push((await from('/subscribe', { email: 'sub' + i + '@example.com', consent: true }, '198.51.100.102')).status);
+  ok('/subscribe is 10 per window from one address, then 429', subs.slice(0, 10).every((s) => s === 200) && subs[10] === 429, subs[9] + ',' + subs[10]);
+  resetLimits();
+  const paid = [];
+  for (let i = 0; i < 10; i++) paid.push((await from('/create-booking', { sku: 'MAST-DA', customer_email: 'b@example.com' }, '198.51.100.103')).status);
+  const eleventh = await from('/create-booking', { sku: 'MAST-DA', customer_email: 'b@example.com' }, '198.51.100.103');
+  const membership = await from('/create-membership', { email: 'b@example.com', plan: 'range_member' }, '198.51.100.103');
+  ok('/create-booking is 10 Stripe sessions per window from one address, then 429 — it was unlimited and it costs money', paid.every((s) => s === 200) && eleventh.status === 429 && (await eleventh.clone().json()).code === 'rate_limited', paid.join() + ' then ' + eleventh.status);
+  ok('… and /create-membership shares that one budget rather than doubling it', membership.status === 429, String(membership.status));
+  ok('… while /register shares it too', (await from('/register', goodReg({ customer: { name: 'Seat Spray', email: 'seatspray@example.com', phone: '(713) 555-0100', organization: '' } }), '198.51.100.103')).status === 429);
+
+  // ── H2-11: X-Forwarded-For no longer lets a caller pick its own counter ──
+  resetLimits();
+  const spoof = [];
+  for (let i = 0; i < 6; i++) spoof.push((await from('/account/register', { email: 'spoof' + i + '@example.com', password: 'a long enough password' }, '198.51.100.110', { 'X-Forwarded-For': '10.0.0.' + i })).status);
+  ok('a rotating X-Forwarded-For cannot buy a fresh window: one CF-Connecting-IP is one counter', spoof[5] === 429, spoof.join());
+  ok('… and a caller with no CF-Connecting-IP shares the one "unknown" bucket rather than a bucket of their own', await (async () => {
+    resetLimits();
+    const noCf = (xff) => worker.fetch(new Request('https://api.test/account/register', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'X-Forwarded-For': xff }, body: JSON.stringify({ email: 'anon' + xff + '@example.com', password: 'a long enough password' }) }), env, ctx);
+    const codes = [];
+    for (let i = 0; i < 6; i++) codes.push((await noCf('10.1.1.' + i)).status);
+    return codes[5] === 429 && rateLimits.has('signup:unknown') && clientIp(new Request('https://api.test/', { headers: { 'X-Forwarded-For': '10.9.9.9' } })) === '';
+  })());
+
+  // ── H2-10: a schema step that really failed must not be memoised as done ──
+  _resetRateSchemaMemo();
+  const seen = []; let breakOnce = true;
+  const flaky = { DB: { prepare(sql) { return { async run() { seen.push(sql); if (breakOnce && /signup_notice_sent_at/.test(sql)) { breakOnce = false; throw new Error('D1_ERROR: database is locked'); } return { meta: { changes: 0 } }; } }; } } };
+  const firstRun = await ensureRateSchema(flaky); const afterFirst = seen.length;
+  const secondRun = await ensureRateSchema(flaky);
+  ok('a failed schema step answers false and is NOT memoised: the next request retries every statement', firstRun === false && secondRun === true && afterFirst === RATE_SCHEMA.length && seen.length === RATE_SCHEMA.length * 2, JSON.stringify({ firstRun, secondRun, afterFirst, total: seen.length, steps: RATE_SCHEMA.length }));
+  const thirdRun = await ensureRateSchema(flaky);
+  ok('… and once every statement has succeeded it IS memoised: no third run', thirdRun === true && seen.length === RATE_SCHEMA.length * 2, String(seen.length));
+  _resetRateSchemaMemo();
+  const dup = []; const already = { DB: { prepare(sql) { return { async run() { dup.push(sql); throw new Error('duplicate column name: failed_logins'); } }; } } };
+  ok('a duplicate-column error is the already-applied case, not a failure: it memoises', (await ensureRateSchema(already)) === true && (await ensureRateSchema(already)) === true && dup.length === RATE_SCHEMA.length, String(dup.length));
+  _resetRateSchemaMemo();
+  resetLimits(); emails.length = 0;
 }
 
 console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect data - and much more") ──');
