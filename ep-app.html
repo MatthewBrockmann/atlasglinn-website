@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="e525f1564cda">
+<meta name="build" content="2901603a4975">
 <title>Atlas EP — The First Proactive AI Protection Agent | Atlas Glinn</title>
 <meta name="description" content="Atlas EP: the first proactive biometric and environmental AI protection agent — your digital bodyguard for teams, families, and individuals.">
 <link rel="canonical" href="https://atlasglinn.com/ep-app.html">
@@ -331,6 +331,10 @@
   .stats.four { grid-template-columns:repeat(4,1fr); max-width:1100px; }
   .badges { display:flex; gap:1.4rem; justify-content:center; align-items:center; flex-wrap:wrap; margin-top:2rem; }
   .badges img { height:84px; width:auto; border:0; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); }
+  .badges .badge-item { text-align:center; }
+  .badges .badge-item p { margin-top:.8rem; font-family:'Orbitron',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-champagne); }
+  /* The live nav's logo mark, in the top-left header line. */
+  .hud.tl img.hud-logo { height:18px; width:auto; vertical-align:-5px; margin-right:.5rem; filter:drop-shadow(0 0 12px rgba(26,107,222,.55)); }
   .lede { font-size:clamp(1.05rem,1.4vw,1.3rem); color:var(--text); max-width:820px; margin:0 auto 2rem; line-height:1.6; font-weight:300; }
   .lede b { color:var(--gold-champagne); font-weight:600; }
   .partner { display:grid; grid-template-columns:1fr minmax(240px,420px); gap:1.6rem; max-width:1150px; margin:0 auto; text-align:left; align-items:center; }
@@ -358,13 +362,14 @@
 <canvas id="three-canvas"></canvas>
 <div id="photos">
   <div class="ph" data-for="01" style="background-image:url('images/atlas/AI-surveillance-1.png')"></div>
-  <div class="ph" data-for="02" style="background-image:url('images/atlas/closeup-cctv-camera-wall-min-1024x683.jpg')"></div>
-  <div class="ph" data-for="03" style="background-image:url('images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg')"></div>
-  <div class="ph" data-for="04" style="background-image:url('images/atlas/Atlas-Glinn-Protection.png')"></div>
-  <div class="ph" data-for="05" style="background-image:url('images/atlas/AI-surveillance-1.png')"></div>
-  <div class="ph" data-for="06" style="background-image:url('images/atlas/closeup-cctv-camera-wall-min-1024x683.jpg')"></div>
-  <div class="ph" data-for="07" style="background-image:url('images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg')"></div>
-  <div class="ph" data-for="08" style="background-image:url('images/atlas/AI-surveillance-1.png')"></div>
+  <div class="ph" data-for="02" style="background-image:url('images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg')"></div>
+  <div class="ph" data-for="03" style="background-image:url('images/atlas/closeup-cctv-camera-wall-min-1024x683.jpg')"></div>
+  <div class="ph" data-for="04" style="background-image:url('images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg')"></div>
+  <div class="ph" data-for="05" style="background-image:url('images/atlas/Atlas-Glinn-Protection.png')"></div>
+  <div class="ph" data-for="06" style="background-image:url('images/atlas/AI-surveillance-1.png')"></div>
+  <div class="ph" data-for="07" style="background-image:url('images/atlas/closeup-cctv-camera-wall-min-1024x683.jpg')"></div>
+  <div class="ph" data-for="08" style="background-image:url('images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg')"></div>
+  <div class="ph" data-for="09" style="background-image:url('images/atlas/AI-surveillance-1.png')"></div>
 </div>
 <div class="grain"></div>
 <div class="vignette"></div>
@@ -373,20 +378,21 @@
 <div class="progress" id="progress"></div>
 <div class="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>
 
-<a class="hud tl" href="index.html">&#9679; ATLAS GLINN &middot; HOUSTON</a>
-<div class="hud tr" id="hud-section">SECTION 01 / 08</div>
+<a class="hud tl" href="index.html"><img class="hud-logo" src="images/atlas/Atlas-Glinn-Logo-Rev1-2-e1744918824251.png" alt="ATLAS GLINN" loading="lazy">ATLAS GLINN &middot; HOUSTON</a>
+<div class="hud tr" id="hud-section">SECTION 01 / 09</div>
 <div class="hud bl">HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W</div>
 <div class="hud br">DETAILS MATTER</div>
 
 <nav class="chapter-nav" id="chapter-nav" aria-label="Chapters">
   <a href="#s1" class="chap-link">01 &middot; Opening</a>
-  <a href="#s2" class="chap-link">02 &middot; Capabilities</a>
-  <a href="#s3" class="chap-link">03 &middot; Comms Stack</a>
-  <a href="#s4" class="chap-link">04 &middot; Who It Is For</a>
-  <a href="#s5" class="chap-link">05 &middot; Pricing</a>
-  <a href="#s6" class="chap-link">06 &middot; Hardware</a>
-  <a href="#s7" class="chap-link">07 &middot; Request Access</a>
-  <a href="#s8" class="chap-link">08 &middot; Legal</a>
+  <a href="#s2" class="chap-link">02 &middot; Trailer</a>
+  <a href="#s3" class="chap-link">03 &middot; Capabilities</a>
+  <a href="#s4" class="chap-link">04 &middot; Comms Stack</a>
+  <a href="#s5" class="chap-link">05 &middot; Who It Is For</a>
+  <a href="#s6" class="chap-link">06 &middot; Pricing</a>
+  <a href="#s7" class="chap-link">07 &middot; Hardware</a>
+  <a href="#s8" class="chap-link">08 &middot; Request Access</a>
+  <a href="#s9" class="chap-link">09 &middot; Legal</a>
 </nav>
 <button class="menu-btn" id="menu-btn" type="button" aria-controls="sitenav" aria-expanded="false">MENU &#8801;</button>
 <div class="sitenav" id="sitenav" role="dialog" aria-label="Site menu">
@@ -397,7 +403,7 @@
       <li><a href="executive-protection.html">Executive Protection<small>Dignitary and close protection</small></a></li>
       <li><a href="residential-protection.html">Residential Protection<small>Estates, guard force, AI surveillance</small></a></li>
       <li><a href="disaster-recovery.html">Disaster Recovery<small>Asset protection when it counts</small></a></li>
-      <li><a href="training.html">Training<small>Dignitary protection curriculum</small></a></li>
+      <li><a href="training.html">Training<small>EP, firearms, tactical &amp; security courses</small></a></li>
       <li><a href="mastsolutions.html">MAST Solutions<small>Book a course</small></a></li>
       <li><a href="mastsolutions.html#gear">IWA Training Products<small>Flashbangs, smoke &amp; diversionary devices</small></a></li>
       <li><a href="technology.html">Technology<small>Atlas EP, AI surveillance, drones</small></a></li>
@@ -420,12 +426,21 @@
       <div class="eyebrow">Atlas EP App &middot; Now in Early Access</div>
       <h1 class="mega">The First Proactive AI <span class="gold">Protection Agent.</span></h1>
       <p class="sub">Your Digital Bodyguard &mdash; Always Watching, Never Intrusive. Biometric monitoring, encrypted comms, Blue Force Tracking, and AI-powered emergency chains built for everyone from EP teams to families.</p>
-      <div class="ctas rise"><a href="#s7" class="cta">Request Access</a><a href="#s2" class="secondary-cta">See Features</a></div>
+      <div class="ctas rise"><a href="#s8" class="cta">Request Access</a><a href="#s3" class="secondary-cta">See Features</a></div>
     </div>
     <div class="scroll-cue">SCROLL &darr;</div>
   </section>
 
   <section class="panel" id="s2" data-section="02">
+    <div>
+      <div class="eyebrow">WATCH THE TRAILER</div>
+      
+      
+      <div class="ctas rise"><a href="https://atlasglinn.com/wp-content/themes/atlasglinn/ep-trailer.html" class="secondary-cta">WATCH BRAND FILM</a></div><p class="sub" style="margin-top:1.2rem">150-second cinematic brand film &mdash; real-world scenarios, automatic protection, professional-grade tools</p>
+    </div>
+  </section>
+
+  <section class="panel" id="s3" data-section="03">
     <div>
       <div class="eyebrow">Core Capabilities</div>
       <h2 class="section-h">What Atlas EP <span class="gold">Does.</span></h2>
@@ -434,7 +449,7 @@
     </div>
   </section>
 
-  <section class="panel" id="s3" data-section="03">
+  <section class="panel" id="s4" data-section="04">
     <div>
       <div class="eyebrow">Communications</div>
       <h2 class="section-h">6-Layer Comms <span class="gold">Stack.</span></h2>
@@ -443,7 +458,7 @@
     </div>
   </section>
 
-  <section class="panel" id="s4" data-section="04">
+  <section class="panel" id="s5" data-section="05">
     <div>
       <div class="eyebrow">Built For Everyone</div>
       <h2 class="section-h">Who Atlas EP <span class="gold">Is For.</span></h2>
@@ -452,16 +467,16 @@
     </div>
   </section>
 
-  <section class="panel" id="s5" data-section="05">
+  <section class="panel" id="s6" data-section="06">
     <div>
       <div class="eyebrow">Pricing</div>
       <h2 class="section-h">Every Tier Gets <span class="gold">Every Tool.</span></h2>
       <p class="sub">No feature gates. No upsells. No crippled free tier. Every Atlas EP subscriber gets every module, every capability, every update. The only difference is scale.</p>
-      <div class="cards"><div class="card rise"><h3>Trial &middot; 7-Day Demo</h3><p>Full access to every tool. Test it with your team or your family before you commit.</p><p class="price"><b>FREE</b> <span class="meta">All Features Unlocked</span><br><span class="meta">No credit card required</span></p><a class="cta-button" href="#s7">Start Free Trial</a></div><div class="card rise"><h3>Personal &middot; Family</h3><p>Location sharing, SOS, fall detection, emergency chains, and biometric monitoring for your whole family.</p><p class="price"><b>$19.99</b> <span class="meta">/month</span><br><span class="meta">Up to 6 family members</span></p><a class="cta-button" href="#s7">Get Started</a></div><div class="card rise"><div class="meta">Most Popular</div><h3>Solo &middot; Individual</h3><p>Full platform access for one operator. Every module, every integration, every intelligence feed.</p><p class="price"><b>$49.99</b> <span class="meta">/month</span></p><a class="cta-button" href="#s7">Get Started</a></div><div class="card rise"><h3>Operator &middot; Professional</h3><p>For licensed EP agents, security professionals, and consultants. Full ops suite with priority support.</p><p class="price"><b>$149.99</b> <span class="meta">/month</span></p><a class="cta-button" href="#s7">Get Started</a></div><div class="card rise"><h3>Squad &middot; Team</h3><p>Full command dashboard, team deployment board, shared ops map, and multi-agent coordination tools.</p><p class="price"><b>$199.99</b> <span class="meta">/seat/month</span></p><a class="cta-button" href="#s7">Get Started</a></div><div class="card rise"><h3>Custom &middot; Enterprise</h3><p>For corporations, law enforcement, and government. Dedicated infrastructure, SLA, and white-label options.</p><p class="price"><b>$5,000+</b> <span class="meta">/month</span><br><span class="meta">Custom deployment</span></p><a class="cta-button" href="#s7">Contact Sales</a></div></div><p class="sub" style="margin-top:1.6rem">Every tier gets every tool. No feature gates.</p>
+      <div class="cards four"><div class="card rise"><h3>Family</h3><p>Location sharing, SOS, fall detection, emergency chains, and biometric monitoring for your whole family.</p><p class="price"><b>$19.99</b> <span class="meta">/month</span><br><span class="meta">Up to 6 family members</span></p><a class="cta-button" href="#s8">Get Started</a></div><div class="card rise"><h3>Operator</h3><p>For licensed EP agents, security professionals, and consultants. Full ops suite with priority support.</p><p class="price"><b>$149.99</b> <span class="meta">/month</span><br><span class="meta">One operator</span></p><a class="cta-button" href="#s8">Get Started</a></div><div class="card rise"><h3>Protection Team</h3><p>Full command dashboard, team deployment board, shared ops map, and multi-agent coordination tools.</p><p class="price"><b>$199.99</b> <span class="meta">/seat/month</span><br><span class="meta">Unlimited seats</span></p><a class="cta-button" href="#s8">Get Started</a></div><div class="card rise"><h3>Enterprise</h3><p>For corporations, law enforcement, and government. Dedicated infrastructure, SLA, and white-label options.</p><p class="price"><b>$5,000+</b> <span class="meta">/month</span><br><span class="meta">Custom deployment</span></p><a class="cta-button" href="#s8">Contact Sales</a></div></div><p class="sub" style="margin-top:1.6rem">Every tier gets every tool. No feature gates.</p><p class="sub">Every tier pairs with a Protectee.</p>
     </div>
   </section>
 
-  <section class="panel" id="s6" data-section="06">
+  <section class="panel" id="s7" data-section="07">
     <div>
       <div class="eyebrow">Hardware Ecosystem</div>
       <h2 class="section-h">Works With <span class="gold">Atlas EP.</span></h2>
@@ -470,22 +485,22 @@
     </div>
   </section>
 
-  <section class="panel" id="s7" data-section="07">
+  <section class="panel" id="s8" data-section="08">
     <div>
       <div class="eyebrow">Get Started</div>
       <h2 class="section-h">Request <span class="gold">Access.</span></h2>
       <p class="sub">Atlas EP is in limited early access. Qualified professionals, families, and organizations are being onboarded now.</p>
-      <form class="form rise" data-endpoint="https://mast-booking-backend.matthew-221.workers.dev/contact" data-success="&#9989; ACCESS REQUEST RECEIVED &mdash; The Atlas Glinn team will review your request and contact you within 24-48 hours. Welcome to the future of protection." novalidate><div class="row"><div><label for="ea-name">Full Name *</label><input id="ea-name" name="name" type="text" autocomplete="name" required></div><div><label for="ea-email">Email Address *</label><input id="ea-email" name="email" type="email" autocomplete="email" inputmode="email" required></div></div><div class="row"><div><label for="ea-company">Company / Organization</label><input id="ea-company" name="company" type="text" autocomplete="organization"></div><div><label for="ea-role">Role *</label><select id="ea-role" name="role" required><option value="">Select your role</option><option>Individual</option><option>Family</option><option>EP Team</option><option>Corporate</option><option>Government</option></select></div></div><label for="ea-phone">Phone (Optional)</label><input id="ea-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel"><input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="hidden" name="request_type" value="Atlas EP access request"><button class="cta-button" type="submit">REQUEST ACCESS</button><div class="form-msg" role="status" aria-live="polite"></div><p class="fine">Your information is encrypted and never sold. Atlas Glinn LLC operates under strict confidentiality protocols. By submitting you agree to our <a href="privacy.html">Privacy Policy</a> and <a href="terms.html">Terms of Service</a>.</p></form>
+      <form class="form rise" data-endpoint="https://mast-booking-backend.matthew-221.workers.dev/contact" data-success="&#9989; ACCESS REQUEST RECEIVED &mdash; The Atlas Glinn team will review your request and contact you within 24-48 hours. Welcome to the future of protection." novalidate><div class="row"><div><label for="ea-name">Full Name *</label><input id="ea-name" name="name" type="text" autocomplete="name" required></div><div><label for="ea-email">Email Address *</label><input id="ea-email" name="email" type="email" autocomplete="email" inputmode="email" required></div></div><div class="row"><div><label for="ea-company">Company / Organization</label><input id="ea-company" name="company" type="text" autocomplete="organization"></div><div><label for="ea-role">Role *</label><select id="ea-role" name="role" required><option value="">Select your role</option><option>Individual</option><option>Family</option><option>EP Team</option><option>Corporate</option><option>Government</option></select></div></div><label for="ea-phone">Phone (Optional)</label><input id="ea-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel"><input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="hidden" name="request_type" value="Atlas EP access request"><button class="cta-button" type="submit">REQUEST ACCESS</button><div class="form-msg" role="status" aria-live="polite"></div><p class="fine">Your information is encrypted and never sold. Atlas Glinn LLC operates under strict confidentiality protocols. By submitting you agree to our <a href="privacy.html">Privacy Policy</a> and <a href="terms.html">Terms of Service</a>.</p></form><div class="ctas rise" style="margin-top:1.6rem"><a href="contact.html" class="secondary-cta">Talk To A Coordinator</a></div>
     </div>
   </section>
 
-  <section class="panel" id="s8" data-section="08">
+  <section class="panel" id="s9" data-section="09">
     <div>
       <div class="eyebrow">Legal &amp; Compliance</div>
       <h2 class="section-h">Transparency &amp; <span class="gold">Compliance.</span></h2>
       
-      <div class="cards"><div class="card rise"><h3>Terms of Service</h3><p>Review our complete terms governing use of the Atlas EP platform, data handling, and user obligations.</p><a class="secondary-cta" href="terms.html">Read Terms of Service &rarr;</a></div><div class="card rise"><h3>Privacy Policy</h3><p>How we collect, store, and protect your data. Atlas EP uses AES-256 encryption and zero-knowledge architecture.</p><a class="secondary-cta" href="privacy.html">Read Privacy Policy &rarr;</a></div><div class="card rise"><h3>Two-Party Consent &amp; Emergency Recording Notice</h3><p>Atlas EP may automatically activate audio and video recording when the system detects imminent threat to your safety. By using Atlas EP, you acknowledge that emergency recording may activate automatically during detected duress events. In jurisdictions requiring two-party consent for recording, Atlas EP complies by notifying all parties through audible and visual indicators when recording is active. Users are responsible for understanding and complying with local recording laws in their jurisdiction. Atlas EP is designed to prioritize life safety &mdash; emergency recordings are encrypted, time-stamped, and stored securely for evidentiary purposes only.</p></div></div><p class="sub" style="margin-top:1.6rem">Questions? Contact us at <a href="mailto:atlasglinn.hq@atlasglinn.com" style="color:var(--gold-champagne)">atlasglinn.hq@atlasglinn.com</a></p>
-    <div class="foot site rise"><span class="fg">Atlas Glinn</span><a href="index.html">Home</a> &middot; <a href="executive-protection.html">Executive Protection</a> &middot; <a href="residential-protection.html">Residential Protection</a> &middot; <a href="disaster-recovery.html">Disaster Recovery</a> &middot; <a href="technology.html">Technology</a> &middot; <a href="ep-app.html">Atlas EP App</a><br><span class="fg">MAST Solutions</span><a href="training.html">Training Programs</a> &middot; <a href="ep-app.html">Atlas EP Platform</a> &middot; <a href="cuas-aerodefense.html">Counter-Drone Solutions</a> &middot; <a href="mastsolutions.html">MAST Solutions</a><br><span class="fg">Company</span><a href="about.html">About Us</a> &middot; <a href="careers.html">Careers</a> &middot; <a href="about.html#s5">Resources</a> &middot; <a href="contact.html">Contact</a><br><span class="fg">Connect</span>2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063 &middot; <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a><br><a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a>&middot;<a href="https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063" target="_blank" rel="noopener" data-track="review">Google Reviews</a><div class="badges"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"></div>&copy; 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br><a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a></div></div>
+      <div class="cards"><div class="card rise"><h3>Terms of Service</h3><p>Review our complete terms governing use of the Atlas EP platform, data handling, and user obligations.</p><a class="secondary-cta" href="terms.html">Read Terms of Service &rarr;</a></div><div class="card rise"><h3>Privacy Policy</h3><p>How we collect, store, and protect your data. Atlas EP uses AES-256 encryption and zero-knowledge architecture.</p><a class="secondary-cta" href="privacy.html">Read Privacy Policy &rarr;</a></div><div class="card rise"><h3>Two-Party Consent &amp; Emergency Recording Notice</h3><p>Atlas EP may automatically activate audio and video recording when the system detects imminent threat to your safety. By using Atlas EP, you acknowledge that emergency recording may activate automatically during detected duress events. In jurisdictions requiring two-party consent for recording, Atlas EP complies by notifying all parties through audible and visual indicators when recording is active. Users are responsible for understanding and complying with local recording laws in their jurisdiction. Atlas EP is designed to prioritize life safety &mdash; emergency recordings are encrypted, time-stamped, and stored securely for evidentiary purposes only.</p></div></div><p class="sub" style="margin-top:1.6rem">Questions? Contact us at <a href="mailto:atlas.hq@atlasglinn.com" style="color:var(--gold-champagne)">atlas.hq@atlasglinn.com</a></p><p class="sub" style="margin-top:1.6rem">Elite Security. No Compromise. Protecting those who matter most with AI-powered technology and decades of operational experience.</p><div class="chips rise"><span class="chip">Houston, TX</span><span class="chip">Licensed PPO</span><span class="chip">AES-256 Encrypted</span></div>
+    <div class="foot site rise"><span class="fg">Atlas Glinn</span><a href="index.html">Home</a> &middot; <a href="executive-protection.html">Executive Protection</a> &middot; <a href="residential-protection.html">Residential Protection</a> &middot; <a href="disaster-recovery.html">Disaster Recovery</a> &middot; <a href="technology.html">Technology</a> &middot; <a href="ep-app.html">Atlas EP App</a><br><span class="fg">MAST Solutions</span><a href="training.html">Training Programs</a> &middot; <a href="ep-app.html">Atlas EP Platform</a> &middot; <a href="cuas-aerodefense.html">Counter-Drone Solutions</a> &middot; <a href="mastsolutions.html">MAST Solutions</a><br><span class="fg">Company</span><a href="about.html">About Us</a> &middot; <a href="careers.html">Careers</a> &middot; <a href="about.html#s5">Resources</a> &middot; <a href="contact.html">Contact</a><br><span class="fg">Connect</span>2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063 &middot; <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a><br><a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a>&middot;<a href="https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063" target="_blank" rel="noopener" data-track="review">Google Reviews</a><div class="badges"><div class="badge-item"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div><div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div><a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br><a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a></div></div>
   </section>
 
 </div>
@@ -493,7 +508,7 @@
 <script type="module">
 import * as THREE from './vendor/three.module.js';
 
-const SECTIONS = 8;
+const SECTIONS = 9;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mobile = matchMedia('(max-width: 768px)').matches;
 
@@ -659,6 +674,7 @@ const kf = [
   { x: -4, y: 1, z: 12, lx: 0, ly: 0, lz: 0 },
   { x: 0, y: -2, z: 10, lx: 0, ly: .5, lz: 0 },
   { x: 2, y: -3, z: 13, lx: 0, ly: 1, lz: 0 },
+  { x: -2, y: -3.5, z: 15, lx: 0, ly: 1.5, lz: 0 },
   { x: 0, y: -4, z: 18, lx: 0, ly: 2, lz: 0 },
 ];
 let activeIdx = 0;
@@ -684,7 +700,7 @@ function update() {
   scene.fog.density = 0.03 + t * .025;
   document.getElementById('progress').style.width = (t * 100) + '%';
   const idx = sectionIndex();
-  if (idx !== activeIdx) { activeIdx = idx; document.getElementById('hud-section').textContent = `SECTION ${String(idx + 1).padStart(2, '0')} / ${String(SECTIONS).padStart(2, '0')}`; chapLinks.forEach((l, k) => l.classList.toggle('active', k === idx)); }
+  if (idx !== activeIdx) { activeIdx = idx; document.getElementById('hud-section').textContent = `SECTION 0${idx + 1} / 0${SECTIONS}`; chapLinks.forEach((l, k) => l.classList.toggle('active', k === idx)); }
   if (!intro.isConnected) setPhoto(idx);
 }
 addEventListener('scroll', update, { passive: true });
