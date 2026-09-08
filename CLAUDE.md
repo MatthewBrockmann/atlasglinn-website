@@ -331,7 +331,21 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   mastsolutions.com`; www has no record at all today) and Microsoft 365 DKIM — the smoke DNS shows *no*
   `selector1/selector2._domainkey` CNAMEs on mastsolutions.com, so M365 mail from @mastsolutions.com carries no DKIM;
   that is switched on in the M365 admin center (Defender → Email authentication → DKIM), which hands back the two
-  CNAMEs for GoDaddy DNS. cPanel's "Enable" only signs mail the cPanel server itself sends.
+  CNAMEs for GoDaddy DNS. cPanel's "Enable" only signs mail the cPanel server itself sends. **2026-09-08 (Brockmann:
+  "Enabled = NO CNAMES = u did NOT ASK FOR WHEN I ENABLED"):** the rows are now derived by `smoke-worker.yml` instead
+  of asked for (block "Microsoft 365 DKIM rows" in `_worker-smoke.txt`). Exchange's public GetFederationInformation
+  answers 200 but lists no domains any more, so the tenant name comes from guess-and-verify (a guess counts only when
+  Microsoft publishes a DKIM key under it). **atlasglinn.com = tenant `atlasglinncom.onmicrosoft.com`** (verified 03:32
+  UTC): GoDaddy rows `CNAME selector1._domainkey → selector1-atlasglinn-com._domainkey.atlasglinncom.onmicrosoft.com`
+  and `CNAME selector2._domainkey → selector2-atlasglinn-com._domainkey.atlasglinncom.onmicrosoft.com` (selector1's
+  key is published, selector2's not yet); then Defender → DKIM → atlasglinn.com → Enable. **mastsolutions.com** is the
+  other tenant and none of the guesses (`mastsolutions`, `mastsolutionsllc`, `mastsolutionscom`) carries a key, so its
+  two rows are read from that tenant's Defender DKIM flyout (security.microsoft.com → Email & collaboration → Policies
+  & rules → Threat policies → Email authentication settings → DKIM → mastsolutions.com). Sent to him 03:35 UTC with the
+  rest of the phone-sized list (SPF one-row edit, the two leftover A rows, Pages Source → GitHub Actions, the Cloudflare
+  token path from his own dashboard, the g.page link origin); the session transcript and this file went to him as
+  attachments on his "SEND MD and FULL TRANSCRIPT" (export: `/tmp/…/scratchpad/transcript-session_….md`, 129
+  messages, from the session's JSONL).
 - An earlier session put HTML straight into WordPress (`wp-content/themes/atlasglinn/ep-trailer.html`) from a Mac session
   with the WordPress admin. A cloud session cannot: the container has no route to atlasglinn.com and holds no credentials.
   The static page + Worker + SFTP path replaced `mast-wp-theme/`.
