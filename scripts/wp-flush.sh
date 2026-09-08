@@ -105,7 +105,13 @@ except Exception: pass' | head -5)"
 <?php
 $c = isset($GLOBALS['wpaas_cache_class']) ? $GLOBALS['wpaas_cache_class'] : null;
 if (is_string($c) && class_exists($c)) { try { $c = new $c(); } catch (\Throwable $e) { $c = null; } }
-if (!is_object($c) && class_exists('WPaaS\Cache_V2')) { try { $c = new \WPaaS\Cache_V2(); } catch (\Throwable $e) { $c = null; } }
+if (!is_object($c) && class_exists('WPaaS\Cache_V2')) {
+  foreach (array('instance', 'get_instance', 'getInstance') as $acc) {   // singleton accessors first: a private constructor is the likely shape
+    if (is_callable(array('\WPaaS\Cache_V2', $acc))) { try { $c = \call_user_func(array('\WPaaS\Cache_V2', $acc)); } catch (\Throwable $e) { $c = null; } }
+    if (is_object($c)) { break; }
+  }
+  if (!is_object($c)) { try { $c = new \WPaaS\Cache_V2(); } catch (\Throwable $e) { $c = null; } }
+}
 if (!is_object($c)) { echo "wpaas-cascade: no WPaaS cache class (GoDaddy system plugin not loaded?)\n"; exit(2); }
 $done = array();
 foreach (array('do_ban', 'flush_cdn', 'flush_transients', 'flush_object_cache') as $m) {
@@ -115,7 +121,9 @@ foreach (array('do_ban', 'flush_cdn', 'flush_transients', 'flush_object_cache') 
 }
 echo 'wpaas-cascade: ' . get_class($c) . ' ' . implode(' ', $done) . "\n";
 PHP
-    casc="$(ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "$U@$HOST" "cd $DOCROOT && cat > \$HOME/.wp-flush-cascade.php && wp eval-file \$HOME/.wp-flush-cascade.php 2>&1; rc=\$?; rm -f \$HOME/.wp-flush-cascade.php; exit \$rc" < "$P" 2>&1 | tail -3)"
+    # flush_cdn() calls the Cloudflare API and is the one step that can stall; the remote `timeout 90` bounds it (the host is
+    # Linux, coreutils present) so the hourly job that runs this script cannot hang on it, and the file is removed either way.
+    casc="$(ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "$U@$HOST" "cd $DOCROOT && cat > \$HOME/.wp-flush-cascade.php && timeout 90 wp eval-file \$HOME/.wp-flush-cascade.php 2>&1; rc=\$?; rm -f \$HOME/.wp-flush-cascade.php; [ \$rc = 124 ] && echo 'wpaas-cascade: timed out after 90s (Cloudflare API stall?)'; exit \$rc" < "$P" 2>&1 | tail -3)"
     rm -f "$P"
     say "SSH: ${casc:-wpaas-cascade: no output (ssh failed before wp ran)}"
     case "$casc" in *"flush_cdn:ok"*) method="ssh-wpaas";; esac
