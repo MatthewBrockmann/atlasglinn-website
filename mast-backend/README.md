@@ -258,7 +258,7 @@ its own promise with its own catch; a digest failure cannot reach the purge. Eve
 summary behind the lifetime block included — so a D1 error rejects rather than mailing a week of zeros.
 **Once per ISO week, claim before send:** the run writes its `email_log` row (`kind` `digest`, `ref` the week, e.g.
 `2026-W36`, `email` the fixed literal `crm-digest` — the row claims the week, and the recipients are not its identity)
-as `sending` *before* it calls Resend and flips it to `sent` after, so a week already claimed is never mailed twice
+as `sending` *before* it calls Resend and flips it to `sent` after, so a week already claimed is never mailed twice while its claim row survives (a lost flip-to-`sent` write costs one duplicate, not the week)
 however the run ends; a run that fails deletes its own claim, a claim it cannot write or read sends nothing at all, and
 a `sending` row older than 30 minutes is a crashed run the next cron takes over. So a doubled Monday fire sends once,
 while a Monday that failed is retried by the Tuesday or Wednesday cron. Unset `CRM_DIGEST_TO` (or no

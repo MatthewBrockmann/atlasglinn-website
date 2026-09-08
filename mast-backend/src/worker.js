@@ -24,7 +24,7 @@
 import { AGREEMENT_VERSION, fillAgreement } from './agreement.js';
 import { directionsAttachment, directionsStatus } from './directions.js';
 import { publicKeyInfo } from './sealed.js';
-import { crmSnapshot, audienceCsv, syncAudience, syncOnPayment, syncLead, adminPage, attributionFrom, recordContact, markContactEmailed, recordEvent, handleEvent, handleSubscribe, runJourneys, weeklyDigest, weeklyDigestPeriod } from './crm.js';
+import { ensureCrmSchema, crmSnapshot, audienceCsv, syncAudience, syncOnPayment, syncLead, adminPage, attributionFrom, recordContact, markContactEmailed, recordEvent, handleEvent, handleSubscribe, runJourneys, weeklyDigest, weeklyDigestPeriod } from './crm.js';
 
 const REPLAY_WINDOW_SECONDS = 300; // reject webhook timestamps older than 5 min
 
@@ -1595,7 +1595,7 @@ const DIGEST_CLAIM_STALE_MS = 30 * 60 * 1000;
  * runner without the mailbox reads exactly what was sent. Unconfigured = logged and skipped, like the review notice.
  * Once per ISO week, claimed in email_log (kind 'digest', ref the week) the way the journeys claim theirs — CLAIM
  * BEFORE SEND: the row is written 'sending' before Resend is called and flipped to 'sent' after, so a week that has
- * been claimed is never mailed twice however the run ends. A run that fails deletes its own claim, leaving the week
+ * been claimed is never mailed twice while its claim row survives (a lost flip-to-sent write costs one duplicate, not the week). A run that fails deletes its own claim, leaving the week
  * open for the Tuesday or Wednesday cron; a claim that cannot be written or read sends nothing at all, because a
  * fail-open dedupe read is how a week gets mailed twice. weeklyDigest itself rejects on a failed read, so a D1
  * outage sends nothing rather than a week of zeros.
@@ -1609,6 +1609,9 @@ async function sendWeeklyDigest(env, now = new Date()) {
     console.error('[Digest] Email not configured (need CRM_DIGEST_TO + RESEND_API_KEY). Digest:\n' + await weeklyDigest(env, { now }));
     return { sent: 0 };
   }
+  // The claim row lives in the CRM tables the Worker creates itself; on a fresh D1 the INSERT would fail before the table
+  // exists and the week would fail closed forever (verifier, 2026-09-08). Ensure the schema first, every run.
+  await ensureCrmSchema(env);
   try {
     const claim = await env.DB.prepare('INSERT OR IGNORE INTO email_log (created_at, email, ref, kind, status) VALUES (?, ?, ?, ?, ?)')
       .bind(now.toISOString(), DIGEST_CLAIM_EMAIL, ref, 'digest', 'sending').run();
