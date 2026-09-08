@@ -110,13 +110,16 @@ jobs:
           # The Atlas Glinn cinematic pages published here for review only, at /preview/atlasglinn/ — atlasglinn.com is
           # still WordPress and nothing here touches it. Every page is served noindex/nofollow with its canonical and
           # og:url stripped, and robots.txt disallows /preview/, so this host never competes with the live site.
-          # The twelve pages scripts/assemble-atlas.py generates, plus the three hand-authored ones it does not.
+          # The twelve pages scripts/assemble-atlas.py generates, the three hand-authored ones it does not, and
+          # atlas-compare.html — the side-by-side sheet (scripts/compare-atlas.py), which is how the current site and
+          # the new one get looked at next to each other. The resolver follows each page's <link> to
+          # vendor/atlasglinn-shared-styles.css and copies it, so the preview carries the live theme's type scale.
           RESOLVER="${RUNNER_TEMP:-/tmp}/resolve-assets.py"
           PREVIEW=stage/preview/atlasglinn
           pages=""
           for f in index.html executive-protection.html residential-protection.html disaster-recovery.html training.html \
                    technology.html cuas-aerodefense.html uas.html about.html careers.html contact.html ep-app.html \
-                   signup.html privacy.html terms.html; do
+                   signup.html privacy.html terms.html atlas-compare.html; do
             [ -f "$f" ] && pages="$pages $f"
           done
           test -n "$pages" || { echo "::error::no Atlas pages at the repo root; nothing to preview"; exit 1; }

@@ -1,0 +1,4 @@
+captured 2026-09-08T21:46:08Z by capture-live from main b1e7b49
+source: origin/claude/desktop-assets 7b7e939b20847959d1ddf9e3df735a57e720ee18 (reference/desktop/live/)
+pages: index about careers contact cuas-aerodefense disaster-recovery ep-app executive-protection residential-protection technology training uas
+stylesheet: https://atlasglinn.com/wp-content/themes/atlasglinn/shared-styles.css?v=2 -> shared-styles.css (15896 bytes)
