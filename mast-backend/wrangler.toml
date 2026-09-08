@@ -12,7 +12,8 @@ globs = ["**/*.pdf"]
 fallthrough = true
 
 # Daily: purge eligibility answers past their purge_after (RETENTION-POLICY.md) and
-# mark registrations that never reached payment as abandoned.
+# mark registrations that never reached payment as abandoned. The same cron carries the Monday CRM digest
+# (scheduled() checks the weekday; there is no second trigger to keep in step).
 [triggers]
 crons = ["17 9 * * *"]
 
@@ -45,6 +46,10 @@ JOURNEYS_ENABLED = "1"
 # Business Profile paste was replaced by the Maps Search URL by name and address: it always lands on the listing, where
 # "Write a review" is one tap. Swap in the g.page/r/.../review short link from his Business Profile when he provides it.
 REVIEW_URL = "https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063"
+# Who gets the Monday CRM digest, comma-separated. Brockmann, 2026-09-08, on the contact notification email:
+# "REMOVE 'Page: github-actions'. Add to CRM backend + weekly CRM Emails to matthew@atlasglinn.com +
+# Matthew@mastsolutions.com." Not a secret — two of his own addresses; unset = the digest is logged and skipped.
+CRM_DIGEST_TO = "matthew@atlasglinn.com,matthew@mastsolutions.com"
 # The sealed range-directions PDF (src/sealed.js): fetched from main and decrypted with the key in D1. Unset = the default
 # raw URL of mast-backend/assets/range-directions.sealed.json on main; "off" disables it.
 # DIRECTIONS_SEALED_URL = "https://raw.githubusercontent.com/MatthewBrockmann/atlasglinn-website/main/mast-backend/assets/range-directions.sealed.json"

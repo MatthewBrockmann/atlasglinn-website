@@ -8,7 +8,7 @@
  *   - Stripe webhooks           POST /webhook
  *   - admin roster              GET  /roster?key=...[&view=registrations]
  *   - health                    GET  /health
- *   - daily cron                scheduled(): purge eligibility answers, expire abandoned registrations
+ *   - daily cron                scheduled(): purge eligibility answers, expire abandoned registrations; Mondays, the CRM digest
  *
  * Design notes vs. the older safeguard-stripe-backend:
  *   1. PRICES ARE SERVER-SIDE. The client sends a SKU, never an amount, so a
@@ -24,7 +24,7 @@
 import { AGREEMENT_VERSION, fillAgreement } from './agreement.js';
 import { directionsAttachment, directionsStatus } from './directions.js';
 import { publicKeyInfo } from './sealed.js';
-import { crmSnapshot, audienceCsv, syncAudience, syncOnPayment, syncLead, adminPage, attributionFrom, recordContact, markContactEmailed, recordEvent, handleEvent, handleSubscribe, runJourneys } from './crm.js';
+import { ensureCrmSchema, crmSnapshot, audienceCsv, syncAudience, syncOnPayment, syncLead, adminPage, attributionFrom, recordContact, markContactEmailed, recordEvent, handleEvent, handleSubscribe, runJourneys, weeklyDigest, weeklyDigestPeriod } from './crm.js';
 
 const REPLAY_WINDOW_SECONDS = 300; // reject webhook timestamps older than 5 min
 
@@ -114,6 +114,15 @@ export default {
     if (String(env.JOURNEYS_ENABLED) === '1') {
       ctx.waitUntil(runJourneys(env, { send: (m) => sendEmail(env, m), catalog: await catalogRows(env) }).catch((e) => console.error('[Journeys] failed:', e.message)));
     } else console.log('[Journeys] off (JOURNEYS_ENABLED is not "1")');
+    // Monday (owner, 2026-09-08: "weekly CRM Emails to matthew@atlasglinn.com + Matthew@mastsolutions.com"), and Tuesday or
+    // Wednesday as the retry: a Resend outage on Monday used to cost the week its digest. sendWeeklyDigest is the idempotent
+    // half — it claims the week in email_log before it sends and no-ops when the week is already claimed, so a doubled
+    // Monday fire still sends once. It is queued alongside the purge in its own promise with its own catch: a CRM read that
+    // fails cannot reach the retention run.
+    const weekday = new Date(event && event.scheduledTime).getUTCDay();
+    if (weekday >= 1 && weekday <= 3) {
+      ctx.waitUntil(sendWeeklyDigest(env, new Date(event.scheduledTime)).catch((e) => console.error('[Digest] failed:', e.message)));
+    }
   },
 };
 
@@ -1056,7 +1065,7 @@ async function handleContact(request, env, cors) {
   if (kind === 'contact' && message.length < 2) return json({ error: 'Enter a message.', field: 'message' }, 400, cors);
   const meta = {
     company: str(body.company).trim(), status: str(body.status).trim(), request_type: str(body.request_type).trim(),
-    page: str(body.page).trim(), ip: request.headers.get('CF-Connecting-IP') || '',
+    ip: request.headers.get('CF-Connecting-IP') || '',
   };
   // Subjects by origin: the Capability Statement form, the page's Private Instruction dialog, and the Gear chapter's quote
   // request (owner, 2026-09-05: Aimpoint / IWA "add to mastsolutions so we can sell there" — quoted by email, never charged online).
@@ -1075,7 +1084,6 @@ async function handleContact(request, env, cors) {
     '',
     message ? 'Message:\n' + message : null,
     '',
-    'Page:     ' + (meta.page || '—'),
     'Received: ' + new Date().toISOString(),
   ].filter((l) => l !== null).join('\n');
   // The lead is stored before anything is sent (CRM, 2026-09-06): a mail failure never loses an inquiry.
@@ -1631,6 +1639,66 @@ async function sendRegistrationDocuments(env, reg, record) {
   console.log('[Documents] Sent for', reg.id, pdfB64 ? 'with agreement PDF' : 'WITHOUT agreement PDF');
 }
 
+/* The week's claim in email_log: one row per ISO week, and the recipients are not its identity — reordering
+   CRM_DIGEST_TO must not buy the week a second digest. Thirty minutes is longer than any run and shorter than the
+   gap to the next cron, so a 'sending' row older than that is a crashed run and not a race. */
+const DIGEST_CLAIM_EMAIL = 'crm-digest';
+const DIGEST_CLAIM_STALE_MS = 30 * 60 * 1000;
+
+/**
+ * One CRM digest a week to CRM_DIGEST_TO (wrangler.toml [vars]). Same text as GET /admin/crm?view=weekly, so a
+ * runner without the mailbox reads exactly what was sent. Unconfigured = logged and skipped, like the review notice.
+ * Once per ISO week, claimed in email_log (kind 'digest', ref the week) the way the journeys claim theirs — CLAIM
+ * BEFORE SEND: the row is written 'sending' before Resend is called and flipped to 'sent' after, so a week that has
+ * been claimed is never mailed twice while its claim row survives (a lost flip-to-sent write costs one duplicate, not the week). A run that fails deletes its own claim, leaving the week
+ * open for the Tuesday or Wednesday cron; a claim that cannot be written or read sends nothing at all, because a
+ * fail-open dedupe read is how a week gets mailed twice. weeklyDigest itself rejects on a failed read, so a D1
+ * outage sends nothing rather than a week of zeros.
+ */
+async function sendWeeklyDigest(env, now = new Date()) {
+  const to = list(env.CRM_DIGEST_TO);
+  const period = weeklyDigestPeriod(now);
+  const ref = period.split('·').pop().trim();
+  if (!env.DB) { console.error('[Digest] no DB binding — skipping'); return { sent: 0, skipped: true }; }
+  if (!to.length || !env.RESEND_API_KEY) {
+    console.error('[Digest] Email not configured (need CRM_DIGEST_TO + RESEND_API_KEY). Digest:\n' + await weeklyDigest(env, { now }));
+    return { sent: 0 };
+  }
+  // The claim row lives in the CRM tables the Worker creates itself; on a fresh D1 the INSERT would fail before the table
+  // exists and the week would fail closed forever (verifier, 2026-09-08). Ensure the schema first, every run.
+  await ensureCrmSchema(env);
+  try {
+    const claim = await env.DB.prepare('INSERT OR IGNORE INTO email_log (created_at, email, ref, kind, status) VALUES (?, ?, ?, ?, ?)')
+      .bind(now.toISOString(), DIGEST_CLAIM_EMAIL, ref, 'digest', 'sending').run();
+    if (!(claim && claim.meta && claim.meta.changes)) {
+      const held = await env.DB.prepare("SELECT status, created_at FROM email_log WHERE email = ? AND ref = ? AND kind = 'digest' LIMIT 1")
+        .bind(DIGEST_CLAIM_EMAIL, ref).first();
+      if (held && held.status === 'sent') { console.log('[Digest]', ref, 'already sent — nothing to do'); return { sent: 0, skipped: true }; }
+      const crashed = held && held.status === 'sending' && Date.parse(held.created_at) < now.getTime() - DIGEST_CLAIM_STALE_MS;
+      if (!crashed) { console.log('[Digest]', ref, 'is claimed — nothing to do'); return { sent: 0, skipped: true }; }
+      console.warn('[Digest]', ref, 'was claimed at', held.created_at, 'and never finished — taking it over');
+      await env.DB.prepare('UPDATE email_log SET created_at = ? WHERE email = ? AND ref = ? AND kind = ?')
+        .bind(now.toISOString(), DIGEST_CLAIM_EMAIL, ref, 'digest').run();
+    }
+  } catch (e) {
+    console.error('[Digest] claim failed:', e.message);
+    return { sent: 0, skipped: true };
+  }
+  try {
+    const text = await weeklyDigest(env, { now });
+    await sendEmail(env, { to, subject: 'MAST CRM weekly — ' + period, text });
+  } catch (e) {
+    // The row is the week's lock, not a record of a send: release it so the Tuesday or Wednesday cron carries the week.
+    await env.DB.prepare("DELETE FROM email_log WHERE email = ? AND ref = ? AND kind = ? AND status = 'sending'")
+      .bind(DIGEST_CLAIM_EMAIL, ref, 'digest').run().catch((err) => console.error('[Digest] release failed:', err.message));
+    throw e;
+  }
+  await env.DB.prepare("UPDATE email_log SET status = 'sent' WHERE email = ? AND ref = ? AND kind = ?")
+    .bind(DIGEST_CLAIM_EMAIL, ref, 'digest').run().catch((e) => console.error('[Digest] log failed:', e.message));
+  console.log('[Digest] Sent to', to.join(', '));
+  return { sent: to.length };
+}
+
 /** Daily: answers past purge_after go; registrations that never reached payment are marked abandoned. */
 async function runRetention(env) {
   if (!env.DB) return { purged: 0, abandoned: 0 };
@@ -1674,7 +1742,10 @@ async function handleAdmin(request, env, cors, url) {
   if (!env.DB) return json({ error: 'Database not bound' }, 503, cors);
   const noStore = { ...cors, 'Cache-Control': 'no-store' };
   if (url.pathname === '/admin/crm' && request.method === 'GET') {
-    const snap = await crmSnapshot(env, { view: url.searchParams.get('view') === 'summary' ? 'summary' : 'full' });
+    const view = url.searchParams.get('view');
+    // view=weekly: the Monday digest as it is emailed, for a runner reading it without the mailbox (owner, 2026-09-08).
+    if (view === 'weekly') return new Response(await weeklyDigest(env), { status: 200, headers: { ...noStore, 'Content-Type': 'text/plain; charset=utf-8' } });
+    const snap = await crmSnapshot(env, { view: view === 'summary' ? 'summary' : 'full' });
     return json(snap, 200, noStore);
   }
   if (url.pathname === '/admin/audience.csv' && request.method === 'GET') {
