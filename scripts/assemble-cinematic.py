@@ -637,7 +637,11 @@ print('wrote', ms_out, 'for mastsolutions.com')
 import datetime as _dt
 _ms_lastmod = _dt.date.today().isoformat()
 _ms_robots = '\n'.join(
-    ['# www.mastsolutions.com — MAST Solutions (Atlas Glinn, LLC), Houston TX', '', 'User-agent: *', 'Allow: /', '']
+    ['# www.mastsolutions.com — MAST Solutions (Atlas Glinn, LLC), Houston TX', '',
+     # /preview/ is where the Atlas Glinn cinematic pages are published for review (pages-mastsolutions.yml stages them
+     # under /preview/atlasglinn/). They carry a noindex meta too; this keeps them out of the crawl either way, so
+     # nothing on this host competes with atlasglinn.com.
+     'User-agent: *', 'Disallow: /preview/', 'Allow: /', '']
     + sum([[f'User-agent: {ua}', 'Allow: /', ''] for ua in
            ('GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'PerplexityBot', 'ClaudeBot', 'Claude-Web', 'Google-Extended', 'Applebot-Extended', 'CCBot')], [])
     + ['Sitemap: https://www.mastsolutions.com/sitemap.xml']) + '\n'
