@@ -55,6 +55,18 @@ the panel posts every field on every save and must not re-notify. Columns:
 `mast-backend/migrations/007-account-credentials.sql`, a manual `wrangler d1 execute` per `mast-backend/README.md`; the same
 columns are in `schema.sql` for a fresh database. Nothing here is wired to a member rate yet.
 
+**Class certificates (Brockmann, 2026-09-08: "I love this certificate so wanting to use for all classes + when paid for can
+auto build to print"):** `certificates/mast-certificate-of-completion.html` is the print template, rebuilt from the auction
+gift certificate so the paper, double gold border, corner flourishes, ◆ divider and signature block are the same artwork —
+the auction copy (bearer and guests, rentals, ammunition, `CERTIFICATE VALUE`, `VALID THROUGH`) is deleted and `VALID
+THROUGH` is now a blank INSTRUCTOR rule signed by hand. Build one with `python3 scripts/build-certificate.py` (stdlib only,
+prints through headless Chrome); placeholders are `{{name}} {{course}} {{descriptor}} {{cert_no}} {{date}}` and the course
+name must be verbatim from `SEED_CLASSES` in `mast-backend/src/worker.js`. **The signature PNG is not in this public
+repo** — the builder reads it from `--signature` (default `~/Documents/brain/04-resources/brand/mast-signature-brockmann.png`,
+the private brain repo) and exits 1 without it; built certificates are never committed for the same reason. Long names and
+course names step down in size to stay on their rule. Certificate number rule and print settings are in
+`certificates/README.md`. Auto-building one per paid registration is planned, not built.
+
 ## Atlas Glinn pages (decided by Brockmann 2026-09-03: "SAME front end", mobile first)
 
 The rebuilt `index`, `executive-protection`, `residential-protection`, `disaster-recovery`,
