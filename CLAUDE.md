@@ -55,6 +55,18 @@ the panel posts every field on every save and must not re-notify. Columns:
 `mast-backend/migrations/007-account-credentials.sql`, a manual `wrangler d1 execute` per `mast-backend/README.md`; the same
 columns are in `schema.sql` for a fresh database. Nothing here is wired to a member rate yet.
 
+**Class certificates (Brockmann, 2026-09-08: "I love this certificate so wanting to use for all classes + when paid for can
+auto build to print"):** `certificates/mast-certificate-of-completion.html` is the print template, rebuilt from the auction
+gift certificate so the paper, double gold border, corner flourishes, ◆ divider and signature block are the same artwork —
+the auction copy (bearer and guests, rentals, ammunition, `CERTIFICATE VALUE`, `VALID THROUGH`) is deleted and `VALID
+THROUGH` is now a blank INSTRUCTOR rule signed by hand. Build one with `python3 scripts/build-certificate.py` (stdlib only,
+prints through headless Chrome); placeholders are `{{name}} {{course}} {{descriptor}} {{cert_no}} {{date}}` and the course
+name must be verbatim from `SEED_CLASSES` in `mast-backend/src/worker.js`. **The signature PNG is not in this public
+repo** — the builder reads it from `--signature` (default `~/Documents/brain/04-resources/brand/mast-signature-brockmann.png`,
+the private brain repo) and exits 1 without it; built certificates are never committed for the same reason. Long names and
+course names step down in size to stay on their rule. Certificate number rule and print settings are in
+`certificates/README.md`. Auto-building one per paid registration is planned, not built.
+
 ## Atlas Glinn pages (decided by Brockmann 2026-09-03: "SAME front end", mobile first)
 
 The rebuilt `index`, `executive-protection`, `residential-protection`, `disaster-recovery`,
@@ -289,8 +301,9 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   `04-resources/agent-memory/project_atlasglinn_wordpress.md` records the WP admin user and its application password in
   the Keychain item `wp_app_password_claude` (rotated 2026-09-03; "REST API works with app password") and that GoDaddy
   clears its cache when WordPress content changes. `scripts/wp-flush.sh` (run by `wp-upload.sh` after every upload)
-  saves a private `cache-bust` page over REST with that password (WP-CLI over SSH with the `mast-wp-sftp` login as the
-  fallback), then measures the plain `/mastsolutions.html` against the cache-busted copy and writes
+  saves a private `cache-bust` page over REST with that password (WP-CLI over SSH with the `mast-wp-sftp` login *was*
+  the fallback — **measured 2026-09-08 18:46 UTC, that login is SFTP-only and has no shell**, so Method B cannot run
+  until SSH is switched on in the dashboard; see the watcher paragraph below), then measures the plain `/mastsolutions.html` against the cache-busted copy and writes
   `~/.cache/wp-upload/last-flush`; `mac-autopilot.sh status` shows it. Wired, NOT confirmed firing until a probe shows
   the plain URL fresh after an upload with no click. Nothing of this reaches a cloud session: the container cannot open
   the host and holds no Keychain.
@@ -302,6 +315,94 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   `atlasglinn.com` A 160.153.0.38, `www.atlasglinn.com` CNAME → atlasglinn.com; **neither domain has the Microsoft 365
   `selector1/selector2._domainkey` CNAMEs** (atlasglinn.com's SPF names outlook, Mailchimp `servers.mcsv.net` and Brevo;
   its DMARC is `p=none` reporting to Brevo).
+  **The purge moved onto the host, 2026-09-08: `wp-ops/atlas-cache-watch.php`.** The saved login proved SFTP-only at
+  18:46 UTC (no shell, so `wp eval-file` never ran) and the application password is not on this Mac, so neither remote
+  method in `wp-flush.sh` can reach the cache — but the SFTP upload still lands, and WordPress on the host can see what
+  it changed. `scripts/wp-cache-watch-deploy.sh` puts a must-use plugin at
+  `html/wp-content/mu-plugins/atlas-cache-watch.php`. There it fingerprints **every `*.html` at the docroot root plus
+  `build-manifest.json` and `mast-ping.txt`** (`name:mtime:size`, sha1 — a glob with no recursion; `wp-admin` and
+  `wp-includes` are not ours) on a 15-minute WP-Cron tick — the upload cadence — and when the fingerprint moves it runs
+  the dashboard button's own cascade: `WPaaS\Cache_V2` `do_ban()` + `flush_cdn()` + `flush_transients()` +
+  `flush_object_cache()` through reflection, each step's result recorded, a two-minute lock against a second run (held
+  in the cascade helper, so the cron tick and the page-save path share it), and `wp_cache_flush()` with `class=null`
+  recorded when no WPaaS class is there (so a reader knows the CDN was *not* purged). The global that names the cache
+  class is checked against an EXACT allowlist — `WPaaS\Cache_V2` or `WPaaS\Cache`, never a `WPaaS\` prefix, because
+  anything that can write that global can write a WPaaS-namespaced name into it too — before anything is constructed
+  from it, and a failing method is recorded as `error:<exception class>:<sha1 prefix>` — never the exception text,
+  which on a CDN client can carry a token or a signed URL. `wp-flush.sh`'s own cascade heredoc, which runs the same
+  four methods over SSH, carries both of those verbatim (it recorded the raw exception message until 2026-09-08). It
+  also fires on `save_post_page` when the saved page's slug is `cache-bust`, which makes `wp-flush.sh`'s Method A real
+  the day the application password is back.
+  **Why no endpoint:** a token-protected REST route was considered and rejected — it would add a remote-control surface
+  to a production site for a job that needs no caller. **The plugin adds no route of its own.** Its only remote
+  reachability is stock WordPress `/wp-cron.php`, which any caller can already hit: that can advance the tick, but it
+  cannot make it purge — the tick acts only when the docroot fingerprint has moved, and the fingerprint is read off the
+  filesystem, never from anything a caller sends. **What it writes:** two options (`atlas_cache_watch_fp`,
+  `atlas_cache_watch_last`, both `autoload=no`) plus a two-minute lock transient, and **one `error_log` line per purge**
+  carrying counts and a 0/1 — not "writes nothing". No admin UI, no file writes, no requests of its own.
+  **How it is seen from outside:** front-end answers carry
+  `X-Atlas-Cache-Watch: <version>;b=<build>;age=<fresh|hour|day|old|never>;cdn=<ok|no|none>;fp=<0|1>;tick=<fresh|hour|day|old|never>`,
+  so `curl -sI "https://www.atlasglinn.com/?atlas-watch=$(date +%s)"` says whether it is deployed and healthy — the
+  query string matters, because a cached answer never runs a line of PHP and carries no header. `b` is the first 8 of
+  the file's own sha1, so a deploy can prove the bytes running are the bytes it sent; `age` is the last purge and
+  `tick` the last cron tick, in coarse buckets with no raw timestamp on a public response. **`fp=0;tick=never` means
+  WP-Cron is not running it; `fp=1;tick=fresh` means healthy and idle.** `wp-flush.sh` prints that line on every run and
+  says so plainly when the tick is stale; `wp-upload.sh` says the purge is coming.
+  **The deploy fails closed** (rounds 3–5, tested): **sftp does not report per-command failure for a batch arriving on
+  stdin** — OpenSSH aborts on a failed `put`/`rm` only under `-b`, and `-b` sets BatchMode, which refuses the Keychain
+  askpass — so the session's exit code and its text are printed as an ADVISORY and decide nothing. **The served
+  fingerprint is the proof:** the run requires the `b=<sha1-8>` the host publishes to equal the sha1 of the file it
+  just sent, one retry after 15 s, then a non-zero exit with the SERVED value in the heartbeat (a same-version copy
+  already on the host used to pass). **A header is only READ off a whole answer (round 5), and the rule that refused a
+  claim is printed:** curl's exit code is captured and a non-zero one — `--max-redirs` exhausted (47), a timeout, a
+  reset mid-chain — means **no header from that dump is parsed at all**, because curl has already printed the hops it
+  followed and one of them can carry the exact fingerprint just uploaded; the status is taken **only** from curl's own
+  tagged `ATLAS_HTTP_CODE:<3 digits>` write-out line (a bare `%{http_code}` tail let a header line's digits stand in as
+  the status when curl printed no write-out) or the code is `000` and the read is refused; and the **FINAL block must
+  be a 200** — a 3xx there is a truncated chain, and a header on any other status is not a page a reader was served.
+  **`--remove` is proven by a second sftp session running a bare `ls` on the remote path — and only when that session
+  PROVES it reached the host and NAMES the path** (round 4): the capture must carry the `sftp> ls` echo OpenSSH writes
+  for a command read off stdin, the session must exit 0, and a line must be **sftp's own** answer — anchored on its
+  `Can't ls: `/`ls: ` prefix — saying that *this* file is not found. **Round 5 tightened three things there:** a line
+  LISTING the file **wins, and is read before any "gone" text** (one session can carry both a banner saying "not
+  found" and the listing itself, and the listing is the fact); the name is matched **exactly**, bounded by
+  start/whitespace/quote/slash on the left and quote/whitespace/end on the right, so `atlas-cache-watch.php.bak` and
+  `old-atlas-cache-watch.php` are other files (a substring match claimed a removal off a neighbour's absence); and the
+  capture is **stripped of carriage returns** before it is classified. The path listed back is `rm-failed`;
+  **everything else is `rm-unknown` and exits non-zero** — a session that never connected, a login banner or a shell's
+  own `command not found` that merely contains the words "not found", a subsystem or auth failure, a "not found" about
+  another path, a non-zero exit. Searching the whole session for "not found" first (what round 3 did) meant a Mac with
+  no `sftp` binary reported a successful removal, so `sftp` is now a preflight check beside the Keychain one; an
+  unknown argument aborts instead of meaning "install", and the argument **COUNT** is checked before the value, so
+  `--remove --install` dies before anything is sent instead of silently acting on the first word.
+  The header is advisory only there, because the plugin stops sending it whenever
+  `ATLAS_CACHE_WATCH_DISABLED`/`_UNINSTALL` is defined, so header-absence would report a removal that never happened.
+  Every abort before the verdict stamps `aborted-<reason>` over the heartbeat, the probe follows redirects and reads
+  the header from the **FINAL response block of the `-D -` chain** (a header on a 301 hop is the hop's, and crediting
+  it would report a deploy from a response no reader sees), and there is no download fallback — the file always comes
+  from the checkout the script runs in.
+  **How to disable:** `define('ATLAS_CACHE_WATCH_DISABLED', true);` in `wp-config.php`, or
+  `bash scripts/wp-cache-watch-deploy.sh --remove`. **`--remove` deletes the file but leaves the two options and the
+  cron event** — a must-use plugin gets no uninstall hook. To clear those, set
+  `define('ATLAS_CACHE_WATCH_UNINSTALL', true);` and load one page: the plugin then deletes both options, drops the
+  lock, unschedules the tick and does nothing else. Heartbeat: `~/.cache/wp-upload/last-watch-deploy`.
+  **Tests:** `php wp-ops/tests/atlas-cache-watch-test.php` (stub WordPress + stub `WPaaS\Cache_V2`, 6 scenarios, 106
+  assertions) and `bash scripts/tests/wp-cache-watch-deploy-test.sh` (stub sftp/curl/security/shasum/sleep, no host
+  touched, 175 cases). Every gate above is pinned by a scenario, not by a grep of the script's own source: round 5
+  replaced the six `wire/*` text checks with cases only a working gate survives, and each was proved by breaking that
+  gate in a scratch copy and watching the case fail (drop the listed-wins ordering and a session that lists the file
+  reports `removed`, 3 cases fail; drop the argument-count check and `--remove --install` deletes the file and exits 0,
+  5 cases fail; drop the exact-basename match and a `.bak` neighbour reads as `removed`, 4 cases fail). The
+  aborted-chain rc gate is defence-in-depth: with real curl an aborted `-L` chain ends on a 3xx block, which the
+  truncated-chain rule already refuses, so removing the rc gate alone changes no verdict — its case pins the rule NAME
+  it prints, not a verdict (round-5 verifier, measured). Both carry pinned counts — a scenario that dies after
+  its first assertion used to report green —
+  and both run in CI on `wp-ops/**`, `scripts/wp-*.sh` or `scripts/tests/**` (`.github/workflows/wp-ops-tests.yml`,
+  no secrets; the job's Syntax step is `bash -n "$s" || exit 1`, because `bash -e` does not fail on the left side of an
+  `&&`, and it must NOT be made a required check while those paths filters exist — a PR that misses them never starts
+  it and the context would hang pending).
+  **Merged, NOT deployed:** the plugin is in the repo and nothing is on the host until the deploy script runs from the
+  Mac; the header is what proves it.
 - **mastsolutions.com** has no site *yet*: it is a GoDaddy domain forward to atlasglinn.com, pointed at
   `https://atlasglinn.com/mastsolutions.html` (set 2026-09-05). It still carries DNS: Resend verifies it so the Worker can send as
   bookings@mastsolutions.com, beside the existing matthew@mastsolutions.com mail.
@@ -312,13 +413,18 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   measured 2026-09-07 against the brain vault (tip 7c111da), this repo, the handoff branch, the transcripts and this
   container:** (1) WordPress on atlasglinn.com — a *Mac* session has it: the admin application password in the Keychain
   item `wp_app_password_claude` and the SFTP/SSH login `mast-wp-sftp` (`project_atlasglinn_wordpress.md`; WP-CLI over
-  SSH; REST works). (2) GoDaddy — the API key pair `godaddy_api_key` / `godaddy_api_secret` lived in the Keychain in
+  SSH; REST works). **Corrected 2026-09-08 18:46 UTC — neither half of that survived the migration to
+  `1127220.us12.ssh.myftpupload.com`:** `mast-wp-sftp` answers "This service allows sftp connections only." (no shell,
+  so no WP-CLI) and `wp_app_password_claude` is **not** in this Mac's Keychain, so the REST path has no password to
+  use. SFTP is the whole of the Mac's WordPress access today; SSH is Brockmann's switch in the GoDaddy dashboard. (2) GoDaddy — the API key pair `godaddy_api_key` / `godaddy_api_secret` lived in the Keychain in
   April 2026 (DNS via curl, `project_atlas_ep_open_threads_2026_04_27.md`) and went with the **2026-05-04 Keychain
   wipe** (`project_session_2026_05_04_keychain_wipe.md`); the 2026-07-04 daily, `_daily-scan-log.md:251` and
   `_tooling-requirements.md` all record "no GoDaddy API credential in Keychain" since. The cloud connector only checks
   domain availability. (3) cPanel — the word appears **nowhere** in the vault, this repo or any transcript; the account in
   his screenshot is new to every session. (4) The container cannot open atlasglinn.com, host.godaddy.com,
-  api.godaddy.com or api.cloudflare.com (egress 000). So: WordPress yes, from the Mac (now used by `scripts/wp-flush.sh`);
+  api.godaddy.com or api.cloudflare.com (egress 000). So: WordPress yes, from the Mac but **over SFTP only** (`scripts/wp-upload.sh`, `scripts/wp-cache-watch-deploy.sh`;
+  `scripts/wp-flush.sh` measures and reports, and its two remote methods are both blocked until SSH is enabled or the
+  application password is back);
   GoDaddy DNS no, until a key pair is minted again (his browser, developer.godaddy.com; his account must still qualify
   for the Domains API) and saved as those two Keychain items; cPanel no, until its login exists somewhere a runner or the
   Mac can read. **The route that needs no login at all — GitHub Pages (2026-09-07 18:29 UTC, first run of
