@@ -281,6 +281,28 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   `atlasglinn.com` A 160.153.0.38, `www.atlasglinn.com` CNAME → atlasglinn.com; **neither domain has the Microsoft 365
   `selector1/selector2._domainkey` CNAMEs** (atlasglinn.com's SPF names outlook, Mailchimp `servers.mcsv.net` and Brevo;
   its DMARC is `p=none` reporting to Brevo).
+- **The login form (2026-09-08, Brockmann: "wordpress = what is best"):** `atlasglinn.com/wp-login.php` has answered
+  **HTTP 200 with nothing in front of it** since the P1 opened 2026-07-01 (brain vault
+  `02-projects/atlasglinn-security-incident-2026-07-01.md`), and that packet's **R3** — a Cloudflare rate-limit rule on
+  the login — is not deferred but *impossible*: the zone is GoDaddy's bundled Cloudflare, not Brockmann's account, so no
+  rule of his can exist on it. That leaves **R2, Wordfence, as the only available throttle**. `scripts/wp-harden-login.sh`
+  runs it from the Mac over the same SSH login `wp-flush.sh` uses (Keychain `mast-wp-sftp`, host
+  `1127220.us12.ssh.myftpupload.com`, docroot `html`): it preflights `wp core version`, the plugin list and
+  `admin_email`, prints what it is about to install, installs and activates **wordfence**, then sets the login-security
+  keys through `wfConfig` with `wp eval-file` — 5 failures / 4 h lockout, invalid-username lockout, author-scan block,
+  alerts to matthew@atlasglinn.com — and **reads every key back**, so a key that build does not know prints `ABSENT`
+  instead of being reported as applied. GoDaddy Managed WordPress keeps a disallowed-plugin list and whether wordfence
+  is on it is UNVERIFIABLE FROM HERE, so a refused install falls back by itself to `limit-login-attempts-reloaded` +
+  `two-factor` (options set with `wp option update`, each read back) and the log says which path ran; a plugin already
+  active is left alone and only re-tightened. Heartbeat `~/.cache/wp-upload/last-harden-login`; the whole run is emailed
+  to matthew@atlasglinn.com through `~/.claude/bin/atlas-email`, and the log path is printed either way. It deliberately
+  adds **no WAF rule** (not his zone), touches **no `auto_prepend_file`** (Wordfence's extended protection rewrites
+  server files — a separate gated step; the script only reports whether it is already on) and runs **no failed-login
+  probe** (a lockout test would lock his own IP out of wp-admin for hours). So verification is `wp plugin is-active`'s
+  exit code, the read-back values, and the login form's HTTP code before/after — which **stays 200 on purpose**: the
+  form is meant to load, the lockout applies to failed POSTs, and a 200 afterwards is not a failure. R2 was gated on
+  Brockmann's explicit act, so **running the script IS that act** — one hand-run, no prompts, never cron. Merged, NOT
+  run: until `bash scripts/wp-harden-login.sh` fires on the Mac, nothing on the host has changed.
 - **mastsolutions.com** has no site *yet*: it is a GoDaddy domain forward to atlasglinn.com, pointed at
   `https://atlasglinn.com/mastsolutions.html` (set 2026-09-05). It still carries DNS: Resend verifies it so the Worker can send as
   bookings@mastsolutions.com, beside the existing matthew@mastsolutions.com mail.
