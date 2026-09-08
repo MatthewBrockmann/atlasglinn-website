@@ -615,12 +615,12 @@ ms = html.replace('https://atlasglinn.com/mastsolutions.html', 'https://www.mast
 ms = re.sub(r'href="mastsolutions\.html(#[^"]*)?"', lambda m: 'href="/%s"' % (m.group(1) or ''), ms)
 ms = re.sub(r'href="([a-z0-9-]+\.html(?:#[^"]*)?)"', r'href="https://atlasglinn.com/\1"', ms)
 # Search Console ownership for www.mastsolutions.com (2026-09-08). Verification by DNS TXT failed: the zone carries
-# google-site-verification=u-Y9Tw… (another Google account's token) while atlasglinn.com's zone — the property his
-# Search Console already shows — carries 8ndz0nAQ…. Same account, so the HTML-tag method verifies a URL-prefix
-# property https://www.mastsolutions.com/ with no DNS row. The token is public (it is in atlasglinn.com's DNS); only
-# this copy gets it, the atlasglinn.com copy of the page stays untouched.
+# google-site-verification=u-Y9Tw… (another Google account's token). The 8ndz0nAQ… token in atlasglinn.com's DNS was
+# tried first and Google rejected it too ("meta tag for a different user account") — so atlasglinn.com was verified by
+# yet another account. The token below is the one Search Console showed Brockmann on 2026-09-08 for the account he uses
+# (pasted by him). Public value, not a credential. Only this copy gets it; the atlasglinn.com copy stays untouched.
 ms = ms.replace('<meta name="robots" content="index, follow">',
-                '<meta name="robots" content="index, follow">\n<meta name="google-site-verification" content="8ndz0nAQFFs0_kFld2vZ4e3E0wnDR9LbP6bai5HK-g0">', 1)
+                '<meta name="robots" content="index, follow">\n<meta name="google-site-verification" content="6YoRGe8NcMDikRiy9Uy3bM0nrB71viTJuSWTyIcZSeE">', 1)
 assert ms.count('google-site-verification') == 1, 'verification meta not placed'
 os.makedirs(f'{REPO}/dist/mastsolutions', exist_ok=True)
 ms_out = f'{REPO}/dist/mastsolutions/index.html'
