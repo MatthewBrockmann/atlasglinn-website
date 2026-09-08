@@ -242,6 +242,12 @@ rm -f "$BATCH"
 # never assumed: it prints before/after and writes ~/.cache/wp-upload/last-flush. WP_FLUSH=0 skips it.
 if [ "${WP_FLUSH:-1}" = 1 ] && [ -f "$R/scripts/wp-flush.sh" ]; then
   say "Flushing the host's cache"; bash "$R/scripts/wp-flush.sh" 2>&1 | sed 's/^/   /' || true
+  # The host's own watcher (wp-ops/atlas-cache-watch.php) answers with a header on a URL the CDN has not cached; when it
+  # is there, this upload is purged by WP-Cron whatever the flush above managed.
+  WATCH_HDR="$(curl -sI -m 20 -A "wp-upload-check" "${WP_BASE:-https://www.atlasglinn.com}/?atlas-watch=$(date +%s)" 2>/dev/null | tr -d '\r' | awk 'tolower($1)=="x-atlas-cache-watch:" {sub(/^[^:]*: */, ""); v=$0} END{print v}' || true)"
+  if [ -n "$WATCH_HDR" ]; then
+    echo "   the atlas-cache-watch mu-plugin is on the host ($WATCH_HDR); it purges GoDaddy's CDN within 15 minutes of this upload"
+  fi
 fi
 
 say "Checking the live site"
