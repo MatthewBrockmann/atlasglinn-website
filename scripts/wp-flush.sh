@@ -142,7 +142,7 @@ except Exception: pass' | head -5)"
     cat > "$P" <<'PHP'
 <?php
 $c = isset($GLOBALS['wpaas_cache_class']) ? $GLOBALS['wpaas_cache_class'] : null;
-if (!is_string($c) || strpos(ltrim($c, '\\'), 'WPaaS\\') !== 0) { $c = null; }   // the global names a class about to be constructed: GoDaddy's own only
+if (!is_string($c) || !in_array(ltrim($c, '\\'), array('WPaaS\\Cache_V2', 'WPaaS\\Cache'), true)) { $c = null; }   // the global names a class about to be constructed: GoDaddy's own two, by exact name, never a prefix
 if (is_string($c) && class_exists($c)) { try { $c = new $c(); } catch (\Throwable $e) { $c = null; } }
 if (!is_object($c) && class_exists('WPaaS\Cache_V2')) {
   foreach (array('instance', 'get_instance', 'getInstance') as $acc) {   // singleton accessors first: a private constructor is the likely shape
@@ -156,7 +156,7 @@ $done = array();
 foreach (array('do_ban', 'flush_cdn', 'flush_transients', 'flush_object_cache') as $m) {
   if (!method_exists($c, $m)) { $done[] = $m . ':missing'; continue; }
   try { $r = new \ReflectionMethod($c, $m); $r->setAccessible(true); $r->invoke($c); $done[] = $m . ':ok'; }
-  catch (\Throwable $e) { $done[] = $m . ':' . str_replace("\n", ' ', $e->getMessage()); }
+  catch (\Throwable $e) { $done[] = $m . ':error:' . get_class($e) . ':' . substr(sha1($e->getMessage()), 0, 8); }   // never the text: a CDN client's exception can carry a token or a signed URL
 }
 echo 'wpaas-cascade: ' . get_class($c) . ' ' . implode(' ', $done) . "\n";
 PHP

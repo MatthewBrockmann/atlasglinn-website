@@ -112,8 +112,9 @@ function atlas_cache_watch_age($t) {
 function atlas_cache_watch_run() {
     $c = isset($GLOBALS['wpaas_cache_class']) ? $GLOBALS['wpaas_cache_class'] : null;
     // Allowlist before instantiation: the global names a class this file is about to construct, so it may only ever
-    // name GoDaddy's own. Anything else is dropped and the run falls through to the WPaaS\Cache_V2 path below.
-    if (!is_string($c) || strpos(ltrim($c, '\\'), 'WPaaS\\') !== 0) { $c = null; }
+    // name GoDaddy's own — by EXACT name, not by namespace prefix, because anything that can write that global can
+    // write `WPaaS\Anything` too. Anything else is dropped and the run falls through to the WPaaS\Cache_V2 path below.
+    if (!is_string($c) || !in_array(ltrim($c, '\\'), array('WPaaS\\Cache_V2', 'WPaaS\\Cache'), true)) { $c = null; }
     if (is_string($c) && class_exists($c)) {
         try { $c = new $c(); } catch (\Throwable $e) { $c = null; }
     }

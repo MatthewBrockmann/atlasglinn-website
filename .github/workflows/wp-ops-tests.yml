@@ -1,0 +1,46 @@
+# The two wp-ops harnesses, on the runner. Both stub everything they touch — a stub WordPress and a stub WPaaS\Cache_V2
+# for the plugin, stub sftp/curl/security/shasum/sleep for the deploy script — so this job reaches no host, needs no
+# secret and changes nothing. It exists because the harnesses only ran when someone remembered to run them on the Mac,
+# and the plugin they cover is what purges a production cache.
+name: wp-ops tests
+
+on:
+  push:
+    paths:
+      - 'wp-ops/**'
+      - 'scripts/wp-*.sh'
+      - 'scripts/tests/**'
+      - '.github/workflows/wp-ops-tests.yml'
+  pull_request:
+    paths:
+      - 'wp-ops/**'
+      - 'scripts/wp-*.sh'
+      - 'scripts/tests/**'
+      - '.github/workflows/wp-ops-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  harnesses:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versions
+        run: php -v | head -1; bash --version | head -1
+
+      - name: Syntax
+        run: |
+          php -l wp-ops/atlas-cache-watch.php
+          php -l wp-ops/tests/atlas-cache-watch-test.php
+          for s in scripts/wp-cache-watch-deploy.sh scripts/wp-flush.sh scripts/tests/wp-cache-watch-deploy-test.sh; do
+            bash -n "$s" && echo "bash -n ok: $s"
+          done
+
+      - name: Plugin harness (stub WordPress, 6 scenarios)
+        run: php wp-ops/tests/atlas-cache-watch-test.php
+
+      - name: Deploy-script harness (stub sftp/curl, no host)
+        run: bash scripts/tests/wp-cache-watch-deploy-test.sh

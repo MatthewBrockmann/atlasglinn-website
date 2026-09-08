@@ -7,7 +7,9 @@
  * Six scenarios, each in its own process because the plugin's constants and its file-scope `return` can only be
  * exercised once per interpreter: wpaas (the cascade), throwing (a failing flush_cdn and the back-off), nowpaas,
  * badclass (the allowlist), disabled, uninstall. The parent prints every PASS/FAIL line and exits non-zero if any
- * case fails.
+ * case fails — and each scenario carries a PINNED assertion count, because a scenario that died after its first
+ * assertion used to report green: the parent counted the PASS lines it saw and nothing said how many there should
+ * have been. Fewer than the pin is a failure, and so is a scenario that exits non-zero without reporting one itself.
  *
  * The throwing scenario raises an exception whose message carries a token-shaped string on purpose: the assertions
  * that matter most here are that the string reaches neither the stored option nor the error log.
@@ -17,6 +19,16 @@ namespace WPaaS {
     // GoDaddy's shape, as scripts/wp-flush.sh's DIAG found it: a non-public constructor, a singleton accessor, and
     // four non-public methods that only reflection can reach. Declared only for the scenarios that need it.
     $atlas_scn = isset($_SERVER['argv'][1]) ? $_SERVER['argv'][1] : '';
+    if ($atlas_scn === 'badclass') {
+        // Declared inside GoDaddy's own namespace on purpose. It is what a `WPaaS\` PREFIX test would happily
+        // construct, and what the plugin's exact-name allowlist has to refuse: anything that can write the global can
+        // write a WPaaS-namespaced name into it too.
+        class Cache_V2_Evil {
+            public function __construct() { $GLOBALS['t_evil'] = 1; }
+            public function do_ban() {} public function flush_cdn() {}
+            public function flush_transients() {} public function flush_object_cache() {}
+        }
+    }
     if ($atlas_scn === 'wpaas' || $atlas_scn === 'throwing') {
         class Cache_V2 {
             public static $calls = array();
@@ -42,20 +54,36 @@ namespace {
 
 // ── the runner ──────────────────────────────────────────────────────────────────────────────────────────────────────
 if (!isset($_SERVER['argv'][1])) {
-    $scenarios = array('wpaas', 'throwing', 'nowpaas', 'badclass', 'disabled', 'uninstall');
-    $pass = 0; $fail = 0; $bad = array();
-    foreach ($scenarios as $s) {
+    // The pin is the harness guarding itself. A scenario that died after its first assertion used to report GREEN: the
+    // parent counted the PASS lines it happened to see and nothing said how many there were supposed to be. So each
+    // scenario carries its assertion count, a shortfall is a failure, and a scenario that exits non-zero without
+    // reporting a FAIL of its own is a death, not a pass.
+    $scenarios = array('wpaas' => 51, 'throwing' => 23, 'nowpaas' => 8, 'badclass' => 9, 'disabled' => 5, 'uninstall' => 10);
+    $pass = 0; $fail = 0; $bad = array(); $counts = array();
+    foreach ($scenarios as $s => $want) {
         $cmd = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' ' . escapeshellarg($s) . ' 2>&1';
         $lines = array(); $rc = 0;
         exec($cmd, $lines, $rc);
+        $got = 0; $sawfail = false;
         foreach ($lines as $l) {
-            if (strpos($l, 'PASS ') === 0) { $pass++; echo '  PASS ' . $s . '/' . substr($l, 5) . "\n"; }
-            elseif (strpos($l, 'FAIL ') === 0) { $fail++; $bad[] = $s . '/' . substr($l, 5); echo '  FAIL ' . $s . '/' . substr($l, 5) . "\n"; }
+            if (strpos($l, 'PASS ') === 0) { $pass++; $got++; echo '  PASS ' . $s . '/' . substr($l, 5) . "\n"; }
+            elseif (strpos($l, 'FAIL ') === 0) { $fail++; $got++; $sawfail = true; $bad[] = $s . '/' . substr($l, 5); echo '  FAIL ' . $s . '/' . substr($l, 5) . "\n"; }
             else { echo '  | ' . $l . "\n"; }
         }
-        if ($rc !== 0 && !$lines) { $fail++; $bad[] = $s . '/scenario-did-not-run'; echo '  FAIL ' . $s . "/scenario-did-not-run (exit $rc)\n"; }
+        $counts[] = $s . ' ' . $got . '/' . $want;
+        if ($rc !== 0 && !$sawfail) {
+            $fail++; $bad[] = $s . '/scenario-exited-' . $rc;
+            echo '  FAIL ' . $s . "/scenario-exited-$rc without reporting a failure — it died mid-scenario\n";
+        }
+        if ($got < $want) {
+            $fail++; $bad[] = $s . '/assertions-shrank-' . $got . '-of-' . $want;
+            echo '  FAIL ' . $s . "/assertions-shrank: ran $got of the $want pinned in this file\n";
+        } elseif ($got > $want) {
+            echo '  | ' . $s . ": $got assertions, $want pinned — raise the pin in this file\n";
+        }
     }
-    echo "\natlas-cache-watch: $pass passed, $fail failed (" . count($scenarios) . " scenarios)\n";
+    echo "\nper scenario: " . implode(' · ', $counts) . "\n";
+    echo "atlas-cache-watch: $pass passed, $fail failed (" . count($scenarios) . " scenarios)\n";
     if ($fail) { echo "failed: " . implode(', ', $bad) . "\n"; }
     exit($fail ? 1 : 0);
 }
@@ -341,7 +369,16 @@ if ($SCN === 'badclass') {
     $GLOBALS['wpaas_cache_class'] = 'WPaaS\Nope_Not_Here';
     $r = atlas_cache_watch_run();
     t('missing-wpaas-class-no-crash', $r['class'] === null);
-    t('badclass-still-flushed-object-cache', $GLOBALS['t_cache_flush'] === 5, 'calls=' . $GLOBALS['t_cache_flush']);
+    // The allowlist is exact, not a prefix. This class is declared, constructible, and sits in GoDaddy's own namespace,
+    // so a `strpos(...,'WPaaS\\') !== 0` test constructs it — which is why it is here.
+    $GLOBALS['wpaas_cache_class'] = 'WPaaS\Cache_V2_Evil';
+    $r = atlas_cache_watch_run();
+    t('wpaas-namespaced-evil-refused', $GLOBALS['t_evil'] === 0 && $r['class'] === null,
+        'a declared WPaaS\\-prefixed class outside the allowlist was constructed');
+    $GLOBALS['wpaas_cache_class'] = '\WPaaS\Cache_V2_Evil';
+    $r = atlas_cache_watch_run();
+    t('wpaas-namespaced-evil-refused-leading-backslash', $GLOBALS['t_evil'] === 0 && $r['class'] === null);
+    t('badclass-still-flushed-object-cache', $GLOBALS['t_cache_flush'] === 7, 'calls=' . $GLOBALS['t_cache_flush']);
 }
 
 if ($SCN === 'disabled') {
