@@ -59,8 +59,16 @@ else
   say "no Keychain item '$KC_WP' (the WordPress application password) on this Mac; REST flush skipped"
 fi
 
-# ── Method B: WP-CLI over SSH (opt-in, or when REST did nothing) ────────────────────────────────────────────────────────
-if [ "${WP_FLUSH_SSH:-0}" = 1 ] || [ -z "$method" ]; then
+# Did the REST save actually clear the edge? (2026-09-08: two uploads with no click, 23:50 and 04:11 UTC, and the runner
+# still saw the day-old plain copies afterwards — the private-page save returned 200 but purged nothing static.) When it
+# did not, the SSH path runs as well instead of being skipped.
+need_ssh=0
+if [ -n "$method" ]; then
+  sleep 12; mid_plain="$(hdr "$SITE" last-modified)"
+  if [ -z "$mid_plain" ] || [ "$mid_plain" != "$busted" ]; then need_ssh=1; say "REST save did not clear the plain URL (still [$mid_plain]); trying WP-CLI over SSH"; fi
+fi
+# ── Method B: WP-CLI over SSH (opt-in, when REST did nothing, or when REST cleared nothing) ─────────────────────────────
+if [ "${WP_FLUSH_SSH:-0}" = 1 ] || [ -z "$method" ] || [ "$need_ssh" = 1 ]; then
   U="$(kc_acct "$KC_SFTP" || true)"
   if [ -n "$U" ] && kc_pw "$KC_SFTP" >/dev/null 2>&1; then
     A="$(mktemp /tmp/wp-flush-askpass.XXXXXX)"; printf '#!/bin/sh\nexec security find-generic-password -s %s -w\n' "$KC_SFTP" > "$A"; chmod 700 "$A"
