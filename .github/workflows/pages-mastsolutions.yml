@@ -17,6 +17,11 @@ on:
     paths:
       - 'dist/mastsolutions/**'
       - '.github/workflows/pages-mastsolutions.yml'
+      # the Atlas Glinn pages under /preview/atlasglinn/ and what they serve
+      - '*.html'
+      - 'images/**'
+      - 'vendor/**'
+      - 'scripts/assemble-atlas.py'
 permissions:
   contents: read
   pages: write
@@ -45,17 +50,23 @@ jobs:
           for f in robots.txt sitemap.xml; do test -f "dist/mastsolutions/$f" || { echo "::error::dist/mastsolutions/$f missing — run python3 scripts/assemble-cinematic.py and commit"; exit 1; }; cp "dist/mastsolutions/$f" "stage/$f"; done
           printf '%s\n' "$DOMAIN" > stage/CNAME
           touch stage/.nojekyll
-          python3 - dist/mastsolutions/index.html > assets.txt <<'PY'
-          import os, re, sys
-          page = sys.argv[1]; seen = []
+          # The asset resolver, written once and used by both stages (this one and the Atlas preview below): it reads the
+          # pages given to it, follows their local src/href/poster/url()/import references (and one level into the css and
+          # js it finds), refuses an LFS pointer, and copies each file under the output root at the same relative path.
+          # A page's references resolve against the repo root, which is where its staged copy's own folder starts.
+          RESOLVER="${RUNNER_TEMP:-/tmp}/resolve-assets.py"
+          cat > "$RESOLVER" <<'PY'
+          import os, re, shutil, sys
+          out, pages = sys.argv[1], sys.argv[2:]; seen = []
           attr = re.compile(r'''(?:src|href|poster)=["']([^"'#?]+)|url\(['"]?([^)'"?#]+)|from\s+['"]\.?/?([^'"]+\.js)['"]|['"]((?:images|vendor)/[^'"?#\s]+)['"]''')
           queue = []
-          for m in attr.finditer(open(page, encoding='utf-8', errors='ignore').read()):
-              u = (m.group(1) or m.group(2) or m.group(3) or m.group(4) or '').strip()
-              if not u or u.startswith(('http', '//', 'mailto:', 'tel:', 'data:', 'javascript:')) or u.endswith('.html'): continue
-              u = os.path.normpath(u)
-              if u.startswith('..') or not os.path.isfile(u) or u in seen: continue
-              seen.append(u); queue.append(u)
+          for page in pages:
+              for m in attr.finditer(open(page, encoding='utf-8', errors='ignore').read()):
+                  u = (m.group(1) or m.group(2) or m.group(3) or m.group(4) or '').strip()
+                  if not u or u.startswith(('http', '//', 'mailto:', 'tel:', 'data:', 'javascript:')) or u.endswith('.html'): continue
+                  u = os.path.normpath(u)
+                  if u.startswith('..') or not os.path.isfile(u) or u in seen: continue
+                  seen.append(u); queue.append(u)
           while queue:
               p = queue.pop(0)
               if not p.endswith(('.css', '.js')): continue
@@ -65,11 +76,68 @@ jobs:
                   u = os.path.normpath(os.path.join(os.path.dirname(p), u))
                   if u.startswith('..') or not os.path.isfile(u) or u in seen: continue
                   seen.append(u); queue.append(u)
+          for p in seen:
+              if b'git-lfs.github.com/spec' in open(p, 'rb').read(200):
+                  sys.exit('::error::LFS pointer among the assets; nothing published')
+              d = os.path.join(out, os.path.dirname(p))
+              if d: os.makedirs(d, exist_ok=True)
+              shutil.copy2(p, os.path.join(out, p))
           print('\n'.join(seen))
           PY
-          if grep -l 'git-lfs.github.com/spec' $(cat assets.txt) 2>/dev/null | head -1 | grep -q .; then echo "::error::LFS pointer among the assets; nothing published"; exit 1; fi
-          while IFS= read -r f; do [ -n "$f" ] && mkdir -p "stage/$(dirname "$f")" && cp "$f" "stage/$f"; done < assets.txt
+          python3 "$RESOLVER" stage dist/mastsolutions/index.html > assets.txt
           echo "$(find stage -type f | wc -l) files staged ($(du -sh stage | cut -f1))"
+      - name: Stage the Atlas Glinn preview (noindex)
+        run: |
+          set -e
+          # The Atlas Glinn cinematic pages published here for review only, at /preview/atlasglinn/ — atlasglinn.com is
+          # still WordPress and nothing here touches it. Every page is served noindex/nofollow with its canonical and
+          # og:url stripped, and robots.txt disallows /preview/, so this host never competes with the live site.
+          # The twelve pages scripts/assemble-atlas.py generates, plus the three hand-authored ones it does not.
+          RESOLVER="${RUNNER_TEMP:-/tmp}/resolve-assets.py"
+          PREVIEW=stage/preview/atlasglinn
+          pages=""
+          for f in index.html executive-protection.html residential-protection.html disaster-recovery.html training.html \
+                   technology.html cuas-aerodefense.html uas.html about.html careers.html contact.html ep-app.html \
+                   signup.html privacy.html terms.html; do
+            [ -f "$f" ] && pages="$pages $f"
+          done
+          test -n "$pages" || { echo "::error::no Atlas pages at the repo root; nothing to preview"; exit 1; }
+          mkdir -p "$PREVIEW"
+          python3 - "$PREVIEW" $pages <<'PY'
+          import os, re, sys
+          out, pages = sys.argv[1], sys.argv[2:]
+          NOINDEX = '<meta name="robots" content="noindex, nofollow">'
+          robots = re.compile(r'<meta\s+name=["\']robots["\'][^>]*>', re.I)
+          charset = re.compile(r'<meta\s+charset=[^>]*>', re.I)
+          drop = re.compile(r'[ \t]*<link\b[^>]*\brel=["\']canonical["\'][^>]*>\n?|[ \t]*<meta\b[^>]*["\']og:url["\'][^>]*>\n?', re.I)
+          # A root-absolute reference would leave the subfolder and 404 on this host; where it names something the repo
+          # has, it becomes relative so it resolves next to the page. Anything else (a WordPress URL, an off-site link)
+          # is left alone.
+          absref = re.compile(r'''((?:src|href|poster)=["']|url\(["']?)/([^"'()\s#?]+)''')
+          rewritten = []
+          for page in pages:
+              html = open(page, encoding='utf-8').read()
+              html, n = robots.subn(NOINDEX, html, count=1)
+              if not n: html = charset.sub(lambda m: m.group(0) + '\n' + NOINDEX, html, count=1)
+              assert NOINDEX in html, page + ': no robots meta and no charset meta to put one after'
+              html = drop.sub('', html)
+              def rel(m):
+                  for cand in (m.group(2), m.group(2) + '.html', m.group(2) + '/index.html'):
+                      if os.path.isfile(cand):
+                          rewritten.append('%s: /%s -> %s' % (page, m.group(2), cand)); return m.group(1) + cand
+                  return m.group(0)
+              html = absref.sub(rel, html)
+              # The MAST page is not staged under the preview; on this host it is served at "/", so the menu and footer
+              # links to mastsolutions.html (with or without #gear) point there instead of 404ing.
+              html = re.sub(r'href=["\']mastsolutions\.html(#[^"\']*)?["\']', lambda m: 'href="/%s"' % (m.group(1) or ''), html)
+              open(os.path.join(out, os.path.basename(page)), 'w', encoding='utf-8').write(html)
+          print('%d pages staged noindex, %d root-absolute references made relative' % (len(pages), len(rewritten)))
+          for r in rewritten: print('  ' + r)
+          PY
+          python3 "$RESOLVER" "$PREVIEW" $pages >> assets.txt
+          # The pages fetch this to notice a new build; an empty one keeps that from being a 404 in the preview.
+          printf '{}\n' > "$PREVIEW/build-manifest.json"
+          echo "$(find $PREVIEW -type f | wc -l) preview files ($(du -sh $PREVIEW | cut -f1)); stage now $(find stage -type f | wc -l) files ($(du -sh stage | cut -f1))"
       - name: Make sure the Pages site exists and builds from Actions
         env:
           GH_TOKEN: ${{ github.token }}

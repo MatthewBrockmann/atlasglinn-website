@@ -1,6 +1,7 @@
 # www.mastsolutions.com — MAST Solutions (Atlas Glinn, LLC), Houston TX
 
 User-agent: *
+Disallow: /preview/
 Allow: /
 
 User-agent: GPTBot
