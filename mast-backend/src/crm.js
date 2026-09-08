@@ -364,6 +364,108 @@ export async function crmSnapshot(env, { view = 'full', limit = 5000, now = new 
   return out;
 }
 
+/* ─────────────────────── Weekly digest (owner, 2026-09-08) ───────────────────────
+   "Add to CRM backend + weekly CRM Emails to matthew@atlasglinn.com + Matthew@mastsolutions.com."
+   Sent by the daily cron on Mondays only; the same text is at GET /admin/crm?view=weekly for a runner
+   with the key. Reads the tables crmSnapshot already reads — the digest adds no table and no column. */
+
+const WEEK = 7 * DAY;
+const usd = (cents) => '$' + (Number(cents || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const ymd = (d) => d.toISOString().slice(0, 10);
+
+/** ISO-8601 week of the day `d` falls in (the Thursday rule), e.g. 2026-W36. */
+function isoWeek(d) {
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+  const jan1 = Date.UTC(t.getUTCFullYear(), 0, 1);
+  return t.getUTCFullYear() + '-W' + String(Math.ceil(((t.getTime() - jan1) / DAY + 1) / 7)).padStart(2, '0');
+}
+
+/** The subject line's period, and the digest's own header: the seven days the numbers cover. */
+export function weeklyDigestPeriod(now = new Date()) {
+  const from = new Date(now.getTime() - WEEK);
+  return ymd(from) + ' → ' + ymd(now) + ' · ' + isoWeek(from);
+}
+
+/**
+ * The digest itself, from rows. Pure: the cron and the admin view both build the text this way, and the
+ * tests hand it fixtures. `stats` is a crmSnapshot summary (the lifetime block); without it that block is
+ * left out rather than guessed at.
+ */
+export function weeklyDigestText({ contacts = [], orders = [], registrations = [], accounts = [], stats = null } = {}, now = new Date()) {
+  const startThis = new Date(now.getTime() - WEEK).toISOString();
+  const startPrev = new Date(now.getTime() - 2 * WEEK).toISOString();
+  const recent = (l) => l.filter((r) => r.created_at && r.created_at >= startThis);
+  const prior = (l) => l.filter((r) => r.created_at && r.created_at >= startPrev && r.created_at < startThis);
+  const sum = (l, f) => l.reduce((n, x) => n + (Number(f(x)) || 0), 0);
+  const seats = (l) => sum(l, (o) => o.qty || 1);
+  const cash = (l) => sum(l, (o) => o.amount_total);
+  const row = (label, value, prev) => (label + ':').padEnd(18) + String(value) + (prev === undefined ? '' : '  (prev ' + prev + ')');
+
+  const leads = contacts.filter((c) => c.kind !== 'subscribe' && c.kind !== 'smoke');   // the runner's smoke-test messages are not leads
+  const leadsNow = recent(leads), leadsPrev = prior(leads);
+  const paid = orders.filter((o) => !o.status || o.status === 'paid');
+  const paidNow = recent(paid), paidPrev = prior(paid);
+  const open = leads.filter((c) => !c.emailed).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+  const askedFor = (c) => c.request_type || c.kind;
+  const priorByType = new Map(bucket(leadsPrev, askedFor).map((b) => [b.key, b.value]));
+  const nameOf = (o) => o.item_name || o.sku || '(unnamed)';
+  const cashByClass = new Map(bucket(paidNow, nameOf, (o) => o.amount_total).map((b) => [b.key, b.value]));
+
+  const out = [
+    'MAST CRM WEEKLY',
+    weeklyDigestPeriod(now),
+    '',
+    'LAST 7 DAYS',
+    row('New leads', leadsNow.length, leadsPrev.length),
+  ];
+  for (const b of bucket(leadsNow, askedFor)) out.push('  ' + b.key.padEnd(16) + String(b.value) + '  (prev ' + (priorByType.get(b.key) || 0) + ')');
+  out.push(
+    row('Not emailed back', recent(open).length + ' of ' + leadsNow.length + ' new'),
+    row('New accounts', recent(accounts).length, prior(accounts).length),
+    row('Registrations', recent(registrations).length, prior(registrations).length),
+    row('Paid orders', paidNow.length, paidPrev.length),
+    row('Seats sold', seats(paidNow), seats(paidPrev)),
+    row('Revenue', usd(cash(paidNow)), usd(cash(paidPrev))),
+    '',
+    'TOP CLASSES BOOKED (paid, last 7 days)',
+  );
+  const classes = bucket(paidNow, nameOf, (o) => o.qty || 1).slice(0, 8);
+  if (!classes.length) out.push('  (none)');
+  for (const b of classes) out.push('  ' + b.key.slice(0, 40).padEnd(42) + (b.value + (b.value === 1 ? ' seat' : ' seats')).padEnd(10) + usd(cashByClass.get(b.key)));
+  out.push('', 'NOT EMAILED BACK — ' + open.length + ' open, oldest first');
+  if (!open.length) out.push('  (none — every lead has had a reply)');
+  for (const c of open.slice(0, 15)) out.push('  ' + String(c.created_at).slice(0, 10) + '  ' + String(c.name || '(no name)').slice(0, 28).padEnd(30) + String(c.email || '').slice(0, 40) + '  (' + askedFor(c) + ')');
+  if (open.length > 15) out.push('  … and ' + (open.length - 15) + ' more — /admin, Leads tab');
+
+  if (stats) {
+    const r = stats.registrations && stats.registrations.by_status ? Object.entries(stats.registrations.by_status).map(([k, v]) => k + ' ' + v).join(' · ') : '';
+    out.push(
+      '', 'LIFETIME',
+      row('Profiles', stats.profiles),
+      row('Leads', stats.leads.total + '  (30 days: ' + stats.leads.last_30_days + ', not emailed back: ' + stats.leads.unemailed + ')'),
+      row('Subscribers', stats.subscribers),
+      row('Accounts', stats.accounts.total + '  (verified ' + stats.accounts.verified + ')'),
+      row('Registrations', stats.registrations.total + (r ? '  (' + r + ')' : '')),
+      row('Paid orders', stats.orders.paid + ' of ' + stats.orders.total),
+      row('Revenue', usd(stats.revenue_cents.total) + '  (30 days: ' + usd(stats.revenue_cents.last_30_days) + ')'),
+      row('Seats upcoming', stats.seats_upcoming.length ? stats.seats_upcoming.map((s) => s.key + ': ' + s.value).join(' · ') : '(none booked)'),
+    );
+  }
+  out.push('', 'Staff CRM: /admin (ADMIN_KEY) · this text: /admin/crm?view=weekly');
+  return out.join('\n');
+}
+
+/** The digest for the live database. */
+export async function weeklyDigest(env, { now = new Date(), limit = 5000 } = {}) {
+  const { stats } = await crmSnapshot(env, { view: 'summary', limit, now });
+  const contacts = await rows(env, `SELECT id, created_at, kind, name, email, request_type, emailed FROM contacts ORDER BY created_at DESC LIMIT ${limit}`);
+  const orders = await rows(env, `SELECT ${ORDER_COLS} FROM orders ORDER BY created_at DESC LIMIT ${limit}`);
+  const registrations = await rows(env, `SELECT id, created_at, status, sku, item_name, qty FROM registrations ORDER BY created_at DESC LIMIT ${limit}`);
+  const accounts = await rows(env, `SELECT id, created_at, verified_at FROM accounts ORDER BY created_at DESC LIMIT ${limit}`);
+  return weeklyDigestText({ contacts, orders, registrations, accounts, stats }, now);
+}
+
 /* ───────────────────────── Audience export (CSV) ───────────────────────── */
 
 const csvCell = (v) => { const s = v === null || v === undefined ? '' : String(v); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };

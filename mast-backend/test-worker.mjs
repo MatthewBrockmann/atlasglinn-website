@@ -558,6 +558,9 @@ console.log('\n── Site contact + capability requests ──');
   const priv = await post('/contact', { kind: 'contact', request_type: 'private', name: 'Jane Doe', email: 'jane@example.com', phone: '', message: 'Private instruction request — Private Session (2 HRS · ONE-ON-ONE)', page: 'https://www.atlasglinn.com/mastsolutions.html' });
   ok('private instruction request (the page\'s Request dialog) sends one email titled as such, 200', priv.status === 200 && emails.length === 2 && /Private instruction request: Jane Doe/.test(JSON.stringify(emails[1])), 'status=' + priv.status + ' ' + JSON.stringify(emails[1]).slice(0, 160));
   ok('email has reply-to the sender and the message', emails[0] && emails[0].reply_to === 'jane@example.com' && /residential assessment/.test(emails[0].text));
+  // Owner, 2026-09-08, on the notification that reached him: "REMOVE 'Page: github-actions'". The page is still collected —
+  // it is on the lead row and drives attribution — it just does not take a line in the email.
+  ok('the notification carries no Page: line, and the lead row still has the page', !emails[0].text.includes('Page:') && contacts.some((c) => c.email === 'jane@example.com' && c.page === 'contact.html'), emails[0].text);
   // The Gear chapter (owner, 2026-09-05): Aimpoint / IWA quote requests through the same dialog, never a Stripe charge.
   const gear = await post('/contact', { kind: 'contact', request_type: 'gear', company: 'Harris County SO', name: 'Jane Doe', email: 'jane@example.com', phone: '', message: 'Gear quote request — IWA-M12 M12 Distraction Device (IWA · Distraction) × 12\nAgency / organization: Harris County SO', page: 'https://atlasglinn.com/mastsolutions.html' });
   ok('gear quote request sends one email titled as such with the agency, 200', gear.status === 200 && emails.length === 3 && /Gear quote request: Jane Doe/.test(emails[2].subject) && /GEAR QUOTE REQUEST/.test(emails[2].text) && /Company:\s+Harris County SO/.test(emails[2].text) && /IWA-M12/.test(emails[2].text), 'status=' + gear.status + ' ' + JSON.stringify(emails[2] || {}).slice(0, 200));
@@ -880,6 +883,74 @@ console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect da
   j = await runJourneys(envJ, { send: sendSpy, now: now7, catalog: [] });
   ok('T−7 attaches the sealed (real) PDF when it exists', j.t7.sent === 1 && emails[0].attachments && emails[0].attachments[0].filename === 'MAST-Range-Directions.pdf' && Buffer.compare(Buffer.from(emails[0].attachments[0].content, 'base64'), Buffer.from(realPdf)) === 0);
   sealedJson = null; _resetSealedMemo(); _resetDirectionsMemo();
+}
+
+console.log('\n── Monday CRM digest (owner, 2026-09-08: "weekly CRM Emails to matthew@atlasglinn.com + Matthew@mastsolutions.com") ──');
+{
+  const { weeklyDigestText, weeklyDigestPeriod } = await import('./src/crm.js');
+  const now = new Date('2026-09-07T09:17:00Z');   // a Monday, the hour the daily cron fires
+  const day = (n) => new Date(now.getTime() - n * 86400000).toISOString();
+  const fixture = {
+    contacts: [
+      { created_at: day(1), kind: 'gear', request_type: 'gear', name: 'Lee Quinn', email: 'lee@example.com', emailed: 1 },
+      { created_at: day(3), kind: 'gear', request_type: 'gear', name: 'Sam Ortiz', email: 'sam@example.com', emailed: 0 },
+      { created_at: day(5), kind: 'contact', request_type: 'private', name: 'Pat Rivera', email: 'pat@example.com', emailed: 1 },
+      { created_at: day(2), kind: 'subscribe', email: 'news@example.com', emailed: 0 },      // a sign-up is not a lead
+      { created_at: day(2), kind: 'smoke', request_type: 'smoke', email: 'runner@example.com', emailed: 0 },   // nor is the runner's probe
+      { created_at: day(9), kind: 'gear', request_type: 'gear', name: 'Old Gear', email: 'old@example.com', emailed: 1 },
+      { created_at: '2026-08-01T00:00:00Z', kind: 'contact', request_type: 'private', name: 'Dana Webb', email: 'dana@example.com', emailed: 0 },
+    ],
+    orders: [
+      { created_at: day(1), status: 'paid', sku: 'MAST-DA', item_name: 'Direct Action', qty: 2, amount_total: 139000 },
+      { created_at: day(4), status: 'paid', sku: 'MAST-HG-FUND', item_name: 'Handgun Fundamentals', qty: 1, amount_total: 22500 },
+      { created_at: day(2), status: 'refunded', sku: 'MAST-DA', item_name: 'Direct Action', qty: 1, amount_total: 50000 },
+      { created_at: day(10), status: 'paid', sku: 'MAST-DA', item_name: 'Direct Action', qty: 1, amount_total: 69500 },
+    ],
+    registrations: [{ created_at: day(1) }, { created_at: day(4) }, { created_at: day(9) }],
+    accounts: [{ created_at: day(2) }, { created_at: day(8) }, { created_at: day(11) }],
+  };
+  const text = weeklyDigestText(fixture, now);
+  ok('the period is the seven days ending at the run, with its ISO week', weeklyDigestPeriod(now) === '2026-08-31 → 2026-09-07 · 2026-W36', weeklyDigestPeriod(now));
+  ok('new leads count this week against last, and sign-ups and smoke probes are not leads', /New leads:\s+3\s+\(prev 1\)/.test(text), text);
+  ok('leads break down by request type with last week beside them', /\n {2}gear\s+2\s+\(prev 1\)/.test(text) && /\n {2}private\s+1\s+\(prev 0\)/.test(text), text);
+  ok('accounts and registrations carry their own week-on-week', /New accounts:\s+1\s+\(prev 2\)/.test(text) && /Registrations:\s+2\s+\(prev 1\)/.test(text), text);
+  ok('revenue is the paid orders only, formatted as dollars', /Revenue:\s+\$1,615\.00\s+\(prev \$695\.00\)/.test(text) && !text.includes('$500.00'), text);
+  ok('paid orders and seats counted, the refunded order excluded', /Paid orders:\s+2\s+\(prev 1\)/.test(text) && /Seats sold:\s+3\s+\(prev 1\)/.test(text), text);
+  ok('top classes booked list seats and revenue per class', /Direct Action\s+2 seats\s+\$1,390\.00/.test(text) && /Handgun Fundamentals\s+1 seat\s+\$225\.00/.test(text), text);
+  ok('leads not emailed back are listed oldest first with the count', /NOT EMAILED BACK — 2 open, oldest first/.test(text) && text.indexOf('Dana Webb') < text.indexOf('Sam Ortiz'), text);
+  ok('the not-emailed line names how many of this week are still open', /Not emailed back:\s+1 of 3 new/.test(text), text);
+  ok('without a snapshot there is no invented LIFETIME block', !text.includes('LIFETIME'));
+  const withStats = weeklyDigestText({ ...fixture, stats: {
+    profiles: 88, leads: { total: 41, last_30_days: 12, unemailed: 2 }, subscribers: 17,
+    accounts: { total: 22, verified: 19 }, registrations: { total: 31, by_status: { paid: 24, pending: 4, abandoned: 3 } },
+    orders: { total: 26, paid: 24 }, revenue_cents: { total: 1668000, last_30_days: 208500 }, seats_upcoming: [{ key: '2026-10-10', value: 6 }],
+  } }, now);
+  ok('with the snapshot the lifetime totals are appended, money formatted the same way', /LIFETIME/.test(withStats) && /Revenue:\s+\$16,680\.00\s+\(30 days: \$2,085\.00\)/.test(withStats) && /Registrations:\s+31\s+\(paid 24 · pending 4 · abandoned 3\)/.test(withStats) && /Seats upcoming:\s+2026-10-10: 6/.test(withStats), withStats);
+
+  // Gating: the daily cron carries the digest, on Mondays only, and never at the purge's expense.
+  const runCron = async (event, en) => { const queued = []; await worker.scheduled(event, en, { waitUntil: (p) => queued.push(p) }); await Promise.all(queued); };
+  const digestEnv = { ...env, CRM_DIGEST_TO: 'matthew@atlasglinn.com,matthew@mastsolutions.com' };
+  const monday = Date.UTC(2026, 8, 7, 9, 17), tuesday = Date.UTC(2026, 8, 8, 9, 17);
+  emails.length = 0;
+  registrations.set('reg_tue', { id: 'reg_tue', status: 'pending', created_at: '2020-01-01T00:00:00Z' });
+  await runCron({ scheduledTime: tuesday }, digestEnv);
+  ok('a Tuesday cron sends no digest and still abandons the stale registration', emails.length === 0 && registrations.get('reg_tue').status === 'abandoned', 'emails=' + emails.length);
+  registrations.set('reg_mon', { id: 'reg_mon', status: 'pending', created_at: '2020-01-01T00:00:00Z' });
+  await runCron({ scheduledTime: monday }, digestEnv);
+  ok('the Monday cron sends exactly one digest to both of his inboxes, and the purge still ran', emails.length === 1 && emails[0].to.join(',') === 'matthew@atlasglinn.com,matthew@mastsolutions.com' && registrations.get('reg_mon').status === 'abandoned', JSON.stringify(emails.map((e) => e.to)) + ' emails=' + emails.length);
+  ok('the subject names the week it covers', /^MAST CRM weekly — \d{4}-\d\d-\d\d → \d{4}-\d\d-\d\d · \d{4}-W\d\d$/.test(emails[0].subject), emails[0].subject);
+  ok('the digest is not also blind-copied to the same two addresses', !emails[0].bcc, JSON.stringify(emails[0].bcc));
+  ok('the sent body is the digest, sections and lifetime totals', /^MAST CRM WEEKLY/.test(emails[0].text) && /LAST 7 DAYS/.test(emails[0].text) && /LIFETIME/.test(emails[0].text), emails[0].text.slice(0, 200));
+  emails.length = 0;
+  await runCron({ scheduledTime: monday }, { ...env, CRM_DIGEST_TO: '' });
+  ok('without CRM_DIGEST_TO the Monday cron sends nothing (logged and skipped, like the review notice)', emails.length === 0, 'emails=' + emails.length);
+
+  // The same text without the mailbox, behind the key that already guards /admin.
+  const weekly = await worker.fetch(new Request('https://api.test/admin/crm?view=weekly', { headers: { 'X-Admin-Key': 'super-secret-admin-key' } }), env, ctx);
+  const weeklyText = await weekly.text();
+  ok('GET /admin/crm?view=weekly serves the digest as text/plain', weekly.status === 200 && /text\/plain/.test(weekly.headers.get('Content-Type')) && weeklyText.startsWith('MAST CRM WEEKLY') && /LIFETIME/.test(weeklyText), weekly.status + ' ' + weeklyText.slice(0, 120));
+  ok('… and without the key it is 401, like the rest of /admin', (await worker.fetch(new Request('https://api.test/admin/crm?view=weekly'), env, ctx)).status === 401);
+  ok('view=weekly did not change what view=summary answers', (await (await worker.fetch(new Request('https://api.test/admin/crm?view=summary', { headers: { 'X-Admin-Key': 'super-secret-admin-key' } }), env, ctx)).json()).stats.profiles >= 1);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

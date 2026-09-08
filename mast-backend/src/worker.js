@@ -8,7 +8,7 @@
  *   - Stripe webhooks           POST /webhook
  *   - admin roster              GET  /roster?key=...[&view=registrations]
  *   - health                    GET  /health
- *   - daily cron                scheduled(): purge eligibility answers, expire abandoned registrations
+ *   - daily cron                scheduled(): purge eligibility answers, expire abandoned registrations; Mondays, the CRM digest
  *
  * Design notes vs. the older safeguard-stripe-backend:
  *   1. PRICES ARE SERVER-SIDE. The client sends a SKU, never an amount, so a
@@ -24,7 +24,7 @@
 import { AGREEMENT_VERSION, fillAgreement } from './agreement.js';
 import { directionsAttachment, directionsStatus } from './directions.js';
 import { publicKeyInfo } from './sealed.js';
-import { crmSnapshot, audienceCsv, syncAudience, syncOnPayment, syncLead, adminPage, attributionFrom, recordContact, markContactEmailed, recordEvent, handleEvent, handleSubscribe, runJourneys } from './crm.js';
+import { crmSnapshot, audienceCsv, syncAudience, syncOnPayment, syncLead, adminPage, attributionFrom, recordContact, markContactEmailed, recordEvent, handleEvent, handleSubscribe, runJourneys, weeklyDigest, weeklyDigestPeriod } from './crm.js';
 
 const REPLAY_WINDOW_SECONDS = 300; // reject webhook timestamps older than 5 min
 
@@ -114,6 +114,11 @@ export default {
     if (String(env.JOURNEYS_ENABLED) === '1') {
       ctx.waitUntil(runJourneys(env, { send: (m) => sendEmail(env, m), catalog: await catalogRows(env) }).catch((e) => console.error('[Journeys] failed:', e.message)));
     } else console.log('[Journeys] off (JOURNEYS_ENABLED is not "1")');
+    // Mondays only (owner, 2026-09-08: "weekly CRM Emails to matthew@atlasglinn.com + Matthew@mastsolutions.com"). It is
+    // queued last and carries its own catch: a CRM read that fails must never cost the day its purge.
+    if (new Date(event && event.scheduledTime).getUTCDay() === 1) {
+      ctx.waitUntil(sendWeeklyDigest(env, new Date(event.scheduledTime)).catch((e) => console.error('[Digest] failed:', e.message)));
+    }
   },
 };
 
@@ -1020,7 +1025,6 @@ async function handleContact(request, env, cors) {
     '',
     message ? 'Message:\n' + message : null,
     '',
-    'Page:     ' + (meta.page || '—'),
     'Received: ' + new Date().toISOString(),
   ].filter((l) => l !== null).join('\n');
   // The lead is stored before anything is sent (CRM, 2026-09-06): a mail failure never loses an inquiry.
@@ -1576,6 +1580,22 @@ async function sendRegistrationDocuments(env, reg, record) {
   console.log('[Documents] Sent for', reg.id, pdfB64 ? 'with agreement PDF' : 'WITHOUT agreement PDF');
 }
 
+/**
+ * Monday: one CRM digest to CRM_DIGEST_TO (wrangler.toml [vars]). Same text as GET /admin/crm?view=weekly, so a
+ * runner without the mailbox reads exactly what was sent. Unconfigured = logged and skipped, like the review notice.
+ */
+async function sendWeeklyDigest(env, now = new Date()) {
+  const to = list(env.CRM_DIGEST_TO);
+  const text = await weeklyDigest(env, { now });
+  if (!to.length || !env.RESEND_API_KEY) {
+    console.error('[Digest] Email not configured (need CRM_DIGEST_TO + RESEND_API_KEY). Digest:\n' + text);
+    return { sent: 0 };
+  }
+  await sendEmail(env, { to, subject: 'MAST CRM weekly — ' + weeklyDigestPeriod(now), text });
+  console.log('[Digest] Sent to', to.join(', '));
+  return { sent: to.length };
+}
+
 /** Daily: answers past purge_after go; registrations that never reached payment are marked abandoned. */
 async function runRetention(env) {
   if (!env.DB) return { purged: 0, abandoned: 0 };
@@ -1619,7 +1639,10 @@ async function handleAdmin(request, env, cors, url) {
   if (!env.DB) return json({ error: 'Database not bound' }, 503, cors);
   const noStore = { ...cors, 'Cache-Control': 'no-store' };
   if (url.pathname === '/admin/crm' && request.method === 'GET') {
-    const snap = await crmSnapshot(env, { view: url.searchParams.get('view') === 'summary' ? 'summary' : 'full' });
+    const view = url.searchParams.get('view');
+    // view=weekly: the Monday digest as it is emailed, for a runner reading it without the mailbox (owner, 2026-09-08).
+    if (view === 'weekly') return new Response(await weeklyDigest(env), { status: 200, headers: { ...noStore, 'Content-Type': 'text/plain; charset=utf-8' } });
+    const snap = await crmSnapshot(env, { view: view === 'summary' ? 'summary' : 'full' });
     return json(snap, 200, noStore);
   }
   if (url.pathname === '/admin/audience.csv' && request.method === 'GET') {
