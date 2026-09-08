@@ -286,24 +286,46 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   18:46 UTC (no shell, so `wp eval-file` never ran) and the application password is not on this Mac, so neither remote
   method in `wp-flush.sh` can reach the cache — but the SFTP upload still lands, and WordPress on the host can see what
   it changed. `scripts/wp-cache-watch-deploy.sh` puts a must-use plugin at
-  `html/wp-content/mu-plugins/atlas-cache-watch.php`. There it fingerprints every `*.html` directly in the docroot plus
-  `build-manifest.json` and `mast-ping.txt` (`name:mtime:size`, sha1) on a 15-minute WP-Cron tick — the upload cadence —
-  and when the fingerprint moves it runs the dashboard button's own cascade: `WPaaS\Cache_V2` `do_ban()` +
-  `flush_cdn()` + `flush_transients()` + `flush_object_cache()` through reflection, each step's result recorded, a
-  two-minute lock against a second run, and `wp_cache_flush()` with `class=null` recorded when no WPaaS class is there
-  (so a reader knows the CDN was *not* purged). It also fires on `save_post_page` when the saved page's slug is
-  `cache-bust`, which makes `wp-flush.sh`'s Method A real the day the application password is back.
+  `html/wp-content/mu-plugins/atlas-cache-watch.php`. There it fingerprints **every `*.html` at the docroot root plus
+  `build-manifest.json` and `mast-ping.txt`** (`name:mtime:size`, sha1 — a glob with no recursion; `wp-admin` and
+  `wp-includes` are not ours) on a 15-minute WP-Cron tick — the upload cadence — and when the fingerprint moves it runs
+  the dashboard button's own cascade: `WPaaS\Cache_V2` `do_ban()` + `flush_cdn()` + `flush_transients()` +
+  `flush_object_cache()` through reflection, each step's result recorded, a two-minute lock against a second run (held
+  in the cascade helper, so the cron tick and the page-save path share it), and `wp_cache_flush()` with `class=null`
+  recorded when no WPaaS class is there (so a reader knows the CDN was *not* purged). The global that names the cache
+  class is checked against a `WPaaS\` prefix before anything is constructed from it, and a failing method is recorded
+  as `error:<exception class>:<sha1 prefix>` — never the exception text, which on a CDN client can carry a token or a
+  signed URL. It also fires on `save_post_page` when the saved page's slug is `cache-bust`, which makes `wp-flush.sh`'s
+  Method A real the day the application password is back.
   **Why no endpoint:** a token-protected REST route was considered and rejected — it would add a remote-control surface
-  to a production site for a job that needs no caller. The plugin reacts only to what WordPress already observes (its
-  own cron tick, its own save): no HTTP input, no REST route, no admin UI, no file writes, two options and one cron
-  hook. **How it is seen from outside:** front-end answers carry `X-Atlas-Cache-Watch: <version>;last=<unix>;cdn=<ok|no|none>`,
-  so `curl -sI "https://www.atlasglinn.com/?atlas-watch=$(date +%s)"` says whether it is deployed and when it last
-  purged — the query string matters, because a cached answer never runs a line of PHP and carries no header.
-  `wp-flush.sh` prints that line on every run (`watcher v… last purge … cdn=…`) and `wp-upload.sh` says the purge is
-  coming. **How to disable:** `bash scripts/wp-cache-watch-deploy.sh --remove` (deletes the file over SFTP and confirms
-  the header is gone), or `define('ATLAS_CACHE_WATCH_DISABLED', true);` in `wp-config.php`. Heartbeat:
-  `~/.cache/wp-upload/last-watch-deploy`. **Merged, NOT deployed:** the plugin is in the repo and nothing is on the host
-  until the deploy script runs from the Mac; the header is what proves it.
+  to a production site for a job that needs no caller. **The plugin adds no route of its own.** Its only remote
+  reachability is stock WordPress `/wp-cron.php`, which any caller can already hit: that can advance the tick, but it
+  cannot make it purge — the tick acts only when the docroot fingerprint has moved, and the fingerprint is read off the
+  filesystem, never from anything a caller sends. **What it writes:** two options (`atlas_cache_watch_fp`,
+  `atlas_cache_watch_last`, both `autoload=no`) plus a two-minute lock transient, and **one `error_log` line per purge**
+  carrying counts and a 0/1 — not "writes nothing". No admin UI, no file writes, no requests of its own.
+  **How it is seen from outside:** front-end answers carry
+  `X-Atlas-Cache-Watch: <version>;b=<build>;age=<fresh|hour|day|old|never>;cdn=<ok|no|none>;fp=<0|1>;tick=<fresh|hour|day|old|never>`,
+  so `curl -sI "https://www.atlasglinn.com/?atlas-watch=$(date +%s)"` says whether it is deployed and healthy — the
+  query string matters, because a cached answer never runs a line of PHP and carries no header. `b` is the first 8 of
+  the file's own sha1, so a deploy can prove the bytes running are the bytes it sent; `age` is the last purge and
+  `tick` the last cron tick, in coarse buckets with no raw timestamp on a public response. **`fp=0;tick=never` means
+  WP-Cron is not running it; `fp=1;tick=fresh` means healthy and idle.** `wp-flush.sh` prints that line on every run and
+  says so plainly when the tick is stale; `wp-upload.sh` says the purge is coming.
+  **The deploy fails closed** (round 2, tested): sftp's exit code is tested, so a failed `put`/`rm` never goes on to
+  read a header a previous deploy left working; the build fingerprint must match or the run exits non-zero with the
+  SERVED value in the heartbeat (a same-version copy already on the host used to pass); `--remove` only says `removed`
+  on a 2xx/3xx answer *without* the header — curl failing or a 5xx is `unknown`, not a removal; and there is no
+  download fallback, the file always comes from the checkout the script runs in.
+  **How to disable:** `define('ATLAS_CACHE_WATCH_DISABLED', true);` in `wp-config.php`, or
+  `bash scripts/wp-cache-watch-deploy.sh --remove`. **`--remove` deletes the file but leaves the two options and the
+  cron event** — a must-use plugin gets no uninstall hook. To clear those, set
+  `define('ATLAS_CACHE_WATCH_UNINSTALL', true);` and load one page: the plugin then deletes both options, drops the
+  lock, unschedules the tick and does nothing else. Heartbeat: `~/.cache/wp-upload/last-watch-deploy`.
+  **Tests:** `php wp-ops/tests/atlas-cache-watch-test.php` (stub WordPress + stub `WPaaS\Cache_V2`, 6 scenarios) and
+  `bash scripts/tests/wp-cache-watch-deploy-test.sh` (stub sftp/curl/security/shasum/sleep, no host touched).
+  **Merged, NOT deployed:** the plugin is in the repo and nothing is on the host until the deploy script runs from the
+  Mac; the header is what proves it.
 - **mastsolutions.com** has no site *yet*: it is a GoDaddy domain forward to atlasglinn.com, pointed at
   `https://atlasglinn.com/mastsolutions.html` (set 2026-09-05). It still carries DNS: Resend verifies it so the Worker can send as
   bookings@mastsolutions.com, beside the existing matthew@mastsolutions.com mail.

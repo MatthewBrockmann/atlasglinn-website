@@ -48,11 +48,17 @@ say "before: plain Last-Modified [$before_plain]  cache-busted [$busted]"
 # has not cached — a static .html is served without running a line of PHP and carries no header.
 watch="$(hdr "$WP_BASE/?atlas-watch=$(date +%s)" x-atlas-cache-watch)"
 if [ -n "$watch" ]; then
-  wver="${watch%%;*}"; wlast="${watch#*last=}"; wlast="${wlast%%;*}"; wcdn="${watch#*cdn=}"
-  if [ "${wlast:-0}" -gt 0 ] 2>/dev/null; then
-    wwhen="$(date -r "$wlast" -u +%FT%TZ 2>/dev/null || date -u -d "@$wlast" +%FT%TZ 2>/dev/null || printf '%s' "$wlast")"
-  else wwhen="never"; fi
-  say "watcher v$wver, last purge $wwhen, cdn=$wcdn"
+  # v1.1.0: <version>;b=<build>;age=<bucket>;cdn=<ok|no|none>;fp=<0|1>;tick=<bucket>. The buckets are fresh (<15 min),
+  # hour, day, old and never; tick is the watcher's own heartbeat, so tick=never/old says WP-Cron is not running it.
+  wver="${watch%%;*}"
+  wbld="${watch#*;b=}"; wbld="${wbld%%;*}"
+  wage="${watch#*;age=}"; wage="${wage%%;*}"
+  wcdn="${watch#*;cdn=}"; wcdn="${wcdn%%;*}"
+  wtck="${watch#*;tick=}"; wtck="${wtck%%;*}"
+  say "watcher v$wver build $wbld: last purge $wage, last cron tick $wtck, cdn=$wcdn"
+  case "$wtck" in
+    never|old) say "   the watcher is on the host but its cron tick is \"$wtck\" — WP-Cron is not running it, so an upload is NOT purged automatically; the dashboard's Flush Cache is the fallback until that ticks";;
+  esac
 else
   say "watcher: not deployed on the host (no X-Atlas-Cache-Watch header); bash scripts/wp-cache-watch-deploy.sh puts it there"
 fi
@@ -60,7 +66,7 @@ if [ -n "$before_plain" ] && [ "$before_plain" = "$busted" ]; then
   say "nothing to flush: the plain URL already serves the latest upload"; echo "$TS none already-fresh" > "$STAMP"; exit 0
 fi
 
-method=""; result="failed"
+method=""; ssh_state=""; result="failed"
 # ── Method A: WordPress REST with the application password ──────────────────────────────────────────────────────────────
 APP_PW="$(kc_pw "$KC_WP" || true)"
 if [ -n "$APP_PW" ]; then
@@ -118,14 +124,17 @@ except Exception: pass' | head -5)"
     say "SSH: cache commands found: ${cmds:-none}"
     out="$(ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "$U@$HOST" "cd $DOCROOT && wp cache flush 2>&1$(printf '%s\n' "$cmds" | grep -v '^$' | sed 's/^/ ; wp /' | tr -d '\n' | sed 's/ ; wp cache flush//')" 2>&1 | tail -3)"
     say "SSH: $out"
+    # Two different facts, two different variables: `ssh_state` is what SSH did, `method` is what flushed the cache.
+    # Overwriting `method` here reported "ssh-unavailable" on runs where the REST save had already succeeded.
+    ssh_state="ok"
     case "$out" in
       *"sftp connections only"*|*"This service allows sftp"*)
-        method="ssh-unavailable"
+        ssh_state="unavailable"; method="${method:-ssh-unavailable}"
         say "SSH: the saved login has no shell; enable SSH in the GoDaddy dashboard or rely on the mu-plugin watcher (scripts/wp-cache-watch-deploy.sh)";;
       *) [ -n "$method" ] || method="ssh";;
     esac
     # Everything below needs a shell, and each attempt costs another 20-second connect, so an SFTP-only login skips it.
-    if [ "$method" != "ssh-unavailable" ]; then
+    if [ "$ssh_state" != "unavailable" ]; then
     # The dashboard button's own cascade (WPaaS\Cache_V2: Varnish ban + Cloudflare CDN purge + transients + object cache),
     # run inside WordPress by WP-CLI with the mu-plugins loaded. The PHP travels on ssh's stdin — nothing to quote — into a
     # file in the login's home for the one call, then it is removed. Reflection covers the methods being non-public.
@@ -133,6 +142,7 @@ except Exception: pass' | head -5)"
     cat > "$P" <<'PHP'
 <?php
 $c = isset($GLOBALS['wpaas_cache_class']) ? $GLOBALS['wpaas_cache_class'] : null;
+if (!is_string($c) || strpos(ltrim($c, '\\'), 'WPaaS\\') !== 0) { $c = null; }   // the global names a class about to be constructed: GoDaddy's own only
 if (is_string($c) && class_exists($c)) { try { $c = new $c(); } catch (\Throwable $e) { $c = null; } }
 if (!is_object($c) && class_exists('WPaaS\Cache_V2')) {
   foreach (array('instance', 'get_instance', 'getInstance') as $acc) {   // singleton accessors first: a private constructor is the likely shape
