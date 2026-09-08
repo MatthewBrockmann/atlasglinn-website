@@ -107,20 +107,29 @@ def yt_card(vid, title, sub, end=None):
 
 # The live site's top bar, item for item (capture-live: reference/desktop/live/index.html <nav id="main-nav">). The
 # Training dropdown carries the two banners the live menu carries; Aimpoint Optics is the third on the live site and
-# stays hidden here (owner, 2026-09-07: "hide Aimpoint for now"). No live page's bar has a Sign in.
+# stays hidden here (owner, 2026-09-07: "hide Aimpoint for now"). No live page's bar has a Sign in. The descriptor on
+# each item is the line the live menu prints under its label, word for word; Technology carries the live menu's
+# Counter-Drone, Autonomous UAS and Atlas EP App entries, so uas.html is one tap from every page.
 TOPNAV = [
-    ('index.html', 'Home', None),
-    ('executive-protection.html', 'Executive Protection', None),
-    ('residential-protection.html', 'Residential Protection', None),
-    ('disaster-recovery.html', 'Disaster Recovery', None),
+    ('index.html', 'Home', None, 'Atlas Glinn, LLC'),
+    ('executive-protection.html', 'Executive Protection', None, 'Dignitary and close protection'),
+    ('residential-protection.html', 'Residential Protection', None, 'Estates, guard force, AI surveillance'),
+    ('disaster-recovery.html', 'Disaster Recovery', None, 'Asset protection when it counts'),
     ('training.html', 'Training', [
         ('training.html', '&#9881;', 'Training Programs', 'EP, firearms, tactical &amp; security courses'),
+        ('mastsolutions.html', '&#127919;', 'MAST Solutions', 'Book a course'),
         ('mastsolutions.html#gear', '&#128163;', 'IWA Training Products', 'Flashbangs, smoke &amp; diversionary devices'),
-    ]),
-    ('technology.html', 'Technology', None),
-    ('about.html', 'About', None),
-    ('careers.html', 'Careers', None),
-    ('contact.html', 'Contact Us', 'cta'),
+    ], 'EP, firearms, tactical &amp; security courses'),
+    ('technology.html', 'Technology', [
+        ('technology.html', '&#128225;', 'Technology', 'Atlas EP, AI surveillance, drones'),
+        ('cuas-aerodefense.html', '&#128737;', 'Counter-Drone', 'AirWarden by AeroDefense'),
+        ('uas.html', '&#128641;', 'Autonomous UAS', 'Sunflower Labs'),
+        ('ep-app.html', '&#128241;', 'Atlas EP App', 'Now in Early Access'),
+    ], 'Atlas EP, AI surveillance, drones'),
+    ('about.html', 'About', None, 'Mission and team'),
+    ('careers.html', 'Careers', None, 'Open positions'),
+    ('contact.html', 'Contact Us', 'cta', PHONE),
+    ('privacy.html', 'Privacy Policy', 'mobile', 'What we keep, and for how long'),
 ]
 
 SOCIAL_LINKS = [('https://www.instagram.com/atlasglinn_mastsolutions/', 'Instagram'),
@@ -142,7 +151,7 @@ def badge_pair(cls):
 FOOTER_GROUPS = [
     ('Atlas Glinn', [('index.html', 'Home'), ('executive-protection.html', 'Executive Protection'), ('residential-protection.html', 'Residential Protection'),
                      ('disaster-recovery.html', 'Disaster Recovery'), ('technology.html', 'Technology'), ('ep-app.html', 'Atlas EP App')]),
-    ('MAST Solutions', [('training.html', 'Training Programs'), ('ep-app.html', 'Atlas EP Platform'), ('cuas-aerodefense.html', 'Counter-Drone Solutions'), ('mastsolutions.html', 'MAST Solutions')]),
+    ('MAST Solutions', [('training.html', 'Training Programs'), ('ep-app.html', 'Atlas EP Platform'), ('cuas-aerodefense.html', 'Counter-Drone Solutions'), ('uas.html', 'Autonomous UAS'), ('mastsolutions.html', 'MAST Solutions')]),
     ('Company', [('about.html', 'About Us'), ('careers.html', 'Careers'), ('about.html#s5', 'Resources'), ('contact.html', 'Contact')]),
 ]
 
@@ -382,6 +391,7 @@ def meta(title, desc, path, og_image, jsonld=''):
     url = SITE + ('' if path == 'index.html' else path)
     if not og_image.startswith('http'): og_image = SITE + og_image   # share cards need an absolute URL; local images are repo paths
     return (f'<title>{title}</title>\n<meta name="description" content="{desc}">\n<link rel="canonical" href="{url}">\n'
+            f'<link rel="icon" href="{LOGO_MARK}" type="image/png">\n'
             f'<meta property="og:title" content="{title}">\n<meta property="og:description" content="{desc}">\n<meta property="og:image" content="{og_image}">\n'
             f'<meta property="og:type" content="website">\n<meta property="og:url" content="{url}">\n<meta name="twitter:card" content="summary_large_image">\n'
             '<meta name="robots" content="index, follow">\n<meta name="author" content="Atlas Glinn, LLC">\n<meta name="theme-color" content="#050810">\n' + jsonld)

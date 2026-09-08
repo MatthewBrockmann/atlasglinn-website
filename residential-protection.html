@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="d40fbda489e0">
+<meta name="build" content="f7800208591c">
 <title>Residential Protection Houston TX | Atlas Glinn</title>
 <meta name="description" content="Unmatched residential security for your home. 24/7 trained guards, AI surveillance, and round-the-clock protection for your family and assets. Houston, TX.">
 <link rel="canonical" href="https://atlasglinn.com/residential-protection.html">
+<link rel="icon" href="images/atlas/Atlas-Glinn-Logo-Rev1-2-e1744918824251.png" type="image/png">
 <meta property="og:title" content="Residential Protection Houston TX | Atlas Glinn">
 <meta property="og:description" content="Unmatched residential security for your home. 24/7 trained guards, AI surveillance, and round-the-clock protection for your family and assets. Houston, TX.">
 <meta property="og:image" content="https://atlasglinn.com/images/atlas/closeup-cctv-camera-wall-min-1024x683.jpg">
@@ -262,7 +263,8 @@
   #mobile-nav { position:fixed; inset:0; z-index:2000; background:rgba(5,8,16,.97); backdrop-filter:blur(18px); display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:1rem; padding:4.8rem 1.2rem 2.5rem; overflow-y:auto; opacity:0; visibility:hidden; transition:opacity .3s, visibility .3s; }
   #mobile-nav.open { opacity:1; visibility:visible; }
   #mobile-nav a { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.05rem; letter-spacing:.12em; text-transform:uppercase; color:var(--text); text-decoration:none; text-align:center; }
-  #mobile-nav a.sub { font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.68rem; letter-spacing:.2em; color:var(--gold-champagne); }
+  #mobile-nav a.subitem { font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.68rem; letter-spacing:.2em; color:var(--gold-champagne); opacity:1; transform:none; margin:0; }
+  #mobile-nav a small { display:block; font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.6rem; letter-spacing:.3em; color:var(--text-mute); text-transform:uppercase; margin-top:.2rem; }
   #mobile-nav a.here { color:var(--gold); }
   .mobile-nav-close { position:absolute; top:1rem; right:1rem; background:none; border:1px solid rgba(26,107,222,.35); color:var(--text); font-size:1.5rem; line-height:1; padding:.1rem .55rem; cursor:pointer; }
   /* ── Hero: the film full-bleed under the headline, with the live sound toggle ── */
@@ -448,9 +450,11 @@
         <li><a href="residential-protection.html" class="here">Residential Protection</a></li>
         <li><a href="disaster-recovery.html">Disaster Recovery</a></li>
         <li class="nav-dropdown"><a href="training.html">Training</a>
-          <div class="nav-dropdown-menu"><a href="training.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#9881;</span><span class="ndb-text"><span class="ndb-title">Training Programs</span><span class="ndb-desc">EP, firearms, tactical &amp; security courses</span></span></a><a href="mastsolutions.html#gear" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128163;</span><span class="ndb-text"><span class="ndb-title">IWA Training Products</span><span class="ndb-desc">Flashbangs, smoke &amp; diversionary devices</span></span></a></div>
+          <div class="nav-dropdown-menu"><a href="training.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#9881;</span><span class="ndb-text"><span class="ndb-title">Training Programs</span><span class="ndb-desc">EP, firearms, tactical &amp; security courses</span></span></a><a href="mastsolutions.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#127919;</span><span class="ndb-text"><span class="ndb-title">MAST Solutions</span><span class="ndb-desc">Book a course</span></span></a><a href="mastsolutions.html#gear" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128163;</span><span class="ndb-text"><span class="ndb-title">IWA Training Products</span><span class="ndb-desc">Flashbangs, smoke &amp; diversionary devices</span></span></a></div>
         </li>
-        <li><a href="technology.html">Technology</a></li>
+        <li class="nav-dropdown"><a href="technology.html">Technology</a>
+          <div class="nav-dropdown-menu"><a href="technology.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128225;</span><span class="ndb-text"><span class="ndb-title">Technology</span><span class="ndb-desc">Atlas EP, AI surveillance, drones</span></span></a><a href="cuas-aerodefense.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128737;</span><span class="ndb-text"><span class="ndb-title">Counter-Drone</span><span class="ndb-desc">AirWarden by AeroDefense</span></span></a><a href="uas.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128641;</span><span class="ndb-text"><span class="ndb-title">Autonomous UAS</span><span class="ndb-desc">Sunflower Labs</span></span></a><a href="ep-app.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128241;</span><span class="ndb-text"><span class="ndb-title">Atlas EP App</span><span class="ndb-desc">Now in Early Access</span></span></a></div>
+        </li>
         <li><a href="about.html">About</a></li>
         <li><a href="careers.html">Careers</a></li>
         <li><a href="contact.html" class="nav-cta">Contact Us</a></li>
@@ -461,16 +465,21 @@
 
 <div id="mobile-nav" role="dialog" aria-label="Site menu">
   <button class="mobile-nav-close" id="mobile-nav-close" type="button" aria-label="Close menu">&times;</button>
-  <a href="index.html">Home</a>
-  <a href="executive-protection.html">Executive Protection</a>
-  <a href="residential-protection.html" class="here">Residential Protection</a>
-  <a href="disaster-recovery.html">Disaster Recovery</a>
-  <a href="training.html">Training</a>
-  <a href="mastsolutions.html#gear" class="sub">IWA Training Products</a>
-  <a href="technology.html">Technology</a>
-  <a href="about.html">About</a>
-  <a href="careers.html">Careers</a>
-  <a href="contact.html">Contact Us</a>
+  <a href="index.html">Home<small>Atlas Glinn, LLC</small></a>
+  <a href="executive-protection.html">Executive Protection<small>Dignitary and close protection</small></a>
+  <a href="residential-protection.html" class="here">Residential Protection<small>Estates, guard force, AI surveillance</small></a>
+  <a href="disaster-recovery.html">Disaster Recovery<small>Asset protection when it counts</small></a>
+  <a href="training.html">Training<small>EP, firearms, tactical &amp; security courses</small></a>
+  <a href="mastsolutions.html" class="subitem">MAST Solutions<small>Book a course</small></a>
+  <a href="mastsolutions.html#gear" class="subitem">IWA Training Products<small>Flashbangs, smoke &amp; diversionary devices</small></a>
+  <a href="technology.html">Technology<small>Atlas EP, AI surveillance, drones</small></a>
+  <a href="cuas-aerodefense.html" class="subitem">Counter-Drone<small>AirWarden by AeroDefense</small></a>
+  <a href="uas.html" class="subitem">Autonomous UAS<small>Sunflower Labs</small></a>
+  <a href="ep-app.html" class="subitem">Atlas EP App<small>Now in Early Access</small></a>
+  <a href="about.html">About<small>Mission and team</small></a>
+  <a href="careers.html">Careers<small>Open positions</small></a>
+  <a href="contact.html">Contact Us<small>(281) 654-8100</small></a>
+  <a href="privacy.html">Privacy Policy<small>What we keep, and for how long</small></a>
 </div>
 
 <div class="content">
@@ -524,7 +533,7 @@
 
 </div>
 <footer class="site-footer">
-  <div class="footer-container"><div class="footer-awards"><div class="badge-item"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div><div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div><div class="footer-grid"><div class="footer-section"><h4>Atlas Glinn</h4><ul><li><a href="index.html">Home</a></li><li><a href="executive-protection.html">Executive Protection</a></li><li><a href="residential-protection.html">Residential Protection</a></li><li><a href="disaster-recovery.html">Disaster Recovery</a></li><li><a href="technology.html">Technology</a></li><li><a href="ep-app.html">Atlas EP App</a></li></ul></div><div class="footer-section"><h4>MAST Solutions</h4><ul><li><a href="training.html">Training Programs</a></li><li><a href="ep-app.html">Atlas EP Platform</a></li><li><a href="cuas-aerodefense.html">Counter-Drone Solutions</a></li><li><a href="mastsolutions.html">MAST Solutions</a></li></ul></div><div class="footer-section"><h4>Company</h4><ul><li><a href="about.html">About Us</a></li><li><a href="careers.html">Careers</a></li><li><a href="about.html#s5">Resources</a></li><li><a href="contact.html">Contact</a></li></ul></div><div class="footer-section"><h4>Connect</h4><p>2450 Fondren Rd, Suite 255<br>Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a><br><a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p><div class="footer-social"><a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a><a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a><a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a><a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a><a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a><a href="https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063" target="_blank" rel="noopener" data-track="review">Google Reviews</a></div></div></div><div class="footer-bottom"><a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a></div></div>
+  <div class="footer-container"><div class="footer-awards"><div class="badge-item"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div><div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div><div class="footer-grid"><div class="footer-section"><h4>Atlas Glinn</h4><ul><li><a href="index.html">Home</a></li><li><a href="executive-protection.html">Executive Protection</a></li><li><a href="residential-protection.html">Residential Protection</a></li><li><a href="disaster-recovery.html">Disaster Recovery</a></li><li><a href="technology.html">Technology</a></li><li><a href="ep-app.html">Atlas EP App</a></li></ul></div><div class="footer-section"><h4>MAST Solutions</h4><ul><li><a href="training.html">Training Programs</a></li><li><a href="ep-app.html">Atlas EP Platform</a></li><li><a href="cuas-aerodefense.html">Counter-Drone Solutions</a></li><li><a href="uas.html">Autonomous UAS</a></li><li><a href="mastsolutions.html">MAST Solutions</a></li></ul></div><div class="footer-section"><h4>Company</h4><ul><li><a href="about.html">About Us</a></li><li><a href="careers.html">Careers</a></li><li><a href="about.html#s5">Resources</a></li><li><a href="contact.html">Contact</a></li></ul></div><div class="footer-section"><h4>Connect</h4><p>2450 Fondren Rd, Suite 255<br>Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a><br><a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p><div class="footer-social"><a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a><a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a><a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a><a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a><a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a><a href="https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063" target="_blank" rel="noopener" data-track="review">Google Reviews</a></div></div></div><div class="footer-bottom"><a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a></div></div>
 </footer>
 <button id="back-to-top" type="button" title="Back to top" aria-label="Back to top">&#8593;</button>
 

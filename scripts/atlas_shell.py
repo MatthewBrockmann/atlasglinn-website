@@ -76,7 +76,8 @@ CLASSIC_CSS = r"""
   #mobile-nav { position:fixed; inset:0; z-index:2000; background:rgba(5,8,16,.97); backdrop-filter:blur(18px); display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:1rem; padding:4.8rem 1.2rem 2.5rem; overflow-y:auto; opacity:0; visibility:hidden; transition:opacity .3s, visibility .3s; }
   #mobile-nav.open { opacity:1; visibility:visible; }
   #mobile-nav a { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.05rem; letter-spacing:.12em; text-transform:uppercase; color:var(--text); text-decoration:none; text-align:center; }
-  #mobile-nav a.sub { font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.68rem; letter-spacing:.2em; color:var(--gold-champagne); }
+  #mobile-nav a.subitem { font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.68rem; letter-spacing:.2em; color:var(--gold-champagne); opacity:1; transform:none; margin:0; }
+  #mobile-nav a small { display:block; font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.6rem; letter-spacing:.3em; color:var(--text-mute); text-transform:uppercase; margin-top:.2rem; }
   #mobile-nav a.here { color:var(--gold); }
   .mobile-nav-close { position:absolute; top:1rem; right:1rem; background:none; border:1px solid rgba(201,168,76,.35); color:var(--text); font-size:1.5rem; line-height:1; padding:.1rem .55rem; cursor:pointer; }
   /* ── Hero: the film full-bleed under the headline, with the live sound toggle ── */
@@ -272,21 +273,25 @@ def chrome(intro_eyebrow, wordmark, intro_tagline, photos):
 
 
 def nav(items, here, logo, brand='ATLAS GLINN', home='index.html'):
-    """items: [(href, label, kind)] where kind is None, 'cta', or [(href, icon, title, desc)] for a dropdown."""
+    """items: [(href, label, kind, desc)] where kind is None, 'cta', 'mobile' (the full-screen list only), or
+    [(href, icon, title, desc)] for a dropdown. `desc` is the live menu's descriptor line under the label."""
     bar, mob = [], []
-    for href, label, kind in items:
+    for href, label, kind, desc in items:
         cur = ' class="here"' if href == here else ''
+        line = '  <a href="%s"%s>%s<small>%s</small></a>' % (href, cur, label, desc)
         if isinstance(kind, list):
             menu = ''.join('<a href="%s" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">%s</span>'
                            '<span class="ndb-text"><span class="ndb-title">%s</span><span class="ndb-desc">%s</span></span></a>'
                            % (h, ic, t, d) for h, ic, t, d in kind)
             bar.append('        <li class="nav-dropdown"><a href="%s"%s>%s</a>\n          <div class="nav-dropdown-menu">%s</div>\n        </li>' % (href, cur, label, menu))
-            mob.append('  <a href="%s"%s>%s</a>' % (href, cur, label))
-            mob += ['  <a href="%s" class="sub">%s</a>' % (h, t) for h, _, t, _ in kind if h != href]
+            mob.append(line)
+            mob += ['  <a href="%s" class="subitem%s">%s<small>%s</small></a>' % (h, ' here' if h == here else '', t, d)
+                    for h, _, t, d in kind if h != href]
         else:
-            cls = ' class="nav-cta"' if kind == 'cta' else cur
-            bar.append('        <li><a href="%s"%s>%s</a></li>' % (href, cls, label))
-            mob.append('  <a href="%s"%s>%s</a>' % (href, cur, label))
+            if kind != 'mobile':
+                cls = ' class="nav-cta"' if kind == 'cta' else cur
+                bar.append('        <li><a href="%s"%s>%s</a></li>' % (href, cls, label))
+            mob.append(line)
     return ('<nav id="main-nav" aria-label="Main">\n  <div class="nav-container">\n'
             '    <a href="%s" class="nav-logo"><img src="%s" alt="%s" width="40" height="40"><span class="nav-logo-text">%s</span></a>\n'
             '      <ul class="nav-links">\n%s\n      </ul>\n'
