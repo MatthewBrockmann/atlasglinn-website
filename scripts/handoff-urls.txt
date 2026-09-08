@@ -69,3 +69,7 @@ https://atlasglinn.com/uas/
 https://atlasglinn.com/about/
 https://atlasglinn.com/careers/
 https://atlasglinn.com/contact/
+# Added 2026-09-08 (owner, on the preview: "the should go same font and sizes into the new design ... no changes to anything"):
+# the live theme's one stylesheet — every live page links it (12 of 12 on the 17:18 UTC capture) and the inline <style>
+# blocks reference its variables. Without it a cloud session cannot read the live type scale it is told to match.
+https://atlasglinn.com/wp-content/themes/atlasglinn/shared-styles.css
