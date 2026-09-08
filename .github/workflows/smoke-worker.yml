@@ -24,6 +24,8 @@ on:
         description: "Exercise sign-up: POST /account/register for matthew+smoke<run>@atlasglinn.com (the Worker emails a code), then a wrong-password /account/login"
         type: boolean
         default: false
+# contents: write, not read — the last step commits the report to the claude/desktop-assets branch, which is the whole
+# point of the workflow. Declaring the block at all is what drops every other scope (packages, actions, id-token …) to none.
 permissions:
   contents: write
 env:
@@ -88,18 +90,11 @@ jobs:
             curl -sS -m 40 -o /dev/null -D - -X OPTIONS -H "Origin: $ORIGIN" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type" "$WORKER/create-booking" | tr -d '\r' | grep -iE '^(HTTP|access-control-)' | sed 's/^/   /' || true
             echo "--- accounts (GET /account/me without a token: 503 accounts_off = ACCOUNT_SECRET not set; 401 = accounts on)"; req GET /account/me
             if [ -n "$ADMIN_KEY" ]; then
-              echo "--- CRM summary (GET /admin/crm?view=summary with the ADMIN_KEY repository secret; counts and revenue only, no people)"
-              code=$(curl -sS -m 40 -o /tmp/b -w '%{http_code}' -H "X-Admin-Key: $ADMIN_KEY" "$WORKER/admin/crm?view=summary" || echo ERR); echo "HTTP $code"
-              python3 - /tmp/b <<'PY' || head -c 400 /tmp/b
-          import json, sys
-          d = json.load(open(sys.argv[1])); s = d.get('stats', {})
-          print('   profiles=%s opted_in=%s leads=%s subscribers=%s accounts=%s' % (s.get('profiles'), s.get('opted_in'), (s.get('leads') or {}).get('total'), s.get('subscribers'), (s.get('accounts') or {}).get('verified')))
-          print('   orders paid=%s revenue total=$%.2f last30=$%.2f' % ((s.get('orders') or {}).get('paid'), (s.get('revenue_cents') or {}).get('total', 0) / 100, (s.get('revenue_cents') or {}).get('last_30_days', 0) / 100))
-          print('   registrations=%s funnel(30d)=%s' % ((s.get('registrations') or {}).get('by_status'), {k: v for k, v in (s.get('funnel') or {}).items() if not isinstance(v, list)}))
-          print('   segments=%s' % {k: v.get('count') for k, v in (d.get('segments') or {}).items()})
-          print('   journeys=%s providers=%s' % (s.get('journeys'), s.get('providers')))
-          PY
-            else echo "--- CRM summary: skipped (no ADMIN_KEY repository secret; add it under Settings → Secrets → Actions to see counts, revenue and the funnel here)"; fi
+              # Counts, revenue and the funnel are the owner's business figures. They go to the JOB SUMMARY ONLY, which is
+              # visible to whoever can read the run — never into out/_worker-smoke.txt, which is committed to a branch
+              # (2026-09-08 security review). Written to /tmp/crm.txt outside this block, appended to the summary after it.
+              echo "--- CRM summary: read from the job summary of this run (counts and revenue are never committed to the report file)"
+            else echo "--- CRM summary: skipped (no ADMIN_KEY repository secret; add it under Settings → Secrets → Actions to see counts, revenue and the funnel in this run's job summary)"; fi
             if [ "$DO_CONTACT" = "true" ]; then
               echo "--- contact (one labelled test message; the Worker emails NOTIFY_EMAIL through Resend)"
               req POST /contact "{\"name\":\"Smoke test (GitHub Actions)\",\"email\":\"atlasglinn.hq@atlasglinn.com\",\"message\":\"Automated smoke test of the MAST Worker, run $GITHUB_RUN_ID at $(date -u +%FT%TZ). If you read this, the /contact route, Resend and the NOTIFY_EMAIL mailbox all work. No reply needed.\",\"request_type\":\"smoke\",\"page\":\"github-actions\"}"
@@ -114,7 +109,8 @@ jobs:
               # sign-up posts /account/register and waits for an emailed code; the answer here says which half is broken:
               # 200 = account row written and the code went out through Resend (the owner's mailbox gets it via plus-addressing)
               # 503 accounts_off = ACCOUNT_SECRET missing on the Worker · 503 email_off = RESEND_API_KEY missing · 5xx email_failed = Resend rejected it
-              em="matthew+smoke$GITHUB_RUN_ID@atlasglinn.com"; pw="Smoke-$GITHUB_RUN_ID-Pass-Word"
+              # The password is random, not derived from the public run id, and is masked so no later step can print it.
+              em="matthew+smoke$GITHUB_RUN_ID@atlasglinn.com"; pw="$(openssl rand -hex 24)"; echo "::add-mask::$pw"
               echo "--- account sign-up (POST /account/register for $em)"
               req POST /account/register "{\"email\":\"$em\",\"password\":\"$pw\",\"name\":\"Smoke test (GitHub Actions)\"}"
               echo "--- account sign-in, wrong password (expect 401 or 403 unverified, never 5xx)"
@@ -161,7 +157,39 @@ jobs:
             done
             echo "   (no v=spf1 … include:spf.protection.outlook.com on the apex TXT = Microsoft 365 mail from @mastsolutions.com is unauthenticated; two v=spf1 rows on send. = SPF permerror for Resend's envelope)"
           } | tee out/_worker-smoke.txt
+          # Second guard, independent of where each block writes: any line in the COMMITTED file that looks like a
+          # business figure is replaced before it can be copied to the handoff branch. Belt and braces — the CRM block
+          # above already never reaches this file, and this catches whatever a future edit adds that does.
+          python3 - out/_worker-smoke.txt <<'PY'
+          import re, sys
+          # The brief's set was revenue|$[0-9]|leads:|profiles:|orders: — the CRM block prints "profiles=412 leads=93",
+          # with '=', so the colon-only form matched nothing it was written for. Both separators, plus the other count
+          # fields on the same line, or this guard is decorative.
+          pat = re.compile(r'revenue|funnel|segments|\$[0-9]|(?:leads|profiles|orders|subscribers|opted_in|registrations)\s*[:=]', re.I)
+          path = sys.argv[1]; out = []; hits = 0
+          for line in open(path, encoding='utf-8', errors='replace').read().split('\n'):
+              if pat.search(line): out.append('   [redacted by the smoke report guard]'); hits += 1
+              else: out.append(line)
+          open(path, 'w', encoding='utf-8').write('\n'.join(out))
+          print('report guard: %d line(s) redacted from the committed file' % hits)
+          PY
           { echo '```'; cat out/_worker-smoke.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          # The CRM figures, in this run's job summary and nowhere else.
+          if [ -n "$ADMIN_KEY" ]; then
+            code=$(curl -sS -m 40 -o /tmp/crm.json -w '%{http_code}' -H "X-Admin-Key: $ADMIN_KEY" "$WORKER/admin/crm?view=summary" || echo ERR)
+            { echo; echo '### CRM summary (this run only — not committed)'; echo '```'; echo "HTTP $code"
+              python3 - /tmp/crm.json <<'PY' || head -c 400 /tmp/crm.json
+          import json, sys
+          d = json.load(open(sys.argv[1])); s = d.get('stats', {})
+          print('   profiles=%s opted_in=%s leads=%s subscribers=%s accounts=%s' % (s.get('profiles'), s.get('opted_in'), (s.get('leads') or {}).get('total'), s.get('subscribers'), (s.get('accounts') or {}).get('verified')))
+          print('   orders paid=%s revenue total=$%.2f last30=$%.2f' % ((s.get('orders') or {}).get('paid'), (s.get('revenue_cents') or {}).get('total', 0) / 100, (s.get('revenue_cents') or {}).get('last_30_days', 0) / 100))
+          print('   registrations=%s funnel(30d)=%s' % ((s.get('registrations') or {}).get('by_status'), {k: v for k, v in (s.get('funnel') or {}).items() if not isinstance(v, list)}))
+          print('   segments=%s' % {k: v.get('count') for k, v in (d.get('segments') or {}).items()})
+          print('   journeys=%s providers=%s' % (s.get('journeys'), s.get('providers')))
+          PY
+              echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            rm -f /tmp/crm.json
+          fi
       - name: Commit the report to the handoff branch (sparse, blobless checkout)
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -24,6 +24,7 @@
 import { AGREEMENT_VERSION, fillAgreement } from './agreement.js';
 import { directionsAttachment, directionsStatus } from './directions.js';
 import { publicKeyInfo } from './sealed.js';
+import { checkRate, purgeRateLimits, clientIp, lockedFor, noteFailedLogin, clearFailedLogins } from './ratelimit.js';
 import { ensureCrmSchema, crmSnapshot, audienceCsv, syncAudience, syncOnPayment, syncLead, adminPage, attributionFrom, recordContact, markContactEmailed, recordEvent, handleEvent, handleSubscribe, runJourneys, weeklyDigest, weeklyDigestPeriod } from './crm.js';
 
 const REPLAY_WINDOW_SECONDS = 300; // reject webhook timestamps older than 5 min
@@ -43,6 +44,12 @@ export default {
     }
 
     try {
+      // Per-IP limits before anything reads a body or hashes a password (src/ratelimit.js): unlimited online guessing
+      // against /account/login was the finding that created this gate, and the same counter caps the routes that mail a
+      // code, hold a seat or write a lead. Routes not in RATE_ROUTES are untouched.
+      const gate = await checkRate(request, env, request.method, url.pathname);
+      if (gate) return tooMany(cors, gate.retry_after, 'rate_limited', 'Too many requests from this connection. Please wait a moment and try again.');
+
       if (url.pathname === '/health' && request.method === 'GET') {
         // build = the commit the deploy was made from (`wrangler deploy --var BUILD:<sha>`, set by scripts/wp-upload.sh and
         // deploy-worker.yml), so a runner can tell which merge is running; crm marks the /event, /subscribe, /admin routes.
@@ -237,6 +244,8 @@ async function issueCode(env, acct, kind) {
   Object.assign(acct, { verify_kind: kind, verify_code_hash: hash, verify_expires_at: exp, verify_attempts: 0, verify_sent_at: sent });
   return code;
 }
+/** One body for every wrong-code answer: no tries_left, no hint that the address is known. */
+function badCode() { return { error: 'That code is not right.', code: 'bad_code' }; }
 function codeTooSoon(acct) { return !!(acct.verify_sent_at && Date.now() - Date.parse(acct.verify_sent_at) < CODE_RESEND_MS); }
 async function clearCode(env, acct) {
   await env.DB.prepare('UPDATE accounts SET verify_kind = ?, verify_code_hash = ?, verify_expires_at = ?, verify_attempts = ? WHERE id = ?').bind(null, null, null, 0, acct.id).run();
@@ -285,6 +294,9 @@ async function issueAndSend(env, acct, kind, cors) {
 async function signedIn(env, acct, cors) {
   const now = new Date().toISOString();
   await env.DB.prepare('UPDATE accounts SET last_login_at = ? WHERE id = ?').bind(now, acct.id).run();
+  // Any successful authentication — sign-in, verification or reset — clears the failure counter and the lock. Kept as its
+  // own best-effort statement so an unmigrated column can never break a sign-in.
+  await clearFailedLogins(env, acct);
   acct.last_login_at = now;
   return json({ token: await signToken(env, acct), account: publicAccount(acct) }, 200, cors);
 }
@@ -302,13 +314,23 @@ async function handleAccountRegister(request, env, cors) {
   if (password.length < 10) return json({ error: 'Use a password of at least 10 characters.', field: 'password' }, 400, cors);
   if (password.length > 200) return json({ error: 'That password is too long.', field: 'password' }, 400, cors);
   const existing = await accountByEmail(env, email);
-  if (existing && existing.verified_at) return json({ error: 'There is already an account for that email. Sign in instead.', field: 'email', code: 'exists' }, 409, cors);
   const now = new Date().toISOString();
   const name = str(body.name).trim().slice(0, 120), phone = str(body.phone).replace(/[^\d+()\-.\s]/g, '').trim().slice(0, 40), organization = str(body.organization).trim().slice(0, 120);
+  // An address that already has a VERIFIED account answers exactly what a brand-new one answers — same status, same body
+  // (security review 2026-09-08: the old 409 'exists' turned this route into an address checker, and the 429 'too_soon'
+  // did the same job one step later). Nothing on the account changes; the person who actually owns the address is told
+  // that someone tried, and can sign in or reset. The password is hashed here too so the two paths cost the same time.
+  if (existing && existing.verified_at) {
+    await hashPassword(password);
+    if (!codeTooSoon(existing)) {
+      await env.DB.prepare('UPDATE accounts SET verify_sent_at = ? WHERE id = ?').bind(now, existing.id).run().catch(() => {});
+      await notifySignupAttempt(env, existing).catch((e) => console.error('[Account] sign-up notice failed:', e.message));
+    }
+    return json(signupPending(email), 202, cors);
+  }
   let acct;
   if (existing) {
     // Someone started but never verified this address (perhaps not its owner): the new sign-up takes the slot over.
-    if (codeTooSoon(existing)) return json({ error: 'A code was just sent to that address. Check your email, or try again in a minute.', code: 'too_soon' }, 429, cors);
     const v = (existing.token_version || 1) + 1;
     await env.DB.prepare('UPDATE accounts SET password_hash = ?, token_version = ?, name = ?, phone = ?, organization = ?, updated_at = ? WHERE id = ?').bind(await hashPassword(password), v, name, phone, organization, now, existing.id).run();
     acct = { ...existing, password_hash: '(new)', token_version: v, name, phone, organization, updated_at: now };
@@ -321,8 +343,28 @@ async function handleAccountRegister(request, env, cors) {
     await env.DB.prepare('INSERT INTO accounts (id, email, password_hash, token_version, name, phone, organization, address1, address2, emergency_name, emergency_phone, emergency_relationship, stripe_customer_id, standards_passed, notes, created_at, updated_at, last_login_at, verified_at, verify_kind, verify_code_hash, verify_expires_at, verify_attempts, verify_sent_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .bind(acct.id, acct.email, acct.password_hash, 1, acct.name, acct.phone, acct.organization, '', '', '', '', '', '', '[]', '', now, now, null, null, null, null, null, 0, null).run();
   }
-  const fail = await issueAndSend(env, acct, 'verify', cors); if (fail) return fail;
-  return json({ pending: true, email, message: 'We emailed a 6-digit code to ' + email + '. Enter it to finish.' }, 202, cors);
+  // A second sign-up inside a minute sends nothing and still gets the same envelope: the throttle must not be a signal.
+  if (!codeTooSoon(acct)) { const fail = await issueAndSend(env, acct, 'verify', cors); if (fail) return fail; }
+  return json(signupPending(email), 202, cors);
+}
+
+/** The one answer POST /account/register ever gives: new address, unverified address, verified address. */
+function signupPending(email) {
+  return { pending: true, email, message: 'We emailed a 6-digit code to ' + email + '. Enter it to finish.' };
+}
+
+/** The real owner of an address someone else just tried to sign up with. Never says whether a code was sent. */
+async function notifySignupAttempt(env, acct) {
+  const text = [
+    'Someone tried to create a MAST Solutions account with this email address.',
+    '',
+    'You already have one, so nothing was created and nothing changed. If it was you, sign in at mastsolutions.com',
+    'instead — and use "Forgot your password" if you need a new password.',
+    '',
+    'If it was not you, you do not need to do anything. Nobody can reach your account without your password.',
+    '', 'MAST Solutions · Atlas Glinn, LLC · Houston, Texas',
+  ].join('\n');
+  await sendEmail(env, { to: [acct.email], subject: 'Someone tried to create a MAST Solutions account with your email', text, bcc: false });
 }
 
 async function handleAccountVerify(request, env, cors) {
@@ -330,12 +372,15 @@ async function handleAccountVerify(request, env, cors) {
   const body = await request.json().catch(() => null);
   const email = String((body && body.email) || '').trim().toLowerCase();
   const acct = await accountByEmail(env, email);
-  if (!acct) return json({ error: 'That code is not right.', code: 'bad_code' }, 400, cors);
-  if (acct.verified_at) return json({ error: 'That email is already verified. Sign in instead.', code: 'already' }, 409, cors);
+  // Unknown address, already-verified address and simply the wrong six digits all answer the same 400 bad_code, and the
+  // unknown one does the same HMAC work first (security review 2026-09-08: 400-vs-409, and the tries_left field, each
+  // told a caller which addresses have accounts). 'expired' and 'locked' stay distinct: both need a live code to reach,
+  // so they say nothing an attacker did not already have to know.
+  if (!acct || acct.verified_at) { await codeHash(env, { id: 'acct_absent' }, 'verify', body && body.code); return json(badCode(), 400, cors); }
   const r = await checkCode(env, acct, 'verify', body && body.code);
-  if (r === 'wrong') return json({ error: 'That code is not right.', code: 'bad_code', tries_left: CODE_MAX_TRIES - (acct.verify_attempts || 0) }, 400, cors);
+  if (r === 'wrong') return json(badCode(), 400, cors);
   if (r === 'expired') return json({ error: 'That code has expired. Request a new one.', code: 'expired' }, 400, cors);
-  if (r === 'locked') return json({ error: 'Too many tries. Request a new code.', code: 'locked' }, 429, cors);
+  if (r === 'locked') return tooMany(cors, 60, 'locked', 'Too many tries. Request a new code.');
   const now = new Date().toISOString();
   await env.DB.prepare('UPDATE accounts SET verified_at = ?, updated_at = ? WHERE id = ?').bind(now, now, acct.id).run();
   acct.verified_at = now;
@@ -359,9 +404,19 @@ async function handleAccountLogin(request, env, cors) {
   const email = String((body && body.email) || '').trim().toLowerCase();
   const password = String((body && body.password) || '');
   const acct = await accountByEmail(env, email);
+  // A locked account is answered BEFORE any PBKDF2 runs (src/ratelimit.js): five wrong passwords stop both the guessing
+  // and its CPU cost. It does tell a caller that the address has an account — but only after they have spent five of the
+  // twenty per-IP tries a window allows on that one address, which is the trade the lockout is worth.
+  const locked = lockedFor(acct);
+  if (locked) return tooMany(cors, locked, 'locked', 'Too many sign-in attempts for this account. Try again later, or reset your password.');
   // The same hashing work runs whether or not the account exists, so timing does not reveal which emails have accounts.
   const okPw = acct ? await verifyPassword(password, acct.password_hash) : (await verifyPassword(password, 'pbkdf2-sha256$' + PBKDF2_ITER + '$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='), false);
-  if (!acct || !okPw) return json({ error: 'That email and password do not match.', code: 'bad_login' }, 401, cors);
+  if (!acct || !okPw) {
+    // The failing attempt itself always answers 401; the lock it may have just set shows on the next one, so the fifth
+    // wrong password does not announce that the address exists.
+    if (acct) await noteFailedLogin(env, acct);
+    return json({ error: 'That email and password do not match.', code: 'bad_login' }, 401, cors);
+  }
   if (!acct.verified_at) {
     // Right password, email never confirmed: send a fresh code (at most once a minute) and let the page open the code box.
     if (env.RESEND_API_KEY && !codeTooSoon(acct)) { const fail = await issueAndSend(env, acct, 'verify', cors); if (fail) return fail; }
@@ -387,11 +442,11 @@ async function handleAccountReset(request, env, cors) {
   const next = String((body && body.password) || '');
   if (next.length < 10 || next.length > 200) return json({ error: 'Use a password of at least 10 characters.', field: 'password' }, 400, cors);
   const acct = await accountByEmail(env, email);
-  if (!acct) return json({ error: 'That code is not right.', code: 'bad_code' }, 400, cors);
+  if (!acct) { await codeHash(env, { id: 'acct_absent' }, 'reset', body && body.code); return json(badCode(), 400, cors); }
   const r = await checkCode(env, acct, 'reset', body && body.code);
-  if (r === 'wrong') return json({ error: 'That code is not right.', code: 'bad_code', tries_left: CODE_MAX_TRIES - (acct.verify_attempts || 0) }, 400, cors);
+  if (r === 'wrong') return json(badCode(), 400, cors);
   if (r === 'expired') return json({ error: 'That code has expired. Request a new one.', code: 'expired' }, 400, cors);
-  if (r === 'locked') return json({ error: 'Too many tries. Request a new code.', code: 'locked' }, 429, cors);
+  if (r === 'locked') return tooMany(cors, 60, 'locked', 'Too many tries. Request a new code.');
   const v = (acct.token_version || 1) + 1, now = new Date().toISOString();
   await env.DB.prepare('UPDATE accounts SET password_hash = ?, token_version = ?, updated_at = ? WHERE id = ?').bind(await hashPassword(next), v, now, acct.id).run();
   acct.token_version = v;
@@ -787,6 +842,25 @@ function prerequisiteFor(offering) {
   return /\bP2\b/.test(n) ? fund + ' and a MAST P1 course' : fund;
 }
 
+/* Seat holds (security review 2026-09-08). A pending registration holds its seats only while it carries a Stripe session
+   id and only for SEAT_HOLD_MS; two live holds at a time per connection and per address. */
+const SEAT_HOLD_MS = 15 * 60 * 1000;
+const MAX_HOLDS_PER_IP = 2, MAX_HOLDS_PER_EMAIL = 2;
+
+/** Live pending registrations from this connection and from this address. A D1 failure counts as none — capacity itself
+ *  is checked separately and is the control that must not fail open. */
+async function concurrentHolds(env, ip, email, holdCutoff) {
+  if (!env.DB) return { byIp: 0, byEmail: 0 };
+  const count = async (col, val) => {
+    if (!val) return 0;
+    const row = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM registrations WHERE status = 'pending' AND created_at > ? AND ${col} = ?`
+    ).bind(holdCutoff, val).first().catch(() => null);
+    return Number((row && row.n) || 0);
+  };
+  return { byIp: await count('agreement_ip', ip), byEmail: await count('customer_email', email) };
+}
+
 async function handleRegister(request, env, cors) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== 'object') return json({ error: 'Bad request' }, 400, cors);
@@ -817,13 +891,18 @@ async function handleRegister(request, env, cors) {
     return json({ error: 'That weekend is not available for booking.', field: 'date' }, 409, cors);
   }
   // 1b. Capacity (owner: 16 on one-day fundamentals, 10 on two-day operator courses). A course stops selling on a
-  // weekend at offerings.capacity: paid seats count, and a pending registration holds its seats for 30 minutes while
-  // its Stripe Checkout is open. A live-fire class oversold is a safety problem, so this is checked before Stripe.
+  // weekend at offerings.capacity: paid seats count, and a pending registration holds its seats while its Stripe
+  // Checkout is open. A live-fire class oversold is a safety problem, so this is checked before Stripe.
+  //
+  // A pending row only holds a seat once it carries a Stripe session id (security review 2026-09-08). Before that fix a
+  // POST that never reached Stripe still held its seats for 30 minutes, so two requests at qty 10 emptied a class for
+  // free; now an unpriced row costs nothing and the hold starts when the Checkout Session actually exists. The hold is
+  // 15 minutes, not 30 — a Checkout Session nobody has opened in a quarter of an hour is abandoned.
+  const holdCutoff = new Date(Date.now() - SEAT_HOLD_MS).toISOString();
   const capacity = Number(offering.capacity || 0);
   if (capacity > 0) {
-    const holdCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const takenRow = await env.DB.prepare(
-      "SELECT COALESCE(SUM(qty), 0) AS n FROM registrations WHERE sku = ? AND session_date = ? AND (status = 'paid' OR (status = 'pending' AND created_at > ?))"
+      "SELECT COALESCE(SUM(qty), 0) AS n FROM registrations WHERE sku = ? AND session_date = ? AND (status = 'paid' OR (status = 'pending' AND stripe_session_id IS NOT NULL AND created_at > ?))"
     ).bind(offering.sku, wanted, holdCutoff).first();
     const taken = Number((takenRow && takenRow.n) || 0);
     if (taken + qty > capacity) {
@@ -833,6 +912,14 @@ async function handleRegister(request, env, cors) {
         code: 'sold_out', seats_left: left, field: 'date',
       }, 409, cors);
     }
+  }
+  // 1b-ii. Two live holds at a time, per connection and per address. The per-IP rate limit caps how fast holds can be
+  // made; this caps how many can be open at once, so one caller cannot sit on a class from a handful of addresses.
+  const ip = clientIp(request);
+  const holds = await concurrentHolds(env, ip, email, holdCutoff);
+  if (holds.byIp >= MAX_HOLDS_PER_IP || holds.byEmail >= MAX_HOLDS_PER_EMAIL) {
+    return tooMany(cors, Math.ceil(SEAT_HOLD_MS / 1000), 'too_many_holds',
+      'You already have ' + MAX_HOLDS_PER_EMAIL + ' bookings waiting to be paid. Finish or cancel one of those checkouts, or try again in 15 minutes.');
   }
   // 1c. Prerequisite attestation for level 2 and 3 courses.
   const prereq = prerequisiteFor(offering);
@@ -881,7 +968,6 @@ async function handleRegister(request, env, cors) {
   if (ref.accepted !== true) return json({ error: 'Tick the box to accept the cancellation and refund policy.', field: 'refund' }, 400, cors);
 
   const now = new Date().toISOString();
-  const ip = request.headers.get('CF-Connecting-IP') || (request.headers.get('X-Forwarded-For') || '').split(',')[0].trim() || '';
   const ua = (request.headers.get('User-Agent') || '').slice(0, 300);
   const id = 'reg_' + crypto.randomUUID();
   const optIn = body.newsletter_opt_in === true;
@@ -1708,8 +1794,10 @@ async function runRetention(env) {
   const abandoned = await env.DB.prepare("UPDATE registrations SET status = 'abandoned' WHERE status = 'pending' AND created_at < ?").bind(dayAgo).run();
   // An account whose email was never verified within a day is a squat or a typo: it goes, and the address is free again.
   const unverified = await env.DB.prepare('DELETE FROM accounts WHERE verified_at IS NULL AND created_at < ?').bind(dayAgo).run().catch(() => null);
-  const out = { purged: purged?.meta?.changes ?? 0, abandoned: abandoned?.meta?.changes ?? 0, unverified: unverified?.meta?.changes ?? 0 };
-  console.log('[Retention] answers purged:', out.purged, '· registrations abandoned:', out.abandoned, '· unverified accounts removed:', out.unverified);
+  // Counter rows nobody has touched for a day carry no live window (src/ratelimit.js).
+  const rateRows = await purgeRateLimits(env).catch(() => 0);
+  const out = { purged: purged?.meta?.changes ?? 0, abandoned: abandoned?.meta?.changes ?? 0, unverified: unverified?.meta?.changes ?? 0, rate_limits: rateRows };
+  console.log('[Retention] answers purged:', out.purged, '· registrations abandoned:', out.abandoned, '· unverified accounts removed:', out.unverified, '· rate-limit rows dropped:', out.rate_limits);
   return out;
 }
 
@@ -1905,6 +1993,12 @@ function money(cents, currency) {
   return (
     '$' + (Number(cents || 0) / 100).toFixed(2) + ' ' + String(currency || 'usd').toUpperCase()
   );
+}
+
+/** A 429 that always carries Retry-After, so a browser or a script can back off without parsing the body. */
+function tooMany(cors, retryAfter, code, message) {
+  const secs = Math.max(1, Math.round(Number(retryAfter) || 1));
+  return json({ error: message, code, retry_after: secs }, 429, { ...cors, 'Retry-After': String(secs) });
 }
 
 function json(data, status, cors) {

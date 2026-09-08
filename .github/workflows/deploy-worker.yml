@@ -18,6 +18,10 @@ on:
       - '.github/workflows/deploy-worker.yml'
   workflow_dispatch:
 
+# Least privilege: this workflow only reads the repository. Every other scope becomes 'none' the moment this block exists.
+permissions:
+  contents: read
+
 concurrency:
   group: deploy-worker
   cancel-in-progress: false
@@ -35,14 +39,18 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: mast-backend/package-lock.json
-      - name: Install dependencies (pdf-lib for the agreement; the tests import the Worker)
-        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+      # No '|| npm install' fallback: that silently accepted a missing or stale lockfile and installed whatever the
+      # registry served that minute, including an unpinned wrangler. A lockfile problem must fail the deploy, not float it.
+      - name: Install dependencies (pdf-lib for the agreement, wrangler pinned in devDependencies; the tests import the Worker)
+        run: npm ci --no-audit --no-fund
       - name: Tests
         run: node test-worker.mjs
       # The token is what matters; wrangler finds the account on its own when the token sees one account, so the account
       # id is optional. Common alternative names are accepted, and the notice says which names are present (never the
       # values) so a secret saved under the wrong name or tab shows up in the log (2026-09-07: "Cloudflare is in secrets"
       # and the runner still saw nothing).
+      # Presence only. The token itself is NEVER written to $GITHUB_OUTPUT (step outputs are readable by every later step
+      # and land in the run's object store); each step that needs it takes it from secrets directly, in its own env.
       - name: Check for Cloudflare credentials
         id: creds
         env:
@@ -55,47 +63,63 @@ jobs:
         run: |
           have=""; for n in T1:CLOUDFLARE_API_TOKEN T2:CF_API_TOKEN T3:CLOUDFLARE_TOKEN A1:CLOUDFLARE_ACCOUNT_ID A2:CF_ACCOUNT_ID A3:vars.CLOUDFLARE_ACCOUNT_ID; do
             v="${n%%:*}"; [ -n "${!v}" ] && have="$have ${n#*:}"; done
-          TOKEN="${T1:-${T2:-$T3}}"; ACCOUNT="${A1:-${A2:-$A3}}"
           echo "present:${have:- none}"
-          if [ -z "$TOKEN" ]; then
+          if [ -z "${T1:-${T2:-$T3}}" ]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
             echo "::notice::No Cloudflare API token reached this job (present:${have:- none}). It must be a REPOSITORY secret named CLOUDFLARE_API_TOKEN under Settings → Secrets and variables → Actions → Repository secrets (not Variables, not an environment, not Codespaces). Tests ran, deploy skipped."
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
-            echo "account=$ACCOUNT" >> "$GITHUB_OUTPUT"
-            echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
-            echo "::add-mask::$TOKEN"
           fi
       - name: Short commit id for /health (build = the commit this deploy was made from)
         id: sha
         run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
       # Schema before code (2026-09-08). Migrations used to be a Mac step ("D1 migrations stay a manual step"); the
       # Actions token now carries D1:Edit, so each numbered file in mast-backend/migrations/ is applied here when its
-      # marker column is missing — a guard, because SQLite's ALTER TABLE ADD COLUMN is not idempotent. Add a row to
-      # GUARDS for every new migration: "<file>|<table>|<column that file adds>". Files without a row are not run.
+      # columns are missing — a guard, because SQLite's ALTER TABLE ADD COLUMN is not idempotent. Add a row to GUARDS for
+      # every new migration: "<file>|<table>|<every column that file adds, comma separated>". Files without a row are not run.
+      #
+      # EVERY column is checked, not one marker (security review 2026-09-08): 007 adds five columns and the guard read
+      # credential_type alone, so a run that died after the first ALTER left four columns missing and looked applied
+      # forever after. All present = skip; none present = apply; SOME present = stop, because re-running the file would
+      # fail on the first duplicate and a half-applied schema needs a person.
+      # npx with no -y and no @version: it resolves the wrangler pinned in mast-backend/package.json + package-lock.json,
+      # so the CLI that touches the live database is the one the lockfile names.
       - name: Apply pending D1 migrations (schema before code)
         if: steps.creds.outputs.ready == 'true'
         working-directory: mast-backend
         env:
-          CLOUDFLARE_API_TOKEN: ${{ steps.creds.outputs.token }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ steps.creds.outputs.account }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN || secrets.CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CF_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -e
-          GUARDS="migrations/007-account-credentials.sql|accounts|credential_type"
-          for g in $GUARDS; do
-            f="${g%%|*}"; rest="${g#*|}"; tbl="${rest%%|*}"; col="${rest#*|}"
+          GUARDS="migrations/007-account-credentials.sql|accounts|credential_type,credential_org,credential_id,credential_status,credential_submitted_at
+          migrations/008-rate-limits.sql|accounts|failed_logins,locked_until"
+          echo "$GUARDS" | while IFS= read -r g; do
+            g="$(echo "$g" | xargs)"; [ -n "$g" ] || continue
+            f="${g%%|*}"; rest="${g#*|}"; tbl="${rest%%|*}"; cols="${rest#*|}"
             test -f "$f" || { echo "::error::$f missing"; exit 1; }
-            have=$(npx -y wrangler@3.90.0 d1 execute mast_bookings --remote --json --command "PRAGMA table_info($tbl)" 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(" ".join(r["name"] for r in d[0]["results"]))')
-            if echo " $have " | grep -q " $col "; then echo "$f: already applied ($tbl.$col present)"; else
-              npx -y wrangler@3.90.0 d1 execute mast_bookings --remote --file="$f" && echo "$f: applied"
+            have=$(npx wrangler d1 execute mast_bookings --remote --json --command "PRAGMA table_info($tbl)" 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(" ".join(r["name"] for r in d[0]["results"]))')
+            missing=""; present=""
+            for c in $(echo "$cols" | tr ',' ' '); do
+              if echo " $have " | grep -q " $c "; then present="$present $c"; else missing="$missing $c"; fi
+            done
+            if [ -z "$missing" ]; then echo "$f: already applied ($tbl:$present)"
+            elif [ -n "$present" ]; then
+              echo "::error::$f is HALF APPLIED on $tbl — present:$present missing:$missing. Re-running the file would fail on the first duplicate column; apply the missing ALTERs by hand, then re-run this workflow."
+              exit 1
+            else
+              npx wrangler d1 execute mast_bookings --remote --file="$f" && echo "$f: applied ($tbl:$(echo "$cols" | tr ',' ' '))"
             fi
           done
+      # wranglerVersion matches the devDependency: the action installs its own CLI, so leaving it unset floated the
+      # deploy onto whatever wrangler v3 was current that day.
       - name: Deploy
         if: steps.creds.outputs.ready == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ steps.creds.outputs.token }}
-          accountId: ${{ steps.creds.outputs.account }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN || secrets.CLOUDFLARE_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CF_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '3.90.0'
           workingDirectory: mast-backend
           command: deploy --var BUILD:${{ steps.sha.outputs.short }}
       # Worker secrets from a phone: a repository secret named WORKER_RESEND_API_KEY (or WORKER_<NAME> for any other
@@ -104,8 +128,8 @@ jobs:
       - name: Push Worker secrets that are set as repository secrets
         if: steps.creds.outputs.ready == 'true'
         env:
-          CLOUDFLARE_API_TOKEN: ${{ steps.creds.outputs.token }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ steps.creds.outputs.account }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN || secrets.CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CF_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
           WORKER_RESEND_API_KEY: ${{ secrets.WORKER_RESEND_API_KEY }}
           WORKER_ACCOUNT_SECRET: ${{ secrets.WORKER_ACCOUNT_SECRET }}
           WORKER_NOTIFY_EMAIL: ${{ secrets.WORKER_NOTIFY_EMAIL }}

@@ -131,6 +131,8 @@ wrangler d1 execute mast_bookings --remote --file=migrations/002-ladies-handgun.
 wrangler d1 execute mast_bookings --remote --file=migrations/003-membership-teams.sql  # once: the six membership teams (the Worker creates each plan's Stripe Price on the first join)
 wrangler d1 execute mast_bookings --remote --file=migrations/004-accounts.sql          # once: student accounts (owner, 2026-09-05)
 wrangler d1 execute mast_bookings --remote --file=migrations/005-account-verification.sql  # once, after 004: email verification + password reset columns (a second run fails with "duplicate column", which means it is already applied)
+wrangler d1 execute mast_bookings --remote --file=migrations/007-account-credentials.sql   # once, after 005: LE / teacher credential columns (006 is applied by the Worker itself)
+wrangler d1 execute mast_bookings --remote --file=migrations/008-rate-limits.sql           # once, after 007: rate_limits table + the sign-in lockout columns
 
 # 3. Secrets (never commit these)
 wrangler secret put STRIPE_SECRET_KEY        # sk_test_… first, sk_live_… when ready
@@ -266,6 +268,49 @@ while a Monday that failed is retried by the Tuesday or Wednesday cron. Unset `C
 `GET /admin/crm?key=…&view=weekly` returns the identical text for a runner reading it without the mailbox.
 The contact notification no longer carries a `Page:` line (same instruction) — the page is still stored on the lead
 row and still drives attribution.
+
+## Rate limiting, lockout and seat holds (security review, 2026-09-08)
+
+Everything below is D1 only — no new Cloudflare binding, nothing to provision. `migrations/008-rate-limits.sql` is the
+schema; `src/ratelimit.js` also self-heals the same three objects on first use, so a Worker deployed ahead of the
+migration still limits.
+
+**Per account.** Five wrong passwords lock the account for 15 minutes, doubling at every further five up to a day. A
+locked account is answered **before** the PBKDF2 runs, so guess six costs the Worker nothing — and the right password is
+refused too, which is the point. Any successful sign-in, verification or reset clears the counter and the lock. The
+failing attempt itself always answers the plain 401; the lock shows on the next one, so the fifth wrong password does not
+announce that the address exists.
+
+**Per IP** (`CF-Connecting-IP`), in 10-minute windows:
+
+| Route | Per window |
+|---|---|
+| `POST /account/login` | 20 |
+| `POST /account/register` | 5 |
+| `POST /account/forgot` + `POST /account/resend` | 5 **shared** — both mail a code to whatever address is posted, so they are one email budget |
+| `POST /account/verify` | 20 |
+| `POST /register` | 10 |
+| `POST /contact` | 30 |
+| `POST /event` | 30 |
+
+Over the limit answers `429 {code:'rate_limited', retry_after}` with a `Retry-After` header. Every increment is a single
+conditional UPDATE, so concurrent requests can neither share nor skip a count. **A D1 failure inside the limiter fails
+CLOSED (429) on every route but `/event`**: a booking refused for a minute is recoverable, an unmetered guessing window is
+not; the beacon is the one place where losing writes is worse than letting them through. The daily cron drops counter
+rows older than a day.
+
+**Seat holds.** A pending registration holds its seats only once it carries a Stripe session id, and only for 15 minutes
+(it was 30, and a row that never reached Stripe held seats the whole time — two requests at `qty: 10` emptied a class for
+free). Two live holds at a time per connection and per address; a third answers `429 {code:'too_many_holds'}`. The paid
+path and the webhook are unchanged.
+
+**No account oracle.** `POST /account/register` answers the same `202 {pending:true}` envelope for a new address, an
+unverified one and a **verified** one — the old `409 exists` and `429 too_soon` each turned the route into an address
+checker. When the address already has an account nothing on it changes and its real owner is emailed *"someone tried to
+create an account with this address — sign in instead"* (no code, throttled to one a minute). `POST /account/verify`
+answers one generic `400 {code:'bad_code'}` for an unknown address, an already-verified address and simply the wrong six
+digits, doing the same HMAC work either way; the `tries_left` field is gone, because it only ever appeared for an address
+that exists.
 
 ## Configuration reference
 

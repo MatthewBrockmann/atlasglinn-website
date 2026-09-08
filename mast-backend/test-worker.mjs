@@ -86,6 +86,9 @@ const fakePlans = {                // memberships rows; a plan without a stripe_
   red_team: { plan_key: 'red_team', name: 'Red Team', stripe_price_id: '', price_cents: 25000, interval: 'month' },
   le_team: { plan_key: 'le_team', name: 'Law Enforcement', stripe_price_id: 'price_live_le', price_cents: 19500, interval: 'month' },
 };
+const rateLimits = new Map();      // rate_limits rows: key -> { key, window_start, count }
+const resetLimits = () => rateLimits.clear();   // a fresh window; the per-IP limits get their own block below
+let rateFail = false;              // flip on to make every rate_limits statement throw (the fail-closed test)
 const sqlLog = [];
 const REG_COLS = ['id','created_at','status','sku','item_name','qty','session_date','session_label','customer_name','customer_email','customer_phone','organization','address1','address2','emergency_name','emergency_phone','emergency_relationship','eligibility_outcome_id','eligibility_status','questions_version','agreement_version','agreement_signed_name','agreement_initials','agreement_signed_at','agreement_ip','agreement_user_agent','refund_policy_version','refund_policy_accepted_at','refund_policy_ip','newsletter_opt_in','newsletter_opted_in_at','prereq_attested','utm_source','utm_medium','utm_campaign','referrer','landing_page','first_touch_at','visitor'];
 
@@ -99,10 +102,19 @@ const DB = {
           async first() {
             if (sql.includes('FROM worker_keys')) return workerKeys.get(args[0]) || null;
             if (sql.includes('SUM(qty)') && sql.includes('FROM registrations')) {
+              // A pending row only holds seats once Stripe gave it a session id (security review 2026-09-08).
+              const needsSession = sql.includes('stripe_session_id IS NOT NULL');
               let n = 0;
-              for (const r of registrations.values()) if (r.sku === args[0] && r.session_date === args[1] && (r.status === 'paid' || (r.status === 'pending' && r.created_at > args[2]))) n += Number(r.qty || 1);
+              for (const r of registrations.values()) if (r.sku === args[0] && r.session_date === args[1] && (r.status === 'paid' || (r.status === 'pending' && (!needsSession || r.stripe_session_id) && r.created_at > args[2]))) n += Number(r.qty || 1);
               return { n };
             }
+            if (sql.includes('COUNT(*)') && sql.includes('FROM registrations') && sql.includes("status = 'pending'")) {
+              const col = (/AND (\w+) = \?/.exec(sql) || [])[1];
+              let n = 0;
+              for (const r of registrations.values()) if (r.status === 'pending' && r.created_at > args[0] && r[col] === args[1]) n++;
+              return { n };
+            }
+            if (sql.includes('FROM rate_limits')) { if (rateFail) throw new Error('D1_ERROR: rate_limits unavailable'); const row = rateLimits.get(args[0]); return row ? { ...row } : null; }
             if (sql.includes('FROM offerings')) {
               const row = { 'MAST-DA': { sku: 'MAST-DA', name: 'Direct Action', price_cents: 69500, capacity: 10 },
                             'MAST-HG-OP': { sku: 'MAST-HG-OP', name: 'Handgun Operator', price_cents: 45000, capacity: 10 },
@@ -138,6 +150,16 @@ const DB = {
             if (sql.startsWith('UPDATE email_log SET created_at')) { const l = emailLog.find(x => x.email === args[1] && x.ref === args[2] && x.kind === args[3]); if (l) l.created_at = args[0]; return { meta: { changes: l ? 1 : 0 } }; }
             if (sql.startsWith('DELETE FROM email_log')) { const st = (/status = '(\w+)'/.exec(sql) || [])[1]; const i = emailLog.findIndex(x => x.email === args[0] && x.ref === args[1] && x.kind === args[2] && (!st || x.status === st)); if (i >= 0) emailLog.splice(i, 1); return { meta: { changes: i >= 0 ? 1 : 0 } }; }
             if (sql.startsWith('INSERT OR IGNORE INTO worker_keys')) { const [name, created_at, key_id, public_jwk, private_jwk] = args; if (!workerKeys.has(name)) workerKeys.set(name, { name, created_at, key_id, public_jwk, private_jwk }); return { meta: { changes: 1 } }; }
+            if (sql.includes('rate_limits')) {
+              if (rateFail) throw new Error('D1_ERROR: rate_limits unavailable');
+              if (sql.startsWith('INSERT OR IGNORE INTO rate_limits')) { const [key, window_start, count] = args; if (rateLimits.has(key)) return { meta: { changes: 0 } }; rateLimits.set(key, { key, window_start, count }); return { meta: { changes: 1 } }; }
+              if (sql.startsWith('UPDATE rate_limits SET window_start')) { const [window_start, count, key, cutoff] = args; const r = rateLimits.get(key); if (!r || !(r.window_start <= cutoff)) return { meta: { changes: 0 } }; r.window_start = window_start; r.count = count; return { meta: { changes: 1 } }; }
+              if (sql.startsWith('UPDATE rate_limits SET count = count + 1')) { const [key, limit] = args; const r = rateLimits.get(key); if (!r || !(r.count < limit)) return { meta: { changes: 0 } }; r.count += 1; return { meta: { changes: 1 } }; }
+              if (sql.startsWith('DELETE FROM rate_limits')) { let n = 0; for (const [k, r] of [...rateLimits]) if (r.window_start < args[0]) { rateLimits.delete(k); n++; } return { meta: { changes: n } }; }
+              return { meta: { changes: 0 } };
+            }
+            if (sql.startsWith('UPDATE accounts SET failed_logins = failed_logins + 1')) { const row = accounts.get(args[0]); if (!row) return { meta: { changes: 0 } }; row.failed_logins = (row.failed_logins || 0) + 1; return { meta: { changes: 1 } }; }
+            if (sql.startsWith('UPDATE accounts SET locked_until = ?') && sql.includes('locked_until IS NULL OR locked_until <')) { const [until, id, floor] = args; const row = accounts.get(id); if (!row || (row.locked_until && !(row.locked_until < floor))) return { meta: { changes: 0 } }; row.locked_until = until; return { meta: { changes: 1 } }; }
             if (/^(CREATE TABLE|CREATE INDEX|ALTER TABLE)/.test(sql)) return { meta: { changes: 0 } };
             if (sql.includes('INSERT INTO eligibility_outcomes')) { outcomes.push(args); return { meta: { last_row_id: outcomes.length, changes: 1 } }; }
             if (sql.includes('INSERT INTO eligibility_answers')) { answers.push(args); return { meta: { last_row_id: answers.length, changes: 1 } }; }
@@ -191,9 +213,13 @@ const env = {
   DB,
 };
 const ctx = { waitUntil: (p) => p };
-const post = (path, body, origin = 'https://mastsolutions.com') =>
+// Every request comes from its own address unless a test pins one: the per-IP limits and the per-IP seat-hold cap are
+// real controls, so they are exercised in the block that is about them rather than tripping every other block.
+let ipSeq = 0;
+const nextIp = () => '203.0.113.' + ((ipSeq++ % 250) + 1);
+const post = (path, body, origin = 'https://mastsolutions.com', ip = nextIp()) =>
   worker.fetch(new Request('https://api.test' + path, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin }, body: JSON.stringify(body),
+    method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin, 'CF-Connecting-IP': ip }, body: JSON.stringify(body),
   }), env, ctx);
 
 console.log('\n── Server-side pricing (client cannot set the amount) ──');
@@ -411,6 +437,9 @@ const goodReg = (over = {}) => ({
   ...over,
 });
 const reg = (body) => post('/register', body);
+// One person per seat. Two live holds per address is the cap (SEAT_HOLD_MS / MAX_HOLDS_PER_EMAIL), so a block that books
+// three or more times books them for three or more people, which is what filling a class actually looks like.
+const party = (n, over = {}) => goodReg({ customer: { name: 'Cap ' + n, email: 'cap' + n + '@example.com', phone: '(713) 555-0100', organization: '' }, ...over });
 {
   stripeCalls.length = 0; emails.length = 0;
   const res = await reg(goodReg()); const body = await res.json();
@@ -435,16 +464,16 @@ const reg = (body) => post('/register', body);
   stripeCalls.length = 0;
   const already = [...registrations.values()].filter((r) => r.sku === 'MAST-DA' && r.session_date === FIRST_WEEKEND && r.status === 'pending').reduce((s, r) => s + Number(r.qty || 1), 0);
   const SECOND_WEEKEND = '2026-10-24';   // seeded fortnightly: 09-26, 10-10, 10-24 …
-  const upTo9 = await reg(goodReg({ qty: 9 - already })); const r9 = await upTo9.json();
+  const upTo9 = await reg(party(1, { qty: 9 - already })); const r9 = await upTo9.json();
   ok('capacity: booking up to one seat short still reaches Stripe', upTo9.status === 200, String(upTo9.status));
-  const tenth = await reg(goodReg({ qty: 1 })); const r10 = await tenth.json();
+  const tenth = await reg(party(2, { qty: 1 })); const r10 = await tenth.json();
   ok('capacity: the last seat still sells', tenth.status === 200, String(tenth.status));
-  const over = await reg(goodReg({ qty: 1 })); const ob = await over.json();
+  const over = await reg(party(3, { qty: 1 })); const ob = await over.json();
   ok('capacity: the 11th seat is refused with 409 sold_out and 0 left', over.status === 409 && ob.code === 'sold_out' && ob.seats_left === 0, JSON.stringify(ob));
   ok('capacity: no Stripe session for the refused seat', stripeCalls.length === 2);
-  const other = await reg(goodReg({ qty: 1, session_date: SECOND_WEEKEND })); const ro = await other.json();
+  const other = await reg(party(4, { qty: 1, session_date: SECOND_WEEKEND })); const ro = await other.json();
   ok('capacity: another weekend of the same course is unaffected', other.status === 200, String(other.status));
-  const tooMany = await reg(goodReg({ qty: 10, session_date: SECOND_WEEKEND }));   // 1 taken, 9 left, 10 asked
+  const tooMany = await reg(party(5, { qty: 10, session_date: SECOND_WEEKEND }));   // 1 taken, 9 left, 10 asked
   const tb = await tooMany.json();
   ok('capacity: a block bigger than the seats left is refused and told how many remain', tooMany.status === 409 && tb.seats_left === 9, JSON.stringify(tb));
   // Release the seats this block took so the fixture weekend is open again for the tests that follow.
@@ -462,23 +491,23 @@ const reg = (body) => post('/register', body);
   ok('prerequisite: Carbine Operator names Carbine Fundamentals', /MAST Carbine Fundamentals/.test(carb.error || '') && !/P1/.test(carb.error || ''), carb.error);
   const nvg = await (await reg(goodReg({ sku: 'MAST-NVG-P2', prerequisite: undefined }))).json();
   ok('prerequisite: NVG Operator P2 names Low-Light Fundamentals and a P1 course', /MAST Low-Light Fundamentals and a MAST P1 course/.test(nvg.error || ''), nvg.error);
-  const daBare = await reg(goodReg({ prerequisite: undefined })); const dab = await daBare.json();
+  const daBare = await reg(party(11, { prerequisite: undefined })); const dab = await daBare.json();
   ok('prerequisite: a discipline without its own Fundamentals (Direct Action) has no prerequisite → 200 (owner, 2026-09-05)', daBare.status === 200, String(daBare.status) + ' ' + (dab.error || ''));
   const team = await reg(goodReg({ sku: 'MAST-TEAM-P1', prerequisite: undefined })); const tb = await team.json();
   ok('prerequisite: Team Tactics P1 is the one exception, Handgun Fundamentals first → 400', team.status === 400 && /MAST Handgun Fundamentals/.test(tb.error || '') && !/P1 course/.test(tb.error || ''), String(team.status) + ' ' + (tb.error || ''));
-  const vehp2 = await reg(goodReg({ sku: 'MAST-VEH-P2', prerequisite: undefined }));
+  const vehp2 = await reg(party(12, { sku: 'MAST-VEH-P2', prerequisite: undefined }));
   ok('prerequisite: "Vehicular Tactics / Team Tactics P2" (Protective) has no prerequisite → 200', vehp2.status === 200, String(vehp2.status));
-  const sf = await reg(goodReg({ sku: 'MAST-SF-P1', prerequisite: undefined }));
+  const sf = await reg(party(13, { sku: 'MAST-SF-P1', prerequisite: undefined }));
   ok('prerequisite: Select-Fire P1 has no prerequisite → 200', sf.status === 200, String(sf.status));
-  const withIt = await reg(goodReg({ sku: 'MAST-HG-OP' })); const wb = await withIt.json();
+  const withIt = await reg(party(14, { sku: 'MAST-HG-OP' })); const wb = await withIt.json();
   ok('prerequisite: attested → reaches Stripe', withIt.status === 200, String(withIt.status));
   const row = registrations.get(wb.registration_id);
   ok('prerequisite: attestation recorded on the registration', row && row.prereq_attested === 1, JSON.stringify(row && row.prereq_attested));
-  const fund = await reg(goodReg({ sku: 'MAST-HG-FUND', prerequisite: undefined })); const fb = await fund.json();
+  const fund = await reg(party(15, { sku: 'MAST-HG-FUND', prerequisite: undefined })); const fb = await fund.json();
   ok('prerequisite: Handgun Fundamentals never asks', fund.status === 200, String(fund.status));
   const fr = registrations.get(fb.registration_id);
   ok('prerequisite: Handgun Fundamentals records 0', fr && fr.prereq_attested === 0);
-  const ladies = await reg(goodReg({ sku: 'MAST-HG-LADIES', prerequisite: undefined })); const lb = await ladies.json();
+  const ladies = await reg(party(16, { sku: 'MAST-HG-LADIES', prerequisite: undefined })); const lb = await ladies.json();
   ok('prerequisite: the ladies-only Handgun Fundamentals class is a qualifier too (no attestation asked)', ladies.status === 200, String(ladies.status));
   const lr = registrations.get(lb.registration_id);
   for (const r of [row, fr, lr]) if (r) r.status = 'abandoned';
@@ -622,9 +651,16 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   ok('verify with the emailed code → 200 with a token and the account (email normalised)', ver.status === 200 && typeof r1.token === 'string' && r1.token.includes('.') && r1.account.email === 'student@example.com' && r1.account.name === 'Jane Doe', JSON.stringify(r1).slice(0, 160));
   acctRow = accounts.get(r1.account.id);
   ok('verified_at is set and the code is cleared', !!acctRow.verified_at && !acctRow.verify_code_hash);
-  ok('verify again → 409 already verified', (await post('/account/verify', { email: 'student@example.com', code: code1 })).status === 409);
-  const dup = await post('/account/register', { email: 'student@example.com', password: 'another long password' });
-  ok('register again for a verified email → 409', dup.status === 409 && (await dup.json()).code === 'exists');
+  ok('verify on an already-verified address → the same generic 400 bad_code, never a 409 that confirms it', (await post('/account/verify', { email: 'student@example.com', code: code1 })).status === 400);
+  emails.length = 0;
+  rowFor('student@example.com').verify_sent_at = new Date(Date.now() - 120000).toISOString();   // the sign-up code went out a while ago
+  const dup = await post('/account/register', { email: 'student@example.com', password: 'another long password' }); const dupBody = await dup.json();
+  ok('register for a VERIFIED address → the same 202 pending envelope a new address gets (no exists oracle)', dup.status === 202 && dupBody.pending === true && !dupBody.token && dupBody.email === 'student@example.com' && dupBody.message === p0.message, JSON.stringify({ status: dup.status, body: dupBody }));
+  ok('… and the real owner is told someone tried, with no code and no BCC', emails.length === 1 && emails[0].to[0] === 'student@example.com' && !emails[0].bcc && /Someone tried to create a MAST Solutions account/.test(emails[0].subject) && !/\b\d{6}\b/.test(emails[0].text), JSON.stringify(emails.map(e => e.subject)));
+  ok('… and nothing on the account changed: the password and the verified stamp stand', /^pbkdf2/.test(accounts.get(r1.account.id).password_hash) && !!accounts.get(r1.account.id).verified_at && (await post('/account/login', { email: 'student@example.com', password: 'another long password' })).status === 401);
+  emails.length = 0;
+  const dup2 = await post('/account/register', { email: 'student@example.com', password: 'another long password' });
+  ok('a second sign-up attempt inside a minute still answers 202 and does NOT mail the owner twice', dup2.status === 202 && (await dup2.json()).pending === true && emails.length === 0, String(dup2.status) + ' emails=' + emails.length);
   // login
   const bad = await post('/account/login', { email: 'student@example.com', password: 'wrong password here' });
   ok('login with the wrong password → 401', bad.status === 401);
@@ -680,6 +716,9 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   ok('me shows the saved card (brand and last four only)', me2.payment_method && me2.payment_method.brand === 'visa' && me2.payment_method.last4 === '4242' && !JSON.stringify(me2).includes('pm_saved'), JSON.stringify(me2.payment_method));
   // a signed-in booking goes through the Stripe Customer
   stripeCalls.length = 0;
+  // The hold this student took in the first registration block is well over 15 minutes old by now; only live holds count
+  // against the two-per-address cap.
+  for (const r of registrations.values()) if (r.status === 'pending' && r.customer_email === 'student@example.com') r.created_at = '2020-01-01T00:00:00Z';
   const booked = await reg(goodReg({ sku: 'MAST-HG-FUND', prerequisite: undefined, account_token: token }));
   ok('a signed-in registration checks out against the Stripe Customer with the saved card offered', booked.status === 200 && stripeCalls[0].get('customer') === 'cus_test_1' && !stripeCalls[0].has('customer_email') && stripeCalls[0].get('saved_payment_method_options[payment_method_save]') === 'enabled' && stripeCalls[0].get('metadata[account_id]') === r1.account.id, String(booked.status) + ' ' + JSON.stringify([...stripeCalls[0].entries()].filter(([k]) => /customer|account/.test(k))));
   stripeCalls.length = 0;
@@ -698,13 +737,20 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   const squatCode = codeIn(emails[0]);
   ok('a sign-up for another address gets no token, only a code sent to that address', squat.status === 202 && emails.length === 1 && emails[0].to[0] === 'victim@example.com');
   ok('the squatter (right password, unverified) cannot sign in → 403', (await post('/account/login', { email: 'victim@example.com', password: 'attacker password 1' })).status === 403);
-  ok('a second sign-up within a minute → 429 too_soon', (await post('/account/register', { email: 'victim@example.com', password: 'the real owner pw', name: 'Vic Owner' })).status === 429);
+  emails.length = 0;
+  const soon = await post('/account/register', { email: 'victim@example.com', password: 'the real owner pw', name: 'Vic Owner' });
+  ok('a second sign-up within a minute → the same 202 envelope with no second email, never a 429 that confirms the address', soon.status === 202 && (await soon.json()).pending === true && emails.length === 0, String(soon.status) + ' emails=' + emails.length);
   rowFor('victim@example.com').verify_sent_at = new Date(Date.now() - 120000).toISOString();   // a minute later
   emails.length = 0;
   const owner = await post('/account/register', { email: 'victim@example.com', password: 'the real owner pw', name: 'Vic Owner' });
   const ownerCode = codeIn(emails[0]);
   ok('the real owner can still sign up for the same address: the unverified slot is taken over', owner.status === 202 && rowFor('victim@example.com').name === 'Vic Owner');
   ok("the squatter's code is dead", squatCode === ownerCode || (await post('/account/verify', { email: 'victim@example.com', code: squatCode })).status === 400);
+  ok('an unknown address and a wrong code answer byte for byte the same 400', await (async () => {
+    const a = await post('/account/verify', { email: 'nobody-at-all@example.com', code: '123456' });
+    const b = await post('/account/verify', { email: 'victim@example.com', code: ownerCode === '654321' ? '123456' : '654321' });
+    return a.status === b.status && a.status === 400 && JSON.stringify(await a.json()) === JSON.stringify(await b.json());
+  })(), 'unknown vs wrong code must be indistinguishable');
   const ownerIn = await post('/account/verify', { email: 'victim@example.com', code: ownerCode });
   ok("the owner verifies with their code → 200; the squatter's password no longer works", ownerIn.status === 200 && (await post('/account/login', { email: 'victim@example.com', password: 'attacker password 1' })).status === 401, String(ownerIn.status));
   // lockout and re-send
@@ -758,6 +804,153 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
 }
 
 
+
+console.log('\n── Rate limiting, lockout and seat holds (security review, 2026-09-08) ──');
+{
+  const { lockMs, LOGIN_FAILURES_PER_LOCK, WINDOW_MS } = await import('./src/ratelimit.js');
+  const from = (path, body, ip) => worker.fetch(new Request('https://api.test' + path, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': ip }, body: JSON.stringify(body),
+  }), env, ctx);
+  const rowFor = (email) => [...accounts.values()].find((a) => a.email === email);
+
+  // ── per-account lockout ──
+  resetLimits(); emails.length = 0;
+  await post('/account/register', { email: 'lockme@example.com', password: 'a long enough password' });
+  const lockRow = rowFor('lockme@example.com');
+  const lockCode = (/\b(\d{6})\b/.exec(emails[0].text) || [])[1];
+  await post('/account/verify', { email: 'lockme@example.com', code: lockCode });
+  ok('lockout fixture: the account is verified and starts with no failures', !!rowFor('lockme@example.com').verified_at && !rowFor('lockme@example.com').failed_logins);
+
+  resetLimits();
+  const wrong = [];
+  for (let i = 0; i < LOGIN_FAILURES_PER_LOCK; i++) wrong.push((await post('/account/login', { email: 'lockme@example.com', password: 'not the password ' + i })).status);
+  ok('five wrong passwords all answer the plain 401 — the fifth does not announce that the address exists', wrong.join() === '401,401,401,401,401', wrong.join());
+  ok('… and the fifth failure set a lock 15 minutes out', rowFor('lockme@example.com').failed_logins === 5 && Date.parse(rowFor('lockme@example.com').locked_until) - Date.now() > 14 * 60000, JSON.stringify({ n: rowFor('lockme@example.com').failed_logins, until: rowFor('lockme@example.com').locked_until }));
+  const sixth = await post('/account/login', { email: 'lockme@example.com', password: 'not the password 6' }); const sb = await sixth.json();
+  ok('the sixth attempt → 429 locked with retry_after and a Retry-After header', sixth.status === 429 && sb.code === 'locked' && sb.retry_after > 0 && sixth.headers.get('Retry-After') === String(sb.retry_after), String(sixth.status) + ' ' + JSON.stringify(sb));
+  ok('a locked account is refused BEFORE the password is hashed: the RIGHT password is refused too', (await post('/account/login', { email: 'lockme@example.com', password: 'a long enough password' })).status === 429);
+  ok('the lock doubles at every further five, capped at a day', lockMs(5) === 900000 && lockMs(10) === 1800000 && lockMs(15) === 3600000 && lockMs(500) === 86400000, [lockMs(5), lockMs(10), lockMs(15), lockMs(500)].join());
+  ok('the lock is per account, not global: another account signs in while this one is locked', (await post('/account/login', { email: 'student@example.com', password: 'yet another long password' })).status === 200);
+
+  // the lock runs out → the right password works again and the counter is reset
+  rowFor('lockme@example.com').locked_until = new Date(Date.now() - 1000).toISOString();
+  const back = await post('/account/login', { email: 'lockme@example.com', password: 'a long enough password' });
+  ok('once the lock has run out the right password signs in again', back.status === 200 && typeof (await back.json()).token === 'string', String(back.status));
+  ok('a successful sign-in clears the counter and the lock', rowFor('lockme@example.com').failed_logins === 0 && !rowFor('lockme@example.com').locked_until, JSON.stringify({ n: rowFor('lockme@example.com').failed_logins, until: rowFor('lockme@example.com').locked_until }));
+
+  // ── per-IP window ──
+  resetLimits();
+  const IP = '198.51.100.7';
+  const codes = [];
+  for (let i = 0; i < 22; i++) codes.push((await from('/account/login', { email: 'lockme@example.com', password: 'a long enough password' }, IP)).status);
+  ok('one address gets 20 sign-in attempts per 10-minute window, then 429', codes.slice(0, 20).every((c) => c === 200) && codes[20] === 429 && codes[21] === 429, codes.join());
+  const over = await from('/account/login', { email: 'lockme@example.com', password: 'a long enough password' }, IP); const ob = await over.json();
+  ok('the per-IP 429 carries Retry-After and code rate_limited', ob.code === 'rate_limited' && ob.retry_after > 0 && ob.retry_after <= WINDOW_MS / 1000 && over.headers.get('Retry-After') === String(ob.retry_after), JSON.stringify(ob));
+  ok('… and another address is unaffected', (await from('/account/login', { email: 'lockme@example.com', password: 'a long enough password' }, '198.51.100.8')).status === 200);
+  ok('the window rolls: an expired window starts a fresh count', await (async () => {
+    const r = rateLimits.get('login:' + IP); r.window_start = new Date(Date.now() - 11 * 60000).toISOString();
+    return (await from('/account/login', { email: 'lockme@example.com', password: 'a long enough password' }, IP)).status === 200;
+  })());
+
+  resetLimits();
+  const signups = [];
+  for (let i = 0; i < 7; i++) signups.push((await from('/account/register', { email: 'spray' + i + '@example.com', password: 'a long enough password' }, '198.51.100.9')).status);
+  ok('sign-up is 5 per window from one address, then 429', signups.slice(0, 5).every((c) => c === 202) && signups[5] === 429 && signups[6] === 429, signups.join());
+
+  resetLimits();
+  const mails = [];
+  for (let i = 0; i < 6; i++) mails.push((await from(i % 2 ? '/account/forgot' : '/account/resend', { email: 'lockme@example.com' }, '198.51.100.10')).status);
+  ok('forgot and resend share one 5-per-window budget: both mail a code to whatever address is posted', mails.slice(0, 5).every((c) => c === 200) && mails[5] === 429, mails.join());
+
+  resetLimits();
+  const beacon = [];
+  for (let i = 0; i < 32; i++) beacon.push((await from('/event', { action: 'view', page: 'p' }, '198.51.100.11')).status);
+  ok('the beacon is 30 per window from one address, then 429', beacon.slice(0, 30).every((c) => c === 200) && beacon[30] === 429, beacon.slice(28).join());
+
+  // ── the limiter's own D1 failure ──
+  resetLimits(); rateFail = true;
+  const failLogin = await from('/account/login', { email: 'lockme@example.com', password: 'a long enough password' }, '198.51.100.12');
+  const failEvent = await from('/event', { action: 'view', page: 'p' }, '198.51.100.12');
+  const failReg = await from('/register', goodReg(), '198.51.100.12');
+  rateFail = false;
+  ok('a D1 failure in the limiter FAILS CLOSED on sign-in → 429, never a free guessing window', failLogin.status === 429 && (await failLogin.json()).code === 'rate_limited', String(failLogin.status));
+  ok('… and fails closed on /register too', failReg.status === 429, String(failReg.status));
+  ok('… but /event fails OPEN: losing the first-party beacon is worse than letting it through', failEvent.status === 200, String(failEvent.status));
+  ok('the limiter recovers on the next request once D1 is back', (await from('/account/login', { email: 'lockme@example.com', password: 'a long enough password' }, '198.51.100.13')).status === 200);
+
+  // ── seat holds ──
+  resetLimits();
+  const HOLD_SKU = 'MAST-HG-FUND', HOLD_DATE = '2026-11-14';
+  for (const r of [...registrations.values()]) if (r.sku === HOLD_SKU && r.session_date === HOLD_DATE) registrations.delete(r.id);
+  const holdBody = (n) => goodReg({ sku: HOLD_SKU, prerequisite: undefined, session_date: HOLD_DATE, qty: 1, customer: { name: 'Hold ' + n, email: 'hold' + n + '@example.com', phone: '(713) 555-0100', organization: '' } });
+
+  stripeCalls.length = 0;
+  const h1 = await (await from('/register', holdBody(1), '198.51.100.20')).json();
+  const heldRow = registrations.get(h1.registration_id);
+  ok('a booking stores the registration, then reaches Stripe, then stamps the session id on it', heldRow && heldRow.status === 'pending' && heldRow.stripe_session_id === 'cs_test_123' && stripeCalls.length === 1, JSON.stringify(heldRow && { s: heldRow.status, sid: heldRow.stripe_session_id }));
+
+  // a pending row with no Stripe session id holds nothing — the DoS the old 30-minute hold allowed
+  registrations.set('reg_no_session', { id: 'reg_no_session', created_at: new Date().toISOString(), status: 'pending', sku: HOLD_SKU, session_date: HOLD_DATE, qty: 16, customer_email: 'ghost@example.com', agreement_ip: '198.51.100.99', stripe_session_id: null });
+  const past = await from('/register', holdBody(2), '198.51.100.21');
+  ok('16 seats held by a pending row that never reached Stripe count for nothing: the next booking still sells', past.status === 200, String(past.status) + ' ' + JSON.stringify(await past.clone().json()).slice(0, 120));
+  registrations.get('reg_no_session').stripe_session_id = 'cs_test_ghost';
+  const blocked = await from('/register', holdBody(3), '198.51.100.22'); const bb = await blocked.json();
+  ok('… and the moment that same row carries a session id it holds all 16 and the class is sold out', blocked.status === 409 && bb.code === 'sold_out', String(blocked.status) + ' ' + JSON.stringify(bb).slice(0, 120));
+  registrations.delete('reg_no_session');
+
+  // the hold is 15 minutes, not 30
+  const aged = registrations.get(h1.registration_id);
+  aged.created_at = new Date(Date.now() - 20 * 60000).toISOString();
+  const seats = await env.DB.prepare("SELECT COALESCE(SUM(qty), 0) AS n FROM registrations WHERE sku = ? AND session_date = ? AND (status = 'paid' OR (status = 'pending' AND stripe_session_id IS NOT NULL AND created_at > ?))")
+    .bind(HOLD_SKU, HOLD_DATE, new Date(Date.now() - 15 * 60000).toISOString()).first();
+  ok('a hold 20 minutes old no longer counts: the hold is 15 minutes, not the old 30', Number(seats.n) === 1, JSON.stringify(seats));
+
+  // two live holds per address, and two per connection
+  resetLimits();
+  for (const r of [...registrations.values()]) if (r.sku === HOLD_SKU && r.session_date === HOLD_DATE) registrations.delete(r.id);
+  const sameEmail = { name: 'Repeat Booker', email: 'repeat@example.com', phone: '(713) 555-0100', organization: '' };
+  const e1 = await from('/register', goodReg({ sku: HOLD_SKU, prerequisite: undefined, session_date: HOLD_DATE, qty: 1, customer: sameEmail }), '198.51.100.30');
+  const e2 = await from('/register', goodReg({ sku: HOLD_SKU, prerequisite: undefined, session_date: HOLD_DATE, qty: 1, customer: sameEmail }), '198.51.100.31');
+  const e3 = await from('/register', goodReg({ sku: HOLD_SKU, prerequisite: undefined, session_date: HOLD_DATE, qty: 1, customer: sameEmail }), '198.51.100.32');
+  const e3b = await e3.json();
+  ok('two live holds per address, and the third is refused with 429 too_many_holds', e1.status === 200 && e2.status === 200 && e3.status === 429 && e3b.code === 'too_many_holds' && e3.headers.get('Retry-After') === '900', [e1.status, e2.status, e3.status].join() + ' ' + JSON.stringify(e3b).slice(0, 140));
+
+  resetLimits();
+  for (const r of [...registrations.values()]) if (r.sku === HOLD_SKU && r.session_date === HOLD_DATE) registrations.delete(r.id);
+  const ONE_IP = '198.51.100.40';
+  const i1 = await from('/register', holdBody(41), ONE_IP);
+  const i2 = await from('/register', holdBody(42), ONE_IP);
+  const i3 = await from('/register', holdBody(43), ONE_IP);
+  ok('two live holds per connection, whatever addresses they are booked under', i1.status === 200 && i2.status === 200 && i3.status === 429 && (await i3.json()).code === 'too_many_holds', [i1.status, i2.status, i3.status].join());
+
+  // The per-IP window on /register, isolated from the hold cap: each hold is cleared before the next request, so the only
+  // thing that can refuse the eleventh is the rate limit.
+  resetLimits();
+  const clearHolds = () => { for (const r of [...registrations.values()]) if (r.sku === HOLD_SKU && r.session_date === HOLD_DATE) registrations.delete(r.id); };
+  clearHolds();
+  const seatSpray = [], seatCodes = [];
+  for (let i = 0; i < 12; i++) {
+    const res = await from('/register', holdBody(60 + i), '198.51.100.50');
+    seatSpray.push(res.status); seatCodes.push((await res.json()).code);
+    clearHolds();
+  }
+  ok('/register is 10 per window from one address, then 429 rate_limited — the seat-hold route cannot be sprayed', seatSpray.slice(0, 10).every((c) => c === 200) && seatSpray[10] === 429 && seatCodes[10] === 'rate_limited' && seatSpray[11] === 429, seatSpray.join() + ' / ' + seatCodes[10]);
+  clearHolds();
+
+  resetLimits();
+  const leads = [];
+  for (let i = 0; i < 32; i++) leads.push((await from('/contact', { name: 'Lead ' + i, email: 'lead' + i + '@example.com', message: 'A message long enough.' }, '198.51.100.60')).status);
+  ok('/contact is 30 per window from one address, then 429', leads.slice(0, 30).every((c) => c === 200) && leads[30] === 429 && leads[31] === 429, leads.slice(28).join());
+
+  // ── the daily cron purges the counter rows ──
+  resetLimits();
+  rateLimits.set('login:1.2.3.4', { key: 'login:1.2.3.4', window_start: '2020-01-01T00:00:00Z', count: 9 });
+  rateLimits.set('login:5.6.7.8', { key: 'login:5.6.7.8', window_start: new Date().toISOString(), count: 1 });
+  let ranRate = null; await worker.scheduled({}, env, { waitUntil: (p) => { ranRate = p; } }); await ranRate;
+  ok('the daily cron drops rate-limit rows older than a day and keeps live ones', !rateLimits.has('login:1.2.3.4') && rateLimits.has('login:5.6.7.8'), [...rateLimits.keys()].join());
+  resetLimits();
+  emails.length = 0;
+}
 
 console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect data - and much more") ──');
 {
