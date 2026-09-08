@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Atlas Static Root
  * Description: Serves the uploaded static Atlas pages at / and the section slugs, so WordPress stops rendering those URLs.
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: atlasglinn-website (the pages it serves are uploaded by scripts/wp-upload.sh)
  *
  * Purpose. scripts/wp-upload.sh puts the generated Atlas pages into this WordPress docroot over SFTP, and the web
@@ -60,17 +60,32 @@
  * /about?utm_source=x, or a campaign tag would be dropped on the way in. /about/?p=1 never reaches the redirect —
  * an unknown parameter fell through one gate earlier and the whole URL is WordPress's.
  *
+ * AND THE 301 IS SENT ONLY WHEN THE TARGET CAN ACTUALLY BE SERVED — the same check, on the same bytes, that the serve
+ * path runs. Otherwise a page that is missing, zero-byte, truncated, a directory or a symlink turns its own working
+ * WordPress permalink (/privacy/, /careers/ …) into a 301 to a URL where this file falls through and WordPress
+ * renders the slug: a loop on a host that puts the trailing slash back, and at best a 404 at a URL that worked
+ * yesterday. When the target is not servable, /privacy/ is handed to WordPress untouched, exactly as /privacy is.
+ * The 301 carries Cache-Control: public, max-age=300 and the same Vary as the pages, because a 301 with no cache
+ * directive is one a browser may keep for good — and a redirect already stored is out of reach of both kill switches.
+ * Five minutes is how long a rollback takes to be complete on the wire, and that is the whole reason for the header.
+ *
  * WHAT IS SERVED, and what is refused. The file name comes from the allowlist and never from the request. On top of
  * that the file must be a regular file whose realpath() is inside realpath(ABSPATH) and which is not a symlink, and
  * its bytes must be a non-empty string containing '</html>'. That last one is the truncated-upload case: SFTP that
  * dies halfway leaves a short file, and a short file has no closing tag — serving it as a 200 with public caching
  * would push a broken page into the CDN for max-age seconds and a re-upload alone would not pull it back. Each
  * refusal is one error_log line naming which check refused it, and a fall-through to WordPress: never a blank page.
+ * All of it is ONE function, atlas_static_root_load(), and both paths call it — the serve path for the bytes, the
+ * redirect above for the answer. Two lists would drift, and the day they disagreed is the day a 301 pointed at a page
+ * that could not be served.
  *
  * BEFORE THE BODY GOES OUT, zlib.output_compression is turned off and every output buffer is dropped, and only then
  * is Content-Length computed and the body echoed — an inherited buffer or a compression filter is how a
- * Content-Length stops matching the bytes on the wire. And if headers have already been sent when the hook runs, the
- * request is handed back untouched rather than half-answered.
+ * Content-Length stops matching the bytes on the wire. That reset is bounded, because ob_end_clean() returns false
+ * forever on a buffer started non-removable and a bare `while (ob_get_level())` spins on such a host; and it REPORTS.
+ * If a buffer is still standing when it returns, the request falls through with one log line rather than announce a
+ * Content-Length for bytes that are going to leave wrapped in somebody else's buffer. And if headers have already
+ * been sent when the hook runs, the request is handed back untouched rather than half-answered.
  *
  * TWO KILL SWITCHES, either one returns before the hook is added:
  *   1. define('ATLAS_STATIC_ROOT_DISABLED', true); in wp-config.php.
@@ -91,9 +106,10 @@
  * request of its own, no file write, no redirect anywhere but to a path in the allowlist above with the request's own
  * tracking query put back on it, and no input from the request beyond REQUEST_METHOD, REQUEST_URI and the two
  * conditional headers. It logs one line when an allowlisted page cannot be served — missing, a directory, unreadable,
- * outside the docroot, a symlink, empty, truncated or unreadable at read time — naming the file and which check
- * refused it. It runs on muplugins_loaded, where pluggable.php has not loaded, so it calls no WordPress function at
- * all beyond add_action — the redirect is a plain header(), not wp_redirect().
+ * outside the docroot, a symlink, empty, truncated, unreadable at read time, or sitting behind an output buffer that
+ * will not drop — naming the file and which check refused it. It runs on muplugins_loaded, where pluggable.php has
+ * not loaded, so it calls no WordPress function at all beyond add_action — the redirect is a plain header(), not
+ * wp_redirect().
  *
  * DEPLOY GATE. This file is NOT uploaded until Brockmann replies "go" to the review email (the brain vault's
  * 00-rules/website-go-live-gate.md: the root switch is a separate, gated deploy). Until then the static pages stay
@@ -131,17 +147,20 @@ if (!defined('ATLAS_STATIC_ROOT_TESTING')) {
     // Compression off and every inherited buffer dropped, before a single byte and before Content-Length is counted.
     // The loop stops on a buffer it cannot remove instead of spinning on it: ob_end_clean() returns false on a handler
     // that was started non-removable, and `while (ob_get_level() > 0)` on its own is an infinite loop on that host.
+    // TRUE only when nothing is left standing. A caller that got false has not been given a clean wire and must fall
+    // through: the alternative is a Content-Length counted over bytes another buffer is still holding.
     function atlas_static_root_reset_output() {
         @ini_set('zlib.output_compression', '0');
         while (($level = ob_get_level()) > 0) {
             if (!@ob_end_clean() || ob_get_level() >= $level) { break; }
         }
+        return ob_get_level() === 0;
     }
 }
 
 if (!defined('ABSPATH')) { atlas_static_root_exit(); return; }
 
-define('ATLAS_STATIC_ROOT_VERSION', '1.1.0');
+define('ATLAS_STATIC_ROOT_VERSION', '1.2.0');
 define('ATLAS_STATIC_ROOT_MARKER', '.atlas-static-root-off');
 define('ATLAS_STATIC_ROOT_MAX_AGE', 300);
 
@@ -182,10 +201,18 @@ function atlas_static_root_marker_path() {
     return rtrim($dir, '/\\') . '/' . ATLAS_STATIC_ROOT_MARKER;
 }
 
-// One stat per request, deliberately: that is the price of a switch that flips over SFTP with no wp-config edit.
+// One stat per request, and exactly one — the file-scope guard at the bottom and dispatch() both ask, and a request
+// cannot watch the marker appear halfway through itself, so the answer is memoised. mu-plugins are executed afresh on
+// every request under mod_php and php-fpm, where a static resets with the process's request state, so dropping or
+// deleting the marker still takes effect on the very next request. That one stat is the price of a switch that flips
+// over SFTP with no wp-config edit.
 function atlas_static_root_off() {
-    if (defined('ATLAS_STATIC_ROOT_DISABLED') && ATLAS_STATIC_ROOT_DISABLED) { return true; }
-    return file_exists(atlas_static_root_marker_path());
+    static $off = null;
+    if ($off === null) {
+        $off = (defined('ATLAS_STATIC_ROOT_DISABLED') && ATLAS_STATIC_ROOT_DISABLED)
+            || file_exists(atlas_static_root_marker_path());
+    }
+    return $off;
 }
 
 // The first 8 of this file's own sha1: a re-upload that silently failed leaves the old bytes running under the same
@@ -249,13 +276,14 @@ function atlas_static_root_query_ok($query) {
     return true;
 }
 
-// array('serve', <file>) | array('redirect', <path>) | null
+// array('serve', <file>) | array('redirect', <path>, <file>) | null. The redirect carries the target's file name as
+// well as its path, because the caller has to prove that page is servable before it sends anyone to it.
 function atlas_static_root_match($path) {
     $map = atlas_static_root_map();
     if (isset($map[$path])) { return array('serve', $map[$path]); }
-    if ($path !== '/' && substr($path, -1) === '/') {
+    if (substr($path, -1) === '/') {    // '/' itself never reaches here — it is in the map and returned on the line above
         $bare = substr($path, 0, -1);   // ONE trailing slash; '/about//' carried '//' and never reached here
-        if (isset($map[$bare])) { return array('redirect', $bare); }
+        if (isset($map[$bare])) { return array('redirect', $bare, $map[$bare]); }
     }
     return null;
 }
@@ -310,49 +338,73 @@ function atlas_static_root_fresh($etag, $mtime) {
     return false;
 }
 
-// The query rides along: it was already checked, so it is either empty or tracking tags only.
+// The query rides along: it was already checked, so it is either empty or tracking tags only. The target was proved
+// servable by the caller. Cache-Control is on it for the same reason it is on the pages and for one more: a 301 a
+// browser or an edge has already stored is out of reach of both kill switches, so max-age is the longest a rollback
+// can take to be complete on the wire.
 function atlas_static_root_redirect($to, $query) {
-    atlas_static_root_reset_output();
+    if (!atlas_static_root_reset_output()) {
+        error_log('[atlas-static-root] not redirected, an output buffer would not drop: ' . $to);
+        return;
+    }
     atlas_static_root_send_header('Location: ' . $to . ($query === '' ? '' : '?' . $query), 301);
+    atlas_static_root_send_header('Cache-Control: public, max-age=' . ATLAS_STATIC_ROOT_MAX_AGE);
+    atlas_static_root_send_header('Vary: Accept-Encoding');
     atlas_static_root_exit();
 }
 
-function atlas_static_root_serve($name, $head) {
+// THE servability check, and the only one there is. Returns the page's bytes, or null after one error_log line naming
+// the file and the check that refused it. The serve path calls it for the bytes; the redirect path calls it for the
+// answer. Every refusal is a fall-through, never a blank page: WordPress still has a page at this URL today, and an
+// empty or half-written 200 would be worse than the WordPress copy.
+function atlas_static_root_load($name) {
     $file = ABSPATH . $name;
-    // Every refusal below is a fall-through, never a blank page: WordPress still has a page at this URL today, and an
-    // empty or half-written 200 would be worse than the WordPress copy. One line each, naming the file and the check.
     if (!is_file($file) || !is_readable($file)) {
         error_log('[atlas-static-root] not served, missing or unreadable: ' . $name);
-        return;
+        return null;
     }
     if (!atlas_static_root_contained($file)) {
         error_log('[atlas-static-root] not served, outside the docroot: ' . $name);
-        return;
+        return null;
     }
     if (is_link($file)) {
         error_log('[atlas-static-root] not served, symlink: ' . $name);
-        return;
+        return null;
     }
     $body = atlas_static_root_read($file);
     if (!is_string($body)) {
         error_log('[atlas-static-root] not served, read failed: ' . $name);
-        return;
+        return null;
     }
     // The truncated-upload case: SFTP that died halfway leaves a short file, and a short file has no closing tag.
     if ($body === '' || stripos($body, '</html>') === false) {
         error_log('[atlas-static-root] not served, empty or truncated (no closing </html>): ' . $name);
-        return;
+        return null;
     }
+    return $body;
+}
+
+function atlas_static_root_serve($name, $head) {
+    $body = atlas_static_root_load($name);
+    if ($body === null) { return; }
+    $file  = ABSPATH . $name;
     $mtime = filemtime($file);
     if (!is_int($mtime)) { $mtime = 0; }
     $etag    = '"' . substr(sha1($body), 0, 8) . '"';
     $lastmod = atlas_static_root_last_modified($mtime);
+    $fresh   = atlas_static_root_fresh($etag, $mtime);
 
-    if (atlas_static_root_fresh($etag, $mtime)) {
+    // The buffers go first on both branches, and a buffer that will not drop ends the request here: a 304 trailing
+    // somebody else's buffered output is a 304 with a body, and a Content-Length counted while a buffer still holds
+    // the bytes describes something other than the wire. Falling through hands WordPress a URL it can still answer.
+    if (!atlas_static_root_reset_output()) {
+        error_log('[atlas-static-root] not served, an output buffer would not drop: ' . $name);
+        return;
+    }
+
+    if ($fresh) {
         // No Content-Length and no Content-Type on a 304: RFC 7232 asks for the validators and the cache directives,
-        // and a Content-Length beside an empty body is what breaks a client that believes it. The buffers still get
-        // dropped — a 304 that trails somebody else's buffered output is a 304 with a body.
-        atlas_static_root_reset_output();
+        // and a Content-Length beside an empty body is what breaks a client that believes it.
         atlas_static_root_send_header('HTTP/1.1 304 Not Modified', 304);
         atlas_static_root_send_header('Last-Modified: ' . $lastmod);
         atlas_static_root_send_header('ETag: ' . $etag);
@@ -363,7 +415,6 @@ function atlas_static_root_serve($name, $head) {
         return;
     }
 
-    atlas_static_root_reset_output();
     atlas_static_root_send_header('Content-Type: text/html; charset=utf-8');
     atlas_static_root_send_header('Content-Length: ' . strlen($body));
     atlas_static_root_send_header('Last-Modified: ' . $lastmod);
@@ -390,7 +441,15 @@ function atlas_static_root_dispatch() {
     if (atlas_static_root_headers_sent()) { return; }
     $hit = atlas_static_root_match($path);
     if ($hit === null) { return; }
-    if ($hit[0] === 'redirect') { atlas_static_root_redirect($hit[1], $query); return; }
+    if ($hit[0] === 'redirect') {
+        // Only ever to a page that can be served. /privacy/ 301'd to /privacy when privacy.html is missing or
+        // truncated is WordPress rendering the slug at the end of a redirect — a loop where the host puts the slash
+        // back, a 404 where it does not, at a URL that worked before this file was installed. The log line is the
+        // serve path's, because it is literally the same check.
+        if (atlas_static_root_load($hit[2]) === null) { return; }
+        atlas_static_root_redirect($hit[1], $query);
+        return;
+    }
     atlas_static_root_serve($hit[1], $method === 'HEAD');
 }
 

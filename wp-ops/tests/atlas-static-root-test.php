@@ -25,13 +25,30 @@
  *   privacy.html      zero bytes — the upload that created the file and wrote nothing.
  *   terms.html        truncated: real HTML, no closing </html>. The SFTP transfer that died halfway.
  *   technology.html   a DIRECTORY wearing a page's name.
- *   uas.html          chmod 000 (see the note at that case: root reads it anyway, so the directory above is the
- *                     unreadable case that always runs).
+ *   uas.html          chmod 000 — the is_readable() case, and the one case this environment may not be able to run
+ *                     (see below: as uid 0 it is readable anyway and the harness SKIPs rather than pass hollow).
  *   ep-app.html       a symlink pointing OUT of the docroot — only the containment check refuses it first.
  *   contact.html      a symlink pointing INSIDE the docroot at about.html — containment is happy; only is_link()
  *                     refuses it, and the two are told apart by which line each writes to the log.
+ *   disaster-recovery.html  a symlink into real-docroot2/ — a SIBLING directory whose name starts with the docroot's
+ *                     own name. realpath() of the target begins with realpath(ABSPATH) character for character, so an
+ *                     un-anchored strpos($real, $root) === 0 containment check passes it; the separator the real check
+ *                     appends is the only thing that refuses it. A probe beside the case pins that the naive check
+ *                     WOULD have passed, so the assertion is measuring the anchoring and not something else.
  *   x/                an empty directory, so docroot/x/../about.html is a path that really does resolve on disk and
  *                     the '..' probe is a probe and not a spelling.
+ *
+ * EVERY UNSERVABLE SHAPE IS ALSO PROBED THROUGH ITS TRAILING-SLASH PERMALINK (/privacy/, /careers/ …). The 301 is the
+ * one response that can make a URL worse than it was: sending /privacy/ to /privacy when privacy.html cannot be served
+ * hands the visitor to a URL where this file falls through and WordPress renders the slug — a loop where the host puts
+ * the slash back, a 404 where it does not, at a URL that worked before the plugin was installed. So the redirect runs
+ * the same servability check the serve path runs, and these cases are what hold it there.
+ *
+ * ONE CASE CANNOT RUN AS ROOT, and it says so rather than counting itself green. uas.html is chmod 000, which is the
+ * is_readable() case — but uid 0 reads it anyway, so under root the harness prints SKIP with the reason instead of an
+ * assertion that would pass without testing anything. On the host PHP runs unprivileged and that guard is live; the
+ * directory case (technology.html) is the unreadable-file case that runs everywhere. The parent counts a SKIP toward
+ * the pinned total, so a case that quietly disappears is still a failure, and reports skips separately from passes.
  *
  * Each scenario carries a PINNED assertion count (the cache-watch harness's rule, for the same reason): a scenario
  * that dies after its first assertion would otherwise report green, because the parent counts the PASS lines it
@@ -44,7 +61,36 @@
 // false forever on a handler started non-removable — the naive `while (ob_get_level() > 0)` spins, and set_time_limit()
 // does NOT stop it in CLI (measured 2026-09-08: 193 MB of notices, no timeout). A test that can hang is worse than no
 // test, so the child is killed at the deadline and reported as a failure like any other.
+//
+// AND A TEST THAT CAN FILL THE DISK IS WORSE STILL. Later the same day a mutant of this suite wrote 3.47 GB to
+// php-error.log in the system temp directory and filled the disk it was running on: a spinning child logs a notice per
+// iteration, and PHP's default error_log is one unbounded file that nothing here owned or cleaned. So every child now
+// gets its OWN error_log and its OWN scratch directory, both inside a single run directory this process creates and
+// deletes on the way out — including after a child was killed at the deadline and never ran its own shutdown function,
+// which is exactly the case that leaked. Under that, `ulimit -f` is the backstop the harness cannot talk its way past
+// (dash counts those blocks as 512 bytes, so 200000 is 100 MB here; bash counts 1 KiB and the same number is 200 MB —
+// measured 2026-09-08, and either way it is bounded, which is the point). A child whose log passes T_LOG_CAP is
+// reported as a red naming the byte count, so a runaway is a test failure and not a disk-full at 3am.
 define('T_DEADLINE', 60);
+define('T_ULIMIT_BLOCKS', 200000);
+define('T_LOG_CAP', 8388608);
+function t_rmrf($p) {
+    if (is_link($p) || is_file($p)) { @chmod($p, 0700); @unlink($p); return; }
+    if (is_dir($p)) {
+        foreach (array_diff(scandir($p), array('.', '..')) as $c) { t_rmrf(rtrim($p, '/') . '/' . $c); }
+        @rmdir($p);
+    }
+}
+// Every byte under a path, so a runaway log is measured wherever the child put it — the one the runner named on the
+// command line, or the one the child pointed ini_set() at inside its own scratch directory.
+function t_bytes($p) {
+    if (is_link($p)) { return 0; }
+    if (is_file($p)) { return (int) filesize($p); }
+    if (!is_dir($p)) { return 0; }
+    $n = 0;
+    foreach (array_diff(scandir($p), array('.', '..')) as $c) { $n += t_bytes(rtrim($p, '/') . '/' . $c); }
+    return $n;
+}
 function t_spawn($cmd) {
     $pipes = array();
     $proc = proc_open($cmd, array(1 => array('pipe', 'w'), 2 => array('pipe', 'w')), $pipes);
@@ -69,10 +115,25 @@ function t_spawn($cmd) {
 }
 
 if (!isset($_SERVER['argv'][1])) {
-    $scenarios = array('serve' => 117, 'guards' => 102, 'wrappers' => 10, 'disabled' => 7, 'marker' => 10);
-    $pass = 0; $fail = 0; $bad = array(); $counts = array();
+    // One directory holds everything this run can write, and it goes on the way out whatever happens: the shutdown
+    // function is the finally path, and it runs on a clean exit, on a fatal and on exit() alike.
+    $RUNDIR = rtrim(sys_get_temp_dir(), '/') . '/atlas-static-root-run-' . getmypid() . '/';
+    t_rmrf(rtrim($RUNDIR, '/'));
+    mkdir($RUNDIR, 0700, true);
+    ini_set('error_log', $RUNDIR . 'runner.log');   // this process's own notices, inside the directory it deletes
+    register_shutdown_function(function () use ($RUNDIR) { t_rmrf(rtrim($RUNDIR, '/')); });
+
+    $scenarios = array('serve' => 124, 'guards' => 129, 'wrappers' => 12, 'disabled' => 7, 'marker' => 10);
+    $pass = 0; $fail = 0; $skip = 0; $bad = array(); $counts = array();
     foreach ($scenarios as $s => $want) {
-        $cmd = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' ' . escapeshellarg($s);
+        $childlog = $RUNDIR . $s . '.log';
+        $childdir = $RUNDIR . $s . '/';
+        // ulimit first, then exec so the limit lands on PHP itself and not on a shell that has already gone. The child
+        // is told where to put its scratch directory, so the runner can clean up after a kill -9 that ran no shutdown.
+        $cmd = 'ulimit -f ' . T_ULIMIT_BLOCKS . '; exec ' . escapeshellarg(PHP_BINARY)
+             . ' -d ' . escapeshellarg('error_log=' . $childlog)
+             . ' -d ' . escapeshellarg('log_errors_max_len=1024')
+             . ' ' . escapeshellarg(__FILE__) . ' ' . escapeshellarg($s) . ' ' . escapeshellarg($childdir);
         list($lines, $rc, $timedout) = t_spawn($cmd);
         if ($timedout) {
             $fail++; $bad[] = $s . '/timed-out';
@@ -82,12 +143,19 @@ if (!isset($_SERVER['argv'][1])) {
         foreach ($lines as $l) {
             if (strpos($l, 'PASS ') === 0) { $pass++; $got++; echo '  PASS ' . $s . '/' . substr($l, 5) . "\n"; }
             elseif (strpos($l, 'FAIL ') === 0) { $fail++; $got++; $sawfail = true; $bad[] = $s . '/' . substr($l, 5); echo '  FAIL ' . $s . '/' . substr($l, 5) . "\n"; }
+            elseif (strpos($l, 'SKIP ') === 0) { $skip++; $got++; echo '  SKIP ' . $s . '/' . substr($l, 5) . "\n"; }
             else { echo '  | ' . $l . "\n"; }
         }
         $counts[] = $s . ' ' . $got . '/' . $want;
+        // 137 is the deadline kill; 153 is SIGXFSZ, the ulimit -f backstop firing — both are already non-zero here.
         if ($rc !== 0 && !$sawfail) {
             $fail++; $bad[] = $s . '/scenario-exited-' . $rc;
             echo '  FAIL ' . $s . "/scenario-exited-$rc without reporting a failure — it died mid-scenario\n";
+        }
+        $wrote = t_bytes($childlog) + t_bytes(rtrim($childdir, '/'));
+        if ($wrote > T_LOG_CAP) {
+            $fail++; $bad[] = $s . '/wrote-' . $wrote . '-bytes';
+            echo '  FAIL ' . $s . "/error-log-ran-away: $wrote bytes under $RUNDIR — a child was logging without a bound\n";
         }
         if ($got < $want) {
             $fail++; $bad[] = $s . '/assertions-shrank-' . $got . '-of-' . $want;
@@ -96,10 +164,10 @@ if (!isset($_SERVER['argv'][1])) {
             echo '  | ' . $s . ": $got assertions, $want pinned — raise the pin in this file\n";
         }
     }
-    $cases  = $pass + $fail;
+    $cases  = $pass + $fail + $skip;
     $pinned = array_sum($scenarios);
     echo "\nper scenario: " . implode(' · ', $counts) . "\n";
-    echo "atlas-static-root: $pass passed, $fail failed ($cases cases, $pinned pinned)\n";
+    echo "atlas-static-root: $pass passed, $fail failed, $skip skipped ($cases cases, $pinned pinned)\n";
     if ($fail) { echo "failed: " . implode(', ', $bad) . "\n"; }
     exit($fail ? 1 : 0);
 }
@@ -112,24 +180,25 @@ function t($name, $cond, $detail = '') {
     if ($cond) { $PASS++; echo "PASS $name\n"; }
     else { $FAILED++; echo "FAIL $name" . ($detail !== '' ? ": $detail" : '') . "\n"; }
 }
+// A case the environment cannot exercise says so and is counted as neither. The parent still counts it toward the
+// pinned total — a case that vanishes has to be a failure — and reports skips apart from passes.
+function s($name, $why) { echo "SKIP $name: $why\n"; }
 
-$ROOT = sys_get_temp_dir() . '/atlas-static-root-test-' . getmypid() . '/';
+// The runner names the scratch directory so it can delete it even after killing this process; the fallback is for a
+// scenario run by hand.
+$ROOT = (isset($_SERVER['argv'][2]) && $_SERVER['argv'][2] !== '')
+    ? rtrim($_SERVER['argv'][2], '/') . '/'
+    : sys_get_temp_dir() . '/atlas-static-root-test-' . getmypid() . '/';
 $REAL = $ROOT . 'real-docroot/';   // where the files actually live
 $DOC  = $ROOT . 'docroot/';        // a symlink to it, and ABSPATH: realpath(ABSPATH) differs from ABSPATH on purpose
 $MU   = $ROOT . 'mu-plugins/';
 $OUT  = $ROOT . 'outside.html';    // a valid page OUTSIDE the docroot, for the escaping symlink
+$SIB  = $ROOT . 'real-docroot2/';  // a SIBLING whose name starts with the docroot's own — the containment anchoring
 $LOG  = $ROOT . 'php-error.log';
-mkdir($ROOT, 0700, true); mkdir($REAL, 0700, true); mkdir($MU, 0700, true);
+mkdir($ROOT, 0700, true); mkdir($REAL, 0700, true); mkdir($MU, 0700, true); mkdir($SIB, 0700, true);
 $DOCLINKED = @symlink(rtrim($REAL, '/'), rtrim($DOC, '/'));
 if (!$DOCLINKED) { $DOC = $REAL; }   // one case reports this; the rest of the file still runs
-ini_set('error_log', $LOG);
-function t_rmrf($p) {
-    if (is_link($p) || is_file($p)) { @chmod($p, 0700); @unlink($p); return; }
-    if (is_dir($p)) {
-        foreach (array_diff(scandir($p), array('.', '..')) as $c) { t_rmrf(rtrim($p, '/') . '/' . $c); }
-        @rmdir($p);
-    }
-}
+ini_set('error_log', $LOG);   // inside $ROOT, which this process removes below and the runner removes regardless
 register_shutdown_function(function () use ($ROOT) { t_rmrf(rtrim($ROOT, '/')); });
 
 // No careers.html: /careers is allowlisted, so the missing-file fall-through is a measured case. The em dash makes the
@@ -146,10 +215,15 @@ foreach ($PAGES as $n => $c) { file_put_contents($REAL . $n, $c); touch($REAL . 
 file_put_contents($REAL . 'privacy.html', '');                                              // zero bytes
 file_put_contents($REAL . 'terms.html', "<!doctype html><html><title>Terms — Atlas Gli");    // truncated, no </html>
 file_put_contents($OUT, "<!doctype html><html><title>outside the docroot</title></html>\n");
+// real-docroot2/ is a sibling of real-docroot/, so its realpath starts with the docroot's realpath character for
+// character: strpos($real, $root) === 0 without a separator on the end of $root passes it. The symlink is how a
+// request reaches it, and the probe beside the assertion is what proves the naive check would have been fooled.
+file_put_contents($SIB . 'target.html', "<!doctype html><html><title>next door to the docroot</title></html>\n");
 mkdir($REAL . 'technology.html', 0700);   // a directory wearing a page's name
 mkdir($REAL . 'x', 0700);                 // so docroot/x/../about.html resolves
 $LINK_OUT = @symlink($OUT, $REAL . 'ep-app.html');
 $LINK_IN  = @symlink($REAL . 'about.html', $REAL . 'contact.html');
+$LINK_SIB = @symlink($SIB . 'target.html', $REAL . 'disaster-recovery.html');
 chmod($REAL . 'uas.html', 0000);
 clearstatcache();
 
@@ -174,13 +248,16 @@ function atlas_static_root_read($path) {
 function atlas_static_root_headers_sent() { return $GLOBALS['t_headers_sent']; }
 // The real one drops every buffer; this one drops every buffer the REQUEST added and stops at the harness's own
 // capture buffer, then records how many were left. Anything the plugin was supposed to drop shows up as a non-zero
-// depth, and anything echoed into a buffer the plugin did not drop never reaches the captured body.
+// depth, and anything echoed into a buffer the plugin did not drop never reaches the captured body. It returns what
+// the real one returns — true only when nothing survived — so the plugin's fall-through on a failed reset is reachable
+// from here; the real function's return value is pinned against a real non-removable buffer in the wrappers scenario.
 function atlas_static_root_reset_output() {
     $GLOBALS['t_flush']++;
     while (($level = ob_get_level()) > $GLOBALS['t_ob_floor']) {
         if (!@ob_end_clean() || ob_get_level() >= $level) { break; }
     }
     $GLOBALS['t_ob_depth'] = ob_get_level() - $GLOBALS['t_ob_floor'];
+    return $GLOBALS['t_ob_depth'] === 0;
 }
 }
 
@@ -192,7 +269,12 @@ function t_hooked($h) { $n = 0; foreach ($GLOBALS['t_actions'] as $r) { if ($r[0
 // ── request helpers ─────────────────────────────────────────────────────────────────────────────────────────────────
 // $buffers pre-registers output buffers on top of the capture buffer, the way a host with output_buffering on or a
 // plugin that started its own would: the served body only survives if the plugin dropped them before echoing.
-function req($method, $uri, $extra = array(), $buffers = 0) {
+// $stuck adds a buffer started with no flags, which ob_end_clean() can never remove: the plugin's reset returns false
+// on it and the request must fall through. It is left EMPTY on purpose — it survives to the end of the process by
+// construction, and anything echoed into it would come back out at shutdown in the middle of somebody's PASS line.
+// The cleanup below is bounded for the same reason the plugin's is: a bare `while (ob_get_level() > $floor)` spins
+// forever on that buffer, and a harness that hangs is worse than no harness.
+function req($method, $uri, $extra = array(), $buffers = 0, $stuck = false) {
     $GLOBALS['t_headers'] = array(); $GLOBALS['t_exit'] = 0; $GLOBALS['t_read'] = 0;
     $GLOBALS['t_flush'] = 0; $GLOBALS['t_ob_depth'] = -1;
     $_SERVER['REQUEST_METHOD'] = $method;
@@ -202,9 +284,15 @@ function req($method, $uri, $extra = array(), $buffers = 0) {
     ob_start();
     $GLOBALS['t_ob_floor'] = ob_get_level();
     for ($i = 0; $i < $buffers; $i++) { ob_start(); echo 'OUTPUT-FROM-SOMETHING-ELSE'; }
+    if ($stuck) { ob_start(null, 0, 0); }
     atlas_static_root_dispatch();
-    while (ob_get_level() > $GLOBALS['t_ob_floor']) { ob_end_clean(); }
-    $body = ob_get_clean();
+    $left = false;
+    while (($level = ob_get_level()) > $GLOBALS['t_ob_floor']) {
+        if (!@ob_end_clean() || ob_get_level() >= $level) { $left = true; break; }
+    }
+    // A buffer that will not go takes the capture buffer with it — ob_get_clean() on it would fail and log a notice.
+    // Nothing reached the wire in that case, which is the assertion the caller is making anyway.
+    $body = $left ? '' : ob_get_clean();
     return array('headers' => $GLOBALS['t_headers'], 'exit' => $GLOBALS['t_exit'], 'read' => $GLOBALS['t_read'],
                  'flush' => $GLOBALS['t_flush'], 'depth' => $GLOBALS['t_ob_depth'], 'body' => $body);
 }
@@ -227,7 +315,7 @@ function t_log_last() { $s = trim(t_log()); if ($s === '') { return ''; } $l = e
 
 $PLUGIN = dirname(__DIR__) . '/atlas-static-root.php';
 $BUILD  = substr(sha1_file($PLUGIN), 0, 8);   // computed here the direct way; the plugin reads its own bytes
-$VER    = '1.1.0';                            // pinned here on purpose: a version bump has to be a deliberate edit
+$VER    = '1.2.0';                            // pinned here on purpose: a version bump has to be a deliberate edit
 
 if ($SCN === 'disabled') { define('ATLAS_STATIC_ROOT_DISABLED', true); }
 if ($SCN === 'marker')   { file_put_contents(WPMU_PLUGIN_DIR . '/.atlas-static-root-off', ''); clearstatcache(); }
@@ -291,8 +379,13 @@ if ($SCN === 'serve') {
     t('about-slash-is-301', code($r) === 301, 'code=' . code($r));
     t('about-slash-location', h($r, 'Location') === '/about', h($r, 'Location'));
     t('about-slash-no-body', $r['body'] === '');
-    t('about-slash-reads-nothing', $r['read'] === 0);
-    t('about-slash-one-header-only', count($r['headers']) === 1, 'sent=' . count($r['headers']));
+    // The redirect READS the target now: a 301 goes only to a page that passes the serve path's own check, so the read
+    // is the proof and not an accident. Round 2 pinned read === 0 here, and that is exactly what let /privacy/ 301 to
+    // a page that cannot be served. The unservable shapes are all probed through their permalinks in guards.
+    t('about-slash-reads-the-target-once', $r['read'] === 1, 'read=' . $r['read']);
+    t('about-slash-cache-control', h($r, 'Cache-Control') === 'public, max-age=300', h($r, 'Cache-Control'));
+    t('about-slash-vary', h($r, 'Vary') === 'Accept-Encoding', h($r, 'Vary'));
+    t('about-slash-three-headers', count($r['headers']) === 3, 'sent=' . count($r['headers']));
     t('about-slash-exits-once', $r['exit'] === 1);
     t('about-slash-resets-output-once', $r['flush'] === 1, 'flush=' . $r['flush']);
     $r = req('GET', '/about/?utm_source=x');
@@ -305,6 +398,15 @@ if ($SCN === 'serve') {
     t('root-is-not-redirected', code($r) === 0 && $r['body'] !== '', 'the single trailing slash rule ate /');
     $r = req('GET', '/training/');
     t('training-slash-is-301', code($r) === 301 && h($r, 'Location') === '/training', h($r, 'Location'));
+    // EVERY 301, not just the one measured above. A redirect with no cache directive is one a browser may keep for
+    // good, and a stored redirect is out of reach of both kill switches: max-age is the ceiling on a rollback.
+    foreach (array('/about/', '/about/?utm_source=x', '/training/', '/training/?v=1725830000&utm_medium=email',
+                   '/about/?fbclid=IwAR0#frag') as $u) {
+        $r = req('GET', $u);
+        t('301-is-cacheable-for-five-minutes-' . $u,
+            code($r) === 301 && h($r, 'Cache-Control') === 'public, max-age=300' && h($r, 'Vary') === 'Accept-Encoding',
+            'code=' . code($r) . ' cc=' . h($r, 'Cache-Control') . ' vary=' . h($r, 'Vary'));
+    }
 
     // ── the query allowlist, serving side: a tracking tag changes nothing about which page answers ──
     $tags = array(
@@ -415,7 +517,7 @@ if ($SCN === 'serve') {
     t('conditional-fall-through-still-works', fell_through(req('GET', '/wp-admin/', array('HTTP_IF_NONE_MATCH' => $aboutEtag))));
 
     // ── nothing was written anywhere ──
-    t('no-file-written-to-docroot', count(glob(ABSPATH . '*')) === 10, 'entries=' . count(glob(ABSPATH . '*')));
+    t('no-file-written-to-docroot', count(glob(ABSPATH . '*')) === 11, 'entries=' . count(glob(ABSPATH . '*')));
     t('no-marker-created', !file_exists(WPMU_PLUGIN_DIR . '/.atlas-static-root-off'));
     t('serve-scenario-logged-nothing', trim(t_log()) === '', trim(t_log()));
 }
@@ -527,15 +629,17 @@ if ($SCN === 'guards') {
     t('directory-falls-through', refused($r) && $r['read'] === 0);
     t('directory-logs-the-unreadable-line', t_log_lines() === $before + 1 && strpos(t_log_last(), 'missing or unreadable: technology.html') !== false, t_log_last());
 
-    // chmod 000 is only a real case for a non-root process; as root the file is readable anyway, so the directory
-    // above is the unreadable case that always runs and this one reports which side of that line it is on.
-    $uasReadable = is_readable(ABSPATH . 'uas.html');
-    $before = t_log_lines();
-    $r = req('GET', '/uas');
-    if ($uasReadable) {
-        t('chmod-000-readable-as-uid-' . getmyuid() . '-so-it-serves', $r['body'] === file_get_contents(ABSPATH . 'uas.html') && $r['exit'] === 1,
-            'running as root: is_readable() is true, so the plugin must serve it rather than refuse it');
+    // chmod 000 is only a real case for a process that is not root. As uid 0 the file is readable anyway, so an
+    // assertion here would pass while testing nothing — it SKIPs with the reason instead, and the parent counts the
+    // skip toward the pin so the case cannot quietly disappear. The is_readable() guard stays in the plugin: on the
+    // host PHP runs unprivileged, and the directory case above is the unreadable-file case that runs everywhere.
+    $uid = function_exists('posix_geteuid') ? posix_geteuid() : getmyuid();
+    if (is_readable(ABSPATH . 'uas.html')) {
+        s('chmod-000-falls-through', 'running as uid ' . $uid . ', which reads a 0000 file regardless — is_readable() '
+            . 'cannot be made false here, so this case is not runnable in this environment');
     } else {
+        $before = t_log_lines();
+        $r = req('GET', '/uas');
         t('chmod-000-falls-through', refused($r) && t_log_lines() === $before + 1 && strpos(t_log_last(), 'missing or unreadable: uas.html') !== false, t_log_last());
     }
 
@@ -561,6 +665,21 @@ if ($SCN === 'guards') {
     t('contained-accepts-a-real-page', atlas_static_root_contained(ABSPATH . 'about.html') === true);
     t('contained-refuses-a-path-outside', atlas_static_root_contained($OUT) === false, $OUT);
 
+    // ── containment is ANCHORED on the separator, and this is the case that can tell. real-docroot2/ is a sibling of
+    // the docroot whose name starts with the docroot's name, so the naive strpos($real, $root) === 0 — no separator on
+    // the end of $root — passes it. The probe pins that the naive check really would have been fooled here, so the
+    // assertion under it is measuring the anchoring and not the fact that the file is somewhere else. ──
+    t('sibling-fixture-exists', $LINK_SIB && is_file($SIB . 'target.html'), 'the anchoring case below is hollow');
+    t('probe-the-naive-prefix-check-would-pass-the-sibling',
+        strpos(realpath($SIB . 'target.html'), realpath(ABSPATH)) === 0,
+        'real-docroot2 does not share the docroot realpath as a prefix: ' . realpath($SIB . 'target.html'));
+    t('contained-refuses-the-sibling-sharing-the-docroot-name', atlas_static_root_contained($SIB . 'target.html') === false,
+        $SIB . 'target.html');
+    $before = t_log_lines();
+    $r = req('GET', '/disaster-recovery');
+    t('sibling-prefix-falls-through', refused($r) && $r['read'] === 0);
+    t('sibling-prefix-logs-the-containment-line', t_log_lines() === $before + 1 && strpos(t_log_last(), 'outside the docroot: disaster-recovery.html') !== false, t_log_last());
+
     $before = t_log_lines();
     $GLOBALS['t_read_false'] = true;
     $r = req('GET', '/about');                                      // the read comes back false
@@ -568,6 +687,33 @@ if ($SCN === 'guards') {
     t('read-failure-falls-through', refused($r) && $r['read'] === 1, 'read=' . $r['read']);
     t('read-failure-logs-the-read-line', t_log_lines() === $before + 1 && strpos(t_log_last(), 'read failed: about.html') !== false, t_log_last());
     t('read-works-again-after', req('GET', '/about')['body'] === $ab);
+
+    // ── the 301 goes only to a page that can be served. Every shape above, reached through its WordPress permalink:
+    // a redirect here takes a URL that works today and points it at one where this file falls through and WordPress
+    // renders the slug — a loop where the host puts the slash back, a 404 where it does not. The log line proves it
+    // was the SAME check that refused it, and not a second list that could drift from the serve path's. ──
+    $unservable = array(
+        'missing'        => array('/careers/',           'missing or unreadable: careers.html'),
+        'directory'      => array('/technology/',        'missing or unreadable: technology.html'),
+        'empty'          => array('/privacy/',           'empty or truncated'),
+        'truncated'      => array('/terms/',             'empty or truncated'),
+        'symlink-out'    => array('/ep-app/',            'outside the docroot: ep-app.html'),
+        'symlink-in'     => array('/contact/',           'symlink: contact.html'),
+        'sibling-prefix' => array('/disaster-recovery/', 'outside the docroot: disaster-recovery.html'),
+    );
+    foreach ($unservable as $name => $case) {
+        $before = t_log_lines();
+        $r = req('GET', $case[0]);
+        t('unservable-slash-sends-no-301-' . $name, refused($r) && h($r, 'Location') === '' && code($r) === 0,
+            $case[0] . ' -> ' . code($r) . ' ' . h($r, 'Location'));
+        t('unservable-slash-logs-the-serve-paths-line-' . $name,
+            t_log_lines() === $before + 1 && strpos(t_log_last(), $case[1]) !== false, t_log_last());
+    }
+    $r = req('GET', '/careers/?utm_source=x');
+    t('unservable-slash-with-a-tracking-tag-sends-no-301', refused($r) && h($r, 'Location') === '', h($r, 'Location'));
+    $r = req('GET', '/about/');
+    t('servable-slash-still-301s', code($r) === 301 && h($r, 'Location') === '/about',
+        'the servability gate is refusing every redirect, so the cases above prove nothing');
 
     // ── headers already sent: hand it back, do not half-answer ──
     $GLOBALS['t_headers_sent'] = true;
@@ -590,7 +736,27 @@ if ($SCN === 'guards') {
     $r = req('GET', '/wp-admin/', array(), 2);
     t('buffers-fall-through-touches-nothing', $r['flush'] === 0 && $r['depth'] === -1, 'flush=' . $r['flush']);
 
-    t('guards-wrote-no-file-to-docroot', count(glob(ABSPATH . '*')) === 10, 'entries=' . count(glob(ABSPATH . '*')));
+    t('guards-wrote-no-file-to-docroot', count(glob(ABSPATH . '*')) === 11, 'entries=' . count(glob(ABSPATH . '*')));
+
+    // ── the reset that cannot succeed. ob_start(null, 0, 0) is a buffer with no flags: ob_end_clean() returns false on
+    // it forever, which the wrappers scenario pins against the REAL reset. The plugin must not carry on and announce a
+    // Content-Length for bytes that are going to leave wrapped in it, or send a 304 that trails somebody else's output.
+    // These run LAST on purpose: the fixture cannot be removed, so it stands for the rest of this process. ──
+    $before = t_log_lines();
+    $r = req('GET', '/', array(), 0, true);
+    t('stuck-buffer-200-falls-through', refused($r) && $r['depth'] === 1, 'depth=' . $r['depth'] . ' headers=' . count($r['headers']));
+    t('stuck-buffer-200-logs-the-buffer-line',
+        t_log_lines() === $before + 1 && strpos(t_log_last(), 'output buffer would not drop: index.html') !== false, t_log_last());
+    $before = t_log_lines();
+    $r = req('GET', '/about', array('HTTP_IF_NONE_MATCH' => etag_of(ABSPATH . 'about.html')), 0, true);
+    t('stuck-buffer-304-falls-through', refused($r), 'a 304 went out over a buffer still holding output');
+    t('stuck-buffer-304-logs-the-buffer-line',
+        t_log_lines() === $before + 1 && strpos(t_log_last(), 'output buffer would not drop: about.html') !== false, t_log_last());
+    $before = t_log_lines();
+    $r = req('GET', '/about/', array(), 0, true);
+    t('stuck-buffer-301-falls-through', refused($r) && h($r, 'Location') === '', h($r, 'Location'));
+    t('stuck-buffer-301-logs-the-redirect-line',
+        t_log_lines() === $before + 1 && strpos(t_log_last(), 'not redirected, an output buffer would not drop: /about') !== false, t_log_last());
 }
 
 // ── wrappers: the plugin's OWN five, not the shims ──────────────────────────────────────────────────────────────────
@@ -612,17 +778,21 @@ if ($SCN === 'wrappers') {
     t('real-read-returns-the-bytes', atlas_static_root_read(ABSPATH . 'about.html') === file_get_contents(ABSPATH . 'about.html'));
     t('real-read-of-a-missing-file-is-not-a-string', @atlas_static_root_read(ABSPATH . 'careers.html') === false);
     ob_start(); ob_start(); echo 'OUTPUT-FROM-SOMETHING-ELSE';
-    atlas_static_root_reset_output();
+    $clean = atlas_static_root_reset_output();
     t('real-reset-drops-two-removable-buffers-to-zero', ob_get_level() === 0, 'level=' . ob_get_level());
+    t('real-reset-reports-true-when-nothing-is-left', $clean === true, var_export($clean, true));
     // The one that used to spin. flags 0 = not removable: ob_end_clean() returns false on it forever, so REACHING the
     // line after this call is itself the assertion — and the runner's deadline is what turns a regression here into a
     // red instead of a hang.
     ob_start(null, 0, 0);
     $before = ob_get_level();
-    atlas_static_root_reset_output();
-    $after = ob_get_level();
+    $clean  = atlas_static_root_reset_output();
+    $after  = ob_get_level();
     t('real-reset-returns-on-a-buffer-it-cannot-remove', $after === $before, 'before=' . $before . ' after=' . $after);
     t('real-reset-left-the-unremovable-buffer-standing', $after === 1, 'level=' . $after);
+    // The return value the plugin acts on: false here is what makes serve() and the redirect fall through instead of
+    // declaring a Content-Length for bytes this buffer is still holding.
+    t('real-reset-reports-false-when-a-buffer-survives', $clean === false, var_export($clean, true));
 }
 
 // ── disabled: the constant ──────────────────────────────────────────────────────────────────────────────────────────
@@ -647,12 +817,15 @@ if ($SCN === 'marker') {
     t('marker-about-falls-through', fell_through(req('GET', '/about')));
     t('marker-slash-redirect-falls-through', fell_through(req('GET', '/about/')));
     t('marker-logs-nothing', trim(t_log()) === '', trim(t_log()));
-    // Removing it turns the plugin back on for the next request: the switch is the file itself, read per request, not
-    // a value cached at load. (clearstatcache() is this process standing in for the next request's fresh stat cache.)
+    // Removing it does NOT re-enable the plugin inside this request, and that is the point: the marker is stat'ed once
+    // and the answer memoised, because the file-scope guard and dispatch() both ask and a request cannot be allowed to
+    // change its mind halfway through itself. mu-plugins are executed afresh on every request under mod_php and
+    // php-fpm, where a static resets with the request, so the next request after the file is deleted is served — and
+    // THAT case is every other scenario in this file, each of which is a fresh process with no marker.
     unlink(atlas_static_root_marker_path()); clearstatcache();
-    t('marker-removed-off-is-false', atlas_static_root_off() === false);
-    $r = req('GET', '/');
-    t('marker-removed-serves-again', $r['body'] === file_get_contents(ABSPATH . 'index.html') && $r['exit'] === 1);
+    t('marker-removed-is-still-off-in-this-request', atlas_static_root_off() === true,
+        "the marker was stat'ed a second time inside one request");
+    t('marker-removed-still-falls-through-in-this-request', fell_through(req('GET', '/')));
 }
 
 exit($FAILED ? 1 : 0);
