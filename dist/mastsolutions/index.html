@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="900c3a2a139e">
+<meta name="build" content="f7e834f0ff67">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
 <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
@@ -282,6 +282,7 @@
 .cr-lvl.lvl-1 { background: rgba(201,168,76,.22); color: #fff; }
 .cr-img { width: 72px; height: 72px; object-fit: cover; border-radius: 4px; border: 1px solid rgba(201,168,76,.3); flex: 0 0 72px; margin-right: 14px; }
 .cr-pdf { display: inline-block; margin-top: .35rem; font-family: 'Share Tech Mono', monospace; font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: #C9A84C; text-decoration: none; }
+.cr-soon { font-family: 'Rajdhani', sans-serif; font-size: .95rem; color: #b6bdc9; margin-top: .3rem; }   /* the Experiences rows: a sentence, not the uppercase course meta line */
 .reg-steps { display: flex; gap: .4rem; list-style: none; margin: 1rem 0 .2rem; padding: 0; font-family: 'Share Tech Mono', monospace; font-size: .64rem; letter-spacing: .12em; text-transform: uppercase; color: #666; counter-reset: s; }
 .reg-steps li { flex: 1; padding: .45rem 0 0; border-top: 2px solid rgba(255,255,255,.12); }
 .reg-steps li::before { content: counter(s) ' '; counter-increment: s; }
@@ -397,6 +398,8 @@
 .acct-field .sr { position: absolute; left: -9999px; }
 .acct input { display: block; width: 100%; margin-top: .35rem; padding: .7rem .8rem; background: rgba(255,255,255,.04); border: 1px solid rgba(201,168,76,.3); border-radius: 4px; color: #fff; font-family: 'Rajdhani', sans-serif; font-size: 1rem; }
 .acct input:focus { outline: none; border-color: #C9A84C; }
+.acct select { display: block; width: 100%; margin-top: .35rem; padding: .7rem .8rem; background: #0B1221; border: 1px solid rgba(201,168,76,.3); border-radius: 4px; color: #fff; font-family: 'Rajdhani', sans-serif; font-size: 1rem; }
+.acct select:focus { outline: none; border-color: #C9A84C; }
 .acct-two { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-top: .5rem; }
 .acct-two input { margin-top: 0; }
 .acct-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.8rem; margin-top: .6rem; }
@@ -918,6 +921,16 @@
                 <label class="acct-field"><span class="sr">Address line 2</span><input id="ap-address2" type="text" placeholder="City, State ZIP" autocomplete="address-line2"></label>
                 <label class="acct-field">Emergency contact<input id="ap-em-name" type="text" placeholder="Name"></label>
                 <div class="acct-two"><input id="ap-em-phone" type="tel" placeholder="Phone"><input id="ap-em-rel" type="text" placeholder="Relationship"></div>
+                <!-- Credentials (owner, 2026-09-08: "Need to add 'CREDENTIALS' to the account if LE Teacher"). Typed by the member,
+                     verified by the office: saving stamps the account "pending review" and emails the team. The number is stored
+                     whole and shown back as its last four only, so a saved credential is never re-displayed in full. -->
+                <h4>Credentials</h4>
+                <label class="acct-field">Credential type<select id="ap-cred-type" onchange="acctCredType()"><option value="none">None</option><option value="le">Law enforcement</option><option value="teacher">Teacher / educator</option></select></label>
+                <div id="ap-cred-wrap" hidden>
+                    <label class="acct-field">Agency / school<input id="ap-cred-org" type="text" maxlength="120" autocomplete="off"></label>
+                    <label class="acct-field">Credential or badge number<input id="ap-cred-id" type="text" maxlength="64" autocomplete="off" spellcheck="false"><span class="acct-note" id="ap-cred-note">Letters, digits and dashes. We verify it with your agency or school before any member rate applies.</span></label>
+                    <p class="acct-line" id="ap-cred-status" hidden></p>
+                </div>
                 <div class="gate-actions"><button class="cta-button ghost-button small" type="button" onclick="acctSave()">Save details</button><span class="acct-saved" id="acct-saved" hidden>Saved &#10003;</span></div>
             </section>
             <section class="acct-block">
@@ -1538,20 +1551,41 @@ function requestGear(i){ reqIdx = i; const g = GEAR[i]; if (window.mastTrack) ma
 function requestPrivate(i){ reqIdx = i; const c = COURSES[i]; openReqDialog('private', c.name, c.meta ? c.meta.replace(/ · /g, ' · ') : '', 'Private instruction',
   'We reply within one business day. Private sessions are by arrangement, not on the weekend calendar. The fee is instruction only: ammunition, range fees and gear are not included.'); }
 renderGear();   // here, not at the foot of the script: the MAST assembler keeps the script only up to its reveal observer
+
+/* ── Experiences (owner, 2026-09-08: "add in Courses = 'EXPERIENCES' Couples + groups = Pics and Content coming"). A chapter of
+   the course catalog, not a course: no SKU, no D1 catalog row, no price, nothing bookable. The card asks for a coordinator
+   through the same Request dialog the private-instruction rows use, carrying the experience name.
+   Hidden until he has the pictures and the copy — "Pics and Content coming" — so EXPERIENCES_HIDDEN keeps the accordion off
+   the page entirely, the way GEAR_HIDDEN keeps the Aimpoint cards off. Flip it to false and the chapter appears; the JS gate
+   is what the MAST assembler carries over, so one edit here covers both pages. ── */
+const EXPERIENCES_HIDDEN = true;
+const EXPERIENCES = [
+  { key: 'couples', name: 'Couples', desc: 'Details, photos and dates coming soon.' },
+  { key: 'groups', name: 'Groups', desc: 'Details, photos and dates coming soon.' },
+];
+const EXPERIENCES_NOTE = 'Range days built around the people you bring, not a curriculum. Tell us who is coming and a coordinator answers within one business day.';
+function renderExperiences(){ const p = $('catalog'); if (!p || EXPERIENCES_HIDDEN) return; const ci = CATS.length;
+  p.insertAdjacentHTML('beforeend', '<div class="cat" id="cat-' + ci + '"><button class="cat-btn" aria-expanded="false" onclick="toggleCat(' + ci + ')"><span class="cat-name">Experiences</span><span class="cat-count">' + EXPERIENCES.length + ' experiences</span><span class="cat-chev" aria-hidden="true">&#9662;</span></button><div class="cat-panel"><p class="cat-note">' + esc(EXPERIENCES_NOTE) + '</p>'
+    + EXPERIENCES.map((x, i) => '<div class="course-row call"><div><div class="cr-name">' + esc(x.name) + '</div><div class="cr-soon">' + esc(x.desc) + '</div></div><div class="cr-side"><div class="cr-price">SOON<small>BY ARRANGEMENT</small></div><button class="cta-button cr-btn" type="button" onclick="requestExperience(' + i + ')">Talk To A Coordinator</button></div></div>').join('') + '</div></div>'); }
+function requestExperience(i){ reqIdx = i; const x = EXPERIENCES[i]; if (window.mastTrack) mastTrack('experience_request', x.name, x.key); openReqDialog('experience', x.name + ' Experience', x.desc, 'Experiences',
+  'We reply within one business day. Experiences are arranged around your group, not on the weekend calendar; dates, pricing and what is included come back in that reply.'); }
+renderExperiences();
 function closeReq(){ $('req-bd').classList.remove('open'); $('req').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
-async function reqGo(){ const gear = reqKind === 'gear'; const c = gear ? GEAR[reqIdx] : COURSES[reqIdx]; const name = $('req-name').value.trim(), email = $('req-email').value.trim(), phone = $('req-phone').value.trim(), note = $('req-msg').value.trim(); const err = $('req-err'), b = $('req-go');
+async function reqGo(){ const gear = reqKind === 'gear', exp = reqKind === 'experience'; const c = gear ? GEAR[reqIdx] : exp ? EXPERIENCES[reqIdx] : COURSES[reqIdx]; const name = $('req-name').value.trim(), email = $('req-email').value.trim(), phone = $('req-phone').value.trim(), note = $('req-msg').value.trim(); const err = $('req-err'), b = $('req-go');
   const org = gear ? $('req-org').value.trim() : '', qty = gear ? Math.max(1, Math.min(999, parseInt($('req-qty').value, 10) || 1)) : 0;
   if (name.length < 2) { err.textContent = 'Enter your name.'; err.hidden = false; $('req-name').focus(); return; }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Enter a valid email address.'; err.hidden = false; $('req-email').focus(); return; }
   if (gear && c.device && org.length < 2) { err.textContent = 'IWA devices need your agency, organization or PPC certificate number.'; err.hidden = false; $('req-org').focus(); return; }
   err.hidden = true; b.disabled = true; b.textContent = 'Sending…';
-  const message = gear
+  const message = exp
+    ? 'Experience enquiry — ' + c.name + ' (no dates or pricing published yet)' + (note ? '\n\n' + note : '')
+    : gear
     ? 'Gear quote request — ' + c.sku + ' ' + c.name + ' (' + c.brand + ' · ' + c.fam + ') × ' + qty + (c.price ? ' @ ' + c.price + (c.device ? ' each' : ' MAP') : '') + (org ? '\nAgency / organization / PPC: ' + org : '') + (note ? '\n\n' + note : '')
     : 'Private instruction request — ' + c.name + (c.meta ? ' (' + c.meta + ')' : '') + (note ? '\n\n' + note : '');
   try { const r = await fetch(API + '/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'contact', request_type: reqKind, company: org, name, email, phone, message, website: $('req-web').value, page: location.href.split('#')[0], attribution: window.mastAttribution ? mastAttribution() : undefined }) });
     const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'Could not send the request.');
     b.textContent = 'Request sent ✓'; $('req-meta').textContent = 'Thank you, ' + name.split(' ')[0] + '. We reply within one business day.'; setTimeout(closeReq, 2400); }
-  catch (e) { b.disabled = false; b.textContent = 'Send Request'; err.innerHTML = esc(e.message || 'Could not send the request.') + ' You can also email <a href="mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent((reqKind === 'gear' ? 'Gear quote — ' + c.sku + ' ' : 'Private instruction — ') + c.name) + '">atlasglinn.hq@atlasglinn.com</a>.'; err.hidden = false; }
+  catch (e) { b.disabled = false; b.textContent = 'Send Request'; err.innerHTML = esc(e.message || 'Could not send the request.') + ' You can also email <a href="mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent((gear ? 'Gear quote — ' + c.sku + ' ' : exp ? 'Experience — ' : 'Private instruction — ') + c.name) + '">atlasglinn.hq@atlasglinn.com</a>.'; err.hidden = false; }
 }
 document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if ($('dcal').classList.contains('open')) closeDCal(); if ($('req').classList.contains('open')) closeReq(); if ($('acct').classList.contains('open')) closeAcct(); });
 
@@ -1622,13 +1656,30 @@ function acctRender(d){
   [['ap-name', 'name'], ['ap-phone', 'phone'], ['ap-org', 'organization'], ['ap-address1', 'address1'], ['ap-address2', 'address2'], ['ap-em-name', 'emergency_name'], ['ap-em-phone', 'emergency_phone'], ['ap-em-rel', 'emergency_relationship']].forEach(([id, k]) => { $(id).value = a[k] || ''; });
   const pm = d.payment_method; $('ap-card').textContent = pm ? ((pm.brand ? pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1) : 'Card') + ' •••• ' + (pm.last4 || '') + (pm.exp_month ? ' · ' + pm.exp_month + '/' + String(pm.exp_year).slice(-2) : '')) : 'No card on file.'; $('ap-card-btn').textContent = pm ? 'Replace card' : 'Save a card';
   $('ap-classes').innerHTML = (d.classes && d.classes.length) ? d.classes.map(c => `<li>${esc(c.item_name || c.sku)}<small>${esc(c.session_label || c.session_date || '')}${c.qty > 1 ? ' · ' + c.qty + ' seats' : ''}</small></li>`).join('') : '<li class="acct-empty">None on record yet.</li>';
+  acctCredShow(a);
   const st = a.standards_passed || []; $('ap-standards').innerHTML = st.length ? st.map(x => `<li>${esc(typeof x === 'string' ? x : (x.name || ''))}${x && x.date ? `<small>${esc(x.date)}</small>` : ''}</li>`).join('') : '<li class="acct-empty">Recorded by your instructor after class.</li>';
   acctLinkText();
+}
+/* Credentials. The number comes back from the Worker as its last four only, so the field is left empty with the last four as
+   its placeholder: blank on save means "keep the one on file", and choosing None clears the credential outright. */
+const ACCT_CRED_TYPES = ['none', 'le', 'teacher'];
+const ACCT_CRED_STATUS = { pending: 'Verification: pending review', verified: 'Verification: verified', declined: 'Verification: not accepted \u2014 call the office.' };
+function acctCredType(){ $('ap-cred-wrap').hidden = $('ap-cred-type').value === 'none'; }
+function acctCredShow(a){
+  $('ap-cred-type').value = ACCT_CRED_TYPES.includes(a.credential_type) ? a.credential_type : 'none';
+  $('ap-cred-org').value = a.credential_org || '';
+  $('ap-cred-id').value = '';
+  $('ap-cred-id').placeholder = a.credential_id_last4 ? '\u2022\u2022\u2022\u2022 ' + a.credential_id_last4 : '';
+  $('ap-cred-note').textContent = a.credential_id_last4 ? 'On file, last four shown. Leave it blank to keep it.' : 'Letters, digits and dashes. We verify it with your agency or school before any member rate applies.';
+  const s = $('ap-cred-status'); s.textContent = ACCT_CRED_STATUS[a.credential_status] || ''; s.hidden = !s.textContent;
+  acctCredType();
 }
 function acctFlash(){ const s = $('acct-saved'); s.hidden = false; setTimeout(() => { s.hidden = true; }, 2200); }
 async function acctSave(){
   const body = { name: $('ap-name').value.trim(), phone: $('ap-phone').value.trim(), organization: $('ap-org').value.trim(), address1: $('ap-address1').value.trim(), address2: $('ap-address2').value.trim(), emergency_name: $('ap-em-name').value.trim(), emergency_phone: $('ap-em-phone').value.trim(), emergency_relationship: $('ap-em-rel').value.trim() };
-  try { const r = await fetch(API + '/account/update', { method: 'POST', headers: acctHeaders(), body: JSON.stringify(body) }); const d = await r.json().catch(() => ({})); if (r.status === 401) { acctSignOut(); return; } if (!r.ok) throw new Error(d.error || 'Could not save.'); acctData = d.account; acctLinkText(); $('acct-perr').hidden = true; acctFlash(); }
+  body.credential_type = $('ap-cred-type').value;
+  if (body.credential_type !== 'none') { body.credential_org = $('ap-cred-org').value.trim(); const cid = $('ap-cred-id').value.trim(); if (cid) body.credential_id = cid; }   // blank keeps the number already on file; None clears it, Worker side
+  try { const r = await fetch(API + '/account/update', { method: 'POST', headers: acctHeaders(), body: JSON.stringify(body) }); const d = await r.json().catch(() => ({})); if (r.status === 401) { acctSignOut(); return; } if (!r.ok) throw new Error(d.error || 'Could not save.'); acctData = d.account; acctCredShow(d.account); acctLinkText(); $('acct-perr').hidden = true; acctFlash(); }
   catch (e) { $('acct-perr').textContent = e.message; $('acct-perr').hidden = false; }
 }
 async function acctPassword(){

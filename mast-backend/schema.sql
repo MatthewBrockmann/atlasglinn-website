@@ -295,6 +295,14 @@ CREATE TABLE IF NOT EXISTS accounts (
   verify_code_hash       TEXT,                         -- HMAC(ACCOUNT_SECRET, id:kind:code)
   verify_expires_at      TEXT,
   verify_attempts        INTEGER NOT NULL DEFAULT 0,
-  verify_sent_at         TEXT
+  verify_sent_at         TEXT,
+  -- Law-enforcement / teacher credentials (migrations/007-account-credentials.sql on a live database; owner, 2026-09-08:
+  -- "Need to add 'CREDENTIALS' to the account if LE Teacher"). Typed by the account holder, stamped 'pending' by the Worker
+  -- and marked verified or declined here by a person; the page only ever sees the last four of the number.
+  credential_type         TEXT,                          -- 'none' | 'le' | 'teacher'
+  credential_org          TEXT,                          -- agency or school
+  credential_id           TEXT,                          -- credential or badge number
+  credential_status       TEXT NOT NULL DEFAULT 'none',  -- 'none' | 'pending' | 'verified' | 'declined' — never client-set
+  credential_submitted_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email);
