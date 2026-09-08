@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="b69de002ad04">
+<meta name="build" content="b4561cef1264">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
 <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
@@ -261,6 +261,9 @@
 .gear-card .cta-button { display: inline-block; margin-top: .9rem; padding: .55rem 1rem; font-size: .68rem; letter-spacing: .18em; }
 .gear-card.device { border-color: rgba(201,168,76,.28); }
 .gear-card.device .gear-sku { color: #C9A84C; }
+.gear-card .gear-oos { display: inline-block; margin-top: .55rem; padding: .22rem .55rem; border: 1px solid rgba(139,152,173,.45); font-family: 'Share Tech Mono', monospace; font-size: .55rem; letter-spacing: .22em; color: #8B98AD; }
+.gear-card .gear-link { display: block; margin-top: .55rem; font-family: 'Share Tech Mono', monospace; font-size: .58rem; letter-spacing: .1em; color: #C9A84C; text-decoration: none; }
+.gear-card .gear-link:hover, .gear-card .gear-link:focus-visible { color: #fff; }
 .modal.req [hidden] { display: none !important; }
 @media (max-width: 900px) { .gear-panel { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 600px) { .gear-panel { grid-template-columns: 1fr; } }
@@ -652,7 +655,7 @@
   <a href="https://atlasglinn.com/articles/index.html" class="chap-extra preview-only">&middot; Blogs</a>
   <a href="#s10" class="chap-link">10 &middot; Testimonials</a>
   <a href="#s11" class="chap-link">11 &middot; Privacy</a>
-  <a href="#s12" class="chap-link">12 &middot; Gear</a>
+  <a href="#s12" class="chap-link">12 &middot; Store</a>
   <a href="#s13" class="chap-link">13 &middot; Contact</a>
   <a href="#" class="chap-extra chap-always acct-link" onclick="openAcct();return false;">&middot; Sign in</a>
 </nav>
@@ -673,7 +676,7 @@
       <li><a href="#s9">In Action<small>Chapter 09</small></a></li>
       <li><a href="#s10">Testimonials<small>Chapter 10</small></a></li>
       <li><a href="#s11">Privacy<small>Chapter 11</small></a></li>
-      <li><a href="#s12">Gear<small>Chapter 12</small></a></li>
+      <li><a href="#s12">Store<small>Chapter 12</small></a></li>
       <li><a href="#s13">Contact<small>Chapter 13</small></a></li>
       <li><a href="#s6" class="nav-book" onclick="setTimeout(openDCal,0);return false;">Book a Class<small>Weekend calendar</small></a></li>
       <li><a href="#" class="acct-link" onclick="setTimeout(openAcct,0);return false;">Sign in</a></li>
@@ -872,11 +875,11 @@
   <section class="panel" id="s12" data-section="12">
     <div id="gear">  <!-- named anchor: the Atlas site menu's Training link (IWA Training Products) opens mastsolutions.html#gear -->
       <!-- Aimpoint hidden 2026-09-07 (owner: "hide Aimpoint for now"): GEAR_HIDDEN in mastsolutions-tesla.html keeps the cards off;
-           when it comes back, the eyebrow reads "Gear · Aimpoint and IWA" and the sub gets its Aimpoint sentence again
+           when it comes back, the eyebrow reads "Store · Aimpoint and IWA" and the sub gets its Aimpoint sentence again
            ("Atlas Glinn is an authorized dealer for Aimpoint optics and IWA International training devices. Aimpoint prices are
            MAP, with dealer and volume pricing on request and free shipping over $500."). -->
-      <div class="eyebrow">Gear &middot; IWA</div>
-      <h2 class="section-h">Equipment. <span class="gold">By Quote.</span></h2>
+      <div class="eyebrow">Store &middot; IWA</div>
+      <h2 class="section-h"><span class="gold">Store.</span></h2>
       <p class="sub">Atlas Glinn is an authorized dealer for IWA International training devices. IWA devices are priced each, three-unit minimum, hazmat shipping included; a PPC certification is required and every order is verified before fulfillment. Every item is quoted, not sold from a cart. Nothing is charged online.</p>
       <div class="gear-panel rise" id="gear-panel"></div>
       <p class="gate-fine" style="max-width:820px;margin:1.6rem auto 0;">Tell us the item and quantity; we confirm availability and shipping by email within one business day.</p>
@@ -1626,13 +1629,35 @@ function GEAR_PRICE_TABLE(){ return {
   'IWA-M11-4B': '$49.99', 'IWA-M11-7B': '$59.99', 'IWA-M12': '$42.99', 'IWA-M13': '$48.99', 'IWA-M14': '$38.99',
   'IWA-M15': '$55.50', 'IWA-PA85': '$69.99', 'IWA-TH14': '$89.99', 'IWA-IDC': '$46.99' }; }
 const GEAR_BRANDS = { Aimpoint: 'Optics · MAP pricing · free shipping over $500 · authorized dealer', IWA: 'IWA International · authorized dealer · PPC certification required · 3-unit minimum, 27 per box · hazmat shipping included' };
+const GEAR_BRAND_NAMES = { IWA: 'IWA Training Devices' };   // the heading over the cards; the GEAR rows keep the short key
 // Brands kept off the page for now (owner, 2026-09-07: "hide Aimpoint for now"). The items and prices stay in GEAR so the
 // chapter comes back with one edit here; the assembler's chapter text and the Atlas Training submenu follow this list.
 const GEAR_HIDDEN = ['Aimpoint'];
+// Out of stock (owner, 2026-09-08, on the Store chapter: "OUT OF STOCK"). One build-time constant beside GEAR_HIDDEN: while it
+// holds, every device card carries the badge and the quote dialog says so in its fine print. A per-item g.stock ('in' or 'out')
+// on a GEAR row wins over it, so one device can come back before the line does; flip it to false when the line is stocked.
+const GEAR_OUT_OF_STOCK = true;
+function gearOut(g){ return g.stock ? g.stock === 'out' : (GEAR_OUT_OF_STOCK && g.device); }
+// Each device links to its own page on the maker's shop (owner, 2026-09-08: "link to add acutal product info
+// https://iwainternationalinc.com/shop/"). The URLs are the ones that shop's own listing carries, read from the 2026-09-08
+// capture of https://iwainternationalinc.com/shop/ (reference/desktop/live/shop.html on claude/desktop-assets). That shop
+// paginates and the capture is page 1 of 5, so PA-85, TH-14 and the door charge are not in the table and fall back to the
+// shop root — a guessed product URL would be worse than the listing he asked for.
+const GEAR_SHOP = 'https://iwainternationalinc.com/shop/';
+const GEAR_PRODUCT_URL = {
+  'IWA-M11-4B': 'https://iwainternationalinc.com/m11-multibang-device-4-bang/',
+  'IWA-M11-7B': 'https://iwainternationalinc.com/m11-multibang-device-7-bang/',
+  'IWA-M12': 'https://iwainternationalinc.com/m12-distraction-device/',
+  'IWA-M13': 'https://iwainternationalinc.com/m13-thermobaric-device/',
+  'IWA-M14': 'https://iwainternationalinc.com/m14-smoke-deployment-device/',
+  'IWA-M15': 'https://iwainternationalinc.com/m15-large-smoke-grenade/' };
+function gearUrl(g){ return GEAR_PRODUCT_URL[g.sku] || GEAR_SHOP; }
 function renderGear(){ const p = $('gear-panel'); if (!p) return; let html = '', brand = '';
-  GEAR.forEach((g, i) => { if (GEAR_HIDDEN.includes(g.brand)) return; if (g.brand !== brand) { brand = g.brand; html += '<div class="gear-brand"><h3>' + esc(brand) + '</h3><span>' + esc(GEAR_BRANDS[brand] || '') + '</span></div>'; }
+  GEAR.forEach((g, i) => { if (GEAR_HIDDEN.includes(g.brand)) return; if (g.brand !== brand) { brand = g.brand; html += '<div class="gear-brand"><h3>' + esc(GEAR_BRAND_NAMES[brand] || brand) + '</h3><span>' + esc(GEAR_BRANDS[brand] || '') + '</span></div>'; }
     html += '<div class="gear-card' + (g.device ? ' device' : '') + '"><div class="gear-sku">' + esc(g.sku) + '</div><h4>' + esc(g.name) + '</h4><div class="gear-fam">' + esc(g.brand + ' · ' + g.fam) + '</div>'
-         + (g.price ? '<div class="gear-price">' + esc(g.price) + '<small>' + (g.device ? 'each · 3-unit minimum' : 'MAP · dealer pricing on request') + '</small></div>' : '')
+         + (gearOut(g) ? '<div class="gear-oos">OUT OF STOCK</div>' : '')
+         + (g.price ? '<div class="gear-price">' + esc(g.price) + '<small>' + (g.device ? 'list price · each · 3-unit minimum' : 'MAP · dealer pricing on request') + '</small></div>' : '')
+         + (g.device ? '<a class="gear-link" href="' + esc(gearUrl(g)) + '" target="_blank" rel="noopener noreferrer">Product details · IWA International ↗</a>' : '')
          + '<button class="cta-button" type="button" onclick="requestGear(' + i + ')">Request a quote</button></div>'; });
   p.innerHTML = html; }
 let reqKind = 'private';
@@ -1640,8 +1665,9 @@ function openReqDialog(kind, title, meta, eyebrow, fine){ reqKind = kind; lastFo
   $('req-org-wrap').hidden = kind !== 'gear'; $('req-qty-wrap').hidden = kind !== 'gear'; if ($('req-qty')) $('req-qty').value = 1; $('req-msg').value = ''; $('req-err').hidden = true;
   const b = $('req-go'); b.disabled = false; b.textContent = kind === 'gear' ? 'Request Quote' : 'Send Request'; $('req-bd').classList.add('open'); $('req').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('req-name').focus(), 60); }
 function requestGear(i){ reqIdx = i; const g = GEAR[i]; if (window.mastTrack) mastTrack('gear_request', g.name, g.sku); openReqDialog('gear', g.name, g.sku + ' · ' + g.brand + ' · ' + g.fam + (g.price ? ' · ' + g.price + (g.device ? ' each' : ' MAP') : ''), 'Gear quote',
-  g.device ? 'IWA training devices need a PPC certification; orders are verified before fulfillment. 3-unit minimum, 27 per box; hazmat shipping is included. We confirm availability and shipping by email within one business day. Nothing is charged online.'
-           : 'MAP price shown; dealer and volume pricing on request. We confirm availability and shipping by email within one business day. Nothing is charged online.'); }
+  (gearOut(g) ? 'This device is currently out of stock; we confirm availability by email. ' : '')
+  + (g.device ? 'IWA training devices need a PPC certification; orders are verified before fulfillment. 3-unit minimum, 27 per box; hazmat shipping is included. We confirm availability and shipping by email within one business day. Nothing is charged online.'
+              : 'MAP price shown; dealer and volume pricing on request. We confirm availability and shipping by email within one business day. Nothing is charged online.')); }
 function requestPrivate(i){ reqIdx = i; const c = COURSES[i]; openReqDialog('private', c.name, c.meta ? c.meta.replace(/ · /g, ' · ') : '', 'Private instruction',
   'We reply within one business day. Private sessions are by arrangement, not on the weekend calendar. The fee is instruction only: ammunition, range fees and gear are not included.'); }
 /* Capability statement (2026-09-08): the agencies-and-procurement request goes through the same dialog and the same

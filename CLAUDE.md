@@ -13,7 +13,7 @@ stack (catalog, calendar, checkout, quals modal, media strip) from
 is the earlier Atlas-frame build, kept noindex just in case; `mastsolutions-cinematic.html`
 is a redirect stub for the preview links that were shared.
 
-**Gear chapter (Brockmann, 2026-09-05: "Atlasglinn.com has this product = add to mastsolutions so we can sell there"):** the
+**Store chapter, chapter 12 (Brockmann, 2026-09-05: "Atlasglinn.com has this product = add to mastsolutions so we can sell there"):** the
 Aimpoint optics and IWA International devices from his IWA inventory report are listed in `GEAR` in `mastsolutions-tesla.html`
 and lifted into chapter 12 of the MAST page. They are **quote requests through the existing Request dialog** (`request_type:
 'gear'` to the Worker's `/contact`), never a Stripe checkout: card networks bar weapons accessories and energetic devices from
@@ -29,9 +29,20 @@ requests stay the mechanism on this page (the class account's Stripe must not to
 need its own merchant account, his call. Add products to `GEAR` and their price to the table; the `.gear-card` hover is the
 shared one in `cinematic_shell.py`. **Aimpoint hidden (Brockmann, 2026-09-07 from the live site: "hide Aimpoint for
 now"):** `GEAR_HIDDEN = ['Aimpoint']` in `mastsolutions-tesla.html` keeps the cards off (items and prices stay in `GEAR`),
-the chapter reads "Gear · IWA" (the Aimpoint sentence is parked in a comment beside it in `assemble-cinematic.py`), and
+the chapter reads "Store · IWA" (the Aimpoint sentence is parked in a comment beside it in `assemble-cinematic.py`), and
 the Atlas Training submenu's "Aimpoint Optics" entry is commented out in `assemble-atlas.py`. Bringing it back is those
-three edits on his word.
+three edits on his word. **Renamed Gear → Store (Brockmann, 2026-09-08, on a screenshot of the chapter: `"GEAR"= wrong -
+STORE = header + IWA + Training Devices + List price + OUT OF STOCK + link to add acutal product info
+https://iwainternationalinc.com/shop/`):** the `CHAPTERS` label in `assemble-cinematic.py` carries the rail, the HUD and
+the mobile menu, the heading is "Store." and the brand header over the cards reads "IWA Training Devices"; the `<div
+id="gear">` anchor stays, because the Atlas pages' Training submenu links to `mastsolutions.html#gear`. **`GEAR_OUT_OF_STOCK
+= true` in `mastsolutions-tesla.html`** puts an OUT OF STOCK badge on every device card and a sentence in the quote
+dialog's fine print; a per-item `g.stock` on a `GEAR` row overrides it, so flipping the constant to false is the one edit
+that restocks the line. **Each device card links to its own page on `iwainternationalinc.com`** through
+`GEAR_PRODUCT_URL`, whose URLs were read from the 2026-09-08 capture of `https://iwainternationalinc.com/shop/`
+(`reference/desktop/live/shop.html` on `claude/desktop-assets`); that shop paginates and the capture is page 1 of 5, so
+PA-85, TH-14 and the door charge fall back to the shop root rather than a guessed URL, and the IWA price now renders under
+the label "list price · each · 3-unit minimum". Seven asserts at the foot of `assemble-cinematic.py` hold all of it.
 
 **Experiences chapter, hidden (Brockmann, 2026-09-08: "add in Courses = 'EXPERIENCES' Couples + groups = Pics and Content
 coming"):** `EXPERIENCES` in `mastsolutions-tesla.html` holds the two entries, Couples and Groups, and `renderExperiences()`
@@ -95,7 +106,7 @@ are the intro menu text, a Senators figure he corrected, and "over 30 years" →
 now count as approved imagery: `images/atlas/matt-ceo-2026.jpg` (the founder portrait the live About page shows),
 `images/atlas/anthony-glover.png`, and the theme-folder films in `images/film/` (technology-hero, corporate-buildings,
 careers-gallery, forge-legend-mast; plain files, not LFS, served whole because the container has no ffmpeg). The live
-Training submenu (IWA Training Products, Aimpoint Optics) points at the MAST Gear chapter; the live shop pages are
+Training submenu (IWA Training Products, Aimpoint Optics) points at the MAST Store chapter; the live shop pages are
 notify-me catalogs with no checkout. Re-run the capture before any further content pass: `actions_run_trigger`
 on `capture-live.yml`, then `git fetch origin claude/desktop-assets` and read `reference/desktop/live/`.
 **Brockmann, 2026-09-06: "Add all content as in the old version - just updating the front end to brand match
