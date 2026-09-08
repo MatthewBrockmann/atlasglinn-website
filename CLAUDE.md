@@ -287,9 +287,38 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   domain** (PUT /pages → 403; a `CNAME` file in an Actions artifact is ignored). So the Pages site now holds the MAST page
   under the wrong name until one field changes by hand: **Settings → Pages → Custom domain → `mastsolutions.com`** (that
   also stops the site claiming atlasglinn.com). Order: that field first, then the GoDaddy DNS rows (four `A @` to
-  185.199.108.153 / .109 / .110 / .111 — the "Parked" A record is *edited*, not deleted — `CNAME www →
-  matthewbrockmann.github.io`, forward removed); GitHub issues the certificate within the hour and "Enforce HTTPS" can
-  be ticked after. Every later merge that touches `dist/mastsolutions/` republishes on its own. Follow-up once it
+  185.199.108.153 / .109 / .110 / .111, `CNAME www → matthewbrockmann.github.io`, forward removed); GitHub issues the
+  certificate within the hour and "Enforce HTTPS" can be ticked after. Every later merge that touches
+  `dist/mastsolutions/` republishes on its own. **His taps, 2026-09-07 (from the phone, on the road):** the "Parked" A
+  record had already become two `A @` rows `15.197.225.128` / `3.33.251.168` with the pencil greyed — those are
+  GoDaddy's **Forwarding-managed** records, not editable while a forward exists; he deleted the forward ("FW deleted"),
+  added the four A rows and the www CNAME and said the Pages field was done. **Runner probe 18:45 UTC (smoke #16 +
+  Pages #2):** ns27 answers six `A @` — the four GitHub rows **plus the two forwarding rows, which deleting the forward
+  did not remove** (they must be deleted by hand now that the forward is gone; with them present one request in three
+  lands on GoDaddy's forwarder); `www` CNAME correct; the Pages site still `cname=atlasglinn.com` (the field was not
+  saved at that minute; his phone message came before the probe); `https://mastsolutions.com/` unreachable (no
+  certificate until the field holds the name). Same probe: the apex SPF of mastsolutions.com reads `v=spf1
+  include:secureserver.net -all` — the Microsoft include verified on 2026-09-06 18:25 (LAUNCH-LEDGER) is **gone**, so
+  M365 mail from @mastsolutions.com hard-fails SPF until the row reads `v=spf1 include:spf.protection.outlook.com -all`
+  again; and `send.mastsolutions.com` has **no** SPF TXT (only GoDaddy's Domain-Connect artefact
+  `dc-fd741b8612._spfm.send`, which nothing references) — Resend's row is `TXT send → v=spf1 include:amazonses.com
+  ~all`. Both are one-row edits on the same GoDaddy DNS page; re-probe with `smoke-worker.yml`. (atlasglinn.com's own
+  SPF, same probe: `include:servers.mcsv.net include:spf.brevo.com include:secureserver.net ~all` — no Microsoft
+  include there either, softfail; the same `include:spf.protection.outlook.com` belongs in it.) **Re-probed 19:13 UTC
+  (smoke #17, Pages #3, capture #19): unchanged** — six `A @`, Pages still `cname=atlasglinn.com`, both mastsolutions
+  URLs unreachable; Worker `build: c5132f7`, `directions: sealed`, CRM live; no page upload since 18:14 (nothing
+  page-side changed on main), so the plain `/mastsolutions.html` and `/index.html` are still the 11:18 / 14:42 cached
+  copies and the Mac flush has had no upload to run after — not yet observed. **Probe 2026-09-08 00:34 UTC (smoke #18,
+  Pages #4, capture #20, deploy-worker #30):** DNS, Pages field and SPF rows unchanged (he was driving); Worker
+  `build: 5580986` = main's tip, deployed by the Mac; deploy-worker's Deploy step still skipped (no
+  `CLOUDFLARE_API_TOKEN` in the repository secrets). **The Mac uploaded at 23:50:22 UTC with no click from him**
+  (`mast-ping`), which is the first upload `wp-flush.sh` could have followed — and the plain `/mastsolutions.html` /
+  `/index.html` at the edge the runner hit were **still stale** (`HIT`, the 12:26 and 15:51 builds, no `<meta
+  name="build">`, so no self-heal). So the automatic flush is NOT confirmed: either the REST save did not purge the
+  static files or it did not run; only the Mac's `~/.cache/wp-upload/last-flush` heartbeat can say which, and he has no
+  laptop on the road. Until then the visible copies of both pages are a day old for anyone whose edge cached them; the
+  one-tap fallback from a phone is wp-admin's top bar → Flush Cache (`https://www.atlasglinn.com/wp-admin/`), which
+  the GoDaddy app and dashboard do not show him. Follow-up once it
   serves: point the atlasglinn.com copy's canonical at mastsolutions.com (two copies of one page otherwise). What was
   built for the cPanel path (kept as the alternative; unused while Pages serves):
   `python3 scripts/assemble-cinematic.py` now also writes `dist/mastsolutions/index.html` (+ its `build-manifest.json`):
