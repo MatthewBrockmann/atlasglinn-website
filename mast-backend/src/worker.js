@@ -127,6 +127,10 @@ export default {
 const ACCOUNT_TOKEN_DAYS = 30;
 const PBKDF2_ITER = 100000;
 const PROFILE_FIELDS = ['name', 'phone', 'organization', 'address1', 'address2', 'emergency_name', 'emergency_phone', 'emergency_relationship'];
+/* Credentials (owner, 2026-09-08: "Need to add 'CREDENTIALS' to the account if LE Teacher"). The account holder types what
+   they hold; nothing is checked here. Any change stamps the row 'pending' and emails the office, and a person marks it
+   verified or declined in the D1 console — credential_status is never taken from the client. */
+const CREDENTIAL_TYPES = { none: 'None', le: 'Law enforcement', teacher: 'Teacher / educator' };
 
 function b64(buf) { let s = ''; const a = new Uint8Array(buf); for (let i = 0; i < a.length; i++) s += String.fromCharCode(a[i]); return btoa(s); }
 function unb64(s) { return Uint8Array.from(atob(s), (c) => c.charCodeAt(0)); }
@@ -190,6 +194,9 @@ function publicAccount(a) {
     id: a.id, email: a.email, name: a.name || '', phone: a.phone || '', organization: a.organization || '',
     address1: a.address1 || '', address2: a.address2 || '', emergency_name: a.emergency_name || '', emergency_phone: a.emergency_phone || '',
     emergency_relationship: a.emergency_relationship || '', standards_passed: Array.isArray(standards) ? standards : [],
+    credential_type: a.credential_type || 'none', credential_org: a.credential_org || '',
+    credential_status: a.credential_status || 'none',
+    credential_id_last4: a.credential_id ? String(a.credential_id).slice(-4) : '',   // the number itself never leaves the database
     has_stripe_customer: !!a.stripe_customer_id, created_at: a.created_at, last_login_at: a.last_login_at || null,
   };
 }
@@ -390,18 +397,66 @@ async function handleAccountMe(request, env, cors) {
   return json({ account: publicAccount(acct), classes: (classes && classes.results) || [], payment_method: card }, 200, cors);
 }
 
+/**
+ * The three credential fields off an /account/update body, or null when the body carries none of them and when nothing
+ * actually changed — the page posts the whole panel on every Save, and a re-save of the same credential must not restamp
+ * the review or email the office again. Choosing "None" clears the row back to no credential.
+ */
+function credentialPatch(body, acct) {
+  if (!('credential_type' in body) && !('credential_org' in body) && !('credential_id' in body)) return { fields: null };
+  const type = 'credential_type' in body ? str(body.credential_type).trim().toLowerCase() : (acct.credential_type || 'none');
+  if (!Object.prototype.hasOwnProperty.call(CREDENTIAL_TYPES, type)) return { error: { error: 'Choose a credential type.', field: 'credential_type' } };
+  const org = ('credential_org' in body ? str(body.credential_org) : str(acct.credential_org)).trim().slice(0, 120);
+  const id = ('credential_id' in body ? str(body.credential_id) : str(acct.credential_id)).trim().slice(0, 64);
+  if (id && !/^[A-Za-z0-9-]+$/.test(id)) return { error: { error: 'A credential or badge number can hold letters, digits and dashes only.', field: 'credential_id' } };
+  const same = type === (acct.credential_type || 'none') && org === (acct.credential_org || '') && id === (acct.credential_id || '');
+  if (same) return { fields: null };
+  if (type === 'none') return { fields: { credential_type: 'none', credential_org: '', credential_id: '', credential_status: 'none', credential_submitted_at: null } };
+  return { notify: true, fields: { credential_type: type, credential_org: org, credential_id: id, credential_status: 'pending', credential_submitted_at: new Date().toISOString() } };
+}
+
+/** Staff notice for a credential a member entered: the office verifies it with the agency or school and marks the row. */
+async function notifyCredential(env, acct) {
+  const label = CREDENTIAL_TYPES[acct.credential_type] || acct.credential_type;
+  const text = [
+    'CREDENTIAL REVIEW NEEDED',
+    '',
+    'Account:  ' + acct.id,
+    'Name:     ' + (acct.name || '(not given)'),
+    'Email:    ' + acct.email,
+    'Phone:    ' + (acct.phone || '(not given)'),
+    'Type:     ' + label,
+    'Org:      ' + (acct.credential_org || '\u2014'),
+    'Number:   ' + (acct.credential_id || '(not given)'),
+    'Entered:  ' + acct.credential_submitted_at,
+    '',
+    'The member typed these; nothing is verified. Check them with the agency or school, then set credential_status on',
+    "the accounts row to 'verified' or 'declined' in the D1 console. It reads 'pending review' on their account until then.",
+  ].join('\n');
+  if (!env.NOTIFY_EMAIL || !env.RESEND_API_KEY) {
+    console.error('[Credential] Email not configured (need NOTIFY_EMAIL + RESEND_API_KEY). Account ' + acct.id + ' needs credential review.');
+    return;
+  }
+  await sendEmail(env, { to: list(env.NOTIFY_EMAIL), subject: 'Credential review needed: ' + (acct.name || acct.email) + ' \u00b7 ' + label + ' \u00b7 ' + (acct.credential_org || '\u2014'), text });
+}
+
 async function handleAccountUpdate(request, env, cors) {
   const { acct, res } = await requireAccount(request, env, cors); if (res) return res;
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== 'object') return json({ error: 'Bad request' }, 400, cors);
   const sets = [], vals = [];
   for (const f of PROFILE_FIELDS) if (f in body) { sets.push(f + ' = ?'); vals.push(str(body[f]).trim().slice(0, f.endsWith('phone') ? 40 : 160)); acct[f] = vals[vals.length - 1]; }
+  const cred = credentialPatch(body, acct);
+  if (cred.error) return json(cred.error, 400, cors);
+  if (cred.fields) for (const [f, v] of Object.entries(cred.fields)) { sets.push(f + ' = ?'); vals.push(v); acct[f] = v; }
   if (!sets.length) return json({ error: 'Nothing to update.' }, 400, cors);
   const now = new Date().toISOString(); sets.push('updated_at = ?'); vals.push(now, acct.id);
   await env.DB.prepare('UPDATE accounts SET ' + sets.join(', ') + ' WHERE id = ?').bind(...vals).run();
   if (acct.stripe_customer_id && env.STRIPE_SECRET_KEY && ('name' in body || 'phone' in body)) {
     fetch('https://api.stripe.com/v1/customers/' + encodeURIComponent(acct.stripe_customer_id), { method: 'POST', headers: stripeHeaders(env), body: new URLSearchParams({ name: acct.name || '', phone: acct.phone || '' }).toString() }).catch(() => {});
   }
+  // The save is already banked; a failed notice must not lose it. The office sees the pending row in the D1 console either way.
+  if (cred.notify) await notifyCredential(env, acct).catch((e) => console.error('[Credential] notice failed:', e && e.message));
   return json({ account: publicAccount(acct) }, 200, cors);
 }
 

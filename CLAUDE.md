@@ -33,6 +33,28 @@ the chapter reads "Gear · IWA" (the Aimpoint sentence is parked in a comment be
 the Atlas Training submenu's "Aimpoint Optics" entry is commented out in `assemble-atlas.py`. Bringing it back is those
 three edits on his word.
 
+**Experiences chapter, hidden (Brockmann, 2026-09-08: "add in Courses = 'EXPERIENCES' Couples + groups = Pics and Content
+coming"):** `EXPERIENCES` in `mastsolutions-tesla.html` holds the two entries, Couples and Groups, and `renderExperiences()`
+appends them to the course catalog as one more accordion titled "Experiences", in the class-card style. They are not courses:
+no SKU, no D1 catalog row, no price. The card's button opens the same Request dialog the private-instruction rows use
+(`request_type: 'experience'` to the Worker's `/contact`) with the experience name in the message. **`EXPERIENCES_HIDDEN =
+true` keeps the whole accordion off the page** until he has the pictures and the copy — his "Pics and Content coming" — so
+today the two names exist only inside the page script, the way `GEAR_HIDDEN` keeps the Aimpoint cards off. Publishing is one
+edit: set it to `false`, replace each `desc` (they all read the placeholder "Details, photos and dates coming soon."), then
+re-run the assembler. Pricing or booking would need a catalog row and a SKU — his call, not a follow-on to this.
+
+**Account credentials (Brockmann, 2026-09-08: "Need to add 'CREDENTIALS' to the account if LE Teacher"):** the account panel
+carries a Credentials block — type (`none` / `le` / `teacher`), agency or school, credential or badge number — saved by the
+same Save details button through `POST /account/update`. The Worker validates the type against the three keys, caps the org
+at 120 and the number at 64 (letters, digits and dashes only), stamps `credential_status = 'pending'` and
+`credential_submitted_at` on any real change, and emails NOTIFY_EMAIL once ("Credential review needed: name · type · org").
+**The client can never set the status**: a person verifies with the agency or school and sets `verified` or `declined` on the
+`accounts` row in the D1 console. The number is stored whole (the office needs it to verify) and returned to the page as its
+last four only, so the field shows `•••• 4417` as a placeholder and blank means keep. Re-saving the same values is a no-op —
+the panel posts every field on every save and must not re-notify. Columns:
+`mast-backend/migrations/007-account-credentials.sql`, a manual `wrangler d1 execute` per `mast-backend/README.md`; the same
+columns are in `schema.sql` for a fresh database. Nothing here is wired to a member rate yet.
+
 ## Atlas Glinn pages (decided by Brockmann 2026-09-03: "SAME front end", mobile first)
 
 The rebuilt `index`, `executive-protection`, `residential-protection`, `disaster-recovery`,

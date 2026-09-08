@@ -637,6 +637,24 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   // update
   const upd = await postAuth('/account/update', { phone: '(713) 555-0199', address1: '1 Main St', address2: 'Houston, TX 77002', emergency_name: 'John Doe', emergency_phone: '(713) 555-0101', emergency_relationship: 'Spouse', password_hash: 'ignored' }, token); const u1 = await upd.json();
   ok('update saves the profile fields and ignores anything else', upd.status === 200 && u1.account.address1 === '1 Main St' && u1.account.emergency_name === 'John Doe' && accounts.get(r1.account.id).phone === '(713) 555-0199' && /^pbkdf2/.test(accounts.get(r1.account.id).password_hash), JSON.stringify(u1).slice(0, 160));
+  // credentials (owner, 2026-09-08: "Need to add 'CREDENTIALS' to the account if LE Teacher")
+  ok('an account with no credential reads none', u1.account.credential_type === 'none' && u1.account.credential_status === 'none' && u1.account.credential_id_last4 === '', JSON.stringify(u1.account).slice(0, 200));
+  ok('an unknown credential type → 400', (await postAuth('/account/update', { credential_type: 'federal' }, token)).status === 400);
+  ok('a badge number with punctuation in it → 400', (await postAuth('/account/update', { credential_type: 'le', credential_org: 'HPD', credential_id: 'HPD/1234' }, token)).status === 400);
+  emails.length = 0;
+  const cred = await postAuth('/account/update', { credential_type: 'le', credential_org: 'Houston Police Department', credential_id: 'HPD-4417', credential_status: 'verified' }, token); const c1 = await cred.json();
+  const credRow = accounts.get(r1.account.id);
+  ok('an LE credential saves as pending, stamped, and the client cannot set the status', cred.status === 200 && c1.account.credential_type === 'le' && c1.account.credential_status === 'pending' && credRow.credential_status === 'pending' && typeof credRow.credential_submitted_at === 'string', JSON.stringify(c1.account).slice(0, 240));
+  ok('the number is stored whole and comes back as its last four only', credRow.credential_id === 'HPD-4417' && c1.account.credential_id_last4 === '4417' && !JSON.stringify(c1).includes('HPD-4417'), JSON.stringify(c1.account).slice(0, 240));
+  ok('one credential-review email to the office, subject naming the member, type and org', emails.length === 1 && emails[0].to[0] === 'hq@atlasglinn.com' && emails[0].subject === 'Credential review needed: Jane Doe · Law enforcement · Houston Police Department', String(emails.length) + ' ' + (emails[0] ? emails[0].subject : ''));
+  emails.length = 0;
+  const again = await postAuth('/account/update', { credential_type: 'le', credential_org: 'Houston Police Department', phone: '(713) 555-0199' }, token);
+  ok('re-saving the panel with the same credential does not restamp it or email again', again.status === 200 && emails.length === 0 && accounts.get(r1.account.id).credential_submitted_at === credRow.credential_submitted_at, 'emails=' + emails.length);
+  const teacher = await postAuth('/account/update', { credential_type: 'teacher', credential_org: 'Klein ISD' }, token); const t1 = await teacher.json();
+  ok('switching to teacher keeps the number on file and goes back to pending', teacher.status === 200 && t1.account.credential_type === 'teacher' && t1.account.credential_status === 'pending' && t1.account.credential_id_last4 === '4417', JSON.stringify(t1.account).slice(0, 240));
+  emails.length = 0;
+  const cleared = await postAuth('/account/update', { credential_type: 'none' }, token); const n1 = await cleared.json();
+  ok('choosing None clears the credential and sends no review email', cleared.status === 200 && n1.account.credential_type === 'none' && n1.account.credential_status === 'none' && n1.account.credential_id_last4 === '' && accounts.get(r1.account.id).credential_id === '' && emails.length === 0, JSON.stringify(n1.account).slice(0, 240));
   // saved card: setup session on the account's Stripe Customer, then the webhook makes it the default, then me shows it
   stripeCalls.length = 0; stripeCustomerCalls.length = 0;
   const setup = await postAuth('/account/setup-payment', { successUrl: 'https://mastsolutions.com/mastsolutions.html?account=card-saved' }, token); const s1 = await setup.json();

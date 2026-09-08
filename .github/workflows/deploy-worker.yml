@@ -7,7 +7,7 @@
 #   CLOUDFLARE_ACCOUNT_ID  the Account ID shown on the Workers & Pages overview page
 # Until both exist the job runs the tests and then stops with a notice; nothing is deployed.
 # Worker secrets (Stripe, Resend, ACCOUNT_SECRET, …) live on the Worker already and are untouched by a deploy.
-# D1 migrations stay a manual step (mast-backend/README.md).
+# D1 migrations: applied by the guarded step below (2026-09-08); mast-backend/README.md still describes the Mac command as the fallback.
 name: Deploy MAST Worker
 
 on:
@@ -69,6 +69,27 @@ jobs:
       - name: Short commit id for /health (build = the commit this deploy was made from)
         id: sha
         run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      # Schema before code (2026-09-08). Migrations used to be a Mac step ("D1 migrations stay a manual step"); the
+      # Actions token now carries D1:Edit, so each numbered file in mast-backend/migrations/ is applied here when its
+      # marker column is missing — a guard, because SQLite's ALTER TABLE ADD COLUMN is not idempotent. Add a row to
+      # GUARDS for every new migration: "<file>|<table>|<column that file adds>". Files without a row are not run.
+      - name: Apply pending D1 migrations (schema before code)
+        if: steps.creds.outputs.ready == 'true'
+        working-directory: mast-backend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ steps.creds.outputs.token }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.creds.outputs.account }}
+        run: |
+          set -e
+          GUARDS="migrations/007-account-credentials.sql|accounts|credential_type"
+          for g in $GUARDS; do
+            f="${g%%|*}"; rest="${g#*|}"; tbl="${rest%%|*}"; col="${rest#*|}"
+            test -f "$f" || { echo "::error::$f missing"; exit 1; }
+            have=$(npx -y wrangler@3.90.0 d1 execute mast_bookings --remote --json --command "PRAGMA table_info($tbl)" 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(" ".join(r["name"] for r in d[0]["results"]))')
+            if echo " $have " | grep -q " $col "; then echo "$f: already applied ($tbl.$col present)"; else
+              npx -y wrangler@3.90.0 d1 execute mast_bookings --remote --file="$f" && echo "$f: applied"
+            fi
+          done
       - name: Deploy
         if: steps.creds.outputs.ready == 'true'
         uses: cloudflare/wrangler-action@v3
