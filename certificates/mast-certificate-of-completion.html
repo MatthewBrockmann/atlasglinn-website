@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MAST Solutions — Certificate of Completion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#fbf8f1;
+    --paper-hi:#fffdf8;
+    --paper-lo:#f3ede0;
+    --ink:#14120c;
+    --ink-soft:#4a4437;
+    --gold:#9a7b2e;
+    --serif:'Cormorant Garamond','Liberation Serif',Georgia,'Times New Roman',serif;
+    --sans:'Inter','Liberation Sans',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif;
+  }
+
+  @page{ size: letter landscape; margin: 0; }
+
+  html,body{ margin:0; padding:0; background:#5b5b5b; }
+
+  *{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* 11in x 8.5in == 1056 x 816 css px at 96dpi. Every coordinate below is read
+     from the source certificate's own 1056x816 drawing space. */
+  .sheet{
+    position:relative;
+    width:1056px; height:816px;
+    margin:0 auto;
+    overflow:hidden;
+    background:
+      radial-gradient(ellipse 746.7px 669.3px at 50% 42%,
+        var(--paper-hi) 0%, var(--paper) 46%, var(--paper-lo) 100%),
+      var(--paper);
+    color:var(--ink);
+    font-family:var(--serif);
+  }
+
+  .frame-outer{ position:absolute; left:40px; top:40px; right:40px; bottom:40px;
+                border:2px solid var(--gold); }
+  .frame-inner{ position:absolute; left:48px; top:48px; right:48px; bottom:48px;
+                border:1px solid rgba(154,123,46,.3804); }
+
+  .flourish{ position:absolute; width:40.96px; height:40.96px; opacity:.72; }
+  .flourish.tl{ left:46.72px;  top:46.72px; }
+  .flourish.tr{ right:46.72px; top:46.72px;    transform:scaleX(-1); }
+  .flourish.bl{ left:46.72px;  bottom:46.72px; transform:scaleY(-1); }
+  .flourish.br{ right:46.72px; bottom:46.72px; transform:scale(-1); }
+
+  /* Rows are placed by the VISUAL CENTRE of their line box, so type sits on the
+     same optical line the source certificate used. */
+  .row{
+    position:absolute; left:0; right:0; top:var(--y); height:0;
+    display:flex; align-items:center; justify-content:center;
+    line-height:1; white-space:nowrap;
+  }
+
+  .rule{ height:1px; background:var(--ink); }
+  .rule-gold-full{ height:1px; background:linear-gradient(90deg,
+      rgba(154,123,46,0) 0%, rgba(154,123,46,1) 50%, rgba(154,123,46,0) 100%); }
+  .rule-gold-soft{ height:1px; background:linear-gradient(90deg,
+      rgba(154,123,46,0) 0%, rgba(154,123,46,.749) 50%, rgba(154,123,46,0) 100%); }
+
+  .logo{ position:absolute; left:487px; top:77px; width:82px; height:85px; }
+
+  .brand{ font-family:var(--sans); font-size:16.66px; font-weight:700;
+          letter-spacing:.30em; text-indent:.30em; }
+  .tagline{ font-size:12.8px; font-style:italic; color:var(--ink-soft);
+            letter-spacing:.033em; }
+
+  .divider .seg{ width:198px; }
+  .divider .gem{ width:26px; text-align:center; color:var(--gold); font-size:9.33px;
+                 font-family:'DejaVu Sans','Liberation Sans',var(--sans); }
+
+  .title{ font-size:41.33px; font-weight:300; letter-spacing:.09em;
+          text-indent:.09em; }
+  .eyebrow{ font-family:var(--sans); font-size:9.33px; font-weight:500;
+            color:var(--gold); letter-spacing:.34em; text-indent:.34em; }
+
+  .label{ font-family:var(--sans); font-size:8.53px; font-weight:400;
+          color:var(--ink-soft); letter-spacing:.34em; text-indent:.34em; }
+
+  .name{ font-size:var(--name-size,34px); font-weight:400; letter-spacing:.02em; }
+  .lede{ font-size:16px; font-weight:400; }
+  .course{ font-size:var(--course-size,26px); font-weight:600; letter-spacing:.005em; }
+  .descriptor{ font-family:var(--sans); font-size:9.33px; font-weight:500;
+               color:var(--gold); letter-spacing:.22em; text-indent:.22em; }
+
+  .atlas .seg{ width:287px; }
+  .atlas .mark{ width:118px; text-align:center; color:var(--gold);
+                font-family:var(--sans); font-size:8px; font-weight:500;
+                letter-spacing:.30em; text-indent:.30em; }
+
+  .signature{ position:absolute; left:427.06px; top:628.3px;
+              width:200.46px; height:57.7px; }
+  .signed-name{ font-size:12px; }
+  .signed-role{ font-family:var(--sans); font-size:7.5px; font-weight:400;
+                color:var(--ink-soft); letter-spacing:.18em; text-indent:.18em; }
+
+  .side{ position:absolute; top:var(--y); height:0; width:280px;
+         margin-left:-140px;
+         display:flex; align-items:center; justify-content:center;
+         line-height:1; white-space:nowrap; }
+  .side.l{ left:217px; }
+  .side.r{ left:839px; }
+  .side-rule{ position:absolute; top:705px; width:218px; height:1px;
+              background:var(--ink); }
+  .side-rule.l{ left:108px; }
+  .side-rule.r{ left:730px; }
+  .side-value{ font-size:13.33px; }
+  .side-label{ font-family:var(--sans); font-size:7.5px; font-weight:400;
+               color:var(--ink-soft); letter-spacing:.18em; padding-left:.18em; }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <div class="frame-outer"></div>
+  <div class="frame-inner"></div>
+
+  <!-- Corner flourishes: the source certificate's own vector paths, one 128x128
+       unit box per corner, mirrored into the other three. -->
+  <svg class="flourish tl" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <g transform="translate(0.75,0.75) scale(1.8598633)" fill="none"
+       stroke="#9a7b2e" stroke-width="2.6" stroke-linecap="butt">
+      <path d="M6 62 C6 24.667 24.667 6 62 6" stroke-opacity=".45"/>
+      <path d="M6 40 C6 17.333 17.333 6 40 6"/>
+      <circle cx="16" cy="16" r="3.4" fill="#9a7b2e" stroke="none"/>
+    </g>
+  </svg>
+  <svg class="flourish tr" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <g transform="translate(0.75,0.75) scale(1.8598633)" fill="none"
+       stroke="#9a7b2e" stroke-width="2.6" stroke-linecap="butt">
+      <path d="M6 62 C6 24.667 24.667 6 62 6" stroke-opacity=".45"/>
+      <path d="M6 40 C6 17.333 17.333 6 40 6"/>
+      <circle cx="16" cy="16" r="3.4" fill="#9a7b2e" stroke="none"/>
+    </g>
+  </svg>
+  <svg class="flourish bl" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <g transform="translate(0.75,0.75) scale(1.8598633)" fill="none"
+       stroke="#9a7b2e" stroke-width="2.6" stroke-linecap="butt">
+      <path d="M6 62 C6 24.667 24.667 6 62 6" stroke-opacity=".45"/>
+      <path d="M6 40 C6 17.333 17.333 6 40 6"/>
+      <circle cx="16" cy="16" r="3.4" fill="#9a7b2e" stroke="none"/>
+    </g>
+  </svg>
+  <svg class="flourish br" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <g transform="translate(0.75,0.75) scale(1.8598633)" fill="none"
+       stroke="#9a7b2e" stroke-width="2.6" stroke-linecap="butt">
+      <path d="M6 62 C6 24.667 24.667 6 62 6" stroke-opacity=".45"/>
+      <path d="M6 40 C6 17.333 17.333 6 40 6"/>
+      <circle cx="16" cy="16" r="3.4" fill="#9a7b2e" stroke="none"/>
+    </g>
+  </svg>
+
+  <img class="logo" src="assets/mast-logo.png" alt="MAST Solutions">
+
+  <div class="row brand"   style="--y:182px">MAST SOLUTIONS</div>
+  <div class="row tagline" style="--y:201px">Modern Application of Shooting and Tactics&nbsp; &middot; &nbsp;Est. 2005&nbsp; &middot; &nbsp;An Atlas Glinn Company</div>
+
+  <div class="row divider" style="--y:229.5px">
+    <span class="seg rule-gold-full"></span>
+    <span class="gem">&#9670;</span>
+    <span class="seg rule-gold-full"></span>
+  </div>
+
+  <div class="row title"   style="--y:268px">Certificate of Completion</div>
+  <div class="row eyebrow" style="--y:299px">COURSE OF INSTRUCTION</div>
+
+  <div class="row label"   style="--y:350px">PRESENTED TO</div>
+  <div class="row name"    style="--y:402px">{{name}}</div>
+  <div class="row"         style="--y:416px"><span class="rule" style="width:624px"></span></div>
+
+  <div class="row lede"       style="--y:478px">has successfully completed</div>
+  <div class="row course"     style="--y:532px">{{course}}</div>
+  <div class="row descriptor" style="--y:566px">{{descriptor}}</div>
+
+  <div class="row atlas" style="--y:634px">
+    <span class="seg rule-gold-soft"></span>
+    <span class="mark">ATLAS GLINN</span>
+    <span class="seg rule-gold-soft"></span>
+  </div>
+
+  <img class="signature" src="{{signature_src}}" alt="">
+
+  <div class="row" style="--y:673px"><span class="rule" style="width:338px"></span></div>
+  <div class="row signed-name" style="--y:681px">Matthew Brockmann</div>
+  <div class="row signed-role" style="--y:702px">FOUNDER &amp; CEO &mdash; MAST SOLUTIONS / CHIEF TRAINING OFFICER</div>
+  <div class="row signed-role" style="--y:715px">FOUNDER &amp; CEO &mdash; ATLAS GLINN, LLC</div>
+
+  <div class="side l side-value" style="--y:694px">{{cert_no}}&nbsp; &middot; &nbsp;{{date}}</div>
+  <div class="side-rule l"></div>
+  <div class="side l side-label" style="--y:716px">CERTIFICATE NO. &middot; DATE OF COMPLETION</div>
+
+  <div class="side-rule r"></div>
+  <div class="side r side-label" style="--y:716px">INSTRUCTOR</div>
+
+</div>
+</body>
+</html>

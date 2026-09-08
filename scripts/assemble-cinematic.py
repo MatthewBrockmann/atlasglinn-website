@@ -44,6 +44,7 @@ rep = {'#1A6BDE': '#C9A84C', 'rgba(26,107,222,': 'rgba(201,168,76,', '#0f1622': 
        "'Inconsolata', monospace": "'Share Tech Mono', monospace", 'rgba(8,12,20,': 'rgba(5,8,16,'}
 for k, v in rep.items(): booking_css = booking_css.replace(k, v)
 assert '.modal-bd {' in booking_css and '.day.wk {' in booking_css and '.cat-btn {' in booking_css, 'booking css missing pieces'
+assert '.modal.req .err:not([hidden])' in booking_css, 'the request dialog error text is invisible again'
 
 # ── 2. Modal + banner markup from the Tesla page ──
 banner = between(tesla, '<div id="banner"', '</div>', True)
@@ -97,22 +98,30 @@ assert 'hero-yt' not in js and 'REVIEWS' not in js, 'hero/reviews code leaked in
 def tile(num, title, body, img, pos='center', clip=''):
     return shell.tile(num, title, body, 'images/mast/' + img, pos, ('images/mast/' + clip) if clip else '')
 
+CHAPTERS = [('s1', 'Opening'), ('s2', 'Standard'), ('s3', 'Who'), ('s4', 'Disciplines'), ('s5', 'The Range'),
+            ('s6', 'Classes'), ('s7', 'Team Memberships'), ('s8', 'Instructors'), ('s9', 'In Action'),
+            ('s10', 'Testimonials'), ('s11', 'Privacy'), ('s12', 'Gear'), ('s13', 'Contact')]
+
 CHROME = shell.chrome(
     credits=('A Houston Operation', 'Since 2005'), wordmark='MAST Solutions',
     photos=[('01', 'images/mast/hero-casualty-carry.jpg', 'center 40%'), ('02', 'images/mast/disc-firearms.jpg', 'center top'),   # the picture is near-square: from the top so the two faces show (owner, 2026-09-05: "bring this pic down so we can see the people")
             ('03', 'images/mast/ship-deck-operators.jpg', 'center top'),   # the deck photograph cut to its lower half, so the four operators sit in the upper band behind the heading, not behind the tiles (owner, 2026-09-05: "Bring the ship up and the operators visible", then "SHOW THE OPERATORS on deck in background")
             ('04', 'images/mast/disc-cqb.jpg', None),
             ('05', 'images/mast/range/a08.jpg', 'center 45%'),   # the aerial (r01.jpg never existed: the old-site set is r001–r024)
-            ('06', 'images/mast/courses-low-light.jpg', None), ('07', 'images/mast/courses-low-light.jpg', 'center 60%'),
+            ('06', 'images/mast/courses-instructor.jpg', '50% 15%'),   # his photo (owner, 2026-09-08: "For Cources - THIS BACKGROUND PIC NOT THE SS"); near-square, the head sits in the top fifth, so 16:9 cover is anchored high
+            ('07', 'images/mast/courses-low-light.jpg', 'center 60%'),
             ('08', 'images/mast/gallery/g06.jpg', 'center 45%'),   # the carbine from behind the car (owner, 2026-09-05: "Replace this background with the attached JPG", on the Instructors chapter)
             ('09', 'images/mast/vehicular.jpg', None), ('10', 'images/mast/instructing-le.jpg', 'center 30%'),
             ('11', 'images/mast/privacy-aircraft.jpg', None), ('12', 'images/mast/disc-firearms.jpg', 'center 30%'), ('13', 'images/mast/contact-zodiac.jpg', None)],
-    hud_tl='&#9679; ATLAS GLINN &middot; MAST.SYS LIVE', hud_tl_href='/',   # root, so it resolves on WordPress and on Pages alike
+    hud_tl='&#9679; ATLAS GLINN<span class="hud-x"> &middot; MAST.SYS LIVE</span>', hud_tl_href='https://atlasglinn.com/',   # absolute: on www.mastsolutions.com "/" is this page, not Atlas Glinn
     hud_bl='HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W', hud_br='DETAILS MATTER',
-    chapters=[('s1', '01 &middot; Opening'), ('s2', '02 &middot; Standard'), ('s3', '03 &middot; Who'), ('s4', '04 &middot; Disciplines'), ('s5', '05 &middot; The Range'),
-              ('s6', '06 &middot; Classes'), ('s7', '07 &middot; Team Memberships'), ('s8', '08 &middot; Instructors'), ('s9', '09 &middot; In Action'),
-              ('s10', '10 &middot; Testimonials'), ('s11', '11 &middot; Privacy'), ('s12', '12 &middot; Gear'), ('s13', '13 &middot; Contact')])
+    chapters=[(cid, '%02d &middot; %s' % (k, label)) for k, (cid, label) in enumerate(CHAPTERS, 1)])
 
+
+# ── Book a Class on every chapter (owner: "BOOK A CLASS should be on every page esp Classes"). One constant, interpolated into
+#    every chapter, so a chapter cannot be added without it. The href keeps the catalog reachable before the script runs;
+#    the click opens the weekend calendar, the same call the hero and Contact rows already make.
+BOOK_CTA = '<div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a></div>'
 
 # ── Membership: the four teams of the old site's Membership sheet (2014) plus Law Enforcement and Verified Teachers (owner,
 #    2026-09-04: "Add the 4 Subscriptions"; fees Red 250, Blue 450, Gold 575, Black 600, LE 195, Teachers 195). Join opens a short
@@ -140,6 +149,7 @@ MEMBERSHIP = f"""
         {tier('Law Enforcement', 't-le', 'le_team', '$195', 'Two classes, plus 35% off any two classes for you or two friends. Verified status required.', '10 memberships')}
         {tier('Verified Teachers', 't-teachers', 'teachers_team', '$195', 'Two classes, plus 35% off any two classes for you or two friends. Verified status required.', '10 memberships')}
       </div>
+      {BOOK_CTA}
       <p class="teams-note">Hover a team for what it includes; tap it to join. A slot is held while the monthly fee is paid; a lapsed slot goes to the waiting list. Membership is billed monthly by card; new memberships are vetted by the established team.</p>
     </div>
   </section>
@@ -151,7 +161,7 @@ MEMBERSHIP = f"""
 #    chapters by index.
 _in_action = '  <a href="#s9" class="chap-link">09 &middot; In Action</a>'
 assert CHROME.count(_in_action) == 1, 'In Action nav entry not found'
-CHROME = CHROME.replace(_in_action, _in_action + '\n  <a href="articles/index.html" class="chap-extra preview-only">&middot; Blogs</a>')
+CHROME = CHROME.replace(_in_action, _in_action + '\n  <a href="https://atlasglinn.com/articles/index.html" class="chap-extra preview-only">&middot; Blogs</a>')
 
 # ── Account (owner, 2026-09-05: "ADD ACCOUNT"): a Sign in link in the HUD's top-right corner and an entry at the foot of the chapter
 #    menu; both open the account dialog lifted from the booking page. The label becomes the student's first name once signed in.
@@ -161,6 +171,23 @@ CHROME = CHROME.replace(_contact_nav, _contact_nav + '\n  <a href="#" class="cha
 _hud_tr = '<div class="hud tr" id="hud-section">'
 assert CHROME.count(_hud_tr) == 1, 'HUD section marker not found'
 CHROME = CHROME.replace(_hud_tr, '<a class="hud acct acct-link" href="#" onclick="openAcct();return false;" aria-haspopup="dialog">Sign in</a>\n' + _hud_tr)
+
+# ── Mobile navigation (2026-09-08). Below 900px the fixed chapter rail is display:none and nothing replaced it: thirteen
+#    chapters over 20,000px with no route but a blind scroll, and the fifteen links still in the DOM unreachable. The shell
+#    already ships the component the Atlas Glinn pages use — sitenav() / SITENAV_CSS / SITENAV_JS — so this wires it rather
+#    than inventing a second menu: the same MENU vocabulary and the same full-screen list of large targets, behind a compact
+#    sticky bar, carrying the thirteen chapters plus Book a Class and Sign in. Desktop is untouched; the rail stays.
+MENU_FOOT = ('2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br>'
+             '<a href="tel:+12816548100">(281) 654-8100</a>&middot;<a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a><br>'
+             '&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions')
+MOBILE_NAV = '<div class="mast-topbar" aria-hidden="true"></div>\n' + shell.sitenav(
+    [('#' + cid, label, 'Chapter %02d' % k) for k, (cid, label) in enumerate(CHAPTERS, 1)], '', MENU_FOOT)
+# Book a Class and Sign in call the page's dialogs, which sitenav()'s plain links cannot carry. setTimeout defers the open
+# until after the overlay's own click handler has closed the menu and released the body scroll lock.
+_menu_extra = ('      <li><a href="#s6" class="nav-book" onclick="setTimeout(openDCal,0);return false;">Book a Class<small>Weekend calendar</small></a></li>\n'
+               '      <li><a href="#" class="acct-link" onclick="setTimeout(openAcct,0);return false;">Sign in</a></li>')
+assert MOBILE_NAV.count('\n    </ul>') == 1, 'sitenav list end not found'
+MOBILE_NAV = MOBILE_NAV.replace('\n    </ul>', '\n' + _menu_extra + '\n    </ul>', 1)
 
 # ── The Range: the owner's photographs first (2026-09-05: a08 and a13 the aerials, a01–a04 the berm, the berm at dusk, the
 #    canopies and the classroom, a05 the briefing, a09 the pistol line, a10 the range at night under lights, a11 the low-light
@@ -219,6 +246,7 @@ RANGE_SECTION = f"""
       <p class="sub">A private range. Flat range and berms, vehicle lanes, low light, and the shoothouse &mdash; the ground every class is run on.</p>
       {fold_button('range-fold', 'Click to View', 'Click to Close')}
       <div class="fold" id="range-fold">{photo_grid('range-tiles', RANGE_PHOTOS)}</div>
+      {BOOK_CTA}
     </div>
   </section>
 """
@@ -235,6 +263,30 @@ function openLb(src){ const vid = /\.(mp4|webm|mov)(\?|$)/i.test(src); const img
 function closeLb(){ const v = $('lb-vid'); v.pause(); v.removeAttribute('src'); $('lb-bd').classList.remove('open'); $('lb').classList.remove('open'); document.body.style.overflow = ''; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('lb').classList.contains('open')) closeLb(); });
 """
+
+# ── Footer (2026-09-08): the structure and order the Atlas Glinn pages close with — four link groups, the address and
+#    contact lines, the socials, the two badges, the rights line and the legal links — carried onto MAST so a visitor who
+#    lands on www.mastsolutions.com can reach the rest of the firm. Atlas destinations are absolute: the mastsolutions.com
+#    rewrite turns a relative link to this page into "/" and would otherwise make them self-links. YouTube stays
+#    @mastsolutions (the training channel), which is where the MAST footer already pointed.
+AG = 'https://atlasglinn.com/'
+def _fl(pairs): return ' &middot; '.join(f'<a href="{h}">{t}</a>' for h, t in pairs)
+FOOT_SITE = ('<span class="fg">Atlas Glinn</span>' + _fl([(AG, 'Home'), (AG + 'executive-protection.html', 'Executive Protection'),
+                                                          (AG + 'residential-protection.html', 'Residential Protection'), (AG + 'disaster-recovery.html', 'Disaster Recovery'),
+                                                          (AG + 'technology.html', 'Technology'), (AG + 'ep-app.html', 'Atlas EP App')])
+             + '<br><span class="fg">MAST Solutions</span>' + _fl([(AG + 'training.html', 'Training Programs'), (AG + 'ep-app.html', 'Atlas EP Platform'),
+                                                                   (AG + 'cuas-aerodefense.html', 'Counter-Drone Solutions'), ('#s1', 'MAST Solutions')])
+             + '<br><span class="fg">Company</span>' + _fl([(AG + 'about.html', 'About Us'), (AG + 'careers.html', 'Careers'), (AG + 'about.html#s5', 'Resources'), ('#s13', 'Contact')])
+             + '<br><span class="fg">Connect</span>2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063 &middot; <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a><br>'
+             + '<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;'
+               '<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;'
+               '<a href="https://www.youtube.com/@mastsolutions" target="_blank" rel="noopener">YouTube</a>&middot;'
+               '<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;'
+               '<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a>&middot;' + shell.REVIEW_LINK
+             + '<div class="badges"><div class="badge-item"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div>'
+               '<div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div>'
+             + '<a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br>'
+             + '<a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a>&middot;<a href="#s1" class="to-top">Back to top &uarr;</a>')
 
 SECTIONS = f"""
   <section class="panel" id="s1" data-section="01">
@@ -257,6 +309,7 @@ SECTIONS = f"""
         <div class="stat"><div class="stat-num" data-count="22">0</div><div class="stat-label">Classes</div></div>
         <div class="stat"><div class="stat-num" data-count="20" data-suffix="+">0</div><div class="stat-label">Years &middot; Over Two Decades</div></div>
       </div>
+      {BOOK_CTA}
     </div>
   </section>
 
@@ -274,6 +327,7 @@ SECTIONS = f"""
         {tile('02', 'Law Enforcement.', 'SWAT, warrant teams and federal agencies. Small-unit tactics under time pressure.', 'who-law-enforcement.jpg')}
         {tile('03', 'Civilian.', 'Private citizens who take the preservation of life seriously. Same standard, scaled.', 'who-civilian.jpg', 'left 40%')}
       </div>
+      {BOOK_CTA}
     </div>
   </section>
 
@@ -291,6 +345,7 @@ SECTIONS = f"""
         {tile('06', 'Medical.', 'Emergency and trauma care.', 'mast-medical-poster.jpg', 'center 35%', clip='mast-medical-teaser.mp4')}
         {tile('07', 'Leadership.', 'Command and decision-making.', 'disc-leadership.jpg', 'center 40%')}
       </div>
+      {BOOK_CTA}
     </div>
   </section>
 
@@ -298,7 +353,8 @@ SECTIONS = f"""
   <section class="panel" id="s6" data-section="06">
     <div>
       <div class="eyebrow">Course Catalog</div>
-      <h2 class="section-h">The <span class="gold">Classes.</span></h2>
+      <!-- no chapter title here (owner, 2026-09-08: "Delete SS 2 + Course Catalog enough") -->
+      {BOOK_CTA}
       <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Fundamentals first, unless you have taken it before. Each discipline&rsquo;s Fundamentals course opens its other courses, and Select Date asks before the calendar opens.</b> P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
       <div class="catalog-wrap rise"><div class="glass"><div class="catalog-panel" id="catalog"></div></div>
       <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p></div>
@@ -323,7 +379,7 @@ SECTIONS = f"""
             <li>Featured on <b>Modern Shooter TV</b>, in <b>The Washington Post</b> and <b>The Houstonian</b></li>
           </ul>
           <p class="cadre">Courses run with a lead instructor, assistant instructors, and RSOs (Range Safety Officers) on the line. Your instructors are named on the course confirmation.</p>
-          <div class="ctas"><button class="cta-button ghost-button" type="button" onclick="openQuals()">Qualifications &amp; Certifications</button><a href="#s6" class="cta-button">Classes</a></div>
+          <div class="ctas"><button class="cta-button ghost-button" type="button" onclick="openQuals()">Qualifications &amp; Certifications</button><a href="#s6" class="cta-button" onclick="openDCal();return false;">Classes</a></div>
         </div>
       </div>
       <!-- Instructors = the founder only (owner, 2026-09-05: "Just me right now = instructor + correct pic"). The Michael Cline and
@@ -348,6 +404,7 @@ SECTIONS = f"""
       <div class="eyebrow gallery-eyebrow rise">Photographs</div>
       {fold_button('gallery-fold', 'Click to View', 'Click to Close')}
       <div class="fold" id="gallery-fold">{photo_grid('gallery-tiles', GALLERY_PHOTOS)}</div>
+      {BOOK_CTA}
     </div>
   </section>
 
@@ -356,7 +413,7 @@ SECTIONS = f"""
       <div class="eyebrow">Testimonials</div>
       <h2 class="section-h">In Their <span class="gold">Words.</span></h2>
       <div class="media-strip rise" id="testimonial-strip"></div>
-      <div class="ctas rise"><a class="cta" href="https://www.google.com/search?q=Atlas+Glinn&amp;ludocid=4511758973651106295#lrd=0x8640c3cb2d0755df:0x3e9cfce1d8a7b9f7,3" target="_blank" rel="noopener" data-track="review">Review us on Google</a><a class="secondary-cta" href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener" data-track="follow">Follow on Instagram</a></div>
+      <div class="ctas rise"><a class="cta" href="{shell.GOOGLE_REVIEW_URL}" target="_blank" rel="noopener" data-track="review">Review us on Google</a><a class="secondary-cta" href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener" data-track="follow">Follow on Instagram</a></div>
       <div class="quotes rise">
         <div class="q"><p>&ldquo;Matthew is an expert in his field. He is highly motivated, knowledgeable and I highly recommend him for top-tier performance.&rdquo;</p><div class="by">Kenny Upton &middot; Deputy, Harris County Sheriff</div></div>
         <div class="q"><p>&ldquo;His leadership, dedication, drive, and passion is second to none. A master at teamwork, problem-solving, leadership, and communication.&rdquo;</p><div class="by">Ray Cash Care &middot; Navy SEAL / Former CIA</div></div>
@@ -365,6 +422,7 @@ SECTIONS = f"""
         <div class="q"><p>&ldquo;Extremely professional. In an extremely competitive industry Matt has never failed to provide exceptional guidance. I recommend him without hesitation.&rdquo;</p><div class="by">Craig Etkin &middot; President &amp; CEO, intelligence360</div></div>
         <div class="q"><p>&ldquo;I&rsquo;ve trained with some big-name national and global self-defense trainers. I&rsquo;ve always felt safe training with Matt, the #1 criterion for choosing a trainer.&rdquo;</p><div class="by">Wayne Sadin &middot; CxO / Investor</div></div>
       </div>
+      {BOOK_CTA}
     </div>
   </section>
 
@@ -378,7 +436,8 @@ SECTIONS = f"""
         <p>Pictured: Senators Hawley and Schmitt.</p>
       </div>
       <div class="eyebrow" style="margin-top:2.5rem;">For agencies, units and procurement officers</div>
-      <div class="ctas rise"><a href="mailto:matthew@atlasglinn.com?subject=MAST%20Solutions%20Capability%20Statement%20Request" class="cta">Email for the Capability Statement</a><a href="mast-capability-statement.html" class="secondary-cta">View One-Pager</a></div>
+      <div class="ctas rise"><button class="cta-button" type="button" onclick="requestCapability()">Request the Capability Statement</button><a href="mast-capability-statement.html" class="secondary-cta">View One-Pager</a></div>
+      {BOOK_CTA}
     </div>
   </section>
 
@@ -393,6 +452,7 @@ SECTIONS = f"""
       <p class="sub">Atlas Glinn is an authorized dealer for IWA International training devices. IWA devices are priced each, three-unit minimum, hazmat shipping included; a PPC certification is required and every order is verified before fulfillment. Every item is quoted, not sold from a cart. Nothing is charged online.</p>
       <div class="gear-panel rise" id="gear-panel"></div>
       <p class="gate-fine" style="max-width:820px;margin:1.6rem auto 0;">Tell us the item and quantity; we confirm availability and shipping by email within one business day.</p>
+      {BOOK_CTA}
     </div>
   </section>
 
@@ -402,8 +462,8 @@ SECTIONS = f"""
       <h2 class="section-h"><span class="gold">Train</span> with MAST.</h2>
       <p class="sub">Individual seats, team blocks, and agency instruction.</p>
       <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div>
-      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a><a href="/" class="secondary-cta">Atlas Glinn &rarr;</a></div>
-      <div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions <br><a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.youtube.com/@mastsolutions" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.google.com/search?q=Atlas+Glinn&amp;ludocid=4511758973651106295#lrd=0x8640c3cb2d0755df:0x3e9cfce1d8a7b9f7,3" target="_blank" rel="noopener" data-track="review">Google Reviews</a></div>
+      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a><a href="https://atlasglinn.com/" class="secondary-cta">Atlas Glinn &rarr;</a></div>
+      <div class="foot site rise">{FOOT_SITE}</div>
     </div>
   </section>
 
@@ -461,8 +521,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('join').
 (function(){ const p = new URLSearchParams(location.search); const s = p.get('membership'); if (!s) return; const b = $('banner'); b.textContent = s === 'success' ? 'Welcome to the team \u2014 your membership is set up. The team will be in touch.' : 'Membership checkout cancelled \u2014 your card was not charged.'; b.classList.add('show'); setTimeout(() => b.classList.remove('show'), 9000); history.replaceState(null, '', location.pathname); })();
 """
 
-BODY = '\n' + CHROME + '\n' + banner + '\n\n<div class="content">\n' + SECTIONS + '</div>\n\n' + modals + JOIN_MODAL + LIGHTBOX + '\n'
-js = js + JOIN_JS + LIGHTBOX_JS
+BODY = '\n' + CHROME + MOBILE_NAV + '\n' + banner + '\n\n<div class="content">\n' + SECTIONS + '</div>\n\n' + modals + JOIN_MODAL + LIGHTBOX + '\n'
+js = js + JOIN_JS + LIGHTBOX_JS + shell.SITENAV_JS
 
 META = """<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
@@ -519,7 +579,6 @@ QUOTES_CSS = """
   /* The account link in the HUD's top-right corner (the section counter sits left of the chapter menu). */
   .hud.acct { top:1.2rem; right:1.8rem; color:var(--gold-champagne); opacity:.9; pointer-events:auto; cursor:pointer; text-decoration:none; padding:.3rem .6rem; border:1px solid rgba(201,168,76,.35); }
   .hud.acct:hover { opacity:1; background:rgba(201,168,76,.06); }
-  @media (max-width:768px) { .hud.acct { display:block; top:.9rem; right:1rem; font-size:.55rem; } }
   /* Folded photo grids: closed until the button opens them, then they unfold downward. The padding keeps the tiles' hover lift clear of the clip. */
   .fold { max-height:0; overflow:hidden; opacity:0; padding:10px 10px 0; margin:-10px -10px 0; transition:max-height .8s cubic-bezier(.2,.7,.2,1), opacity .45s; }
   .fold.open { max-height:6000px; opacity:1; padding-bottom:12px; transition:max-height 1.2s cubic-bezier(.2,.7,.2,1), opacity .5s .1s; }
@@ -527,6 +586,18 @@ QUOTES_CSS = """
   #s13 .sub { text-shadow:0 1px 6px rgba(0,0,0,.9), 0 0 18px rgba(0,0,0,.6); }   /* the Contact chapter (13 since the Gear chapter, 2026-09-05) */
   .modal.lightbox { width:min(1200px, calc(100vw - 32px)); padding:.6rem; background:#050810; }
   .modal.lightbox img { display:block; max-width:100%; max-height:84vh; margin:0 auto; }
+
+  /* The site footer, as the Atlas Glinn pages print it: four link groups, the contact line, the socials, the badges and the
+     rights line. Same rules, this page's palette. */
+  .foot.site { margin:3.2rem auto 0; line-height:2.4; text-align:center; letter-spacing:.22em; max-width:900px; }
+  .foot.site .fg { color:var(--gold-champagne); margin-right:.9rem; }
+  .foot.site .badges { margin:1.2rem auto .8rem; }
+  .foot.site .to-top { color:var(--gold-champagne); }
+  .badges { display:flex; gap:1.4rem; justify-content:center; align-items:center; flex-wrap:wrap; margin-top:2rem; }
+  .badges img { height:84px; width:auto; border:0; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); }
+  .badges .badge-item { text-align:center; }
+  .badges .badge-item p { margin-top:.8rem; font-family:'Orbitron',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-champagne); }
+  @media (max-width:768px) { .badges img { height:64px; } }
 
   .quotes { display:grid; grid-template-columns:repeat(3,1fr); gap:1.1rem; max-width:1200px; margin:0 auto; text-align:left; }
   .quotes .q { border:1px solid rgba(201,168,76,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.7) 100%); padding:1.4rem 1.5rem; }
@@ -594,11 +665,54 @@ GOLD_KEEP = """
   @media (max-width:900px) { .teams { grid-template-columns:1fr 1fr; } }
   @media (max-width:600px) { .teams { grid-template-columns:1fr; } .tier-fee { font-size:2.2rem; } }
 """
-html = shell.head(META, shell.css(PALETTE, '/*__BOOKING_CSS__*/' + QUOTES_CSS)) + BODY + shell.tail(shell.three(12, PALETTE), js)
+
+# The mobile menu stands in for the gold chapter rail, so it is spliced after the recolor with the rest of the gold the
+# owner named: the shell's component verbatim, then MAST's breakpoint (the rail hands over at 900px, not 768px), the sticky
+# bar and the touch sizes the audit measured (Sign in was a 76.8 x 21.6 px target).
+MOBILE_NAV_CSS = shell.SITENAV_CSS + """
+  .menu-btn, .sitenav, .mast-topbar { --gold:#C9A84C; --gold-antique:#D4AF37; --gold-champagne:#E8D27D; --gold-bright:#FCF6BA; --copper:#B87333; }
+  .hud.tr { right:15rem; }   /* the shell's rule pulls the counter left for a permanent MENU; MAST's shows on phones only */
+  .mast-topbar { display:none; position:fixed; top:0; left:0; right:0; z-index:2200; height:calc(3.4rem + env(safe-area-inset-top,0px)); background:linear-gradient(180deg, rgba(5,8,16,.94) 0%, rgba(5,8,16,.74) 100%); border-bottom:1px solid rgba(201,168,76,.28); backdrop-filter:blur(10px); pointer-events:none; }
+  .menu-btn { display:none; z-index:2400; }
+  .sitenav { z-index:2300; }   /* over the chapters, under the banner (2500) and the booking modals (3000) */
+  .sitenav .nav-book { color:var(--gold-bright); }
+  @media (max-width:899px) {
+    .chapter-nav { display:none; }   /* one navigation at a time: the rail hands over to MENU here */
+    .hud.tl, .hud.acct { z-index:2400; }   /* the bar is a backdrop, not a lid: the brand line and Sign in ride on it */
+    .mast-topbar { display:block; }
+    .menu-btn { display:inline-flex; align-items:center; min-height:44px; top:calc(.32rem + env(safe-area-inset-top,0px)); right:.8rem; font-size:.62rem; cursor:pointer; }
+    .hud.tl { display:inline-flex; align-items:center; min-height:44px; top:calc(.32rem + env(safe-area-inset-top,0px)); left:calc(1rem + env(safe-area-inset-left,0px)); font-size:.6rem; opacity:.95; }
+    .hud-x { display:none; }   /* the MAST.SYS line would push the bar past a phone's width */
+    .hud.acct { display:inline-flex; align-items:center; min-height:44px; top:calc(.32rem + env(safe-area-inset-top,0px)); right:7.2rem; font-size:.62rem; padding:.3rem .55rem; }
+    .sitenav-in { max-height:100svh; }
+    #s13 .foot { font-size:.72rem; }
+    #s13 .foot a, .contact-lines a { display:inline-flex; align-items:center; min-height:44px; }
+  }
+"""
+html = shell.head(META, shell.css(PALETTE, '/*__BOOKING_CSS__*/' + QUOTES_CSS, '/*__MOBILE_NAV_CSS__*/')) + BODY + shell.tail(shell.three(len(CHAPTERS), PALETTE), js)
 # The video cards and the media strip are shared UI in the blue chapters, so those lifted rules recolor with the page.
 booking_css_kept = '\n'.join(shell._recolor(l, PALETTE) if l.lstrip().startswith(('.video-card', '.yt', '.media-strip')) else l for l in booking_css.splitlines())
 html = shell._recolor(html, PALETTE).replace('/*__BOOKING_CSS__*/', booking_css_kept + GOLD_KEEP, 1)
+# The mobile menu is spliced last and past the recolor, for the same two reasons the booking stack is: it has to win
+# over the desktop .hud rules in QUOTES_CSS, and it stands in for the gold chapter rail, so it keeps the rail's gold.
+html = html.replace('/*__MOBILE_NAV_CSS__*/', MOBILE_NAV_CSS, 1)
+assert '__MOBILE_NAV_CSS__' not in html, 'the mobile menu stylesheet was not spliced'
 assert html.count('__BOOKING_CSS__') == 0 and '.cat-btn {' in html and 'h1.mega .gold { text-shadow' in html, 'booking css / gold keep not spliced'
+# Second-pass guards (2026-09-08). Each one is a regression that shipped once.
+assert 'ludocid' not in html, 'the rejected Google review URL is back'
+assert html.count('openDCal();return false;') >= len(CHAPTERS), 'a chapter lost its Book a Class CTA'
+assert 'requestCapability()' in html and 'Capability%20Statement%20Request' not in html, 'the capability request went back to a mailto'
+assert 'id="menu-btn"' in html and 'class="sitenav"' in html and 'const nav = document.getElementById(\'sitenav\')' in html, 'the mobile menu is not wired'
+assert 'BOOKING_ENDPOINT' not in html and 'offeredOn(wi)' not in html, 'dead booking code is back'
+assert ('const SECTIONS = %d;' % len(CHAPTERS)) in html and html.count('SECTION 01 / %02d' % len(CHAPTERS)) == 1, \
+    'the HUD counter and the camera path must both count the chapters in CHAPTERS'
+assert 'classes run on every training weekend' in html, 'the calendar reads a class count against one date again'
+assert 'The <span class="gold">Classes.</span>' not in html and "images/mast/courses-instructor.jpg');background-position:50% 15%" in html, \
+    'the Classes chapter title is back or the Courses backdrop is not his photo (owner, 2026-09-08)'
+assert '#intro-seq.gone' in html and 'i.classList.add("gone")' in html, \
+    'the splash releases the pointer on dismissal again: its tap lands on the CTA underneath'
+assert 'if(done||!i.isConnected||i.classList.contains("done")){document.removeEventListener("keydown",onKey);return}' in html, \
+    'the splash key listener outlives the splash again: the first Enter/Space/Escape typed into a form would be swallowed'
 
 # Brockmann picked this design as the page that ships (2026-09-03), so the assembler writes the production
 # mastsolutions.html. The Atlas-frame build lives on as mastsolutions-atlas.html; the old cinematic URL is a stub redirect.
@@ -632,6 +746,7 @@ open(ms_out, 'w', encoding='utf-8').write(ms)
 build_manifest.stamp(ms_out)
 open(f'{REPO}/dist/mastsolutions/build-manifest.json', 'w', encoding='utf-8').write(_json.dumps({'index.html': build_manifest.digest(open(ms_out, encoding='utf-8').read())}) + '\n')
 assert 'href="index.html"' not in ms and 'https://www.mastsolutions.com/' in ms and 'atlasglinn.com/mastsolutions.html' not in ms, 'mastsolutions.com copy not rewritten'
+assert 'href="/"' not in ms, 'a self-link survived the mastsolutions.com rewrite: on this host "/" is this page'
 print('wrote', ms_out, 'for mastsolutions.com')
 
 # robots.txt + sitemap.xml for www.mastsolutions.com (2026-09-08). The root robots.txt / sitemap.xml are atlasglinn.com's
