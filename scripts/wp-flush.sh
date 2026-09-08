@@ -10,6 +10,14 @@
 #
 #   bash scripts/wp-flush.sh              # flush, then measure the plain /mastsolutions.html against the cache-busted copy
 #   WP_FLUSH_SSH=1 bash scripts/wp-flush.sh   # also try WP-CLI over SSH (any GoDaddy cache command it finds, plus `wp cache flush`)
+#   WP_FLUSH_SSH=1 WP_FLUSH_DIAG=1 bash scripts/wp-flush.sh   # plus a read-only DIAG dump of the host's cache classes/hooks
+#
+# 2026-09-08: `wp cache flush` clears the OBJECT cache only — the vault has said so since April
+# (agent-memory/project_atlasglinn_wordpress.md:16) and the 09-08 run proved it again: ssh ran, the plain URL still served
+# [Mon, 07 Sep 2026 12:26:11 GMT]. The dashboard's Flush Cache button is `$GLOBALS['wpaas_cache_class']` (WPaaS\Cache_V2)
+# calling do_ban() (Varnish) + flush_cdn() (Cloudflare) + flush_transients() + flush_object_cache()
+# (agent-memory/project_session_2026_04_30_atlasglinn_careers_form.md:25-27). Method B now fires that exact cascade through
+# `wp eval-file` over the same SSH login, so the button is no longer the fallback.
 #
 # Method A (REST): a private page with slug `cache-bust` (created once, never public) gets its content updated with the
 # time; the GoDaddy system plugin purges the site cache on that save. Method B (SSH): `wp cli cmd-dump` is searched for a
@@ -90,6 +98,67 @@ except Exception: pass' | head -5)"
     say "SSH: cache commands found: ${cmds:-none}"
     out="$(ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "$U@$HOST" "cd $DOCROOT && wp cache flush 2>&1$(printf '%s\n' "$cmds" | grep -v '^$' | sed 's/^/ ; wp /' | tr -d '\n' | sed 's/ ; wp cache flush//')" 2>&1 | tail -3)"
     say "SSH: $out"; [ -n "$method" ] || method="ssh"
+    # The dashboard button's own cascade (WPaaS\Cache_V2: Varnish ban + Cloudflare CDN purge + transients + object cache),
+    # run inside WordPress by WP-CLI with the mu-plugins loaded. The PHP travels on ssh's stdin — nothing to quote — into a
+    # file in the login's home for the one call, then it is removed. Reflection covers the methods being non-public.
+    P="$(mktemp /tmp/wp-flush-cascade.XXXXXX)"
+    cat > "$P" <<'PHP'
+<?php
+$c = isset($GLOBALS['wpaas_cache_class']) ? $GLOBALS['wpaas_cache_class'] : null;
+if (is_string($c) && class_exists($c)) { try { $c = new $c(); } catch (\Throwable $e) { $c = null; } }
+if (!is_object($c) && class_exists('WPaaS\Cache_V2')) {
+  foreach (array('instance', 'get_instance', 'getInstance') as $acc) {   // singleton accessors first: a private constructor is the likely shape
+    if (is_callable(array('\WPaaS\Cache_V2', $acc))) { try { $c = \call_user_func(array('\WPaaS\Cache_V2', $acc)); } catch (\Throwable $e) { $c = null; } }
+    if (is_object($c)) { break; }
+  }
+  if (!is_object($c)) { try { $c = new \WPaaS\Cache_V2(); } catch (\Throwable $e) { $c = null; } }
+}
+if (!is_object($c)) { echo "wpaas-cascade: no WPaaS cache class (GoDaddy system plugin not loaded?)\n"; exit(2); }
+$done = array();
+foreach (array('do_ban', 'flush_cdn', 'flush_transients', 'flush_object_cache') as $m) {
+  if (!method_exists($c, $m)) { $done[] = $m . ':missing'; continue; }
+  try { $r = new \ReflectionMethod($c, $m); $r->setAccessible(true); $r->invoke($c); $done[] = $m . ':ok'; }
+  catch (\Throwable $e) { $done[] = $m . ':' . str_replace("\n", ' ', $e->getMessage()); }
+}
+echo 'wpaas-cascade: ' . get_class($c) . ' ' . implode(' ', $done) . "\n";
+PHP
+    # flush_cdn() calls the Cloudflare API and is the one step that can stall; the remote `timeout 90` bounds it (the host is
+    # Linux, coreutils present) so the hourly job that runs this script cannot hang on it, and the file is removed either way.
+    # `timeout` is coreutils; GoDaddy's restricted shell may not carry it, so it is used only when present (2026-09-08: the
+    # first run after the cascade landed still printed method `ssh`, and a missing `timeout` would explain that silently).
+    casc="$(ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "$U@$HOST" "cd $DOCROOT && cat > \$HOME/.wp-flush-cascade.php && t=''; command -v timeout >/dev/null 2>&1 && t='timeout 90'; \$t wp eval-file \$HOME/.wp-flush-cascade.php 2>&1; rc=\$?; rm -f \$HOME/.wp-flush-cascade.php; [ \$rc = 124 ] && echo 'wpaas-cascade: timed out after 90s (Cloudflare API stall?)'; exit \$rc" < "$P" 2>&1 | tail -3)"
+    rm -f "$P"
+    say "SSH: ${casc:-wpaas-cascade: no output (ssh failed before wp ran)}"
+    case "$casc" in *"flush_cdn:ok"*) method="ssh-wpaas";; esac
+    # WP_FLUSH_DIAG=1: when the cascade does not report flush_cdn:ok, print what the host actually has — which classes,
+    # globals, methods (with visibility and arity) and flush/purge hooks the GoDaddy system plugin exposes under WP-CLI —
+    # so the next fix is written from a measurement, not a guess. Read-only; nothing is flushed by this block.
+    if [ "${WP_FLUSH_DIAG:-0}" = 1 ]; then
+      D="$(mktemp /tmp/wp-flush-diag.XXXXXX)"
+      cat > "$D" <<'PHP'
+<?php
+if (!function_exists('get_mu_plugins') && defined('ABSPATH') && is_file(ABSPATH . 'wp-admin/includes/plugin.php')) { require_once ABSPATH . 'wp-admin/includes/plugin.php'; }
+echo 'DIAG php=' . PHP_VERSION . ' wp=' . get_bloginfo('version') . ' cli=' . (defined('WP_CLI') ? 'yes' : 'no') . ' host=' . php_uname('n') . "\n";
+echo 'DIAG mu-plugins: ' . (function_exists('get_mu_plugins') ? implode(', ', array_keys(get_mu_plugins())) : 'n/a') . "\n";
+$classes = array();
+foreach (get_declared_classes() as $k) { if (stripos($k, 'wpaas') !== false || stripos($k, 'godaddy') !== false || stripos($k, 'gd_') === 0) { $classes[] = $k; } }
+echo 'DIAG classes (wpaas/godaddy): ' . (count($classes) ? implode(', ', $classes) : 'NONE') . "\n";
+$g = array(); foreach (array_keys($GLOBALS) as $k) { if (stripos($k, 'wpaas') !== false || stripos($k, 'gd_') === 0 || stripos($k, 'cache') !== false) { $v = $GLOBALS[$k]; $g[] = $k . '=' . (is_object($v) ? get_class($v) : gettype($v)); } }
+echo 'DIAG globals: ' . (count($g) ? implode(', ', $g) : 'NONE') . "\n";
+foreach ($classes as $cls) {
+  if (stripos($cls, 'cache') === false) { continue; }
+  $r = new \ReflectionClass($cls); $m = array();
+  foreach ($r->getMethods() as $x) { $m[] = ($x->isPublic() ? '+' : ($x->isProtected() ? '#' : '-')) . ($x->isStatic() ? 'static:' : '') . $x->getName() . '/' . $x->getNumberOfRequiredParameters(); }
+  echo 'DIAG ' . $cls . ' ctor=' . ($r->getConstructor() ? ($r->getConstructor()->isPublic() ? 'public' : 'non-public') : 'none') . ' methods: ' . implode(' ', $m) . "\n";
+}
+global $wp_filter; $hooks = array();
+foreach (array_keys((array) $wp_filter) as $h) { if (stripos($h, 'flush') !== false || stripos($h, 'purge') !== false || stripos($h, 'wpaas') !== false || stripos($h, 'cache') !== false) { $hooks[] = $h; } }
+echo 'DIAG hooks (flush/purge/wpaas/cache): ' . (count($hooks) ? implode(', ', $hooks) : 'NONE') . "\n";
+PHP
+      diag="$(ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "$U@$HOST" "cd $DOCROOT && echo \"DIAG shell: timeout=\$(command -v timeout || echo MISSING) wp=\$(command -v wp || echo MISSING) \$(wp cli version 2>/dev/null | head -1)\"; ls wp-content/mu-plugins 2>/dev/null | sed 's/^/DIAG mu-file: /' | head -12; cat > \$HOME/.wp-flush-diag.php && wp eval-file \$HOME/.wp-flush-diag.php 2>&1 | head -40; rm -f \$HOME/.wp-flush-diag.php" < "$D" 2>&1)"
+      rm -f "$D"
+      printf '%s\n' "${diag:-DIAG: no output (ssh failed)}"
+    fi
     rm -f "$A"
   else
     say "no Keychain item '$KC_SFTP' (the SFTP/SSH login); SSH flush skipped"
