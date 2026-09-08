@@ -338,7 +338,8 @@ video has ever been handed off — the post URLs are needed (`scripts/handoff-ur
        (and no class history) until the code comes back; an unverified address is taken over by the next sign-up and purged
        after a day, so nobody can squat a student's email; sign-in on an unverified email answers 403 and re-sends the code.
        P2 "provide a recovery path for forgotten passwords" — Forgot your password → emailed reset code → new password (every
-       other session signed out). Codes are hashed under `ACCOUNT_SECRET`, live 15 minutes, five tries, one resend a minute,
+       other session signed out). Codes are hashed under `ACCOUNT_SECRET`, live 15 minutes, one resend a minute, five wrong
+       guesses per connection and twenty in total before the code is burned and its owner emailed,
        never BCC'd. Needs `migrations/005-account-verification.sql` after 004, and `RESEND_API_KEY` (sign-up answers 503
        `email_off` without it; sign-in for verified students still works). Codex's three follow-ups on #11 (atomic attempt
        counting, no-enumeration throttles, deploy-before-secret) are **PR #12, merged 2026-09-05 16:29 UTC (main 4c16337)**.

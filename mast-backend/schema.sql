@@ -230,7 +230,8 @@ CREATE TABLE IF NOT EXISTS registrations (
   prereq_attested         INTEGER NOT NULL DEFAULT 0,   -- level 2/3 courses: participant confirmed the prerequisite was completed before (migrations/001)
   stripe_session_id       TEXT,
   paid_at                 TEXT,
-  documents_sent_at       TEXT
+  documents_sent_at       TEXT,
+  abandoned_reason        TEXT                     -- why a row went to 'abandoned': 'capacity' when the atomic seat claim rolled it back (migrations/009); NULL for the daily expiry sweep
 );
 CREATE INDEX IF NOT EXISTS idx_reg_email   ON registrations (customer_email);
 CREATE INDEX IF NOT EXISTS idx_reg_status  ON registrations (status);

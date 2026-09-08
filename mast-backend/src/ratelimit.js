@@ -15,10 +15,11 @@
  * A D1 failure inside the limiter FAILS CLOSED (429) on every limited route: a booking or a sign-in refused for a
  * minute is recoverable, an unmetered guessing window is not.
  *
- * /event is deliberately NOT in the table (security review round 2, 2026-09-08). It is a page-view beacon, so limiting
- * it in D1 turns every page view into a D1 write — the counter costs more than the route it guards. It used to be listed
- * with failOpen, which meant the writes happened on every view and the limit did nothing in the outage it was written
- * for. Nothing else opts out; failOpen is gone with it.
+ * EVERY public route is in the table (security review round 3, 2026-09-08). /event came OUT of it in round 2, on the
+ * grounds that a counter in D1 turns every page view into a D1 write — true, and beside the point: /event is itself an
+ * unauthenticated D1 INSERT, so leaving it out saved no write, it removed the only bound on how many an anonymous
+ * caller could ask for. One counter row per address per window against one row per beacon is the cheaper half of that
+ * trade, and a beacon answering 429 costs a visitor nothing. failOpen stayed gone: every limited route fails CLOSED.
  */
 
 const MINUTE = 60000;
@@ -44,6 +45,7 @@ export const RATE_ROUTES = {
   'POST /contact': { bucket: 'contact', limit: 30 },
   'POST /subscribe': { bucket: 'subscribe', limit: 10 },
   'GET /roster': { bucket: 'admin', limit: 60 },
+  'POST /event': { bucket: 'event', limit: 60 },
 };
 
 /**
@@ -112,9 +114,14 @@ export function _resetRateSchemaMemo() { schemaReady = null; }   // tests
  * falling back to it let a caller choose their own counter key and step out of every per-IP limit by rotating a string
  * (security review round 2, 2026-09-08). Without the Cloudflare header every such caller shares the one 'unknown'
  * bucket — a shared limit, not an unmetered hole, and limited routes still fail closed.
+ *
+ * ONE normalised value, and every cap uses it (security review round 3, 2026-09-08). The bare header used to reach the
+ * seat-hold counter as an empty string, and an empty string made concurrentHolds count nothing — so a request arriving
+ * without CF-Connecting-IP sat outside both hold caps rather than inside a shared one. 'unknown' is a bucket like any
+ * other: shared, capped, never a bypass.
  */
 export function clientIp(request) {
-  return request.headers.get('CF-Connecting-IP') || '';
+  return request.headers.get('CF-Connecting-IP') || 'unknown';
 }
 
 const seconds = (ms) => Math.max(1, Math.ceil(ms / 1000));
@@ -127,7 +134,7 @@ const seconds = (ms) => Math.max(1, Math.ceil(ms / 1000));
 export async function checkRate(request, env, method, pathname) {
   const rule = ruleFor(method, pathname);
   if (!rule) return null;
-  const key = rule.bucket + ':' + (clientIp(request) || 'unknown');
+  const key = rule.bucket + ':' + clientIp(request);
   const now = Date.now();
   const nowIso = new Date(now).toISOString();
   const cutoff = new Date(now - WINDOW_MS).toISOString();
@@ -244,6 +251,52 @@ export async function noteFailedIdentity(env, ip, email) {
 export async function clearFailedIdentity(env, ip, email) {
   if (!env || !env.DB) return;
   await env.DB.prepare('DELETE FROM rate_limits WHERE key = ?').bind(identityKey(ip, email)).run().catch((e) => console.error('[Rate] identity clear failed:', e.message));
+}
+
+/* ──────────── Wrong verification / reset codes, per (connection, account) ────────────
+   Five wrong codes used to burn the live code outright, so a stranger who knew nothing but an address could reach into
+   the owner's inbox and invalidate the code sitting in it — and, once round 2 made every wrong answer identical, do it
+   silently. codeTooSoon() then refused the owner a replacement for the next minute, which is a denial of service built
+   out of a safety feature (security review round 3, 2026-09-08).
+
+   Two counters now, and they answer two different questions:
+     per (IP, account)  five wrong guesses and THAT connection is refused; the code stays live for everyone else, so the
+                        owner's own attempt is untouched by a stranger's.
+     global             CODE_MAX_TRIES (20) wrong tries in total still burn it, because a code that has been guessed at
+                        from twenty directions is a code under attack. Twenty tries against six digits is a 0.002%
+                        chance of a hit, so the burn costs an attacker far more than it costs the owner — who is emailed
+                        that it happened and can ask for a new one immediately.
+
+   key    'codeguess:<ip>:<account id>'
+   count  wrong guesses from that connection against that account
+   The row is dropped when a fresh code is issued for the account, when a guess is right, and by the daily purge. */
+export const CODE_GUESSES_PER_IP = 5;
+const codeGuessKey = (ip, id) => 'codeguess:' + (ip || 'unknown') + ':' + id;
+
+/** Wrong guesses this connection has already spent against this account. A D1 failure counts as none — the global
+ *  counter inside checkCode is the control that must not fail open, and it lives on the accounts row. */
+export async function codeGuessesSpent(env, ip, id) {
+  if (!env || !env.DB) return 0;
+  const row = await env.DB.prepare('SELECT count FROM rate_limits WHERE key = ?').bind(codeGuessKey(ip, id)).first().catch(() => null);
+  return Number((row && row.count) || 0);
+}
+
+/** One wrong guess. Two statements, the same two whether or not the account exists. */
+export async function noteCodeGuess(env, ip, id) {
+  if (!env || !env.DB) return;
+  const key = codeGuessKey(ip, id);
+  try {
+    await ensureRateSchema(env);
+    await env.DB.prepare('INSERT OR IGNORE INTO rate_limits (key, window_start, count) VALUES (?, ?, ?)').bind(key, new Date().toISOString(), 0).run();
+    await env.DB.prepare('UPDATE rate_limits SET count = count + 1 WHERE key = ?').bind(key).run();
+  } catch (e) { console.error('[Rate] code-guess counter:', e.message); }
+}
+
+/** A right guess, or a fresh code, clears what EVERY connection has spent against this account: the owner asking for a
+ *  new code is what un-refuses the connection that typo'd its way to five. */
+export async function clearCodeGuesses(env, id) {
+  if (!env || !env.DB) return;
+  await env.DB.prepare('DELETE FROM rate_limits WHERE key LIKE ?').bind('codeguess:%:' + id).run().catch((e) => console.error('[Rate] code-guess clear failed:', e.message));
 }
 
 /** Any successful authentication clears the counter and the lock. Best-effort: an unmigrated column never blocks a sign-in. */

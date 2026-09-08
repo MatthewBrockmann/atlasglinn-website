@@ -1,0 +1,19 @@
+-- 009 — Why a registration was abandoned (security review round 3, 2026-09-08).
+-- Run once on the live database, after 008:
+--   npx wrangler d1 execute mast_bookings --remote --file=migrations/009-seat-claim.sql
+-- NOT idempotent (SQLite has no ADD COLUMN IF NOT EXISTS): a second run fails with "duplicate column name:
+-- abandoned_reason", which means it is already applied and nothing changed. deploy-worker.yml applies it when the column
+-- is missing.
+--
+-- The seat claim is now one env.DB.batch(): INSERT the pending row, then a conditional UPDATE that rolls it straight
+-- back to 'abandoned' when the class — counting the row just inserted — is over capacity, then read the status back.
+-- D1 runs a batch in order inside a single implicit transaction, so nothing lands between the count and the row that
+-- made the count wrong. Before it, the capacity SELECT and the INSERT were separated by about six awaited statements
+-- with no transaction: four POSTs on the same tick at qty 10 against a 16-seat class all passed the check and all got a
+-- Stripe URL, 40 seats held on 16. On a live-fire range that is a safety problem before it is a refund problem.
+--
+-- The column is what tells the two kinds of abandonment apart in the roster and in SQL: 'capacity' is a claim the batch
+-- rolled back within milliseconds and the buyer was told about; NULL is the daily cron expiring a checkout nobody
+-- finished. The Worker degrades without it — runSeatClaim drops the assignment and still rolls the row back — so
+-- applying this file changes what you can SEE, never whether the class can be oversold.
+ALTER TABLE registrations ADD COLUMN abandoned_reason TEXT;
