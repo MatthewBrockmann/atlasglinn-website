@@ -751,14 +751,20 @@ assert 'BOOKING_ENDPOINT' not in html and 'offeredOn(wi)' not in html, 'dead boo
 assert ('const SECTIONS = %d;' % len(CHAPTERS)) in html and html.count('SECTION 01 / %02d' % len(CHAPTERS)) == 1, \
     'the HUD counter and the camera path must both count the chapters in CHAPTERS'
 assert 'classes run on every training weekend' in html, 'the calendar reads a class count against one date again'
+assert 'The <span class="gold">Classes.</span>' not in html and "images/mast/courses-instructor.jpg');background-position:50% 15%" in html, \
+    'the Classes chapter title is back or the Courses backdrop is not his photo (owner, 2026-09-08)'
 assert '#intro-seq.gone' in html and 'i.classList.add("gone")' in html, \
     'the splash releases the pointer on dismissal again: its tap lands on the CTA underneath'
 assert 'if(done||!i.isConnected||i.classList.contains("done")){document.removeEventListener("keydown",onKey);return}' in html, \
     'the splash key listener outlives the splash again: the first Enter/Space/Escape typed into a form would be swallowed'
 
 # Third-pass guards (2026-09-08). The four Experiences, the waiting list, and the Classes chapter over his photograph.
+# Scoped to the EXPERIENCES array: a whole-document search was satisfied by the owner's quoted email elsewhere in the
+# page, so deleting the Corporate Team Training card still built (function verifier, 2026-09-08).
+_exp = html[html.find('const EXPERIENCES = ['):]
+_exp = _exp[:_exp.find('];') + 2]
 for _x in ('Couples Range Experience', 'Date Night at the Range', 'Bachelor Party at the Range', 'Corporate Team Training'):
-    assert _x in html, 'the Experiences accordion lost a card: ' + _x
+    assert _exp.count("name: '" + _x + "'") == 1, 'the Experiences accordion lost a card: ' + _x
 assert 'const EXPERIENCES_HIDDEN = false;' in html, 'the Experiences cards are hidden again'
 assert 'Package details and pricing are being finalized.' in html and 'Dates announced soon' in html, \
     'an Experiences card lost its placeholder line or its calendar placeholder'
