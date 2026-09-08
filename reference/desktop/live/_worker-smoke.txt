@@ -1,6 +1,6 @@
-smoke 2026-09-08T04:16:16Z from main 841ef83 run 34186396338 (contact=false checkout=false)
+smoke 2026-09-08T16:54:23Z from main 601d0ba run 34253885089 (contact=true checkout=false)
 --- health
-HTTP 200 649ms  GET /health
+HTTP 200 577ms  GET /health
 {"status":"MAST booking backend — ONLINE","version":"1.2.0","build":"5580986","crm":true,"directions":"sealed"}
    build: 5580986
    CRM routes live: yes (GET /admin/crm → 401 without a key)
@@ -8,7 +8,7 @@ HTTP 200 649ms  GET /health
 --- directions key (the public half of the Worker's sealing key; feeds mast-backend/seal-directions.mjs; saved beside this report as _directions-key.json)
 HTTP 200  key_id=b9104a7374d4c1d9
 --- catalog
-HTTP 200 154ms  GET /catalog
+HTTP 200 136ms  GET /catalog
    source=d1 classes=22
    MAST-HG-FUND     Handgun Fundamentals                         $225.00
    MAST-HG-LADIES   Ladies Only Handgun Fundamentals             $225.00
@@ -33,7 +33,7 @@ HTTP 200 154ms  GET /catalog
    MAST-MOTOR-P2    Motorcade P2                                 $0.00
    MAST-GEAR        Gear & Kit Considerations                    $750.00
 --- weekends
-HTTP 200 130ms  GET /weekends
+HTTP 200 81ms  GET /weekends
    weekends=15 first=2026-09-26 last=2027-04-24 statuses=['available', 'blocked']
 --- CORS preflight (Origin https://atlasglinn.com → POST /create-booking)
    HTTP/2 204 
@@ -42,10 +42,12 @@ HTTP 200 130ms  GET /weekends
    access-control-allow-methods: GET, POST, OPTIONS
    access-control-max-age: 86400
 --- accounts (GET /account/me without a token: 503 accounts_off = ACCOUNT_SECRET not set; 401 = accounts on)
-HTTP 401 55ms  GET /account/me
+HTTP 401 189ms  GET /account/me
 {"error":"Please sign in again.","code":"unauthorized"}
 --- CRM summary: skipped (no ADMIN_KEY repository secret; add it under Settings → Secrets → Actions to see counts, revenue and the funnel here)
---- contact: skipped (input contact=false)
+--- contact (one labelled test message; the Worker emails NOTIFY_EMAIL through Resend)
+HTTP 200 727ms  POST /contact
+{"ok":true}
 --- checkout: skipped (input checkout=false)
 --- mail DNS (mastsolutions.com), asked at ns27.domaincontrol.com. (authoritative)
    A mastsolutions.com [auth]: 15.197.225.128|3.33.251.168
@@ -55,7 +57,7 @@ HTTP 401 55ms  GET /account/me
    CNAME www.atlasglinn.com [fallback]: atlasglinn.com.
    TXT mastsolutions.com [auth]: "v=spf1 include:secureserver.net -all"|"google-site-verification=u-Y9TwJZ9LUJCX-j3oLdUMC5xBwNu7ju2gBa4TGjPug"
    MX mastsolutions.com [auth]: 0 mastsolutions-com.mail.protection.outlook.com.
-   TXT send.mastsolutions.com [auth]: 
+   TXT send.mastsolutions.com [auth]: "v=spf1 include:amazonses.com ~all"
    MX send.mastsolutions.com [auth]: 10 feedback-smtp.us-east-1.amazonses.com.
    TXT _dmarc.mastsolutions.com [auth]: "v=DMARC1; p=none;"
    TXT resend._domainkey.mastsolutions.com [auth]: "p=MIGf…"
