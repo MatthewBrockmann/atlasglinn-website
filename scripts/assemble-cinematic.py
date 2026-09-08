@@ -110,7 +110,7 @@ def tile(num, title, body, img, pos='center', clip=''):
 
 CHAPTERS = [('s1', 'Opening'), ('s2', 'Standard'), ('s3', 'Who'), ('s4', 'Disciplines'), ('s5', 'The Range'),
             ('s6', 'Classes'), ('s7', 'Team Memberships'), ('s8', 'Instructors'), ('s9', 'In Action'),
-            ('s10', 'Testimonials'), ('s11', 'Privacy'), ('s12', 'Gear'), ('s13', 'Contact')]
+            ('s10', 'Testimonials'), ('s11', 'Privacy'), ('s12', 'Store'), ('s13', 'Contact')]
 
 CHROME = shell.chrome(
     credits=('A Houston Operation', 'Since 2005'), wordmark='MAST Solutions',
@@ -485,11 +485,11 @@ SECTIONS = f"""
   <section class="panel" id="s12" data-section="12">
     <div id="gear">  <!-- named anchor: the Atlas site menu's Training link (IWA Training Products) opens mastsolutions.html#gear -->
       <!-- Aimpoint hidden 2026-09-07 (owner: "hide Aimpoint for now"): GEAR_HIDDEN in mastsolutions-tesla.html keeps the cards off;
-           when it comes back, the eyebrow reads "Gear · Aimpoint and IWA" and the sub gets its Aimpoint sentence again
+           when it comes back, the eyebrow reads "Store · Aimpoint and IWA" and the sub gets its Aimpoint sentence again
            ("Atlas Glinn is an authorized dealer for Aimpoint optics and IWA International training devices. Aimpoint prices are
            MAP, with dealer and volume pricing on request and free shipping over $500."). -->
-      <div class="eyebrow">Gear &middot; IWA</div>
-      <h2 class="section-h">Equipment. <span class="gold">By Quote.</span></h2>
+      <div class="eyebrow">Store &middot; IWA</div>
+      <h2 class="section-h"><span class="gold">Store.</span></h2>
       <p class="sub">Atlas Glinn is an authorized dealer for IWA International training devices. IWA devices are priced each, three-unit minimum, hazmat shipping included; a PPC certification is required and every order is verified before fulfillment. Every item is quoted, not sold from a cart. Nothing is charged online.</p>
       <div class="gear-panel rise" id="gear-panel"></div>
       <p class="gate-fine" style="max-width:820px;margin:1.6rem auto 0;">Tell us the item and quantity; we confirm availability and shipping by email within one business day.</p>
@@ -757,6 +757,24 @@ assert '#intro-seq.gone' in html and 'i.classList.add("gone")' in html, \
     'the splash releases the pointer on dismissal again: its tap lands on the CTA underneath'
 assert 'if(done||!i.isConnected||i.classList.contains("done")){document.removeEventListener("keydown",onKey);return}' in html, \
     'the splash key listener outlives the splash again: the first Enter/Space/Escape typed into a form would be swallowed'
+
+# Store chapter guards (2026-09-08). Owner, on the screenshot of chapter 12: '"GEAR" = wrong - STORE = header + IWA + Training
+# Devices + List price + OUT OF STOCK + link to add acutal product info https://iwainternationalinc.com/shop/'. One assert per
+# thing he named, so the chapter cannot quietly go back to being Gear.
+assert 'class="chap-link">12 &middot; Store</a>' in html and 'class="chap-link">12 &middot; Gear</a>' not in html, \
+    'chapter 12 reads Gear again: the rail, the HUD counter and the mobile menu all take their label from CHAPTERS'
+assert '<span class="gold">Store.</span>' in html and 'Equipment. <span' not in html, \
+    'the Store chapter heading is back to "Equipment. By Quote."'
+assert 'IWA Training Devices' in html, 'the brand header over the cards lost its "IWA Training Devices" name'
+assert 'list price' in html.lower(), 'the device price lost its LIST PRICE label'
+assert ('const GEAR_OUT_OF_STOCK = true;' not in html) or '<div class="gear-oos">OUT OF STOCK</div>' in html, \
+    'GEAR_OUT_OF_STOCK holds but no card renders the OUT OF STOCK badge'   # the badge markup, not the phrase: the constant's own comment quotes him
+_gear_link = """(g.device ? '<a class="gear-link" href="' + esc(gearUrl(g))"""
+_iwa_urls = re.findall(r"'(https?://[^']*iwainternationalinc[^']*)'", html)
+assert _gear_link in html and len(_iwa_urls) >= 7 and all(u.startswith('https://iwainternationalinc.com/') for u in _iwa_urls), \
+    'the device cards lost their link to iwainternationalinc.com, or one of those links points off that host'
+assert 'id="gear"' in html and 'id="gear-panel"' in html, \
+    'the Store chapter lost the #gear anchor the Atlas pages link to (mastsolutions.html#gear) or its panel'
 
 # Third-pass guards (2026-09-08). The four Experiences, the waiting list, and the Classes chapter over his photograph.
 # Scoped to the EXPERIENCES array: a whole-document search was satisfied by the owner's quoted email elsewhere in the
