@@ -363,6 +363,15 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   with the WordPress admin. A cloud session cannot: the container has no route to atlasglinn.com and holds no credentials.
   The static page + Worker + SFTP path replaced `mast-wp-theme/`.
 
+- **robots.txt + sitemap.xml on www.mastsolutions.com (2026-09-08):** the root `robots.txt` / `sitemap.xml` are
+  atlasglinn.com's and are not staged for the Pages site, so `https://www.mastsolutions.com/robots.txt` was a 404 and
+  Search Console had no sitemap to take. `scripts/assemble-cinematic.py` now writes `dist/mastsolutions/robots.txt`
+  (same crawler allow-list as the root file, `Sitemap: https://www.mastsolutions.com/sitemap.xml`) and
+  `dist/mastsolutions/sitemap.xml` (the one URL, `lastmod` = build date), and `pages-mastsolutions.yml` stages both
+  (fails the run if either is missing). Search Console: property `mastsolutions.com` (Domain, TXT verification —
+  never the GoDaddy "Domain Connect" authorization, its Gmail Setup rewrites MX) → Sitemaps → add
+  `https://www.mastsolutions.com/sitemap.xml` → URL inspection → Request indexing for `https://www.mastsolutions.com/`.
+
 ## Drop folders → gallery (Brockmann, 2026-09-05: "anytime I drop new items into the folder on my desktop, it should update in and add photos to the gallery")
 
 - **Mac:** `~/Desktop/MAST NEW WEB 2026/gallery/` and `…/range/` are the drop folders. `scripts/mac-autopilot.sh install`

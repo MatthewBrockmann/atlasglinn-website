@@ -41,6 +41,8 @@ jobs:
           mkdir -p stage
           cp dist/mastsolutions/index.html stage/index.html
           cp dist/mastsolutions/build-manifest.json stage/build-manifest.json
+          # robots.txt + sitemap.xml are this domain's own (the root ones are atlasglinn.com's); written by assemble-cinematic.py
+          for f in robots.txt sitemap.xml; do test -f "dist/mastsolutions/$f" || { echo "::error::dist/mastsolutions/$f missing — run python3 scripts/assemble-cinematic.py and commit"; exit 1; }; cp "dist/mastsolutions/$f" "stage/$f"; done
           printf '%s\n' "$DOMAIN" > stage/CNAME
           touch stage/.nojekyll
           python3 - dist/mastsolutions/index.html > assets.txt <<'PY'
