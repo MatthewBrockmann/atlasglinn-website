@@ -91,6 +91,16 @@ instructor_films = """const INSTRUCTOR_FILMS = [
 ];"""
 assert js.count('const INSTRUCTOR_FILMS = [];') == 1, 'tesla page lost its INSTRUCTOR_FILMS hook'
 js = js.replace('const INSTRUCTOR_FILMS = [];', instructor_films, 1)
+# Waiting list (owner, 2026-09-08: "Not class filled-. Join waiting list"). The state lives in mastsolutions-tesla.html;
+# this reads it so the chapter text and the guards below follow the one constant.
+_wl = re.search(r"^const WAITLIST_ALL_DATES = (true|false);$", tesla, re.M)
+assert _wl, 'WAITLIST_ALL_DATES not found in mastsolutions-tesla.html'
+WAITLIST_ALL_DATES = _wl.group(1) == 'true'
+# The action is folded here rather than left a ternary: while the waiting list is on, the words "Select Date" must not
+# survive anywhere in the page, and the guard for that is a string search a dead branch would satisfy falsely.
+_action = "WAITLIST_ALL_DATES ? 'Join waiting list' : 'Select Date'"
+assert js.count(_action) == 1, 'the date-action constant moved in the booking source'
+js = js.replace(_action, "'Join waiting list'" if WAITLIST_ALL_DATES else "'Select Date'", 1)
 assert 'function openCal' in js and 'function startCheckout' in js and "['testimonial-strip', TESTIMONIALS]" in js, 'booking js missing pieces'
 assert 'hero-yt' not in js and 'REVIEWS' not in js, 'hero/reviews code leaked into booking js'
 
@@ -108,8 +118,9 @@ CHROME = shell.chrome(
             ('03', 'images/mast/ship-deck-operators.jpg', 'center top'),   # the deck photograph cut to its lower half, so the four operators sit in the upper band behind the heading, not behind the tiles (owner, 2026-09-05: "Bring the ship up and the operators visible", then "SHOW THE OPERATORS on deck in background")
             ('04', 'images/mast/disc-cqb.jpg', None),
             ('05', 'images/mast/range/a08.jpg', 'center 45%'),   # the aerial (r01.jpg never existed: the old-site set is r001–r024)
-            ('06', 'images/mast/courses-instructor.jpg', '50% 15%'),   # his photo (owner, 2026-09-08: "For Cources - THIS BACKGROUND PIC NOT THE SS"); near-square, the head sits in the top fifth, so 16:9 cover is anchored high
-            ('07', 'images/mast/courses-low-light.jpg', 'center 60%'),
+            # 06: his photograph (owner, 2026-09-08, with it attached: "For Cources - THIS BACKGROUND PIC NOT THE SS").
+            # The file is 1024x950 and his head sits in its top fifth, so a 16:9 cover from the centre would crop it away.
+            ('06', 'images/mast/courses-instructor.jpg', '50% 15%'), ('07', 'images/mast/courses-low-light.jpg', 'center 60%'),
             ('08', 'images/mast/gallery/g06.jpg', 'center 45%'),   # the carbine from behind the car (owner, 2026-09-05: "Replace this background with the attached JPG", on the Instructors chapter)
             ('09', 'images/mast/vehicular.jpg', None), ('10', 'images/mast/instructing-le.jpg', 'center 30%'),
             ('11', 'images/mast/privacy-aircraft.jpg', None), ('12', 'images/mast/disc-firearms.jpg', 'center 30%'), ('13', 'images/mast/contact-zodiac.jpg', None)],
@@ -250,6 +261,45 @@ RANGE_SECTION = f"""
     </div>
   </section>
 """
+# ── The Classes, in the Range chapter's shape (owner, 2026-09-08, over a screenshot of this chapter's heading and one of
+#    the Range chapter's CLICK TO VIEW button: "Delete this + add like the range + CLICK TO VIEW = gets rid of scrolling +
+#    Book Course = cal+ courses show", and on the heading: "Delete SS 2 + Course Catalog enough"). So the chapter is the
+#    eyebrow, its one line and two controls; the twenty-one courses open over it in CATALOG_MODAL instead of standing in the
+#    page flow. BOOK COURSE is this chapter's Book-a-Class control — the same openDCal() the other twelve call.
+CLASSES_LINE = ('Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Fundamentals first, unless you have taken it before. '
+                + ('Each discipline&rsquo;s Fundamentals course opens its other courses, and the waiting list asks before you join it.'
+                   if WAITLIST_ALL_DATES else
+                   'Each discipline&rsquo;s Fundamentals course opens its other courses, and Select Date asks before the calendar opens.')
+                + '</b> P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.')
+CLASSES_SECTION = f"""
+  <section class="panel" id="s6" data-section="06">
+    <div>
+      <div class="eyebrow">Course Catalog</div>
+      <p class="sub">{CLASSES_LINE}</p>
+      <div class="ctas rise"><button class="secondary-cta" type="button" aria-haspopup="dialog" onclick="openCatalog()">Click to View</button><a href="#s6" class="cta" onclick="openDCal();return false;">Book Course</a></div>
+    </div>
+  </section>
+"""
+CATALOG_MODAL = """
+<!-- COURSE CATALOG: the same #catalog panel the booking script fills, the same accordions, course rows and prerequisite
+     gate, in a dialog of the modal family instead of in the chapter. Nothing about the catalog itself changes; what changes
+     is that it no longer makes the chapter scroll. It sits before the calendar, gate and request dialogs so those still
+     paint over it. -->
+<div id="catalog-bd" class="modal-bd" onclick="closeCatalog()"></div>
+<div id="catalog-modal" class="modal wide catalog" role="dialog" aria-modal="true" aria-labelledby="catalog-modal-title">
+    <button class="modal-x" aria-label="Close the course catalog" onclick="closeCatalog()">&times;</button>
+    <div class="eyebrow">Course Catalog</div>
+    <h3 id="catalog-modal-title">Open a discipline, pick a course</h3>
+    <div class="catalog-panel" id="catalog"></div>
+    <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p>
+</div>
+"""
+CATALOG_JS = """
+function openCatalog(){ lastFocus = document.activeElement; $('catalog-bd').classList.add('open'); $('catalog-modal').classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeCatalog(){ $('catalog-bd').classList.remove('open'); $('catalog-modal').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('catalog-modal').classList.contains('open')) closeCatalog(); });
+"""
+
 LIGHTBOX = """
 <!-- LIGHTBOX for the Range photographs -->
 <div id="lb-bd" class="modal-bd" onclick="closeLb()"></div>
@@ -350,16 +400,7 @@ SECTIONS = f"""
   </section>
 
 {RANGE_SECTION}
-  <section class="panel" id="s6" data-section="06">
-    <div>
-      <div class="eyebrow">Course Catalog</div>
-      <!-- no chapter title here (owner, 2026-09-08: "Delete SS 2 + Course Catalog enough") -->
-      {BOOK_CTA}
-      <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Fundamentals first, unless you have taken it before. Each discipline&rsquo;s Fundamentals course opens its other courses, and Select Date asks before the calendar opens.</b> P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
-      <div class="catalog-wrap rise"><div class="glass"><div class="catalog-panel" id="catalog"></div></div>
-      <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p></div>
-    </div>
-  </section>
+{CLASSES_SECTION}
 
 {MEMBERSHIP}
   <section class="panel" id="s8" data-section="08">
@@ -521,8 +562,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('join').
 (function(){ const p = new URLSearchParams(location.search); const s = p.get('membership'); if (!s) return; const b = $('banner'); b.textContent = s === 'success' ? 'Welcome to the team \u2014 your membership is set up. The team will be in touch.' : 'Membership checkout cancelled \u2014 your card was not charged.'; b.classList.add('show'); setTimeout(() => b.classList.remove('show'), 9000); history.replaceState(null, '', location.pathname); })();
 """
 
-BODY = '\n' + CHROME + MOBILE_NAV + '\n' + banner + '\n\n<div class="content">\n' + SECTIONS + '</div>\n\n' + modals + JOIN_MODAL + LIGHTBOX + '\n'
-js = js + JOIN_JS + LIGHTBOX_JS + shell.SITENAV_JS
+BODY = '\n' + CHROME + MOBILE_NAV + '\n' + banner + '\n\n<div class="content">\n' + SECTIONS + '</div>\n\n' + CATALOG_MODAL + modals + JOIN_MODAL + LIGHTBOX + '\n'
+js = js + JOIN_JS + CATALOG_JS + LIGHTBOX_JS + shell.SITENAV_JS
 
 META = """<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
@@ -584,6 +625,9 @@ QUOTES_CSS = """
   .fold.open { max-height:6000px; opacity:1; padding-bottom:12px; transition:max-height 1.2s cubic-bezier(.2,.7,.2,1), opacity .5s .1s; }
   /* The contact chapter's line over the water backdrop (owner, 2026-09-05: "Fix the visibility of the contact"); the contact lines themselves are handled in the shell for both sites. */
   #s13 .sub { text-shadow:0 1px 6px rgba(0,0,0,.9), 0 0 18px rgba(0,0,0,.6); }   /* the Contact chapter (13 since the Gear chapter, 2026-09-05) */
+  /* The catalog in its dialog: the dialog is the scroller, so the panel's own 78vh window would nest a second one. */
+  .modal.catalog .catalog-panel { max-height:none; overflow:visible; padding-right:0; }
+  .modal.catalog .catalog-note { margin-top:1.4rem; }
   .modal.lightbox { width:min(1200px, calc(100vw - 32px)); padding:.6rem; background:#050810; }
   .modal.lightbox img { display:block; max-width:100%; max-height:84vh; margin:0 auto; }
 
@@ -713,6 +757,45 @@ assert '#intro-seq.gone' in html and 'i.classList.add("gone")' in html, \
     'the splash releases the pointer on dismissal again: its tap lands on the CTA underneath'
 assert 'if(done||!i.isConnected||i.classList.contains("done")){document.removeEventListener("keydown",onKey);return}' in html, \
     'the splash key listener outlives the splash again: the first Enter/Space/Escape typed into a form would be swallowed'
+
+# Third-pass guards (2026-09-08). The four Experiences, the waiting list, and the Classes chapter over his photograph.
+# Scoped to the EXPERIENCES array: a whole-document search was satisfied by the owner's quoted email elsewhere in the
+# page, so deleting the Corporate Team Training card still built (function verifier, 2026-09-08).
+_exp = html[html.find('const EXPERIENCES = ['):]
+_exp = _exp[:_exp.find('];') + 2]
+for _x in ('Couples Range Experience', 'Date Night at the Range', 'Bachelor Party at the Range', 'Corporate Team Training'):
+    assert _exp.count("name: '" + _x + "'") == 1, 'the Experiences accordion lost a card: ' + _x
+assert 'const EXPERIENCES_HIDDEN = false;' in html, 'the Experiences cards are hidden again'
+assert 'Package details and pricing are being finalized.' in html and 'Dates announced soon' in html, \
+    'an Experiences card lost its placeholder line or its calendar placeholder'
+assert '>How to book<' in html, 'the Experiences cards lost their How to book button'
+_action_now = 'Join waiting list' if WAITLIST_ALL_DATES else 'Select Date'
+assert ("const DATE_ACTION = '%s';" % _action_now) in html, 'the date action did not fold to: ' + _action_now
+assert "WAITLIST_ALL_DATES ? DATE_ACTION : 'Select'" in html, 'the weekend calendar per-class action stopped following the constant'
+assert 'function bookCourse(i){ return WAITLIST_ALL_DATES ? waitlistCourse(i) : openCal(i); }' in html, \
+    'the one door into a booking stopped following the constant: a row could read Join waiting list and open the calendar'
+if WAITLIST_ALL_DATES:
+    assert html.count('Select Date') == 0, 'a date still reads Select Date while every date is a waiting list'
+    assert 'class filled' not in html.lower(), 'a date carries the notice the owner corrected to Join waiting list'
+    assert "openReqDialog('waitlist'" in html and "wait = reqKind === 'waitlist'" in html and 'waitWeekend' in html, \
+        'Join waiting list no longer opens the request dialog as request_type waitlist with the weekend'
+else:
+    assert html.count('Select Date') >= 1 and "openReqDialog('waitlist'" in html, \
+        'WAITLIST_ALL_DATES is off: the rows read Select Date again and the waiting-list path stays there to switch back on'
+_s6 = between(html, '<section class="panel" id="s6"', '</section>', True)
+assert '<div class="eyebrow">Course Catalog</div>' in _s6, 'the Classes chapter lost its COURSE CATALOG eyebrow'
+assert 'The <span class="gold">Classes.</span>' not in html, "the Classes chapter's deleted heading is back"
+assert 'id="catalog"' not in _s6 and '<div class="catalog-panel" id="catalog"></div>' in html, \
+    'the catalog is back in the chapter flow instead of the CLICK TO VIEW overlay'
+assert 'id="catalog-modal"' in html and 'onclick="openCatalog()"' in _s6 and 'function openCatalog()' in html, \
+    'the catalog overlay is not wired to the chapter'
+assert '>Book Course</a>' in _s6 and _s6.count('openDCal();return false;') == 1, \
+    'the Classes chapter needs exactly one booking control and it is BOOK COURSE'
+assert html.index('id="catalog-modal"') < html.index('id="gate"'), \
+    'the catalog overlay must sit before the gate and request dialogs or it paints over them'
+assert 'background-image:url(\'images/mast/courses-instructor.jpg\');background-position:50% 15%' in html, \
+    "the Classes chapter lost his photograph or its position (his head sits in the top fifth of the frame)"
+assert 'courses-low-light' not in between(html, 'data-for="06"', '>', True), 'the Classes backdrop is the dark shooter again'
 
 # Brockmann picked this design as the page that ships (2026-09-03), so the assembler writes the production
 # mastsolutions.html. The Atlas-frame build lives on as mastsolutions-atlas.html; the old cinematic URL is a stub redirect.

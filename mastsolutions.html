@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="8d31f5c63682">
+<meta name="build" content="244d488d5e3d">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
 <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
@@ -506,6 +506,9 @@
   .fold.open { max-height:6000px; opacity:1; padding-bottom:12px; transition:max-height 1.2s cubic-bezier(.2,.7,.2,1), opacity .5s .1s; }
   /* The contact chapter's line over the water backdrop (owner, 2026-09-05: "Fix the visibility of the contact"); the contact lines themselves are handled in the shell for both sites. */
   #s13 .sub { text-shadow:0 1px 6px rgba(0,0,0,.9), 0 0 18px rgba(0,0,0,.6); }   /* the Contact chapter (13 since the Gear chapter, 2026-09-05) */
+  /* The catalog in its dialog: the dialog is the scroller, so the panel's own 78vh window would nest a second one. */
+  .modal.catalog .catalog-panel { max-height:none; overflow:visible; padding-right:0; }
+  .modal.catalog .catalog-note { margin-top:1.4rem; }
   .modal.lightbox { width:min(1200px, calc(100vw - 32px)); padding:.6rem; background:#050810; }
   .modal.lightbox img { display:block; max-width:100%; max-height:84vh; margin:0 auto; }
 
@@ -758,16 +761,15 @@
     </div>
   </section>
 
+
   <section class="panel" id="s6" data-section="06">
     <div>
       <div class="eyebrow">Course Catalog</div>
-      <!-- no chapter title here (owner, 2026-09-08: "Delete SS 2 + Course Catalog enough") -->
-      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a></div>
-      <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Fundamentals first, unless you have taken it before. Each discipline&rsquo;s Fundamentals course opens its other courses, and Select Date asks before the calendar opens.</b> P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
-      <div class="catalog-wrap rise"><div class="glass"><div class="catalog-panel" id="catalog"></div></div>
-      <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p></div>
+      <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Fundamentals first, unless you have taken it before. Each discipline&rsquo;s Fundamentals course opens its other courses, and the waiting list asks before you join it.</b> P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
+      <div class="ctas rise"><button class="secondary-cta" type="button" aria-haspopup="dialog" onclick="openCatalog()">Click to View</button><a href="#s6" class="cta" onclick="openDCal();return false;">Book Course</a></div>
     </div>
   </section>
+
 
 
   <section class="panel" id="s7" data-section="07">
@@ -896,6 +898,19 @@
 
 </div>
 
+
+<!-- COURSE CATALOG: the same #catalog panel the booking script fills, the same accordions, course rows and prerequisite
+     gate, in a dialog of the modal family instead of in the chapter. Nothing about the catalog itself changes; what changes
+     is that it no longer makes the chapter scroll. It sits before the calendar, gate and request dialogs so those still
+     paint over it. -->
+<div id="catalog-bd" class="modal-bd" onclick="closeCatalog()"></div>
+<div id="catalog-modal" class="modal wide catalog" role="dialog" aria-modal="true" aria-labelledby="catalog-modal-title">
+    <button class="modal-x" aria-label="Close the course catalog" onclick="closeCatalog()">&times;</button>
+    <div class="eyebrow">Course Catalog</div>
+    <h3 id="catalog-modal-title">Open a discipline, pick a course</h3>
+    <div class="catalog-panel" id="catalog"></div>
+    <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p>
+</div>
 <!-- CALENDAR -->
 <div id="cal-bd" class="modal-bd" onclick="closeCal()"></div>
 <div id="cal" class="modal" role="dialog" aria-modal="true" aria-labelledby="cal-title">
@@ -913,7 +928,7 @@
     <div class="cal-foot"><div class="cal-sel" id="cal-sel">Tap a highlighted date.</div><button class="cta-button" id="cal-go" disabled onclick="calContinue()">Continue &rarr;</button></div>
 </div>
 
-<!-- PREREQUISITE GATE: asked at Select Date for every course with a prerequisite (owner, 2026-09-04) -->
+<!-- PREREQUISITE GATE: asked before a date is chosen, for every course with a prerequisite (owner, 2026-09-04) -->
 <div id="gate-bd" class="modal-bd" onclick="closeGate()"></div>
 <div id="gate" class="modal gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
     <button class="modal-x" aria-label="Close" onclick="closeGate()">&times;</button>
@@ -1444,6 +1459,16 @@ document.querySelectorAll('section.panel:not([data-section="01"]) .rise, section
 'use strict';
 const API = 'https://mast-booking-backend.matthew-221.workers.dev';
 const CATALOG_ENDPOINT = API + '/catalog', WEEKENDS_ENDPOINT = API + '/weekends';
+/* Every date is a waiting list (owner, 2026-09-08: "ALL DATES for now ... until i get the info to you", where his first
+   wording was a filled-class notice and his correction minutes later was "Join waiting list" — the words he settled on are
+   quoted whole in CLAUDE.md; the superseded ones are not on this page, and the assembler's guard is a byte search that a
+   comment would satisfy falsely). While this is true, every path into checkout reads Join waiting list and hands
+   the course — and the weekend, when one was chosen in the Book a Class calendar — to the request dialog as request_type
+   'waitlist'; the prerequisite gate still runs first. Set it to false and the calendar → checkout path is what it was.
+   A Worker-side BOOKINGS_PAUSED flag replaces this constant when the schedule is real, so the pause is one deploy, not a
+   rebuild of both pages. */
+const WAITLIST_ALL_DATES = true;
+const DATE_ACTION = 'Join waiting list';
 
 const COURSES = [
   /* Private instruction — listed first (owner, 2026-09-04). No price and no dates on the page; the sheet PDF is linked when supplied — by arrangement, not on the weekend calendar. Priced per the owner's 2026-09 progression sheet. */
@@ -1487,7 +1512,7 @@ const money = c => '$' + (c/100).toLocaleString('en-US', { minimumFractionDigits
    course in a discipline that has a Fundamentals course requires that Fundamentals first — Handgun Operator ← Handgun Fundamentals (or its
    ladies-only class), Carbine Operator ← Carbine Fundamentals, Sub-Gun P1 ← Sub-Gun Fundamentals, Low-Light / NVG ← Low-Light Fundamentals.
    Of the disciplines without their own Fundamentals, only Team Tactics requires one — Handgun Fundamentals (owner, 2026-09-05: "Only Team
-   Tactics = Handgun Fun 1st"); Select-Fire, Protective (Home, Vehicular, Motorcade) and Gear carry no prerequisite. A P2 course also needs the P1 before it. The gate is asked at Select Date (selectCourse) and again as the attestation in the
+   Tactics = Handgun Fun 1st"); Select-Fire, Protective (Home, Vehicular, Motorcade) and Gear carry no prerequisite. A P2 course also needs the P1 before it. The gate is asked where a date is chosen (selectCourse) and again as the attestation in the
    sheet; by-arrangement private instruction carries no badge. The Worker applies the same rule (prerequisiteFor). */
 const FUND_SKU = { 'Handgun': 'MAST-HG-FUND', 'Carbine': 'MAST-CAR-FUND', 'Shotgun': 'MAST-SG-FUND', 'Sub-Gun': 'MAST-SUB-FUND', 'Low-Light / NVG': 'MAST-LL-FUND' };
 const PREREQ_CAT = { 'Team Tactics': 'MAST-HG-FUND' };   // the only discipline without its own Fundamentals that requires one
@@ -1515,7 +1540,7 @@ $('catalog').innerHTML = CATS.map((cat, ci) => {
     items.map(({ c, i }) => c.request
       ? `<div class="course-row call">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div>${c.pdf ? `<a class="cr-pdf" href="${esc(c.pdf)}" target="_blank" rel="noopener">Private instruction sheet (PDF) &rarr;</a>` : ''}</div><div class="cr-side"><div class="cr-price">BY<small>ARRANGEMENT</small></div><button class="cta-button cr-btn" type="button" onclick="requestPrivate(${i})">Request</button></div></div>`
       : c.price_cents
-      ? `<div class="course-row" role="button" tabindex="0" onclick="selectCourse(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectCourse(${i});}">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price" data-sku="${c.sku}">${money(c.price_cents)}<small>PER SEAT</small></div><span class="cta-button cr-btn">Select Date</span></div></div>`
+      ? `<div class="course-row" role="button" tabindex="0" onclick="selectCourse(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectCourse(${i});}">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price" data-sku="${c.sku}">${money(c.price_cents)}<small>PER SEAT</small></div><span class="cta-button cr-btn">${DATE_ACTION}</span></div></div>`
       : `<div class="course-row call">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price">CALL<small>FOR PRICING</small></div><a class="cta-button ghost-button cr-btn" href="tel:+12816548100">Call</a></div></div>`).join('') + `</div></div>`;
 }).join('');
 function toggleCat(ci){ const el = $('cat-' + ci); const open = el.classList.toggle('open'); el.querySelector('.cat-btn').setAttribute('aria-expanded', open); }
@@ -1537,11 +1562,14 @@ function bookable(w){ return (w.status === 'available' || w.status === 'schedule
    Nothing is checked against a roster: students from before this system are not in it ("UNLESS they have taken it prior"). */
 const attested = {};   // sku → true once the student has answered yes on this visit
 let gateIdx = null;
-function selectCourse(i){ const c = COURSES[i], lv = levelOf(c); if (window.mastTrack) mastTrack('open_class', c.name, c.sku); if (!lv || lv.n < 2 || attested[c.sku]) return openCal(i); gateIdx = i; const f = lv.fund; $('gate-title').textContent = c.name; $('gate-text').innerHTML = `<b>${esc(fundLabel(f))}</b>${lv.n === 3 ? ' and a MAST P1 course' : ''} comes first. Have you completed it with MAST, or an instructor-approved equivalent?`; $('gate-no').textContent = 'No — book ' + f.name + ' first'; lastFocus = document.activeElement; $('gate-bd').classList.add('open'); $('gate').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('gate-yes').focus(), 150); }
+function selectCourse(i){ const c = COURSES[i], lv = levelOf(c); if (window.mastTrack) mastTrack('open_class', c.name, c.sku); if (!lv || lv.n < 2 || attested[c.sku]) return bookCourse(i); gateIdx = i; const f = lv.fund; $('gate-title').textContent = c.name; $('gate-text').innerHTML = `<b>${esc(fundLabel(f))}</b>${lv.n === 3 ? ' and a MAST P1 course' : ''} comes first. Have you completed it with MAST, or an instructor-approved equivalent?`; $('gate-no').textContent = 'No — book ' + f.name + ' first'; lastFocus = document.activeElement; $('gate-bd').classList.add('open'); $('gate').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('gate-yes').focus(), 150); }
 function closeGate(){ $('gate-bd').classList.remove('open'); $('gate').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
-function gateYes(){ const c = COURSES[gateIdx]; attested[c.sku] = true; closeGate(); openCal(gateIdx); }
-function gateNo(){ const f = levelOf(COURSES[gateIdx]).fund, fi = COURSES.indexOf(f), ci = CATS.indexOf(f.cat); closeGate(); const cat = $('cat-' + ci); if (cat && !cat.classList.contains('open')) toggleCat(ci); const row = document.querySelector(`.cr-price[data-sku="${f.sku}"]`); const rowEl = row && row.closest('.course-row'); if (rowEl) { rowEl.scrollIntoView({ block: 'center' }); rowEl.classList.add('flash'); setTimeout(() => rowEl.classList.remove('flash'), 2400); } openCal(fi); }
+function gateYes(){ const c = COURSES[gateIdx]; attested[c.sku] = true; closeGate(); bookCourse(gateIdx); }
+function gateNo(){ const f = levelOf(COURSES[gateIdx]).fund, fi = COURSES.indexOf(f), ci = CATS.indexOf(f.cat); closeGate(); const cat = $('cat-' + ci); if (cat && !cat.classList.contains('open')) toggleCat(ci); const row = document.querySelector(`.cr-price[data-sku="${f.sku}"]`); const rowEl = row && row.closest('.course-row'); if (rowEl) { rowEl.scrollIntoView({ block: 'center' }); rowEl.classList.add('flash'); setTimeout(() => rowEl.classList.remove('flash'), 2400); } bookCourse(fi); }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('gate').classList.contains('open')) closeGate(); });
+/* The one door to a booking, so the waiting list and the calendar cannot drift apart: with WAITLIST_ALL_DATES off this is
+   openCal and nothing else about the checkout changes. The gate has already been answered by the time either runs. */
+function bookCourse(i){ return WAITLIST_ALL_DATES ? waitlistCourse(i) : openCal(i); }
 function openCal(i){ calCourse = COURSES[i]; chosen = (preChosen !== null && bookable(WEEKENDS[preChosen])) ? preChosen : null; preChosen = null; lastFocus = document.activeElement; $('cal-title').textContent = calCourse.name; $('cal-meta').textContent = metaFor(calCourse); $('cal-price').textContent = money(calCourse.price_cents) + ' per seat'; const first = chosen !== null ? WEEKENDS[chosen] : (WEEKENDS.find(bookable) || WEEKENDS[0]); const fd = parseISO(first.saturday); calMonth = new Date(fd.getFullYear(), fd.getMonth(), 1); renderCal(); $('cal-bd').classList.add('open'); $('cal').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeCal(){ $('cal-bd').classList.remove('open'); $('cal').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
 function calBounds(){ const a = parseISO(WEEKENDS[0].saturday), b = parseISO(WEEKENDS[WEEKENDS.length - 1].saturday); return { min: new Date(a.getFullYear(), a.getMonth(), 1), max: new Date(b.getFullYear(), b.getMonth(), 1) }; }
@@ -1581,7 +1609,7 @@ function renderDCal(){
   const items = offeredOn(); $('dcal-sel').innerHTML = `<b>${labelFor(WEEKENDS[dcalPick], 2)}</b> &middot; the same ${items.length} classes run on every training weekend &middot; choose one`;
   const cats = ['All', ...CATS.filter(cat => items.some(({ c }) => c.cat === cat))];
   $('dcal-tabs').innerHTML = cats.map(cat => `<button type="button" class="chip${dcalTab === cat ? ' sel' : ''}" onclick="dcalTabSet(this.dataset.cat)" data-cat="${esc(cat)}">${esc(cat === 'All' ? 'All classes' : (CAT_LABELS[cat] || cat))}</button>`).join('');
-  $('dcal-list').innerHTML = items.filter(({ c }) => dcalTab === 'All' || c.cat === dcalTab).map(({ c, i }) => `<div class="cal-item"><div><b class="cal-name">${esc(c.name)}</b><small>${metaHtml(c)}</small></div><div class="cal-item-price">${money(c.price_cents)}</div><button type="button" class="cta-button small" onclick="dcalChoose(${i})">Select</button></div>`).join('');
+  $('dcal-list').innerHTML = items.filter(({ c }) => dcalTab === 'All' || c.cat === dcalTab).map(({ c, i }) => `<div class="cal-item"><div><b class="cal-name">${esc(c.name)}</b><small>${metaHtml(c)}</small></div><div class="cal-item-price">${money(c.price_cents)}</div><button type="button" class="cta-button small" onclick="dcalChoose(${i})">${WAITLIST_ALL_DATES ? DATE_ACTION : 'Select'}</button></div>`).join('');
 }
 function dcalPickDay(wi){ dcalPick = wi; const d = parseISO(WEEKENDS[wi].saturday); dcalMonth = new Date(d.getFullYear(), d.getMonth(), 1); renderDCal(); setTimeout(() => { const b = $('dcal-classes'); if (b && !b.hidden) b.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 60); }
 function dcalTabSet(cat){ dcalTab = cat; renderDCal(); }
@@ -1589,7 +1617,13 @@ function dcalChoose(i){ preChosen = dcalPick; closeDCal(); selectCourse(i); }
 
 // ── Private instruction request (owner, 2026-09-05: "Request = doesn't go to email"): a short dialog that posts to the Worker's /contact,
 //    which emails the office; the mailto stays only as the fallback when the Worker cannot be reached.
-let reqIdx = null;
+let reqIdx = null, waitWeekend = '';
+/* Join waiting list: the course, and the weekend if one was chosen in the Book a Class calendar, go to the office through
+   the same dialog and the same POST /contact as private instruction, gear and Experiences — request_type 'waitlist'. */
+function waitlistCourse(i){ reqIdx = i; const c = COURSES[i], w = preChosen !== null ? WEEKENDS[preChosen] : null; preChosen = null; waitWeekend = w ? labelFor(w, c.days) : '';
+  if (window.mastTrack) mastTrack('waitlist_request', c.name, c.sku);
+  openReqDialog('waitlist', c.name, metaFor(c) + (waitWeekend ? ' · ' + waitWeekend : ''), 'Waiting list',
+    'We reply within one business day. Dates are not open for booking yet; you are on the list for this class and we email you as soon as the schedule is set.'); }
 /* ── Gear: Aimpoint optics and IWA International devices, quoted by email through the same Request dialog (owner, 2026-09-05:
    "Atlasglinn.com has this product = add to mastsolutions so we can sell there"). The list is the IWA inventory report of
    2026-09-05; costs in that report are dealer costs, not prices, so no price is shown. Nothing here goes to Stripe: card
@@ -1653,23 +1687,28 @@ renderGear();   // here, not at the foot of the script: the MAST assembler keeps
 /* ── Experiences (owner, 2026-09-08: "add in Courses = 'EXPERIENCES' Couples + groups = Pics and Content coming"). A chapter of
    the course catalog, not a course: no SKU, no D1 catalog row, no price, nothing bookable. The card asks for a coordinator
    through the same Request dialog the private-instruction rows use, carrying the experience name.
-   Hidden until he has the pictures and the copy — "Pics and Content coming" — so EXPERIENCES_HIDDEN keeps the accordion off
-   the page entirely, the way GEAR_HIDDEN keeps the Aimpoint cards off. Flip it to false and the chapter appears; the JS gate
-   is what the MAST assembler carries over, so one edit here covers both pages. ── */
-const EXPERIENCES_HIDDEN = true;
+   Shown from 2026-09-08 as four placeholders, on his email: "couples range experience + Date night at the range + Bachelor
+   Party at the range + Corporate Team Training - $pricing and write-ups can be done later - Placeholder for calendar + how to
+   book + package details = can be emailed for details for right now." So each card is the name, that one line, a calendar
+   placeholder and How to book — no price, no duration, no date and no package contents until he supplies them. ── */
+const EXPERIENCES_HIDDEN = false;
 const EXPERIENCES = [
-  { key: 'couples', name: 'Couples', desc: 'Details, photos and dates coming soon.' },
-  { key: 'groups', name: 'Groups', desc: 'Details, photos and dates coming soon.' },
+  { key: 'couples-range', name: 'Couples Range Experience' },
+  { key: 'date-night', name: 'Date Night at the Range' },
+  { key: 'bachelor-party', name: 'Bachelor Party at the Range' },
+  { key: 'corporate-team', name: 'Corporate Team Training' },
 ];
+const EXPERIENCES_DETAIL = 'Package details and pricing are being finalized. Email us for details.';
+const EXPERIENCES_DATES = 'Dates announced soon';
 const EXPERIENCES_NOTE = 'Range days built around the people you bring, not a curriculum. Tell us who is coming and a coordinator answers within one business day.';
 function renderExperiences(){ const p = $('catalog'); if (!p || EXPERIENCES_HIDDEN) return; const ci = CATS.length;
   p.insertAdjacentHTML('beforeend', '<div class="cat" id="cat-' + ci + '"><button class="cat-btn" aria-expanded="false" onclick="toggleCat(' + ci + ')"><span class="cat-name">Experiences</span><span class="cat-count">' + EXPERIENCES.length + ' experiences</span><span class="cat-chev" aria-hidden="true">&#9662;</span></button><div class="cat-panel"><p class="cat-note">' + esc(EXPERIENCES_NOTE) + '</p>'
-    + EXPERIENCES.map((x, i) => '<div class="course-row call"><div><div class="cr-name">' + esc(x.name) + '</div><div class="cr-soon">' + esc(x.desc) + '</div></div><div class="cr-side"><div class="cr-price">SOON<small>BY ARRANGEMENT</small></div><button class="cta-button cr-btn" type="button" onclick="requestExperience(' + i + ')">Talk To A Coordinator</button></div></div>').join('') + '</div></div>'); }
-function requestExperience(i){ reqIdx = i; const x = EXPERIENCES[i]; if (window.mastTrack) mastTrack('experience_request', x.name, x.key); openReqDialog('experience', x.name + ' Experience', x.desc, 'Experiences',
+    + EXPERIENCES.map((x, i) => '<div class="course-row call"><div><div class="cr-name">' + esc(x.name) + '</div><div class="cr-soon">' + esc(EXPERIENCES_DETAIL) + '</div><div class="cr-meta">' + esc(EXPERIENCES_DATES) + '</div></div><div class="cr-side"><button class="cta-button cr-btn" type="button" onclick="requestExperience(' + i + ')">How to book</button></div></div>').join('') + '</div></div>'); }
+function requestExperience(i){ reqIdx = i; const x = EXPERIENCES[i]; if (window.mastTrack) mastTrack('experience_request', x.name, x.key); openReqDialog('experience', x.name, EXPERIENCES_DETAIL, 'Experiences',
   'We reply within one business day. Experiences are arranged around your group, not on the weekend calendar; dates, pricing and what is included come back in that reply.'); }
 renderExperiences();
 function closeReq(){ $('req-bd').classList.remove('open'); $('req').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
-async function reqGo(){ const gear = reqKind === 'gear', exp = reqKind === 'experience', cap = reqKind === 'capability'; const c = cap ? null : gear ? GEAR[reqIdx] : exp ? EXPERIENCES[reqIdx] : COURSES[reqIdx]; const name = $('req-name').value.trim(), email = $('req-email').value.trim(), phone = $('req-phone').value.trim(), note = $('req-msg').value.trim(); const err = $('req-err'), b = $('req-go');
+async function reqGo(){ const gear = reqKind === 'gear', exp = reqKind === 'experience', cap = reqKind === 'capability', wait = reqKind === 'waitlist'; const c = cap ? null : gear ? GEAR[reqIdx] : exp ? EXPERIENCES[reqIdx] : COURSES[reqIdx]; const name = $('req-name').value.trim(), email = $('req-email').value.trim(), phone = $('req-phone').value.trim(), note = $('req-msg').value.trim(); const err = $('req-err'), b = $('req-go');
   const org = gear ? $('req-org').value.trim() : '', qty = gear ? Math.max(1, Math.min(999, parseInt($('req-qty').value, 10) || 1)) : 0;
   if (name.length < 2) { err.textContent = 'Enter your name.'; err.hidden = false; $('req-name').focus(); return; }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Enter a valid email address.'; err.hidden = false; $('req-email').focus(); return; }
@@ -1677,6 +1716,8 @@ async function reqGo(){ const gear = reqKind === 'gear', exp = reqKind === 'expe
   err.hidden = true; b.disabled = true; b.textContent = 'Sending…';
   const message = cap
     ? 'Capability statement request — agencies, units and procurement officers' + (note ? '\n\n' + note : '')
+    : wait
+    ? 'Waiting list — ' + c.name + (waitWeekend ? '\nWeekend requested: ' + waitWeekend : '') + (note ? '\n\n' + note : '')
     : exp
     ? 'Experience enquiry — ' + c.name + ' (no dates or pricing published yet)' + (note ? '\n\n' + note : '')
     : gear
@@ -1685,7 +1726,7 @@ async function reqGo(){ const gear = reqKind === 'gear', exp = reqKind === 'expe
   try { const r = await fetch(API + '/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'contact', request_type: reqKind, company: org, name, email, phone, message, website: $('req-web').value, page: location.href.split('#')[0], attribution: window.mastAttribution ? mastAttribution() : undefined }) });
     const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'Could not send the request.');
     b.textContent = 'Request sent ✓'; $('req-meta').textContent = 'Thank you, ' + name.split(' ')[0] + '. We reply within one business day.'; setTimeout(closeReq, 2400); }
-  catch (e) { b.disabled = false; b.textContent = 'Send Request'; err.innerHTML = esc(e.message || 'Could not send the request.') + ' You can also email <a href="mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent(cap ? 'MAST Solutions Capability Statement Request' : (gear ? 'Gear quote — ' + c.sku + ' ' : exp ? 'Experience — ' : 'Private instruction — ') + c.name) + '">atlasglinn.hq@atlasglinn.com</a>.'; err.hidden = false; }
+  catch (e) { b.disabled = false; b.textContent = 'Send Request'; err.innerHTML = esc(e.message || 'Could not send the request.') + ' You can also email <a href="mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent(cap ? 'MAST Solutions Capability Statement Request' : (gear ? 'Gear quote — ' + c.sku + ' ' : exp ? 'Experience — ' : wait ? 'Waiting list — ' : 'Private instruction — ') + c.name) + '">atlasglinn.hq@atlasglinn.com</a>.'; err.hidden = false; }
 }
 document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if ($('dcal').classList.contains('open')) closeDCal(); if ($('req').classList.contains('open')) closeReq(); if ($('acct').classList.contains('open')) closeAcct(); });
 
@@ -1804,7 +1845,7 @@ const REGISTER_ENDPOINT = API + '/register';
 const QUESTIONS_VERSION = '2q-2026-09-03', AGREEMENT_VERSION = '81961f2a07675eff', REFUND_POLICY_VERSION = '2026-09-01'; // must match the Worker
 let qty = 1, regStep = 1, docScrolled = false;
 function openSheet(){ qty = 1; docScrolled = false; acctPrefill(); if (window.mastTrack && calCourse) mastTrack('start_registration', calCourse.name, calCourse.sku);
-  // The attestation (owner, 2026-09-04): the discipline's Fundamentals gates every other course in it; P2 also needs the P1. Pre-ticked when the student answered yes at Select Date.
+  // The attestation (owner, 2026-09-04): the discipline's Fundamentals gates every other course in it; P2 also needs the P1. Pre-ticked when the student answered yes at the gate.
   const lv = levelOf(calCourse), gate = !!(lv && lv.n >= 2); $('co-prereq-wrap').hidden = !gate; $('co-prereq').checked = gate && !!attested[calCourse.sku];
   if (gate) $('co-prereq-text').textContent = 'I have completed MAST ' + fundLabel(lv.fund) + (lv.n === 3 ? ' and a MAST P1 course' : '') + ', or an instructor-approved equivalent, before this course.';
   $('sheet-title').textContent = calCourse.name; $('sheet-meta').textContent = metaFor(calCourse); $('sheet-date-label').innerHTML = '&#128197; ' + labelFor(WEEKENDS[chosen], calCourse.days); $('co-qty').textContent = '1'; $('reg-review').hidden = true; $('reg-sign').hidden = true; $('reg-3-go').disabled = true; const h = $('reg-doc-hint'); h.textContent = 'Scroll to the end of page 3 to continue.'; h.classList.remove('ok'); $('reg-doc').scrollTop = 0; showStep(1); updateTotal(); $('sheet-bd').classList.add('open'); $('sheet').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('co-name').focus(), 250); }
@@ -1950,6 +1991,10 @@ async function joinGo(){
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('join').classList.contains('open')) closeJoin(); });
 (function(){ const p = new URLSearchParams(location.search); const s = p.get('membership'); if (!s) return; const b = $('banner'); b.textContent = s === 'success' ? 'Welcome to the team — your membership is set up. The team will be in touch.' : 'Membership checkout cancelled — your card was not charged.'; b.classList.add('show'); setTimeout(() => b.classList.remove('show'), 9000); history.replaceState(null, '', location.pathname); })();
+
+function openCatalog(){ lastFocus = document.activeElement; $('catalog-bd').classList.add('open'); $('catalog-modal').classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeCatalog(){ $('catalog-bd').classList.remove('open'); $('catalog-modal').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('catalog-modal').classList.contains('open')) closeCatalog(); });
 
 function showAll(id){ document.getElementById(id).classList.add('all'); const b = document.getElementById(id + '-more'); if (b) b.remove(); }
 if (/[?&#]preview(?=[=&#]|$)/.test(location.search + location.hash)) document.body.classList.add('preview');   // owner's preview of unpublished pieces (the Blogs link)
