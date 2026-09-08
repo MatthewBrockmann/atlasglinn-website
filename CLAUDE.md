@@ -357,9 +357,12 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   assertions) and `bash scripts/tests/wp-cache-watch-deploy-test.sh` (stub sftp/curl/security/shasum/sleep, no host
   touched, 175 cases). Every gate above is pinned by a scenario, not by a grep of the script's own source: round 5
   replaced the six `wire/*` text checks with cases only a working gate survives, and each was proved by breaking that
-  gate in a scratch copy and watching the case fail (drop the aborted-chain rule and the run reports `deployed` off a
-  301 hop; drop the listed-wins ordering and a session that lists the file reports `removed`; drop the argument-count
-  check and `--remove --install` deletes the file and exits 0). Both carry pinned counts — a scenario that dies after
+  gate in a scratch copy and watching the case fail (drop the listed-wins ordering and a session that lists the file
+  reports `removed`, 3 cases fail; drop the argument-count check and `--remove --install` deletes the file and exits 0,
+  5 cases fail; drop the exact-basename match and a `.bak` neighbour reads as `removed`, 4 cases fail). The
+  aborted-chain rc gate is defence-in-depth: with real curl an aborted `-L` chain ends on a 3xx block, which the
+  truncated-chain rule already refuses, so removing the rc gate alone changes no verdict — its case pins the rule NAME
+  it prints, not a verdict (round-5 verifier, measured). Both carry pinned counts — a scenario that dies after
   its first assertion used to report green —
   and both run in CI on `wp-ops/**`, `scripts/wp-*.sh` or `scripts/tests/**` (`.github/workflows/wp-ops-tests.yml`,
   no secrets; the job's Syntax step is `bash -n "$s" || exit 1`, because `bash -e` does not fail on the left side of an
