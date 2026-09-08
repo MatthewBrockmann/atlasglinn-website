@@ -58,7 +58,8 @@ CSS_A = r"""
   .letterbox-top { top:0; } .letterbox-bottom { bottom:0; }
   body.cinema .letterbox-top, body.cinema .letterbox-bottom { height:50px; }
   #intro-seq { position:fixed; inset:0; z-index:9000; background:#000; display:flex; align-items:center; justify-content:center; flex-direction:column; font-family:'Cinzel',serif; pointer-events:auto; transition:opacity 1s ease-out; }   /* a tap ends the splash; on a phone six seconds of black is where a visitor leaves */
-  #intro-seq.done { opacity:0; pointer-events:none; }
+  #intro-seq.done { opacity:0; }   /* fades but keeps taking hits: releasing them here is what let the dismissing tap's click reach the CTA underneath */
+  #intro-seq.gone { pointer-events:none; }   /* released once that click can no longer arrive */
   .intro-credit { position:relative; z-index:1; font-size:.75rem; letter-spacing:.6em; color:var(--text-dim); opacity:0; animation:introFade 2.8s ease-in-out forwards; text-transform:uppercase; }
   /* The gold sparkle ring from the atlasglinn.com intro, drawn around the wordmark; the script fades it in after the wordmark and out before the splash ends. */
   .intro-ring { position:absolute; inset:0; width:100%; height:100%; z-index:0; opacity:0; pointer-events:none; }
@@ -260,8 +261,10 @@ const openHero = () => {
 };
 if (reduce) { openHero(); } else {
   setTimeout(() => { intro.classList.add('done'); setTimeout(openHero, 1000); }, 4800);
-  intro.addEventListener('pointerdown', () => { intro.classList.add('done'); setTimeout(openHero, 300); }, { once: true });
-  if (window.__introSkip) setTimeout(openHero, 300); else intro.addEventListener('pointerdown', () => setTimeout(openHero, 300), { once: true });
+  // The splash script in the markup owns the dismissing gesture and has already started the fade; it holds the overlay
+  // hit-testable until the tap's click can no longer arrive, so the hero opens no sooner than that.
+  if (window.__introSkip) setTimeout(openHero, 450);
+  else intro.addEventListener('introskip', () => setTimeout(openHero, 450), { once: true });
 }
 // Gold ring (Brockmann, 2026-09-04: "the gold around the Atlas Glinn is what I was talking about ... take some of the gold shimmer
 // and fade it in and fade it out"): the sparkle ring of the current atlasglinn.com intro — a tilted, slowly turning, pulsing ring
@@ -571,10 +574,21 @@ def chrome(credits, wordmark, photos, hud_tl, hud_tl_href, hud_bl, hud_br, chapt
     nav = '\n'.join('  <a href="#%s" class="chap-link">%s</a>' % (cid, label) for cid, label in chapters)
     return ('<div id="intro-seq">\n  <div class="intro-credit">%s</div>\n  <div class="intro-credit wordmark">%s</div>\n'
             '  <div class="intro-credit">%s</div>\n  <canvas class="intro-ring" id="intro-ring" aria-hidden="true"></canvas>\n</div>\n'
-            # the module registers tap-to-skip too, but it cannot run until three.module.js has downloaded; on a phone on
-            # cellular that is seconds of black where a tap does nothing. This marks the skip and starts the fade at once.
-            '<script>(function(){var i=document.getElementById("intro-seq");i.addEventListener("pointerdown",'
-            'function(){window.__introSkip=1;i.classList.add("done")},{once:true})})();</script>\n\n'
+            # The splash dismisses itself here rather than in the module, which cannot run until three.module.js has
+            # downloaded; on a phone on cellular that is seconds of black where a tap does nothing. It listens on the
+            # overlay's own click, so the overlay is the click target and the gesture cannot reach what sits under it,
+            # and it cancels touchend so no click is synthesised at all. The overlay keeps taking hits until that window
+            # has passed. The module hears the skip through the introskip event, or through __introSkip if it was still
+            # downloading; either way the splash goes away with three.js dead.
+            '<script>(function(){var i=document.getElementById("intro-seq");if(!i)return;var done=false;'
+            'function skip(e){if(done)return;done=true;'
+            'if(e&&e.type==="touchend"&&e.cancelable)e.preventDefault();'
+            'window.__introSkip=1;i.classList.add("done");'
+            'setTimeout(function(){i.classList.add("gone")},450);'
+            'i.dispatchEvent(new CustomEvent("introskip"))}'
+            'i.addEventListener("click",skip);i.addEventListener("touchend",skip);'
+            'document.addEventListener("keydown",function(e){if(done)return;'
+            'if(e.key==="Enter"||e.key===" "||e.key==="Escape"){e.preventDefault();skip(e)}})})();</script>\n\n'
             '<canvas id="three-canvas"></canvas>\n<div id="photos">\n%s\n</div>\n'
             '<div class="grain"></div>\n<div class="vignette"></div>\n<div class="letterbox-top"></div>\n<div class="letterbox-bottom"></div>\n'
             '<div class="progress" id="progress"></div>\n<div class="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>\n\n'

@@ -146,7 +146,10 @@ The assembler's asserts are the guard, so add one for each regression rather tha
    visible Book-a-Class control; no `href="/"` survives in `dist/` (on www.mastsolutions.com `/` is the MAST page itself);
    no request form is a `mailto:`; `scrollWidth === innerWidth` at 393 px; the intro dismisses on a tap; the MENU overlay
    opens below 900 px; zero console errors that are not the aborted Worker fetches.
-3. **Check the plain live URL after Pages publishes** — `https://www.mastsolutions.com/`, not only the cache-busted
+3. **The publish re-runs the assembler.** `pages-mastsolutions.yml` rebuilds and fails on `git diff --exit-code --
+   mastsolutions.html dist/mastsolutions/index.html`, so a hand-edited `dist/` cannot deploy and every assert above runs
+   on the way out (`dist/mastsolutions/sitemap.xml` is out of that diff: its `<lastmod>` is today's date).
+4. **Check the plain live URL after Pages publishes** — `https://www.mastsolutions.com/`, not only the cache-busted
    `?v=<sha>` one. The `?v=` link proves the origin is right; the plain URL is what a visitor gets, and it is the one
    that has been stale.
 

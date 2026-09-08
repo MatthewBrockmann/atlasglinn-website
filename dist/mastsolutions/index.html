@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="cc867743bf53">
+<meta name="build" content="4f5245f7ad9b">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
 <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
@@ -85,7 +85,8 @@
   .letterbox-top { top:0; } .letterbox-bottom { bottom:0; }
   body.cinema .letterbox-top, body.cinema .letterbox-bottom { height:50px; }
   #intro-seq { position:fixed; inset:0; z-index:9000; background:#000; display:flex; align-items:center; justify-content:center; flex-direction:column; font-family:'Cinzel',serif; pointer-events:auto; transition:opacity 1s ease-out; }   /* a tap ends the splash; on a phone six seconds of black is where a visitor leaves */
-  #intro-seq.done { opacity:0; pointer-events:none; }
+  #intro-seq.done { opacity:0; }   /* fades but keeps taking hits: releasing them here is what let the dismissing tap's click reach the CTA underneath */
+  #intro-seq.gone { pointer-events:none; }   /* released once that click can no longer arrive */
   .intro-credit { position:relative; z-index:1; font-size:.75rem; letter-spacing:.6em; color:var(--text-dim); opacity:0; animation:introFade 2.8s ease-in-out forwards; text-transform:uppercase; }
   /* The gold sparkle ring from the atlasglinn.com intro, drawn around the wordmark; the script fades it in after the wordmark and out before the splash ends. */
   .intro-ring { position:absolute; inset:0; width:100%; height:100%; z-index:0; opacity:0; pointer-events:none; }
@@ -376,6 +377,7 @@
 .secure { text-align: center; font-family: 'Share Tech Mono', monospace; font-size: .68rem; letter-spacing: .1em; color: #888; margin-top: .8rem; }
 .err { display: none; font-size: .95rem; color: #FF6B5A; margin-top: .8rem; line-height: 1.5; }
 .err.show { display: block; }
+.modal.req .err:not([hidden]), .acct .err:not([hidden]) { display: block; }
 .cr-lvl { display: inline-block; padding: .05rem .45rem; border-radius: 3px; background: rgba(255,255,255,.08); color: #d8dce6; letter-spacing: .1em; }
 .cr-lvl.lvl-1 { background: rgba(201,168,76,.22); color: #fff; }
 .cr-img { width: 72px; height: 72px; object-fit: cover; border-radius: 4px; border: 1px solid rgba(201,168,76,.3); flex: 0 0 72px; margin-right: 14px; }
@@ -606,7 +608,7 @@
   <div class="intro-credit">Since 2005</div>
   <canvas class="intro-ring" id="intro-ring" aria-hidden="true"></canvas>
 </div>
-<script>(function(){var i=document.getElementById("intro-seq");i.addEventListener("pointerdown",function(){window.__introSkip=1;i.classList.add("done")},{once:true})})();</script>
+<script>(function(){var i=document.getElementById("intro-seq");if(!i)return;var done=false;function skip(e){if(done)return;done=true;if(e&&e.type==="touchend"&&e.cancelable)e.preventDefault();window.__introSkip=1;i.classList.add("done");setTimeout(function(){i.classList.add("gone")},450);i.dispatchEvent(new CustomEvent("introskip"))}i.addEventListener("click",skip);i.addEventListener("touchend",skip);document.addEventListener("keydown",function(e){if(done)return;if(e.key==="Enter"||e.key===" "||e.key==="Escape"){e.preventDefault();skip(e)}})})();</script>
 
 <canvas id="three-canvas"></canvas>
 <div id="photos">
@@ -1196,7 +1198,7 @@
 <script type="module">
 import * as THREE from './vendor/three.module.js';
 
-const SECTIONS = 12;
+const SECTIONS = 13;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mobile = matchMedia('(max-width: 768px)').matches;
 
@@ -1216,8 +1218,10 @@ const openHero = () => {
 };
 if (reduce) { openHero(); } else {
   setTimeout(() => { intro.classList.add('done'); setTimeout(openHero, 1000); }, 4800);
-  intro.addEventListener('pointerdown', () => { intro.classList.add('done'); setTimeout(openHero, 300); }, { once: true });
-  if (window.__introSkip) setTimeout(openHero, 300); else intro.addEventListener('pointerdown', () => setTimeout(openHero, 300), { once: true });
+  // The splash script in the markup owns the dismissing gesture and has already started the fade; it holds the overlay
+  // hit-testable until the tap's click can no longer arrive, so the hero opens no sooner than that.
+  if (window.__introSkip) setTimeout(openHero, 450);
+  else intro.addEventListener('introskip', () => setTimeout(openHero, 450), { once: true });
 }
 // Gold ring (Brockmann, 2026-09-04: "the gold around the Atlas Glinn is what I was talking about ... take some of the gold shimmer
 // and fade it in and fade it out"): the sparkle ring of the current atlasglinn.com intro — a tilted, slowly turning, pulsing ring
@@ -1370,6 +1374,7 @@ const kf = [
   { x: 3, y: 1, z: 11, lx: 0, ly: 0, lz: 0 },
   { x: -3, y: 2, z: 13, lx: 0, ly: -1, lz: 0 },
   { x: 4, y: 3, z: 14, lx: 0, ly: -.5, lz: 0 },
+  { x: -4, y: 1, z: 12, lx: 0, ly: 0, lz: 0 },
   { x: 0, y: -4, z: 18, lx: 0, ly: 2, lz: 0 },
 ];
 let activeIdx = 0;
@@ -1574,7 +1579,7 @@ function renderDCal(){
   $('dcal-grid').innerHTML = html;
   $('dcal-quick').innerHTML = WEEKENDS.map((w, wi) => bookable(w) ? `<button type="button" class="chip${dcalPick === wi ? ' sel' : ''}" onclick="dcalPickDay(${wi})">${labelFor(w, 2).replace(/, \d{4}$/, '')}</button>` : '').join('');
   const box = $('dcal-classes'); box.hidden = dcalPick === null; if (dcalPick === null) return;
-  const items = offeredOn(); $('dcal-sel').innerHTML = `<b>${labelFor(WEEKENDS[dcalPick], 2)}</b> &middot; ${items.length} classes &middot; choose one`;
+  const items = offeredOn(); $('dcal-sel').innerHTML = `<b>${labelFor(WEEKENDS[dcalPick], 2)}</b> &middot; the same ${items.length} classes run on every training weekend &middot; choose one`;
   const cats = ['All', ...CATS.filter(cat => items.some(({ c }) => c.cat === cat))];
   $('dcal-tabs').innerHTML = cats.map(cat => `<button type="button" class="chip${dcalTab === cat ? ' sel' : ''}" onclick="dcalTabSet(this.dataset.cat)" data-cat="${esc(cat)}">${esc(cat === 'All' ? 'All classes' : (CAT_LABELS[cat] || cat))}</button>`).join('');
   $('dcal-list').innerHTML = items.filter(({ c }) => dcalTab === 'All' || c.cat === dcalTab).map(({ c, i }) => `<div class="cal-item"><div><b class="cal-name">${esc(c.name)}</b><small>${metaHtml(c)}</small></div><div class="cal-item-price">${money(c.price_cents)}</div><button type="button" class="cta-button small" onclick="dcalChoose(${i})">Select</button></div>`).join('');

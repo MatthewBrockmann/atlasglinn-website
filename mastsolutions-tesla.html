@@ -299,6 +299,7 @@
         .secure { text-align: center; font-family: 'Inconsolata', monospace; font-size: .68rem; letter-spacing: .1em; color: #888; margin-top: .8rem; }
         .err { display: none; font-size: .95rem; color: #FF6B5A; margin-top: .8rem; line-height: 1.5; }
         .err.show { display: block; }
+        .modal.req .err:not([hidden]), .acct .err:not([hidden]) { display: block; }
         .cr-lvl { display: inline-block; padding: .05rem .45rem; border-radius: 3px; background: rgba(255,255,255,.08); color: #d8dce6; letter-spacing: .1em; }
         .cr-lvl.lvl-1 { background: rgba(201,168,76,.22); color: #fff; }
         .cr-img { width: 72px; height: 72px; object-fit: cover; border-radius: 4px; border: 1px solid rgba(201,168,76,.3); flex: 0 0 72px; margin-right: 14px; }
@@ -1016,7 +1017,7 @@ function renderDCal(){
   $('dcal-grid').innerHTML = html;
   $('dcal-quick').innerHTML = WEEKENDS.map((w, wi) => bookable(w) ? `<button type="button" class="chip${dcalPick === wi ? ' sel' : ''}" onclick="dcalPickDay(${wi})">${labelFor(w, 2).replace(/, \d{4}$/, '')}</button>` : '').join('');
   const box = $('dcal-classes'); box.hidden = dcalPick === null; if (dcalPick === null) return;
-  const items = offeredOn(); $('dcal-sel').innerHTML = `<b>${labelFor(WEEKENDS[dcalPick], 2)}</b> &middot; ${items.length} classes &middot; choose one`;
+  const items = offeredOn(); $('dcal-sel').innerHTML = `<b>${labelFor(WEEKENDS[dcalPick], 2)}</b> &middot; the same ${items.length} classes run on every training weekend &middot; choose one`;
   const cats = ['All', ...CATS.filter(cat => items.some(({ c }) => c.cat === cat))];
   $('dcal-tabs').innerHTML = cats.map(cat => `<button type="button" class="chip${dcalTab === cat ? ' sel' : ''}" onclick="dcalTabSet(this.dataset.cat)" data-cat="${esc(cat)}">${esc(cat === 'All' ? 'All classes' : (CAT_LABELS[cat] || cat))}</button>`).join('');
   $('dcal-list').innerHTML = items.filter(({ c }) => dcalTab === 'All' || c.cat === dcalTab).map(({ c, i }) => `<div class="cal-item"><div><b class="cal-name">${esc(c.name)}</b><small>${metaHtml(c)}</small></div><div class="cal-item-price">${money(c.price_cents)}</div><button type="button" class="cta-button small" onclick="dcalChoose(${i})">Select</button></div>`).join('');

@@ -39,6 +39,19 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: The page being published is the assembler's output
+        # PR #72 hand-edited the built page, shipped, and ran none of the assembler's asserts on the way out. Rebuilding
+        # here and diffing the result is what makes those asserts a condition of publishing. Only the two files that are
+        # pure functions of the source are compared: dist/mastsolutions/sitemap.xml carries <lastmod>today</lastmod>, so
+        # it differs on any day after the commit and would fail this every time (measured 2026-09-08 by building under a
+        # faked date: those two came out byte-identical, the sitemap did not).
+        run: |
+          set -e
+          python3 scripts/assemble-cinematic.py
+          git diff --exit-code -- mastsolutions.html dist/mastsolutions/index.html || {
+            echo "::error::the built page does not match scripts/assemble-cinematic.py — hand edits to mastsolutions.html or dist/mastsolutions/index.html are overwritten; change the assembler, re-run it and commit its output"
+            exit 1
+          }
       - name: Stage the site (index.html, manifest, the page's assets)
         run: |
           set -e

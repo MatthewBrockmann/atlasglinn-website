@@ -44,6 +44,7 @@ rep = {'#1A6BDE': '#C9A84C', 'rgba(26,107,222,': 'rgba(201,168,76,', '#0f1622': 
        "'Inconsolata', monospace": "'Share Tech Mono', monospace", 'rgba(8,12,20,': 'rgba(5,8,16,'}
 for k, v in rep.items(): booking_css = booking_css.replace(k, v)
 assert '.modal-bd {' in booking_css and '.day.wk {' in booking_css and '.cat-btn {' in booking_css, 'booking css missing pieces'
+assert '.modal.req .err:not([hidden])' in booking_css, 'the request dialog error text is invisible again'
 
 # ── 2. Modal + banner markup from the Tesla page ──
 banner = between(tesla, '<div id="banner"', '</div>', True)
@@ -687,7 +688,7 @@ MOBILE_NAV_CSS = shell.SITENAV_CSS + """
     #s13 .foot a, .contact-lines a { display:inline-flex; align-items:center; min-height:44px; }
   }
 """
-html = shell.head(META, shell.css(PALETTE, '/*__BOOKING_CSS__*/' + QUOTES_CSS, '/*__MOBILE_NAV_CSS__*/')) + BODY + shell.tail(shell.three(12, PALETTE), js)
+html = shell.head(META, shell.css(PALETTE, '/*__BOOKING_CSS__*/' + QUOTES_CSS, '/*__MOBILE_NAV_CSS__*/')) + BODY + shell.tail(shell.three(len(CHAPTERS), PALETTE), js)
 # The video cards and the media strip are shared UI in the blue chapters, so those lifted rules recolor with the page.
 booking_css_kept = '\n'.join(shell._recolor(l, PALETTE) if l.lstrip().startswith(('.video-card', '.yt', '.media-strip')) else l for l in booking_css.splitlines())
 html = shell._recolor(html, PALETTE).replace('/*__BOOKING_CSS__*/', booking_css_kept + GOLD_KEEP, 1)
@@ -702,6 +703,11 @@ assert html.count('openDCal();return false;') >= len(CHAPTERS), 'a chapter lost 
 assert 'requestCapability()' in html and 'Capability%20Statement%20Request' not in html, 'the capability request went back to a mailto'
 assert 'id="menu-btn"' in html and 'class="sitenav"' in html and 'const nav = document.getElementById(\'sitenav\')' in html, 'the mobile menu is not wired'
 assert 'BOOKING_ENDPOINT' not in html and 'offeredOn(wi)' not in html, 'dead booking code is back'
+assert ('const SECTIONS = %d;' % len(CHAPTERS)) in html and html.count('SECTION 01 / %02d' % len(CHAPTERS)) == 1, \
+    'the HUD counter and the camera path must both count the chapters in CHAPTERS'
+assert 'classes run on every training weekend' in html, 'the calendar reads a class count against one date again'
+assert '#intro-seq.gone' in html and 'i.classList.add("gone")' in html, \
+    'the splash releases the pointer on dismissal again: its tap lands on the CTA underneath'
 
 # Brockmann picked this design as the page that ships (2026-09-03), so the assembler writes the production
 # mastsolutions.html. The Atlas-frame build lives on as mastsolutions-atlas.html; the old cinematic URL is a stub redirect.
