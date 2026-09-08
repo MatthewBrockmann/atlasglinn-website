@@ -137,7 +137,7 @@ PHP
       D="$(mktemp /tmp/wp-flush-diag.XXXXXX)"
       cat > "$D" <<'PHP'
 <?php
-if (!function_exists('get_mu_plugins')) { @require_once ABSPATH . 'wp-admin/includes/plugin.php'; }
+if (!function_exists('get_mu_plugins') && defined('ABSPATH') && is_file(ABSPATH . 'wp-admin/includes/plugin.php')) { require_once ABSPATH . 'wp-admin/includes/plugin.php'; }
 echo 'DIAG php=' . PHP_VERSION . ' wp=' . get_bloginfo('version') . ' cli=' . (defined('WP_CLI') ? 'yes' : 'no') . ' host=' . php_uname('n') . "\n";
 echo 'DIAG mu-plugins: ' . (function_exists('get_mu_plugins') ? implode(', ', array_keys(get_mu_plugins())) : 'n/a') . "\n";
 $classes = array();
