@@ -144,6 +144,27 @@ shell's `panel` / `eyebrow` / `section-h` / `sub` structure and the chapter nav,
 new booking or checkout pieces go into `mastsolutions-tesla.html` first, so the MAST page lifts them. Gold on the MAST page
 lives in `GOLD_KEEP` (spliced after the palette recolor); everything else recolors to blue.
 
+## Definition of done for a site change
+
+A page change is done when the built file has been regenerated, driven in a browser, and seen on the plain live URL —
+not when the assembler exits 0. PR #72 (merged 2026-09-07) dropped 96 dialog CSS rules because the CSS lifter swallowed
+one-line `@media` queries, and every run after it still exited 0 and still published; PR #83 restored them the next day.
+The assembler's asserts are the guard, so add one for each regression rather than relying on the next reader to notice.
+
+1. **Regenerate.** `python3 scripts/assemble-cinematic.py` (or `assemble-atlas.py`). Never hand-edit `mastsolutions.html`
+   or `dist/mastsolutions/index.html`; the next run overwrites them. Commit the regenerated files with the source change.
+2. **Run the Chromium checklist** against a staging copy outside the repo (`index.html` plus symlinks to `vendor/` and
+   `images/`), at 1280x900 and at iPhone 14 Pro: every dialog opens and lands inside the viewport; every chapter has a
+   visible Book-a-Class control; no `href="/"` survives in `dist/` (on www.mastsolutions.com `/` is the MAST page itself);
+   no request form is a `mailto:`; `scrollWidth === innerWidth` at 393 px; the intro dismisses on a tap; the MENU overlay
+   opens below 900 px; zero console errors that are not the aborted Worker fetches.
+3. **The publish re-runs the assembler.** `pages-mastsolutions.yml` rebuilds and fails on `git diff --exit-code --
+   mastsolutions.html dist/mastsolutions/index.html`, so a hand-edited `dist/` cannot deploy and every assert above runs
+   on the way out (`dist/mastsolutions/sitemap.xml` is out of that diff: its `<lastmod>` is today's date).
+4. **Check the plain live URL after Pages publishes** — `https://www.mastsolutions.com/`, not only the cache-busted
+   `?v=<sha>` one. The `?v=` link proves the origin is right; the plain URL is what a visitor gets, and it is the one
+   that has been stale.
+
 ## Claude SEO toolchain (vendored)
 
 This repo carries the [Claude SEO](https://github.com/AgriciDaniel/claude-seo)
