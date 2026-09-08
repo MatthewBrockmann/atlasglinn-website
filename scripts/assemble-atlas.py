@@ -1,32 +1,38 @@
 #!/usr/bin/env python3
-"""Assemble the Atlas Glinn pages on the cinematic shell (scripts/cinematic_shell.py, ATLAS blue palette).
+"""Assemble the Atlas Glinn pages: the classic shell around the current atlasglinn.com page, verbatim.
 
-Brockmann, 2026-09-03: "use SAME front end and redo Atlasglinn.com", mobile first. Then 2026-09-08, on the chapter
-preview: "too many clicks to get to content and back is confusing - look at how easy the current site is and rebuild"
-and "atlasglinn needs to mimic the current site with the new build". So every page keeps the Tier 3 trailer's palette,
-type, buttons, cards and emblem scene, and takes the live site's shape: a sticky top bar with the live menu and its
-Training dropdown, the Enter / Skip Intro splash, a full-bleed muted hero film with a sound toggle, one continuous
-scroll of sections (the `id="sN"` anchors still land), the live footer and a back-to-top control. The classic layout
-lives in scripts/atlas_shell.py; mastsolutions.html is untouched. Copy is the site's own copy, kept word for word
-where it makes a claim; images are local where the repo has them and WordPress-hosted where it does not
-(scripts/handoff-urls.txt brings those over).
+Brockmann, 2026-09-08, on the preview: "Atlasglinn is not rendering correctly the main site and the should go same font
+and sizes into the new design + if video - NO hallucinations just use the new frontend - side bar = take the current
+site and drop into new design and see - no changes to anything."
 
-Edit THIS FILE and re-run it; never hand-edit the generated pages, the next run overwrites them:
-  index.html, executive-protection.html, residential-protection.html, disaster-recovery.html, training.html,
-  technology.html, cuas-aerodefense.html, uas.html, about.html, careers.html, contact.html, ep-app.html
-signup.html is not generated here.
+LIVE-CONTENT MODE IS THE DEFAULT AND IS WHAT SHIPS. Each page is the classic shell's chrome — the sticky bar with its
+dropdowns, the mobile menu, the Enter / Skip Intro splash, the footer, the back-to-top button — wrapped around the
+live page taken whole from reference/live/<slug>.html: its head, its stylesheet, its <style> blocks, its copy, its
+photographs, its films at their own atlasglinn.com URLs, its own scripts. Nothing is rewritten and nothing is re-cut.
+scripts/atlas_live.py does the reading and keeps the shell's stylesheet off the content; scripts/atlas_shell.py is the
+chrome; mastsolutions.html is untouched.
 
-Preview vs publish (Brockmann, 2026-09-04: "let me review it before we publish"):
-  python3 scripts/assemble-atlas.py             writes preview/<page>.html  (noindex, assets via ../, live pages untouched)
-  python3 scripts/assemble-atlas.py --publish   writes <page>.html at the site root: the real thing, only on his word
+  python3 scripts/assemble-atlas.py             writes preview/<page>.html  (noindex, assets via ../)
+  python3 scripts/assemble-atlas.py --publish   writes <page>.html at the site root, and build-manifest.json
+  python3 scripts/assemble-atlas.py --authored  the hand-authored chapters below instead — DEPRECATED, see next para
+
+DEPRECATED — the hand-authored chapters. Everything from `def opening(` down to the end of this file writes the pages
+from copy typed here, against an April 2026 reading of the site. That is what made the preview diverge from the live
+site: rewritten headings, a rewritten Atlas EP price table, a six-second re-cut in place of the home film. It is kept
+behind --authored for one release so a diff against it is possible, and then it goes. Do not add to it, and do not fix
+a live-content problem by editing it — fix reference/live/ or scripts/atlas_live.py.
+
+The twelve pages either mode writes: index, executive-protection, residential-protection, disaster-recovery, training,
+technology, cuas-aerodefense, uas, about, careers, contact, ep-app. signup.html is not generated here.
 """
 import os, re, sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PUBLISH = '--publish' in sys.argv
+AUTHORED = '--authored' in sys.argv
 OUT_DIR = '' if PUBLISH else 'preview/'
 # Preview pages sit one folder down, so root-level assets and the hand-authored pages need a ../ in front. The eleven
 # rebuilt pages link to each other by bare name and stay inside preview/.
-_ROOT_REFS = re.compile(r'''((?:src|href|poster)=")(images/|mastsolutions|privacy\.html|terms\.html|signup\.html|ep-app\.html|mast-capability)''')
+_ROOT_REFS = re.compile(r'''((?:src|href|poster)=")(images/|vendor/|mastsolutions|privacy\.html|terms\.html|signup\.html|ep-app\.html|mast-capability)''')
 def _previewize(html):
     html = _ROOT_REFS.sub(r'\1../\2', html).replace("url('images/", "url('../images/")
     html = html.replace("from './vendor/three.module.js'", "from '../vendor/three.module.js'")   # the shell's three.js import
@@ -35,6 +41,8 @@ def _previewize(html):
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cinematic_shell as shell
 import atlas_shell as atlas
+import atlas_live as live
+import build_manifest
 
 API = 'https://mast-booking-backend.matthew-221.workers.dev'
 SITE = 'https://atlasglinn.com/'
@@ -152,7 +160,7 @@ FOOTER_GROUPS = [
     ('Atlas Glinn', [('index.html', 'Home'), ('executive-protection.html', 'Executive Protection'), ('residential-protection.html', 'Residential Protection'),
                      ('disaster-recovery.html', 'Disaster Recovery'), ('technology.html', 'Technology'), ('ep-app.html', 'Atlas EP App')]),
     ('MAST Solutions', [('training.html', 'Training Programs'), ('ep-app.html', 'Atlas EP Platform'), ('cuas-aerodefense.html', 'Counter-Drone Solutions'), ('uas.html', 'Autonomous UAS'), ('mastsolutions.html', 'MAST Solutions')]),
-    ('Company', [('about.html', 'About Us'), ('careers.html', 'Careers'), ('about.html#s5', 'Resources'), ('contact.html', 'Contact')]),
+    ('Company', [('about.html', 'About Us'), ('careers.html', 'Careers'), ('contact.html', 'Contact')]),
 ]
 
 
@@ -397,9 +405,13 @@ def meta(title, desc, path, og_image, jsonld=''):
             '<meta name="robots" content="index, follow">\n<meta name="author" content="Atlas Glinn, LLC">\n<meta name="theme-color" content="#050810">\n' + jsonld)
 
 def build(path, title, desc, og_image, credits, chapters, photos, jsonld=''):
-    """chapters: [(label, html)]; photos: [(image, pos or None[, film])] one per section, in order. The first entry's
+    """DEPRECATED — the hand-authored page. Writes nothing unless --authored is passed; build_live() is what ships.
+
+    chapters: [(label, html)]; photos: [(image, pos or None[, film])] one per section, in order. The first entry's
     film is the hero: it autoplays muted and full-bleed behind the opening headline, with the live sound toggle. Every
     section stays in one scroll and keeps its `id="sN"`, so every link that ever pointed at one still lands."""
+    if not AUTHORED:
+        return
     n = len(chapters)
     assert len(photos) == n, f'{path}: {len(photos)} backdrops for {n} sections'
     assert len(photos[0]) <= 3 and all(len(e) == 2 for e in photos[1:]), f'{path}: only the opening section takes a film'
@@ -978,3 +990,60 @@ build('ep-app.html',
         + chips(['Houston, TX', 'Licensed PPO', 'AES-256 Encrypted']))),   # the live page's credential tags
 ], photos=[(AI_SURV, None), (HERO_EP, None), (CCTV, None), (HERO_EP, None), (PROTECTION, None), (AI_SURV, None), (CCTV, None), (HERO_EP, None), (AI_SURV, None)],
       jsonld=jsonld_service('Atlas EP', 'Proactive biometric and environmental AI protection agent: encrypted comms, Blue Force Tracking, emergency chains, counter-UAS detection and cyber defense for teams, families and individuals.', 'ep-app.html'))
+
+
+# ═══════════════════════════ live-content mode — what ships ═══════════════════════════
+# The page is the classic chrome with the current atlasglinn.com page inside it. Reading order matters and is the
+# reason the live type wins: the theme stylesheet, then the page's own <style> blocks, then the shell's chrome sheet —
+# which atlas_live.chrome_css() has already cut down to the bar, the menu, the splash, the footer and the back-to-top
+# button, so there is nothing left in it that could reach the content.
+INTRO_TAGLINE = 'Executive Protection &middot; Intelligence &middot; Training'
+
+
+def build_live(slug):
+    page = 'index.html' if slug == 'index' else slug + '.html'
+    body = live.content(slug)
+    chrome = ''.join('<script>%s</script>\n' % s for s in live.scripts(slug))
+    html = ('<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n'
+            '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n'
+            '<meta name="build" content="">\n'
+            + live.head(slug)
+            + f'<link rel="icon" href="{SITE}{LOGO_MARK}" type="image/png">\n'
+            + '\n'.join(live.styles(slug)) + '\n'
+            + '<style>' + live.chrome_css(live.mono(slug)) + '</style>\n'
+            + '</head>\n<body>\n<script>' + shell.REFRESH_JS + '</script>\n\n'
+            + live.intro_overlay('Houston &middot; Texas', 'ATLAS GLINN', INTRO_TAGLINE) + '\n'
+            + atlas.nav(TOPNAV, page, LOGO_MARK) + '\n'
+            + body + '\n\n'
+            + atlas.footer(site_footer()) + live.after_footer(slug) + '\n' + atlas.BACK_TO_TOP + '\n'
+            + chrome
+            + '<script>' + live.intro_ring_js() + '</script>\n'
+            + '<script>' + live.chrome_js() + '</script>\n'
+            + '<script>' + shell.TRACK_JS + '</script>\n'
+            + '</body>\n</html>\n')
+    # One bar, one menu, one splash, one footer: the live chrome is out and the shell's is in exactly once.
+    for tag, n in (('<nav id="main-nav"', 1), ('<div id="mobile-nav"', 1), ('id="intro-overlay"', 1),
+                   ('<footer', 1), ('</footer>', 1)):
+        assert html.count(tag) == n, f'{page}: {tag} appears {html.count(tag)} times, expected {n}'
+    if not PUBLISH:
+        html = _previewize(html)
+    out = os.path.join(REPO, OUT_DIR, page)
+    os.makedirs(os.path.dirname(out) or '.', exist_ok=True)
+    open(out, 'w', encoding='utf-8').write(html)
+    print('wrote %-30s %7d bytes   %s' % (OUT_DIR + page, len(html.encode('utf-8')),
+                                          'hero ' + (live.hero_media(slug, body) or 'still').split('/')[-1]))
+    return out
+
+
+if not AUTHORED:
+    # The theme stylesheet the live pages link, served from the repo: same bytes, same relative path from every page,
+    # and the staging workflow's asset resolver follows the <link> and copies it.
+    vendor = os.path.join(REPO, live.SHARED_CSS)
+    os.makedirs(os.path.dirname(vendor), exist_ok=True)
+    with open(live.SHARED_CSS_SRC, encoding='utf-8') as fh:
+        css = fh.read()
+    open(vendor, 'w', encoding='utf-8').write(css)
+    print('wrote %-30s %7d bytes   (reference/live/shared-styles.css)' % (live.SHARED_CSS, len(css.encode('utf-8'))))
+    written = [build_live(s) for s in live.PAGES]
+    if PUBLISH:
+        build_manifest.stamp_and_write(written)

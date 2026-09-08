@@ -57,6 +57,49 @@ columns are in `schema.sql` for a fresh database. Nothing here is wired to a mem
 
 ## Atlas Glinn pages (decided by Brockmann 2026-09-03: "SAME front end", mobile first)
 
+### LIVE-CONTENT MODE — what the twelve pages are today (2026-09-08, current; everything below it is history)
+
+Brockmann, 2026-09-08 21:47 UTC, on the preview: *"Atlasglinn is not rendering correctly the main site and the should
+go same font and sizes into the new design + if video - NO hallucinations just use the new frontend - side bar = take
+the current site and drop into new design and see - no changes to anything."*
+
+So the pages are no longer written from copy typed into the assembler. **Each page is the classic shell's chrome —
+sticky bar with its dropdowns, mobile menu, Enter / Skip Intro splash, footer, back-to-top — wrapped around the current
+atlasglinn.com page taken whole** from `reference/live/<slug>.html`: its head, its `<style>` blocks, its copy, its
+photographs and its films **at their own `https://atlasglinn.com/wp-content/…` URLs**, and its own scripts. The theme
+stylesheet it links is served from the repo as `vendor/atlasglinn-shared-styles.css` (same bytes as
+`reference/live/shared-styles.css`), so the live type scale comes with it.
+
+- `scripts/atlas_live.py` reads one snapshot: head facts, `<style>` blocks verbatim, the content between the live
+  chrome boundaries, the tail scripts the content owns, the media list. Internal links become the sibling `.html`;
+  **media URLs are left absolute on purpose** — a repo copy is a different encode (the disaster hero is 44.6 MB live
+  against 3.7 MB here) and a teaser is a different film, and both are the "re-cut" he ruled out.
+- `chrome_css()` cuts the shell stylesheet down to the five chrome roots (`#intro-overlay`, `#main-nav`,
+  `#mobile-nav`, `footer.site-footer`, `#back-to-top`) and drops every global and content rule by name —
+  `DROP_SELECTORS` fails the build if one of them is ever renamed away. The palette is declared **on those roots, not
+  on `:root`**: ep-app.html's own sheet declares `--gold` on `:root` and its content reads it, so a second `:root`
+  would repaint that page. Reading order is theme sheet → the page's own `<style>` blocks → the chrome sheet, so the
+  live body rule, the live type scale and the live components all win.
+- The shell's sound toggle is cut from its script (five live pages ship their own `#sound-toggle` and the code that
+  works it, inside the content) and the live 3.5-second auto-enter is added to the splash, because the shell's waited
+  for a click and that is a black screen on a phone.
+- `scripts/compare-atlas.py` writes **`atlas-compare.html` at the repo root** (tracked, noindex, staged at
+  `/preview/atlasglinn/atlas-compare.html`): the live page and the new page side by side, both read out by one
+  extractor, with the carried text-unit and media counts above each pair. It **exits 1** if any page is short.
+- Re-run after a capture: `python3 scripts/assemble-atlas.py --publish && python3 scripts/compare-atlas.py &&
+  python3 scripts/check-links.py`. Refresh the snapshots from `origin/claude/desktop-assets:reference/desktop/live/`
+  and update `reference/live/_captured.txt` when the live site changes.
+- `--authored` still runs the hand-authored chapters described below. **Deprecated, one release only** — that copy is
+  what made the preview diverge (rewritten headings, a rewritten Atlas EP price table, a 6-second re-cut in place of
+  the 27-second home film). Do not fix a live-content problem by editing it.
+
+Measured 2026-09-08 in Chromium (1440×900 and 390×844, fonts blocked on both sides, the live capture rendered the same
+way as the yardstick): text parity 1257/1257 units, media parity 35/35 URLs, typography 36/36 computed snapshots per
+page, hero `<video>` src equal to the live src on all twelve, zero horizontal overflow, one nav and one footer in every
+DOM, and not one chrome CSS rule matching an element outside the five chrome roots.
+
+### History — the hand-authored build (superseded by the block above)
+
 The rebuilt `index`, `executive-protection`, `residential-protection`, `disaster-recovery`,
 `training`, `technology`, `cuas-aerodefense`, `uas`, `about`, `careers` and `contact` pages are
 **generated** by `scripts/assemble-atlas.py` on the same cinematic shell as the MAST page
@@ -108,8 +151,8 @@ atlasglinn.com page uses in that section (the approved list at the top of
 `build()` asserts it. The files are the site's own WordPress uploads, kept under `images/atlas/` by their WordPress names
 (handed off from the Mac 2026-09-05). The About portrait is `images/team/brockmann.jpg`, the picture he approved on the
 MAST Instructors chapter: the WordPress file named after him is a press-line scene ("This is not my picture from
-atlasglinn.com", 2026-09-05), kept only as a backdrop. `scripts/compare-atlas.py` writes `preview/compare.html`, the
-section-by-section "as is vs new" sheet he reviews from.
+atlasglinn.com", 2026-09-05), kept only as a backdrop. The imagery rule is moot in live-content mode — the pages carry
+the live page's own media at the live page's own URLs — but `build()` still asserts it under `--authored`.
 
 ## Privacy statement rule (Brockmann, 2026-09-03; repeated 2026-09-05)
 
