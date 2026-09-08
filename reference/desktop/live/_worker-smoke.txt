@@ -1,14 +1,14 @@
-smoke 2026-09-08T16:54:23Z from main 601d0ba run 34253885089 (contact=true checkout=false)
+smoke 2026-09-08T17:21:52Z from main 02ac203 run 34256628571 (contact=false checkout=false account=true)
 --- health
-HTTP 200 577ms  GET /health
-{"status":"MAST booking backend — ONLINE","version":"1.2.0","build":"5580986","crm":true,"directions":"sealed"}
-   build: 5580986
+HTTP 200 478ms  GET /health
+{"status":"MAST booking backend — ONLINE","version":"1.2.0","build":"b16d31a","crm":true,"directions":"sealed"}
+   build: b16d31a
    CRM routes live: yes (GET /admin/crm → 401 without a key)
    range directions: sealed   [sealed = the owner's PDF decrypts on the Worker; secrets = rendered from RANGE_*; none = nothing attached; sealed-key-mismatch = re-seal with the key below]
 --- directions key (the public half of the Worker's sealing key; feeds mast-backend/seal-directions.mjs; saved beside this report as _directions-key.json)
 HTTP 200  key_id=b9104a7374d4c1d9
 --- catalog
-HTTP 200 136ms  GET /catalog
+HTTP 200 225ms  GET /catalog
    source=d1 classes=22
    MAST-HG-FUND     Handgun Fundamentals                         $225.00
    MAST-HG-LADIES   Ladies Only Handgun Fundamentals             $225.00
@@ -33,7 +33,7 @@ HTTP 200 136ms  GET /catalog
    MAST-MOTOR-P2    Motorcade P2                                 $0.00
    MAST-GEAR        Gear & Kit Considerations                    $750.00
 --- weekends
-HTTP 200 81ms  GET /weekends
+HTTP 200 177ms  GET /weekends
    weekends=15 first=2026-09-26 last=2027-04-24 statuses=['available', 'blocked']
 --- CORS preflight (Origin https://atlasglinn.com → POST /create-booking)
    HTTP/2 204 
@@ -42,13 +42,28 @@ HTTP 200 81ms  GET /weekends
    access-control-allow-methods: GET, POST, OPTIONS
    access-control-max-age: 86400
 --- accounts (GET /account/me without a token: 503 accounts_off = ACCOUNT_SECRET not set; 401 = accounts on)
-HTTP 401 189ms  GET /account/me
+HTTP 401 148ms  GET /account/me
 {"error":"Please sign in again.","code":"unauthorized"}
 --- CRM summary: skipped (no ADMIN_KEY repository secret; add it under Settings → Secrets → Actions to see counts, revenue and the funnel here)
---- contact (one labelled test message; the Worker emails NOTIFY_EMAIL through Resend)
-HTTP 200 727ms  POST /contact
-{"ok":true}
+--- contact: skipped (input contact=false)
 --- checkout: skipped (input checkout=false)
+--- account sign-up (POST /account/register for matthew+smoke34256628571@atlasglinn.com)
+HTTP 202 364ms  POST /account/register
+{"pending":true,"email":"matthew+smoke34256628571@atlasglinn.com","message":"We emailed a 6-digit code to matthew+smoke34256628571@atlasglinn.com. Enter it to finish."}
+--- account sign-in, wrong password (expect 401 or 403 unverified, never 5xx)
+HTTP 401 192ms  POST /account/login
+{"error":"That email and password do not match.","code":"bad_login"}
+--- sitemaps and robots (what Search Console can fetch)
+   https://www.mastsolutions.com/sitemap.xml  HTTP 200
+      <?xml version="1.0" encoding="UTF-8"?> <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">   <url>     <loc>https://www.mastsolutions.com/</loc>     <l
+   https://www.mastsolutions.com/robots.txt  HTTP 200
+      # www.mastsolutions.com — MAST Solutions (Atlas Glinn, LLC), Houston TX  User-agent: * Disallow: /preview/ Allow: /  User-agent: GPTBot Allow: /  User-agent: 
+   https://atlasglinn.com/wp-sitemap.xml  HTTP 301
+   https://atlasglinn.com/sitemap.xml  HTTP 301
+   https://atlasglinn.com/sitemap_index.xml  HTTP 200
+      <?xml version="1.0" encoding="UTF-8"?><?xml-stylesheet type="text/xsl" href="//atlasglinn.com/wp-content/plugins/wordpress-seo/css/main-sitemap.xsl"?> <sitemapi
+   https://atlasglinn.com/robots.txt  HTTP 200
+      # START YOAST BLOCK # --------------------------- User-agent: * Disallow:  Sitemap: https://atlasglinn.com/sitemap_index.xml # --------------------------- # END
 --- mail DNS (mastsolutions.com), asked at ns27.domaincontrol.com. (authoritative)
    A mastsolutions.com [auth]: 15.197.225.128|3.33.251.168
    CNAME www.mastsolutions.com [auth]: matthewbrockmann.github.io.
