@@ -147,7 +147,8 @@ if (!isset($_SERVER['argv'][1])) {
             else { echo '  | ' . $l . "\n"; }
         }
         $counts[] = $s . ' ' . $got . '/' . $want;
-        // 137 is the deadline kill; 153 is SIGXFSZ, the ulimit -f backstop firing — both are already non-zero here.
+        // 137 is the deadline kill; a child stopped by SIGXFSZ (the ulimit -f backstop) comes back from proc_close as -1, not 153
+        // (measured 2026-09-08) — both are already non-zero here.
         if ($rc !== 0 && !$sawfail) {
             $fail++; $bad[] = $s . '/scenario-exited-' . $rc;
             echo '  FAIL ' . $s . "/scenario-exited-$rc without reporting a failure — it died mid-scenario\n";
