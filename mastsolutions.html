@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="7c1b1e863848">
+<meta name="build" content="4ca8f583f574">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
 <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
@@ -607,7 +607,7 @@
   <div class="intro-credit">Since 2005</div>
   <canvas class="intro-ring" id="intro-ring" aria-hidden="true"></canvas>
 </div>
-<script>(function(){var i=document.getElementById("intro-seq");if(!i)return;var done=false;function skip(e){if(done)return;done=true;if(e&&e.type==="touchend"&&e.cancelable)e.preventDefault();window.__introSkip=1;i.classList.add("done");setTimeout(function(){i.classList.add("gone")},450);i.dispatchEvent(new CustomEvent("introskip"))}i.addEventListener("click",skip);i.addEventListener("touchend",skip);document.addEventListener("keydown",function(e){if(done)return;if(e.key==="Enter"||e.key===" "||e.key==="Escape"){e.preventDefault();skip(e)}})})();</script>
+<script>(function(){var i=document.getElementById("intro-seq");if(!i)return;var done=false;function skip(e){if(done)return;done=true;if(e&&e.type==="touchend"&&e.cancelable)e.preventDefault();window.__introSkip=1;i.classList.add("done");setTimeout(function(){i.classList.add("gone")},450);i.dispatchEvent(new CustomEvent("introskip"))}i.addEventListener("click",skip);i.addEventListener("touchend",skip);function onKey(e){if(done||!i.isConnected||i.classList.contains("done")){document.removeEventListener("keydown",onKey);return}if(e.key==="Enter"||e.key===" "||e.key==="Escape"){e.preventDefault();skip(e);document.removeEventListener("keydown",onKey)}}document.addEventListener("keydown",onKey)})();</script>
 
 <canvas id="three-canvas"></canvas>
 <div id="photos">

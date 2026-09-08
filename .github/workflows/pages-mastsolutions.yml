@@ -22,6 +22,11 @@ on:
       - 'images/**'
       - 'vendor/**'
       - 'scripts/assemble-atlas.py'
+      # the MAST page's inputs — so the drift check below fires on the change most likely to cause drift
+      - 'scripts/assemble-cinematic.py'
+      - 'scripts/cinematic_shell.py'
+      - 'scripts/build_manifest.py'
+      - 'mastsolutions-tesla.html'
 permissions:
   contents: read
   pages: write

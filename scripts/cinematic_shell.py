@@ -587,8 +587,12 @@ def chrome(credits, wordmark, photos, hud_tl, hud_tl_href, hud_bl, hud_br, chapt
             'setTimeout(function(){i.classList.add("gone")},450);'
             'i.dispatchEvent(new CustomEvent("introskip"))}'
             'i.addEventListener("click",skip);i.addEventListener("touchend",skip);'
-            'document.addEventListener("keydown",function(e){if(done)return;'
-            'if(e.key==="Enter"||e.key===" "||e.key==="Escape"){e.preventDefault();skip(e)}})})();</script>\n\n'
+            # The key listener lives only as long as the splash does: once the splash is done by ANY path (a tap, a key, or the
+            # module's own timer) or the overlay is gone from the DOM, the next key press removes the listener and is NOT
+            # cancelled — otherwise the first Enter, Space or Escape typed into a form after the intro would be swallowed.
+            'function onKey(e){if(done||!i.isConnected||i.classList.contains("done")){document.removeEventListener("keydown",onKey);return}'
+            'if(e.key==="Enter"||e.key===" "||e.key==="Escape"){e.preventDefault();skip(e);document.removeEventListener("keydown",onKey)}}'
+            'document.addEventListener("keydown",onKey)})();</script>\n\n'
             '<canvas id="three-canvas"></canvas>\n<div id="photos">\n%s\n</div>\n'
             '<div class="grain"></div>\n<div class="vignette"></div>\n<div class="letterbox-top"></div>\n<div class="letterbox-bottom"></div>\n'
             '<div class="progress" id="progress"></div>\n<div class="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>\n\n'
