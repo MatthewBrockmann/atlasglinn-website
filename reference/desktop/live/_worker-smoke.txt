@@ -1,6 +1,6 @@
-smoke 2026-09-08T03:31:53Z from main 3feef34 run 34183825502 (contact=false checkout=false)
+smoke 2026-09-08T04:16:16Z from main 841ef83 run 34186396338 (contact=false checkout=false)
 --- health
-HTTP 200 232ms  GET /health
+HTTP 200 649ms  GET /health
 {"status":"MAST booking backend — ONLINE","version":"1.2.0","build":"5580986","crm":true,"directions":"sealed"}
    build: 5580986
    CRM routes live: yes (GET /admin/crm → 401 without a key)
@@ -8,7 +8,7 @@ HTTP 200 232ms  GET /health
 --- directions key (the public half of the Worker's sealing key; feeds mast-backend/seal-directions.mjs; saved beside this report as _directions-key.json)
 HTTP 200  key_id=b9104a7374d4c1d9
 --- catalog
-HTTP 200 117ms  GET /catalog
+HTTP 200 154ms  GET /catalog
    source=d1 classes=22
    MAST-HG-FUND     Handgun Fundamentals                         $225.00
    MAST-HG-LADIES   Ladies Only Handgun Fundamentals             $225.00
@@ -33,7 +33,7 @@ HTTP 200 117ms  GET /catalog
    MAST-MOTOR-P2    Motorcade P2                                 $0.00
    MAST-GEAR        Gear & Kit Considerations                    $750.00
 --- weekends
-HTTP 200 141ms  GET /weekends
+HTTP 200 130ms  GET /weekends
    weekends=15 first=2026-09-26 last=2027-04-24 statuses=['available', 'blocked']
 --- CORS preflight (Origin https://atlasglinn.com → POST /create-booking)
    HTTP/2 204 
@@ -42,13 +42,13 @@ HTTP 200 141ms  GET /weekends
    access-control-allow-methods: GET, POST, OPTIONS
    access-control-max-age: 86400
 --- accounts (GET /account/me without a token: 503 accounts_off = ACCOUNT_SECRET not set; 401 = accounts on)
-HTTP 401 98ms  GET /account/me
+HTTP 401 55ms  GET /account/me
 {"error":"Please sign in again.","code":"unauthorized"}
 --- CRM summary: skipped (no ADMIN_KEY repository secret; add it under Settings → Secrets → Actions to see counts, revenue and the funnel here)
 --- contact: skipped (input contact=false)
 --- checkout: skipped (input checkout=false)
---- mail DNS (mastsolutions.com), asked at ns28.domaincontrol.com. (authoritative)
-   A mastsolutions.com [auth]: 185.199.111.153|185.199.110.153|185.199.108.153|185.199.109.153|15.197.225.128|3.33.251.168
+--- mail DNS (mastsolutions.com), asked at ns27.domaincontrol.com. (authoritative)
+   A mastsolutions.com [auth]: 15.197.225.128|3.33.251.168
    CNAME www.mastsolutions.com [auth]: matthewbrockmann.github.io.
    A www.mastsolutions.com [auth]: matthewbrockmann.github.io.
    A atlasglinn.com [fallback]: 160.153.0.38
