@@ -248,12 +248,17 @@ is safe to run anywhere and proves logic, not deployment. (It needs
 
 **Weekly digest (owner, 2026-09-08: "Add to CRM backend + weekly CRM Emails to matthew@atlasglinn.com +
 Matthew@mastsolutions.com").** The same daily cron checks the weekday and, on Mondays, emails one plain-text digest
-to `CRM_DIGEST_TO` — the last seven days beside the seven before them: new leads by request type, new accounts,
-registrations, paid orders with seats and revenue, the classes booked, the leads nobody has replied to yet
-(the `emailed` flag `POST /contact` sets), and the lifetime totals from the `crmSnapshot` summary. There is no
-second trigger to keep in step, and the digest is queued after the purge inside its own `catch`, so a CRM read that
-fails never costs the day its retention run; unset `CRM_DIGEST_TO` (or no `RESEND_API_KEY`) logs the digest and skips
-the send. `GET /admin/crm?key=…&view=weekly` returns the identical text for a runner reading it without the mailbox.
+to `CRM_DIGEST_TO` — the last seven days beside the seven before them: new leads by request type, new verified
+accounts, registrations, paid orders with seats, memberships and revenue, the classes booked, and the leads that
+never reached the office inbox (the `emailed` flag `POST /contact` sets when the notification to `NOTIFY_EMAIL`
+goes out — it records that the office was told, not that anyone answered), then the lifetime totals from the
+`crmSnapshot` summary. There is no second trigger to keep in step, and the digest is queued alongside the purge, in
+its own promise with its own catch; a digest failure cannot reach the purge. Its four reads are strict — a D1 error
+rejects rather than mailing a week of zeros. **Once per ISO week:** the send is recorded in `email_log`
+(`kind` `digest`, `ref` the week, e.g. `2026-W36`) only after Resend accepts it, and the run is a no-op when that row
+is already there — so a doubled Monday fire sends once, while a Monday that failed is retried by the Tuesday or
+Wednesday cron. Unset `CRM_DIGEST_TO` (or no `RESEND_API_KEY`) logs the digest and skips the send.
+`GET /admin/crm?key=…&view=weekly` returns the identical text for a runner reading it without the mailbox.
 The contact notification no longer carries a `Page:` line (same instruction) — the page is still stored on the lead
 row and still drives attribution.
 

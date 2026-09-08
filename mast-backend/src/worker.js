@@ -114,9 +114,12 @@ export default {
     if (String(env.JOURNEYS_ENABLED) === '1') {
       ctx.waitUntil(runJourneys(env, { send: (m) => sendEmail(env, m), catalog: await catalogRows(env) }).catch((e) => console.error('[Journeys] failed:', e.message)));
     } else console.log('[Journeys] off (JOURNEYS_ENABLED is not "1")');
-    // Mondays only (owner, 2026-09-08: "weekly CRM Emails to matthew@atlasglinn.com + Matthew@mastsolutions.com"). It is
-    // queued last and carries its own catch: a CRM read that fails must never cost the day its purge.
-    if (new Date(event && event.scheduledTime).getUTCDay() === 1) {
+    // Monday (owner, 2026-09-08: "weekly CRM Emails to matthew@atlasglinn.com + Matthew@mastsolutions.com"), and Tuesday or
+    // Wednesday as the retry: a Resend outage on Monday used to cost the week its digest. sendWeeklyDigest is the idempotent
+    // half — it reads email_log and no-ops when the week already went out, so a doubled Monday fire still sends once. It is
+    // queued alongside the purge in its own promise with its own catch: a CRM read that fails cannot reach the retention run.
+    const weekday = new Date(event && event.scheduledTime).getUTCDay();
+    if (weekday >= 1 && weekday <= 3) {
       ctx.waitUntil(sendWeeklyDigest(env, new Date(event.scheduledTime)).catch((e) => console.error('[Digest] failed:', e.message)));
     }
   },
@@ -1006,7 +1009,7 @@ async function handleContact(request, env, cors) {
   if (kind === 'contact' && message.length < 2) return json({ error: 'Enter a message.', field: 'message' }, 400, cors);
   const meta = {
     company: str(body.company).trim(), status: str(body.status).trim(), request_type: str(body.request_type).trim(),
-    page: str(body.page).trim(), ip: request.headers.get('CF-Connecting-IP') || '',
+    ip: request.headers.get('CF-Connecting-IP') || '',
   };
   // Subjects by origin: the Capability Statement form, the page's Private Instruction dialog, and the Gear chapter's quote
   // request (owner, 2026-09-05: Aimpoint / IWA "add to mastsolutions so we can sell there" — quoted by email, never charged online).
@@ -1581,17 +1584,31 @@ async function sendRegistrationDocuments(env, reg, record) {
 }
 
 /**
- * Monday: one CRM digest to CRM_DIGEST_TO (wrangler.toml [vars]). Same text as GET /admin/crm?view=weekly, so a
+ * One CRM digest a week to CRM_DIGEST_TO (wrangler.toml [vars]). Same text as GET /admin/crm?view=weekly, so a
  * runner without the mailbox reads exactly what was sent. Unconfigured = logged and skipped, like the review notice.
+ * Once per ISO week, claimed in email_log (kind 'digest', ref the week) the way the journeys claim theirs — except the
+ * row is written only after Resend has taken it, so a failed Monday leaves the week open for the Tuesday cron to retry.
+ * weeklyDigest itself rejects on a failed read, so a D1 outage sends nothing rather than a week of zeros.
  */
 async function sendWeeklyDigest(env, now = new Date()) {
   const to = list(env.CRM_DIGEST_TO);
+  const period = weeklyDigestPeriod(now);
+  const ref = period.split('·').pop().trim();
+  if (to.length && env.DB) {
+    const already = await env.DB.prepare("SELECT 1 AS n FROM email_log WHERE email = ? AND ref = ? AND kind = 'digest' LIMIT 1")
+      .bind(env.CRM_DIGEST_TO, ref).first().catch(() => null);
+    if (already) { console.log('[Digest]', ref, 'already sent — nothing to do'); return { sent: 0, skipped: true }; }
+  }
   const text = await weeklyDigest(env, { now });
   if (!to.length || !env.RESEND_API_KEY) {
     console.error('[Digest] Email not configured (need CRM_DIGEST_TO + RESEND_API_KEY). Digest:\n' + text);
     return { sent: 0 };
   }
-  await sendEmail(env, { to, subject: 'MAST CRM weekly — ' + weeklyDigestPeriod(now), text });
+  await sendEmail(env, { to, subject: 'MAST CRM weekly — ' + period, text });
+  if (env.DB) {
+    await env.DB.prepare('INSERT OR IGNORE INTO email_log (created_at, email, ref, kind, status) VALUES (?, ?, ?, ?, ?)')
+      .bind(now.toISOString(), env.CRM_DIGEST_TO, ref, 'digest', 'sent').run().catch((e) => console.error('[Digest] log failed:', e.message));
+  }
   console.log('[Digest] Sent to', to.join(', '));
   return { sent: to.length };
 }

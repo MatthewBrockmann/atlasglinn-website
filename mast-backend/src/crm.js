@@ -284,6 +284,13 @@ const SEGMENT_TEXT = {
 
 /* ───────────────────────────── D1 reads ───────────────────────────── */
 
+/** The digest's reads: a SELECT that fails must reject, never read as a week of zeros. */
+async function rowsStrict(env, sql, binds = []) {
+  if (!env.DB) return [];
+  const { results } = await env.DB.prepare(sql).bind(...binds).all();
+  return results || [];
+}
+
 async function rows(env, sql, binds = [], fallbackSql) {
   if (!env.DB) return [];
   try { const { results } = await env.DB.prepare(sql).bind(...binds).all(); return results || []; }
@@ -366,8 +373,9 @@ export async function crmSnapshot(env, { view = 'full', limit = 5000, now = new 
 
 /* ─────────────────────── Weekly digest (owner, 2026-09-08) ───────────────────────
    "Add to CRM backend + weekly CRM Emails to matthew@atlasglinn.com + Matthew@mastsolutions.com."
-   Sent by the daily cron on Mondays only; the same text is at GET /admin/crm?view=weekly for a runner
-   with the key. Reads the tables crmSnapshot already reads — the digest adds no table and no column. */
+   Sent by the daily cron on Monday, or on the Tuesday or Wednesday after a Monday that failed to send; one per ISO
+   week, claimed in email_log. The same text is at GET /admin/crm?view=weekly for a runner with the key. Reads the
+   tables crmSnapshot already reads — the digest adds no table and no column. */
 
 const WEEK = 7 * DAY;
 const usd = (cents) => '$' + (Number(cents || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -400,17 +408,21 @@ export function weeklyDigestText({ contacts = [], orders = [], registrations = [
   const sum = (l, f) => l.reduce((n, x) => n + (Number(f(x)) || 0), 0);
   const seats = (l) => sum(l, (o) => o.qty || 1);
   const cash = (l) => sum(l, (o) => o.amount_total);
-  const row = (label, value, prev) => (label + ':').padEnd(18) + String(value) + (prev === undefined ? '' : '  (prev ' + prev + ')');
+  const row = (label, value, prev) => (label + ':').padEnd(24) + String(value) + (prev === undefined ? '' : '  (prev ' + prev + ')');
 
   const leads = contacts.filter((c) => c.kind !== 'subscribe' && c.kind !== 'smoke');   // the runner's smoke-test messages are not leads
   const leadsNow = recent(leads), leadsPrev = prior(leads);
   const paid = orders.filter((o) => !o.status || o.status === 'paid');
   const paidNow = recent(paid), paidPrev = prior(paid);
+  // A membership is a subscription, not a seat: it counts in Paid orders and Revenue and nowhere else.
+  const classNow = paidNow.filter((o) => o.kind !== 'membership'), classPrev = paidPrev.filter((o) => o.kind !== 'membership');
+  const memberNow = paidNow.filter((o) => o.kind === 'membership'), memberPrev = paidPrev.filter((o) => o.kind === 'membership');
+  const verified = accounts.filter((a) => a.verified_at);   // an unverified sign-up is deleted by the next day's purge
   const open = leads.filter((c) => !c.emailed).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
   const askedFor = (c) => c.request_type || c.kind;
   const priorByType = new Map(bucket(leadsPrev, askedFor).map((b) => [b.key, b.value]));
   const nameOf = (o) => o.item_name || o.sku || '(unnamed)';
-  const cashByClass = new Map(bucket(paidNow, nameOf, (o) => o.amount_total).map((b) => [b.key, b.value]));
+  const cashByClass = new Map(bucket(classNow, nameOf, (o) => o.amount_total).map((b) => [b.key, b.value]));
 
   const out = [
     'MAST CRM WEEKLY',
@@ -421,21 +433,22 @@ export function weeklyDigestText({ contacts = [], orders = [], registrations = [
   ];
   for (const b of bucket(leadsNow, askedFor)) out.push('  ' + b.key.padEnd(16) + String(b.value) + '  (prev ' + (priorByType.get(b.key) || 0) + ')');
   out.push(
-    row('Not emailed back', recent(open).length + ' of ' + leadsNow.length + ' new'),
-    row('New accounts', recent(accounts).length, prior(accounts).length),
+    row('Office not notified', recent(open).length + ' of ' + leadsNow.length + ' new'),
+    row('New verified accounts', recent(verified).length, prior(verified).length),
     row('Registrations', recent(registrations).length, prior(registrations).length),
     row('Paid orders', paidNow.length, paidPrev.length),
-    row('Seats sold', seats(paidNow), seats(paidPrev)),
+    row('Seats sold', seats(classNow), seats(classPrev)),
+    row('Memberships', memberNow.length, memberPrev.length),
     row('Revenue', usd(cash(paidNow)), usd(cash(paidPrev))),
     '',
     'TOP CLASSES BOOKED (paid, last 7 days)',
   );
-  const classes = bucket(paidNow, nameOf, (o) => o.qty || 1).slice(0, 8);
+  const classes = bucket(classNow, nameOf, (o) => o.qty || 1).slice(0, 8);
   if (!classes.length) out.push('  (none)');
   for (const b of classes) out.push('  ' + b.key.slice(0, 40).padEnd(42) + (b.value + (b.value === 1 ? ' seat' : ' seats')).padEnd(10) + usd(cashByClass.get(b.key)));
-  out.push('', 'NOT EMAILED BACK — ' + open.length + ' open, oldest first');
-  if (!open.length) out.push('  (none — every lead has had a reply)');
-  for (const c of open.slice(0, 15)) out.push('  ' + String(c.created_at).slice(0, 10) + '  ' + String(c.name || '(no name)').slice(0, 28).padEnd(30) + String(c.email || '').slice(0, 40) + '  (' + askedFor(c) + ')');
+  out.push('', 'OFFICE NOT NOTIFIED — ' + open.length + ' open, oldest first');
+  if (!open.length) out.push('  (none — every lead reached the office inbox)');
+  for (const c of open.slice(0, 15)) out.push('  ' + String(c.created_at).slice(0, 10) + '  ' + String(c.name || '(no name)').slice(0, 28).padEnd(30) + String(c.email || '').slice(0, 40).padEnd(42) + '(' + askedFor(c) + ')');
   if (open.length > 15) out.push('  … and ' + (open.length - 15) + ' more — /admin, Leads tab');
 
   if (stats) {
@@ -443,7 +456,7 @@ export function weeklyDigestText({ contacts = [], orders = [], registrations = [
     out.push(
       '', 'LIFETIME',
       row('Profiles', stats.profiles),
-      row('Leads', stats.leads.total + '  (30 days: ' + stats.leads.last_30_days + ', not emailed back: ' + stats.leads.unemailed + ')'),
+      row('Leads', stats.leads.total + '  (30 days: ' + stats.leads.last_30_days + ', office not notified: ' + stats.leads.unemailed + ')'),
       row('Subscribers', stats.subscribers),
       row('Accounts', stats.accounts.total + '  (verified ' + stats.accounts.verified + ')'),
       row('Registrations', stats.registrations.total + (r ? '  (' + r + ')' : '')),
@@ -459,10 +472,10 @@ export function weeklyDigestText({ contacts = [], orders = [], registrations = [
 /** The digest for the live database. */
 export async function weeklyDigest(env, { now = new Date(), limit = 5000 } = {}) {
   const { stats } = await crmSnapshot(env, { view: 'summary', limit, now });
-  const contacts = await rows(env, `SELECT id, created_at, kind, name, email, request_type, emailed FROM contacts ORDER BY created_at DESC LIMIT ${limit}`);
-  const orders = await rows(env, `SELECT ${ORDER_COLS} FROM orders ORDER BY created_at DESC LIMIT ${limit}`);
-  const registrations = await rows(env, `SELECT id, created_at, status, sku, item_name, qty FROM registrations ORDER BY created_at DESC LIMIT ${limit}`);
-  const accounts = await rows(env, `SELECT id, created_at, verified_at FROM accounts ORDER BY created_at DESC LIMIT ${limit}`);
+  const contacts = await rowsStrict(env, `SELECT id, created_at, kind, name, email, request_type, emailed FROM contacts ORDER BY created_at DESC LIMIT ${limit}`);
+  const orders = await rowsStrict(env, `SELECT ${ORDER_COLS} FROM orders ORDER BY created_at DESC LIMIT ${limit}`);
+  const registrations = await rowsStrict(env, `SELECT id, created_at, status, sku, item_name, qty FROM registrations ORDER BY created_at DESC LIMIT ${limit}`);
+  const accounts = await rowsStrict(env, `SELECT id, created_at, verified_at FROM accounts ORDER BY created_at DESC LIMIT ${limit}`);
   return weeklyDigestText({ contacts, orders, registrations, accounts, stats }, now);
 }
 
