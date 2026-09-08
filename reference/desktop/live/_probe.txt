@@ -1,4 +1,4 @@
-captured 2026-09-08T06:41:58Z by capture-live from main 8c508c5
+captured 2026-09-08T17:18:06Z by capture-live from main b0258e3
 200 text/html; charset=UTF-8 85111  https://atlasglinn.com/  title=[Atlas Glinn - Elite Security Solutions, Risk Management & Training] wordpress_generator=0
 200 text/html 83528  https://atlasglinn.com/index.html  title=[Atlas Glinn | Executive Protection, Risk Management & Training — Houston, TX] wordpress_generator=0
 200 text/html 83667  https://atlasglinn.com/about.html  title=[About Atlas Glinn | Elite Security Leadership — Houston, TX] wordpress_generator=0
@@ -11,15 +11,15 @@ captured 2026-09-08T06:41:58Z by capture-live from main 8c508c5
 200 video/mp4 132  https://atlasglinn.com/images/technology-hero.mp4  title=[] wordpress_generator=0
 200 video/mp4 132  https://atlasglinn.com/images/careers-gallery.mp4  title=[] wordpress_generator=0
 404 text/html 548  https://atlasglinn.com/wp-content/uploads/2025/03/IMG_1837-1024x751.jpeg  title=[404 Not Found] wordpress_generator=0
---- cache-busted (?v=1788849719) with caching headers; gear-price / foot-site count the current builds' markers
-200 text/html 213837  https://atlasglinn.com/mastsolutions.html?v=  gear-price=3 foot-site=0  [cache-control: public, max-age=2678400 last-modified: Tue, 08 Sep 2026 06:22:12 GMT server: cloudflare cf-cache-status: MISS ]
-200 text/html 84110  https://atlasglinn.com/index.html?v=  gear-price=0 foot-site=1  [cache-control: public, max-age=2678400 last-modified: Tue, 08 Sep 2026 06:22:14 GMT server: cloudflare cf-cache-status: MISS ]
-200 text/html 84249  https://atlasglinn.com/about.html?v=  gear-price=0 foot-site=1  [cache-control: public, max-age=2678400 last-modified: Tue, 08 Sep 2026 06:22:21 GMT server: cloudflare cf-cache-status: MISS ]
-200 text/plain 38  https://atlasglinn.com/mast-ping.txt?v=  gear-price=0 foot-site=0  [etag: W/"6a9fa98b-26" last-modified: Tue, 08 Sep 2026 06:22:03 GMT server: cloudflare cache-control: public, max-age=2678400 cf-cache-status: MISS ]
-   mast-ping.txt body: served by upload 2026-09-08T06:22:03Z
+--- cache-busted (?v=1788887886) with caching headers; gear-price / foot-site count the current builds' markers
+200 text/html 213837  https://atlasglinn.com/mastsolutions.html?v=  gear-price=3 foot-site=0  [cache-control: public, max-age=2678400 last-modified: Tue, 08 Sep 2026 16:22:23 GMT server: cloudflare cf-cache-status: MISS ]
+200 text/html 84110  https://atlasglinn.com/index.html?v=  gear-price=0 foot-site=1  [cache-control: public, max-age=2678400 last-modified: Tue, 08 Sep 2026 16:22:25 GMT server: cloudflare cf-cache-status: MISS ]
+200 text/html 84249  https://atlasglinn.com/about.html?v=  gear-price=0 foot-site=1  [cache-control: public, max-age=2678400 last-modified: Tue, 08 Sep 2026 16:22:33 GMT server: cloudflare cf-cache-status: MISS ]
+200 text/plain 38  https://atlasglinn.com/mast-ping.txt?v=  gear-price=0 foot-site=0  [etag: W/"6aa03636-26" last-modified: Tue, 08 Sep 2026 16:22:14 GMT server: cloudflare cache-control: public, max-age=2678400 cf-cache-status: MISS ]
+   mast-ping.txt body: served by upload 2026-09-08T16:22:14Z
 --- plain URL caching headers
-   https://atlasglinn.com/mastsolutions.html  cache-control: public, max-age=2678400 last-modified: Mon, 07 Sep 2026 12:26:11 GMT server: cloudflare age: 62574 cf-cache-status: HIT 
-   https://atlasglinn.com/index.html  cache-control: public, max-age=2678400 last-modified: Mon, 07 Sep 2026 15:51:25 GMT server: cloudflare age: 53219 cf-cache-status: HIT 
+   https://atlasglinn.com/mastsolutions.html  cache-control: public, max-age=2678400 last-modified: Mon, 07 Sep 2026 12:26:11 GMT server: cloudflare age: 100740 cf-cache-status: HIT 
+   https://atlasglinn.com/index.html  cache-control: public, max-age=2678400 last-modified: Mon, 07 Sep 2026 15:51:25 GMT server: cloudflare age: 91386 cf-cache-status: HIT 
 --- self-refresh: mastsolutions.html  plain build=[none]  manifest=[b28460d9fe41]  stale → self-refresh to ?v=b28460d9fe41
 --- self-refresh: index.html  plain build=[none]  manifest=[aca99306be35]  stale → self-refresh to ?v=aca99306be35
 --- self-refresh: about.html  plain build=[none]  manifest=[504848fe38c8]  stale → self-refresh to ?v=504848fe38c8
