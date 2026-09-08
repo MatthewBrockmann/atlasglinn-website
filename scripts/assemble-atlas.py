@@ -1004,13 +1004,14 @@ def build_live(slug):
     page = 'index.html' if slug == 'index' else slug + '.html'
     body = live.content(slug)
     chrome = ''.join('<script>%s</script>\n' % s for s in live.scripts(slug))
+    sheet = live.chrome_css(live.mono(slug))   # assert_chrome_scope() runs inside: every selector anchored to the chrome
     html = ('<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n'
             '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n'
             '<meta name="build" content="">\n'
             + live.head(slug)
             + f'<link rel="icon" href="{SITE}{LOGO_MARK}" type="image/png">\n'
             + '\n'.join(live.styles(slug)) + '\n'
-            + '<style>' + live.chrome_css(live.mono(slug)) + '</style>\n'
+            + '<style>' + sheet + '</style>\n'
             + '</head>\n<body>\n<script>' + shell.REFRESH_JS + '</script>\n\n'
             + live.intro_overlay('Houston &middot; Texas', 'ATLAS GLINN', INTRO_TAGLINE) + '\n'
             + atlas.nav(TOPNAV, page, LOGO_MARK) + '\n'
@@ -1030,8 +1031,9 @@ def build_live(slug):
     out = os.path.join(REPO, OUT_DIR, page)
     os.makedirs(os.path.dirname(out) or '.', exist_ok=True)
     open(out, 'w', encoding='utf-8').write(html)
-    print('wrote %-30s %7d bytes   %s' % (OUT_DIR + page, len(html.encode('utf-8')),
-                                          'hero ' + (live.hero_media(slug, body) or 'still').split('/')[-1]))
+    print('wrote %-30s %7d bytes   %2d chrome selectors, all anchored   hero %s'
+          % (OUT_DIR + page, len(html.encode('utf-8')), len(live.audit_chrome_css(sheet)),
+             (live.hero_media(slug, body) or 'still').split('/')[-1]))
     return out
 
 

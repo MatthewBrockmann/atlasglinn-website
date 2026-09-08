@@ -335,18 +335,39 @@ def chrome_css(mono_family='Inconsolata'):
     css = css.replace('cursor:none', 'cursor:pointer')
     # The chrome's small caps take the mono the page already loads. Adding a face the live site does not request is
     # the "same font" line he drew, and Share Tech Mono is an ep-app font on the live site, not a site-wide one.
-    return css.replace("'Share Tech Mono',monospace", "'%s',monospace" % mono_family)
+    css = css.replace("'Share Tech Mono',monospace", "'%s',monospace" % mono_family)
+    assert_chrome_scope(css)
+    return css
 
 
-def audit_chrome_css(css=None):
-    """Every selector that survived the cut, for the record and for the browser check."""
+def audit_chrome_css(css):
+    """Every selector that survived the cut, flattened out of the @media blocks."""
     sels = []
-    for sel, body in _rules(css if css is not None else chrome_css()):
+    for sel, body in _rules(css):
         if sel.startswith('@media'):
             sels += [s for s, _ in _rules(body)]
         elif not sel.startswith('@'):
-            sels.append(sel)
-    return [s.strip() for s in sels]
+            sels += [p.strip() for p in sel.split(',')]
+    return [s for s in sels if s]
+
+
+# A chrome rule has to be anchored: its leftmost compound selector must name a piece of the chrome, so the rule can
+# only ever reach inside one of the five roots. Anything else — a bare tag, a content class, a stray global — means
+# the cut above missed something, and the build stops rather than shipping a sheet that restyles the live page.
+CHROME_TOKENS = ('#main-nav', '#mobile-nav', '#back-to-top', '#intro-', '#skip-intro', '.nav-', '.ndb-',
+                 '.mobile-nav-close', '.site-footer', '.footer-', '.intro-ring', '.intro-open')
+
+
+def assert_chrome_scope(css):
+    """Raise on any surviving selector that is not anchored to the chrome. Returns the selectors checked."""
+    sels = audit_chrome_css(css)
+    loose = []
+    for sel in sels:
+        head = re.split(r'[\s>+~]', sel.strip())[0]
+        if not any(tok in head for tok in CHROME_TOKENS):
+            loose.append(sel)
+    assert not loose, 'chrome CSS reaches outside the chrome: %s' % loose[:6]
+    return sels
 
 
 # ── The chrome's behaviour ────────────────────────────────────────────────────────────────────────────────────────
