@@ -24,6 +24,7 @@ for (const f of readdirSync(SRC).filter(n => n.endsWith('.js')).sort()) {
 const stripeCalls = [];
 const stored = [];
 const emails = [];
+let resendStatus = 200;      // flip to 500 to make the next Resend call fail (the digest retry test)
 const mailchimpCalls = [];   // PUT /3.0/lists/<list>/members/<md5>
 const hubspotCalls = [];     // POST crm/v3/objects/contacts/batch/upsert
 const brevoCalls = [];       // POST /v3/contacts
@@ -61,6 +62,7 @@ globalThis.fetch = async (url, init) => {
     return new Response(JSON.stringify({ id: 'cs_test_123', url: 'https://checkout.stripe.com/pay/cs_test_123' }), { status: 200 });
   }
   if (String(url).includes('api.resend.com')) {
+    if (resendStatus !== 200) return new Response('{"message":"upstream refused"}', { status: resendStatus });
     emails.push(JSON.parse(init.body));
     return new Response('{}', { status: 200 });
   }
@@ -115,6 +117,7 @@ const DB = {
             }
             if (sql.includes('FROM memberships')) return fakePlans[args[0]] || null;
             if (sql.includes('FROM registrations WHERE id')) return registrations.get(args[0]) || null;
+            if (sql.includes('FROM email_log')) { const k = (/kind = '(\w+)'/.exec(sql) || [])[1]; const l = emailLog.find(x => x.email === args[0] && x.ref === args[1] && x.kind === k); return l ? { ...l } : null; }
             if (sql.includes('FROM accounts WHERE email')) { for (const a of accounts.values()) if (a.email === args[0]) return { ...a }; return null; }
             if (sql.includes('FROM accounts WHERE id')) return accounts.has(args[0]) ? { ...accounts.get(args[0]) } : null;
             return null;
@@ -132,6 +135,8 @@ const DB = {
             if (sql.startsWith('INSERT INTO events')) { const cols = sql.slice(sql.indexOf('(') + 1, sql.indexOf(')')).split(',').map(c => c.trim()); events.push(Object.fromEntries(cols.map((c, i) => [c, args[i]]))); return { meta: { changes: 1 } }; }
             if (sql.startsWith('INSERT OR IGNORE INTO email_log')) { const [created_at, email, ref, kind, status] = args; if (emailLog.some(l => l.email === email && l.ref === ref && l.kind === kind)) return { meta: { changes: 0 } }; emailLog.push({ created_at, email, ref, kind, status }); return { meta: { changes: 1 } }; }
             if (sql.startsWith('UPDATE email_log SET status')) { const st = /status = '(\w+)'/.exec(sql)[1]; const l = emailLog.find(x => x.email === args[0] && x.ref === args[1] && x.kind === args[2]); if (l) l.status = st; return { meta: { changes: l ? 1 : 0 } }; }
+            if (sql.startsWith('UPDATE email_log SET created_at')) { const l = emailLog.find(x => x.email === args[1] && x.ref === args[2] && x.kind === args[3]); if (l) l.created_at = args[0]; return { meta: { changes: l ? 1 : 0 } }; }
+            if (sql.startsWith('DELETE FROM email_log')) { const st = (/status = '(\w+)'/.exec(sql) || [])[1]; const i = emailLog.findIndex(x => x.email === args[0] && x.ref === args[1] && x.kind === args[2] && (!st || x.status === st)); if (i >= 0) emailLog.splice(i, 1); return { meta: { changes: i >= 0 ? 1 : 0 } }; }
             if (sql.startsWith('INSERT OR IGNORE INTO worker_keys')) { const [name, created_at, key_id, public_jwk, private_jwk] = args; if (!workerKeys.has(name)) workerKeys.set(name, { name, created_at, key_id, public_jwk, private_jwk }); return { meta: { changes: 1 } }; }
             if (/^(CREATE TABLE|CREATE INDEX|ALTER TABLE)/.test(sql)) return { meta: { changes: 0 } };
             if (sql.includes('INSERT INTO eligibility_outcomes')) { outcomes.push(args); return { meta: { last_row_id: outcomes.length, changes: 1 } }; }
@@ -558,6 +563,9 @@ console.log('\n── Site contact + capability requests ──');
   const priv = await post('/contact', { kind: 'contact', request_type: 'private', name: 'Jane Doe', email: 'jane@example.com', phone: '', message: 'Private instruction request — Private Session (2 HRS · ONE-ON-ONE)', page: 'https://www.atlasglinn.com/mastsolutions.html' });
   ok('private instruction request (the page\'s Request dialog) sends one email titled as such, 200', priv.status === 200 && emails.length === 2 && /Private instruction request: Jane Doe/.test(JSON.stringify(emails[1])), 'status=' + priv.status + ' ' + JSON.stringify(emails[1]).slice(0, 160));
   ok('email has reply-to the sender and the message', emails[0] && emails[0].reply_to === 'jane@example.com' && /residential assessment/.test(emails[0].text));
+  // Owner, 2026-09-08, on the notification that reached him: "REMOVE 'Page: github-actions'". The page is still collected —
+  // it is on the lead row and drives attribution — it just does not take a line in the email.
+  ok('the notification carries no Page: line, and the lead row still has the page', !emails[0].text.includes('Page:') && contacts.some((c) => c.email === 'jane@example.com' && c.page === 'contact.html'), emails[0].text);
   // The Gear chapter (owner, 2026-09-05): Aimpoint / IWA quote requests through the same dialog, never a Stripe charge.
   const gear = await post('/contact', { kind: 'contact', request_type: 'gear', company: 'Harris County SO', name: 'Jane Doe', email: 'jane@example.com', phone: '', message: 'Gear quote request — IWA-M12 M12 Distraction Device (IWA · Distraction) × 12\nAgency / organization: Harris County SO', page: 'https://atlasglinn.com/mastsolutions.html' });
   ok('gear quote request sends one email titled as such with the agency, 200', gear.status === 200 && emails.length === 3 && /Gear quote request: Jane Doe/.test(emails[2].subject) && /GEAR QUOTE REQUEST/.test(emails[2].text) && /Company:\s+Harris County SO/.test(emails[2].text) && /IWA-M12/.test(emails[2].text), 'status=' + gear.status + ' ' + JSON.stringify(emails[2] || {}).slice(0, 200));
@@ -898,6 +906,193 @@ console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect da
   j = await runJourneys(envJ, { send: sendSpy, now: now7, catalog: [] });
   ok('T−7 attaches the sealed (real) PDF when it exists', j.t7.sent === 1 && emails[0].attachments && emails[0].attachments[0].filename === 'MAST-Range-Directions.pdf' && Buffer.compare(Buffer.from(emails[0].attachments[0].content, 'base64'), Buffer.from(realPdf)) === 0);
   sealedJson = null; _resetSealedMemo(); _resetDirectionsMemo();
+}
+
+console.log('\n── Monday CRM digest (owner, 2026-09-08: "weekly CRM Emails to matthew@atlasglinn.com + Matthew@mastsolutions.com") ──');
+{
+  const { weeklyDigestText, weeklyDigestPeriod } = await import('./src/crm.js');
+  const now = new Date('2026-09-07T09:17:00Z');   // a Monday, the hour the daily cron fires
+  const day = (n) => new Date(now.getTime() - n * 86400000).toISOString();
+  const fixture = {
+    contacts: [
+      { created_at: day(1), kind: 'gear', request_type: 'gear', name: 'Lee Quinn', email: 'lee@example.com', emailed: 1 },
+      { created_at: day(3), kind: 'gear', request_type: 'gear', name: 'Sam Ortiz', email: 'sam@example.com', emailed: 0 },
+      { created_at: day(5), kind: 'contact', request_type: 'private', name: 'Pat Rivera', email: 'pat@example.com', emailed: 1 },
+      { created_at: day(2), kind: 'subscribe', email: 'news@example.com', emailed: 0 },      // a sign-up is not a lead
+      { created_at: day(2), kind: 'smoke', request_type: 'smoke', email: 'runner@example.com', emailed: 0 },   // nor is the runner's probe
+      { created_at: day(9), kind: 'gear', request_type: 'gear', name: 'Old Gear', email: 'old@example.com', emailed: 1 },
+      { created_at: '2026-08-01T00:00:00Z', kind: 'contact', request_type: 'private', name: 'Dana Webb', email: 'dana@example.com', emailed: 0 },
+    ],
+    orders: [
+      { created_at: day(1), status: 'paid', sku: 'MAST-DA', item_name: 'Direct Action', qty: 2, amount_total: 139000 },
+      { created_at: day(4), status: 'paid', sku: 'MAST-HG-FUND', item_name: 'Handgun Fundamentals', qty: 1, amount_total: 22500 },
+      { created_at: day(2), status: 'refunded', sku: 'MAST-DA', item_name: 'Direct Action', qty: 1, amount_total: 50000 },
+      { created_at: day(10), status: 'paid', sku: 'MAST-DA', item_name: 'Direct Action', qty: 1, amount_total: 69500 },
+      { created_at: day(3), status: 'paid', kind: 'membership', sku: 'MAST-MEM-RED', item_name: 'Red Team', qty: 1, amount_total: 25000 },
+    ],
+    registrations: [{ created_at: day(1) }, { created_at: day(4) }, { created_at: day(9) }],
+    accounts: [{ created_at: day(2), verified_at: day(2) }, { created_at: day(3) }, { created_at: day(8), verified_at: day(8) }, { created_at: day(11), verified_at: day(11) },
+               { created_at: day(9), verified_at: day(1) }],   // signed up last week, verified this one
+  };
+  const text = weeklyDigestText(fixture, now);
+  ok('the period is the seven days ending at the run, with its ISO week', weeklyDigestPeriod(now) === '2026-08-31 → 2026-09-07 · 2026-W36', weeklyDigestPeriod(now));
+  ok('new leads count this week against last, and sign-ups and smoke probes are not leads', /New leads:\s+3\s+\(prev 1\)/.test(text), text);
+  ok('leads break down by request type with last week beside them', /\n {2}gear\s+2\s+\(prev 1\)/.test(text) && /\n {2}private\s+1\s+\(prev 0\)/.test(text), text);
+  ok('accounts count in the week they verified, not the week they signed up (and the unverified one the purge deletes counts in neither), registrations carry their own week-on-week',
+     /Accounts verified:\s+2\s+\(prev 2\)/.test(text) && !/New verified accounts:/.test(text) && !/New accounts:/.test(text) && /Registrations:\s+2\s+\(prev 1\)/.test(text), text);
+  ok('revenue is the paid orders only, membership included, formatted as dollars', /Revenue:\s+\$1,865\.00\s+\(prev \$695\.00\)/.test(text) && !text.includes('$500.00'), text);
+  ok('paid orders and seats counted, the refunded order excluded', /Paid orders:\s+3\s+\(prev 1\)/.test(text) && /Seats sold:\s+3\s+\(prev 1\)/.test(text), text);
+  ok('a membership is revenue and its own row carrying its own cash, never a seat and never a class booked', /Memberships:\s+1 · \$250\.00\s+\(prev 0 · \$0\.00\)/.test(text) && !text.includes('Red Team'), text);
+  ok('top classes booked list seats and revenue per class', /Direct Action\s+2 seats\s+\$1,390\.00/.test(text) && /Handgun Fundamentals\s+1 seat\s+\$225\.00/.test(text), text);
+  ok('the open list is titled for what the flag measures — the office inbox, not a reply — oldest first',
+     /OFFICE NOT NOTIFIED — 2 open, oldest first/.test(text) && !/emailed back/i.test(text) && text.indexOf('Dana Webb') < text.indexOf('Sam Ortiz'), text);
+  ok('the summary row names how many of this week never reached the office', /Office not notified:\s+1 of 3 new/.test(text), text);
+  {
+    const openLines = text.split('\n').filter((l) => /^ {2}\d{4}-\d\d-\d\d {2}/.test(l));
+    ok('the type column lines up whatever the address is (P2-I)', openLines.length === 2 && new Set(openLines.map((l) => l.indexOf('('))).size === 1, JSON.stringify(openLines));
+  }
+  ok('without a snapshot there is no invented LIFETIME block', !text.includes('LIFETIME'));
+  const withStats = weeklyDigestText({ ...fixture, stats: {
+    profiles: 88, leads: { total: 41, last_30_days: 12, unemailed: 2 }, subscribers: 17,
+    accounts: { total: 22, verified: 19 }, registrations: { total: 31, by_status: { paid: 24, pending: 4, abandoned: 3 } },
+    orders: { total: 26, paid: 24 }, revenue_cents: { total: 1668000, last_30_days: 208500 }, seats_upcoming: [{ key: '2026-10-10', value: 6 }],
+  } }, now);
+  ok('the lifetime leads row names the flag for what it is', /Leads:\s+41\s+\(30 days: 12, office not notified: 2\)/.test(withStats), withStats);
+  ok('with the snapshot the lifetime totals are appended, money formatted the same way', /LIFETIME/.test(withStats) && /Revenue:\s+\$16,680\.00\s+\(30 days: \$2,085\.00\)/.test(withStats) && /Registrations:\s+31\s+\(paid 24 · pending 4 · abandoned 3\)/.test(withStats) && /Seats upcoming:\s+2026-10-10: 6/.test(withStats), withStats);
+
+  // Gating: the daily cron carries the digest — Monday, or the Tuesday/Wednesday retry — once per ISO week, never at the purge's expense.
+  const runCron = async (event, en) => { const queued = []; await worker.scheduled(event, en, { waitUntil: (p) => queued.push(p) }); await Promise.all(queued); };
+  const digestEnv = { ...env, CRM_DIGEST_TO: 'matthew@atlasglinn.com,matthew@mastsolutions.com' };
+  const monday = Date.UTC(2026, 8, 7, 9, 17), tuesday = Date.UTC(2026, 8, 8, 9, 17), wednesday = Date.UTC(2026, 8, 9, 9, 17), thursday = Date.UTC(2026, 8, 10, 9, 17);
+  const stale = (id) => { registrations.set(id, { id, status: 'pending', created_at: '2020-01-01T00:00:00Z' }); return id; };
+  const digestRows = () => emailLog.filter((l) => l.kind === 'digest');
+  emails.length = 0; emailLog.length = 0;
+
+  stale('reg_thu');
+  await runCron({ scheduledTime: thursday }, digestEnv);
+  ok('a Thursday cron sends no digest even with the week unlogged, and still abandons the stale registration', emails.length === 0 && registrations.get('reg_thu').status === 'abandoned', 'emails=' + emails.length);
+  stale('reg_none');
+  await runCron({}, digestEnv);
+  ok('scheduled() with no scheduledTime sends no digest and still runs the purge', emails.length === 0 && registrations.get('reg_none').status === 'abandoned', 'emails=' + emails.length);
+
+  stale('reg_mon');
+  await runCron({ scheduledTime: monday }, digestEnv);
+  ok('the Monday cron sends exactly one digest to both of his inboxes, and the purge still ran', emails.length === 1 && emails[0].to.join(',') === 'matthew@atlasglinn.com,matthew@mastsolutions.com' && registrations.get('reg_mon').status === 'abandoned', JSON.stringify(emails.map((e) => e.to)) + ' emails=' + emails.length);
+  ok('the subject names the week it covers', /^MAST CRM weekly — \d{4}-\d\d-\d\d → \d{4}-\d\d-\d\d · \d{4}-W\d\d$/.test(emails[0].subject), emails[0].subject);
+  ok('the digest is not also blind-copied to the same two addresses', !emails[0].bcc, JSON.stringify(emails[0].bcc));
+  ok('the sent body is the digest, sections and lifetime totals', /^MAST CRM WEEKLY/.test(emails[0].text) && /LAST 7 DAYS/.test(emails[0].text) && /LIFETIME/.test(emails[0].text), emails[0].text.slice(0, 200));
+  ok('the week is claimed in email_log before the send — one row, ISO week, kind digest, keyed on the week and not on the recipients — and flipped to sent after', digestRows().length === 1 && digestRows()[0].ref === '2026-W36' && digestRows()[0].status === 'sent' && digestRows()[0].email === 'crm-digest', JSON.stringify(digestRows()));
+
+  await runCron({ scheduledTime: monday }, digestEnv);
+  ok('a second Monday fire in the same week mails nothing — one row, one email', emails.length === 1 && digestRows().length === 1, 'emails=' + emails.length);
+  await runCron({ scheduledTime: tuesday }, digestEnv);
+  ok('the Tuesday slot is a no-op once that week has gone out', emails.length === 1 && digestRows().length === 1, 'emails=' + emails.length);
+
+  // A Resend outage on Monday used to cost the week its digest: nothing is claimed, so Tuesday carries it.
+  emails.length = 0; emailLog.length = 0;
+  resendStatus = 500;
+  stale('reg_mon2');
+  await runCron({ scheduledTime: monday }, digestEnv);
+  ok('a Monday Resend 500 mails nothing, claims no week, and still abandons the stale registration', emails.length === 0 && digestRows().length === 0 && registrations.get('reg_mon2').status === 'abandoned', 'emails=' + emails.length);
+  resendStatus = 200;
+  stale('reg_tue2');
+  await runCron({ scheduledTime: tuesday }, digestEnv);
+  ok('the Tuesday cron then sends the week that failed — exactly one — and purged on both days', emails.length === 1 && digestRows().length === 1 && registrations.get('reg_tue2').status === 'abandoned', 'emails=' + emails.length);
+
+  emails.length = 0; emailLog.length = 0;
+  await runCron({ scheduledTime: monday }, { ...digestEnv, JOURNEYS_ENABLED: '1' });
+  ok('a Monday with the journeys switched on still sends exactly one digest', emails.filter((e) => /^MAST CRM weekly/.test(e.subject)).length === 1 && digestRows().length === 1, JSON.stringify(emails.map((e) => e.subject)));
+
+  // Wednesday is the last retry slot: nothing to do after a Monday that went out, the week itself after a Monday and a Tuesday that did not.
+  emails.length = 0; emailLog.length = 0;
+  stale('reg_wed1');
+  await runCron({ scheduledTime: monday }, digestEnv);
+  await runCron({ scheduledTime: wednesday }, digestEnv);
+  ok('the Wednesday slot is a no-op once the Monday digest has gone out', emails.length === 1 && digestRows().length === 1 && digestRows()[0].status === 'sent' && registrations.get('reg_wed1').status === 'abandoned', 'emails=' + emails.length);
+
+  emails.length = 0; emailLog.length = 0;
+  resendStatus = 500;
+  await runCron({ scheduledTime: monday }, digestEnv);
+  await runCron({ scheduledTime: tuesday }, digestEnv);
+  ok('a Monday and a Tuesday both refused by Resend mail nothing and leave no claim behind', emails.length === 0 && digestRows().length === 0, 'emails=' + emails.length + ' rows=' + digestRows().length);
+  resendStatus = 200;
+  stale('reg_wed2');
+  await runCron({ scheduledTime: wednesday }, digestEnv);
+  ok('the Wednesday cron then carries the week both earlier slots lost — exactly one, and purged on all three days', emails.length === 1 && digestRows().length === 1 && digestRows()[0].status === 'sent' && registrations.get('reg_wed2').status === 'abandoned', 'emails=' + emails.length);
+
+  // The claim keys on the week, not on the recipients: a reordered CRM_DIGEST_TO used to read as an unclaimed week.
+  emails.length = 0; emailLog.length = 0;
+  await runCron({ scheduledTime: monday }, digestEnv);
+  await runCron({ scheduledTime: tuesday }, { ...digestEnv, CRM_DIGEST_TO: 'matthew@mastsolutions.com,matthew@atlasglinn.com' });
+  ok('the recipients reordered between Monday and Tuesday still send one digest for the week', emails.length === 1 && digestRows().length === 1, 'emails=' + emails.length);
+
+  // Claim before send, fail closed: a dedupe read or a claim write that fails sends nothing — a fail-open read is how a week gets mailed twice.
+  emails.length = 0; emailLog.length = 0;
+  await runCron({ scheduledTime: monday }, digestEnv);
+  const brokenLogRead = (sql) => (/FROM email_log/.test(sql) ? { bind: () => ({ first: async () => { throw new Error('D1_ERROR: reads are down'); } }) } : DB.prepare(sql));
+  await runCron({ scheduledTime: tuesday }, { ...digestEnv, DB: { prepare: brokenLogRead } });
+  ok('a Tuesday whose email_log read fails sends nothing — the week already mailed is not mailed a second time', emails.length === 1 && digestRows().length === 1, 'emails=' + emails.length);
+
+  emails.length = 0; emailLog.length = 0;
+  const brokenLogWrite = (sql) => (sql.startsWith('INSERT OR IGNORE INTO email_log') ? { bind: () => ({ run: async () => { throw new Error('D1_ERROR: writes are down'); } }) } : DB.prepare(sql));
+  stale('reg_claim');
+  await runCron({ scheduledTime: monday }, { ...digestEnv, DB: { prepare: brokenLogWrite } });
+  ok('a Monday that cannot write its claim sends nothing and still runs the purge', emails.length === 0 && digestRows().length === 0 && registrations.get('reg_claim').status === 'abandoned', 'emails=' + emails.length);
+
+  emails.length = 0; emailLog.length = 0;
+  const noDbLogged = [];
+  const realErrorNoDb = console.error;
+  console.error = (...a) => { noDbLogged.push(a.map(String).join(' ')); };
+  await runCron({ scheduledTime: monday }, { ...digestEnv, DB: undefined });
+  console.error = realErrorNoDb;
+  ok('without the D1 binding there is no week to claim, so the digest is skipped and said so rather than mailed unclaimed', emails.length === 0 && noDbLogged.some((l) => l.startsWith('[Digest] no DB binding')), JSON.stringify(noDbLogged.slice(-3)) + ' emails=' + emails.length);
+
+  // A 'sending' row is a run in flight; one older than half an hour is a run that crashed, and the week is still owed.
+  emails.length = 0; emailLog.length = 0;
+  emailLog.push({ created_at: new Date(tuesday - 5 * 60000).toISOString(), email: 'crm-digest', ref: '2026-W36', kind: 'digest', status: 'sending' });
+  await runCron({ scheduledTime: tuesday }, digestEnv);
+  ok('a claim still in flight holds the week — the run beside it mails nothing', emails.length === 0 && digestRows().length === 1 && digestRows()[0].status === 'sending', 'emails=' + emails.length);
+
+  emails.length = 0; emailLog.length = 0;
+  emailLog.push({ created_at: new Date(monday).toISOString(), email: 'crm-digest', ref: '2026-W36', kind: 'digest', status: 'sending' });
+  await runCron({ scheduledTime: tuesday }, digestEnv);
+  ok('a claim left sending by a crashed run is taken over the next day and the week goes out once', emails.length === 1 && digestRows().length === 1 && digestRows()[0].status === 'sent', 'emails=' + emails.length + ' ' + JSON.stringify(digestRows()));
+
+  // A D1 read that fails must reject, not mail a week of zeros (rowsStrict).
+  emails.length = 0; emailLog.length = 0;
+  const logged = [];
+  const realError = console.error;
+  console.error = (...a) => { logged.push(a.map(String).join(' ')); };
+  const brokenRead = (st) => ({ bind: (...a) => brokenRead(st.bind(...a)), first: (...a) => st.first(...a), run: (...a) => st.run(...a), all: async () => { throw new Error('D1_ERROR: reads are down'); } });
+  stale('reg_d1');
+  await runCron({ scheduledTime: monday }, { ...digestEnv, DB: { prepare: (sql) => brokenRead(DB.prepare(sql)) } });
+  console.error = realError;
+  ok('a D1 read failure sends no digest, claims no week, is logged, and the retention purge still ran',
+     emails.length === 0 && digestRows().length === 0 && logged.some((l) => l.startsWith('[Digest] failed')) && registrations.get('reg_d1').status === 'abandoned',
+     JSON.stringify(logged.slice(-3)) + ' emails=' + emails.length);
+
+  // The LIFETIME block comes from crmSnapshot, whose reads used to swallow their errors: real weekly numbers over a
+  // lifetime of zeros went out as a normal-looking digest. Strict now — only the snapshot's own contacts SELECT breaks here.
+  emails.length = 0; emailLog.length = 0;
+  const snapLogged = [];
+  console.error = (...a) => { snapLogged.push(a.map(String).join(' ')); };
+  stale('reg_snap');
+  await runCron({ scheduledTime: monday }, { ...digestEnv, DB: { prepare: (sql) => (/FROM contacts/.test(sql) && /landing_page/.test(sql) ? brokenRead(DB.prepare(sql)) : DB.prepare(sql)) } });
+  console.error = realError;
+  ok('a failed snapshot read sends no digest either — no LIFETIME of zeros — releases the week for the retry, and the purge still ran',
+     emails.length === 0 && digestRows().length === 0 && snapLogged.some((l) => l.startsWith('[Digest] failed')) && registrations.get('reg_snap').status === 'abandoned',
+     JSON.stringify(snapLogged.slice(-3)) + ' emails=' + emails.length);
+
+  emails.length = 0; emailLog.length = 0;
+  await runCron({ scheduledTime: monday }, { ...env, CRM_DIGEST_TO: '' });
+  ok('without CRM_DIGEST_TO the Monday cron sends nothing (logged and skipped, like the review notice)', emails.length === 0, 'emails=' + emails.length);
+
+  // The same text without the mailbox, behind the key that already guards /admin.
+  const weekly = await worker.fetch(new Request('https://api.test/admin/crm?view=weekly', { headers: { 'X-Admin-Key': 'super-secret-admin-key' } }), env, ctx);
+  const weeklyText = await weekly.text();
+  ok('GET /admin/crm?view=weekly serves the digest as text/plain', weekly.status === 200 && /text\/plain/.test(weekly.headers.get('Content-Type')) && weeklyText.startsWith('MAST CRM WEEKLY') && /LIFETIME/.test(weeklyText), weekly.status + ' ' + weeklyText.slice(0, 120));
+  ok('… and without the key it is 401, like the rest of /admin', (await worker.fetch(new Request('https://api.test/admin/crm?view=weekly'), env, ctx)).status === 401);
+  ok('view=weekly did not change what view=summary answers', (await (await worker.fetch(new Request('https://api.test/admin/crm?view=summary', { headers: { 'X-Admin-Key': 'super-secret-admin-key' } }), env, ctx)).json()).stats.profiles >= 1);
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

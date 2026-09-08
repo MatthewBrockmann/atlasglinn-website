@@ -61,7 +61,8 @@ The old Worker is left untouched — it still serves SafeGuard.
 | `POST` | `/account/forgot` / `/account/reset` | Forgotten password: `forgot {email}` emails a reset code (always 200); `reset {email, code, password}` sets the new password, signs every other session out and answers a token |
 | `GET` | `/account/me` | Bearer token → profile, classes taken (paid/completed registrations under the account email), saved card (brand, last four, expiry) |
 | `POST` | `/account/update` / `/account/password` / `/account/setup-payment` | Bearer token → profile details; password change (needs the current one); Stripe Checkout in setup mode to save a card on the account's Stripe Customer |
-| cron | daily 09:17 UTC | Purges eligibility answers past `purge_after`; marks day-old unpaid registrations abandoned; removes day-old unverified accounts |
+| `GET` | `/admin/crm?key=…&view=weekly` | The Monday digest as `text/plain`, exactly as it is emailed |
+| cron | daily 09:17 UTC | Purges eligibility answers past `purge_after`; marks day-old unpaid registrations abandoned; removes day-old unverified accounts; **on Monday** (or the Tuesday/Wednesday retry if Monday failed) also emails the CRM digest |
 
 `POST /register` body — the page sends what the participant saw; there is **no
 price field**, and the three `version` values must match the Worker's
@@ -245,6 +246,27 @@ is safe to run anywhere and proves logic, not deployment. (It needs
 - **Never** eligibility answers: not in the CRM payload, the CSV, Mailchimp or the beacon.
 - Schema (`migrations/006-crm.sql`) is applied by the Worker itself on first use.
 
+**Weekly digest (owner, 2026-09-08: "Add to CRM backend + weekly CRM Emails to matthew@atlasglinn.com +
+Matthew@mastsolutions.com").** The same daily cron checks the weekday and, on Monday (or the Tuesday/Wednesday retry
+if Monday failed), emails one plain-text digest to `CRM_DIGEST_TO` — the last seven days beside the seven before
+them: new leads by request type, accounts verified (counted in the week they verified, not the week they signed up),
+registrations, paid orders with seats, memberships with their cash and revenue, the classes booked, and the leads that
+never reached the office inbox (the `emailed` flag `POST /contact` sets when the notification to `NOTIFY_EMAIL`
+goes out — it records that the office was told, not that anyone answered), then the lifetime totals from the
+`crmSnapshot` summary. There is no second trigger to keep in step, and the digest is queued alongside the purge, in
+its own promise with its own catch; a digest failure cannot reach the purge. Every read is strict — the `crmSnapshot`
+summary behind the lifetime block included — so a D1 error rejects rather than mailing a week of zeros.
+**Once per ISO week, claim before send:** the run writes its `email_log` row (`kind` `digest`, `ref` the week, e.g.
+`2026-W36`, `email` the fixed literal `crm-digest` — the row claims the week, and the recipients are not its identity)
+as `sending` *before* it calls Resend and flips it to `sent` after, so a week already claimed is never mailed twice while its claim row survives (a lost flip-to-`sent` write costs one duplicate, not the week)
+however the run ends; a run that fails deletes its own claim, a claim it cannot write or read sends nothing at all, and
+a `sending` row older than 30 minutes is a crashed run the next cron takes over. So a doubled Monday fire sends once,
+while a Monday that failed is retried by the Tuesday or Wednesday cron. Unset `CRM_DIGEST_TO` (or no
+`RESEND_API_KEY`) logs the digest and skips the send.
+`GET /admin/crm?key=…&view=weekly` returns the identical text for a runner reading it without the mailbox.
+The contact notification no longer carries a `Page:` line (same instruction) — the page is still stored on the lead
+row and still drives attribution.
+
 ## Configuration reference
 
 | Name | Kind | Purpose |
@@ -261,6 +283,7 @@ is safe to run anywhere and proves logic, not deployment. (It needs
 | `MAILCHIMP_API_KEY` | secret | Marketing list (ARCHITECTURE §7). With `MAILCHIMP_AUDIENCE_ID` (and `MAILCHIMP_SERVER` when the key carries no `-usNN` suffix) the opted-in profiles are upserted on payment, on sign-up and by `/admin/sync`; without them the CSV export is the path |
 | `BREVO_API_KEY` | secret | The other list tool on the domain (atlasglinn.com's DNS carries Brevo). Opted-in profiles are upserted to Brevo the same way as Mailchimp; optional numeric `BREVO_LIST_ID` puts them on one list |
 | `HUBSPOT_TOKEN` | secret | HubSpot private-app token (`crm.objects.contacts` write). With it every profile and every new lead is upserted as a HubSpot contact by email (`lifecyclestage` lead or customer) — a CRM record, not marketing consent, so it is not gated on the newsletter tick |
+| `CRM_DIGEST_TO` | var | Comma-separated recipients of the Monday CRM digest (`matthew@atlasglinn.com,matthew@mastsolutions.com`). Unset = the digest is logged and not sent |
 | `JOURNEYS_ENABLED` | var | `"1"` switches the daily T−7 / T−1 / T+1 emails on; `"0"` (the default) until the owner approves the texts |
 | `REVIEW_URL` | var | Optional review link in the T+1 email; without it the email asks for a reply that may be quoted |
 | `BUILD` | var (deploy flag) | Not in `wrangler.toml`: passed as `--var BUILD:<short sha>` by the two deploy paths and echoed by `/health` so a runner can tell which merge is running |
