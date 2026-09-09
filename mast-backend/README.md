@@ -1066,7 +1066,7 @@ another. What each path checks now, stated exactly, because "enforced" is worth 
   `build-manifest.json` at this commit and compares it to the `<meta name="build">` the host actually serves, at **two**
   URLs. The cache-busted URL reaches the origin and answers only whether the upload landed. **The plain URL is what
   decides the deploy**, because it is what a visitor loads and GoDaddy's CDN holds these pages for 31 days at that
-  address: if it serves any other build, the script runs `scripts/wp-flush.sh` once, re-checks after 30 s, and if it is
+  address: if it serves any other build, the script runs `scripts/wp-flush.sh` once, re-checks after 30 s, and if it is The held-path flush honours `WP_FLUSH=0` and fires at most once every 6 h (clock = `~/.cache/wp-upload/last-flush`, wp-flush.sh's own heartbeat), because the gate also runs on every hourly `--if-changed` pass (round 9 close-out).
   still stale prints `WORKER HELD: …` and **does not deploy** — exiting 0, because the upload succeeded and only the
   deploy is held. The upload stamp is written either way, so the hourly `--if-changed` run retries. **That retry runs
   the same gate**, which it did not until round 9: it deployed on the stamp alone, so a held Worker would have shipped

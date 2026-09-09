@@ -143,7 +143,14 @@ worker_gate() {   # 0 = the plain URL serves this commit's page, so the Worker m
     # One flush, one re-check. scripts/wp-flush.sh is the automated Flush Cache (REST with the application password, then
     # WP-CLI over SSH); it exits non-zero when it could not clear the edge, which is a held Worker and not a failed upload.
     echo "   the plain address serves build ${live:-none}, not $want; flushing the host's cache once and re-checking in 30 s"
-    [ -f "$R/scripts/wp-flush.sh" ] && bash "$R/scripts/wp-flush.sh" 2>&1 | sed 's/^/   /' || true
+    # Round 9 verifier: this runs on the hourly --if-changed path too, so it honours WP_FLUSH like the post-upload flush
+    # and fires at most once per 6 h (wp-flush.sh's own heartbeat ~/.cache/wp-upload/last-flush is the clock) — a stale
+    # CDN must not turn into 24 flushes a day against production WordPress.
+    if [ "${WP_FLUSH:-1}" = 1 ] && [ -f "$R/scripts/wp-flush.sh" ] && ! find "$HOME/.cache/wp-upload/last-flush" -mmin -360 2>/dev/null | grep -q .; then
+      bash "$R/scripts/wp-flush.sh" 2>&1 | sed 's/^/   /' || true
+    else
+      echo "   flush skipped (WP_FLUSH=0, or flushed within the last 6 h); re-checking anyway"
+    fi
     sleep 30
     live="$(page_build "https://atlasglinn.com/mastsolutions.html")"
   fi

@@ -78,6 +78,9 @@ jobs:
               echo "   contract holds: HTTP $want${wantbody:+ carrying $wantbody}"
             fi
           }
+          # The smoke password is minted and masked OUTSIDE the block piped to tee: a workflow command printed inside it lands
+          # verbatim in the committed report file (round 9 verifier), and add-mask governs the runner log, not a file.
+          pw="$(openssl rand -hex 24)"; echo "::add-mask::$pw"
           {
             echo "smoke $(date -u +%FT%TZ) from $GITHUB_REF_NAME ${GITHUB_SHA::7} run $GITHUB_RUN_ID (contact=$DO_CONTACT checkout=$DO_CHECKOUT account=$DO_ACCOUNT)"
             echo "--- health"; req GET /health
@@ -139,7 +142,7 @@ jobs:
               #   it is what proves the route takes the triple rather than 400ing on a missing field or 500ing on a schema
               #   that migrations/012 has not reached. A 200 here would mean a wrong code created an account.
               # The password is random, not derived from the public run id, and is masked so no later step can print it.
-              em="matthew+smoke$GITHUB_RUN_ID@atlasglinn.com"; pw="$(openssl rand -hex 24)"; echo "::add-mask::$pw"
+              em="matthew+smoke$GITHUB_RUN_ID@atlasglinn.com"   # $pw was minted and masked above, outside the tee block
               echo "--- account sign-up (POST /account/register for $em)"
               req POST /account/register "{\"email\":\"$em\",\"password\":\"$pw\",\"name\":\"Smoke test (GitHub Actions)\"}"
               echo "--- account verify, wrong code with the right password (expect 401 bad_code — the route takes email + code + password)"
@@ -195,29 +198,6 @@ jobs:
             done
             echo "   (no v=spf1 … include:spf.protection.outlook.com on the apex TXT = Microsoft 365 mail from @mastsolutions.com is unauthenticated; two v=spf1 rows on send. = SPF permerror for Resend's envelope)"
           } | tee out/_worker-smoke.txt
-          # Second guard, independent of where each block writes: any line in the COMMITTED file that looks like a
-          # business figure is replaced before it can be copied to the handoff branch. Belt and braces — the CRM block
-          # above already never reaches this file, and this catches whatever a future edit adds that does.
-          python3 - out/_worker-smoke.txt <<'PY'
-          import re, sys
-          # Anchored to the CRM fields by NAME, and never to money on its own. The bare '$[0-9]' alternative that used to
-          # sit here matched every line of the CATALOG PRICE TABLE — "MAST-HG-FUND  Handgun Fundamentals  $225.00" — and
-          # redacted the server-side-pricing invariant, the headline thing this report exists to prove, out of the
-          # committed file (security review round 2, 2026-09-08). The CRM block prints "profiles=412 leads=93" with '=',
-          # so both separators are matched; 'revenue total=' and 'last30=' are named because the words on that line are
-          # separated by a space and no name-then-separator form reaches them.
-          #
-          # The CRM block below prints FIVE lines and this pattern covered four (security review round 3, 2026-09-08):
-          # 'journeys=… providers=…' went through untouched. Every field name the block prints is now listed, and adding
-          # a print there means adding its name here — the list is the contract.
-          pat = re.compile(r'funnel|segments|revenue total=|last30=|(?:revenue|leads|profiles|orders|subscribers|opted_in|registrations|accounts|journeys|providers)\s*[:=]', re.I)
-          path = sys.argv[1]; out = []; hits = 0
-          for line in open(path, encoding='utf-8', errors='replace').read().split('\n'):
-              if pat.search(line): out.append('   [redacted by the smoke report guard]'); hits += 1
-              else: out.append(line)
-          open(path, 'w', encoding='utf-8').write('\n'.join(out))
-          print('report guard: %d line(s) redacted from the committed file' % hits)
-          PY
           { echo '```'; cat out/_worker-smoke.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           # The CRM figures, in this run's job summary and nowhere else.
           if [ -n "$ADMIN_KEY" ]; then
@@ -243,6 +223,36 @@ jobs:
             exit 1
           fi
           echo "every asserted contract held"
+      - name: Redact business figures from the report (runs on every outcome, before anything is committed)
+        # Round 9 verifier: the commit step carries if: always(), so the guard must sit in the same always() envelope —
+        # a Probe step that dies between the tee and the guard must not hand an unredacted file to the commit step.
+        if: always()
+        run: |
+          set -e
+          test -f out/_worker-smoke.txt || { echo "no report written; nothing to redact"; exit 0; }
+          # Second guard, independent of where each block writes: any line in the COMMITTED file that looks like a
+          # business figure is replaced before it can be copied to the handoff branch. Belt and braces — the CRM block
+          # above already never reaches this file, and this catches whatever a future edit adds that does.
+          python3 - out/_worker-smoke.txt <<'PY'
+          import re, sys
+          # Anchored to the CRM fields by NAME, and never to money on its own. The bare '$[0-9]' alternative that used to
+          # sit here matched every line of the CATALOG PRICE TABLE — "MAST-HG-FUND  Handgun Fundamentals  $225.00" — and
+          # redacted the server-side-pricing invariant, the headline thing this report exists to prove, out of the
+          # committed file (security review round 2, 2026-09-08). The CRM block prints "profiles=412 leads=93" with '=',
+          # so both separators are matched; 'revenue total=' and 'last30=' are named because the words on that line are
+          # separated by a space and no name-then-separator form reaches them.
+          #
+          # The CRM block below prints FIVE lines and this pattern covered four (security review round 3, 2026-09-08):
+          # 'journeys=… providers=…' went through untouched. Every field name the block prints is now listed, and adding
+          # a print there means adding its name here — the list is the contract.
+          pat = re.compile(r'funnel|segments|revenue total=|last30=|(?:revenue|leads|profiles|orders|subscribers|opted_in|registrations|accounts|journeys|providers)\s*[:=]', re.I)
+          path = sys.argv[1]; out = []; hits = 0
+          for line in open(path, encoding='utf-8', errors='replace').read().split('\n'):
+              if pat.search(line): out.append('   [redacted by the smoke report guard]'); hits += 1
+              else: out.append(line)
+          open(path, 'w', encoding='utf-8').write('\n'.join(out))
+          print('report guard: %d line(s) redacted from the committed file' % hits)
+          PY
       - name: Commit the report to the handoff branch (sparse, blobless checkout)
         # always(): a run that failed an assertion is the run whose report is worth keeping.
         if: always()

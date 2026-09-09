@@ -119,6 +119,7 @@ jobs:
           echo "waiting for https://www.mastsolutions.com/build-manifest.json to carry index.html=$want (max 10 minutes, every 20 s)"
           for i in $(seq 1 30); do
             live="$(curl -sS -m 20 "https://www.mastsolutions.com/build-manifest.json?ci=$(date +%s)" 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("index.html") or "")' 2>/dev/null || true)"
+            live="${live//[^0-9a-f]/}"   # a build hash is hex; nothing else from the host is echoed into the log
             if [ "$live" = "$want" ]; then echo "attempt $i: the host serves $live — the page knows the {email, code, password} contract; the schema and the Worker may follow"; exit 0; fi
             echo "attempt $i: host has '${live:-unreachable}', want $want"
             sleep 20
