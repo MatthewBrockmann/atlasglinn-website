@@ -8,7 +8,9 @@
  *   - Stripe webhooks           POST /webhook
  *   - admin roster              GET  /roster   (X-Admin-Key header)[?view=registrations]
  *   - health                    GET  /health
- *   - daily cron                scheduled(): purge eligibility answers, expire abandoned registrations; Mondays, the CRM digest
+ *   - one cron, two jobs        scheduled(): the five-minute Stripe Tax tick, and — on the fire inside the 09:15–09:19
+ *                               UTC window, claimed once a day in D1 — purge eligibility answers, expire abandoned
+ *                               registrations, the journeys and, on Mondays, the CRM digest
  *
  * Design notes vs. the older safeguard-stripe-backend:
  *   1. PRICES ARE SERVER-SIDE. The client sends a SKU, never an amount, so a
@@ -68,7 +70,10 @@ export default {
         // deploy-worker.yml), so a runner can tell which merge is running; crm marks the /event, /subscribe, /admin routes.
         // directions: sealed = the owner's range PDF decrypts on this Worker (src/sealed.js); secrets = rendered from RANGE_*; none.
         const directions = await directionsStatus(env).catch((e) => 'error: ' + e.message);
-        return json({ status: 'MAST booking backend — ONLINE', version: '1.2.0', build: env.BUILD || null, crm: true, directions }, 200, cors);
+        // daily_last_run: the UTC date the once-a-day claim holds (DAILY_GUARD_KEY), so a lost day is measurable from
+        // outside the isolate now that the daily work rides on one fire in 288. null when D1 is absent or unreadable.
+        const dailyLastRun = await dailyLastRunDate(env);
+        return json({ status: 'MAST booking backend — ONLINE', version: '1.2.0', build: env.BUILD || null, crm: true, directions, daily_last_run: dailyLastRun }, 200, cors);
       }
       if (url.pathname === '/directions-key' && request.method === 'GET') {
         // The public half of the Worker's sealing key (never the private half). Anyone may read it; only main decides what is sealed.
@@ -127,11 +132,13 @@ export default {
 
   /** The crons (wrangler.toml [triggers]), dispatched by the one that fired. */
   async scheduled(event, env, ctx) {
-    // The five-minute tick is the tax loop and nothing else. Cloudflare hands every trigger to this one handler, so
-    // without this branch the daily work — the retention purge, the journeys, the Monday digest — would run 288 times a
-    // day instead of once. The tick exists because a ten-minute readiness TTL refreshed once a day is a measurement
-    // that is stale 1430 minutes out of 1440: a business selling one order an hour would sell almost every one of them
-    // UNTAXED, and a completed Checkout Session cannot be re-taxed afterwards. Refresh at least as often as it expires.
+    // The five-minute tick is the tax loop on 287 of its 288 daily fires. Cloudflare hands every trigger to this one
+    // handler, so without this branch the daily work — the retention purge, the journeys, the Monday digest — would run
+    // on every one of them instead of once. The tick exists because a ten-minute readiness TTL refreshed once a day is a
+    // measurement that is stale 1430 minutes out of 1440: a business selling one order an hour would sell almost every
+    // one of them UNTAXED, and a completed Checkout Session cannot be re-taxed afterwards. Refresh at least as often as
+    // it expires. The 288th fire is the one inside the daily window, and it carries the daily work as well — see ONE
+    // TRIGGER, TWO JOBS below and the block above runRetention.
     //
     // BOTH BRANCHES ARE EXPLICIT, and the unrecognised one runs the TICK. This used to be one `if` for the tick and the
     // daily work as the else, so anything that was not the tick string — a trigger added to wrangler.toml, a renamed
@@ -139,6 +146,9 @@ export default {
     // retention purges, 288 journey passes and 288 chances at the weekly digest in a day. The tick is the cheap,
     // idempotent one (one D1 read on a ready account), so it is what an unknown trigger gets, out loud.
     const cron = String((event && event.cron) || '');
+    // The moment this fire was SCHEDULED for, which is what places it inside or outside the daily window. Date.now() is
+    // the fallback and only the fallback: an event with no scheduledTime (or a nonsense one) must still tick.
+    const firedAt = new Date(Number(event && event.scheduledTime) || Date.now());
     // `fromCron` is what stamps tax:cron_last_run, and it is the RECOGNISED trigger strings alone — not "scheduled()
     // was entered". An event carrying a cron this Worker does not know is a wrong wrangler.toml, and treating it as
     // proof the tax loop is alive is how a renamed schedule would report a healthy loop while the tick it was supposed
@@ -154,7 +164,18 @@ export default {
         console.log(JSON.stringify({ tax_tick: 'skipped', reason: 'stripe_tax_off' }));
       }
     };
+    // ONE TRIGGER, TWO JOBS (2026-09-09). Workers Free allows FIVE CRON TRIGGERS PER ACCOUNT and this account is at that
+    // ceiling: run #38 of Deploy MAST Worker uploaded this script and Cloudflare then refused the schedules with code
+    // 10072, so the live Worker ran the new code on the OLD trigger set — the daily string alone, with the */5 tick never
+    // registered. wrangler.toml therefore declares the one trigger the tax loop cannot live without, and the daily work
+    // rides on it: a tick whose scheduledTime lands in the DAILY_WINDOW does the daily work as well. The scheduledTime
+    // is the SCHEDULER's clock, not the Worker's, so a fire delivered late is still placed by the minute it was for;
+    // Date.now() is the fallback for an event that carries no scheduledTime, which Cloudflare does not send but a test
+    // and a hand-invoked handler both can.
     if (cron === TAX_TICK_CRON) {
+      // Daily work first, tick second: the daily job is the established one, and the tick is the cheap idempotent one
+      // that a failure above must not cost. Each keeps its own catch, and the liveness stamp still belongs to the tick.
+      if (inDailyWindow(firedAt) && await claimDailyRun(env, firedAt)) await runDailyWork(event, env, ctx).catch((e) => console.error('[Daily] work failed:', e.message));
       await tick('tax-cron', true);
       return;
     }
@@ -163,28 +184,15 @@ export default {
       await tick('unknown-cron', false);
       return;
     }
-    ctx.waitUntil(runRetention(env).catch((e) => console.error('[Retention] failed:', e.message)));
-    // T−7 / T−1 / T+1 to booked participants (DATA-AND-MARKETING.md "Triggered journeys"); one per participant, class and kind.
-    // Off until the owner has read the three emails (his 2026-09-06 "show me them before"): JOURNEYS_ENABLED = "1" in wrangler.toml [vars]
-    // switches the cron on; POST /admin/journeys (staff, ADMIN_KEY) runs a day by hand meanwhile.
-    if (String(env.JOURNEYS_ENABLED) === '1') {
-      ctx.waitUntil(runJourneys(env, { send: (m) => sendEmail(env, m), catalog: await catalogRows(env) }).catch((e) => console.error('[Journeys] failed:', e.message)));
-    } else console.log('[Journeys] off (JOURNEYS_ENABLED is not "1")');
-    // Monday (owner, 2026-09-08: "weekly CRM Emails to matthew@atlasglinn.com + Matthew@mastsolutions.com"), and Tuesday or
-    // Wednesday as the retry: a Resend outage on Monday used to cost the week its digest. sendWeeklyDigest is the idempotent
-    // half — it claims the week in email_log before it sends and no-ops when the week is already claimed, so a doubled
-    // Monday fire still sends once. It is queued alongside the purge in its own promise with its own catch: a CRM read that
-    // fails cannot reach the retention run.
-    const weekday = new Date(event && event.scheduledTime).getUTCDay();
-    if (weekday >= 1 && weekday <= 3) {
-      ctx.waitUntil(sendWeeklyDigest(env, new Date(event.scheduledTime)).catch((e) => console.error('[Digest] failed:', e.message)));
-    }
+    // The daily string still does the daily work, and it takes the SAME once-a-day claim as the window path above — so
+    // restoring the daily trigger on a paid plan adds a second fire, not a second run of the work.
+    if (await claimDailyRun(env, firedAt)) await runDailyWork(event, env, ctx).catch((e) => console.error('[Daily] work failed:', e.message));
     // Stripe Tax repairs itself here rather than in CI. Every run reads the cached measurement and, when the switch is on
     // and that cache is stale or says the account is not collecting, measures and runs the idempotent setup — so a Worker
     // deployed with STRIPE_TAX = "1" onto an account that was never set up converges on its own, with no repository secret
-    // and nobody's attention. The */5 tick above is what keeps the measurement WARM; this daily run does the same work
-    // and is the backstop if that trigger ever stops firing. Both are where the Stripe calls belong: off the customer's
-    // path entirely. A checkout can only ENQUEUE the same work behind its response.
+    // and nobody's attention. The */5 tick is what keeps the measurement WARM; this daily run does the same work and is
+    // the backstop if that trigger ever stops firing. Both are where the Stripe calls belong: off the customer's path
+    // entirely. A checkout can only ENQUEUE the same work behind its response.
     await tick('cron', true);
   },
 };
@@ -2616,6 +2624,104 @@ async function sendWeeklyDigest(env, now = new Date()) {
   return { sent: to.length };
 }
 
+/* ──────────────────── The daily work, and the once-a-day claim it takes ────────────────────
+
+   Two triggers became one on 2026-09-09: Workers Free allows five cron triggers per ACCOUNT (Cloudflare code 10072),
+   the account is at that ceiling, and deploy run #38 uploaded the script and then had its schedules refused — leaving a
+   live Worker running new code on the old trigger set. The tax tick is the trigger that cannot be dropped (a ten-minute
+   readiness TTL refreshed once a day is stale 1430 minutes out of 1440), so the daily work moved onto it: the fire whose
+   scheduledTime lands between 09:15 and 09:19 UTC does the daily work too.
+
+   THE WINDOW IS FIVE MINUTES WIDE FOR ONE TRIGGER FIRE. TAX_TICK_CRON fires on the multiples of five, so exactly one
+   fire a day — 09:15 — opens the window, and the four minutes after it are the slack for a scheduler that delivers
+   late. The old daily trigger's own minute, 09:17, is inside it, which is what lets that trigger be restored on a paid
+   plan without moving anything.
+
+   AND THE CLAIM IS WHAT MAKES IT ONCE. The window alone would run the daily work twice if two fires ever landed in it,
+   or if the daily trigger came back beside the tick. DAILY_GUARD_KEY holds the UTC date of the last run in
+   rate_limits.window_start and the claim is ONE conditional upsert — the row moves to today only when it is not already
+   today — so the run is claimed by the statement, not by a read the next fire could race.
+
+   THE DAILY PURGE CANNOT EAT THIS ROW BEFORE IT HAS DONE ITS JOB. purgeRateLimits exempts `tax:%` and nothing else, so
+   this row is purgeable — but window_start begins with the date and a pipe, and `|` sorts after the `T` of an ISO
+   timestamp, so a row claimed on day D is still above the purge's `now − 24h` cutoff throughout day D+1. By the time it
+   is old enough to be deleted, the date it holds is no longer today and the claim it grants is one this day would grant
+   anyway.
+
+   IT FAILS OPEN, deliberately. No D1 binding, or a D1 that throws, and the work RUNS: the failure this guard exists to
+   prevent is a second run of an idempotent job (the digest claims its week in email_log, the journeys claim per
+   participant, the purge is a DELETE by date), and the failure it must never cause is a day with no retention purge at
+   all. Fail-open is bounded at two runs a day; fail-closed is unbounded silence. */
+export const DAILY_GUARD_KEY = 'daily:last_run';   // rate_limits row: window_start = '<YYYY-MM-DD>|<iso of the claim>'
+export const DAILY_WINDOW_HOUR = 9;                // UTC. The window the tax tick also does the daily work in …
+export const DAILY_WINDOW_FIRST_MINUTE = 15;       // … opened by the */5 fire at :15 …
+export const DAILY_WINDOW_LAST_MINUTE = 19;        // … and wide enough to hold a late delivery and the old 09:17 daily.
+
+/** Is this fire the one that also carries the daily work? Read off the SCHEDULER's clock (event.scheduledTime). */
+export function inDailyWindow(at) {
+  const t = at instanceof Date ? at : new Date(at);
+  if (!Number.isFinite(t.getTime())) return false;
+  const m = t.getUTCMinutes();
+  return t.getUTCHours() === DAILY_WINDOW_HOUR && m >= DAILY_WINDOW_FIRST_MINUTE && m <= DAILY_WINDOW_LAST_MINUTE;
+}
+
+/**
+ * Claim today for the daily work. True = this fire owns the day and must do the work; false = a fire already did it.
+ * One statement, so two fires cannot both read "not yet" and both proceed. Absent D1 or a throw returns TRUE (see above).
+ */
+/** The UTC date (YYYY-MM-DD) the daily claim currently holds, or null when there is no D1, no row, or a read failure. */
+async function dailyLastRunDate(env) {
+  if (!env || !env.DB) return null;
+  try {
+    const row = await env.DB.prepare('SELECT window_start FROM rate_limits WHERE key = ?').bind(DAILY_GUARD_KEY).first();
+    const v = row && row.window_start ? String(row.window_start) : '';
+    return /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null;
+  } catch (e) { return null; }
+}
+async function claimDailyRun(env, at) {
+  const day = (at instanceof Date ? at : new Date(at)).toISOString().slice(0, 10);
+  if (!env || !env.DB) { console.log(JSON.stringify({ daily_claim: 'no-db', day })); return true; }
+  try {
+    await ensureRateSchema(env);
+    const res = await env.DB.prepare('INSERT INTO rate_limits (key, window_start, count) VALUES (?, ?, 0) ON CONFLICT(key) DO UPDATE SET window_start = excluded.window_start WHERE substr(rate_limits.window_start, 1, 10) <> substr(excluded.window_start, 1, 10)')
+      .bind(DAILY_GUARD_KEY, day + '|' + new Date().toISOString()).run();
+    const claimed = !!(res && res.meta && res.meta.changes);
+    if (!claimed) console.log(JSON.stringify({ daily_claim: 'already-ran', day }));
+    return claimed;
+  } catch (e) {
+    console.error('[Daily] claim failed, running anyway:', e.message);
+    return true;
+  }
+}
+
+/**
+ * The daily work itself, unchanged by the move onto the tick: the retention purge, the journeys, and the Monday digest
+ * with its Tuesday/Wednesday retry. Every piece is queued in its own promise with its own catch, so one failing cannot
+ * reach the others.
+ *
+ * THE DIGEST STILL READS event.scheduledTime DIRECTLY, and not the firedAt fallback: an event with no scheduledTime
+ * gives `new Date(undefined)`, whose getUTCDay() is NaN, and no digest is sent. That is the conservative half of the
+ * pair — a weekly email must not be sent because a handler guessed at the weekday — and the tests pin it.
+ */
+async function runDailyWork(event, env, ctx) {
+  ctx.waitUntil(runRetention(env).catch((e) => console.error('[Retention] failed:', e.message)));
+  // T−7 / T−1 / T+1 to booked participants (DATA-AND-MARKETING.md "Triggered journeys"); one per participant, class and kind.
+  // Off until the owner has read the three emails (his 2026-09-06 "show me them before"): JOURNEYS_ENABLED = "1" in wrangler.toml [vars]
+  // switches the cron on; POST /admin/journeys (staff, ADMIN_KEY) runs a day by hand meanwhile.
+  if (String(env.JOURNEYS_ENABLED) === '1') {
+    ctx.waitUntil(runJourneys(env, { send: (m) => sendEmail(env, m), catalog: await catalogRows(env) }).catch((e) => console.error('[Journeys] failed:', e.message)));
+  } else console.log('[Journeys] off (JOURNEYS_ENABLED is not "1")');
+  // Monday (owner, 2026-09-08: "weekly CRM Emails to matthew@atlasglinn.com + Matthew@mastsolutions.com"), and Tuesday or
+  // Wednesday as the retry: a Resend outage on Monday used to cost the week its digest. sendWeeklyDigest is the idempotent
+  // half — it claims the week in email_log before it sends and no-ops when the week is already claimed, so a doubled
+  // Monday fire still sends once. It is queued alongside the purge in its own promise with its own catch: a CRM read that
+  // fails cannot reach the retention run.
+  const weekday = new Date(event && event.scheduledTime).getUTCDay();
+  if (weekday >= 1 && weekday <= 3) {
+    ctx.waitUntil(sendWeeklyDigest(env, new Date(event.scheduledTime)).catch((e) => console.error('[Digest] failed:', e.message)));
+  }
+}
+
 /** Daily: answers past purge_after go; registrations that never reached payment are marked abandoned. */
 async function runRetention(env) {
   if (!env.DB) return { purged: 0, abandoned: 0 };
@@ -2857,10 +2963,16 @@ const TAX_WITNESS_MAX_MS = 24 * 3600000;  // …and not a stale observation of a
 const TAX_CREATE_COOLDOWN_MS = 30 * 24 * 3600000;   // one registration-create attempt per 30 days, ledgered and reported
 const TAX_TIMEOUT_MS = 4000;              // no Stripe call in the tax path may outlive this (STRIPE_TAX_TIMEOUT_MS overrides)
 const TAX_TIMEOUT_MIN_MS = 500, TAX_TIMEOUT_MAX_MS = 15000;   // the bounds an operator's override is clamped into
-const TAX_TICK_CRON = '*/5 * * * *';      // the trigger that keeps the measurement warm (wrangler.toml [triggers])
-const DAILY_CRON = '17 9 * * *';          // the daily trigger: retention, journeys, the digest. scheduled() branches on
-                                          // BOTH strings by name — an unrecognised trigger gets the cheap tick, never
-                                          // the daily work. Both must match wrangler.toml [triggers] exactly.
+const TAX_TICK_CRON = '*/5 * * * *';      // THE ONLY TRIGGER IN wrangler.toml since 2026-09-09: it keeps the
+                                          // measurement warm, and the fire inside DAILY_WINDOW carries the daily work
+                                          // too (Workers Free allows five cron triggers per account; run #38 was
+                                          // refused the second with code 10072).
+const DAILY_CRON = '17 9 * * *';          // the daily trigger: retention, journeys, the digest. NOT REGISTERED TODAY —
+                                          // the string stays because a paid plan lifts the ceiling to 1,000 and this
+                                          // trigger can go straight back into wrangler.toml, sharing DAILY_GUARD_KEY
+                                          // with the window path so the pair is still one run a day. scheduled()
+                                          // branches on BOTH strings by name — an unrecognised trigger gets the cheap
+                                          // tick, never the daily work. Every string here must match [triggers] exactly.
 
 /** What the tax:ready row's count column means: what the last measurement found, or that it could not be made at all. */
 const TAX_READY_YES = 1, TAX_READY_NO = 0, TAX_UNMEASURED = 2;

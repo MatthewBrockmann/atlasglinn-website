@@ -1,4 +1,4 @@
-import worker, { taxTimeoutMs, checkoutTimeoutMs, stripeApiVersion, setTaxReadGuard, TAX_SCHEMAS } from './src/worker.js';
+import worker, { taxTimeoutMs, checkoutTimeoutMs, stripeApiVersion, setTaxReadGuard, TAX_SCHEMAS, DAILY_GUARD_KEY, DAILY_WINDOW_HOUR, DAILY_WINDOW_FIRST_MINUTE, DAILY_WINDOW_LAST_MINUTE } from './src/worker.js';
 import { runTaxShapeFuzz, taxShapeMutations } from './scripts/fuzz-tax-shapes.mjs';
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -181,6 +181,16 @@ const rateKeyArg = (sql) => {
   return /INSERT OR IGNORE INTO rate_limits \(key,/.test(sql) ? 0 : -1;
 };
 const resetLimits = () => rateLimits.clear();   // a fresh window; the per-IP limits get their own block below
+/* THE DAILY WORK IS CLAIMED ONCE PER UTC DAY (DAILY_GUARD_KEY), and these two helpers are how every block written
+   before that keeps testing what it was written to test.
+   releaseDailyClaim() drops the claim row, so a block that fires the daily cron twice "today" still runs the work twice
+   and still proves what it was proving — the retention purge, the digest's own email_log idempotency, the tax loop. The
+   claim itself is proved in its own block ("one trigger, two jobs"), where it is NOT released.
+   outsideDailyWindow() pins a tick's scheduledTime away from 09:15–09:19 UTC. Without it these blocks would do the
+   daily work or not depending on the minute the suite happened to run — and the simulated hours below, which advance a
+   virtual clock three hours at a time, would cross the window on any morning run. */
+const releaseDailyClaim = () => rateLimits.delete(DAILY_GUARD_KEY);
+const outsideDailyWindow = (ms = Date.now()) => new Date(new Date(ms).setUTCHours(14, 5, 0, 0)).getTime();
 let rateFail = false;              // flip on to make every rate_limits statement throw (the fail-closed test)
 const sqlLog = [];
 let onEligibilityInsert = null;    // fired once, between the capacity SELECT and the seat claim (the oversell window)
@@ -305,6 +315,16 @@ const DB = {
               const ki = rateKeyArg(sql); if (ki >= 0 && typeof args[ki] === 'string') rateKeysEver.add(args[ki]);
               if (rateFail) throw new Error('D1_ERROR: rate_limits unavailable');
               if (sql.startsWith('INSERT OR IGNORE INTO rate_limits')) { const [key, window_start, count] = args; if (rateLimits.has(key)) return { meta: { changes: 0 } }; rateLimits.set(key, { key, window_start, count }); return { meta: { changes: 1 } }; }
+              // The once-a-day claim on the daily work (DAILY_GUARD_KEY): a conditional upsert whose whole job is its
+              // WHERE clause — the row moves to today only when it is not already today, and changes=1 IS the claim.
+              // It is matched HERE, above the generic upsert below, because the generic branch writes unconditionally
+              // and would hand every fire a claim: a guard the stub cannot refuse is a guard no test can prove.
+              if (sql.startsWith('INSERT INTO rate_limits') && sql.includes('DO UPDATE SET window_start = excluded.window_start WHERE substr(')) {
+                const [key, window_start] = args; const r = rateLimits.get(key);
+                if (!r) { rateLimits.set(key, { key, window_start, count: 0 }); return { meta: { changes: 1 } }; }
+                if (String(r.window_start).slice(0, 10) === String(window_start).slice(0, 10)) return { meta: { changes: 0 } };
+                r.window_start = window_start; return { meta: { changes: 1 } };
+              }
               // tax:last_run carries TWO independent things in one row — the heartbeat in window_start, the consecutive
               // tax_fallback streak in count — so each has a statement that touches only its own column. These three
               // must be matched BEFORE the generic upsert below, which writes both.
@@ -852,6 +872,7 @@ const party = (n, over = {}) => goodReg({ customer: { name: 'Cap ' + n, email: '
   answers.push([99, '{}', '', '2020-01-01T00:00:00Z', '2020-01-08T00:00:00Z']);
   const keep = answers.length - 1;
   registrations.set('reg_old', { id: 'reg_old', status: 'pending', created_at: '2020-01-01T00:00:00Z' });
+  releaseDailyClaim();
   let ran = null; await worker.scheduled({ cron: DAILY_CRON }, env, { waitUntil: (p) => { ran = p; } }); await ran;
   ok('expired answers purged, current ones kept', answers.length === keep && !answers.some(a => a[4] < '2021'));
   ok('stale pending registration marked abandoned', registrations.get('reg_old').status === 'abandoned');
@@ -1112,6 +1133,7 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   ok('a used reset code does not work twice', (await post('/account/reset', { email: 'student@example.com', code: resetCode, password: 'yet another long password 2' })).status === 400);
   // retention: unverified accounts older than a day go, verified ones stay
   accounts.set('acct_stale', { id: 'acct_stale', email: 'stale@example.com', password_hash: 'x', token_version: 1, created_at: '2020-01-01T00:00:00Z', verified_at: null });
+  releaseDailyClaim();
   let ran2 = null; await worker.scheduled({ cron: DAILY_CRON }, env, { waitUntil: (p) => { ran2 = p; } }); await ran2;
   ok('the daily cron removes unverified accounts older than a day and keeps verified ones', !accounts.has('acct_stale') && accounts.has(r1.account.id));
   // no email leg → sign-up is off, sign-in still works
@@ -1304,6 +1326,7 @@ console.log('\n── Rate limiting, lockout and seat holds (security review, 20
   resetLimits();
   rateLimits.set('login:1.2.3.4', { key: 'login:1.2.3.4', window_start: '2020-01-01T00:00:00Z', count: 9 });
   rateLimits.set('login:5.6.7.8', { key: 'login:5.6.7.8', window_start: new Date().toISOString(), count: 1 });
+  releaseDailyClaim();
   let ranRate = null; await worker.scheduled({ cron: DAILY_CRON }, env, { waitUntil: (p) => { ranRate = p; } }); await ranRate;
   ok('the daily cron drops rate-limit rows older than a day and keeps live ones', !rateLimits.has('login:1.2.3.4') && rateLimits.has('login:5.6.7.8'), [...rateLimits.keys()].join());
   resetLimits();
@@ -2774,7 +2797,7 @@ console.log('\n── Monday CRM digest (owner, 2026-09-08: "weekly CRM Emails t
   ok('with the snapshot the lifetime totals are appended, money formatted the same way', /LIFETIME/.test(withStats) && /Revenue:\s+\$16,680\.00\s+\(30 days: \$2,085\.00\)/.test(withStats) && /Registrations:\s+31\s+\(paid 24 · pending 4 · abandoned 3\)/.test(withStats) && /Seats upcoming:\s+2026-10-10: 6/.test(withStats), withStats);
 
   // Gating: the daily cron carries the digest — Monday, or the Tuesday/Wednesday retry — once per ISO week, never at the purge's expense.
-  const runCron = async (event, en) => { const queued = []; await worker.scheduled({ cron: DAILY_CRON, ...event }, en, { waitUntil: (p) => queued.push(p) }); await Promise.all(queued); };
+  const runCron = async (event, en) => { releaseDailyClaim(); const queued = []; await worker.scheduled({ cron: DAILY_CRON, ...event }, en, { waitUntil: (p) => queued.push(p) }); await Promise.all(queued); };
   const digestEnv = { ...env, CRM_DIGEST_TO: 'matthew@atlasglinn.com,matthew@mastsolutions.com' };
   const monday = Date.UTC(2026, 8, 7, 9, 17), tuesday = Date.UTC(2026, 8, 8, 9, 17), wednesday = Date.UTC(2026, 8, 9, 9, 17), thursday = Date.UTC(2026, 8, 10, 9, 17);
   const stale = (id) => { registrations.set(id, { id, status: 'pending', created_at: '2020-01-01T00:00:00Z' }); return id; };
@@ -3228,11 +3251,13 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
 
   // ── the cron is the other trigger, and it is the one that runs when nobody is buying anything ──
   taxAccountBlank(); forgetTaxState(); witnessTaxAbsence(); stripeTaxCalls.length = 0;
+  releaseDailyClaim();
   const cron1 = []; await worker.scheduled({ cron: DAILY_CRON }, on, { waitUntil: (p) => cron1.push(p) }); await Promise.all(cron1);
   ok('the daily cron sets the account up when the switch is on and the account is not collecting',
      stripeTaxCalls.filter((c) => c.method === 'POST').length === 2 && fakeTaxRegistrations.length === 1, 'POSTs=' + stripeTaxCalls.filter((c) => c.method === 'POST').length);
   ok('… and stamps the heartbeat with the trigger that ran it', /\|cron\/created$/.test(String((taxStateRow('tax:last_run') || {}).window_start)), JSON.stringify(taxStateRow('tax:last_run')));
   stripeTaxCalls.length = 0;
+  releaseDailyClaim();
   const cron2 = []; await worker.scheduled({ cron: DAILY_CRON }, on, { waitUntil: (p) => cron2.push(p) }); await Promise.all(cron2);
   ok('… and a cron run against a ready account asks Stripe nothing at all — the cached measurement answers', stripeTaxCalls.length === 0, JSON.stringify(stripeTaxCalls.map((c) => c.url)));
 
@@ -3247,6 +3272,7 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
   ok('… beside the readiness the checkout actually gates on, and how old that measurement is',
      report.tax_ready === true && typeof report.tax_ready_cache.age_seconds === 'number' && report.tax_ready_cache.ttl_seconds === 600, JSON.stringify({ ready: report.tax_ready, cache: report.tax_ready_cache }));
   ageTaxState('tax:last_run', 26 * 3600000);
+  releaseDailyClaim();
   const purgeRun = []; await worker.scheduled({ cron: DAILY_CRON }, env, { waitUntil: (p) => purgeRun.push(p) }); await Promise.all(purgeRun);
   ok('the daily purge does NOT eat the tax state rows — a heartbeat deleted at 24h could never be reported stale at 25h', !!taxStateRow('tax:last_run'), JSON.stringify([...rateLimits.keys()].filter((k) => k.startsWith('tax:'))));
   const stale = await (await adminTax('?dry=1', 'GET')).json();
@@ -3487,8 +3513,9 @@ console.log('\n── Stripe Tax kept warm: the five-minute trigger, the 24-hour
 
   try {
     const tick = async (cron = '*/5 * * * *') => {
+      releaseDailyClaim();
       const q = [];
-      await worker.scheduled({ cron, scheduledTime: Date.now() }, on, { waitUntil: (p) => q.push(Promise.resolve(p).catch(() => {})) });
+      await worker.scheduled({ cron, scheduledTime: outsideDailyWindow() }, on, { waitUntil: (p) => q.push(Promise.resolve(p).catch(() => {})) });
       await Promise.all(q);
     };
 
@@ -3515,7 +3542,7 @@ console.log('\n── Stripe Tax kept warm: the five-minute trigger, the 24-hour
     await tick('17 9 * * *');   // the OTHER trigger in wrangler.toml: the daily one, which does carry the daily work
     ok('the five-minute tick runs the tax loop ONLY — the retention purge stays on the daily trigger instead of running 288 times a day',
        tickDeletes === 0 && sqlDeletes > 0, 'tick deletes=' + tickDeletes + ' daily deletes=' + sqlDeletes);
-    const offTick = await captureLogs(() => worker.scheduled({ cron: '*/5 * * * *' }, { ...env, STRIPE_TAX: '0' }, ctx));
+    const offTick = await captureLogs(() => worker.scheduled({ cron: '*/5 * * * *', scheduledTime: outsideDailyWindow() }, { ...env, STRIPE_TAX: '0' }, ctx));
     ok('… and with the switch off it does nothing at all, out loud', offTick.some((l) => l.includes('"tax_tick":"skipped"')), JSON.stringify(offTick));
 
     // ── the trigger goes quiet: last-known-ready holds for a day, then fails closed ──
@@ -3908,8 +3935,9 @@ console.log('\n── Round 6: an unparseable 200 is not a measurement, the cap 
 
   try {
     const tick = async (cron = '*/5 * * * *') => {
+      releaseDailyClaim();
       const q = [];
-      await worker.scheduled({ cron, scheduledTime: Date.now() }, on, { waitUntil: (p) => q.push(Promise.resolve(p).catch(() => {})) });
+      await worker.scheduled({ cron, scheduledTime: outsideDailyWindow() }, on, { waitUntil: (p) => q.push(Promise.resolve(p).catch(() => {})) });
       await Promise.all(q);
     };
     const beat = () => String((taxStateRow('tax:last_run') || {}).window_start || '');
@@ -4192,8 +4220,9 @@ console.log('\n── Round 7: a shape is checked at every level, every Stripe s
 
   try {
     const tick = async (cron = '*/5 * * * *') => {
+      releaseDailyClaim();
       const q = [];
-      await worker.scheduled({ cron, scheduledTime: Date.now() }, on, { waitUntil: (p) => q.push(Promise.resolve(p).catch(() => {})) });
+      await worker.scheduled({ cron, scheduledTime: outsideDailyWindow() }, on, { waitUntil: (p) => q.push(Promise.resolve(p).catch(() => {})) });
       await Promise.all(q);
     };
     const beat = () => String((taxStateRow('tax:last_run') || {}).window_start || '');
@@ -4602,8 +4631,9 @@ console.log('\n── Round 8: an unlisted field cannot be READ, an absence need
 
   try {
     const tick = async (cron = '*/5 * * * *') => {
+      releaseDailyClaim();
       const q = [];
-      await worker.scheduled({ cron, scheduledTime: Date.now() }, on, { waitUntil: (p) => q.push(Promise.resolve(p).catch(() => {})) });
+      await worker.scheduled({ cron, scheduledTime: outsideDailyWindow() }, on, { waitUntil: (p) => q.push(Promise.resolve(p).catch(() => {})) });
       await Promise.all(q);
     };
     const readyRow = () => taxStateRow('tax:ready');
@@ -4856,6 +4886,160 @@ console.log('\n── Round 8: an unlisted field cannot be READ, an absence need
     fakeTaxSettingsBody = undefined; fakeTaxListBody = undefined;
     sessionFail = null; priceHang = null; taxFail = null; taxHang = null; fakeTaxHasMore = false;
     taxAccountReady(); forgetTaxState();
+  }
+}
+
+console.log('\n── One trigger, two jobs: the daily work rides the five-minute tick, claimed once a day (2026-09-09, Workers Free code 10072) ──');
+{
+  /* Deploy MAST Worker run #38 on main e8c12da uploaded the script and then had its SCHEDULES refused —
+     "This account has reached the Workers Free limit of 5 cron triggers per account" (Cloudflare 10072) — so the live
+     Worker ran new code on the OLD trigger set: the daily string alone, with the five-minute tick never registered.
+     wrangler.toml now declares ONE trigger, and the daily work rides on the fire inside the 09:15–09:19 UTC window.
+     Two things have to be true for that to be a fix rather than a trade: the window has to catch a fire, and the work
+     has to happen ONCE A DAY however many fires reach it. Nothing here releases the claim — that is the point of it. */
+  const fire = async (cron, scheduledTime, en) => {
+    const q = [];
+    await worker.scheduled({ cron, scheduledTime }, en || taxOnEnv, { waitUntil: (p) => q.push(Promise.resolve(p).catch(() => {})) });
+    await Promise.all(q);
+  };
+  const taxOnEnv = { ...env, STRIPE_TAX: '1' };
+  const day1 = (h, m) => Date.UTC(2026, 8, 10, h, m);   // Thursday: no digest is due, so the purge is what is measured
+  const day2 = (h, m) => Date.UTC(2026, 8, 11, h, m);
+  const day3 = (h, m) => Date.UTC(2026, 8, 12, h, m);
+  const stale = (id) => { registrations.set(id, { id, status: 'pending', created_at: '2020-01-01T00:00:00Z' }); return id; };
+  const claimRow = () => rateLimits.get(DAILY_GUARD_KEY);
+  const beat = () => String((rateLimits.get('tax:cron_last_run') || {}).window_start || '');
+  resetLimits(); emails.length = 0; taxAccountReady(); cacheTaxReady(); stripeTaxCalls.length = 0;
+
+  // (a) the window fire does the daily work — and it is the ONLY thing in wrangler.toml that can
+  stale('reg_day1'); sqlDeletes = 0;
+  await fire(TICK_CRON, day1(9, 17));
+  ok('a five-minute tick at 09:17 UTC does the daily work: the stale registration is abandoned and the purge ran',
+     registrations.get('reg_day1').status === 'abandoned' && sqlDeletes > 0, 'deletes=' + sqlDeletes + ' status=' + registrations.get('reg_day1').status);
+  ok('… and it claimed the day in D1 under daily:last_run, holding the UTC date the fire was scheduled for',
+     !!claimRow() && String(claimRow().window_start).slice(0, 10) === '2026-09-10', JSON.stringify(claimRow()));
+  ok('… and the key the Worker exports is the key the row is under, so this test cannot drift from the code',
+     DAILY_GUARD_KEY === 'daily:last_run' && DAILY_WINDOW_HOUR === 9 && DAILY_WINDOW_FIRST_MINUTE === 15 && DAILY_WINDOW_LAST_MINUTE === 19,
+     [DAILY_GUARD_KEY, DAILY_WINDOW_HOUR, DAILY_WINDOW_FIRST_MINUTE, DAILY_WINDOW_LAST_MINUTE].join('/'));
+
+  // … and a SECOND fire inside the same window on the same day does not. This is the guard, not the window:
+  // 09:19 is inside 09:15–09:19, so only the claim can refuse it.
+  stale('reg_day1b'); sqlDeletes = 0; emails.length = 0;
+  const twice = await captureLogs(() => fire(TICK_CRON, day1(9, 19)));
+  ok('a SECOND fire inside the same window on the same day runs no daily work at all — zero DELETEs, nothing abandoned — and says which day it is refusing',
+     sqlDeletes === 0 && registrations.get('reg_day1b').status === 'pending' && twice.some((l) => l.includes('"daily_claim":"already-ran"') && l.includes('2026-09-10')),
+     'deletes=' + sqlDeletes + ' ' + JSON.stringify(twice.filter((l) => l.includes('daily_claim'))));
+
+  // (a, as asked) 09:22 the same day: outside the window AND already claimed
+  sqlDeletes = 0;
+  await fire(TICK_CRON, day1(9, 22));
+  ok('and a 09:22 fire the same day is outside the window as well — the tick at :20 and :25 never carries the daily work',
+     sqlDeletes === 0 && registrations.get('reg_day1b').status === 'pending', 'deletes=' + sqlDeletes);
+
+  // (b) the next day it runs again
+  sqlDeletes = 0;
+  await fire(TICK_CRON, day2(9, 17));
+  ok('the NEXT day the window fire runs the daily work again — the claim is a date, not a switch',
+     registrations.get('reg_day1b').status === 'abandoned' && sqlDeletes > 0 && String(claimRow().window_start).slice(0, 10) === '2026-09-11',
+     'deletes=' + sqlDeletes + ' claim=' + JSON.stringify(claimRow()));
+
+  // (c) the window fire is still a tick: the tax loop runs and the liveness row is stamped
+  rateLimits.delete('tax:cron_last_run'); sqlDeletes = 0;
+  await fire(TICK_CRON, day3(9, 17));
+  ok('a window fire runs the tick TOO — tax:cron_last_run is stamped by the tax-cron trigger, so the daily work riding along cannot cost the loop its liveness',
+     /\|tax-cron$/.test(beat()), JSON.stringify(rateLimits.get('tax:cron_last_run')));
+
+  // (d) an ordinary tick outside the window: the tax loop and nothing else
+  stale('reg_afternoon'); sqlDeletes = 0; emails.length = 0; rateLimits.delete('tax:cron_last_run');
+  await fire(TICK_CRON, day3(14, 5));
+  ok('a 14:05 fire is a plain tax tick: zero DELETEs, zero emails, nothing abandoned — the daily work does not run 288 times a day',
+     sqlDeletes === 0 && emails.length === 0 && registrations.get('reg_afternoon').status === 'pending',
+     'deletes=' + sqlDeletes + ' emails=' + emails.length);
+  ok('… and it still stamps the liveness row, because that is what every recognised cron does',
+     /\|tax-cron$/.test(beat()), JSON.stringify(rateLimits.get('tax:cron_last_run')));
+
+  // (e) the daily STRING still works, and shares the same claim — in both orders
+  resetLimits(); cacheTaxReady(); stale('reg_string'); sqlDeletes = 0;
+  await fire(DAILY_CRON, day1(9, 17));
+  ok('the daily cron STRING still does the daily work, so restoring that trigger on a paid plan needs no code change',
+     registrations.get('reg_string').status === 'abandoned' && sqlDeletes > 0, 'deletes=' + sqlDeletes);
+  stale('reg_string2'); sqlDeletes = 0;
+  await fire(TICK_CRON, day1(9, 15));
+  ok('… and a window tick on a day the daily string already ran does NOTHING: the two paths share one claim, so a restored daily trigger is a second FIRE, never a second RUN',
+     sqlDeletes === 0 && registrations.get('reg_string2').status === 'pending', 'deletes=' + sqlDeletes);
+  resetLimits(); cacheTaxReady(); sqlDeletes = 0;
+  await fire(TICK_CRON, day2(9, 15));
+  const daily2 = sqlDeletes; sqlDeletes = 0;
+  await fire(DAILY_CRON, day2(9, 17));
+  ok('… and the same in the other order: the window tick claims the day and the daily string that follows it runs nothing',
+     daily2 > 0 && sqlDeletes === 0, 'window deletes=' + daily2 + ' daily deletes=' + sqlDeletes);
+
+  // (f) an unrecognised trigger, even at 09:17, is a tick and only a tick
+  resetLimits(); cacheTaxReady(); stale('reg_unknown'); sqlDeletes = 0;
+  const unknown = await captureLogs(() => fire('0 * * * *', day3(9, 17)));
+  ok('an unrecognised cron string INSIDE the window is still a tick and only a tick — the window belongs to the tick trigger, not to the clock',
+     sqlDeletes === 0 && registrations.get('reg_unknown').status === 'pending' && !claimRow() && unknown.some((l) => l.includes('"unknown_cron":"0 * * * *"')),
+     'deletes=' + sqlDeletes + ' claim=' + JSON.stringify(claimRow()));
+
+  // the fallbacks: no scheduledTime, and no D1
+  resetLimits(); cacheTaxReady(); stale('reg_nodb'); sqlDeletes = 0;
+  const noDb = await captureLogs(() => fire(TICK_CRON, day1(9, 17), { ...taxOnEnv, DB: undefined }));
+  ok('with no D1 binding the claim FAILS OPEN and says so — a day with no retention purge is worse than a second run of an idempotent one',
+     noDb.some((l) => l.includes('"daily_claim":"no-db"') && l.includes('2026-09-10')), JSON.stringify(noDb.filter((l) => l.includes('daily_claim'))));
+  ok('… and failing open left no claim row behind, so the fire that has a database still owns the day',
+     !claimRow(), JSON.stringify(claimRow()));
+  sqlDeletes = 0;
+  await fire(TICK_CRON, undefined);
+  ok('a tick carrying no scheduledTime falls back to the wall clock and does not throw',
+     registrations.get('reg_nodb').status === 'pending' || sqlDeletes >= 0, 'deletes=' + sqlDeletes);
+
+  /* THE CONFIG IS THE OTHER HALF, and it is the half run #38 proved a suite has to read: the handler was correct on
+     both strings and the account still refused the trigger. One cron in wrangler.toml, and it is the tick. */
+  const toml = repoFile('mast-backend/wrangler.toml');
+  const crons = (/^crons = \[(.*)\]$/m.exec(toml) || [])[1] || '';
+  const declared = crons.split(',').map((c) => c.trim().replace(/^"|"$/g, '')).filter(Boolean);
+  ok('wrangler.toml declares exactly ONE cron trigger — five per account is the Workers Free ceiling and this account is at it',
+     declared.length === 1, JSON.stringify(declared));
+  ok('… and the one it declares is the tick string this handler dispatches on, so the trigger that exists is the trigger the code knows',
+     declared[0] === TICK_CRON, JSON.stringify(declared));
+  ok('… and the file says WHY in the file, naming the limit, the error code and the run that hit it',
+     /5 cron triggers per account/i.test(toml) && /10072/.test(toml) && /run #38/.test(toml) && /1,000/.test(toml), 'limit/code/run/paid-plan mentions');
+  const readme = repoFile('mast-backend/README.md');
+  ok('the README cron table names the one trigger, the window, the guard and the way back to two triggers',
+     /09:15/.test(readme) && /09:19/.test(readme) && /daily:last_run/.test(readme) && /10072/.test(readme), 'README cron table');
+
+  resetLimits(); emails.length = 0; taxAccountReady(); forgetTaxState();
+}
+
+console.log('\n── The daily claim against a real SQL engine ──');
+{
+  /* The fake D1 answers this statement in JavaScript, and the statement is nothing BUT its WHERE clause: an upsert
+     whose condition never bit would hand every fire a claim and the suite above would still be green. The statement is
+     READ OUT OF src/worker.js — not retyped — and replayed against sqlite. No engine is a FAILURE, never a quiet skip. */
+  let Database = null, engine = '';
+  try { ({ DatabaseSync: Database } = await import('node:sqlite')); engine = 'node:sqlite'; } catch (_) { /* node < 22.5 */ }
+  if (!Database) { try { Database = (await import('better-sqlite3')).default; engine = 'better-sqlite3'; } catch (_) { /* not installed */ } }
+  const src = readFileSync(path.join(SRC, 'worker.js'), 'utf8');
+  const claimSql = (/prepare\('(INSERT INTO rate_limits[^']*substr[^']*)'\)/.exec(src) || [])[1] || '';
+  ok('the claim statement is found in src/worker.js and is a conditional upsert on the day', /ON CONFLICT\(key\) DO UPDATE/.test(claimSql) && /WHERE substr\(rate_limits\.window_start, 1, 10\) <> substr\(excluded\.window_start, 1, 10\)/.test(claimSql), claimSql.slice(0, 120));
+  if (!Database) ok('the daily claim is proved against a real SQL engine', false, 'SKIPPED: no SQLite engine (node:sqlite needs node 22.5+)');
+  else {
+    console.log('  (engine: ' + engine + ')');
+    const db = new Database(':memory:');
+    db.exec('CREATE TABLE rate_limits (key TEXT PRIMARY KEY, window_start TEXT NOT NULL, count INTEGER NOT NULL DEFAULT 0)');
+    const claim = (day) => db.prepare(claimSql).run('daily:last_run', day + '|' + day + 'T09:15:00.000Z').changes;
+    ok('SQLITE: the statement is valid SQL and the first fire of the day claims it (changes = 1)', claim('2026-09-10') === 1);
+    ok('SQLITE: a second fire the same day claims NOTHING (changes = 0) — the WHERE is what makes the daily work daily', claim('2026-09-10') === 0);
+    ok('SQLITE: a third fire, still the same day, still claims nothing', claim('2026-09-10') === 0);
+    ok('SQLITE: the next day claims it again (changes = 1)', claim('2026-09-11') === 1);
+    const row = db.prepare('SELECT window_start FROM rate_limits WHERE key = ?').get('daily:last_run');
+    ok('SQLITE: the row holds the UTC date of the day that owns it', String(row.window_start).slice(0, 10) === '2026-09-11', JSON.stringify(row));
+    // The purge the daily work itself runs must not be able to take the claim out from under the day it is guarding.
+    db.prepare('INSERT INTO rate_limits (key, window_start, count) VALUES (?, ?, 0)').run('login:1.2.3.4', '2026-09-09T00:00:00.000Z');
+    const purged = db.prepare('DELETE FROM rate_limits WHERE window_start < ? AND key NOT LIKE ?').run('2026-09-10T09:15:00.000Z', 'tax:%').changes;
+    ok('SQLITE: the daily purge takes an ordinary counter row and leaves the claim — `|` sorts after the `T` of an ISO stamp, so the day it is guarding is never the day it is deleted',
+       purged === 1 && !!db.prepare('SELECT key FROM rate_limits WHERE key = ?').get('daily:last_run'), 'purged=' + purged);
+    db.close();
   }
 }
 
