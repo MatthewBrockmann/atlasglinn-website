@@ -25,6 +25,7 @@ a live-content problem by editing it — fix reference/live/ or scripts/atlas_li
 The twelve pages either mode writes: index, executive-protection, residential-protection, disaster-recovery, training,
 technology, cuas-aerodefense, uas, about, careers, contact, ep-app. signup.html is not generated here.
 """
+import html as H
 import os, re, sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PUBLISH = '--publish' in sys.argv
@@ -43,6 +44,11 @@ import cinematic_shell as shell
 import atlas_shell as atlas
 import atlas_live as live
 import build_manifest
+
+# Every emoji code point the twelve captures actually carry. U+2300-23FF and U+2B00-2BFF are load-bearing:
+# \u23f1 (APPLE WATCH ULTRA 2) and \u2b50 (Leadership) are both in ICON_SWAPS and both outside the usual
+# U+1F300-1FAFF / U+2600-27BF ranges — without them the 'no emoji remains' assert passes while two survive.
+EMOJI_RE = re.compile('[\U0001F300-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\u2300-\u23FF]')
 
 API = 'https://mast-booking-backend.matthew-221.workers.dev'
 SITE = 'https://atlasglinn.com/'
@@ -1049,6 +1055,7 @@ def live_footer(slug):
 def build_live(slug):
     page = 'index.html' if slug == 'index' else slug + '.html'
     body = live.content(slug)
+    body = atlas.skin_icons(slug, body)   # ICON_SWAPS: the declared emoji-as-icon glyphs become inline SVG
     # The cinematic pass: the page is cut at its own section boundaries and each piece becomes a chapter — a full
     # viewport with the section's own photograph or film behind it, arriving on its own motion, with a tick on the rail
     # and the read-position line at the top. The markup inside a chapter is the live markup, byte for byte; the wrapper
@@ -1059,13 +1066,14 @@ def build_live(slug):
     chrome = ''.join('<script>%s</script>\n' % s for s in live.scripts(slug))
     sheet = live.chrome_css(live.mono(slug))   # assert_chrome_scope() runs inside: every selector anchored to the chrome
     cinema = atlas.cinema_css(live.mono(slug))  # assert_cinema_scope() runs inside: every selector anchored to agx-
+    skin = atlas.skin_css()                 # assert_skin_scope() runs inside: .agx-content only, no type, no gold
     html = ('<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n'
             '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n'
             '<meta name="build" content="">\n'
             + live.head(slug)
             + f'<link rel="icon" href="{SITE}{LOGO_MARK}" type="image/png">\n'
             + '\n'.join(live.styles(slug)) + '\n'
-            + '<style>' + sheet + cinema + '</style>\n'
+            + '<style>' + sheet + cinema + skin + '</style>\n'
             + '</head>\n<body>\n<script>' + shell.REFRESH_JS + '</script>\n\n'
             + atlas.cinema_chrome(marks)
             + live.intro_overlay('', live.intro_title(), '') + '\n'
@@ -1081,13 +1089,36 @@ def build_live(slug):
             + '</body>\n</html>\n')
     # One bar, one menu, one splash, one footer, one scene: the live chrome is out and the shell's is in exactly once.
     for tag, n in (('<nav id="main-nav"', 1), ('<div id="mobile-nav"', 1), ('id="intro-overlay"', 1),
-                   ('<footer', 1), ('</footer>', 1), ('<canvas id="agx-canvas"', 1), ('<div id="agx-photos"', 1)):
+                   ('<footer', 1), ('</footer>', 1), ('<canvas id="agx-canvas"', 1), ('<div id="agx-photos"', 1),
+                   (atlas.AGX_SKIN_MARK, 1),                    # F: the content skin, exactly once
+                   ('<div class="agx-hud agx-hud-bl"', 1),      # B: the brand line
+                   ('id="agx-section-hud"', 1)):                # B: the section counter
         assert html.count(tag) == n, f'{page}: {tag} appears {html.count(tag)} times, expected {n}'
+    # A — the rail carries one link per chapter and its labels ARE the chapter labels, in order
+    rail_labels = re.findall(r'<a class="agx-rail-link"[^>]*><span>(.*?)</span></a>', html, re.S)
+    assert rail_labels == [l for _a, l, _b in marks], '%s: rail labels are not the chapter labels' % page
+    # B — the counter's denominator is the chapter count, two-digit padded, as MAST prints it
+    assert 'data-of="%02d"' % len(chs) in html, '%s: HUD denominator != chapter count' % page
+    # D — one <svg class="agx-icon"> per declared swap, and no emoji left inside a swapped icon class
+    swaps = atlas.ICON_SWAPS.get(slug, ())
+    assert html.count('<svg class="agx-icon"') == len(swaps), \
+        '%s: %d agx-icon svg, %d declared swaps' % (page, html.count('<svg class="agx-icon"'), len(swaps))
+    for m in atlas.ICON_EL.finditer(html):
+        assert not EMOJI_RE.search(H.unescape(m.group(4))), \
+            '%s: an emoji code point survives inside .%s' % (page, m.group(3))
+    # E — the skin's button treatment reached this page's own primary CTA class
+    assert '.agx-content .cta-button' in skin
     if not PUBLISH:
         html = _previewize(html)
     out = os.path.join(REPO, OUT_DIR, page)
     os.makedirs(os.path.dirname(out) or '.', exist_ok=True)
     open(out, 'w', encoding='utf-8').write(html)
+    # MAST is not in this change. Byte-identical to origin/main or the build stops.
+    import subprocess
+    _mast = ['scripts/cinematic_shell.py', 'mastsolutions.html', 'mastsolutions-tesla.html',
+             'scripts/assemble-cinematic.py']
+    if subprocess.call(['git', 'diff', '--quiet', 'origin/main', '--'] + _mast, cwd=REPO) != 0:
+        raise SystemExit('MAST paths differ from origin/main: ' + ' '.join(_mast))
     backs = [b for _, _, b in marks if b]
     print('wrote %-30s %7d bytes   %2d chapters, %d backdrops   %2d chrome + %d cinema selectors   hero %s'
           % (OUT_DIR + page, len(html.encode('utf-8')), len(chs), len(set(backs)),

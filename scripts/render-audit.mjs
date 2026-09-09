@@ -54,6 +54,18 @@
  * 5. PAGE ERRORS. No uncaught page error, and no failed request for a page-authored (same-origin) URL. External
  *    atlasglinn.com / YouTube / Google / mast-booking-backend requests are expected to fail here and are counted,
  *    not asserted.
+ *
+ * 6. ICON SWAPS (2026-09-09). compare-atlas.py withholds the swapped emoji units from the dump because the build
+ *    deliberately does not print them; this is the other half of that measurement, in a real browser: one rendered
+ *    <svg class="agx-icon"> with a non-zero box per declared swap, and no emoji code point left inside any
+ *    icon-class element. ep-app's .success-icon lives inside #form-success, which is display:none until the form is
+ *    submitted, so that block is force-shown for the box measurement and put back — otherwise the honest count
+ *    would be 27 drawn of 28 for a reason that has nothing to do with the swap.
+ *
+ * 7. THE STANDING RAIL LABEL, AND WHAT IT COVERS. The label now STANDS rather than opening on hover, so the cost is
+ *    no longer a hover-only cost. The live text boxes an UNHOVERED label covers are counted at 1025, 1280, 1440 and
+ *    1800 and asserted to be ZERO. That is the gate the band in CINEMA_CSS was set from, not a formality: shipping
+ *    a label sitting on top of a reader's own sentence is not a trade this rail is allowed to make.
  */
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -96,6 +108,18 @@ const HIDDEN_ON_LIVE = {
   'ACCESS REQUEST RECEIVED': 'ep-app #form-success, display:none in the page\u2019s own sheet: ' + SUBMIT_ONLY,
   'The Atlas Glinn team will review your request and contact you within 24-48 hours. Welcome to the future of protection.':
     'ep-app #form-success, display:none in the page\u2019s own sheet: ' + SUBMIT_ONLY,
+};
+
+// Rail-overlap runs that ORIGIN/MAIN produces too, keyed `slug@width`, each with the measurement that proves it.
+// The bar is the same as HIDDEN_ON_LIVE's: the reason AND the evidence it is not this branch's. Anything else is a
+// delta. Unspent keys are printed, because an allowance nothing uses is a hole nothing guards.
+const RAIL_OVERLAP_ON_MAIN = {
+  'about@1280': 'about\u2019s team-card bio line box ends at x=1278 in a 1280px viewport, which is 2px from the '
+    + 'edge, so the rail\u2019s TICK sits on it whatever the rail does. Measured 2026-09-09 by driving '
+    + 'origin/main\u2019s own about.html through this exact walk and this branch\u2019s beside it: both cover the '
+    + 'same single run, ["TICK","J. Renee Renobato serves as Office Manag",1278,X], with X=1249 on origin/main and '
+    + 'X=1253 here \u2014 this branch\u2019s tick lane is 4px FURTHER from the copy than main\u2019s, and it still '
+    + 'touches. Not introduced here, and not fixable from the rail side.',
 };
 
 const args = process.argv.slice(2);
@@ -217,12 +241,14 @@ async function railLabels(page) {
         for (let n = w.nextNode(); n; n = w.nextNode()) {
           if (!(n.nodeValue || '').trim()) continue;
           const pe = n.parentElement;
-          if (!pe || pe.closest('script, style, .agx-rail')) continue;
+          if (!pe || pe.closest('script, style, .agx-rail, [data-agx-invis]')) continue;
           const rg = document.createRange();
           rg.selectNodeContents(n);
-          const b = rg.getBoundingClientRect();
-          if (b.width > 0 && b.height > 0 && b.right > sr.left && b.left < sr.right
-              && b.bottom > sr.top && b.top < sr.bottom) overlap++;
+          // Per line box, for the reason given at standingStop(): a union box spans the column, a line box does not.
+          for (const b of rg.getClientRects()) {
+            if (b.width > 0 && b.height > 0 && b.right > sr.left && b.left < sr.right
+                && b.bottom > sr.top && b.top < sr.bottom) { overlap++; break; }
+          }
         }
       }
       return { text: (s.textContent || '').replace(/\s+/g, ' ').trim(), scroll: s.scrollWidth, client: s.clientWidth,
@@ -298,6 +324,147 @@ async function revealWalk(page) {
   });
 }
 
+/** Mark every element a reader cannot see, so an overlap count is about text a reader actually meets.
+ *
+ *  THIS IS A CORRECTION, not a refinement. The splash is dismissed by its own control and `#intro-overlay.hidden`
+ *  is `opacity:0; visibility:hidden` — NOT display:none — so its "Enter" / "Skip Intro →" / wordmark still return
+ *  non-zero boxes, and the rail-overlap walker counted them as live text the label covers. Measured 2026-09-09 at
+ *  1025x1000 with every label standing at 11rem: 4 "covered" boxes, and the first one inspected was the string
+ *  "Enter" at right 915 under a label whose left edge is 830 — the splash button, behind an invisible overlay.
+ *  The 0-covered figure CLAUDE.md carries for 1440 was right by accident: the narrower hover label never reached
+ *  the centred splash. Counting invisible text as covered would have set the rail's clamp from an artefact. */
+async function markInvisible(page) {
+  return page.evaluate(() => {
+    let n = 0;
+    for (const el of document.querySelectorAll('*')) {
+      const cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || cs.display === 'none' || parseFloat(cs.opacity) === 0) {
+        el.setAttribute('data-agx-invis', '');
+        n++;
+      }
+    }
+    return n;
+  });
+}
+
+/** The live text boxes the rail covers WITH NO HOVER, WALKED DOWN THE PAGE.
+ *
+ *  THE WALK IS THE MEASUREMENT, not a nicety. Taken at scroll 0 this returns 0 for every rail form that was tried,
+ *  including one that puts a label straight across a card's body copy — the hero band is empty on the right and
+ *  the grids below it are not. Walked at 0.75 viewport steps down all twelve pages at 1440x900 on 2026-09-09:
+ *  every label standing at 20.5rem covered 49 live text runs, at 9rem 36, the active label alone 12, and the
+ *  numbered tick with no label 0. That is why the rail ships the number and gives the label on hover. */
+async function standingOverlap(page) {
+  // Park the pointer first. railLabels() leaves it on the last link it hovered, and that one label stays open
+  // through the whole walk — measured as "1 standing label" at 1800 on a build whose labels never stand.
+  await page.mouse.move(4, 4);
+  await page.waitForTimeout(420);
+  const H = await page.evaluate(() => document.body.scrollHeight);
+  const step = await page.evaluate(() => Math.round(innerHeight * 0.75));
+  let standing = 0, covered = 0, first = null;
+  await page.evaluate(() => { document.documentElement.style.scrollBehavior = 'auto'; });
+  for (let y = 0; y < H; y += step) {
+    await page.evaluate((y) => { window.scrollTo(0, y); window.dispatchEvent(new Event('scroll')); }, y);
+    await page.waitForTimeout(200);
+    await page.evaluate(() => {
+      document.querySelectorAll('.reveal').forEach((e) => e.classList.add('active'));
+      document.querySelectorAll('.fade-in').forEach((e) => e.classList.add('visible'));
+      document.querySelectorAll('.agx-ch').forEach((e) => e.classList.add('agx-in'));
+    });
+    await markInvisible(page);
+    const r = await standingStop(page);
+    standing = Math.max(standing, r.standing);
+    covered += r.covered;
+    if (r.first && !first) first = r.first;
+  }
+  await page.evaluate(() => window.scrollTo(0, 0));
+  return { standing, covered, first };
+}
+
+/** One stop of the walk: the boxes the rail's own visible parts occupy against every visible text run. */
+async function standingStop(page) {
+  return page.evaluate(() => {
+    // The label's max-width TRANSITIONS over .35s, so a viewport resize followed by a fixed wait measures the
+    // animation rather than the band: at 360 ms after a 1800 -> 1280 resize, thirteen labels still read as
+    // standing that the 1440 media query had just switched off. Killing the transition makes the measurement the
+    // page's steady state, which is the thing being asserted.
+    const kill = document.createElement('style');
+    kill.textContent = '.agx-rail-link span, .agx-rail-link::before { transition:none !important; }';
+    document.head.appendChild(kill);
+    void document.body.offsetWidth;
+    // The rail's own INK, not the link box: a link's box spans the whole rail column whether or not its label is
+    // open, so measuring the box would report the tick lane as covering text it does not touch. What is measured
+    // is the standing label span, plus the ::before number's lane, which is the link box minus the label and minus
+    // the tick — read off the computed max-width the number is clamped to.
+    const rail = document.querySelector('.agx-rail');
+    const ink = [];
+    let standing = 0;
+    for (const a of document.querySelectorAll('a.agx-rail-link')) {
+      const lb = a.getBoundingClientRect();
+      const s = a.querySelector('span');
+      if (s && (s.textContent || '').trim()) {
+        const sr = s.getBoundingClientRect();
+        if (sr.width > 0) { ink.push(sr); standing++; }
+      }
+      const num = parseFloat(getComputedStyle(a, '::before').maxWidth);
+      if (num > 0) ink.push({ left: lb.left, right: lb.right, top: lb.top, bottom: lb.bottom });
+      // The TICK is ink too, and leaving it out is how a gate passes a rail that touches copy with the one part
+      // it always paints. It is the right-hand end of the link box, ::after's own width plus the link's padding.
+      const tick = parseFloat(getComputedStyle(a, '::after').width) || 0;
+      const pad = parseFloat(getComputedStyle(a).paddingRight) || 0;
+      if (tick > 0) ink.push({ left: lb.right - tick - pad, right: lb.right, top: lb.top, bottom: lb.bottom });
+    }
+    let covered = 0, first = null;
+    if (ink.length) {
+      const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      for (let n = w.nextNode(); n; n = w.nextNode()) {
+        if (!(n.nodeValue || '').trim()) continue;
+        const pe = n.parentElement;
+        if (!pe || pe.closest('script, style, .agx-rail, [data-agx-invis]')) continue;
+        // PER LINE BOX, not the range's union box. A wrapped paragraph's union box spans the whole column even
+        // where its last line stops short, so a union-box test reported about's bio paragraph as covered at 1280
+        // with a right edge of 1284 in a 1280px viewport — an artefact of the union, not a glyph under the rail.
+        // getClientRects() returns one rect per line, which is as close to the glyphs as the DOM gets.
+        const rg = document.createRange();
+        rg.selectNodeContents(n);
+        let hit = null;
+        for (const b of rg.getClientRects()) {
+          if (!(b.width > 0 && b.height > 0)) continue;
+          for (const r of ink) {
+            if (b.right > r.left && b.left < r.right && b.bottom > r.top && b.top < r.bottom) { hit = [b, r]; break; }
+          }
+          if (hit) break;
+        }
+        if (hit) {
+          covered++;
+          if (!first) first = [(n.nodeValue || '').trim().slice(0, 40), Math.round(hit[0].right), Math.round(hit[1].left)];
+        }
+      }
+    }
+    kill.remove();
+    return { standing, covered, first };
+  });
+}
+
+/** Check 6: one drawn <svg class="agx-icon"> per declared swap, and no emoji left in an icon-class element. */
+async function iconSwaps(page) {
+  return page.evaluate(() => {
+    const EM = /[\u{1F300}-\u{1FAFF}☀-➿⬀-⯿⌀-⏿]/u;
+    const CL = ['feature-icon', 'audience-icon', 'hw-card-icon', 'success-icon', 'card-icon',
+      'pillar-icon', 'scenario-icon', 'disc-icon', 'threat-icon', 'icon-item', 'blog-icon'];
+    // #form-success is display:none until the form is submitted; shown for the measurement and put back.
+    const fs = document.getElementById('form-success');
+    const prev = fs ? fs.style.display : null;
+    if (fs) fs.style.display = 'block';
+    const svgs = [...document.querySelectorAll('.agx-content svg.agx-icon')];
+    const drawn = svgs.filter((s) => s.getBoundingClientRect().width > 0).length;
+    const left = [...document.querySelectorAll('.' + CL.join(', .'))]
+      .filter((e) => EM.test(e.textContent || '')).length;
+    if (fs) fs.style.display = prev;
+    return { total: svgs.length, drawn, left };
+  });
+}
+
 async function main() {
   // In the OS temp dir, never the repo: a run interrupted mid-way would otherwise leave an untracked file behind.
   const unitsFile = path.join(os.tmpdir(), 'render-audit-units-' + process.pid + '.json');
@@ -306,7 +473,8 @@ async function main() {
       { cwd: REPO, stdio: 'inherit' });
     p.on('exit', (c) => (c === 0 ? res() : rej(new Error('compare-atlas.py --units exit ' + c))));
   });
-  const liveUnits = JSON.parse(fs.readFileSync(unitsFile, 'utf8'));
+  const dumped = JSON.parse(fs.readFileSync(unitsFile, 'utf8'));
+  const liveUnits = dumped.units, iconCounts = dumped.icons;
 
   const port = await freePort(8900);
   const server = spawn('python3', ['-m', 'http.server', String(port), '--bind', '127.0.0.1'],
@@ -322,6 +490,10 @@ async function main() {
   const sum = { units: 0, unseen: 0, labels: 0, clipped1440: 0, clipped1800: 0, stranded: 0, chapters: 0, pageErrors: 0, localFails: 0, unmeasured: 0, ticks: 0,
     landings: 0, landingsAt72: 0, landingsFirst: 0, landingsHead: 0, headUnderBar: 0 };
   let maxScroll = 0, maxScrollText = '', minGap = 1e9, noEllipsis = 0, overlap1440 = 0, maxOverlap = 0;
+  const STANDING_WIDTHS = [1800, 1440, 1280, 1025];
+  const standing = Object.fromEntries(STANDING_WIDTHS.map((w) => [w, { standing: 0, covered: 0 }]));
+  let iconTotal = 0, iconDrawn = 0, iconLeft = 0, iconBad = 0;
+  const railSpends = [];
   let headMin = 1e9, headMax = -1e9;
   // Every HIDDEN_ON_LIVE spend, keyed by (slug, unit), so the summary shows exactly which page spent which key.
   const hiddenSpends = [];
@@ -357,6 +529,7 @@ async function main() {
           await page.screenshot({ path: path.join(SHOTS, `${slug}-${vp.width}x${vp.height}.png`) });
         }
         if (wide) {
+          await markInvisible(page);
           const rows = await railLabels(page);
           sum.labels += rows.length;
           sum.ticks += rows.ticks;
@@ -390,6 +563,14 @@ async function main() {
               if (L.head < 60) { sum.headUnderBar++; console.log(`    HEADING UNDER THE 60px BAR on ${slug} ${L.id}: ${Math.round(L.head)}px`); }
             }
           }
+          const icons = await iconSwaps(page);
+          const wantIcons = iconCounts[slug];
+          iconTotal += icons.total; iconDrawn += icons.drawn; iconLeft += icons.left;
+          if (icons.total !== wantIcons || icons.drawn !== wantIcons || icons.left !== 0) {
+            iconBad++; bad++;
+            console.log(`    ICON SWAPS on ${slug}: ${icons.total} svg / ${icons.drawn} drawn / ${icons.left} emoji left, `
+              + `${wantIcons} declared by compare-atlas.py --units`);
+          }
           const walk = await revealWalk(page);
           sum.stranded += walk.stranded;
           sum.chapters += walk.total;
@@ -419,6 +600,7 @@ async function main() {
             if (L.head < 60) { sum.headUnderBar++; console.log(`    HEADING UNDER THE 60px BAR on ${slug} ${L.id} at 1800: ${Math.round(L.head)}px`); }
           }
         }
+        await markInvisible(page);
         const rows = await railLabels(page);
         const clipped = rows.filter((r) => !r.unmeasured && r.scroll > r.client);
         const unmeasured = rows.filter((r) => r.unmeasured);
@@ -431,6 +613,27 @@ async function main() {
         if (clipped.length) {
           console.log(`    CLIPPED at 1800 on ${slug}: ` +
             clipped.map((r) => `${JSON.stringify(r.text)} ${r.scroll}>${r.client}px`).join(', '));
+        }
+        // Check 7 — the STANDING label's cost, at the four widths the band was set from. No reload: the viewport is
+        // resized on the page already loaded, which is what makes four extra widths affordable.
+        for (const w of STANDING_WIDTHS) {
+          await page.setViewportSize({ width: w, height: 1000 });
+          await page.waitForTimeout(360);
+          const st = await standingOverlap(page);
+          standing[w].standing += st.standing;
+          standing[w].covered += st.covered;
+          if (st.covered) {
+            const key = `${slug}@${w}`;
+            if (Object.hasOwn(RAIL_OVERLAP_ON_MAIN, key)) {
+              railSpends.push(key);
+              console.log(`    rail overlap ON ORIGIN/MAIN TOO, allowed by name (${key}): ${st.covered} run(s); `
+                + `${RAIL_OVERLAP_ON_MAIN[key]}`);
+            } else {
+              bad++;
+              console.log(`    THE RAIL COVERS LIVE TEXT on ${slug} at ${w}: ${st.covered} run(s) over the walk, `
+                + `${st.standing} standing label(s); first ${JSON.stringify(st.first)}`);
+            }
+          }
         }
         await ctx.close();
       }
@@ -457,8 +660,16 @@ async function main() {
     fs.rmSync(unitsFile, { force: true });
   }
 
-  console.log(`\nSUMMARY  live text units ${sum.units}, rendered ${sum.units - sum.unseen}, no box at either width ${sum.unseen}`);
-  console.log(`         rail links ${sum.labels + sum.ticks} a page-set, ${sum.labels} carrying a label and ${sum.ticks} label-less ticks; hovered at 1440 and at 1800: clipped ${sum.clipped1440} at 1440, ${sum.clipped1800} at 1800`);
+  const iconWant = pages.reduce((a, s) => a + iconCounts[s], 0);
+  console.log(`\nSUMMARY  live text units ${sum.units} compared + ${iconWant} swapped to icons = ${sum.units + iconWant} accounted; `
+    + `rendered ${sum.units - sum.unseen}, no box at either width ${sum.unseen}`);
+  console.log(`         icon swaps ${iconDrawn}/${iconWant} drawn at 1440 (#form-success force-shown), ${iconLeft} emoji code points left inside an icon class, ${iconBad} page(s) with a delta`);
+  console.log(`         rail links ${sum.labels + sum.ticks} a page-set, ${sum.labels} carrying a label and ${sum.ticks} label-less ticks; the chapter number and the label both come on hover as NN \u00b7 LABEL (measured: anything standing covers live copy \u2014 see check 7); hovered at 1440 and at 1800: clipped ${sum.clipped1440} at 1440, ${sum.clipped1800} at 1800`);
+  console.log(`         live text runs the UNHOVERED rail covers, walked at 0.75 viewport steps: `
+    + STANDING_WIDTHS.map((w) => `${w}px ${standing[w].covered} (${standing[w].standing} standing label(s))`).join(', '));
+  const railUnspent = Object.keys(RAIL_OVERLAP_ON_MAIN).filter((k) => !railSpends.includes(k));
+  console.log(`         of those, ${railSpends.length} allowed by name as present on origin/main too: ${railSpends.join(', ') || 'none'}`);
+  if (railUnspent.length && !ONLY) console.log(`         RAIL_OVERLAP_ON_MAIN keys spent by no page this run (an allowance nothing uses): ${railUnspent.join(', ')}`);
   console.log(`         rail landings ${sum.landings} across 1440 and 1800: ${sum.landingsAt72} put the chapter box at 71.5-72.5px, ${sum.landingsFirst} are each page's FIRST link (document top), ${sum.headUnderBar} put a heading under the 60px bar`);
   console.log(`         of those, ${sum.landingsHead} land a chapter that carries a heading: ${headMin === 1e9 ? 'n/a' : Math.round(headMin * 10) / 10}px to ${headMax === -1e9 ? 'n/a' : Math.round(headMax * 10) / 10}px from the top`);
   console.log(`         rail labels whose hover state never settled, excluded from the clipped counts: ${sum.unmeasured}`);

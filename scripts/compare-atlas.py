@@ -71,6 +71,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import atlas_live as live
+import atlas_shell as atlas
 
 REPO = live.REPO
 OUT = os.path.join(REPO, 'atlas-compare.html')
@@ -93,6 +94,9 @@ _A = re.compile(r'<a\b([^>]*)>(.*?)</a>', re.S | re.I)
 _HREF = re.compile(r'\bhref=["\']([^"\']*)["\']', re.I)
 _ATTR = re.compile(r'''\b(?:alt|placeholder|value|title|aria-label|label)\s*=\s*(["'])(.*?)\1''', re.S | re.I)
 _ELEM = re.compile(r'<(option|label)\b[^>]*>(.*?)</\1>', re.S | re.I)
+# Every emoji code point the captures carry. U+2300-23FF and U+2B00-2BFF are load-bearing: \u23f1 and \u2b50
+# are both in ICON_SWAPS and both outside the usual U+1F300-1FAFF / U+2600-27BF ranges.
+_EMOJI = re.compile('[\U0001F300-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\u2300-\u23FF]')
 
 # The printed chrome controls and the ONE element each may be printed in. A unit is excused only where it sits inside
 # that element's own span, and each element is spent once per page — "Enter" dropped into a footer has no element
@@ -288,6 +292,52 @@ def rail_anchors(markup):
     return out
 
 
+def icon_spans(slug, markup):
+    """(start, end, class, glyph) of every LIVE glyph run this build swaps for an SVG, in document order.
+
+    Position-anchored like every other excuse in this file: the run must sit inside an element whose class is one of
+    atlas.ICON_CLASSES and whose whole content is that glyph, and the sequence must equal atlas.ICON_SWAPS[slug]
+    element for element. A glyph anywhere ELSE on the live page is compared exactly as it always was, and a glyph
+    dropped from a card the table does not name is still a MISSING FROM BUILD delta."""
+    src = _STRIP.sub(_blank, markup)
+    want, out = list(atlas.ICON_SWAPS.get(slug, ())), []
+    for m in atlas.ICON_EL.finditer(src):
+        g = clean(m.group(4))
+        if g:
+            out.append((m.start(4), m.end(4), m.group(3), g))
+    got = [(c, g) for _s, _e, c, g in out]
+    assert got == [(c, g) for c, g, _t in want], \
+        '%s: the capture no longer matches ICON_SWAPS — %d live icon glyphs, %d declared' \
+        % (slug, len(got), len(want))
+    return out
+
+
+def blank_icons(markup, icons):
+    """`markup` with the declared glyph runs replaced by spaces of the same length — the same 70 positions the text
+    pass withholds, withheld from the ANCHOR LABEL too. cuas-aerodefense is why: its blog card is one <a> whose
+    label the live page opens with 📄, so with the glyph left in, the live label and the build label are different
+    strings and the href pass reports the card's destination as dropped. Offsets are into the blanked-script copy,
+    which is the same length as `markup`, so they index it directly."""
+    out = list(markup)
+    for a, b, _c, _g in icons:
+        out[a:b] = ' ' * (b - a)
+    return ''.join(out)
+
+
+def icon_receipts(slug, new_markup):
+    """The build's side of the swap: one <svg class="agx-icon" data-agx-glyph="..."> per declared swap, in the same
+    order, and no emoji code point left inside any icon class."""
+    keys = re.findall(r'<svg class="agx-icon"[^>]*data-agx-glyph="([0-9A-F-]+)"', new_markup)
+    want = [atlas._glyph_key(g) for _c, g, _t in atlas.ICON_SWAPS.get(slug, ())]
+    bad = []
+    if keys != want:
+        bad.append('svg receipts %r != declared %r' % (keys[:6], want[:6]))
+    for m in atlas.ICON_EL.finditer(new_markup):
+        if _EMOJI.search(H.unescape(m.group(4))):
+            bad.append('emoji survives inside .%s' % m.group(3))
+    return keys, bad
+
+
 def control_spans(markup):
     """{element id: (start, end)} for the chrome controls and the wordmark — the FIRST element carrying each id, its
     offsets into `markup` (scripts blanked at their own length, as text_spans does, so the offsets agree). An id the
@@ -477,13 +527,27 @@ figure.film{width:100%;border:1px dashed #2a3550;padding:.25rem}
 
 
 def dump_units(path):
-    """{slug: [every live text unit]} for scripts/render-audit.mjs, which asserts each one renders a non-zero box at
-    one of the two widths. Written by the extractor the sheet itself uses, so the browser pass cannot drift from the
-    parity pass: `python3 scripts/compare-atlas.py --units <path>`."""
+    """{'units': {slug: [every live text unit the build carries as text]}, 'icons': {slug: swaps}} for
+    scripts/render-audit.mjs, which asserts each unit renders a non-zero box at one of the two widths and each swap
+    renders an <svg class="agx-icon">. Written by the extractor the sheet itself uses, so the browser pass cannot
+    drift from the parity pass: `python3 scripts/compare-atlas.py --units <path>`.
+
+    The swapped glyph units are WITHHELD, not excused: HIDDEN_ON_LIVE's bar is "the reason it is invisible AND the
+    evidence the live page hides it", and that is false here — the live page shows them and this build replaces
+    them. Putting them there would be the excuse-laundering that list exists to stop. They are asserted positively
+    instead, by render-audit check 6."""
     import json
-    data = {slug: [t for t, _a, _b in text_spans(visible(live._read(slug)))] for slug in live.PAGES}
-    open(path, 'w', encoding='utf-8').write(json.dumps(data))
-    print('wrote %s: %d pages, %d live text units' % (path, len(data), sum(len(v) for v in data.values())))
+    data, icons = {}, {}
+    for slug in live.PAGES:
+        vis = visible(live._read(slug))
+        cut = icon_spans(slug, vis)
+        data[slug] = [t for t, a, b in text_spans(vis)
+                      if not any(s <= a and b <= e for s, e, _c, _g in cut)]
+        icons[slug] = len(cut)
+    open(path, 'w', encoding='utf-8').write(json.dumps({'units': data, 'icons': icons}))
+    print('wrote %s: %d pages, %d live text units, %d glyph units withheld as ICON_SWAPS '
+          '(they render as <svg class="agx-icon">, asserted by render-audit check 6)'
+          % (path, len(data), sum(len(v) for v in data.values()), sum(icons.values())))
 
 
 def main():
@@ -501,6 +565,8 @@ def main():
         uo, un = [t for t, _a, _b in ao], [t for t, _a, _b in an]
         mo, mn = seen_media(old), seen_media(new)
         rails = rail_anchors(new)
+        icons = icon_spans(slug, old)
+        svg_keys, icon_bad = icon_receipts(slug, new)
 
         # The rail is separated from the body BEFORE anything is compared. A rail label repeats a heading the page
         # already prints, so a rail run left in the pool would satisfy the live page's own heading and push the
@@ -519,14 +585,19 @@ def main():
         body = [x for x in sn if not any(s <= x[1] and x[2] <= e for s, e in outside)]
         chrome_runs = [x for x in sn if any(s <= x[1] and x[2] <= e for s, e in outside)]
         tb = [t for t, _a, _b in body]
-        lost_t, added_t = missing(to, tb), added_spans(body, to) + chrome_runs
-        order = out_of_order(to, tb)
+        # The swapped glyphs are cut from the LIVE side before anything is compared, BY POSITION, exactly as the
+        # rail is cut from the build side above. Every other live unit is still compared both ways, and the order
+        # pass runs on the units the build actually carries.
+        live_body = [x for x in so if not any(s <= x[1] and x[2] <= e for s, e, _c, _g in icons)]
+        tlb = [t for t, _a, _b in live_body]
+        lost_t, added_t = missing(tlb, tb), added_spans(body, tlb) + chrome_runs
+        order = out_of_order(tlb, tb)
         lost_a, added_a = missing(uo, un), added_spans(an, uo)
         ok_t, bad_t = excuse(slug, added_t, rails, chrome)
         ok_a, bad_a = excuse_attrs(added_a, rails)
         extra_m = sorted(mn - mo)
         ok_m, lost_m, bad_m = pair_media(sorted(mo - mn), extra_m, mo)
-        bad_h, redirects = href_diff(old, new)
+        bad_h, redirects = href_diff(blank_icons(old, icons), new)
         # The media pass reads srcset candidates and data-src since r4. srcset MEASURES 0 on both sides of all twelve
         # pages today, so its absence is asserted: if either side ever grows one, this fails, and whoever added it
         # re-measures the pass rather than trusting a regex nobody has exercised. data-src is not asserted away — the
@@ -535,14 +606,24 @@ def main():
         srcset_n, lazy_n = lazy_attr_counts(new)
         bad_srcset = srcset_o or srcset_n
 
-        ok = not (lost_t or order or lost_a or lost_m or bad_t or bad_a or bad_m or bad_h or bad_srcset)
+        ok = not (lost_t or order or lost_a or lost_m or bad_t or bad_a or bad_m or bad_h or bad_srcset
+                  or icon_bad)
         off += 0 if ok else 1
-        print('%-24s text %3d/%3d %2d build-only (%d ok, %d NOT)  attr %2d/%2d %2d build-only (%d ok, %d NOT)  '
+        # NEVER print len(to) as the numerator here: `to` counts the swapped glyphs, which are not carried as
+        # text. The honest line is "N body units carried + K icon glyphs swapped = len(to) live units accounted".
+        print('%-24s text %3d/%3d %2d build-only (%d ok, %d NOT)  icons %2d->%2d  '
+              'attr %2d/%2d %2d build-only (%d ok, %d NOT)  '
               'media %2d/%2d %2d build-only (%d ok, %d NOT)  srcset %d/%d  data-src %d/%d  order %d  hrefs %d  %s'
-              % (slug, len(to) - len(lost_t), len(to), len(added_t), len(ok_t), len(bad_t),
+              % (slug, len(tlb) - len(lost_t), len(tlb), len(added_t), len(ok_t), len(bad_t),
+                 len(icons), len(svg_keys),
                  len(uo) - len(lost_a), len(uo), len(added_a), len(ok_a), len(bad_a),
                  len(mo) - len(lost_m), len(mo), len(extra_m), len(ok_m), len(bad_m),
                  srcset_o, srcset_n, lazy_o, lazy_n, len(order), len(bad_h), 'OK' if ok else 'DELTA'))
+        for _s, _e, c, g in icons:
+            print('    excused (icon swap): %-6s in .%-14s -> <svg class="agx-icon" data-agx-glyph="%s">'
+                  % (repr(g), c, atlas._glyph_key(g)))
+        for b in icon_bad:
+            print('    ICON SWAP NOT HONOURED: %s' % b)
         for u, why in ok_t + ok_a + ok_m:
             print('    excused: %-52s  %s' % (repr(u[:50]), why))
         for line in redirects:
@@ -586,13 +667,16 @@ def main():
             '<section class="page" id="%s"><h2>%s'
             '<a href="https://atlasglinn.com/%s" target="_blank" rel="noopener">current site &#8599;</a>'
             '<a href="%s" target="_blank">new page &#8599;</a></h2>'
-            '<p class="verdict%s">text %d/%d &middot; attributes %d/%d &middot; media %d/%d carried across &middot; '
+            '<p class="verdict%s">text %d/%d body units carried + %d icon glyph(s) swapped to '
+            '&lt;svg class="agx-icon"&gt; = %d/%d live units accounted &middot; attributes %d/%d &middot; '
+            'media %d/%d carried across &middot; '
             'order %s &middot; %d build-only unit(s), %d excused by the allowlist%s</p>'
             '<p class="excused">Allowed build-only chrome on this page:<ul>%s</ul></p>'
             '<div class="cols"><div class="col"><h3>Current atlasglinn.com</h3>%s</div>'
             '<div class="col"><h3>New &mdash; same content, cinematic shell</h3>%s</div></div></section>'
             % (slug, page, '' if slug == 'index' else slug + '/', page,
-               '' if ok else ' off', len(to) - len(lost_t), len(to), len(uo) - len(lost_a), len(uo),
+               '' if ok else ' off', len(tlb) - len(lost_t), len(tlb), len(icons),
+               len(tlb) - len(lost_t) + len(icons), len(to), len(uo) - len(lost_a), len(uo),
                len(mo) - len(lost_m), len(mo), 'kept' if not order else 'BROKEN',
                len(added_t) + len(added_a) + len(extra_m), len(ok_t) + len(ok_a) + len(ok_m),
                '' if ok else '<ul>%s</ul>' % detail, excused or '<li>none</li>',

@@ -268,14 +268,31 @@ stylesheet it links is served from the repo as `vendor/atlasglinn-shared-styles.
 
 Measured 2026-09-08 in Chromium (1440×900 and 390×844, fonts blocked on both sides, the live capture rendered the same
 way as the yardstick): typography 36/36 computed snapshots per page, hero `<video>` src equal to the live src on all
-twelve, zero horizontal overflow, one nav and one footer in every DOM, and not one chrome CSS rule matching an element
-outside the five chrome roots. **The two counts this paragraph used to carry — "text parity 1257/1257 units" and
+twelve, zero horizontal overflow, one nav and one footer in every DOM.
+**STRUCK 2026-09-09 — "and not one chrome CSS rule matching an element outside the five chrome roots" was published
+here as a 2026-09-08 measurement and NOTHING WAS MAKING IT.** `scripts/validate-live.py`, named as its source in
+`atlas_live.py:33`, `:437` and `:486`, **had never existed**: `git log --all --diff-filter=A -- '*validate-live*'`
+is empty and the three greps for the name are all prose inside `atlas_live.py`. The script exists now, it is run in
+the same pass as `compare-atlas.py`, and **this is its own output, 2026-09-09, all twelve pages: 86 surviving chrome
+selectors resolved against the rendered page, 0 matching an element outside `#intro-overlay` / `#main-nav` /
+`#mobile-nav` / `footer.site-footer` / `#back-to-top`; 55 cinema selectors, 0 outside the cinema layer except the
+one declared `.agx-ch > *`; 104 skin selectors, 0 reaching the chrome and 0 spent by no page; the live type scale
+sequence EQUAL to the capture's on 12/12.** **The two counts this paragraph used to carry — "text parity 1257/1257 units" and
 "media parity 35/35 URLs" — are STRUCK: they were taken over the content region only, before the comparator was
 widened to the whole `<body>`, and they read as page-set totals.** The page-set totals measured 2026-09-09 by
 `compare-atlas.py` are **2019 live text units across the twelve** (index 183 · executive-protection 227 ·
 residential-protection 146 · disaster-recovery 137 · training 151 · technology 122 · cuas-aerodefense 169 · uas 164 ·
 about 167 · careers 142 · contact 84 · ep-app 327) and **72 live media URLs** (9 · 5 · 5 · 11 · 8 · 7 · 4 · 5 · 9 ·
 4 · 4 · 1), all carried, 0 missing either way.
+**Re-stated 2026-09-09 for the icon swap, and it must be written this way and not the short way: 1949 of those 2019
+units are carried as TEXT and compared both ways; the other 70 are the emoji-as-icon glyphs the build replaces with
+`<svg class="agx-icon">`** (index 0 · executive-protection 6 · residential-protection 10 · disaster-recovery 6 ·
+training 12 · technology 0 · cuas-aerodefense 8 · uas 0 · about 0 · careers 0 · contact 0 · ep-app 28). They are
+**withheld from the live side BY POSITION** — inside an element whose class is one of the eleven declared icon
+classes and whose whole content is that glyph — and the build is asserted to stand one `<svg class="agx-icon">` in
+each place, in order, with no emoji code point left inside any icon class. **Never write "2019/2019 carried": 70 of
+them are not carried as text.** The line to write is `1949/1949 body units carried + 70 icon glyphs swapped =
+2019/2019 live units accounted`, which is what the sheet and stdout both print.
 
 ### THE CINEMATIC LAYER — MAST's front end over that content (2026-09-09)
 
@@ -284,6 +301,55 @@ LOOK AT THE no-brag for this page"*, and 23:04:11Z: *"the actual format. with th
 everything else doesn't match mass solutions or what Atlas Lin had in it."* The content half was already right; this is
 the presentation half, and it changes **nothing** inside a chapter.
 
+- **THE `agx` PALETTE WAS BROKEN ON ELEVEN PAGES AND GOLD ON THE TWELFTH — repaired 2026-09-09.** `CINEMA_CSS`
+  wrote `var(--text)`, `var(--gold)` and `var(--gold-champagne)`; `chrome_css()` declares the palette **on the five
+  chrome roots, not on `:root`** (the rule directly above), and `.agx-rail` is not one of them, so those properties
+  were **undeclared** on the rail and every declaration reading them was invalid-at-computed-value-time. Measured in
+  Chromium at 1440×900 on `origin/main`:
+
+  | page | `--gold` | `--gold-champagne` | `--text` | `.agx-rail-link.agx-active::after` background |
+  |---|---|---|---|---|
+  | ep-app | `#C9A84C` | *(empty)* | *(empty)* | **`rgb(201,168,76)` — MAST GOLD on an Atlas page** |
+  | index | *(empty)* | *(empty)* | *(empty)* | `rgba(240,244,255,.5)` — the idle tick, no active state |
+  | executive-protection | *(empty)* | *(empty)* | *(empty)* | **`rgba(0,0,0,0)` — the active tick was INVISIBLE** |
+  | contact | *(empty)* | *(empty)* | *(empty)* | `rgba(240,244,255,.5)` |
+
+  ep-app is the only one of the twelve whose own `:root` declares `--gold`, which is why it and only it painted, and
+  in MAST's colour. **`shell._recolor` could never have caught this**: it is a literal `str.replace` over hex tokens
+  and cannot rewrite a `var()` NAME. The repair is `--agx-blue` / `--agx-blue-l` / `--agx-ink` / `--agx-dim`
+  declared on `.agx-rail, .agx-hud, #agx-progress` — the layer's own roots — so the rail carries the same colour on
+  all twelve. `--agx-` measured 0 hits across `shared-styles.css` and all twelve `<style>` blocks before the change.
+- **`AGX_SKIN_CSS` is the ONE declared exception to "the shell's CSS never reaches the content", and it is asserted
+  by name.** The chrome sheet still may not reach a content element and `validate-live.py` check 1 still proves it.
+  The skin may, and only the skin: `atlas_shell.assert_skin_scope()` fails the build unless **every** selector
+  begins `.agx-content `, there is **no `font-size` and no `font-family` anywhere** (ledger K-3, the seven heading
+  sizes stay — the browser-side backstop is `validate-live.py` check 4, which compares the computed type sequence
+  against the live capture and got EQUAL on 12/12), **no gold literal and no `--gold`** (gold is MAST's; the inverse
+  is not true and is not "fixed" — eleven live pages border their own cards in `rgba(201,168,76,.6)` and that is
+  the live design, carried), and the card hover is **read out of `cinematic_shell.py:132-133` at build time** by
+  `assert_shared_hover()` rather than re-typed. `validate-live.py` check 3 then measures it in a browser: **104 skin
+  selectors, 0 reaching the chrome, 0 spent by no page.** Two names an earlier enumeration carried were dropped for
+  exactly that last reason — `.cred-tag` (3 spans) and `.cta-nav-btn` (1 anchor) sit in ep-app's **footer and nav**,
+  outside `.agx-content`, so a skin rule for them would have matched nothing anywhere.
+- **The emoji-as-icon swap (D).** The eleven declared icon classes — `feature-icon`, `audience-icon`,
+  `hw-card-icon`, `success-icon`, `card-icon`, `pillar-icon`, `scenario-icon`, `disc-icon`, `threat-icon`,
+  `icon-item`, `blog-icon` — carry **70 glyphs across six pages**, and each becomes a 24px, 1.5px-stroke,
+  `currentColor` inline `<svg class="agx-icon">` in a 48px ring. `ICON_SWAPS` is the position table (70 rows) and
+  `ICON_SVG` the drawing table; the build **fails** if the capture and the table disagree, which is the point of
+  writing them out. The SVG carries **no `href`, no `<use>`, no `url()`, no `src`/`poster`** — `check-links.py`
+  reads all four — and its receipt attribute is `data-agx-glyph` holding hex code points, never the glyph (that
+  would fail the very assert it exists to prove) and never a `data-src`-like name (`compare-atlas.py` counts
+  `\bdata-src\s*=`). **The emoji regex carries `U+2300-23FF` and `U+2B00-2BFF` as well as the usual
+  `U+1F300-1FAFF` / `U+2600-27BF`**: `⏱ U+23F1` (APPLE WATCH ULTRA 2) and `⭐ U+2B50` (Leadership) are both in the
+  swap set and both outside the usual ranges — without those two extra ranges the "no emoji remains" assert passes
+  while two survive.
+  **FOURTEEN CLASS-LESS GLYPHS STAY AS EMOJI AND HE WILL SEE THEM.** Six comms-layer icons in the middle of ep-app
+  (📶 CELLULAR · 📡 WiFi · 🔗 MESH · 🛰️ IRIDIUM · ✨ STARLINK · 📱 SAT PHONE, each a bare
+  `<div style="font-size:28px">`), five in a second executive-protection `.service-card` group (🌎 Terrain · ☁
+  Weather · 📍 Range of Ops · 🔍 Advance Recon · 📅 Schedule Tempo), and the class-less ✅ / 🛡 / ✍ singletons on
+  contact and about. They have no class hook, and matching on the bare glyph inside class-less divs would be a
+  page-wide search-and-replace that can reach body copy — which is why the rule is class-based. **This is a visible
+  inconsistency on the two pages he is most likely to open and it is stated here rather than left for him to find.**
 - **Chapters.** `atlas_live.chapters(slug)` cuts the live page at its own top-level `<section>` boundaries (ep-app is
   built from top-level `…-wrap` divs and cuts there). A `section-divider` band carries the next section's title, so it
   **opens** that chapter instead of closing the last one; a `<script>` between two sections rides with whatever follows.
@@ -345,35 +411,89 @@ the presentation half, and it changes **nothing** inside a chapter.
   `mastsolutions.html`, and 0 elements with an id or class containing "sound" render at either width. There is nothing
   of MAST's to add or to have declined to add; the build reproduces the LIVE site's toggle footprint, 5 of 12 pages,
   and **whether any of those five films carries audio is UNVERIFIABLE FROM HERE** (no egress).
-- **The rail — measured against MAST's at each width, 2026-09-09.** MAST (`mastsolutions.html`): `display:none` at
-  390; `display:flex`, ticks, **0 labelled** at 900 and 1024; `display:flex`, **13/13 labelled** at 1440 and 1800.
-  Atlas now: `display:none` at 390 (same as MAST), ticks at 900 and 1024 (**same as MAST** — it used to be hidden
-  below 1025), ticks with labels on hover at 1440, and the reading position's label from 1700. **Where it differs
-  from MAST it is because MAST cuts itself a right gutter its own content owns** (`section.panel
-  { padding-right:16.5rem }` at 1025–1600) and an Atlas page cannot: the sections are the live page's own centred
-  1400px blocks and widening their padding is a content change. Overlap measured the same way on both: the Atlas
-  rail's box intersects 1–10 live text boxes per page per width (their right edges, not necessarily their glyphs);
-  MAST's own intersects **443 at 900 and 284 at 1024** on its own page. Written as a behaviour, never as
-  "chapter rail": **rail: hidden ≤768 · ticks 769–1699 · reading-position label ≥1700, hover label throughout.**
-  **THE 1025–1699 px DIVERGENCE FROM MAST IS THE ACCEPTED DEVIATION**, not an oversight and not a defect to re-open:
-  at those widths MAST prints thirteen labels permanently and an Atlas page prints ticks with the label on hover.
-  It follows directly from the gutter sentence above, `scripts/atlas_shell.py` says so at the media queries, and
-  this line is the record that it was decided rather than missed.
-- **The rail label clamp is the measured maximum, and the ellipsis is behind it (R4-9, 2026-09-09).** The page-set
-  carries **79 rail links: 77 with a label and 2 label-less ticks** (executive-protection ch2 and ep-app ch2, whose
-  chapters carry no heading — their `<span>` is present but empty, which is why the test skips on the label TEXT and
-  not on the element). At `max-width:13rem` (208 px) **14 of the 77 labels were cut mid-word at 1440×900, and the
-  same 14 at 1800×1000**
-  — "Atlas Glinn SOP for Protective Detail" 303 px, "Your Assets Don't Wait. Neither Do We." 311 px, "Four Pillars of
-  Residential Defense" 286 px, "No Pilot Required. No Gaps in Coverage ." 327 px — and `text-overflow` computed
-  `clip` on **all 79**, so the cut carried no signal at all. The clamp is now **20.5 rem = 328 px, one pixel past the
-  widest label measured (327 px, uas ch4)**, and `text-overflow:ellipsis` is the backstop for any label longer than
-  today's. Re-measured after the change with `scripts/render-audit.mjs`: **0 clipped of 77 at 1440, 0 of 77 at 1800,
-  0 labels without the ellipsis.** **What the wider clamp costs, measured, not assumed:** an open label's left edge
-  moves from **1172 px to 1053 px** at 1440, which is INSIDE the 1400 px centred column's box (20–1420 px) — so
-  "it clears the column" would be false — but the open label covers **0 live text boxes on all 77 labels, worst
-  single label 0**, because it opens into the column's own right padding. The honest sentence is: it overlaps the
-  column's box and covers none of its text.
+- **The rail — HE ASKED FOR MAST'S STANDING SIDEBAR ON 2026-09-09 17:12, IT WAS BUILT, AND THE MEASUREMENT SAYS
+  IT CANNOT STAND OVER THIS CONTENT.** His words, looking at the ep-app preview: *"Menu should be like the
+  mastsolutions menu side bar?  Add more of the teslas style"* — the one-word reversal this file reserved to him
+  of the paragraph that stood here, which read **"THE 1025–1699 px DIVERGENCE FROM MAST IS THE ACCEPTED DEVIATION,
+  not an oversight and not a defect to re-open"**. It was re-opened. The standing rail was implemented, driven in
+  Chromium, **looked at in a screenshot**, and the screenshot is what killed it: on executive-protection the
+  standing labels `01 · DETAILS MATTER` and `03 · OUR SERVICES` sat straight across the "Body Man Duties" card's
+  body copy, and on ep-app `06 · EVERY TIER GETS EVERY TOOL` sat across the ENCRYPTED COMMS card.
+  **Walked down all twelve pages at 1440×900 in 0.75-viewport steps, one line box at a time** (never the range's
+  union box, which spans the whole column and is why an earlier count read high) **and counting only text a reader
+  can see** (the dismissed splash is `visibility:hidden`, not `display:none`, so its boxes are real and had to be
+  excluded — `render-audit.markInvisible()`):
+
+  | rail form | live text runs covered at 1440 |
+  |---|---|
+  | every label standing, 20.5 rem | **92** |
+  | every label standing, 9 rem | **74** |
+  | numbered tick, no label | **12** |
+  | tick alone at `right:1.5rem` | **3** (technology 2, cuas-aerodefense 1) |
+  | tick alone at `right:.45rem` | **0** ← what ships |
+
+  **A SCROLL-0 MEASUREMENT RETURNS 0 FOR ALL FIVE.** The hero band is empty on the right; the grids below it are
+  not. Every earlier "0 covered" figure in this file — including the one under the clamp bullet — was taken at
+  scroll 0 with one label hovered, and it was true of that state and of nothing else.
+  **Why it cannot be fixed inside this build:** MAST cuts itself `section.panel { padding-right:16.5rem }`. An
+  Atlas page's sections are the LIVE page's own centred 1400 px blocks, and the live copy runs out to the rail —
+  index's *"Evil twin WiFi detection…"* ends at x=1378 in a 1440 px viewport, technology's *"Atlas Glinn, in
+  partnership with AeroDef…"* at 1403, about's team bio at 1278 in a 1280 px viewport. **The only way to give him
+  the standing sidebar is a right gutter on `.agx-content`, which shifts the live layout — that is his call and it
+  is a PENDING item, not something this build decides.**
+  **What DID ship, and it is not nothing:** the rail is MAST's in proportion, type and behaviour, repainted in the
+  Atlas blue by the palette repair above — which is what made the active tick visible at all on eleven pages — and
+  the chapter NUMBER now rides with the label on hover as `01 · LABEL`, drawn by a CSS counter. **The behaviour,
+  written as a behaviour: rail hidden ≤768 · ticks 769–1024 · ticks with `NN · LABEL` on hover from 1025, the
+  reading position marked by colour and a longer tick.** MAST for comparison: `display:none` at 390; ticks,
+  0 labelled, at 900 and 1024; 13/13 labelled at 1440 and 1800.
+  **TWO THINGS ORIGIN/MAIN DID THAT THIS DROPS, both for the same measured reason.** (1) `@media (min-width:1700px)
+  { .agx-rail-link.agx-active span { max-width:20.5rem; opacity:1 } }` stood the reading position's label
+  permanently; walked at 1800×1000, uas's *"From launch to landing, The Bee operates…"* has a line box ending at
+  x=1525 and that label's left edge lands on 1525. It had never been measured this way — the only overlap figure
+  this rail ever carried was one hovered label at scroll 0. **No label stands at any width now.** (2) The active
+  tick widened from 17 px to 30 px at every width; at 1025 that put the dash's left edge at 981.6 against uas's
+  *"$4–7/hour"* ending at 993 — eleven pixels of dash over the number — so between 1025 and 1439 the active tick
+  keeps 17 px and marks itself with colour and glow, and the link's right padding drops to `.2rem`, putting the
+  lane at 997.6.
+  **THE NUMBER IS A CSS COUNTER, NOT A TEXT NODE** — `counter-increment` plus `counter(agx-ch,
+  decimal-leading-zero)` in `::before`. Printing `01 · LABEL` as markup would add a text unit no live page carries
+  AND break the rail-label excuse in `compare-atlas.rail_anchors()`, which excuses a label only where
+  `clean(anchor text)` **equals** a heading of the chapter it points at — on all 77 labelled anchors at once.
+  Generated content is not in the DOM text stream, so text parity is unchanged and render-audit's TreeWalker never
+  sees it. Same reasoning for the HUD, below.
+  **`render-audit.mjs` check 7 is the standing gate and it is armed**: it walks 1025 / 1280 / 1440 / 1800 in
+  0.75-viewport steps on every run and fails on any covered run. **One run is allowed BY NAME** —
+  `RAIL_OVERLAP_ON_MAIN['about@1280']`, about's team-card bio line box ending at 1278 against a tick lane at 1249
+  — and it is allowed only because **origin/main's own about.html was driven through the same walk and produced
+  the identical single run**, `["TICK","J. Reneé Renobato serves as Office Manag",1278,1249]`. Unspent keys are
+  printed, because an allowance nothing uses is a hole nothing guards.
+- **The rail label clamp is still the measured maximum (R4-9, unchanged).** The page-set carries **79 rail links:
+  77 with a label and 2 label-less ticks** (executive-protection ch2 and ep-app ch2, whose chapters carry no
+  heading — their `<span>` is present but empty, which is why the test skips on the label TEXT and not on the
+  element). At `max-width:13rem` (208 px) **14 of the 77 labels were cut mid-word at 1440×900 and the same 14 at
+  1800×1000** — "Atlas Glinn SOP for Protective Detail" 303 px, "Your Assets Don't Wait. Neither Do We." 311 px,
+  "Four Pillars of Residential Defense" 286 px, "No Pilot Required. No Gaps in Coverage ." 327 px — and
+  `text-overflow` computed `clip` on all 79. The clamp is **20.5 rem = 328 px, one pixel past the widest label
+  measured (327 px, uas ch4)**, `text-overflow:ellipsis` is the backstop, and re-measured after this change:
+  **0 clipped of 77 at 1440, 0 of 77 at 1800, 0 labels without the ellipsis.** **The line this bullet used to
+  carry — "the open label covers 0 live text boxes on all 77 labels" — is TRUE ONLY OF ONE HOVERED LABEL AT
+  SCROLL 0**, which is what `railLabels()` measures, and it must not be read as a statement about a standing rail;
+  see the table above.
+- **The HUD — MAST's two bottom corners, and BOTH LINES ARE CSS `content`.** `.agx-hud-bl::before` is the brand
+  line `ATLAS GLINN · HOUSTON`; `.agx-hud-br::before` is `"SECTION " attr(data-n) " / " attr(data-of)`, with
+  `data-n` advanced by the same `onScroll` that moves the rail's active class and `data-of` the chapter count,
+  two-digit padded. **No text node, so no text unit and no comparator excuse** — and that is deliberate: this file
+  records that the old unanchored `NN / NN` excuse was DROPPED in R4-4 because "an excuse nothing spends is a hole
+  nothing guards". It is asserted POSITIVELY instead, by `validate-live.py` check 5, which reads the computed
+  `::before` content at scroll 0 and at chapter k and requires `display:none` at 390 — **correct on 12/12**.
+  `right:5.2rem` on the counter, not `1.5rem`: `#back-to-top` is a fixed 46 px button at l 1378 / r 1424 / t 848 /
+  b 894 at 1440×900, and 1.5 rem would put the counter under it; 5.2 rem clears it by 21 px.
+  **One fixed-chrome intersection is real, PRE-EXISTING, and not this change's:** `#back-to-top` × `#sound-toggle`
+  intersect on `origin/main` too (measured 1440×900: back-to-top [1378,1424,848,894], sound-toggle
+  [1360,1408,820,868]) on the five live pages that ship a toggle. `validate-live.py` check 6 prints it as
+  pre-existing and fails only on a pair involving an `agx-` element — of which there are **0 at 1440, 1280 and 1025
+  on all twelve.**
   **Compare like with like on the count:** MAST's rail is **13 `.chap-link` plus 2 `.chap-extra`** — `· Blogs`
   (`preview-only`) and `· Sign in` (`chap-always`). Its container is `display:none` at **≤899**
   (`mastsolutions.html:618`, which supersedes the ≤768 rule at :580); the 13 `.chap-link` are `font-size:0` from

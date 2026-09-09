@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="25231721a13c">
+<meta name="build" content="3a618baba782">
 <title>Autonomous Drone Security Houston TX | Sunflower Labs — Atlas Glinn</title>
 <meta name="description" content="Fully autonomous drone surveillance by Sunflower Labs. Real-time intelligent monitoring, AI detection, and 24/7 property protection. Atlas Glinn — elite partner. Houston, TX. (281) 654-8100.">
 <meta property="og:title" content="UAS Autonomous Drones | Sunflower Labs — Atlas Glinn">
@@ -335,6 +335,15 @@ body.intro-open { overflow:hidden; }
   #intro-title { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(1.9rem,6.2vw,3.6rem); letter-spacing:.14em; line-height:1.1; text-transform:uppercase; background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; text-shadow:0 0 60px rgba(201,168,76,.35); animation:shimmer 3s linear infinite; }
   @media (prefers-reduced-motion: reduce) { #intro-title { animation:none; } }
 
+  /* ── The agx palette, declared ON the agx roots. NOT on :root and NOT via var(--gold).
+     Measured 2026-09-09 at 1440x900: `--gold`, `--gold-champagne` and `--text` are UNDECLARED on eleven of the
+     twelve pages (they live on the five chrome roots, chrome_css() declares the palette there, and .agx-rail is not
+     one of them), so `.agx-rail-link:hover { color:var(--gold-champagne) }` was invalid-at-computed-value-time and
+     the active tick computed rgba(0,0,0,0) on executive-protection — invisible. On ep-app, the ONLY page whose own
+     :root declares --gold, the same declaration resolved to rgb(201,168,76) — MAST gold on an Atlas page.
+     shell._recolor is a literal str.replace over hex tokens and CANNOT rewrite a var() NAME, which is why
+     recoloring never caught it. `--agx-` measures 0 hits across all twelve <style> blocks and shared-styles.css. */
+  .agx-rail, .agx-hud, #agx-progress { --agx-blue:#1A6BDE; --agx-blue-l:#5B9BFF; --agx-ink:#F0F4FF; --agx-dim:rgba(240,244,255,.55); }
   /* ── The 3D scene, the backdrop and the film grain: four fixed layers under the content ── */
   #agx-canvas { position:fixed; inset:0; width:100vw; height:100vh; height:100svh; z-index:1; pointer-events:none; }
   #agx-photos { position:fixed; inset:0; z-index:2; pointer-events:none; }
@@ -375,40 +384,188 @@ body.intro-open { overflow:hidden; }
   html.agx-motion .agx-ch { opacity:0; transform:translateY(26px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
   html.agx-motion .agx-ch.agx-in { opacity:1; transform:translateY(0); }
   html.agx-motion { scroll-behavior:smooth; }
-  /* ── Chapter rail: MAST's, in its tick form, so it sits in the live section's own right padding and moves nothing.
-     A <div>, never a <nav> — the live stylesheet styles a bare `nav` and would fix it to the top and slide it away. ── */
-  .agx-rail { position:fixed; right:.45rem; top:50%; transform:translateY(-50%); z-index:900; display:none; flex-direction:column; gap:.4rem; align-items:flex-end; font-family:'Inconsolata',monospace; font-size:.6rem; }
-  .agx-rail-link { display:flex; align-items:center; justify-content:flex-end; gap:.5rem; padding:.32rem .4rem; color:var(--text); font-weight:700; letter-spacing:.25em; text-transform:uppercase; text-decoration:none; text-shadow:0 1px 10px rgba(0,0,0,.9); border:1px solid transparent; transition:color .3s, border-color .3s, background .3s; }
+  /* ── Chapter rail: MAST's, with its numbered labels standing. A <div>, never a <nav> — the live stylesheet styles
+     a bare `nav` and would fix it to the top and slide it away.
+     right:1.5rem is MAST's own value (cinematic_shell.py:72) AND the live bar's own right inset: measured
+     2026-09-09, the bar's right-most control ends at 1416px at 1440 and 1256px at 1280, both exactly viewport-24px,
+     so the rail's right edge lines up with the bar's at every width it shows.
+     THE NUMBER IS A CSS COUNTER, NOT A TEXT NODE. `01 · ` printed as markup would be a text unit no live page
+     carries, and it would break the rail-label excuse in compare-atlas.rail_anchors(), which matches
+     clean(anchor text) == a heading of the chapter it points at. Generated content is not in the DOM text stream,
+     so text parity stays where it was and render-audit's TreeWalker never sees it. decimal-leading-zero gives the
+     same two-digit padding assemble-cinematic prints for MAST. */
+  .agx-rail { position:fixed; right:.45rem; top:50%; transform:translateY(-50%); z-index:900; display:none; flex-direction:column; gap:.4rem; align-items:flex-end; font-family:'Inconsolata',monospace; font-size:.6rem; counter-reset:agx-ch; }
+  .agx-rail-link { counter-increment:agx-ch; display:flex; align-items:center; justify-content:flex-end; gap:.5rem; padding:.32rem .4rem; color:var(--agx-ink); font-weight:700; letter-spacing:.25em; text-transform:uppercase; text-decoration:none; text-shadow:0 1px 10px rgba(0,0,0,.9); border:1px solid transparent; transition:color .3s, border-color .3s, background .3s; }
+  .agx-rail-link::before { content:counter(agx-ch, decimal-leading-zero) " ·"; color:var(--agx-dim); flex:none; max-width:0; overflow:hidden; opacity:0; white-space:nowrap; transition:max-width .35s ease, opacity .35s ease; }
   .agx-rail-link span { max-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:0; transition:max-width .35s ease, opacity .35s ease; }
+  /* The tick stays in ::after, on the anchored right edge, where MAST puts it on its own anchored edge
+     (cinematic_shell.py:75 uses ::before because .chapter-nav reads left-to-right off the same side). Deliberate:
+     render-audit.mjs and the label-clamp measurement both key off ::after. */
   .agx-rail-link::after { content:''; width:17px; height:2px; flex:none; background:rgba(240,244,255,.5); box-shadow:0 1px 6px rgba(0,0,0,.9); transition:width .3s, background .3s; }
-  .agx-rail-link:hover { color:var(--gold-champagne); border-color:rgba(26,107,222,.35); background:rgba(5,8,16,.7); }
-  /* 20.5rem = 328px, the MEASURED maximum + 1px: the widest of the 77 labels of the 79 rail links (2 are label-less ticks) is uas ch4's "No Pilot Required.
-     No Gaps in Coverage ." at 327px in Chromium at 1440x900. At 13rem (208px) FOURTEEN of the 77 were cut mid-word
-     with no ellipsis — "Atlas Glinn SOP for Protective Detail" at 303, "Your Assets Don't Wait. Neither Do We." at
-     311 — and `text-overflow` computed `clip` on all 77, so the cut had no visual signal at all. Both are fixed
-     together on purpose: the clamp is the fix for today's labels, the ellipsis is the backstop for a label longer
-     than any of today's, and either alone leaves one of the two failures standing. */
+  .agx-rail-link:hover { color:var(--agx-blue-l); border-color:rgba(26,107,222,.35); background:rgba(5,8,16,.7); }
+  .agx-rail-link:hover::before { max-width:3.6rem; opacity:1; }
+  /* 20.5rem = 328px, the MEASURED maximum + 1px: the widest of the 77 labels of the 79 rail links (2 are label-less
+     ticks) is uas ch4's "No Pilot Required. No Gaps in Coverage ." at 327px in Chromium at 1440x900. At 13rem
+     (208px) FOURTEEN of the 77 were cut mid-word with no ellipsis, and `text-overflow` computed `clip` on all 77. */
   .agx-rail-link:hover span { max-width:20.5rem; opacity:1; }
-  .agx-rail-link.agx-active { color:var(--gold-champagne); }
-  .agx-rail-link:hover::after, .agx-rail-link.agx-active::after { width:30px; background:var(--gold); box-shadow:0 0 10px rgba(26,107,222,.6); }
-  /* MAST shows its rail from 769px up (cinematic_shell.py:220-223: hidden at <=768px, ticks only 769-1024px,
-     labels from 1025px with `section.panel { padding-right:16.5rem }` making the room). The Atlas rail now
-     appears at the same 769px and in the same tick form; from 1025px MAST's always-on label needs a right
-     gutter this build cannot cut, because the live sections are the live page's own 1400px centred blocks
-     and widening their padding is a content change. So above 1025px the label comes on hover, and on the
-     reading position from 1700px, where the centred column finally leaves the margin for it.
-     THE 1025-1699px DIVERGENCE FROM MAST IS ACCEPTED, not an oversight: MAST prints 13 labels always at those
-     widths, Atlas prints ticks and gives the label on hover. It is the direct consequence of the sentence above —
-     MAST owns its own right gutter, an Atlas page's sections are the live page's, and taking a gutter out of them
-     would be a content change. CLAUDE.md states it as the accepted deviation. */
+  .agx-rail-link.agx-active { color:var(--agx-blue-l); }
+  .agx-rail-link:hover::after, .agx-rail-link.agx-active::after { width:30px; background:var(--agx-blue); box-shadow:0 0 10px rgba(26,107,222,.6); }
+  /* Hidden <=768 and ticks 769-1024: the same behaviour MAST has at those widths (cinematic_shell.py:220-223 /
+     mastsolutions.html:618 — display:none at 390, 0 of 13 labelled at 900 and 1024). Unchanged. */
   @media (min-width:769px) { .agx-rail { display:flex; } }
-  @media (min-width:769px) and (max-width:1024px) { .agx-rail { right:.8rem; gap:.35rem; } .agx-rail-link { padding:.3rem .4rem; gap:0; } .agx-rail-link::after { width:16px; } .agx-rail-link:hover::after, .agx-rail-link.agx-active::after { width:22px; } }
-  /* The live sections are 1400px wide and centred, so below 1700px there is no margin to print a chapter's line in
-     without covering its own text: the rail stays a column of ticks and gives the line on hover. Above it, the
-     reading position carries its label the way the trailer's rail does. */
-  @media (min-width:1700px) { .agx-rail { right:1.4rem; } .agx-rail-link.agx-active span { max-width:20.5rem; opacity:1; } }
+  @media (min-width:769px) and (max-width:1024px) { .agx-rail { right:.8rem; gap:.35rem; } .agx-rail-link { padding:.3rem .4rem; gap:0; } .agx-rail-link::before { display:none; } .agx-rail-link::after { width:16px; } .agx-rail-link:hover::after, .agx-rail-link.agx-active::after { width:22px; } }
+  /* BROCKMANN ASKED FOR MAST'S ALWAYS-VISIBLE SIDEBAR ON 2026-09-09 17:12 — "Menu should be like the
+     mastsolutions menu side bar?" — which is the one-word reversal CLAUDE.md reserved to him of the 1025-1699
+     tick-only behaviour this file used to record here as "THE ACCEPTED DEVIATION". IT WAS BUILT, MEASURED, AND
+     NOT SHIPPED, and the measurement is the whole reason, so it is written out here rather than summarised.
+     MAST cuts itself `section.panel { padding-right:16.5rem }`. An Atlas page's sections are the LIVE page's own
+     centred 1400px blocks, and the live copy runs right out to the rail: index's "Evil twin WiFi detection…" has
+     a line box ending at x=1378 in a 1440px viewport, technology's "Atlas Glinn, in partnership with AeroDef…"
+     at 1403. Walked down all twelve pages at 1440x900 in 0.75-viewport steps, counting a line box at a time
+     (never the range's union box, which spans the whole column) and only text a reader can see:
+       every label standing at 20.5rem  ->  92 live text runs covered
+       every label standing at 9rem     ->  74
+       the numbered tick, no label      ->  12
+       the tick alone at right:1.5rem   ->   3   (technology 2, cuas-aerodefense 1)
+       the tick alone at right:.45rem   ->   0   <- what ships
+     A SCROLL-0 MEASUREMENT SAYS 0 FOR ALL FIVE, and that is the trap this comment exists to stop: the hero band
+     is empty on the right and the grids below it are not. It is also why the rail keeps its .45rem inset instead
+     of taking the bar's own 1.5rem gutter — aligning with the bar costs three lines of his copy.
+     So: the label AND its number come on hover, one link at a time, which is the only form that covers nothing,
+     and the reading position is marked by colour and by the longer tick instead. THE ONLY WAY TO GIVE HIM THE
+     STANDING SIDEBAR IS A RIGHT GUTTER ON .agx-content, which shifts the live layout — his call, not this
+     build's. render-audit.mjs check 7 walks 1025 / 1280 / 1440 / 1800 the same way on every run. */
+  /* 1025-1439: the ACTIVE tick keeps the idle 17px and marks itself with colour and glow instead of length, and
+     the link's right padding drops to .2rem. Measured at 1025x1000 on uas: the line box "$4\u20137/hour" ends at
+     x=993 and the rail's right edge is 1018, so a 30px active tick behind .4rem of padding puts the dash's
+     left edge at 981.6 — eleven pixels of it over that number. 17px behind .2rem puts it at 997.6. */
+  @media (min-width:1025px) and (max-width:1439px) { .agx-rail-link { padding-right:.2rem; } .agx-rail-link:hover::after, .agx-rail-link.agx-active::after { width:17px; } }
+  /* >=1700 origin/main stood the ACTIVE chapter's label permanently. IT IS DROPPED, and the reason is the same
+     measurement as everything else here: walked at 1800x1000, uas's "From launch to landing, The Bee
+     operates…" has a line box ending at x=1525 and the standing label's left edge lands on 1525. It was never
+     measured this way before — the only overlap figure this rail ever had was one hovered label at scroll 0.
+     No label stands at any width now; the reading position is marked by colour and by the longer tick. */
+  @media (min-width:1700px) { .agx-rail { right:1.4rem; } }
   @media (prefers-reduced-motion: reduce) { html.agx-motion .agx-ch { opacity:1; transform:none; transition:none; } html.agx-motion { scroll-behavior:auto; } }
+  /* ── HUD: MAST's two bottom corners (cinematic_shell.py:78-83), carrying only the brand line and the chapter the
+     reader is in. BOTH LINES ARE CSS `content`, NOT TEXT NODES — a printed "SECTION 02 / 08" is a build-only text
+     unit, and the old unanchored `NN / NN` excuse was DROPPED from compare-atlas.py in R4-4 precisely because "an
+     excuse nothing spends is a hole nothing guards". Generated content adds no unit, so text parity is unchanged
+     and no excuse is needed at all; the HUD is asserted POSITIVELY instead, by computed ::before content in
+     scripts/validate-live.py check 5.
+     right:5.2rem, not 1.5rem: #back-to-top is a fixed 46px button at l:1378 r:1424 t:848 b:894 with z-index:900
+     (measured 1440x900), and 1.5rem would put the counter under it. 5.2rem clears it by 21px. Hidden below 1025 —
+     phones and tablets keep the bar and the ticks and nothing else. */
+  .agx-hud { position:fixed; z-index:899; display:none; font-family:'Inconsolata',monospace; font-size:.62rem; letter-spacing:.3em; text-transform:uppercase; opacity:.62; pointer-events:none; text-shadow:0 1px 10px rgba(0,0,0,.9); }
+  .agx-hud-bl { bottom:calc(1.15rem + env(safe-area-inset-bottom,0px)); left:calc(1.6rem + env(safe-area-inset-left,0px)); color:var(--agx-dim); }
+  .agx-hud-br { bottom:calc(1.15rem + env(safe-area-inset-bottom,0px)); right:calc(5.2rem + env(safe-area-inset-right,0px)); color:var(--agx-blue-l); }
+  .agx-hud-bl::before { content:"ATLAS GLINN · HOUSTON"; }
+  .agx-hud-br::before { content:"SECTION " attr(data-n) " / " attr(data-of); }
+  @media (min-width:1025px) { .agx-hud { display:block; } }
   @media (max-width:768px) { .agx-ph.agx-on { opacity:.35; } .agx-ph.agx-film.agx-on { opacity:.5; } .agx-ch { min-height:auto; } }
+
+/* AGX-SKIN v1 */
+  /* ---- 1. GLASS SURFACE on every card class the twelve live pages actually declare ---- */
+  .agx-content .service-card, .agx-content .pillar-card, .agx-content .scenario-card,
+  .agx-content .discipline-card, .agx-content .capability-card, .agx-content .threat-card,
+  .agx-content .blog-link-card, .agx-content .cap-card, .agx-content .how-step,
+  .agx-content .team-card, .agx-content .testimonial, .agx-content .job-card,
+  .agx-content .benefit-card, .agx-content .video-card, .agx-content .app-tier,
+  .agx-content .feature-card, .agx-content .audience-card, .agx-content .pricing-card,
+  .agx-content .hw-card, .agx-content .legal-card {
+    background:rgba(11,18,33,.55); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border-color:rgba(26,107,222,.28); position:relative; isolation:isolate;
+    transition:transform .45s, border-color .45s, box-shadow .45s;
+  }
+  /* The 1px inner top highlight and the lifted edge. ::before is used on nine of these classes by the live pages
+     themselves (the scaleX(0) top bar), so the skin's edge is drawn with box-shadow and owns no pseudo-element. */
+  .agx-content .service-card, .agx-content .pillar-card, .agx-content .scenario-card,
+  .agx-content .discipline-card, .agx-content .capability-card, .agx-content .threat-card,
+  .agx-content .blog-link-card, .agx-content .cap-card, .agx-content .team-card,
+  .agx-content .testimonial, .agx-content .job-card, .agx-content .benefit-card,
+  .agx-content .video-card, .agx-content .app-tier, .agx-content .feature-card,
+  .agx-content .audience-card, .agx-content .pricing-card, .agx-content .hw-card,
+  .agx-content .legal-card {
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 4px 24px rgba(0,0,0,.34);
+  }
+  /* ---- 2. THE SHARED HOVER (cinematic_shell.py:133, verbatim) + the radial blue glow ----
+     0,3,0 beats every live `.x:hover` at 0,2,0. .featured is restored at 0,4,0 below so the ep-app pricing
+     highlight keeps its own deeper lift. */
+  .agx-content .service-card:hover, .agx-content .pillar-card:hover, .agx-content .scenario-card:hover,
+  .agx-content .discipline-card:hover, .agx-content .capability-card:hover, .agx-content .threat-card:hover,
+  .agx-content .blog-link-card:hover, .agx-content .cap-card:hover, .agx-content .how-step:hover,
+  .agx-content .team-card:hover, .agx-content .testimonial:hover, .agx-content .job-card:hover,
+  .agx-content .benefit-card:hover, .agx-content .video-card:hover, .agx-content .app-tier:hover,
+  .agx-content .feature-card:hover, .agx-content .audience-card:hover, .agx-content .pricing-card:hover,
+  .agx-content .hw-card:hover, .agx-content .legal-card:hover {
+    transform:translateY(-6px);
+    border-color:rgba(26,107,222,.62);
+    background:radial-gradient(120% 130% at 50% 0%, rgba(26,107,222,.16) 0%, rgba(26,107,222,.04) 45%, rgba(11,18,33,.62) 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.12), 0 18px 52px rgba(0,0,0,.5), 0 0 44px rgba(26,107,222,.24);
+  }
+  .agx-content .pricing-card.featured:hover { transform:translateY(-14px); }
+  /* ---- 3. ICON RING — the 48px ring the swapped SVGs sit in (see ICON_SWAPS) ----
+     No font-size here: the SVG carries width/height, so the live rules' font-size on these elements is inert and
+     does not need overriding. #form-success .success-icon is 1,1,0 on the live page and needs the id to be beaten. */
+  .agx-content .feature-icon, .agx-content .audience-icon, .agx-content .hw-card-icon,
+  .agx-content .card-icon, .agx-content .pillar-icon, .agx-content .scenario-icon,
+  .agx-content .disc-icon, .agx-content .threat-icon, .agx-content .icon-item,
+  .agx-content .blog-icon, .agx-content #form-success .success-icon {
+    width:48px; height:48px; display:inline-flex; align-items:center; justify-content:center;
+    border-radius:14px; border:1px solid rgba(26,107,222,.32); color:#1A6BDE;
+    background:radial-gradient(120% 120% at 30% 20%, rgba(26,107,222,.20) 0%, rgba(26,107,222,.045) 70%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.07);
+    transition:color .45s, border-color .45s, box-shadow .45s, background .45s;
+  }
+  .agx-content .agx-icon { width:24px; height:24px; display:block; }
+  .agx-content .service-card:hover .card-icon, .agx-content .pillar-card:hover .pillar-icon,
+  .agx-content .scenario-card:hover .scenario-icon, .agx-content .discipline-card:hover .disc-icon,
+  .agx-content .threat-card:hover .threat-icon, .agx-content .blog-link-card:hover .blog-icon,
+  .agx-content .feature-card:hover .feature-icon, .agx-content .audience-card:hover .audience-icon,
+  .agx-content .hw-card:hover .hw-card-icon {
+    color:#5B9BFF; border-color:rgba(26,107,222,.62); box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 0 26px rgba(26,107,222,.32);
+  }
+  /* ---- 4. MONO CHIPS. .feature-tags span is ALREADY 'Share Tech Mono' on the live page (measured), so this sets
+     no font-family and no font-size — only spacing, border and fill. ---- */
+  .agx-content .feature-tags span {
+    letter-spacing:.25em; text-transform:uppercase;
+    border:1px solid rgba(26,107,222,.45); background:rgba(26,107,222,.14);
+    color:#8FBBFF; border-radius:4px;
+  }
+  /* ---- 5. HERO / CTA BUTTONS: gradient primary, ghost secondary, the same .45s transition ---- */
+  .agx-content .cta-button, .agx-content .btn-primary, .agx-content .primary-cta,
+  .agx-content .pricing-cta.primary-cta, .agx-content .gold-cta {
+    background:linear-gradient(135deg, #1A6BDE 0%, #0F4AA8 100%);
+    border:1px solid rgba(91,155,255,.55); color:#fff;
+    transition:transform .45s, border-color .45s, box-shadow .45s, background .45s;
+  }
+  .agx-content .cta-button:hover, .agx-content .btn-primary:hover, .agx-content .primary-cta:hover,
+  .agx-content .pricing-cta.primary-cta:hover, .agx-content .gold-cta:hover {
+    transform:translateY(-3px); background:linear-gradient(135deg, #2F7BEF 0%, #1558B8 100%);
+    box-shadow:0 12px 34px rgba(26,107,222,.42);
+  }
+  .agx-content .secondary-button, .agx-content .outline-cta, .agx-content .pricing-cta.outline-cta,
+  .agx-content .card-link, .agx-content .hw-link {
+    background:transparent; border-color:rgba(26,107,222,.55); color:#8FBBFF;
+    transition:transform .45s, border-color .45s, box-shadow .45s, color .45s, background .45s;
+  }
+  .agx-content .secondary-button:hover, .agx-content .outline-cta:hover,
+  .agx-content .pricing-cta.outline-cta:hover, .agx-content .card-link:hover, .agx-content .hw-link:hover {
+    background:rgba(26,107,222,.12); border-color:#5B9BFF; color:#DCEBFF;
+  }
+  /* ---- 6. Phones: the blur is the compositing cost, not the look. Drop it below 769. ---- */
+  @media (max-width:768px) {
+    .agx-content .service-card, .agx-content .pillar-card, .agx-content .scenario-card,
+    .agx-content .discipline-card, .agx-content .capability-card, .agx-content .threat-card,
+    .agx-content .blog-link-card, .agx-content .cap-card, .agx-content .team-card,
+    .agx-content .testimonial, .agx-content .job-card, .agx-content .benefit-card,
+    .agx-content .video-card, .agx-content .app-tier, .agx-content .feature-card,
+    .agx-content .audience-card, .agx-content .pricing-card, .agx-content .hw-card,
+    .agx-content .legal-card { backdrop-filter:none; -webkit-backdrop-filter:none; background:rgba(11,18,33,.78); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .agx-content .feature-card, .agx-content .service-card, .agx-content .pricing-card { transition:none; }
+  }
 </style>
 </head>
 <body>
@@ -428,6 +585,8 @@ body.intro-open { overflow:hidden; }
 <div class="agx-grain" aria-hidden="true"></div>
 <div class="agx-vignette" aria-hidden="true"></div>
 <div id="agx-progress" aria-hidden="true"></div>
+<div class="agx-hud agx-hud-bl" aria-hidden="true"></div>
+<div class="agx-hud agx-hud-br" id="agx-section-hud" data-n="01" data-of="08" aria-hidden="true"></div>
 <div class="agx-rail" role="navigation" aria-label="Chapters">
   <a class="agx-rail-link" href="#agx-c1"><span>Details Matter</span></a>
   <a class="agx-rail-link" href="#agx-c2"><span>Autonomous Drones That Never Sleep</span></a>
@@ -926,6 +1085,7 @@ if (ring && !reduce) {
   var phs = [].slice.call(document.querySelectorAll('#agx-photos .agx-ph'));
   var links = [].slice.call(document.querySelectorAll('.agx-rail-link'));
   var bar = document.getElementById('agx-progress');
+  var hud = document.getElementById('agx-section-hud');
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (!chs.length) return;
 
@@ -992,6 +1152,7 @@ if (ring && !reduce) {
     if (idx === active) return;
     active = idx;
     links.forEach(function (l, k) { l.classList.toggle('agx-active', k === idx); });
+    if (hud) hud.setAttribute('data-n', ('0' + (idx + 1)).slice(-2));
     setPhoto(idx);
     // The chapter being read, the one behind it and the one arriving from the bottom of the window.
     [idx - 1, idx, idx + 1].forEach(function (k) { if (chs[k]) { reveal(chs[k]); unhide(chs[k]); } });
