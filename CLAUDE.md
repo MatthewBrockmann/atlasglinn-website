@@ -608,6 +608,46 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   it and the context would hang pending).
   **Merged, NOT deployed:** the plugin is in the repo and nothing is on the host until the deploy script runs from the
   Mac; the header is what proves it.
+- **Wordfence, R2 of the 2026-07-01 security packet — `wp-ops/atlas-wordfence-install.php` + `wp-ops/atlas-wordfence-status.php`
+  + `scripts/wp-wordfence-install.sh` (built 2026-09-09, NOT deployed).** `wp-login.php` has answered 200 with nothing in
+  front of it since the P1 opened, and the packet's fix is "install Wordfence Free". It could not be done the obvious
+  way: the saved login is **SFTP-only**, so there is no `wp plugin install`, and a script built on SSH reports a
+  preflight failure and installs nothing. So the install travels the route the cache cascade already travels — a
+  **one-shot must-use plugin**. On the first plain front-end GET after it lands it calls `plugins_api()` for the
+  `wordfence` slug, runs `Plugin_Upgrader` with `Plugin_Installer_Skin` inside a **discarded output buffer** (that skin
+  is an admin-screen skin and it echoes), calls `activate_plugin()` with its defaults — `$silent=true` would skip
+  Wordfence's own activation hook, which is what creates its tables — writes the option `atlas_wordfence_install`
+  (status, version, time, error, tries, self) and **unlinks itself**.
+  **It sets NO Wordfence setting:** no login-failure limit, no lockout window, no username blacklist, no forced 2FA, no
+  alert-email write, no `auto_prepend_file`. Wordfence's own defaults are the throttle. Every one of those is a way to
+  lock this site's only admin out of `wp-admin` from a script he is not sitting in front of, and the `source` scenario
+  in the harness strips the comments and proves their absence.
+  **It refuses the request shapes where a 30-second install would be felt:** POST, `wp-admin`, admin-ajax (the IWA
+  shop's cart fragments arrive there), REST, XML-RPC, cron, `wp-login.php`, `wp-cron.php`. One attempt per request
+  under a 5-minute lock and `set_time_limit(180)`; a failed attempt **leaves the file for the next trigger** and the
+  third records the failure and removes it anyway.
+  **Reading the result is why there are two files.** The installer deletes itself, so it cannot report; there is no
+  `wp option get` without a shell. `atlas-wordfence-status.php` publishes the record as
+  `X-Atlas-Wordfence: <version>;b=<build>;st=<status>;wf=<version>;act=<0|1>;prep=<0|1>;self=<gone|left|pending>;tries=<n>;age=<bucket>;err=<0|percent-encoded>`
+  — the same header idiom as `X-Atlas-Cache-Watch` and `X-Atlas-Static-Root`, and **no route, no token, no query
+  parameter**, for the reason `atlas-cache-watch.php` already wrote down: an endpoint is a remote-control surface on a
+  production site for a job that needs no caller. **`act=` is the verdict and it is a LIVE read** of `active_plugins`
+  on the request that answered, never the installer's memory of what it did.
+  **Every measurement asks for `/?atlas-wordfence=<ts>`,** because `https://atlasglinn.com/` is the static `index.html`
+  served by `atlas-static-root.php` on `muplugins_loaded`, which exits before `init` — the plugins never run there.
+  **`scripts/wp-wordfence-install.sh`** (`--install` / `--status` / `--remove`) uploads both files, triggers, polls, and
+  then requires all four: the status plugin's header carries **the build fingerprint just sent**, `act=1`, an sftp `ls`
+  proving the installer **removed itself** (classified exactly as the sibling script classifies a removal), and the
+  front page plus the WordPress-rendered page **still answering 200** — a 200 that stops being one fails the run
+  whatever the plugin says. It refuses to upload at all if the WordPress-rendered page is not 200 beforehand
+  (`ATLAS_WF_FORCE=1` overrides). Wordfence markers grepped out of the page body are **advisory and decide nothing**:
+  Wordfence Free normally prints nothing on a public page. Heartbeat: `~/.cache/wp-upload/last-wordfence-install`.
+  **Tests:** `php wp-ops/tests/atlas-wordfence-install-test.php` — stub WordPress, stub `Plugin_Upgrader`/skin, fake
+  docroot, 14 scenarios / 94 pinned assertions, each in its own process with the plugin **copied into a run directory**
+  so the file the one-shot unlinks is the copy. Proved by mutation: drop the self-removal and 8 cases fail, add one
+  `wfConfig::set('loginSec_maxFailures')` and 8 fail, drop the ajax refusal and 5 fail. In CI beside the others.
+  **Merged, NOT deployed:** nothing is on the host until `bash scripts/wp-wordfence-install.sh` runs from the Mac, and
+  Wordfence is not installed until that run reports `act=1`.
 - **mastsolutions.com** has no site *yet*: it is a GoDaddy domain forward to atlasglinn.com, pointed at
   `https://atlasglinn.com/mastsolutions.html` (set 2026-09-05). It still carries DNS: Resend verifies it so the Worker can send as
   bookings@mastsolutions.com, beside the existing matthew@mastsolutions.com mail.

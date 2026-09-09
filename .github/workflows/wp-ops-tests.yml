@@ -38,10 +38,10 @@ jobs:
       # && list, so `bash -n "$s" && echo ok` swallowed every syntax error in the loop and the step still went green.
       - name: Syntax
         run: |
-          for f in wp-ops/atlas-cache-watch.php wp-ops/tests/atlas-cache-watch-test.php wp-ops/atlas-static-root.php wp-ops/tests/atlas-static-root-test.php; do
+          for f in wp-ops/atlas-cache-watch.php wp-ops/tests/atlas-cache-watch-test.php wp-ops/atlas-static-root.php wp-ops/tests/atlas-static-root-test.php wp-ops/atlas-wordfence-install.php wp-ops/atlas-wordfence-status.php wp-ops/tests/atlas-wordfence-install-test.php; do
             php -l "$f" || exit 1
           done
-          for s in scripts/wp-cache-watch-deploy.sh scripts/wp-flush.sh scripts/tests/wp-cache-watch-deploy-test.sh; do
+          for s in scripts/wp-cache-watch-deploy.sh scripts/wp-flush.sh scripts/wp-wordfence-install.sh scripts/tests/wp-cache-watch-deploy-test.sh; do
             bash -n "$s" || exit 1
             echo "bash -n ok: $s"
           done
@@ -51,6 +51,13 @@ jobs:
 
       - name: Deploy-script harness (stub sftp/curl, no host)
         run: bash scripts/tests/wp-cache-watch-deploy-test.sh
+
+      # The Wordfence one-shot writes nothing but an option and then DELETES ITSELF, so every scenario copies it into
+      # its own run directory and the file it unlinks is the copy. The `source` scenario is the one that matters most
+      # here: it strips the comments and proves the plugin sets no Wordfence setting — no wfConfig, no loginSec_*, no
+      # blacklist, no 2FA, no auto_prepend — because those are the settings that can lock this site's only admin out.
+      - name: Wordfence one-shot harness (stub WordPress, 14 scenarios, 94 assertions)
+        run: php wp-ops/tests/atlas-wordfence-install-test.php
 
       # The root-switch harness was fired-observed but wired to nothing until 2026-09-08 (round-3 verifier): a commit could
       # change wp-ops/atlas-static-root.php and CI went green without running one of its 282 cases. Every child PHP it
