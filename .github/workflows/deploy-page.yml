@@ -18,6 +18,8 @@ on:
       - 'terms.html'
       - 'signup.html'
       - 'ep-app.html'
+      # MAST collateral: the articles index mastsolutions.html links, declared in MAST_PAGES since 2026-09-09 (R4-5).
+      - 'articles/index.html'
       # The eleven Atlas Glinn pages, published 2026-09-05 (PAGES in scripts/wp-upload.sh carries them).
       - 'index.html'
       - 'executive-protection.html'
@@ -33,6 +35,9 @@ on:
       - 'images/**'
       - 'vendor/**'
       - 'scripts/wp-upload.sh'
+      # The go gate itself: flipping deploy/atlas-pages-upload to 'true' has to be what starts the run that publishes
+      # the twelve, otherwise the switch would sit flipped until some unrelated page changed.
+      - 'deploy/atlas-pages-upload'
       - '.github/workflows/deploy-page.yml'
   workflow_dispatch:
 
@@ -55,7 +60,22 @@ jobs:
       - name: List the page and its assets (the lister from scripts/wp-upload.sh)
         id: list
         run: |
-          eval "$(grep -m1 '^PAGES=' scripts/wp-upload.sh)"
+          # ── GO GATE (00-rules/website-go-live-gate.md) ────────────────────────────────────────────────────────
+          # This job writes to the PUBLIC atlasglinn.com docroot. The switch that decides is the tracked file
+          # deploy/atlas-pages-upload, and it is the SAME switch the Mac's hourly scripts/wp-upload.sh reads: unless
+          # its trimmed content is exactly 'true', the twelve Atlas Glinn pages are dropped here, before the resolver,
+          # so the pages' OWN assets never reach the host either. ATLAS flips the file over the GitHub contents API on
+          # the owner's word go; no portal click, and git records who flipped it and when.
+          # PAGES, the two page lists, the gate, the partition assertion, the RESOLVED-list assertion and the
+          # manifest filter are lifted out of scripts/wp-upload.sh verbatim, so the two writers cannot drift apart.
+          # The partition assertion fails this job if PAGES ever carries a page that is neither one of the twelve nor
+          # one of the six declared MAST files; the resolved-list assertion fails it if the LISTER reaches a .html
+          # the gate never approved (it follows links by basename, and articles/index.html rode in behind the Atlas
+          # index.html that way until 2026-09-09).
+          # The paths trigger above is deliberately left alone: a held run is cheap, and it is the visible record that
+          # the pages changed and were not published.
+          eval "$(sed -n '/^# >>> atlas-pages-gate/,/^# <<< atlas-pages-gate/p' scripts/wp-upload.sh)"
+          PAGES="$(atlas_pages_gate)" || exit 1
           python3 - "$PAGES" > files.txt <<'PY'
           import os, re, sys
           pages = sys.argv[1].split(); seen = []; queue = list(pages)
@@ -74,6 +94,9 @@ jobs:
                   queue.append(u)
           print('\n'.join(seen))
           PY
+          atlas_assert_resolved files.txt "$PAGES" || exit 1
+          # The manifest this run may upload: the approved pages' keys only, written under a name the upload step reads.
+          atlas_manifest_for_upload "$PAGES" manifest-upload.json
           echo "$(wc -l < files.txt) files"; head -5 files.txt
           # An LFS pointer that was not fetched would be uploaded as a 130-byte text file; refuse that.
           if grep -l 'git-lfs.github.com/spec' $(cat files.txt) 2>/dev/null | head -1 | grep -q .; then
@@ -110,8 +133,9 @@ jobs:
             echo "cd $DOCROOT"
             xargs -I{} dirname {} < files.txt | sort -u | grep -v '^\.$' | awk '{ n=split($0,a,"/"); p=""; for(i=1;i<=n;i++){ p=(p==""?a[i]:p"/"a[i]); print "-mkdir " p } }' | sort -u
             awk '{ print "put " $0 " " $0 }' files.txt
-            # Last: the manifest the pages compare themselves against (scripts/build_manifest.py; self-refresh past the CDN cache).
-            [ -f build-manifest.json ] && echo "put -P build-manifest.json build-manifest.json"
+            # Last: the manifest the pages compare themselves against (scripts/build_manifest.py; self-refresh past the
+            # CDN cache) — the filtered copy from the list step, so a held run does not name pages the host has not got.
+            { [ -s manifest-upload.json ] && echo "put -P manifest-upload.json build-manifest.json"; } || true
           } > batch.txt
           if ! sshpass -e sftp -oBatchMode=no -o StrictHostKeyChecking=accept-new -b batch.txt "$SFTP_USER@$HOST" > sftp.log 2>&1; then
             tail -20 sftp.log

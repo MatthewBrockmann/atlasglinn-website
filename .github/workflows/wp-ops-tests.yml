@@ -1,4 +1,4 @@
-# The two wp-ops harnesses, on the runner. Both stub everything they touch — a stub WordPress and a stub WPaaS\Cache_V2
+# The repo's shell/PHP harnesses, on the runner. The two wp-ops ones stub everything they touch — a stub WordPress and a stub WPaaS\Cache_V2
 # for the plugin, stub sftp/curl/security/shasum/sleep for the deploy script — so this job reaches no host, needs no
 # secret and changes nothing. It exists because the harnesses only ran when someone remembered to run them on the Mac,
 # and the plugin they cover is what purges a production cache.
@@ -14,6 +14,7 @@ on:
       # The deploy workflow is INPUT to a case here: the harness reads its job-summary allowlist and fails when a
       # refusal the script can print has no row in it, so deleting a row has to run this job.
       - '.github/workflows/wordfence-deploy.yml'
+      - '.github/workflows/cf-zone-atlasglinn.yml'
   pull_request:
     paths:
       - 'wp-ops/**'
@@ -23,6 +24,7 @@ on:
       # The deploy workflow is INPUT to a case here: the harness reads its job-summary allowlist and fails when a
       # refusal the script can print has no row in it, so deleting a row has to run this job.
       - '.github/workflows/wordfence-deploy.yml'
+      - '.github/workflows/cf-zone-atlasglinn.yml'
   workflow_dispatch:
 
 permissions:
@@ -81,3 +83,27 @@ jobs:
         run: |
           ulimit -f 200000
           php -d error_log="$RUNNER_TEMP/atlas-static-root-parent.log" -d log_errors_max_len=1024 wp-ops/tests/atlas-static-root-test.php
+
+  # cf-zone-atlasglinn.yml can create a DNS zone for a live domain that carries company mail, and it is dispatched by
+  # hand at the moment it matters — so its failing paths have to be proved somewhere that is not that moment. This job
+  # extracts that workflow's own run blocks with PyYAML and drives them against a canned Cloudflare on localhost. It
+  # reaches no network, needs no secret, and creates nothing. Two of its cases are the false successes the first draft
+  # shipped with (an import still growing at the deadline, and a missing www, each printing "Import verified" and the
+  # nameservers to paste); both must FAIL, and the run also greps every byte it produced for a record value, because
+  # this repository is public and so is every Actions log in it.
+  cf-zone:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PyYAML
+        run: python3 -c 'import yaml' 2>/dev/null || pip install --quiet pyyaml
+
+      - name: Syntax
+        run: |
+          bash -n scripts/tests/cf-zone-test.sh || exit 1
+          python3 -m py_compile scripts/tests/cf-zone-emu.py || exit 1
+          echo "bash -n + py_compile ok"
+
+      - name: cf-zone harness (canned Cloudflare on localhost, no secret, nothing created)
+        run: bash scripts/tests/cf-zone-test.sh

@@ -1,0 +1,668 @@
+# R3′ — put atlasglinn.com into BROCKMANN'S OWN Cloudflare account, and PROVE the import before anyone touches a
+# nameserver. Manual dispatch only, never on push: this changes DNS ownership for a live domain that carries company
+# mail, and nothing about a commit should be able to start it.
+#
+# WHY THIS EXISTS (02-projects/atlasglinn-security-incident-2026-07-01.md, correction 2026-09-02): R3 — "a Cloudflare
+# WAF rate-limit rule on /wp-login.php, ~2 min in the dashboard" — was re-listed as a two-minute job for 107 days and
+# was never executable. The Cloudflare edge in front of atlasglinn.com is GoDaddy's (nameservers ns15/ns16.
+# domaincontrol.com), so the zone is not in his account and a WAF rule had nowhere to land. R3′ is the prerequisite:
+# create the zone here, let Cloudflare import the records, verify the ones that would break if they were missed, and
+# only then move the nameservers at GoDaddy.
+#
+# THE ORDER IS THE WHOLE POINT. Company mail is matthew@atlasglinn.com on Microsoft 365 and does not migrate with the
+# site; a nameserver switch made before the MX records are confirmed present in the new zone takes email down. So this
+# workflow fails, loudly, rather than printing nameservers next to an incomplete import.
+#
+# THIS LOG IS PUBLIC. MatthewBrockmann/atlasglinn-website is a public repository (measured 2026-09-09: the GitHub API
+# answers "private": false), and the Actions log and step summary of a public repo are world-readable by anyone, with
+# no account. So NO DNS RECORD VALUE IS EVER PRINTED HERE — not in the table, not in a check row, not in an error.
+# The error limb is the one that needed machinery rather than care: Cloudflare's own errors[].message strings are
+# vendor text this workflow does not control and cannot bound, and "an identical record already exists: A tak.<dom>
+# → <address>" is a real shape for them. So no vendor message string is ever echoed. Every failure path builds its
+# sentence from names, types, counts and Cloudflare's NUMERIC error codes only — see errs() below, which is the one
+# place a Cloudflare error reaches the log, and scripts/tests/cf-zone-emu.py serves canary text inside error bodies
+# in three scenarios so the harness's canary sweep covers the failing paths and not only the green ones.
+# A record's content is the WordPress origin address once the site is proxied, which is exactly what the WAF rule this
+# whole exercise unlocks is meant to hide. Every assertion below compares content in memory and prints only a name, a
+# type and a pass/fail. Deleting a run afterwards is not a fix: treat a run on a public repo as a publication.
+# Accepted, with eyes open: record NAMES are printed, which is a subdomain list for the domain. There is no other way
+# to tell him which record failed, and the alternative — a bare count — is not actionable at 11pm on a phone.
+# Also accepted: tak.atlasglinn.com → 142.93.177.0 is public DNS today, resolvable by anyone who asks, so the expected
+# address appears in this file as a constant. It is an expectation, never a value read back from the API.
+#
+# NO WARNING SURVIVES IN THIS FILE. Every condition that names a risk — an import still moving at the deadline, a
+# missing www, an MX target that is not Microsoft 365, a tak record pointing somewhere else, a lookup that did not
+# answer 200 — is FATAL. It exits 1, and the "Import verified" line and the nameserver paste block are never printed,
+# because the last step is gated on a `verified` output that only the assertion step can set, only after every check
+# passed. A run that prints a caution and then hands him nameservers to paste is a false success; it happened twice in
+# the first draft and both are scenarios in scripts/tests/cf-zone-test.sh now.
+#
+# TOKEN: the Workers token this repo already holds (deploy-worker.yml) is Workers-scoped and CANNOT create a zone. This
+# workflow prefers a dedicated CF_ZONE_TOKEN — Zone:Zone:Edit + Zone:DNS:Edit at ACCOUNT scope, because Cloudflare
+# cannot scope a token to a zone that does not exist yet — and falls back to the Workers token only so the run can tell
+# him, in one sentence, that the fallback is the wrong shape. That token can edit DNS for EVERY zone in his account, so
+# it is minted FOR THIS RUN and DELETED at Cloudflare once the nameservers are switched. Deleting the GitHub secret
+# does not revoke it. The token value is never written to a step output or to the log; the account id is masked.
+#
+# TESTABLE, AND TESTED: every API call goes through $CF_API_BASE (default https://api.cloudflare.com/client/v4), so
+# scripts/tests/cf-zone-test.sh can drive these exact shell blocks against scripts/tests/cf-zone-emu.py — a canned
+# Cloudflare — and prove the failing paths fail. CF_STATE_DIR, CF_IMPORT_DEADLINE_S and CF_POLL_SLEEP_S are the other
+# three seams that harness sets; all four are unset on a real runner, which is what the defaults are for.
+#
+# NOT RUN AGAINST CLOUDFLARE: the cloud sandbox has no route to api.cloudflare.com (egress 000). The first green
+# dispatch is the proof — and a workflow_dispatch workflow is not registered until it is on the default branch
+# (measured 2026-09-09: the workflows API answers 404 for this path), so it is not dispatchable until this merges.
+name: cf-zone-atlasglinn
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: The zone to create / verify
+        required: false
+        default: atlasglinn.com
+      mode:
+        description: plan = verify the token and report only, nothing is created. create = create the zone (or reuse it), verify the import, print the nameservers.
+        required: false
+        default: plan
+        type: choice
+        options:
+          - plan
+          - create
+      add_missing:
+        description: "create mode only: add tak A 142.93.177.0 (unproxied) if the import missed it — only when NO tak A record exists"
+        required: false
+        default: false
+        type: boolean
+      allow_other_mx:
+        description: "accept an apex MX that is NOT Microsoft 365 — tick only after comparing the MX rows against GoDaddy -> Domains -> <domain> -> DNS"
+        required: false
+        default: false
+        type: boolean
+
+# Least privilege: this workflow only talks to Cloudflare. It reads nothing from the repository and writes nothing to it.
+permissions:
+  contents: read
+
+concurrency:
+  group: cf-zone-atlasglinn
+  cancel-in-progress: false
+
+jobs:
+  zone:
+    runs-on: ubuntu-latest
+    steps:
+      # Presence only, never values. Step outputs are readable by every later step and land in the run's object store,
+      # so the token is taken from secrets directly, in each step's own env, exactly as deploy-worker.yml does it.
+      - name: Check for a Cloudflare token
+        id: creds
+        env:
+          Z1: ${{ secrets.CF_ZONE_TOKEN }}
+          T1: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          T2: ${{ secrets.CF_API_TOKEN }}
+          T3: ${{ secrets.CLOUDFLARE_TOKEN }}
+          A1: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          A2: ${{ secrets.CF_ACCOUNT_ID }}
+          A3: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -eu
+          have=""
+          for n in Z1:CF_ZONE_TOKEN T1:CLOUDFLARE_API_TOKEN T2:CF_API_TOKEN T3:CLOUDFLARE_TOKEN A1:CLOUDFLARE_ACCOUNT_ID A2:CF_ACCOUNT_ID A3:vars.CLOUDFLARE_ACCOUNT_ID; do
+            v="${n%%:*}"
+            if [ -n "${!v}" ]; then
+              have="$have ${n#*:}"
+            fi
+          done
+          echo "present:${have:- none}"
+          if [ -n "${Z1:-}" ]; then
+            echo "using the dedicated zone token (CF_ZONE_TOKEN)"
+            echo "::notice::CF_ZONE_TOKEN carries Zone:Edit + DNS:Edit for EVERY zone in the Cloudflare account, and this repository is public. Mint it for this run and DELETE it at Cloudflare (My Profile → API Tokens → Delete) once the nameservers are switched — removing the GitHub secret does NOT revoke it. Never leave it as a standing repository secret."
+          elif [ -n "${T1:-${T2:-${T3:-}}}" ]; then
+            echo "::notice::No CF_ZONE_TOKEN — falling back to the Workers token. It is very likely the wrong scope for creating a zone; the next step measures that and fails on it rather than assuming either way."
+          else
+            echo "::error::No Cloudflare token reached this job (present:${have:- none}). Put one in Settings → Secrets and variables → Actions → Repository secrets (not Variables, not an environment) named CF_ZONE_TOKEN. It needs Zone:Zone:Edit + Zone:DNS:Edit at ACCOUNT scope — Cloudflare cannot scope a token to a zone that does not exist yet — created under My Profile → API Tokens. Mint it for this run and delete it at Cloudflare afterwards."
+            exit 1
+          fi
+
+      # Two questions, two requests, in this order: is the token alive, and can it see zones at all. A Workers token
+      # answers the first perfectly and the second with 403 — which is the whole failure this step exists to name.
+      # /user/tokens/verify is a user-scoped endpoint and an ACCOUNT-OWNED token cannot call it, so a failure there is
+      # only fatal when the zone probe also fails. Measuring both is what keeps this from rejecting a good token.
+      - name: Verify the token and probe its zone scope
+        env:
+          CF_TOKEN: ${{ secrets.CF_ZONE_TOKEN || secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN || secrets.CLOUDFLARE_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CF_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -eu
+          STATE="${CF_STATE_DIR:-/tmp/cf}"
+          API="${CF_API_BASE:-https://api.cloudflare.com/client/v4}"
+          mkdir -p "$STATE"
+          vcode=$(curl -sS -m 30 -o "$STATE/verify.json" -w '%{http_code}' -H "Authorization: Bearer $CF_TOKEN" "$API/user/tokens/verify" || echo ERR)
+          echo "HTTP $vcode  GET /user/tokens/verify"
+          zcode=$(curl -sS -m 30 -o "$STATE/zones.json" -w '%{http_code}' -H "Authorization: Bearer $CF_TOKEN" "$API/zones?per_page=1" || echo ERR)
+          echo "HTTP $zcode  GET /zones?per_page=1"
+          python3 - "$STATE/verify.json" "$vcode" "$STATE/zones.json" "$zcode" <<'PY'
+          import json, os, sys
+
+          def body(path):
+              try:
+                  return json.load(open(path, encoding='utf-8', errors='replace'))
+              except Exception:
+                  return {}
+
+          def errs(d):
+              # THE ONLY PLACE A CLOUDFLARE ERROR REACHES THIS LOG. Cloudflare's message strings can quote a record's
+              # content and this log is world-readable, so the string is dropped and only the numeric codes survive.
+              # Codes are what the docs are indexed by anyway; the message adds nothing he can act on.
+              codes = []
+              for e in (d.get('errors') or []) if isinstance(d, dict) else []:
+                  c = e.get('code') if isinstance(e, dict) else None
+                  codes.append(str(c) if isinstance(c, int) else 'no code')
+              if not codes:
+                  return 'no error code in the response body'
+              return '%d Cloudflare error(s), code(s) %s — look the code up at developers.cloudflare.com; the message text is deliberately not echoed because this log is public' % (len(codes), ', '.join(codes))
+
+          SCOPE_FIX = ("the Cloudflare token in the repo secrets is Workers-scoped; R3′ needs a token with "
+                       "Zone:Zone:Edit + Zone:DNS:Edit at account scope — create one in the Cloudflare dashboard "
+                       "(My Profile → API Tokens), store it as CF_ZONE_TOKEN, and delete it at Cloudflare after "
+                       "the nameserver switch")
+
+          vpath, vcode, zpath, zcode = sys.argv[1:5]
+          v, z = body(vpath), body(zpath)
+          summ = open(os.environ.get('GITHUB_STEP_SUMMARY', '/dev/null'), 'a')
+
+          def note(line):
+              print(line)
+              summ.write(line.replace('::error::', '**ERROR** ') + '\n\n')
+
+          status = (v.get('result') or {}).get('status') if isinstance(v.get('result'), dict) else None
+          if vcode == '200' and status:
+              note('token verify: %s' % status)
+              if status != 'active':
+                  note('::error::The Cloudflare token answered verify with status "%s" — it is expired or disabled. Mint a fresh one (My Profile → API Tokens) with Zone:Zone:Edit + Zone:DNS:Edit and save it as CF_ZONE_TOKEN.' % status)
+                  sys.exit(1)
+          elif zcode == '200':
+              note('token verify: HTTP %s (%s) — not fatal: an account-owned token cannot call /user/tokens/verify, and the zone probe below answered 200, so the token is alive.' % (vcode, errs(v)))
+          else:
+              note('::error::The Cloudflare token was rejected (verify HTTP %s: %s). Nothing was created. Check that the secret holds the token value itself, with no quotes or trailing newline, and that it has not been revoked.' % (vcode, errs(v)))
+              sys.exit(1)
+
+          if zcode in ('403', '401') or (isinstance(z, dict) and not z.get('success', True) and zcode != '200'):
+              note('::error::%s  (probe: GET /zones?per_page=1 → HTTP %s: %s)' % (SCOPE_FIX, zcode, errs(z)))
+              sys.exit(1)
+          if zcode != '200':
+              note('::error::The zone probe did not answer 200 (HTTP %s: %s), so this run cannot tell whether the token may create a zone — and it will not try. Re-run; if it repeats, check status.cloudflare.com before changing the token.' % (zcode, errs(z)))
+              sys.exit(1)
+          note('zone scope: OK — the token can list zones')
+          PY
+          # The account id is required to CREATE a zone. Order: the repository secret, then the API's own list. It is
+          # masked because it is held as a secret and a leaked account id is a leaked secret, even though it is not one.
+          acct="${CF_ACCOUNT:-}"
+          src="repository secret"
+          if [ -z "$acct" ]; then
+            acode=$(curl -sS -m 30 -o "$STATE/accounts.json" -w '%{http_code}' -H "Authorization: Bearer $CF_TOKEN" "$API/accounts?per_page=50" || echo ERR)
+            echo "HTTP $acode  GET /accounts?per_page=50"
+            src="the API's /accounts list"
+            acct=$(python3 -c "import json,os,sys;d=json.load(open(os.environ.get('CF_STATE_DIR','/tmp/cf')+'/accounts.json'));r=[x for x in (d.get('result') or []) if isinstance(x,dict)];print(r[0]['id'] if len(r)==1 else '');print(len(r),file=sys.stderr)" 2>"$STATE/acct_count" || echo "")
+            echo "accounts visible to this token: $(cat "$STATE/acct_count" 2>/dev/null || echo unknown)"
+          fi
+          if [ -n "$acct" ]; then
+            echo "::add-mask::$acct"
+            printf '%s' "$acct" > "$STATE/account_id"
+            echo "account id from $src"
+          elif [ "$MODE" = "create" ]; then
+            echo "::error::No single Cloudflare account id. The token either sees no account or sees more than one, and this run will not guess which account the domain belongs in. Copy the Account ID from the Cloudflare dashboard (Workers & Pages → overview, right column) into a repository secret named CLOUDFLARE_ACCOUNT_ID, then dispatch again."
+            exit 1
+          else
+            echo "::notice::No account id resolved. plan mode continues — it never creates anything — but create mode will stop at this step until CLOUDFLARE_ACCOUNT_ID is a repository secret."
+          fi
+
+      # plan does not write. It lists what the account already holds and says, in words, what create would do.
+      # create posts the zone with jump_start=true, which asks Cloudflare to scan the domain's current DNS at GoDaddy
+      # and import what it finds — that scan is the thing every assertion below is checking.
+      - name: Plan or create the zone
+        id: zone
+        env:
+          CF_TOKEN: ${{ secrets.CF_ZONE_TOKEN || secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN || secrets.CLOUDFLARE_TOKEN }}
+          DOMAIN: ${{ inputs.domain }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -eu
+          STATE="${CF_STATE_DIR:-/tmp/cf}"
+          API="${CF_API_BASE:-https://api.cloudflare.com/client/v4}"
+          mkdir -p "$STATE"
+          # VALIDATE BEFORE ECHOING ANYTHING. The raw input is never printed — not here, not inside a ::error:: line.
+          # A dispatch input can carry a newline through the REST API, and a newline inside a workflow command is an
+          # injection (::stop-commands:: turns masking off for the rest of the step). So: normalise, match the whole
+          # string against a domain charset, and on failure print a fixed sentence that contains none of the input.
+          dom=$(printf '%s' "$DOMAIN" | tr 'A-Z' 'a-z' | tr -d '[:space:]')
+          if ! printf '%s' "$dom" | grep -Eq '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$'; then
+            echo "::error::The domain input is not a plain domain name. Dispatch again with something like atlasglinn.com — letters, digits, dots and hyphens, at least one dot, no leading or trailing dot. The value you sent is deliberately not echoed: this log is public and the input is attacker-controllable."
+            exit 1
+          fi
+          printf '%s' "$dom" > "$STATE/domain"
+          echo "domain: $dom   mode: $MODE"
+          lcode=$(curl -sS -m 30 -o "$STATE/byname.json" -w '%{http_code}' -H "Authorization: Bearer $CF_TOKEN" "$API/zones?name=$dom" || echo ERR)
+          echo "HTTP $lcode  GET /zones?name=$dom"
+          # An absence claim needs a successful read behind it. A 500 here used to be reported, in a green run, as
+          # "not in this account yet" — a state claim from a lookup that failed.
+          if [ "$lcode" != "200" ]; then
+            echo "::error::The lookup for this zone answered HTTP $lcode, so this run cannot tell whether the zone is already in the account — and it will not assume either way. Nothing was created. Re-dispatch; if it repeats, check status.cloudflare.com."
+            exit 1
+          fi
+          zid=$(python3 -c "import json,os;d=json.load(open(os.environ.get('CF_STATE_DIR','/tmp/cf')+'/byname.json'));r=[x for x in (d.get('result') or []) if isinstance(x,dict)];print(r[0].get('id','') if r else '')" 2>/dev/null || echo "")
+          if [ -n "$zid" ]; then
+            cp "$STATE/byname.json" "$STATE/zone_list.json"
+            echo "the zone already exists in this account — reusing it, nothing is created"
+          elif [ "$MODE" = "plan" ]; then
+            {
+              echo "## cf-zone-atlasglinn — plan for $dom"
+              echo
+              echo "\`$dom\` is **not** in this Cloudflare account yet. Nothing was created; plan mode never writes."
+              echo
+              echo "A run with **mode = create** would:"
+              echo "1. POST /zones \`{name: $dom, account: <id>, type: full, jump_start: true}\` — jump_start asks Cloudflare to scan the DNS GoDaddy serves today and import what it finds."
+              echo "2. Poll the imported records until the count settles, for up to 90 s — and FAIL if it is still moving at the deadline."
+              echo "3. FAIL unless the apex MX records (targeting Microsoft 365), \`tak.$dom\` at the expected address, an apex A/AAAA/CNAME and \`www.$dom\` all came across — because a nameserver switch without the MX takes company mail down."
+              echo "4. Print the two assigned Cloudflare nameservers only if every one of those checks passed."
+              echo
+              echo "Nameservers stay at GoDaddy either way. This repository is PUBLIC and so is this log — which is why no record value is printed anywhere in this workflow, in any mode."
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          else
+            acct=$(cat "$STATE/account_id")
+            printf '{"name":"%s","account":{"id":"%s"},"type":"full","jump_start":true}' "$dom" "$acct" > "$STATE/create.json"
+            ccode=$(curl -sS -m 60 -o "$STATE/created.json" -w '%{http_code}' -X POST -H "Authorization: Bearer $CF_TOKEN" -H "Content-Type: application/json" --data @"$STATE/create.json" "$API/zones" || echo ERR)
+            echo "HTTP $ccode  POST /zones"
+            rm -f "$STATE/create.json"
+            # A create can fail because the zone is already there (Cloudflare answers code 1061). Rather than trust one
+            # error number, any failure is followed by a lookup by name: if the zone exists, that is the answer whatever
+            # the code said, and if it does not, only Cloudflare's numeric error code(s) are printed — never the
+            # message text, because this log is public (privacy rule, round 3).
+            if [ "$ccode" = "200" ]; then
+              python3 -c "import json,os,sys;d=json.load(open(os.environ.get('CF_STATE_DIR','/tmp/cf')+'/created.json'));sys.exit(0 if d.get('success') else 1)" || ccode=FAILED
+            fi
+            if [ "$ccode" = "200" ]; then
+              cp "$STATE/created.json" "$STATE/zone_one.json"
+              echo "zone created"
+            else
+              rcode=$(curl -sS -m 30 -o "$STATE/byname.json" -w '%{http_code}' -H "Authorization: Bearer $CF_TOKEN" "$API/zones?name=$dom" || echo ERR)
+              if [ "$rcode" != "200" ]; then
+                echo "::error::The create did not succeed (HTTP $ccode) and the follow-up lookup answered HTTP $rcode, so this run cannot tell what state the account is in. Check the zone list in the Cloudflare dashboard before dispatching again; do NOT touch the nameservers."
+                exit 1
+              fi
+              zid=$(python3 -c "import json,os;d=json.load(open(os.environ.get('CF_STATE_DIR','/tmp/cf')+'/byname.json'));r=[x for x in (d.get('result') or []) if isinstance(x,dict)];print(r[0].get('id','') if r else '')" 2>/dev/null || echo "")
+              if [ -n "$zid" ]; then
+                cp "$STATE/byname.json" "$STATE/zone_list.json"
+                echo "::notice::The create was refused because the zone already exists in this account — reusing it. Nothing changed."
+              else
+                python3 - "$STATE/created.json" "$ccode" "$dom" <<'PY'
+          import json, sys
+          try:
+              d = json.load(open(sys.argv[1], encoding='utf-8', errors='replace'))
+          except Exception:
+              d = {}
+          codes = [str(e.get('code')) if isinstance(e, dict) and isinstance(e.get('code'), int) else 'no code'
+                   for e in (d.get('errors') or [])]
+          msgs = ('%d error(s), code(s) %s' % (len(codes), ', '.join(codes))) if codes else 'no error code in the response body'
+          print('::error::Cloudflare refused to create the zone %s (HTTP %s): %s. The message text is not echoed — this log is public and Cloudflare error strings can quote a record. Nothing changed and the nameservers are untouched. Code 1109 or 1049 means the domain is already in another Cloudflare account, which is GoDaddy\'s own Cloudflare CDN and Cloudflare support has to release it; code 9109 or 10000 means the token lacks permission and needs Zone:Zone:Edit at ACCOUNT scope, not zone scope. Read the full message in the Cloudflare dashboard, not here.' % (sys.argv[3], sys.argv[2], msgs))
+          sys.exit(1)
+          PY
+              fi
+            fi
+          fi
+          # One shape from here on: $STATE/zone.json holds the single zone object.
+          python3 - <<'PY'
+          import json, os
+          S = os.environ.get('CF_STATE_DIR', '/tmp/cf')
+          src = S + ('/zone_one.json' if os.path.exists(S + '/zone_one.json') else '/zone_list.json')
+          d = json.load(open(src, encoding='utf-8', errors='replace'))
+          r = d.get('result')
+          z = r[0] if isinstance(r, list) else r
+          json.dump(z, open(S + '/zone.json', 'w'))
+          print('zone status: %s   name: %s' % (z.get('status'), z.get('name')))
+          PY
+          zid=$(python3 -c "import json,os;print(json.load(open(os.environ.get('CF_STATE_DIR','/tmp/cf')+'/zone.json')).get('id',''))")
+          # An AND-list here does NOT fail the step under set -e (errexit is exempt on the left of &&), so an empty id
+          # used to write proceed=true and surface one step later as a bare `cat: no such file`.
+          if [ -z "$zid" ]; then
+            echo "::error::Cloudflare returned a zone object with no id, so this run cannot read the imported records. Nothing at GoDaddy has changed. Re-dispatch in plan mode and check the zone in the Cloudflare dashboard."
+            exit 1
+          fi
+          printf '%s' "$zid" > "$STATE/zone_id"
+          echo "proceed=true" >> "$GITHUB_OUTPUT"
+
+      # jump_start's scan is asynchronous: the zone answers 200 with an empty record set for a few seconds while
+      # Cloudflare is still reading GoDaddy's DNS. Polling until the count stops moving is what makes the assertions
+      # below a measurement of the finished import rather than of a race — and a count still moving at the deadline is
+      # a FAILED measurement, not a caution to print above a green verdict.
+      - name: Wait for the record import
+        if: steps.zone.outputs.proceed == 'true'
+        env:
+          CF_TOKEN: ${{ secrets.CF_ZONE_TOKEN || secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN || secrets.CLOUDFLARE_TOKEN }}
+        run: |
+          set -eu
+          STATE="${CF_STATE_DIR:-/tmp/cf}"
+          API="${CF_API_BASE:-https://api.cloudflare.com/client/v4}"
+          limit="${CF_IMPORT_DEADLINE_S:-90}"
+          zid=$(cat "$STATE/zone_id")
+          deadline=$(( $(date -u +%s) + limit ))
+          prev=-1; stable=0; settled=0
+          while :; do
+            code=$(curl -sS -m 30 -o "$STATE/page.json" -w '%{http_code}' -H "Authorization: Bearer $CF_TOKEN" "$API/zones/$zid/dns_records?per_page=100" || echo ERR)
+            if [ "$code" != "200" ]; then
+              echo "HTTP $code reading the imported records — retrying"
+            else
+              cp "$STATE/page.json" "$STATE/records_raw.json"
+              n=$(python3 -c "import json,os;d=json.load(open(os.environ.get('CF_STATE_DIR','/tmp/cf')+'/records_raw.json'));print(len(d.get('result') or []))")
+              mx=$(python3 -c "import json,os;d=json.load(open(os.environ.get('CF_STATE_DIR','/tmp/cf')+'/records_raw.json'));print(sum(1 for r in (d.get('result') or []) if r.get('type')=='MX'))")
+              echo "$(date -u +%H:%M:%S)  records=$n  MX=$mx"
+              if [ "$n" = "$prev" ]; then stable=$((stable+1)); else stable=0; fi
+              prev=$n
+              if [ "$mx" -gt 0 ] && [ "$stable" -ge 1 ]; then echo "import settled with MX present"; settled=1; break; fi
+              if [ "$stable" -ge 3 ] && [ "$n" -gt 0 ]; then echo "record count stopped changing at $n"; settled=1; break; fi
+            fi
+            if [ "$(date -u +%s)" -ge "$deadline" ]; then
+              break
+            fi
+            sleep "${CF_POLL_SLEEP_S:-6}"
+          done
+          if [ "$settled" != "1" ]; then
+            echo "::error::${limit}s elapsed and the import was still moving, or still empty. This run will NOT assert on a partial import and will not print nameservers — a short set here usually means Cloudflare's scan could not read GoDaddy's zone, not that the records do not exist. Nothing at GoDaddy has changed and the zone is harmless while the old nameservers still answer. Wait a few minutes and dispatch again in plan mode: the same assertions run against the finished set."
+            exit 1
+          fi
+          if [ ! -f "$STATE/records_raw.json" ]; then
+            echo "::error::The imported record set could never be read from Cloudflare. Nothing changed at GoDaddy — do NOT switch nameservers. Re-run this workflow; if it repeats, the token is missing Zone:DNS:Read."
+            exit 1
+          fi
+          # One page of 100 is more than this zone has ever held, but a truncated read would make the checks below a
+          # partial view of the import — so it fails rather than cautioning underneath a green verdict.
+          python3 - <<'PY'
+          import json, os, sys
+          S = os.environ.get('CF_STATE_DIR', '/tmp/cf')
+          d = json.load(open(S + '/records_raw.json'))
+          recs = [r for r in (d.get('result') or []) if isinstance(r, dict)]
+          total = (d.get('result_info') or {}).get('total_count')
+          if isinstance(total, int) and total > len(recs):
+              print('::error::The zone holds %d records and this run read the first %d, so every check below would be running against a slice of the import. Nothing at GoDaddy has changed. This needs a paged read before the switch — do not switch nameservers on this run.' % (total, len(recs)))
+              sys.exit(1)
+          json.dump(recs, open(S + '/records.json', 'w'))
+          PY
+
+      # The only write this workflow makes to a record set, and it is opt-in, one record, and unproxied on purpose:
+      # tak.atlasglinn.com is a TAK server, not a website, and proxying it would break the protocol.
+      # ABSENCE IS THE ONLY SAFE PRECONDITION FOR A CREATE. If a tak A record already exists pointing somewhere else,
+      # posting a second one makes the name round-robin between two hosts and roughly half of TAK connections go to the
+      # wrong place, intermittently — the failure that gets diagnosed late. So that case stops the run instead.
+      - name: Add the missing tak record
+        if: steps.zone.outputs.proceed == 'true' && inputs.mode == 'create' && inputs.add_missing
+        env:
+          CF_TOKEN: ${{ secrets.CF_ZONE_TOKEN || secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN || secrets.CLOUDFLARE_TOKEN }}
+        run: |
+          set -eu
+          STATE="${CF_STATE_DIR:-/tmp/cf}"
+          API="${CF_API_BASE:-https://api.cloudflare.com/client/v4}"
+          zid=$(cat "$STATE/zone_id")
+          dom=$(cat "$STATE/domain")
+          # 10 = no A record at that name (create it), 11 = it is already the expected address (do nothing),
+          # 12 = an A record exists with a different address (stop; never post a second one). No value is printed.
+          # The codes are deliberately NOT 0/1/2: an uncaught Python exception exits 1, and 1 used to mean "already
+          # the expected address" — so a crash in this block printed a reassuring, false line and the step went green.
+          # Anything outside 10/11/12 is now a hard failure, because it means the classifier did not reach its exit.
+          set +e
+          python3 - "$dom" <<'PY'
+          import json, os, sys
+          S = os.environ.get('CF_STATE_DIR', '/tmp/cf')
+          recs = json.load(open(S + '/records.json'))
+          d = sys.argv[1]
+          a = [r for r in recs if r.get('type') == 'A' and r.get('name') == 'tak.' + d]
+          ok = [r for r in a if (r.get('content') or '').strip() == '142.93.177.0']
+          sys.exit(10 if not a else (11 if len(ok) == len(a) else 12))
+          PY
+          takstate=$?
+          set -e
+          if [ "$takstate" = "11" ]; then
+            echo "tak.$dom A already matches the expected address — nothing to add"
+          elif [ "$takstate" = "12" ]; then
+            echo "::error::tak.$dom already has an A record with a DIFFERENT address. This run will NOT add a second one — two A records on that name would round-robin and send roughly half of the TAK clients to the wrong host. Open the Cloudflare dashboard, decide which address is right, and fix it by hand before switching nameservers. The address is not printed here: this log is public."
+            exit 1
+          elif [ "$takstate" != "10" ]; then
+            echo "::error::The tak classifier did not reach a verdict (it exited $takstate, and only 10, 11 or 12 are verdicts). That is a crash in this workflow, not a fact about the zone, so this run will not act on it and will not add a record. Nothing at GoDaddy has changed. Re-dispatch in plan mode — the assertion step reads the same record set and reports it."
+            exit 1
+          else
+            printf '{"type":"A","name":"tak","content":"142.93.177.0","ttl":1,"proxied":false}' > "$STATE/tak.json"
+            code=$(curl -sS -m 30 -o "$STATE/tak_out.json" -w '%{http_code}' -X POST -H "Authorization: Bearer $CF_TOKEN" -H "Content-Type: application/json" --data @"$STATE/tak.json" "$API/zones/$zid/dns_records" || echo ERR)
+            echo "HTTP $code  POST /zones/<id>/dns_records  (A tak, unproxied)"
+            if [ "$code" != "200" ]; then
+              # codes only: Cloudflare's 81057 "identical record already exists" message quotes the record it means,
+              # which is the one shape of vendor text that would put an address into this public log.
+              python3 -c "import json,os,sys;d=json.load(open(os.environ.get('CF_STATE_DIR','/tmp/cf')+'/tak_out.json'));c=[str(e.get('code')) if isinstance(e,dict) and isinstance(e.get('code'),int) else 'no code' for e in (d.get('errors') or [])];print('::error::Could not add the tak A record for %s: %s. The message text is not echoed — this log is public. The zone is otherwise untouched; do NOT switch nameservers until this record exists. Read the full message in the Cloudflare dashboard.' % (sys.argv[1], ('%d error(s), code(s) %s' % (len(c), ', '.join(c))) if c else 'no error code in the response body'))" "$dom"
+              exit 1
+            fi
+            echo "added by this run: A tak.$dom (unproxied)"
+            rcode=$(curl -sS -m 30 -o "$STATE/records_raw.json" -w '%{http_code}' -H "Authorization: Bearer $CF_TOKEN" "$API/zones/$zid/dns_records?per_page=100" || echo ERR)
+            if [ "$rcode" != "200" ]; then
+              echo "::error::The tak record was added, but re-reading the record set answered HTTP $rcode, so this run cannot verify the set it would be asserting on. Nothing is live and the nameservers are untouched — dispatch this workflow again in plan mode to see the checks."
+              exit 1
+            fi
+            python3 -c "import json,os;S=os.environ.get('CF_STATE_DIR','/tmp/cf');d=json.load(open(S+'/records_raw.json'));json.dump([r for r in (d.get('result') or []) if isinstance(r,dict)],open(S+'/records.json','w'))"
+          fi
+
+      # THE GATE. Mail and the TAK host are the two things that break silently and are noticed late; the apex and www
+      # are what the website resolves on. All of them are hard failures, and so is an MX that does not point at
+      # Microsoft 365 unless allow_other_mx was ticked in the dispatch. Nothing here prints a record's value.
+      # This step is the ONLY thing that can set `verified`, and it sets it last.
+      - name: Assert the import
+        id: assert
+        if: steps.zone.outputs.proceed == 'true'
+        env:
+          MODE: ${{ inputs.mode }}
+          ADD_MISSING: ${{ inputs.add_missing }}
+          ALLOW_OTHER_MX: ${{ inputs.allow_other_mx }}
+        run: |
+          set -eu
+          python3 - <<'PY'
+          import json, os, sys
+
+          S = os.environ.get('CF_STATE_DIR', '/tmp/cf')
+          TAK_IP = '142.93.177.0'   # public DNS today; an expectation held in this file, never a value read back
+          recs = json.load(open(S + '/records.json'))
+          dom = open(S + '/domain').read().strip()
+          mode = os.environ.get('MODE', 'plan')
+          allow_other_mx = os.environ.get('ALLOW_OTHER_MX', '') == 'true'
+          out = []
+
+          def w(line=''):
+              out.append(line)
+              print(line)
+
+          def low(r):
+              return (r.get('content') or '').lower()
+
+          def n_recs(n):
+              return '%d record%s' % (n, '' if n == 1 else 's')
+
+          # NO CONTENT COLUMN. Name, type, proxied and ttl only — the content of a record is the origin address the
+          # WAF rule this unlocks exists to hide, and this log is world-readable.
+          w('## cf-zone-atlasglinn — imported record set for `%s`' % dom)
+          w()
+          w('| type | name | proxied | ttl |')
+          w('|---|---|---|---|')
+          for r in sorted(recs, key=lambda r: (r.get('type', ''), r.get('name', ''))):
+              w('| %s | %s | %s | %s |' % (r.get('type'), r.get('name'), r.get('proxied'), r.get('ttl')))
+          w()
+          w('%d records imported. Record values are deliberately absent from this table — the repository is public and so is this log.' % len(recs))
+          w()
+
+          mx = [r for r in recs if r.get('type') == 'MX' and r.get('name') == dom]
+          # ENDS-WITH, not contains: a target such as mail.protection.outlook.com.evil.example would satisfy a
+          # substring test (round-3 verifier). The classifier is the row's own content, trailing dot stripped.
+          def is_m365(r):
+              return low(r).rstrip('.').endswith('.mail.protection.outlook.com')
+          m365_mx = [r for r in mx if is_m365(r)]
+          other_mx = [r for r in mx if not is_m365(r)]
+          spf = [r for r in recs if r.get('type') == 'TXT' and r.get('name') == dom and 'v=spf1' in low(r)]
+          spf_m365 = [r for r in spf if 'spf.protection.outlook.com' in low(r)]
+          auto = [r for r in recs if r.get('name') == 'autodiscover.' + dom and r.get('type') == 'CNAME']
+          tak = [r for r in recs if r.get('name') == 'tak.' + dom and r.get('type') == 'A']
+          tak_ok = [r for r in tak if (r.get('content') or '').strip() == TAK_IP]
+          tak_other = [r for r in tak if (r.get('content') or '').strip() != TAK_IP]
+          # A website resolves on an address record. A TXT (or an MX, or a CAA) at these names is a record, and it is
+          # not a website — so the gate asks for the TYPES that can serve one, at BOTH names. `www` used to ask only
+          # for a record with that name, which a TXT satisfies: the zone would import, this run would print the two
+          # nameservers, and www would stop resolving on the switch. The apex has always been typed; www now matches it.
+          WEB_TYPES = ('A', 'AAAA', 'CNAME')
+          apex_any = [r for r in recs if r.get('name') == dom]
+          apex = [r for r in apex_any if r.get('type') in WEB_TYPES]
+          www_any = [r for r in recs if r.get('name') == 'www.' + dom]
+          www = [r for r in www_any if r.get('type') in WEB_TYPES]
+
+          if not tak:
+              tak_line = 'tak A missing'
+          elif tak_other:
+              tak_line = 'tak A exists with a DIFFERENT address — stop'
+          else:
+              tak_line = 'tak A matches the expected address'
+
+          w('| check | result |')
+          w('|---|---|')
+          w('| (a) apex MX — company mail | MX present (%d) — targeting Microsoft 365: %d of %d |' % (len(mx), len(m365_mx), len(mx)))
+          w('| &nbsp;&nbsp;M365 SPF on the apex (TXT) | %s |' % ('yes' if spf_m365 else ('an SPF TXT is present but it is not the M365 one' if spf else 'no SPF TXT on the apex')))
+          w('| &nbsp;&nbsp;autodiscover CNAME | %s |' % ('present' if auto else 'not present'))
+          w('| (b) `tak.%s` | **%s** |' % (dom, tak_line))
+          def web_cell(typed, anyrec):
+              if typed:
+                  return 'present (%d)' % len(typed)
+              if anyrec:
+                  return 'MISSING — %d record(s) at that name, none of them A/AAAA/CNAME' % len(anyrec)
+              return 'MISSING'
+
+          w('| (c) apex A/AAAA/CNAME | **%s** |' % web_cell(apex, apex_any))
+          w('| (c) `www.%s` A/AAAA/CNAME | **%s** |' % (dom, web_cell(www, www_any)))
+          w()
+          w('The SPF and autodiscover lines are informational. Everything else on this table fails the run.')
+          w()
+
+          fatal = []
+          if not mx:
+              fatal.append('no MX record on the apex — company mail for %s is Microsoft 365 and moving the nameservers now would take it down' % dom)
+          elif not m365_mx and not allow_other_mx:
+              fatal.append('the apex MX records are present but none of them target Microsoft 365, and company mail is M365. A stale or partial GoDaddy scan importing the wrong-but-present MX is exactly how mail goes dark on propagation. Compare the MX rows in the Cloudflare dashboard against GoDaddy → Domains → %s → DNS; if the route really is somewhere else, dispatch again with allow_other_mx = true' % dom)
+          elif other_mx and not allow_other_mx:
+              # ANY is not ALL. One M365 MX beside a stale GoDaddy one used to clear this gate and then print
+              # "the apex MX records were confirmed present AND targeting Microsoft 365" — plural, and false for
+              # one of the two. The gate now measures every row, and the sentence below reports the same number.
+              fatal.append('%d of the %d apex MX records for %s target Microsoft 365 and %d do not, so this run cannot say mail keeps flowing. A leftover MX beside the M365 one delivers a share of the mail somewhere else, which looks like intermittent loss rather than an outage. Compare every MX row in the Cloudflare dashboard against GoDaddy → Domains → %s → DNS; if the extra rows are meant to be there, dispatch again with allow_other_mx = true' % (len(m365_mx), len(mx), dom, len(other_mx), dom))
+          if not tak:
+              fatal.append('tak.%s has no A record — the TAK host would stop resolving. A create run with add_missing = true adds it' % dom)
+          elif tak_other:
+              fatal.append('tak.%s has an A record with a DIFFERENT address than the one this workflow expects. Resolve it by hand in the Cloudflare dashboard — this run will not guess which host is right, and will not add a second record beside it' % dom)
+          if not apex and apex_any:
+              fatal.append('the apex of %s has %d record(s) in the imported set but not one of them is an A, AAAA or CNAME — a TXT or an MX at the apex is a record and it is not a website, so the site would stop resolving on the switch' % (dom, len(apex_any)))
+          elif not apex:
+              fatal.append('no A/AAAA/CNAME on the apex — the website would stop resolving')
+          if not www and www_any:
+              fatal.append('www.%s has %d record(s) in the imported set but not one of them is an A, AAAA or CNAME — a TXT at www is a record and it is not a website, so www would stop resolving on the switch. Add the address record in Cloudflare first and re-dispatch' % (dom, len(www_any)))
+          elif not www:
+              fatal.append('www.%s has no record in the imported set — it would stop resolving on the switch. If www is genuinely a redirect held elsewhere, add the record in Cloudflare first and re-dispatch; this run will not decide that for you' % dom)
+
+          if fatal:
+              w('### DO NOT SWITCH NAMESERVERS')
+              w()
+              for f in fatal:
+                  w('- %s' % f)
+              w()
+              w('The zone exists in Cloudflare and is harmless while GoDaddy still answers for the domain. Nothing is live until the nameservers move, and they must not move yet. No nameservers are printed by this run.')
+              w()
+              w('**What a follow-up run can add for you** (dispatch with mode = create, add_missing = true): the `tak` A record, and only when no A record exists at that name. The mail, apex and www rows are copied by hand from the GoDaddy DNS page on purpose — this workflow will not guess a mail route or a web address.')
+          else:
+              # The sentence he acts on reports the count that was measured. All three limbs are reachable and each
+              # names its own number, so "confirmed targeting Microsoft 365" is only ever printed when every row does.
+              if m365_mx and not other_mx:
+                  mail_note = 'Mail keeps flowing throughout: every one of the %s on the apex MX was confirmed present AND targeting Microsoft 365 before this line was printed.' % n_recs(len(mx))
+                  mx_label = 'M365 on all %s' % n_recs(len(mx))
+              elif m365_mx:
+                  mail_note = 'Mail: %d of the %d apex MX records target Microsoft 365 and %d do NOT, and this run was dispatched with allow_other_mx = true. You accepted that mix — the %d non-M365 row(s) will keep delivering their share of the mail wherever they point, so confirm them against GoDaddy → Domains → %s → DNS before you paste anything.' % (len(m365_mx), len(mx), len(other_mx), len(other_mx), dom)
+                  mx_label = 'M365 on %d of %d rows, the other %d accepted by input' % (len(m365_mx), len(mx), len(other_mx))
+              else:
+                  mail_note = 'Mail: all %s on the apex MX are present, but they do NOT target Microsoft 365 and this run was dispatched with allow_other_mx = true. You accepted that route — confirm it against GoDaddy → Domains → %s → DNS before you paste anything.' % (n_recs(len(mx)), dom)
+                  mx_label = 'other route, accepted by input'
+              open(S + '/mail_note.txt', 'w').write(mail_note)
+              w('### Import verified — the apex MX (%s), tak, the apex record and www are all present' % mx_label)
+              if mode != 'create':
+                  w()
+                  w('This was a **plan** run, so the nameservers are not printed. Dispatch the same domain with **mode = create** — the zone already exists, so that run reuses it, re-runs exactly these checks and then prints the two nameservers.')
+
+          summ = os.environ.get('GITHUB_STEP_SUMMARY')
+          if summ:
+              open(summ, 'a').write('\n'.join(out) + '\n')
+
+          if fatal:
+              for f in fatal:
+                  print('::error::do NOT switch nameservers — %s' % f)
+              sys.exit(1)
+
+          # The one place `verified` is written, after every check passed. The nameserver step reads this and nothing
+          # else — a caution can no longer sit above a paste block, because nothing else can turn that step on.
+          gho = os.environ.get('GITHUB_OUTPUT')
+          if gho and mode == 'create':
+              open(gho, 'a').write('verified=true\n')
+          PY
+
+      # Reached only when steps.assert set verified=true — i.e. a green CREATE run whose every assertion passed.
+      # This is the single manual step in R3′ and the only one that is his.
+      - name: The two nameservers and the one GoDaddy step
+        if: steps.assert.outputs.verified == 'true'
+        run: |
+          set -eu
+          python3 - <<'PY'
+          import json, os, sys
+
+          S = os.environ.get('CF_STATE_DIR', '/tmp/cf')
+          z = json.load(open(S + '/zone.json'))
+          ns = [n for n in (z.get('name_servers') or []) if n]
+          dom = z.get('name') or open(S + '/domain').read().strip()
+          try:
+              mail_note = open(S + '/mail_note.txt').read().strip()
+          except Exception:
+              mail_note = ''
+          out = []
+
+          def w(line=''):
+              out.append(line)
+              print(line)
+
+          if not ns:
+              print('::error::Every check passed, but Cloudflare has not assigned nameservers to this zone yet, so there is nothing to paste and this run will not pretend otherwise. Wait a few minutes and dispatch again in create mode — the zone already exists, so that run reuses it. Change nothing at GoDaddy until a run prints the pair.')
+              sys.exit(1)
+          # GoDaddy's custom-nameserver form takes a PAIR and this block says "paste these two" and "replace both".
+          # A one-entry list would print an instruction he cannot follow, on a phone, at the one manual step in R3′.
+          if len(ns) != 2:
+              print('::error::Every check passed, but Cloudflare has assigned %d nameserver(s) to this zone and the GoDaddy form takes exactly two — so this run will not print a list that cannot be pasted. The names themselves are not shown here because they are only half an answer. Wait a few minutes and dispatch again in create mode; the zone already exists, so that run reuses it and re-runs these checks. Change nothing at GoDaddy until a run prints the pair.' % len(ns))
+              sys.exit(1)
+
+          w('## %s is now a zone in your Cloudflare account — one step left, and it is yours' % dom)
+          w()
+          w('Paste these two nameservers at GoDaddy:')
+          w()
+          w('```')
+          for n in ns:
+              w(n)
+          w('```')
+          w()
+          w('GoDaddy: **Domains -> %s -> Nameservers -> Change -> I\'ll use my own nameservers (Custom) -> paste both -> Save.**' % dom)
+          w()
+          w('- Replace both existing entries. Nothing else on that page changes.')
+          w('- **Do NOT enable DNSSEC at GoDaddy.** Signing there and then moving nameservers takes the domain dark until the DS record expires out of the registry, and DNSSEC is not the attack vector here — brute force on wp-login.php is.')
+          w('- Do not touch the registrar locks, the forwarding, or the DNS rows. The records were verified above and Cloudflare serves them from the moment the switch propagates.')
+          w('- Propagation is usually minutes and can be up to 24 h. %s' % mail_note)
+          w('- **Then delete the Cloudflare token.** My Profile → API Tokens → delete the one this run used. Removing the GitHub secret does not revoke it, and it can edit DNS for every zone in the account.')
+          w()
+          w('After it goes green in Cloudflare, the thing R3 could never do becomes possible: a WAF rate-limit rule on `/wp-login.php`.')
+
+          summ = os.environ.get('GITHUB_STEP_SUMMARY')
+          if summ:
+              open(summ, 'a').write('\n'.join(out) + '\n')
+          PY
