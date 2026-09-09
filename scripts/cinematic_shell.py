@@ -180,6 +180,16 @@ CSS_A = r"""
   .media-strip { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:1rem; padding:.5rem 0 1rem; scrollbar-width:thin; scrollbar-color:var(--gold) var(--deep-navy); max-width:1200px; margin:0 auto; }
   .video-card { flex:0 0 min(82vw,480px); scroll-snap-align:start; background:rgba(11,18,33,.8); border:1px solid rgba(201,168,76,.22); overflow:hidden; text-align:left; }
   .yt .play { border-color:var(--gold); background:rgba(5,8,16,.8); }
+  /* Phones (Brockmann, 2026-09-09, Testimonials screenshot: "only has this video, not the both"): the strip is a horizontal
+     swipe row, and at 82vw a card fills the phone's width with the next card hidden past the right edge, no scrollbar on
+     iOS and nothing to say there is more. The two testimonials stack instead, so both are on screen; the 14-film media strip
+     stays a swipe row but its cards are 74vw, so the next film is visibly cut in at the edge. Specificity (0,1,1) beats the
+     booking sheet's .video-card rule, which is spliced after this one. */
+  @media (max-width:768px) {
+    .media-strip .video-card { flex-basis:min(74vw,480px); }
+    #testimonial-strip { flex-wrap:wrap; overflow-x:visible; scroll-snap-type:none; }
+    #testimonial-strip .video-card { flex:0 0 100%; }
+  }
   .yt:hover .play { background:var(--gold); border-color:var(--gold); }
   .yt.mp4 { background:linear-gradient(135deg, var(--gunmetal), var(--midnight)); }
   .yt.mp4 .lbl { color:var(--gold-champagne); font-family:'Share Tech Mono',monospace; }
@@ -259,7 +269,13 @@ const openHero = () => {
   setTimeout(() => document.querySelector('[data-section="01"] .rise').classList.add('in'), 1200);
   setPhoto(0);
 };
-if (reduce) { openHero(); } else {
+// Under prefers-reduced-motion the hero opens with no splash — but NOT synchronously: openHero() reaches setPhoto(),
+// `phs` and `photoIdx`, which this module declares further down (const/let, so a call from here throws
+// "Cannot access 'photoIdx' before initialization" and the whole module dies with it — no backdrop, no scene, no
+// chapter reveals, the text-only page an iPhone with Reduce Motion on showed on 2026-09-09). Deferred one task, it runs
+// after the module body has evaluated. Reduced motion still means no intro, no film autoplay and no letterbox cuts;
+// the photograph and the emblem scene are not motion and they stay.
+if (reduce) { setTimeout(openHero, 0); } else {
   setTimeout(() => { intro.classList.add('done'); setTimeout(openHero, 1000); }, 4800);
   // The splash script in the markup owns the dismissing gesture and has already started the fade; it holds the overlay
   // hit-testable until the tap's click can no longer arrive, so the hero opens no sooner than that.
