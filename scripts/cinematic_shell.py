@@ -259,7 +259,13 @@ const openHero = () => {
   setTimeout(() => document.querySelector('[data-section="01"] .rise').classList.add('in'), 1200);
   setPhoto(0);
 };
-if (reduce) { openHero(); } else {
+// Under prefers-reduced-motion the hero opens with no splash — but NOT synchronously: openHero() reaches setPhoto(),
+// `phs` and `photoIdx`, which this module declares further down (const/let, so a call from here throws
+// "Cannot access 'photoIdx' before initialization" and the whole module dies with it — no backdrop, no scene, no
+// chapter reveals, the text-only page an iPhone with Reduce Motion on showed on 2026-09-09). Deferred one task, it runs
+// after the module body has evaluated. Reduced motion still means no intro, no film autoplay and no letterbox cuts;
+// the photograph and the emblem scene are not motion and they stay.
+if (reduce) { setTimeout(openHero, 0); } else {
   setTimeout(() => { intro.classList.add('done'); setTimeout(openHero, 1000); }, 4800);
   // The splash script in the markup owns the dismissing gesture and has already started the fade; it holds the overlay
   // hit-testable until the tap's click can no longer arrive, so the hero opens no sooner than that.
