@@ -1,0 +1,33 @@
+# Server-side credential scan (security review, 2026-09-08).
+#
+# Why server-side: every other guard in this repo is client-side or Mac-side. A push from the GitHub web UI, a phone, an
+# Action or any other client reaches main without passing one of them. This runs on the server, on every push and every
+# pull request, over every tracked file — so there is no push path that is not scanned.
+#
+# It fails the job on any hit and prints file:line with the value MASKED (first four characters and a length), because
+# the log of a failing job must not become the second place a secret leaked.
+#
+# To make it BLOCK a merge rather than only report: Settings → Branches → main → require the "cred-scan" status check.
+name: cred-scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cred-scan-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      # Full history is not needed: the scan reads the working tree, and a secret that only exists in an older commit is a
+      # rotation problem, not something a blocking check can fix.
+      - uses: actions/checkout@v4
+      - name: Scan every tracked file for credential patterns
+        run: python3 .github/scripts/ci_cred_scan.py

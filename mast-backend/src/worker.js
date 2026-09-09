@@ -24,6 +24,7 @@
 import { AGREEMENT_VERSION, fillAgreement } from './agreement.js';
 import { directionsAttachment, directionsStatus } from './directions.js';
 import { publicKeyInfo } from './sealed.js';
+import { checkRate, purgeRateLimits, clientIp, lockedFor, noteFailedLogin, dummyFailedLogin, clearFailedLogins, identityLockedFor, noteFailedIdentity, clearFailedIdentity, codeGuessesSpent, noteCodeGuess, clearCodeGuesses, absentGuessId, pendingGuessId, addressDigest, noteCodeMail, CODE_GUESSES_PER_IP } from './ratelimit.js';
 import { ensureCrmSchema, crmSnapshot, audienceCsv, syncAudience, syncOnPayment, syncLead, adminPage, attributionFrom, recordContact, markContactEmailed, recordEvent, handleEvent, handleSubscribe, runJourneys, weeklyDigest, weeklyDigestPeriod } from './crm.js';
 
 const REPLAY_WINDOW_SECONDS = 300; // reject webhook timestamps older than 5 min
@@ -43,6 +44,12 @@ export default {
     }
 
     try {
+      // Per-IP limits before anything reads a body or hashes a password (src/ratelimit.js): unlimited online guessing
+      // against /account/login was the finding that created this gate, and the same counter caps the routes that mail a
+      // code, hold a seat or write a lead. Routes not in RATE_ROUTES are untouched.
+      const gate = await checkRate(request, env, request.method, url.pathname);
+      if (gate) return tooMany(cors, gate.retry_after, 'rate_limited', 'Too many requests from this connection. Please wait a moment and try again.');
+
       if (url.pathname === '/health' && request.method === 'GET') {
         // build = the commit the deploy was made from (`wrangler deploy --var BUILD:<sha>`, set by scripts/wp-upload.sh and
         // deploy-worker.yml), so a runner can tell which merge is running; crm marks the /event, /subscribe, /admin routes.
@@ -62,7 +69,7 @@ export default {
         return await handleWeekends(env, cors);
       }
       if (url.pathname === '/register' && request.method === 'POST') {
-        return await handleRegister(request, env, cors);
+        return await handleRegister(request, env, ctx, cors);
       }
       if (url.pathname === '/contact' && request.method === 'POST') {
         return await handleContact(request, env, cors);
@@ -77,12 +84,12 @@ export default {
         return await handleWebhook(request, env, ctx, cors);
       }
       // Student accounts (owner, 2026-09-05)
-      if (url.pathname === '/account/register' && request.method === 'POST') return await handleAccountRegister(request, env, cors);
-      if (url.pathname === '/account/login' && request.method === 'POST') return await handleAccountLogin(request, env, cors);
-      if (url.pathname === '/account/verify' && request.method === 'POST') return await handleAccountVerify(request, env, cors);
-      if (url.pathname === '/account/resend' && request.method === 'POST') return await handleAccountResend(request, env, cors);
-      if (url.pathname === '/account/forgot' && request.method === 'POST') return await handleAccountForgot(request, env, cors);
-      if (url.pathname === '/account/reset' && request.method === 'POST') return await handleAccountReset(request, env, cors);
+      if (url.pathname === '/account/register' && request.method === 'POST') return await handleAccountRegister(request, env, ctx, cors);
+      if (url.pathname === '/account/login' && request.method === 'POST') return await handleAccountLogin(request, env, ctx, cors);
+      if (url.pathname === '/account/verify' && request.method === 'POST') return await handleAccountVerify(request, env, ctx, cors);
+      if (url.pathname === '/account/resend' && request.method === 'POST') return await handleAccountResend(request, env, ctx, cors);
+      if (url.pathname === '/account/forgot' && request.method === 'POST') return await handleAccountForgot(request, env, ctx, cors);
+      if (url.pathname === '/account/reset' && request.method === 'POST') return await handleAccountReset(request, env, ctx, cors);
       if (url.pathname === '/account/me' && request.method === 'GET') return await handleAccountMe(request, env, cors);
       if (url.pathname === '/account/update' && request.method === 'POST') return await handleAccountUpdate(request, env, cors);
       if (url.pathname === '/account/password' && request.method === 'POST') return await handleAccountPassword(request, env, cors);
@@ -211,11 +218,41 @@ function publicAccount(a) {
 }
 
 /* Email ownership (Codex review of PR #10, 2026-09-05, P1): an account is only live — and only sees the classes booked under
-   its email — after a 6-digit code emailed to that address comes back. Until then no token is issued; an unverified account
-   is overwritten by the next sign-up for the same address (nobody can squat a student's email) and is purged after a day.
-   The same code mechanism carries the forgotten-password path (P2). Codes: 6 digits, 15 minutes, 5 tries, one at a time
-   per account, stored as an HMAC of (account id, purpose, code) under ACCOUNT_SECRET; re-sends at most once a minute. */
-const CODE_TTL_MS = 15 * 60000, CODE_MAX_TRIES = 5, CODE_RESEND_MS = 60000;
+   its email — after a 6-digit code emailed to that address comes back.
+
+   THERE IS NO ACCOUNT UNTIL THERE IS A VERIFIED ONE (round 5, 2026-09-09). /account/register writes a pending_signups
+   row and nothing else; handleAccountVerify is what INSERTs the accounts row, in one batch, and only when no row for the
+   address exists yet. Two findings die on that one change, and both had survived three rounds of patching the symptoms:
+
+     the squat takeover  a stranger signed up victim@, their password landed on the accounts row, and round 3's "a
+                         sign-up never overwrites an existing row" then PROTECTED it — the owner entered the code from
+                         their own mailbox and the account came up holding the stranger's password. Rounds 5 and 6 moved
+                         the same contest onto the pending row and kept losing it, because ONE ROW PER ADDRESS is a slot
+                         and a slot can be taken, held and renewed. ROUND 7 REMOVES THE SLOT: a row per SIGN-UP, and
+                         /account/verify takes the code AND the password that sign-up was made with, so the credentials
+                         that become an account are always the ones whose own code came back. A stranger's row is inert
+                         to the owner and the owner's is unreachable to the stranger.
+     register→login      an address that had started a sign-up had an accounts row, so /account/login answered 403
+                         'unverified' for it and 401 for an address with nothing — a one-request existence oracle. A
+                         pending sign-up is not an accounts row, so it answers the 401 an absent address answers, on the
+                         same statements. The 403 branch is gone from /account/login entirely.
+
+   The pending row is keyed on a DIGEST of the address and holds no plaintext address; it is dropped when the account is
+   created and by the daily cron after a day. The same code mechanism carries the forgotten-password path (P2). Codes: 6 digits, 15 minutes, one at a time per
+   account, stored as an HMAC of (account id, purpose, code) under ACCOUNT_SECRET; re-sends at most once a minute.
+
+   TRIES ARE COUNTED TWICE, and the two counts answer two different questions (security review round 3, 2026-09-08).
+   Five wrong guesses from ONE connection refuse that connection (src/ratelimit.js) and leave the code live for everyone
+   else, which is what stops a stranger reaching into the owner's inbox and invalidating the code sitting in it. The
+   global count below is what a code under real attack runs into: twenty tries against six digits is a 0.002% chance of
+   a hit, so the burn costs an attacker far more than the owner — who is emailed that it happened and may ask for a
+   replacement at once. It was 5 globally, so five requests from a stranger burned the owner's code and codeTooSoon()
+   then held the replacement shut for a minute. */
+const CODE_TTL_MS = 15 * 60000, CODE_MAX_TRIES = 20, CODE_RESEND_MS = 60000;
+/** The id every absent-account path binds, so a ghost address spends the statements a real one spends. No row carries it. */
+const ABSENT_ID = 'acct_absent';
+/** A well-formed hash of nothing: what the absent branches verify against so a missing row costs the same PBKDF2. */
+const DUMMY_PASSWORD_HASH = 'pbkdf2-sha256$' + PBKDF2_ITER + '$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
 function accountsOff(env, cors) {
   if (!env.ACCOUNT_SECRET) return json({ error: 'Accounts are not configured yet.', code: 'accounts_off' }, 503, cors);
   return null;
@@ -229,15 +266,56 @@ function newCode() { const n = crypto.getRandomValues(new Uint32Array(1))[0] % 1
 async function codeHash(env, acct, kind, code) {
   return b64url(await crypto.subtle.sign('HMAC', await hmacKey(env.ACCOUNT_SECRET), new TextEncoder().encode(acct.id + ':' + kind + ':' + String(code))));
 }
+/**
+ * A fresh code. It does NOT reset the abuse counters (security review round 4, 2026-09-08), and that is the whole
+ * change: it used to zero verify_attempts AND drop every connection's guess counter for the account, while every route
+ * that calls it — /account/register, /account/forgot, /account/resend — is UNAUTHENTICATED. So a stranger who
+ * interleaved one reissue between every five guesses bought themselves an unbounded run of five-guess batches and
+ * deferred the twenty-try global burn indefinitely: 25 wrong codes across five connections with a sign-up between each
+ * batch left the code live and sent the owner nothing. The counters are cleared by a CORRECT code (guardedCheckCode)
+ * and by the owner signing in with their password (handleAccountLogin), which are the two things a stranger cannot do.
+ * verify_attempts therefore counts wrong tries against the ADDRESS across however many codes were issued, until one of
+ * them is right or twenty of them are wrong and the code burns.
+ *
+ * TRUE HERE ALL ALONG, AND FALSE NEXT DOOR FOR THE WHOLE OF ROUND 5 (round 6, 2026-09-09). This function is the
+ * ACCOUNTS path and /account/forgot is now its only caller; sign-ups moved to pending_signups, where the write bound
+ * verify_attempts to a literal 0 and /account/register reset it on every unauthenticated call. The primitive described
+ * above was therefore alive on the new path while this comment, and five documents quoting it, said it was closed. A
+ * pending row still starts at 0 (it is a new row, not a reset one), and the counter the burn reads is MAX across the
+ * live rows at the address — so opening a sign-up cannot lower it (round 7).
+ */
 async function issueCode(env, acct, kind) {
   const code = newCode(), now = Date.now();
   const hash = await codeHash(env, acct, kind, code);
   const exp = new Date(now + CODE_TTL_MS).toISOString(), sent = new Date(now).toISOString();
-  await env.DB.prepare('UPDATE accounts SET verify_kind = ?, verify_code_hash = ?, verify_expires_at = ?, verify_attempts = ?, verify_sent_at = ? WHERE id = ?').bind(kind, hash, exp, 0, sent, acct.id).run();
-  Object.assign(acct, { verify_kind: kind, verify_code_hash: hash, verify_expires_at: exp, verify_attempts: 0, verify_sent_at: sent });
+  await env.DB.prepare('UPDATE accounts SET verify_kind = ?, verify_code_hash = ?, verify_expires_at = ?, verify_sent_at = ? WHERE id = ?').bind(kind, hash, exp, sent, acct.id).run();
+  Object.assign(acct, { verify_kind: kind, verify_code_hash: hash, verify_expires_at: exp, verify_sent_at: sent });
   return code;
 }
+/**
+ * The absent-account twin of issueCode: the same HMAC and the same statement, bound to an id no row carries, so
+ * /account/forgot and /account/resend cost an invented address what they cost a real one. Before this the real path ran
+ * an UPDATE and awaited a Resend round trip while the ghost path ran neither — 165 ms against 34 ms, a one-request
+ * existence oracle inside a route written to be uniform (security review round 3, 2026-09-08). It was two statements
+ * until round 4 dropped the counter-clearing DELETE from issueCode; the two move together or the parity is gone.
+ */
+async function dummyIssue(env, kind) {
+  const now = Date.now();
+  const hash = await codeHash(env, { id: ABSENT_ID }, kind, newCode());
+  await env.DB.prepare('UPDATE accounts SET verify_kind = ?, verify_code_hash = ?, verify_expires_at = ?, verify_sent_at = ? WHERE id = ?')
+    .bind(kind, hash, new Date(now + CODE_TTL_MS).toISOString(), new Date(now).toISOString(), ABSENT_ID).run().catch(() => {});
+}
+/**
+ * One body for every wrong-code answer — wrong digits, no live code, and a code whose tries are spent alike. No
+ * tries_left, no hint that the address is known, and no 'expired' (security review round 2, 2026-09-08: checkCode
+ * returns 'expired' precisely when there is NO live code, so answering it told an unauthenticated caller that the
+ * address has an account in one request) and no 'locked' (only an address that HAS an account could ever reach it).
+ * The message carries the "ask for a new one" advice that the two distinct answers used to carry.
+ */
+function badCode() { return { error: 'That code is not right, or it has expired. Request a new one.', code: 'bad_code' }; }
 function codeTooSoon(acct) { return !!(acct.verify_sent_at && Date.now() - Date.parse(acct.verify_sent_at) < CODE_RESEND_MS); }
+/** The sign-up-attempt notice throttles on its OWN column; touching verify_sent_at here shut the owner's reset. */
+function noticeTooSoon(acct) { return !!(acct.signup_notice_sent_at && Date.now() - Date.parse(acct.signup_notice_sent_at) < CODE_RESEND_MS); }
 async function clearCode(env, acct) {
   await env.DB.prepare('UPDATE accounts SET verify_kind = ?, verify_code_hash = ?, verify_expires_at = ?, verify_attempts = ? WHERE id = ?').bind(null, null, null, 0, acct.id).run();
   Object.assign(acct, { verify_kind: null, verify_code_hash: null, verify_expires_at: null, verify_attempts: 0 });
@@ -250,9 +328,13 @@ async function checkCode(env, acct, kind, code) {
   const claim = await env.DB.prepare('UPDATE accounts SET verify_attempts = verify_attempts + 1 WHERE id = ? AND verify_kind = ? AND verify_code_hash IS NOT NULL AND verify_expires_at > ? AND verify_attempts < ?')
     .bind(acct.id, kind, now, CODE_MAX_TRIES).run();
   if (!claim || !claim.meta || !claim.meta.changes) {
-    const live = !!(acct.verify_code_hash && acct.verify_kind === kind && acct.verify_expires_at && acct.verify_expires_at > now);
-    if (live) await clearCode(env, acct);   // the tries are spent: burn what is left
-    return live ? 'locked' : 'expired';
+    // The row is read back rather than trusted from this copy, and it is read WHETHER OR NOT there is anything to find,
+    // so the absent-account twin below spends the same two statements as an account with no live code — the ordinary
+    // state of every account, and therefore the state a probe lands in (security review round 3, 2026-09-08).
+    const row = await env.DB.prepare('SELECT verify_kind, verify_code_hash, verify_expires_at FROM accounts WHERE id = ?').bind(acct.id).first().catch(() => null);
+    const live = !!(row && row.verify_code_hash && row.verify_kind === kind && row.verify_expires_at && row.verify_expires_at > now);
+    if (live) return (await burnCode(env, acct)) ? 'burned' : 'locked';   // the tries are spent: burn what is left
+    return 'expired';
   }
   const want = acct.verify_code_hash, got = await codeHash(env, acct, kind, String(code || '').replace(/\D/g, ''));
   let diff = want.length ^ got.length; for (let i = 0; i < Math.min(want.length, got.length); i++) diff |= want.charCodeAt(i) ^ got.charCodeAt(i);
@@ -263,8 +345,236 @@ async function checkCode(env, acct, kind, code) {
   const used = row && typeof row.verify_attempts === 'number' ? row.verify_attempts : (acct.verify_attempts || 0) + 1;
   acct.verify_attempts = used;
   if (!row || !row.verify_code_hash) return 'locked';   // a parallel try already burned it
-  if (used >= CODE_MAX_TRIES) { await clearCode(env, acct); return 'locked'; }
+  if (used >= CODE_MAX_TRIES) return (await burnCode(env, acct)) ? 'burned' : 'locked';
   return 'wrong';
+}
+/**
+ * clearCode, conditional on there still being a code — so exactly ONE of however many parallel guesses is told it did
+ * the burning, and the owner is emailed once rather than once per racing request.
+ */
+async function burnCode(env, acct) {
+  const res = await env.DB.prepare('UPDATE accounts SET verify_kind = ?, verify_code_hash = ?, verify_expires_at = ?, verify_attempts = ? WHERE id = ? AND verify_code_hash IS NOT NULL')
+    .bind(null, null, null, 0, acct.id).run().catch(() => null);
+  Object.assign(acct, { verify_kind: null, verify_code_hash: null, verify_expires_at: null, verify_attempts: 0 });
+  return !!(res && res.meta && res.meta.changes);
+}
+/**
+ * The absent-account twin of checkCode: the same claim UPDATE and the same read-back, bound to an id no row carries.
+ * /account/verify and /account/reset used to answer an invented address after one HMAC and no statement at all, where a
+ * real one cost two — the same shape of tell the mail routes carried, on the route that spends guesses.
+ */
+async function dummyCheckCode(env, kind, code) {
+  await codeHash(env, { id: ABSENT_ID }, kind, String(code || '').replace(/\D/g, ''));
+  await env.DB.prepare('UPDATE accounts SET verify_attempts = verify_attempts + 1 WHERE id = ? AND verify_kind = ? AND verify_code_hash IS NOT NULL AND verify_expires_at > ? AND verify_attempts < ?')
+    .bind(ABSENT_ID, kind, new Date().toISOString(), CODE_MAX_TRIES).run().catch(() => {});
+  await env.DB.prepare('SELECT verify_kind, verify_code_hash, verify_expires_at FROM accounts WHERE id = ?').bind(ABSENT_ID).first().catch(() => null);
+  return 'expired';
+}
+/* ─────────────────────────── Pending sign-ups ───────────────────────────
+   A sign-up nobody has proved yet. It is NOT an account: /account/login cannot see it, /account/me cannot reach it, and
+   the classes booked under the address stay invisible until a code from that mailbox comes back and handleAccountVerify
+   creates the accounts row.
+
+   ONE ROW PER SIGN-UP, NOT ONE PER ADDRESS (security review round 7, 2026-09-09). Rounds 5 and 6 gave the address a
+   single row, and six rounds of review each closed one way of contesting it and opened the next: whoever held the row
+   held the address, so the whole surface reduced to a race for a slot. Round 5 let the LAST writer win (a stranger took
+   a sign-up in flight); round 6 let the FIRST writer win and gated the replace on the code's age, which made the slot a
+   HOLD — and /account/resend renewed that hold every sixty seconds, so a stranger squatted an address indefinitely and
+   the only live code in the owner's mailbox was always bound to the stranger's password.
+
+   THERE IS NO SLOT NOW. The primary key is a random signup_id, the address is an ordinary indexed column, and a sign-up
+   only ever INSERTS its own row. A stranger can create rows at any address the mail budgets let them mail; none of them
+   touches the owner's, none of them delays the owner's, and there is nothing left to renew. Verification takes the
+   triple {email, code, password}: the row is found by (address_digest, code_hash) and the account is created only if
+   the password on that row also matches, so an owner who receives a stranger's code cannot complete the stranger's
+   sign-up (the password is not theirs) and a stranger cannot complete the owner's (the code is not theirs).
+
+   Keyed on the SHA-256 digest of the normalised address, never the address, so a table of half-finished sign-ups is not
+   a list of who has typed what. The code lives on the row under the same HMAC as an account's, bound to the digest.
+
+   The rows for an address are dropped when the account is created, dropped together when twenty wrong codes burn them,
+   and purged by the daily cron after a day. */
+const PENDING_ABSENT = 'absent';   // 'absent' is not a 64-hex digest, so no address can ever key this row
+/** A random 128-bit primary key. Two sign-ups at one address are two rows; nothing about one is reachable from the other. */
+function newSignupId() {
+  return [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+/**
+ * The one statement /account/register writes, on every branch.
+ *
+ * INSERT OR REPLACE and never an upsert on the address (round 7): the key is a fresh signup_id, so the REPLACE half can
+ * only ever fire on the branch that mails nothing, which binds the constant PENDING_ABSENT and therefore rewrites one
+ * row of nothing rather than growing the table. A sign-up that mails never touches a row that already exists — that
+ * capability is the whole of what rounds 5 and 6 were trying to gate, and it is gone rather than gated.
+ */
+const PENDING_INSERT = 'INSERT OR REPLACE INTO pending_signups (signup_id, address_digest, password_hash, name, phone, organization, code_hash, verify_expires_at, verify_attempts, created_at, created_ip) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)';
+/** The one statement /account/resend writes, on every branch. It names a signup_id, so it can only ever move the row it found. */
+const PENDING_ISSUE = 'UPDATE pending_signups SET code_hash = ?, verify_expires_at = ? WHERE signup_id = ?';
+/** The row /account/resend may re-mail: the newest sign-up at the address, whoever made it. The IP test is in the route. */
+const PENDING_NEWEST = 'SELECT * FROM pending_signups WHERE address_digest = ? ORDER BY created_at DESC, rowid DESC LIMIT 1';
+/**
+ * The lookup /account/verify makes: ONE indexed read that returns at most one row however many sign-ups are waiting at
+ * the address, which is what keeps the route's statement count independent of them. Two live rows can only collide here
+ * by carrying the SAME six digits — one chance in a million — and the newest wins (rowid breaks a same-millisecond
+ * tie the way an insertion order does); the password decides after that, so a collision refuses rather than crosses the
+ * two sign-ups over.
+ */
+const PENDING_BY_CODE = 'SELECT * FROM pending_signups WHERE address_digest = ? AND code_hash = ? AND verify_expires_at > ? ORDER BY created_at DESC, rowid DESC LIMIT 1';
+/**
+ * The guess counter, claimed FIRST and across every live row at the address, so concurrent guesses cannot share a count
+ * and a stranger cannot reset the twenty-try burn by opening a new sign-up — a row created later starts at 0, and MAX
+ * below ignores it. One statement whatever the address holds: it bumps three rows, or one, or none.
+ */
+const PENDING_CLAIM = 'UPDATE pending_signups SET verify_attempts = verify_attempts + 1 WHERE address_digest = ? AND verify_expires_at > ? AND verify_attempts < ?';
+const PENDING_SPENT = 'SELECT MAX(verify_attempts) AS used FROM pending_signups WHERE address_digest = ? AND verify_expires_at > ?';
+/**
+ * The burn: twenty wrong codes at an address end every sign-up waiting there, and the owner is emailed once.
+ *
+ * `AND ? >= ?` LOOKS ODD AND IS THE POINT (round 7). The statement runs on EVERY refused verification, at every address,
+ * and the binds decide whether it deletes anything: an address with nothing has used = 0, so the predicate is false and
+ * the statement changes nothing. Round 6 ran the burn only when it was due, which spent one statement on the twentieth
+ * guess at a real address and none at an invented one — an existence classifier at the twentieth request, measured by
+ * the round-6 review (10 x19 then 11, against 10 x20). Whoever's DELETE removes rows is the request that burned, so
+ * exactly one racing guess sends the notice.
+ */
+const PENDING_BURN = 'DELETE FROM pending_signups WHERE address_digest = ? AND ? >= ?';
+/** The verified sign-up's own row, and then every other sign-up waiting at the address. Both inside the create batch. */
+const PENDING_DROP = 'DELETE FROM pending_signups WHERE signup_id = ?';
+const PENDING_DROP_OTHERS = 'DELETE FROM pending_signups WHERE address_digest = ? AND signup_id <> ?';
+/** The code on a pending row: HMAC(ACCOUNT_SECRET, digest:verify:code), the same shape an account's code carries. */
+async function pendingCodeHash(env, digest, code) {
+  return await codeHash(env, { id: digest }, 'verify', String(code || '').replace(/\D/g, ''));
+}
+/**
+ * ONE verification attempt: five statements and exactly one PBKDF2, whatever the address is and whatever it holds.
+ *
+ * Every statement is keyed on the caller's own digest and runs unconditionally, so a brand-new address, an address with
+ * one sign-up waiting, an address with three, and an address that already has an account all cost the same — there is
+ * no absent twin to keep in step because there is no absent branch. `blocked` is an address that already has an
+ * account: the statements still run, the row is discarded, and the answer is the one a wrong code gets.
+ *
+ * The PBKDF2 runs against DUMMY_PASSWORD_HASH when no row matched, so the cost of a wrong code and the cost of a wrong
+ * password are the same cost, and neither says whether a sign-up exists.
+ */
+async function pendingVerify(env, digest, code, password, blocked) {
+  const now = new Date().toISOString();
+  await env.DB.prepare(PENDING_CLAIM).bind(digest, now, CODE_MAX_TRIES).run().catch(() => {});
+  const spent = await env.DB.prepare(PENDING_SPENT).bind(digest, now).first().catch(() => null);
+  const used = Number((spent && spent.used) || 0);
+  const hash = await pendingCodeHash(env, digest, code);
+  const found = await env.DB.prepare(PENDING_BY_CODE).bind(digest, hash, now).first().catch(() => null);
+  const row = blocked ? null : found;
+  const okPw = await verifyPassword(password, row ? row.password_hash : DUMMY_PASSWORD_HASH);
+  if (row && okPw) return { r: 'ok', row };
+  const burn = await env.DB.prepare(PENDING_BURN).bind(digest, used, CODE_MAX_TRIES).run().catch(() => null);
+  return { r: burn && burn.meta && burn.meta.changes ? 'burned' : 'wrong', row: null };
+}
+
+/**
+ * One wrong-code check, for a real account or for none, with the per-connection guess cap in front of it.
+ *
+ * Order matters: the cap is read BEFORE the code is touched, so a refused connection can neither spend a try on the
+ * global count nor burn anything. What it gets back is the answer every other wrong guess gets — a refused guesser
+ * learns that it guessed wrong, which it already knew.
+ *
+ * The cap for an address with NO account is keyed on that address, never on the shared absent id (security review round
+ * 4, 2026-09-08). One shared row meant five wrong guesses at any throwaway address armed a classifier: from the sixth
+ * request on, an invented address was refused before the twin statements ran and a real one still spent them — 5
+ * statements against 9, two ranges that do not overlap, one request per address tested. Both branches now spend the
+ * same statements from the same point in their own five-guess budget, and neither can spend the other's.
+ */
+async function guardedCheckCode(request, env, ctx, acct, email, kind, code) {
+  const id = acct ? acct.id : await absentGuessId(email);
+  return await guardedCode(request, env, ctx, id, email, kind, acct, () => (acct ? checkCode(env, acct, kind, code) : dummyCheckCode(env, kind, code)));
+}
+/**
+ * The same per-connection cap in front of a PENDING sign-up's verification, and the owner's burn notice behind it.
+ *
+ * The counter id is the address either way (round 5): a stranger who spends five guesses at an address must not get
+ * five more the moment a sign-up row appears there, and the row appearing is something they can cause themselves with
+ * one /account/register.
+ *
+ * It no longer shares guardedCode with the accounts path (round 7). That function decides the notice from whether a row
+ * was found, and a pending verification does not find a row when the password is wrong — the notice is owed to the
+ * address whenever the twenty tries are actually spent, which is what the burn statement itself reports.
+ */
+async function guardedPendingVerify(request, env, ctx, { email, digest, code, password, blocked }) {
+  const ip = clientIp(request);
+  const id = await pendingGuessId(email);
+  if ((await codeGuessesSpent(env, ip, id)) >= CODE_GUESSES_PER_IP) return { r: 'wrong', row: null };
+  const out = await pendingVerify(env, digest, code, password, blocked);
+  if (out.r === 'ok') { await clearCodeGuesses(env, id); return out; }
+  await noteCodeGuess(env, ip, id);
+  if (out.r === 'burned') {
+    const send = notifyCodeBurned(env, { email }, 'verify').catch((e) => console.error('[Account] burn notice failed:', e.message));
+    if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(send);
+  }
+  return out;
+}
+/** The cap, the run, and the burn notice — shared by the account and pending paths so neither can drift from the other. */
+async function guardedCode(request, env, ctx, id, email, kind, owner, run) {
+  const ip = clientIp(request);
+  if ((await codeGuessesSpent(env, ip, id)) >= CODE_GUESSES_PER_IP) return 'wrong';
+  const r = await run();
+  if (r === 'ok') { await clearCodeGuesses(env, id); return r; }
+  await noteCodeGuess(env, ip, id);
+  const acct = owner;
+  if (r === 'burned' && acct) {
+    // The owner is told, and the throttle on their own next request is lifted with it: a burn they did not cause must
+    // not also cost them the minute codeTooSoon() would hold the replacement for. This is the ACCOUNTS path only now —
+    // the pending path has no throttle column left to clear, because round 7 gave it no hold to be throttled out of.
+    if (acct.id) { await env.DB.prepare('UPDATE accounts SET verify_sent_at = ? WHERE id = ?').bind(null, acct.id).run().catch(() => {}); acct.verify_sent_at = null; }
+    const send = notifyCodeBurned(env, acct, kind).catch((e) => console.error('[Account] burn notice failed:', e.message));
+    if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(send);
+  }
+  return r;
+}
+/**
+ * The owner of an address whose live code was invalidated by repeated wrong guesses. Never says who, or from where.
+ *
+ * OUTSIDE noteCodeMail, DELIBERATELY, AND BOUNDED BY CONSTRUCTION (security review round 6, 2026-09-09). Metering it
+ * would put six budget statements on the burning request and nowhere else, which is a statement-count tell on a route
+ * whose whole design is that every wrong code costs the same; and a security notice the owner should always get is the
+ * wrong thing to let an attacker suppress by pre-spending a connection's allowance. The ceiling is bounded anyway:
+ * burnCode is conditional on `verify_code_hash IS NOT NULL` and PENDING_BURN reports the rows it actually removed, so
+ * exactly ONE burn fires per live code, and a live code exists only because a mail passed noteCodeMail. Burn notices <=
+ * code mails, so the per-mailbox ceiling in README is 2x the code-mail figures rather than 1x. Stated there, not
+ * claimed away.
+ */
+async function notifyCodeBurned(env, acct, kind) {
+  const text = [
+    'The code we emailed you has been invalidated: it was entered wrongly too many times.',
+    '',
+    'Nothing on your account changed and nobody was signed in. If this was not you there is nothing to do — an',
+    'invalidated code is useless to whoever was trying it.',
+    '',
+    kind === 'reset' ? 'Ask for a new password-reset code at mastsolutions.com whenever you are ready.'
+                     : 'Ask for a new verification code at mastsolutions.com whenever you are ready.',
+    '', 'MAST Solutions · Atlas Glinn, LLC · Houston, Texas',
+  ].join('\n');
+  await sendEmail(env, { to: [acct.email], subject: 'Your MAST Solutions code was invalidated', text, bcc: false });
+}
+/**
+ * The code leg of /account/forgot, /account/resend and the unverified-sign-in path: ONE issue-shaped statement whether
+ * or not the address has an account, and the send itself handed to ctx.waitUntil() so it can neither be awaited before
+ * the response nor change it. A refusing mail provider is a log line, never a status code — 502 for a real address and
+ * 200 for an invented one was the same oracle the uniform body existed to close.
+ *
+ * The mail budgets are spent per (connection, address) and per connection (round 5), and they are spent ONLY when this
+ * request is actually going to send: `sending` is decided from state already read, so an over-budget or throttled call
+ * runs the identical statements, takes no allowance and looks the same from outside — same 200, same statement count,
+ * no mail. A stranger can spend their own three an hour at any mailbox and nobody else's.
+ *
+ * /account/forgot is its only caller now. /account/register and /account/resend write pending_signups instead, under
+ * the same budgets; the sign-in path that used to reach this went with the 403 'unverified' answer.
+ */
+async function mailCodeAside(env, ctx, acct, kind, opts = {}) {
+  const sending = !!acct && !codeTooSoon(acct);
+  const mayMail = await noteCodeMail(env, opts.ip, opts.email, sending);
+  if (!sending || !mayMail) { await dummyIssue(env, kind); return; }
+  const code = await issueCode(env, acct, kind);
+  const send = sendCode(env, acct, kind, code).catch((e) => console.error('[Account] code email failed:', e.message));
+  if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(send);
 }
 async function sendCode(env, acct, kind, code) {
   const verify = kind === 'verify';
@@ -277,14 +587,12 @@ async function sendCode(env, acct, kind, code) {
   ].join('\n');
   await sendEmail(env, { to: [acct.email], subject, text, bcc: false });
 }
-async function issueAndSend(env, acct, kind, cors) {
-  let code; try { code = await issueCode(env, acct, kind); await sendCode(env, acct, kind, code); }
-  catch (e) { console.error('[Account] code email failed:', e.message); return json({ error: 'We could not send the email. Please try again in a minute.', code: 'email_failed' }, 502, cors); }
-  return null;
-}
 async function signedIn(env, acct, cors) {
   const now = new Date().toISOString();
   await env.DB.prepare('UPDATE accounts SET last_login_at = ? WHERE id = ?').bind(now, acct.id).run();
+  // Any successful authentication — sign-in, verification or reset — clears the failure counter and the lock. Kept as its
+  // own best-effort statement so an unmigrated column can never break a sign-in.
+  await clearFailedLogins(env, acct);
   acct.last_login_at = now;
   return json({ token: await signToken(env, acct), account: publicAccount(acct) }, 200, cors);
 }
@@ -292,7 +600,7 @@ async function accountByEmail(env, email) {
   return isEmail(email) ? await env.DB.prepare('SELECT * FROM accounts WHERE email = ?').bind(email).first() : null;
 }
 
-async function handleAccountRegister(request, env, cors) {
+async function handleAccountRegister(request, env, ctx, cors) {
   const off = accountsOff(env, cors) || signupOff(env, cors); if (off) return off;
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== 'object') return json({ error: 'Bad request' }, 400, cors);
@@ -301,100 +609,295 @@ async function handleAccountRegister(request, env, cors) {
   if (!isEmail(email)) return json({ error: 'Enter a valid email address.', field: 'email' }, 400, cors);
   if (password.length < 10) return json({ error: 'Use a password of at least 10 characters.', field: 'password' }, 400, cors);
   if (password.length > 200) return json({ error: 'That password is too long.', field: 'password' }, 400, cors);
+  const ip = clientIp(request), digest = await addressDigest(email), now = new Date().toISOString();
+  // ONE read and exactly ONE write on every branch, so a brand-new address, an address with sign-ups already waiting
+  // and an address with an account all cost the same (round 4 measured 6 / 5 / 5 here — the INSERT was the tell).
+  //
+  // THE PENDING READ IS GONE (round 7) and its absence is the fix, not an optimisation: this route used to read the
+  // address's pending row in order to decide whether it was ALLOWED to write one. That decision — the replace gate —
+  // is what made a single row per address a slot strangers could contest, and every takeover of rounds 5 and 6 lived
+  // in it. A sign-up now inserts its own row unconditionally, so there is nothing to gate and nothing to read.
   const existing = await accountByEmail(env, email);
-  if (existing && existing.verified_at) return json({ error: 'There is already an account for that email. Sign in instead.', field: 'email', code: 'exists' }, 409, cors);
-  const now = new Date().toISOString();
   const name = str(body.name).trim().slice(0, 120), phone = str(body.phone).replace(/[^\d+()\-.\s]/g, '').trim().slice(0, 40), organization = str(body.organization).trim().slice(0, 120);
-  let acct;
+  // Hashed on every branch, so the answer costs the same time as well as the same statements. The code and its HMAC are
+  // computed on every branch too (round 7) — the branch that mails nothing binds them away rather than skipping them.
+  const hash = await hashPassword(password);
+  const code = newCode();
+  const issued = await pendingCodeHash(env, digest, code);
+  // An address that already has an account answers exactly what a brand-new one answers — same status, same body
+  // (security review 2026-09-08: the old 409 'exists' turned this route into an address checker, and the 429 'too_soon'
+  // did the same job one step later). Nothing on the account changes; the person who actually owns the address is told
+  // that someone tried, and can sign in or reset.
+  //
+  // A NEW SIGN-UP IS NEVER REFUSED ON ACCOUNT OF ANOTHER ONE (round 7). There is no pendingHeld() and no
+  // pendingTooSoon() on this route: whoever posts the address gets their own row and their own code, inside their own
+  // mail budgets. That is what removes the delay a stranger could impose on the owner AND the hold a stranger could
+  // renew — neither is gated better, both are gone.
+  const sending = existing ? !noticeTooSoon(existing) : true;
+  // The SAME budgets /account/forgot and /account/resend spend, and the same rule about when a slot is taken (round 5).
+  // Round 4 left this route outside them entirely, so the ceiling it was written to lower — a mail a minute at any
+  // mailbox on earth — was unmoved: twelve connections still delivered twelve emails to one address. They are also the
+  // ONLY bound on how many pending rows an address can hold, which is deliberate: a stranger's rows cost a stranger's
+  // mails and reach nothing of the owner's.
+  const mayMail = await noteCodeMail(env, ip, email, sending);
+  const mail = sending && mayMail;
   if (existing) {
-    // Someone started but never verified this address (perhaps not its owner): the new sign-up takes the slot over.
-    if (codeTooSoon(existing)) return json({ error: 'A code was just sent to that address. Check your email, or try again in a minute.', code: 'too_soon' }, 429, cors);
-    const v = (existing.token_version || 1) + 1;
-    await env.DB.prepare('UPDATE accounts SET password_hash = ?, token_version = ?, name = ?, phone = ?, organization = ?, updated_at = ? WHERE id = ?').bind(await hashPassword(password), v, name, phone, organization, now, existing.id).run();
-    acct = { ...existing, password_hash: '(new)', token_version: v, name, phone, organization, updated_at: now };
-  } else {
-    acct = {
-      id: 'acct_' + crypto.randomUUID(), email, password_hash: await hashPassword(password), token_version: 1, name, phone, organization,
-      address1: '', address2: '', emergency_name: '', emergency_phone: '', emergency_relationship: '', stripe_customer_id: '', standards_passed: '[]', notes: '',
-      created_at: now, updated_at: now, last_login_at: null, verified_at: null, verify_kind: null, verify_code_hash: null, verify_expires_at: null, verify_attempts: 0, verify_sent_at: null,
-    };
-    await env.DB.prepare('INSERT INTO accounts (id, email, password_hash, token_version, name, phone, organization, address1, address2, emergency_name, emergency_phone, emergency_relationship, stripe_customer_id, standards_passed, notes, created_at, updated_at, last_login_at, verified_at, verify_kind, verify_code_hash, verify_expires_at, verify_attempts, verify_sent_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .bind(acct.id, acct.email, acct.password_hash, 1, acct.name, acct.phone, acct.organization, '', '', '', '', '', '', '[]', '', now, now, null, null, null, null, null, 0, null).run();
+    // signup_notice_sent_at, NEVER verify_sent_at (security review round 2, 2026-09-08). Writing the shared column here
+    // let a stranger's sign-up attempt against a verified address suppress that address's OWN /account/forgot and
+    // /account/resend for the next minute — 200 with no mail — which held the reset shut and closed the documented way
+    // out of a sign-in lockout. Stamped before the send, like issueCode, so a refusing mail provider is not a mail storm.
+    // The statement runs either way and rewrites the stamp it already carries when nothing is being sent.
+    await env.DB.prepare('UPDATE accounts SET signup_notice_sent_at = ? WHERE id = ?').bind(mail ? now : (existing.signup_notice_sent_at || null), existing.id).run().catch(() => {});
+    if (mail) {
+      existing.signup_notice_sent_at = now;
+      const send = notifySignupAttempt(env, existing).catch((e) => console.error('[Account] sign-up notice failed:', e.message));
+      if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(send);
+    }
+    return json(signupPending(email), 202, cors);
   }
-  const fail = await issueAndSend(env, acct, 'verify', cors); if (fail) return fail;
-  return json({ pending: true, email, message: 'We emailed a 6-digit code to ' + email + '. Enter it to finish.' }, 202, cors);
+  // NO ACCOUNT ROW IS WRITTEN HERE (round 5, 2026-09-09). A sign-up is a pending_signups row and nothing else, so a
+  // stranger cannot leave credentials sitting inside an account the owner later verifies, and /account/login answers an
+  // address that has only started a sign-up exactly what it answers an address that has nothing.
+  //
+  // The row is this sign-up's own, keyed on a random signup_id (round 7). The branch that mails nothing binds the
+  // constant PENDING_ABSENT, so it rewrites one row of nothing: same statement, same count, no row an address can find.
+  const wrote = await env.DB.prepare(PENDING_INSERT).bind(
+    mail ? newSignupId() : PENDING_ABSENT,
+    mail ? digest : PENDING_ABSENT,
+    mail ? hash : DUMMY_PASSWORD_HASH,
+    mail ? name : '', mail ? phone : '', mail ? organization : '',
+    mail ? issued : null,
+    mail ? new Date(Date.now() + CODE_TTL_MS).toISOString() : null,
+    now, mail ? ip : '',
+  ).run().catch((e) => { console.error('[Account] pending sign-up write failed:', e.message); return null; });
+  // A FAILED WRITE IS A REFUSAL, NEVER A 202 WITH A CODE IN IT (round 8, 2026-09-09). The result used to be swallowed by
+  // the .catch above and the send ran anyway, so a database that could not take the row still mailed six digits — and the
+  // person entering them met the one 401 bad_code every wrong guess gets, with nothing on the page to tell them the
+  // sign-up never existed. This says so instead. It reads a result that is 1 on EVERY branch when D1 is healthy (the
+  // mailing branch inserts a fresh signup_id, the branch that mails nothing REPLACEs the PENDING_ABSENT constant), so the
+  // answer does not depend on the address and the statement count does not move.
+  if (!wrote || !wrote.meta || !wrote.meta.changes) return json({ error: 'Sign-up is temporarily unavailable. Please try again shortly.', code: 'signup_unavailable' }, 503, cors);
+  if (mail) {
+    // Handed to ctx.waitUntil like every other code send: a refusing mail provider is a log line, never a status code.
+    // It used to answer 502 email_failed here, which told an unauthenticated caller that the mail leg had run at all.
+    const send = sendCode(env, { email }, 'verify', code).catch((e) => console.error('[Account] code email failed:', e.message));
+    if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(send);
+  }
+  return json(signupPending(email), 202, cors);
 }
 
-async function handleAccountVerify(request, env, cors) {
+/** The one answer POST /account/register ever gives: brand-new address, sign-up already in progress, address with an account. */
+function signupPending(email) {
+  return { pending: true, email, message: 'We emailed a 6-digit code to ' + email + '. Enter it to finish.' };
+}
+
+/** The real owner of an address someone else just tried to sign up with. Never says whether a code was sent. */
+async function notifySignupAttempt(env, acct) {
+  const text = [
+    'Someone tried to create a MAST Solutions account with this email address.',
+    '',
+    'You already have one, so nothing was created and nothing changed. If it was you, sign in at mastsolutions.com',
+    'instead — and use "Forgot your password" if you need a new password.',
+    '',
+    'If it was not you, you do not need to do anything. Nobody can reach your account without your password.',
+    '', 'MAST Solutions · Atlas Glinn, LLC · Houston, Texas',
+  ].join('\n');
+  await sendEmail(env, { to: [acct.email], subject: 'Someone tried to create a MAST Solutions account with your email', text, bcc: false });
+}
+
+async function handleAccountVerify(request, env, ctx, cors) {
   const off = accountsOff(env, cors); if (off) return off;
   const body = await request.json().catch(() => null);
   const email = String((body && body.email) || '').trim().toLowerCase();
-  const acct = await accountByEmail(env, email);
-  if (!acct) return json({ error: 'That code is not right.', code: 'bad_code' }, 400, cors);
-  if (acct.verified_at) return json({ error: 'That email is already verified. Sign in instead.', code: 'already' }, 409, cors);
-  const r = await checkCode(env, acct, 'verify', body && body.code);
-  if (r === 'wrong') return json({ error: 'That code is not right.', code: 'bad_code', tries_left: CODE_MAX_TRIES - (acct.verify_attempts || 0) }, 400, cors);
-  if (r === 'expired') return json({ error: 'That code has expired. Request a new one.', code: 'expired' }, 400, cors);
-  if (r === 'locked') return json({ error: 'Too many tries. Request a new code.', code: 'locked' }, 429, cors);
+  const password = String((body && body.password) || '');
+  // THE OLD PAGE IS ANSWERED, NOT REFUSED (round 8, 2026-09-09). Round 7 changed this route's contract to {email, code,
+  // password}; a copy of the page cached before that deploy posts {email, code} and met the one 401 bad_code, which reads
+  // as "your code is wrong" and has no way forward — the visitor retypes the six digits from their mailbox until the
+  // twenty-try burn takes their sign-up. A missing password is a request this Worker cannot act on rather than a guess it
+  // refused, and saying which one it is costs nothing: this runs before the digest, before D1 and before any PBKDF2, and
+  // it is decided by the request body alone, so it answers identically at every address and classifies none of them.
+  if (!password) return json({ error: 'Please enter the password you chose when you created the account.', code: 'password_required' }, 400, cors);
+  const digest = await addressDigest(email);
+  // THIS is where an account is created (round 5, 2026-09-09). /account/register only writes a pending row, so the
+  // credentials that become an account are the ones belonging to the code the mailbox actually received.
+  //
+  // IT TAKES THE TRIPLE — email, code AND the password the sign-up was made with (round 7, 2026-09-09). One row per
+  // address made the code alone sufficient, and that is what every takeover of rounds 5 and 6 exploited: whoever owned
+  // the row owned whatever the mailbox typed back. With a row per sign-up the code selects the row and the password
+  // proves it is the caller's own. An owner who receives a stranger's code cannot complete the stranger's sign-up, and
+  // a stranger who owns a row cannot complete the owner's. Neither can wait the other out, because neither is holding
+  // anything the other needs.
+  //
+  // Unknown address, already-verified address, a wrong six digits and a wrong password all answer the same 401
+  // bad_code, on the same statements and after the same single PBKDF2 (security review 2026-09-08: 400-vs-409, and the
+  // tries_left field, each told a caller which addresses have accounts; round 2: answering 'expired' told them the
+  // same thing, because no live code is the ordinary state). It answers 401 rather than round 6's 400 because the
+  // request now carries a credential and a refusal is an authentication failure.
+  const taken = await accountByEmail(env, email);
+  // An address that already has an account is answered as if the rows were not there: nothing a stranger left behind
+  // can be applied over an account that exists. The statements run all the same.
+  const { r, row } = await guardedPendingVerify(request, env, ctx, { email, digest, code: body && body.code, password, blocked: !!taken });
+  if (r !== 'ok') return json(badCode(), 401, cors);
   const now = new Date().toISOString();
-  await env.DB.prepare('UPDATE accounts SET verified_at = ?, updated_at = ? WHERE id = ?').bind(now, now, acct.id).run();
-  acct.verified_at = now;
-  await clearCode(env, acct);
+  const acct = {
+    id: 'acct_' + crypto.randomUUID(), email, password_hash: row.password_hash, token_version: 1,
+    name: row.name || '', phone: row.phone || '', organization: row.organization || '',
+    address1: '', address2: '', emergency_name: '', emergency_phone: '', emergency_relationship: '',
+    stripe_customer_id: '', standards_passed: '[]', notes: '', created_at: now, updated_at: now, last_login_at: null,
+    verified_at: now, verify_kind: null, verify_code_hash: null, verify_expires_at: null, verify_attempts: 0,
+    verify_sent_at: null, signup_notice_sent_at: null, failed_logins: 0, locked_until: null,
+  };
+  // ONE batch, so the account, the disappearance of this sign-up and the disappearance of every OTHER sign-up waiting
+  // at the address are the same act, and WHERE NOT EXISTS so the INSERT cannot land on an address that acquired an
+  // account while this request was in flight. D1 runs a batch in order inside a single implicit transaction. The other
+  // rows go because the address is settled: a code still sitting in the mailbox from somebody else's attempt is dead
+  // the moment the account exists, and leaving it would leave a row nothing can ever complete.
+  const res = await env.DB.batch([
+    env.DB.prepare('INSERT INTO accounts (id, email, password_hash, token_version, name, phone, organization, address1, address2, emergency_name, emergency_phone, emergency_relationship, stripe_customer_id, standards_passed, notes, created_at, updated_at, last_login_at, verified_at, verify_kind, verify_code_hash, verify_expires_at, verify_attempts, verify_sent_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE email = ?)')
+      .bind(acct.id, acct.email, acct.password_hash, 1, acct.name, acct.phone, acct.organization, '', '', '', '', '', '', '[]', '', now, now, null, now, null, null, null, 0, null, email),
+    env.DB.prepare(PENDING_DROP).bind(row.signup_id),
+    env.DB.prepare(PENDING_DROP_OTHERS).bind(digest, row.signup_id),
+  ]);
+  const made = !!(res && res[0] && res[0].meta && res[0].meta.changes);
+  if (!made) return json(badCode(), 401, cors);
   return await signedIn(env, acct, cors);
 }
 
-async function handleAccountResend(request, env, cors) {
+async function handleAccountResend(request, env, ctx, cors) {
   const off = accountsOff(env, cors) || signupOff(env, cors); if (off) return off;
   const body = await request.json().catch(() => null);
-  const acct = await accountByEmail(env, String((body && body.email) || '').trim().toLowerCase());
-  // Always the same 200, whether the address is unknown, already verified, or throttled (a second request inside a minute
-  // sends nothing): the answer must not say which emails have accounts (Codex on PR #11, P2).
-  if (acct && !acct.verified_at && !codeTooSoon(acct)) { const fail = await issueAndSend(env, acct, 'verify', cors); if (fail) return fail; }
+  const email = String((body && body.email) || '').trim().toLowerCase();
+  const ip = clientIp(request), digest = await addressDigest(email);
+  // ONE answer, ONE statement count, and the mail leg outside the response entirely: unknown address, address with an
+  // account already, and a request that mails nothing are indistinguishable in body, status AND time. The route used to
+  // await Resend only when the account existed, and to answer 502 when Resend refused it — a one-request oracle either
+  // way round (security review round 3, 2026-09-08).
+  //
+  // IT RENEWS NOTHING OF ANYBODY ELSE'S (round 7, 2026-09-09). This route is unauthenticated: it cannot be told which
+  // of the sign-ups waiting at an address is the caller's, and round 6 answered that by re-mailing whatever row the
+  // address held — which re-stamped the column /account/register read as its replace gate, so a stranger renewed a hold
+  // on the address every sixty seconds and the owner never got the row back. Measured at six hours and 51 refused
+  // owner attempts by the round-6 review.
+  //
+  // The rule now is the narrow one that can be checked without a credential: re-mail the NEWEST sign-up at the address
+  // only if it was created from THIS connection and its code has not run out. Anything else — no rows, somebody else's
+  // row, an expired one, an address with an account — runs the same statements, takes no allowance and mails nothing.
+  // There is no hold to renew in any case: a caller who is refused here can simply sign up again and get their own row.
+  const taken = await accountByEmail(env, email);
+  const newest = await env.DB.prepare(PENDING_NEWEST).bind(digest).first().catch(() => null);
+  const now = new Date().toISOString();
+  const sending = !!newest && !taken && newest.created_ip === ip && !!newest.verify_expires_at && newest.verify_expires_at > now;
+  const mayMail = await noteCodeMail(env, ip, email, sending);
+  const mail = sending && mayMail;
+  const code = newCode();
+  const issued = await pendingCodeHash(env, digest, code);
+  // The same statement on every branch; the branch that mails nothing binds a signup_id no sign-up carries.
+  await env.DB.prepare(PENDING_ISSUE).bind(
+    mail ? issued : null,
+    mail ? new Date(Date.now() + CODE_TTL_MS).toISOString() : null,
+    mail ? newest.signup_id : PENDING_ABSENT,
+  ).run().catch((e) => console.error('[Account] code reissue failed:', e.message));
+  if (mail) {
+    const send = sendCode(env, { email }, 'verify', code).catch((e) => console.error('[Account] code email failed:', e.message));
+    if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(send);
+  }
   return json({ ok: true }, 200, cors);
 }
 
-async function handleAccountLogin(request, env, cors) {
+async function handleAccountLogin(request, env, ctx, cors) {
   const off = accountsOff(env, cors); if (off) return off;
   const body = await request.json().catch(() => null);
   const email = String((body && body.email) || '').trim().toLowerCase();
   const password = String((body && body.password) || '');
   const acct = await accountByEmail(env, email);
-  // The same hashing work runs whether or not the account exists, so timing does not reveal which emails have accounts.
-  const okPw = acct ? await verifyPassword(password, acct.password_hash) : (await verifyPassword(password, 'pbkdf2-sha256$' + PBKDF2_ITER + '$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='), false);
-  if (!acct || !okPw) return json({ error: 'That email and password do not match.', code: 'bad_login' }, 401, cors);
-  if (!acct.verified_at) {
-    // Right password, email never confirmed: send a fresh code (at most once a minute) and let the page open the code box.
-    if (env.RESEND_API_KEY && !codeTooSoon(acct)) { const fail = await issueAndSend(env, acct, 'verify', cors); if (fail) return fail; }
-    return json({ error: 'Verify your email first. Enter the code we sent you.', code: 'unverified', email }, 403, cors);
+  const ip = clientIp(request);
+  // Both counters are read, and an address with NO account locks on the same attempt as one that has an account
+  // (security review round 2, 2026-09-08). Before that the sixth wrong password answered 429 'locked' for a real address
+  // and 401 for an invented one, so five throwaway guesses bought a definitive yes-or-no on any address — cheaper than
+  // the twenty-per-window sign-in limit was ever meant to allow.
+  //
+  // A LOCK IS ANSWERED AS A WRONG PASSWORD (security review round 6, 2026-09-09). It used to answer `429 locked` and to
+  // do it BEFORE any PBKDF2, which saved the CPU and cost the whole round-2 property at six requests instead of one:
+  // the per-account lock is GLOBAL, so five wrong passwords from any five connections made the sixth answer 429 in 5
+  // statements and 0.7 ms where an absent address and an address with only a pending sign-up both answered 401 in 10
+  // statements and 45.7 ms — a three-way classifier on status, statement count and time. The lock now runs the dummy
+  // hash and the same statements the absent path runs and answers the same 401 body; what it still does — the whole of
+  // what a lock is for — is refuse a CORRECT password while it holds.
+  const locked = Math.max(lockedFor(acct), await identityLockedFor(env, ip, email));
+  // The same hashing work runs whether or not the account exists, so timing does not reveal which emails have accounts;
+  // a locked account is compared against the dummy rather than against its own hash, because the answer cannot depend
+  // on the result and comparing would only be work with a branch attached to it.
+  const okPw = acct && !locked ? await verifyPassword(password, acct.password_hash) : (await verifyPassword(password, DUMMY_PASSWORD_HASH), false);
+  if (!okPw) {
+    // The failing attempt itself always answers 401; the lock it may have just set shows on the next one, so the fifth
+    // wrong password does not announce that the address exists. The (IP, address) counter is bumped whether or not the
+    // address has an account — that is what makes the sixth attempt symmetric.
+    //
+    // And the per-ACCOUNT counter costs the same on both branches (security review round 4, 2026-09-08). noteFailedLogin
+    // ran only `if (acct)`, so a wrong password at a real address spent two statements an invented one did not, and
+    // three on the try where the lock is written. The twin runs the same statements against an id no row carries,
+    // laddered on the (IP, address) count — the only failure count an address with no account has.
+    //
+    // A LOCKED account takes the absent branch here, so its refusal spends exactly what an invented address spends and
+    // the ladder is not driven further by requests the lock is already refusing (round 6): a guesser who keeps typing
+    // at a locked account cannot walk the per-account lock up to its 24-hour cap, which answering the failure path
+    // would have let them do.
+    const failures = await noteFailedIdentity(env, ip, email);
+    if (acct && !locked) await noteFailedLogin(env, acct);
+    else await dummyFailedLogin(env, ABSENT_ID, failures);
+    return json({ error: 'That email and password do not match.', code: 'bad_login' }, 401, cors);
   }
+  // The right password clears the pair, whether or not the email has been verified yet — and, since round 4, the code
+  // guesses spent against this account: a reissue no longer clears them, so the owner proving the password is what
+  // un-refuses a connection that typed its way to five wrong codes. A stranger cannot reach this line.
+  await clearFailedIdentity(env, ip, email);
+  await clearCodeGuesses(env, acct.id);
+  // THE 403 'unverified' ANSWER IS GONE (round 5, 2026-09-09). It was the second half of the register→login oracle: an
+  // address someone had started a sign-up on answered 403 where an address with nothing answered 401, so one request
+  // classified any address. There is nothing left for it to say — an accounts row is created only by a verified code,
+  // so every row this line can reach is verified. The guard below is for a row written before migrations/010 ran; it
+  // answers the same 401 a wrong password answers, and after that migration nothing can reach it.
+  if (!acct.verified_at) return json({ error: 'That email and password do not match.', code: 'bad_login' }, 401, cors);
   return await signedIn(env, acct, cors);
 }
 
-async function handleAccountForgot(request, env, cors) {
+async function handleAccountForgot(request, env, ctx, cors) {
   const off = accountsOff(env, cors) || signupOff(env, cors); if (off) return off;
   const body = await request.json().catch(() => null);
-  const acct = await accountByEmail(env, String((body && body.email) || '').trim().toLowerCase());
-  // Always the same 200, whether the address is unknown, unverified, or throttled (a second request inside a minute sends
-  // nothing): a forgotten-password request must not say which emails have accounts (Codex on PR #11, P2).
-  if (acct && acct.verified_at && !codeTooSoon(acct)) { const fail = await issueAndSend(env, acct, 'reset', cors); if (fail) return fail; }
+  const email = String((body && body.email) || '').trim().toLowerCase();
+  const acct = await accountByEmail(env, email);
+  // Same 200, same statement count, mail leg in the background — see handleAccountResend.
+  //
+  // UNVERIFIED accounts are served too (security review round 3, 2026-09-08). /account/register no longer overwrites an
+  // existing row's password, so this is the path by which the real owner of an address someone else started a sign-up
+  // on takes it back: the code goes to the mailbox, and a successful reset sets the password AND marks the address
+  // verified. It also removes a state branch from a route whose whole job is not to have any.
+  // The mail budgets are per (connection, address) and per connection (round 5). Round 4's single per-ADDRESS counter
+  // made THIS route closable by a stranger: three unauthenticated requests an hour, from any three connections, and the
+  // owner's own reset answered 200 with no mail — the escape hatch out of a sign-in lock, held shut from outside.
+  await mailCodeAside(env, ctx, acct, 'reset', { email, ip: clientIp(request) });
   return json({ ok: true }, 200, cors);
 }
 
-async function handleAccountReset(request, env, cors) {
+async function handleAccountReset(request, env, ctx, cors) {
   const off = accountsOff(env, cors); if (off) return off;
   const body = await request.json().catch(() => null);
   const email = String((body && body.email) || '').trim().toLowerCase();
   const next = String((body && body.password) || '');
   if (next.length < 10 || next.length > 200) return json({ error: 'Use a password of at least 10 characters.', field: 'password' }, 400, cors);
   const acct = await accountByEmail(env, email);
-  if (!acct) return json({ error: 'That code is not right.', code: 'bad_code' }, 400, cors);
-  const r = await checkCode(env, acct, 'reset', body && body.code);
-  if (r === 'wrong') return json({ error: 'That code is not right.', code: 'bad_code', tries_left: CODE_MAX_TRIES - (acct.verify_attempts || 0) }, 400, cors);
-  if (r === 'expired') return json({ error: 'That code has expired. Request a new one.', code: 'expired' }, 400, cors);
-  if (r === 'locked') return json({ error: 'Too many tries. Request a new code.', code: 'locked' }, 429, cors);
+  // The same one answer /account/verify gives. This route was the sharper of the two: a single unauthenticated POST
+  // against a VERIFIED address answered 'expired' where an invented address answered 'bad_code', with no code needed
+  // and — until round 2 — no rate limit on the route at all. guardedCheckCode carries the absent-account branch now, so
+  // an invented address also spends the same statements a real one spends, and five wrong guesses from one connection
+  // refuse that connection instead of burning the code in the owner's inbox (round 3, 2026-09-08).
+  const r = await guardedCheckCode(request, env, ctx, acct, email, 'reset', body && body.code);
+  if (r !== 'ok') return json(badCode(), 400, cors);
   const v = (acct.token_version || 1) + 1, now = new Date().toISOString();
-  await env.DB.prepare('UPDATE accounts SET password_hash = ?, token_version = ?, updated_at = ? WHERE id = ?').bind(await hashPassword(next), v, now, acct.id).run();
-  acct.token_version = v;
+  // The code proved control of the mailbox, so the address is verified by the same act that sets the password. That is
+  // what makes Forgot password the way an owner reclaims an address a stranger started a sign-up on.
+  await env.DB.prepare('UPDATE accounts SET password_hash = ?, token_version = ?, verified_at = ?, updated_at = ? WHERE id = ?').bind(await hashPassword(next), v, acct.verified_at || now, now, acct.id).run();
+  acct.token_version = v; acct.verified_at = acct.verified_at || now;
   await clearCode(env, acct);
   return await signedIn(env, acct, cors);
 }
@@ -787,7 +1290,56 @@ function prerequisiteFor(offering) {
   return /\bP2\b/.test(n) ? fund + ' and a MAST P1 course' : fund;
 }
 
-async function handleRegister(request, env, cors) {
+/* Seat holds (security review 2026-09-08, revised round 2). A pending registration holds its seats for one of two
+   windows, and NOTHING outside them:
+
+     with a Stripe session id     SEAT_HOLD_MS       15 minutes — a Checkout Session exists and the buyer may be paying
+     without one                  SEAT_PENDING_HOLD_MS  2 minutes — the row is written, Stripe has not answered yet
+
+   Round 1 made the session id the whole condition, which closed a free denial of service (a POST that never reached
+   Stripe used to hold seats for 30 minutes) but opened an oversell race the width of a full Stripe round trip: between
+   claimSeats and the updateRegistration that stamps the session id, the row held nothing, so honest concurrent
+   buyers could all pass the capacity check and all reach Checkout. The short window is that gap plus room for a slow
+   API call; a row that has not been stamped in two minutes is a request that failed, and it goes back to holding
+   nothing. The same predicate is used for capacity AND for the hold caps, so a stale session-less row neither holds a
+   seat nor counts against anybody. */
+const SEAT_HOLD_MS = 15 * 60 * 1000;
+const SEAT_PENDING_HOLD_MS = 2 * 60 * 1000;
+const MAX_HOLDS_PER_IP = 2, MAX_HOLDS_PER_EMAIL = 2;
+
+/** The one definition of "this pending row is holding a seat right now". Binds two cutoffs, in holdCutoffs() order. */
+const HOLDING_SEATS = "(status = 'pending' AND ((stripe_session_id IS NOT NULL AND created_at > ?) OR (stripe_session_id IS NULL AND created_at > ?)))";
+const holdCutoffs = (now = Date.now()) => [new Date(now - SEAT_HOLD_MS).toISOString(), new Date(now - SEAT_PENDING_HOLD_MS).toISOString()];
+
+/** Live holds from this connection, and from this connection under this address. A D1 failure counts as none — capacity
+ *  itself is claimed atomically below and is the control that must not fail open.
+ *
+ *  The connection is clientIp(), which is the literal 'unknown' when Cloudflare passed no address (security review round
+ *  3, 2026-09-08). It used to be an empty string, and an empty string made the count below return 0 without asking the
+ *  database — so a request arriving without CF-Connecting-IP sat OUTSIDE both hold caps instead of inside a shared one.
+ *
+ *  The address count is bound to the PAIR, not to the address alone (security review round 2, 2026-09-08).
+ *  customer_email is typed by whoever posts the form, so a per-address cap let a stranger take two holds under a known
+ *  customer's address and answer that customer's own booking with 429. Bound to the pair, a stranger's holds sit on the
+ *  stranger's connection. Because the pair is a subset of the connection, the two caps being equal means the connection
+ *  cap is what actually refuses today; the pair is counted separately so that raising the connection cap later cannot
+ *  silently uncap one address. */
+async function concurrentHolds(env, ip, email, cutoffs) {
+  if (!env.DB) return { byIp: 0, byPair: 0 };
+  const count = async (where, vals) => {
+    if (vals.some((v) => !v)) return 0;
+    const row = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM registrations WHERE ${HOLDING_SEATS} ${where}`
+    ).bind(...cutoffs, ...vals).first().catch(() => null);
+    return Number((row && row.n) || 0);
+  };
+  return {
+    byIp: await count('AND agreement_ip = ?', [ip]),
+    byPair: await count('AND agreement_ip = ? AND customer_email = ?', [ip, email]),
+  };
+}
+
+async function handleRegister(request, env, ctx, cors) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== 'object') return json({ error: 'Bad request' }, 400, cors);
   const cust = body.customer || {};
@@ -817,22 +1369,35 @@ async function handleRegister(request, env, cors) {
     return json({ error: 'That weekend is not available for booking.', field: 'date' }, 409, cors);
   }
   // 1b. Capacity (owner: 16 on one-day fundamentals, 10 on two-day operator courses). A course stops selling on a
-  // weekend at offerings.capacity: paid seats count, and a pending registration holds its seats for 30 minutes while
-  // its Stripe Checkout is open. A live-fire class oversold is a safety problem, so this is checked before Stripe.
+  // weekend at offerings.capacity: paid seats count, and a pending registration holds its seats while its Stripe
+  // Checkout is open. A live-fire class oversold is a safety problem, so this is checked before Stripe.
+  //
+  // A pending row holds a seat for 15 minutes once it carries a Stripe session id, and for 2 minutes before that
+  // (HOLDING_SEATS above): long enough that honest simultaneous buyers cannot oversell across the Stripe round trip,
+  // short enough that a request which never reached Stripe costs the class nothing.
+  //
+  // This read is a FAST PATH, not the control (security review round 3, 2026-09-08). It is separated from the INSERT by
+  // half a dozen awaited statements with no transaction around them, so four requests arriving on the same tick all read
+  // the same count and all passed it: four at qty 10 against a 16-seat class each got a 200 and a Stripe URL, 40 seats
+  // held on 16. claimSeats() below does the real work in ONE env.DB.batch(), and it is the authority. This check stays
+  // because refusing an obviously-full class before the eligibility write, the agreement write and a Stripe round trip
+  // is worth one SELECT.
+  const cutoffs = holdCutoffs();
   const capacity = Number(offering.capacity || 0);
   if (capacity > 0) {
-    const holdCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const takenRow = await env.DB.prepare(
-      "SELECT COALESCE(SUM(qty), 0) AS n FROM registrations WHERE sku = ? AND session_date = ? AND (status = 'paid' OR (status = 'pending' AND created_at > ?))"
-    ).bind(offering.sku, wanted, holdCutoff).first();
+      `SELECT COALESCE(SUM(qty), 0) AS n FROM registrations WHERE sku = ? AND session_date = ? AND (status = 'paid' OR ${HOLDING_SEATS})`
+    ).bind(offering.sku, wanted, ...cutoffs).first();
     const taken = Number((takenRow && takenRow.n) || 0);
-    if (taken + qty > capacity) {
-      const left = Math.max(0, capacity - taken);
-      return json({
-        error: left === 0 ? 'This weekend is sold out for this course. Choose another weekend.' : `Only ${left} seat${left === 1 ? '' : 's'} left on this weekend for this course.`,
-        code: 'sold_out', seats_left: left, field: 'date',
-      }, 409, cors);
-    }
+    if (taken + qty > capacity) return json(soldOut(capacity, taken), 409, cors);
+  }
+  // 1b-ii. Two live holds at a time per connection, and two under one address from that connection. The per-IP rate
+  // limit caps how fast holds can be made; this caps how many can be open at once, so one caller cannot sit on a class.
+  const ip = clientIp(request);
+  const holds = await concurrentHolds(env, ip, email, cutoffs);
+  if (holds.byIp >= MAX_HOLDS_PER_IP || holds.byPair >= MAX_HOLDS_PER_EMAIL) {
+    return tooMany(cors, Math.ceil(SEAT_HOLD_MS / 1000), 'too_many_holds',
+      'You already have ' + MAX_HOLDS_PER_EMAIL + ' bookings waiting to be paid. Finish or cancel one of those checkouts, or try again in 15 minutes.');
   }
   // 1c. Prerequisite attestation for level 2 and 3 courses.
   const prereq = prerequisiteFor(offering);
@@ -881,7 +1446,6 @@ async function handleRegister(request, env, cors) {
   if (ref.accepted !== true) return json({ error: 'Tick the box to accept the cancellation and refund policy.', field: 'refund' }, 400, cors);
 
   const now = new Date().toISOString();
-  const ip = request.headers.get('CF-Connecting-IP') || (request.headers.get('X-Forwarded-For') || '').split(',')[0].trim() || '';
   const ua = (request.headers.get('User-Agent') || '').slice(0, 300);
   const id = 'reg_' + crypto.randomUUID();
   const optIn = body.newsletter_opt_in === true;
@@ -904,15 +1468,24 @@ async function handleRegister(request, env, cors) {
     referrer: attribution.referrer || null, landing_page: attribution.landing_page || null, first_touch_at: attribution.first_touch_at || null, visitor: attribution.visitor || null });
   recordEvent(env, { visitor: attribution.visitor, email, page: attribution.page, action: 'start_registration', label: offering.name, sku: offering.sku, attribution }).catch(() => {});
 
-  // 6. Persist: the outcome (kept), the answers (purged on schedule), the registration.
+  // 6. Persist: the outcome (kept), the answers (purged on schedule), the registration — and with it the seat claim.
+  let claimed;
   try {
     reg.eligibility_outcome_id = await storeEligibility(
       env, reg, { us_citizen: elig.us_citizen, felony_prohibited: elig.felony_prohibited, attested: true }, ip, now
     );
-    await storeRegistration(env, reg);
+    claimed = await claimSeats(env, reg, capacity);
   } catch (e) {
     console.error('[Register] persist failed:', e.message);
     return json({ error: 'We could not save your registration. Please try again or call (281) 654-8100.' }, 503, cors);
+  }
+  if (claimed === 'abandoned') {
+    // The row exists and is marked abandoned/capacity; it holds nothing and never reaches Stripe. Reading the count back
+    // is what puts a number in the message, and it is only paid for on the request that lost.
+    const takenRow = await env.DB.prepare(
+      `SELECT COALESCE(SUM(qty), 0) AS n FROM registrations WHERE sku = ? AND session_date = ? AND (status = 'paid' OR ${HOLDING_SEATS})`
+    ).bind(offering.sku, wanted, ...holdCutoffs()).first().catch(() => null);
+    return json(soldOut(capacity, Number((takenRow && takenRow.n) || capacity)), 409, cors);
   }
 
   if (!cleared) {
@@ -991,19 +1564,69 @@ const REG_COLUMNS = [
   'utm_source', 'utm_medium', 'utm_campaign', 'referrer', 'landing_page', 'first_touch_at', 'visitor',
 ];
 
-async function storeRegistration(env, reg) {
+/** The one sold-out body, so the pre-check and the atomic claim answer a full class identically. */
+function soldOut(capacity, taken) {
+  const left = Math.max(0, Number(capacity) - Number(taken));
+  return {
+    error: left === 0 ? 'This weekend is sold out for this course. Choose another weekend.' : `Only ${left} seat${left === 1 ? '' : 's'} left on this weekend for this course.`,
+    code: 'sold_out', seats_left: left, field: 'date',
+  };
+}
+
+/* The column sets THIS database actually has, narrowed the first time D1 says one is missing rather than re-discovered
+   on every request. A table that predates the attribution columns (crm.js adds them on first use) or migrations/009
+   answers the same way every time, so one failed attempt per isolate is the whole cost. */
+let REG_INSERT_COLS = null;          // null = the full REG_COLUMNS
+let REG_HAS_ABANDON_REASON = true;   // migrations/009
+
+/**
+ * THE SEAT CLAIM. Insert the pending row and, in the SAME env.DB.batch(), roll it back to 'abandoned' when the class —
+ * counting this row — is over capacity, then read the row's status back. D1 runs the statements of one batch in order
+ * inside a single implicit transaction, so nothing can land between the count and the row that made the count wrong.
+ *
+ * Why it had to move here (security review round 3, 2026-09-08): the capacity SELECT above and this INSERT were
+ * separated by roughly six awaited statements with no transaction, and four POSTs on the same tick at qty 10 against a
+ * 16-seat class all passed the check and all reached Stripe — 40 seats held on 16. On a live-fire range an oversell is a
+ * safety problem before it is a refund problem, which is why the authority is here and not in a read.
+ *
+ * Returns 'held' or 'abandoned'. Throws on a D1 failure, which the caller answers 503.
+ */
+async function claimSeats(env, reg, capacity) {
   if (!env.DB) throw new Error('D1 not bound');
-  const insertWith = (cols) => env.DB.prepare(
-    `INSERT INTO registrations (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(',')})`
-  ).bind(...cols.map((c) => (reg[c] === undefined ? null : reg[c]))).run();
-  try { await insertWith(REG_COLUMNS); }
-  catch (e) {
-    // A table that predates the attribution columns (crm.js adds them on first use; a race on the very first request):
-    // the registration itself is what matters, so store it without them.
-    if (!/no column|no such column|has no column/i.test(String(e.message))) throw e;
-    await insertWith(REG_COLUMNS.filter((c) => !REG_ATTRIBUTION.has(c)));
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try { return await runSeatClaim(env, reg, capacity); }
+    catch (e) {
+      const msg = String((e && e.message) || '');
+      if (!/no column|no such column|has no column/i.test(msg)) throw e;
+      if (REG_HAS_ABANDON_REASON && /abandoned_reason/i.test(msg)) { REG_HAS_ABANDON_REASON = false; continue; }
+      if (!REG_INSERT_COLS) { REG_INSERT_COLS = REG_COLUMNS.filter((c) => !REG_ATTRIBUTION.has(c)); continue; }
+      throw e;
+    }
   }
-  console.log('[Register] Stored:', reg.id, reg.status, reg.item_name, reg.customer_email);
+  throw new Error('registrations: no column set this database accepts');
+}
+
+async function runSeatClaim(env, reg, capacity) {
+  const cols = REG_INSERT_COLS || REG_COLUMNS;
+  const batch = [
+    env.DB.prepare(`INSERT INTO registrations (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(',')})`)
+      .bind(...cols.map((c) => (reg[c] === undefined ? null : reg[c]))),
+  ];
+  // capacity 0 = the course carries no seat limit; there is nothing to roll back to.
+  if (capacity > 0) {
+    const reason = REG_HAS_ABANDON_REASON ? ", abandoned_reason = 'capacity'" : '';
+    batch.push(env.DB.prepare(
+      `UPDATE registrations SET status = 'abandoned'${reason} WHERE id = ? AND status = 'pending' AND ` +
+      `(SELECT COALESCE(SUM(qty), 0) FROM registrations WHERE sku = ? AND session_date = ? AND (status = 'paid' OR ${HOLDING_SEATS})) > ?`
+    ).bind(reg.id, reg.sku, reg.session_date, ...holdCutoffs(), capacity));
+  }
+  batch.push(env.DB.prepare('SELECT status FROM registrations WHERE id = ?').bind(reg.id));
+  const res = await env.DB.batch(batch);
+  const last = res && res[res.length - 1];
+  const rows = (last && (last.results || last)) || [];
+  const status = (rows[0] && rows[0].status) || reg.status;
+  console.log('[Register] Stored:', reg.id, status, reg.item_name, reg.customer_email);
+  return status === 'abandoned' ? 'abandoned' : 'held';
 }
 
 const REG_UPDATABLE = new Set(['status', 'stripe_session_id', 'paid_at', 'documents_sent_at', 'customer_phone']);
@@ -1707,9 +2330,15 @@ async function runRetention(env) {
   const dayAgo = new Date(Date.now() - 86400000).toISOString();
   const abandoned = await env.DB.prepare("UPDATE registrations SET status = 'abandoned' WHERE status = 'pending' AND created_at < ?").bind(dayAgo).run();
   // An account whose email was never verified within a day is a squat or a typo: it goes, and the address is free again.
+  // Nothing has created one since round 5 — /account/register writes pending_signups instead — so this now only clears
+  // rows that predate migrations/010 on a database where that file has not run.
   const unverified = await env.DB.prepare('DELETE FROM accounts WHERE verified_at IS NULL AND created_at < ?').bind(dayAgo).run().catch(() => null);
-  const out = { purged: purged?.meta?.changes ?? 0, abandoned: abandoned?.meta?.changes ?? 0, unverified: unverified?.meta?.changes ?? 0 };
-  console.log('[Retention] answers purged:', out.purged, '· registrations abandoned:', out.abandoned, '· unverified accounts removed:', out.unverified);
+  // A sign-up nobody proved within a day, and the placeholder row the non-mailing branches write.
+  const stale = await env.DB.prepare('DELETE FROM pending_signups WHERE created_at < ?').bind(dayAgo).run().catch(() => null);
+  // Counter rows nobody has touched for a day carry no live window (src/ratelimit.js).
+  const rateRows = await purgeRateLimits(env).catch(() => 0);
+  const out = { purged: purged?.meta?.changes ?? 0, abandoned: abandoned?.meta?.changes ?? 0, unverified: unverified?.meta?.changes ?? 0, pending: stale?.meta?.changes ?? 0, rate_limits: rateRows };
+  console.log('[Retention] answers purged:', out.purged, '· registrations abandoned:', out.abandoned, '· unverified accounts removed:', out.unverified, '· pending sign-ups dropped:', out.pending, '· rate-limit rows dropped:', out.rate_limits);
   return out;
 }
 
@@ -1905,6 +2534,12 @@ function money(cents, currency) {
   return (
     '$' + (Number(cents || 0) / 100).toFixed(2) + ' ' + String(currency || 'usd').toUpperCase()
   );
+}
+
+/** A 429 that always carries Retry-After, so a browser or a script can back off without parsing the body. */
+function tooMany(cors, retryAfter, code, message) {
+  const secs = Math.max(1, Math.round(Number(retryAfter) || 1));
+  return json({ error: message, code, retry_after: secs }, 429, { ...cors, 'Retry-After': String(secs) });
 }
 
 function json(data, status, cors) {

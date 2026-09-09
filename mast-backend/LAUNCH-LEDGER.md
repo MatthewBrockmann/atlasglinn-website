@@ -335,11 +335,47 @@ video has ever been handed off — the post URLs are needed (`scripts/handoff-ur
        prefills the registration sheet. 146/146 Worker tests pass.
      - **Codex review of the merged PR #10 (2026-09-05 04:21 UTC), both findings fixed on the follow-up branch (PR #11):**
        P1 "verify email ownership before issuing account tokens" — sign-up now answers 202 and emails a 6-digit code; no token
-       (and no class history) until the code comes back; an unverified address is taken over by the next sign-up and purged
-       after a day, so nobody can squat a student's email; sign-in on an unverified email answers 403 and re-sends the code.
+       (and no class history) until the code comes back.
+       **CORRECTED FOUR TIMES — read the current line, which is the fifth (2026-09-09, round 7).** It first read "an
+       unverified address is taken over by the next sign-up … so nobody can squat a student's email"; round 3 reversed that
+       and made an existing row immovable, so the FIRST password typed was the one on it; round 4 measured what that meant
+       and found the owner's own verification handed the account to whoever signed up first. **Round 5 removed the accounts
+       row the whole argument was about**: a sign-up writes a `pending_signups` row and no account, and verification is what
+       creates the account. **Round 5 then declared the takeover "impossible by construction" and it was not**, and neither
+       was round 6's version. Each round moved the fight onto the ONE pending row an address was allowed and lost it a new
+       way: round 5's last-writer rule let a stranger replace a sign-up in flight; round 6 gated the replace on the code's
+       age and `/account/resend` re-stamped the column that gate read, so the hold renewed every sixty seconds — an address
+       held for six hours against 51 owner sign-ups, every code in the owner's mailbox bound to the attacker's password.
+       **Round 7 is what closes the class, by deleting the thing being fought over.** `pending_signups` is keyed on a random
+       `signup_id`, an address may hold a row per sign-up, register replaces nothing and is refused by nothing, and
+       `/account/verify` takes `{email, code, password}` — the code selects the sign-up, the password proves it is yours.
+       An owner who receives a stranger's code cannot complete the stranger's sign-up, and a stranger cannot complete the
+       owner's; neither can wait the other out, because neither holds anything the other needs. `/account/resend` re-mails
+       only the sign-up the asking connection made, so nothing of anybody else's is ever renewed. Any miss on verify is one
+       `401 bad_code`. **`migrations/012-pending-signup-per-row.sql`** recreates the table (a primary key cannot be ALTERed)
+       and drops the pending rows, which are minutes old by design; 010 and 011 keep their files and lose their GUARDS rows,
+       and 010's one-time `DELETE FROM accounts WHERE verified_at IS NULL` moved into 012. Day-old rows are dropped by the
+       daily cron. What is still open is in README "What is NOT closed" — no takeover among it; two statement-count tells on
+       the ACCOUNTS path, both measured with their numbers, and the deploy gap that has not moved since round 5.
+       Sign-in for an address that has only started a sign-up answers what an address with nothing answers — `401 bad_login`,
+       same body, same statement count. The `403 unverified` answer is gone: it was a one-request account-existence oracle.
        P2 "provide a recovery path for forgotten passwords" — Forgot your password → emailed reset code → new password (every
-       other session signed out). Codes are hashed under `ACCOUNT_SECRET`, live 15 minutes, five tries, one resend a minute,
-       never BCC'd. Needs `migrations/005-account-verification.sql` after 004, and `RESEND_API_KEY` (sign-up answers 503
+       other session signed out). Codes are hashed under `ACCOUNT_SECRET`, live 15 minutes, one resend a minute, five wrong
+       guesses per connection and twenty in total before the code is burned and its owner emailed — and since round 4 the
+       twenty count across however many codes were issued, because a reissue is an unauthenticated request and used to zero
+       it. **On the pending path that was true only of `/account/resend` until round 6**: the statement
+       `/account/register` wrote bound `verify_attempts` to a literal `0`, so an unauthenticated sign-up between every
+       five guesses deferred the burn — and the owner's notice — indefinitely. Round 6 made it an upsert that did not name
+       the column; since round 7 a sign-up writes a NEW row, which starts at zero because it is new, and the count the burn
+       reads is `MAX(verify_attempts)` across the live rows at the address — which a new row cannot lower. The regression
+       test drives its reissue through all three routes rather than the one that happened to be safe, and the claim is
+       proved in SQL as well as in JavaScript. Twenty wrong codes now DELETE every sign-up waiting at the address rather
+       than blanking one code; the owner signs up again and is mailed at once, with no throttle exemption to grant. **Code mail is budgeted per CONNECTION since round 5** — three an hour to one address and thirty across all of
+       them, on `forgot`, `resend` **and** `register`. Round 4 keyed that budget on the ADDRESS, which let three
+       unauthenticated requests from any three connections close a customer's password reset for an hour; round 4 also left
+       `register` outside the budget entirely, so the per-mailbox ceiling it was written to lower never moved. Neither is
+       true now, and the whole chain — lock the account, then try to close recovery — is driven end to end in the suite.
+       Never BCC'd. Needs `migrations/005-account-verification.sql` after 004, and `RESEND_API_KEY` (sign-up answers 503
        `email_off` without it; sign-in for verified students still works). Codex's three follow-ups on #11 (atomic attempt
        counting, no-enumeration throttles, deploy-before-secret) are **PR #12, merged 2026-09-05 16:29 UTC (main 4c16337)**.
        His terminal, 16:3x UTC: migrations run (6 queries, 6 rows written = 005's six columns), **Worker deployed, version
