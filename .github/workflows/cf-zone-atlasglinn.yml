@@ -279,7 +279,8 @@ jobs:
             rm -f "$STATE/create.json"
             # A create can fail because the zone is already there (Cloudflare answers code 1061). Rather than trust one
             # error number, any failure is followed by a lookup by name: if the zone exists, that is the answer whatever
-            # the code said, and if it does not, the error message is printed as-is.
+            # the code said, and if it does not, only Cloudflare's numeric error code(s) are printed — never the
+            # message text, because this log is public (privacy rule, round 3).
             if [ "$ccode" = "200" ]; then
               python3 -c "import json,os,sys;d=json.load(open(os.environ.get('CF_STATE_DIR','/tmp/cf')+'/created.json'));sys.exit(0 if d.get('success') else 1)" || ccode=FAILED
             fi
@@ -496,8 +497,12 @@ jobs:
           w()
 
           mx = [r for r in recs if r.get('type') == 'MX' and r.get('name') == dom]
-          m365_mx = [r for r in mx if 'mail.protection.outlook.com' in low(r)]
-          other_mx = [r for r in mx if 'mail.protection.outlook.com' not in low(r)]
+          # ENDS-WITH, not contains: a target such as mail.protection.outlook.com.evil.example would satisfy a
+          # substring test (round-3 verifier). The classifier is the row's own content, trailing dot stripped.
+          def is_m365(r):
+              return low(r).rstrip('.').endswith('.mail.protection.outlook.com')
+          m365_mx = [r for r in mx if is_m365(r)]
+          other_mx = [r for r in mx if not is_m365(r)]
           spf = [r for r in recs if r.get('type') == 'TXT' and r.get('name') == dom and 'v=spf1' in low(r)]
           spf_m365 = [r for r in spf if 'spf.protection.outlook.com' in low(r)]
           auto = [r for r in recs if r.get('name') == 'autodiscover.' + dom and r.get('type') == 'CNAME']
