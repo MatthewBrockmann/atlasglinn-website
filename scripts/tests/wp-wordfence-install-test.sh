@@ -15,6 +15,18 @@
 #   · THE LOGIN PAGE IS IN THE VERDICT. wp-login.php was measured before and after and then left out of the regression
 #     test, so an install that broke the only admin's way in exited 0. A case changes the login code between the two
 #     reads and requires the run to fail — and to print --disable-wordfence, because --remove cannot undo Wordfence.
+#   · AND THE VERDICT NEEDS A BASELINE. Round 2 shipped that limb guarded by `[ "$LOGIN_BEFORE" != 000 ]`, so an
+#     unmeasurable before-read dropped the login page out of the verdict and 000 → 503 printed FIRED-OBSERVED and
+#     exited 0. No case here had ever given any page a 000 baseline, which is why the harness could not see it. Three
+#     cases now do the round-2 verifier's own scenarios: before 000 (the install must stop before it uploads), before
+#     200 after 500 (fails), and before 200 after 200 (passes, and prints both codes in the verdict).
+#   · THE ls CLASSIFIER IS STRICT ON PURPOSE. "no such file" without sftp's own prefix, and sftp's prefix naming a
+#     DIFFERENT path, are both `unknown` — a login banner and a shell's "command not found" contain those words too.
+#     Both were surviving mutants: the classifier could be relaxed to a bare word-match and the harness stayed green.
+#   · THE MAC IS NOT REQUIRED. WP_SFTP_USER/WP_SFTP_PASSWORD drive the same SSH_ASKPASS mechanism from Actions; a case
+#     runs that path, requires the Keychain to be untouched, and greps both values through everything the run wrote.
+#   · A LOGIN NAME IS NOT A COMMAND. `-oProxyCommand=…` as the username is read by sftp as an option, and KC_SFTP is
+#     interpolated into the helper this script executes; both stop the run before a session opens.
 #   · THE RECOVERY EXISTS AND IS AN SFTP RENAME. --disable-wordfence renames wp-content/plugins/wordfence to
 #     wordfence.off, proves it with an ls of the file inside each directory, and re-measures the three pages.
 #   · err=0 means NO error. "0" is a non-empty string, so ${ERRTXT:+…} used to print "Recorded error: 0" on a clean run.
@@ -39,6 +51,8 @@ DONE=0
 trap 'rc=$?; rm -rf -- "$WORK"; if [ "$DONE" != 1 ]; then printf "\nFAIL harness: died before its summary (exit %s) — the count below is not the whole run\n" "$rc"; exit 1; fi' EXIT
 STUB="$WORK/bin"; mkdir -p "$STUB"
 STUB_ACCT='stub-sftp-acct-do-not-log-9f2a'
+ENV_USER='stub-env-user-do-not-log-7c1d'
+ENV_PASS='stub-env-pass-do-not-log-4b8e'
 
 if command -v shasum >/dev/null 2>&1; then FP="$(shasum -a 1 "$STATUS_PHP" | awk '{print substr($1,1,8)}')"
 else FP="$(sha1sum "$STATUS_PHP" | awk '{print substr($1,1,8)}')"; fi
@@ -46,6 +60,7 @@ HDR_ACTIVE="1.0.0;b=$FP;st=installed;wf=8.1.0;act=1;prep=0;self=gone;tries=1;age
 HDR_SELFLEFT="1.0.0;b=$FP;st=installed;wf=8.1.0;act=1;prep=0;self=left;tries=1;age=fresh;err=0"
 HDR_NOTACTIVE="1.0.0;b=$FP;st=installed;wf=8.1.0;act=0;prep=0;self=gone;tries=1;age=fresh;err=0"
 HDR_INA_ACT1="1.0.0;b=$FP;st=installed-not-active;wf=8.1.0;act=1;prep=0;self=gone;tries=1;age=fresh;err=activate_unexpected_output"
+HDR_PREP1="1.0.0;b=$FP;st=installed;wf=8.1.0;act=1;prep=1;self=gone;tries=1;age=fresh;err=0"
 HDR_ERR="1.0.0;b=$FP;st=error;wf=none;act=0;prep=0;self=pending;tries=2;age=fresh;err=install_download_failed"
 R_INSTALL="html/wp-content/mu-plugins/atlas-wordfence-install.php"
 R_STATUS="html/wp-content/mu-plugins/atlas-wordfence-status.php"
@@ -69,6 +84,22 @@ case "$batch" in
     if [ "${STUB_LS_MODE:-echo}" = noecho ]; then
       printf 'Connected to stub.\n'
       printf 'Can'"'"'t ls: "%s" not found\n' "$p"
+      exit 0
+    fi
+    # A shell's own words, with no sftp prefix — the shape the classifier must NOT read as a removal.
+    if [ "${STUB_LS_MODE:-echo}" = banner ]; then
+      printf 'Connected to stub.\n'
+      printf 'sftp> ls "%s"\n' "$p"
+      printf 'bash: %s: no such file or directory\n' "$p"
+      printf 'sftp> \n'
+      exit 0
+    fi
+    # sftp's own prefix, but about some OTHER path: it says nothing about the one that was asked for.
+    if [ "${STUB_LS_MODE:-echo}" = othername ]; then
+      printf 'Connected to stub.\n'
+      printf 'sftp> ls "%s"\n' "$p"
+      printf 'Can'"'"'t ls: "html/wp-content/mu-plugins/some-other-file.php" not found\n'
+      printf 'sftp> \n'
       exit 0
     fi
     printf 'Connected to stub.\n'
@@ -142,6 +173,7 @@ esac
 EOS
 cat > "$STUB/security" <<'EOS'
 #!/usr/bin/env bash
+n=$(( $(cat "$STUB_STATE/security.n" 2>/dev/null || echo 0) + 1 )); printf '%s\n' "$n" > "$STUB_STATE/security.n"
 for a in "$@"; do [ "$a" = "-w" ] && { printf 'stub-password-not-logged\n'; exit 0; }; done
 printf 'keychain: "/Users/stub/Library/Keychains/login.keychain-db"\n'
 printf '    "acct"<blob>="%s"\n' "${STUB_ACCT:-stub}"
@@ -165,6 +197,9 @@ reset_case() {
   C_HOME_B=200; C_HOME_A=200; C_WP_B=200; C_WP_A=200; C_LOGIN_B=200; C_LOGIN_A=200
   C_LS_PRESENT_RE=""; C_LS_MODE=echo; C_LS_RC=0; C_SFTP_RC=0; C_SFTP_OUT=""
   C_DOCROOT="html"; C_ENV_SRC=0
+  # Passed on EVERY case, empty by default: an ambient WP_SFTP_USER in the runner's environment would otherwise
+  # switch the credential path under cases that mean to exercise the Keychain one.
+  C_ENV_USER=""; C_ENV_PASS=""; C_KC="mast-wp-sftp"
 }
 calls() { cat "$STATE/$1.n" 2>/dev/null || printf 0; }
 run_case() {
@@ -180,6 +215,7 @@ run_case() {
     STUB_LOGIN_BEFORE="$C_LOGIN_B" STUB_LOGIN_AFTER="$C_LOGIN_A" \
     STUB_LS_PRESENT_RE="$C_LS_PRESENT_RE" STUB_LS_MODE="$C_LS_MODE" STUB_LS_RC="$C_LS_RC" \
     STUB_SFTP_RC="$C_SFTP_RC" STUB_SFTP_OUT="$C_SFTP_OUT" \
+    WP_SFTP_USER="$C_ENV_USER" WP_SFTP_PASSWORD="$C_ENV_PASS" KC_SFTP="$C_KC" \
     WP_DOCROOT="$C_DOCROOT" ATLAS_WF_POLL_SLEEP=0 ATLAS_WF_POLL_TRIES=2 ATLAS_WF_TRIGGER_TRIES=1 \
     "${ENVSRC[@]}" "$BASH" "$SCRIPT" "$@" > "$OUT" 2>&1
   RC=$?
@@ -327,9 +363,79 @@ t "ls-unknown/exit-non-zero"             "$(b test "$RC" -ne 0)" "exit $RC"
 t "ls-unknown/no-FIRED-OBSERVED"         "$(nb grep -q 'FIRED-OBSERVED' "$OUT")"
 t "ls-unknown/classified-unknown"        "$(b grep -q 'ls classified unknown' "$OUT")"
 
+# ── 16. THE ROUND-2 BLOCKER. The verifier's three stub-curl scenarios, in its own order ─────────────────────────────
+# (a) before 000: there is no baseline, so the install stops before it uploads rather than run a verdict every
+# after-code passes. This is the case that used to end in FIRED-OBSERVED with wp-login.php left at http 503.
+reset_case; C_HDR="$HDR_ACTIVE"; C_LOGIN_B=000; C_LOGIN_A=503; run_case login-before-000
+t "login-000/exit-non-zero"              "$(b test "$RC" -ne 0)" "exit $RC"
+t "login-000/says-not-measurable"        "$(b grep -q 'login page not measurable before install — stopping' "$OUT")" "$(tail -1 "$OUT")"
+t "login-000/nothing-uploaded"           "$(eq "$(calls sftp)" 0)" "sftp calls $(calls sftp)"
+t "login-000/no-FIRED-OBSERVED"          "$(nb grep -q 'FIRED-OBSERVED' "$OUT")" "$(grep -n 'FIRED-OBSERVED' "$OUT" | head -1)"
+t "login-000/aborted-stamp"              "$(b grep -q 'aborted-login-not-measurable' "$STAMPF")" "$STAMPV"
+# (b) before 200, after 500: a difference, and a difference fails.
+reset_case; C_HDR="$HDR_ACTIVE"; C_LOGIN_B=200; C_LOGIN_A=500; run_case login-200-500
+t "login-200-500/exit-non-zero"          "$(b test "$RC" -ne 0)" "exit $RC"
+t "login-200-500/site-changed"           "$(b grep -q 'FAILED on the site itself' "$OUT")"
+t "login-200-500/names-both-codes"       "$(b grep -q 'wp-login.php went from http 200 to http 500' "$OUT")" "$(grep -n 'went from' "$OUT" | head -1)"
+t "login-200-500/no-FIRED-OBSERVED"      "$(nb grep -q 'FIRED-OBSERVED' "$OUT")"
+# (c) before 200, after 200: the run passes, and the verdict carries BOTH codes so the reader can check the rule.
+reset_case; C_HDR="$HDR_ACTIVE"; C_LOGIN_B=200; C_LOGIN_A=200; run_case login-200-200
+t "login-200-200/exit-0"                 "$(eq "$RC" 0)" "exit $RC"
+t "login-200-200/FIRED-OBSERVED"         "$(b grep -q 'FIRED-OBSERVED' "$OUT")"
+t "login-200-200/verdict-has-both-codes" "$(b grep -q 'verdict inputs: .*wp-login.php before http 200 · after http 200' "$OUT")" "$(grep -n 'verdict inputs' "$OUT" | head -1)"
+
+# (d) and the SAME baseline in --status, where the die above does not apply because --status changes nothing. This is
+# what pins the removal of the `[ "$LOGIN_BEFORE" != 000 ]` exemption itself: with the exemption back in place the
+# install cases still stop at the die, so only a mode that runs the verdict on a 000 baseline can see it.
+reset_case; C_HDR="$HDR_ACTIVE"; C_LOGIN_B=000; C_LOGIN_A=503; run_case login-000-status --status
+t "login-000-status/exit-non-zero"       "$(b test "$RC" -ne 0)" "exit $RC"
+t "login-000-status/site-changed"        "$(b grep -q 'FAILED on the site itself' "$OUT")" "$(grep -n '^verify' "$OUT" | head -1)"
+t "login-000-status/names-both-codes"    "$(b grep -q 'wp-login.php went from http 000 to http 503' "$OUT")" "$(grep -n 'went from' "$OUT" | head -1)"
+
+# ── 17. the ls classifier: the words alone are not sftp saying a file is gone ───────────────────────────────────────
+reset_case; C_HDR="$HDR_ACTIVE"; C_LS_MODE=banner; run_case ls-banner --remove-status
+t "ls-banner/classified-unknown"         "$(b grep -q 'ls classified unknown' "$OUT")" "$(grep -n 'ls classified' "$OUT" | head -1)"
+t "ls-banner/exit-non-zero"              "$(b test "$RC" -ne 0)" "exit $RC"
+reset_case; C_HDR="$HDR_ACTIVE"; C_LS_MODE=othername; run_case ls-othername --remove-status
+t "ls-othername/classified-unknown"      "$(b grep -q 'ls classified unknown' "$OUT")" "$(grep -n 'ls classified' "$OUT" | head -1)"
+t "ls-othername/exit-non-zero"           "$(b test "$RC" -ne 0)" "exit $RC"
+
+# ── 18. --disable-wordfence: the failure branch of the remedy still prints the remedy ───────────────────────────────
+reset_case; C_HDR="$HDR_ACTIVE"; C_LS_MODE=noecho; run_case disable-unknown --disable-wordfence
+t "disable-unknown/exit-non-zero"        "$(b test "$RC" -ne 0)" "exit $RC"
+t "disable-unknown/claims-nothing"       "$(b grep -q 'disable-unknown' "$OUT")" "$(grep -n 'LOOP STATUS' "$OUT" | head -1)"
+t "disable-unknown/says-how-to-undo-it"  "$(b grep -q 'rename \"html/wp-content/plugins/wordfence.off\" \"html/wp-content/plugins/wordfence\"' "$OUT")" "$(grep -n 'put it back' "$OUT" | head -1)"
+# ── 18b. prep=1 is extended protection: renaming that directory away takes the site down HARDER. Refuse, send nothing ─
+reset_case; C_HDR="$HDR_PREP1"; run_case disable-prep1 --disable-wordfence
+t "disable-prep1/exit-non-zero"          "$(b test "$RC" -ne 0)" "exit $RC"
+t "disable-prep1/refused"                "$(b grep -q 'REFUSED, and nothing was sent' "$OUT")" "$(tail -1 "$OUT")"
+t "disable-prep1/no-rename-sent"         "$(eq "$(calls sftp)" 0)" "sftp calls $(calls sftp)"
+t "disable-prep1/aborted-stamp"          "$(b grep -q 'aborted-disable-refused-prep' "$STAMPF")" "$STAMPV"
+
+# ── 19. the Mac is not required: WP_SFTP_USER/WP_SFTP_PASSWORD drive the same SSH_ASKPASS mechanism ─────────────────
+reset_case; C_HDR="$HDR_ACTIVE"; C_ENV_USER="$ENV_USER"; C_ENV_PASS="$ENV_PASS"; run_case env-creds
+t "env-creds/exit-0"                     "$(eq "$RC" 0)" "exit $RC"
+t "env-creds/uploaded"                   "$(b grep -q 'put ' "$STATE/sftp.stdin")" "$(tr '\n' ' ' < "$STATE/sftp.stdin")"
+t "env-creds/keychain-untouched"         "$(eq "$(calls security)" 0)" "security calls $(calls security)"
+t "env-creds/names-the-source-only"      "$(b grep -q 'login: the WP_SFTP_USER/WP_SFTP_PASSWORD environment pair' "$OUT")" "$(grep -n '^login:' "$OUT" | head -1)"
+t "env-creds/username-nowhere"           "$(nb grep -rq "$ENV_USER" "$OUT" "$CHOME")" "$(grep -rln "$ENV_USER" "$OUT" "$CHOME" | head -2 | tr '\n' ' ')"
+t "env-creds/password-nowhere"           "$(nb grep -rq "$ENV_PASS" "$OUT" "$CHOME")" "$(grep -rln "$ENV_PASS" "$OUT" "$CHOME" | head -2 | tr '\n' ' ')"
+# ── 19b. a login name starting with a dash is an sftp OPTION, and -oProxyCommand= is arbitrary command execution ────────
+reset_case; C_HDR="$HDR_ACTIVE"; C_ENV_USER='-oProxyCommand=touch /tmp/wf-proxy-proof'; C_ENV_PASS="$ENV_PASS"; run_case bad-login
+t "bad-login/exit-non-zero"              "$(b test "$RC" -ne 0)" "exit $RC"
+t "bad-login/refused"                    "$(b grep -q 'reads as an option, not a user' "$OUT")" "$(tail -1 "$OUT")"
+t "bad-login/nothing-sent"               "$(eq "$(calls sftp)" 0)" "sftp calls $(calls sftp)"
+t "bad-login/name-not-echoed"            "$(nb grep -q 'ProxyCommand' "$OUT")" "$(grep -n 'ProxyCommand' "$OUT" | head -1)"
+# ── 19c. KC_SFTP is interpolated into the helper this script EXECUTES: a command substitution in it runs as this user ─
+reset_case; C_HDR="$HDR_ACTIVE"; C_KC='$(touch /tmp/wf-kc-proof)mast-wp-sftp'; run_case kc-injection
+t "kc-injection/exit-non-zero"           "$(b test "$RC" -ne 0)" "exit $RC"
+t "kc-injection/refused"                 "$(b grep -q 'refusing to run: KC_SFTP' "$OUT")" "$(head -1 "$OUT")"
+t "kc-injection/nothing-sent"            "$(eq "$(calls sftp)" 0)" "sftp calls $(calls sftp)"
+t "kc-injection/no-curl-either"          "$(b test ! -s "$STATE/curl.args")"
+
 # ── summary ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 TOTAL=$((PASSN + FAILN))
-PIN=76
+PIN=116
 printf '\n%s: %s assertions, %s failed\n' "$([ "$FAILN" = 0 ] && [ "$TOTAL" = "$PIN" ] && printf OK || printf FAILED)" "$TOTAL" "$FAILN"
 if [ "$TOTAL" != "$PIN" ]; then
   printf 'FAIL harness: %s assertions ran, pinned at %s — a run that stops early used to look green\n' "$TOTAL" "$PIN"

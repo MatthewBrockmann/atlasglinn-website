@@ -55,7 +55,7 @@ if ($SCN === '') {
         'locked'         => 3,
         'refused'        => 9,
         'disabled'       => 3,
-        'status-header'  => 23,
+        'status-header'  => 24,
         'source'         => 10,
     );
     $php  = defined('PHP_BINARY') && PHP_BINARY ? PHP_BINARY : 'php';
@@ -501,6 +501,11 @@ case 'status-header':
     ok('an ordinary front-end request asks for nothing and gets nothing', atlas_wf_status_requested() === false);
     $_GET[ATLAS_WF_STATUS_QUERY] = 'deadbeef';
     ok('another build fingerprint is refused', atlas_wf_status_requested() === false);
+    // 'deadbeef' differs from this build in its FIRST character, so a gate weakened to a 4-character prefix compare
+    // passed every case here — a surviving mutant, found in round 2. A value sharing the first four and differing in
+    // the last four is the fixture that can tell an 8-character compare from a 4-character one.
+    $_GET[ATLAS_WF_STATUS_QUERY] = substr(sha1_file($COPY_STATUS), 0, 4) . 'zzzz';
+    ok('a fingerprint sharing only the first four characters is refused', atlas_wf_status_requested() === false);
     $_GET[ATLAS_WF_STATUS_QUERY] = substr(sha1_file($COPY_STATUS), 0, 8);
     ok('the 8-character build the deploy script sends is accepted', atlas_wf_status_requested() === true);
     $_GET[ATLAS_WF_STATUS_QUERY] = sha1_file($COPY_STATUS);

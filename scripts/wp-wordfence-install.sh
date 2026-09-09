@@ -22,7 +22,9 @@
 # --disable-wordfence renames html/wp-content/plugins/wordfence to wordfence.off. Nothing of Wordfence can load from a
 # path that no longer exists, so it stops running on the very next request; WordPress drops the missing entry from
 # active_plugins the next time an admin screen validates the plugin list. The run then re-measures the front page, the
-# WordPress-rendered page and wp-login.php and prints what they answer. Renaming BACK is a one-line sftp rename in the
+# WordPress-rendered page and wp-login.php and prints what they answer. It REFUSES the rename on prep=1 (extended
+# protection loads wordfence-waf.php from inside that directory on every request, so renaming it takes the site down
+# hard rather than bringing it back), and it prints the reverse rename on every outcome, not only the happy one. Renaming BACK is a one-line sftp rename in the
 # other direction, which is why this is the recovery rather than a delete.
 #
 # WHAT IS INSTALLED, AND WHAT IS NOT. wp-ops/atlas-wordfence-install.php installs and activates the `wordfence` slug
@@ -48,7 +50,9 @@
 #      it: it prints "self-removal: not measured in --status" and never prints FIRED-OBSERVED, whatever the header's
 #      own self= limb claims. That limb is the installer's memory of what it did; only the `ls` is a measurement of
 #      the host, and a mode that did not measure does not get to report the result.
-#   4. The site must still answer, and THAT INCLUDES THE LOGIN PAGE. The reader-facing front page
+#   4. The site must still answer, and THAT INCLUDES THE LOGIN PAGE, and the login page must have been MEASURABLE
+#      BEFORE the run: an install whose before-read of wp-login.php is http 000 stops there, because a verdict with no
+#      baseline is a comparison every after-code passes. The reader-facing front page
 #      (https://atlasglinn.com/, served from index.html by wp-ops/atlas-static-root.php), the WordPress-rendered page
 #      and https://atlasglinn.com/wp-login.php are all measured before and after. Any of the three answering something
 #      different afterwards fails the run whatever the plugin says — a security plugin that breaks the only admin's way
@@ -83,6 +87,12 @@ WP_BASE="${WP_BASE:-https://www.atlasglinn.com}"
 SITE_ROOT="${WP_SITE_ROOT:-https://atlasglinn.com}"
 LOGIN_URL="${WP_LOGIN_URL:-https://atlasglinn.com/wp-login.php}"
 KC_SERVICE="${KC_SFTP:-mast-wp-sftp}"
+# KC_SFTP is written into the SSH_ASKPASS helper this run then executes, so a command substitution in it is a command
+# run as this user — a strictly worse primitive than the sftp-batch injection the case above refuses, three lines away
+# from it. A Keychain service name is a name; anything else stops the run before a session opens.
+case "$KC_SERVICE" in
+  *[!A-Za-z0-9._-]*) printf 'refusing to run: KC_SFTP carries a character outside [A-Za-z0-9._-], and it is written into the SSH_ASKPASS helper this run executes. Nothing was sent.\n' >&2; exit 1;;
+esac
 REMOTE_DIR="$DOCROOT/wp-content/mu-plugins"
 REMOTE_INSTALL="$REMOTE_DIR/atlas-wordfence-install.php"
 REMOTE_STATUS="$REMOTE_DIR/atlas-wordfence-status.php"
@@ -310,14 +320,42 @@ if [ "$MODE" = install ]; then
   say "atlas-wordfence-install build $FP_INSTALL ($(wc -c < "$SRC_INSTALL" | tr -d ' ') bytes) + atlas-wordfence-status build $FP_STATUS ($(wc -c < "$SRC_STATUS" | tr -d ' ') bytes) → $HOST:$REMOTE_DIR/"
 fi
 
+# ── the login: the Keychain on the Mac, WP_SFTP_USER/WP_SFTP_PASSWORD on a runner ────────────────────────────────────
+# The Mac is not required for this to run — .github/workflows/wordfence-deploy.yml dispatches it with the same two
+# repository secrets the page upload already uses (measured 2026-09-09 14:21 UTC: that workflow pushed 120 files over
+# SFTP from Actions). The MECHANISM is identical either way: the password reaches ssh through SSH_ASKPASS and never
+# appears in argv, in a file or in the log. The Mac's helper shells out to the Keychain; the runner's helper prints an
+# exported environment value, so on neither path does the secret land on disk. The username is used for exactly one
+# thing — the connection argument — and is printed nowhere: a log or a step summary names the host, never the account.
+CRED_SRC=""
 if [ "$MODE" != status ]; then
   command -v sftp >/dev/null 2>&1 || die no-sftp "no sftp on this machine — the upload and the removal both travel over it, and a shell answering \"command not found\" is not a session that reached the host"
-  command -v security >/dev/null 2>&1 || die no-keychain-tool "the Keychain is macOS-only; run this on the Mac"
-  U="$(security find-generic-password -s "$KC_SERVICE" 2>/dev/null | sed -n 's/^ *"acct"<blob>="\(.*\)"$/\1/p')"
-  [ -n "$U" ] || die no-keychain "no Keychain item '$KC_SERVICE' (the SFTP login); save it once: bash scripts/wp-upload.sh --save-login"
+  # A browser paste puts whitespace around a secret: every run of the sibling upload workflow failed "Permission
+  # denied" for a fortnight over one leading space (.github/workflows/deploy-page.yml, 2026-09-08), so both values are
+  # trimmed before they are tested or used. printf is a bash builtin and the pipe is stdin, so neither reaches argv.
+  ENV_USER="$(printf '%s' "${WP_SFTP_USER:-}" | tr -d '\r\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  ENV_PASS="$(printf '%s' "${WP_SFTP_PASSWORD:-}" | tr -d '\r\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
   A="$(mktemp /tmp/wp-wf-askpass.XXXXXX)"
-  printf '#!/bin/sh\nexec security find-generic-password -s %s -w\n' "$KC_SERVICE" > "$A"; chmod 700 "$A"
+  if [ -n "$ENV_USER" ] && [ -n "$ENV_PASS" ]; then
+    CRED_SRC="the WP_SFTP_USER/WP_SFTP_PASSWORD environment pair"
+    U="$ENV_USER"
+    WP_SFTP_PASSWORD="$ENV_PASS"; export WP_SFTP_PASSWORD
+    printf '#!/bin/sh\nprintf %%s "$WP_SFTP_PASSWORD"\n' > "$A"
+  else
+    CRED_SRC="the Keychain item '$KC_SERVICE'"
+    command -v security >/dev/null 2>&1 || die no-keychain-tool "no Keychain on this machine and no WP_SFTP_USER/WP_SFTP_PASSWORD in the environment — run this on the Mac, or set both variables (which is what .github/workflows/wordfence-deploy.yml does)"
+    U="$(security find-generic-password -s "$KC_SERVICE" 2>/dev/null | sed -n 's/^ *"acct"<blob>="\(.*\)"$/\1/p')"
+    [ -n "$U" ] || die no-keychain "no Keychain item '$KC_SERVICE' (the SFTP login); save it once: bash scripts/wp-upload.sh --save-login"
+    printf '#!/bin/sh\nexec security find-generic-password -s %s -w\n' "$KC_SERVICE" > "$A"
+  fi
+  chmod 700 "$A"
+  # $U is the last argument to sftp, and an argument starting with '-' is read as an OPTION rather than a user:
+  # `-oProxyCommand=…` in a login name is arbitrary command execution. The name itself is never printed, here either.
+  case "$U" in
+    -*|*[!A-Za-z0-9._@-]*) die bad-login "the SFTP login name starts with '-' (which sftp reads as an option, not a user) or carries a character outside [A-Za-z0-9._@-]. It came from $CRED_SRC. Nothing was sent, and the name is not printed.";;
+  esac
   export SSH_ASKPASS="$A" SSH_ASKPASS_REQUIRE=force DISPLAY="${DISPLAY:-:0}"
+  say "login: $CRED_SRC → $HOST (the account name is not printed)"
   B="$(mktemp /tmp/wp-wf-batch.XXXXXX)"
 fi
 
@@ -330,6 +368,17 @@ say "        (the front page is the static index.html served by wp-ops/atlas-sta
 
 if [ "$MODE" = install ] && [ "$WP_BEFORE" != 200 ] && [ "${ATLAS_WF_FORCE:-0}" != 1 ]; then
   die site-not-answering "the WordPress-rendered page answers http $WP_BEFORE BEFORE anything was uploaded — this run stops rather than add two plugins to a site that is already not answering. Fix that first, or re-run with ATLAS_WF_FORCE=1 if the code is expected."
+fi
+
+# A verdict on the login page needs a BASELINE. When the before-read is 000 — curl's chain never completed, or it
+# printed no tagged status line — there is nothing for the after-code to differ from, and round 2's verifier proved
+# what that costs: with the before-read at 000 a run that left wp-login.php answering http 503 still printed
+# FIRED-OBSERVED and exited 0, because the regression limb exempted 000 rather than refusing to run without it. An
+# install that cannot measure the only admin's way in BEFORE it starts does not start, and no environment variable
+# waives this one. --disable-wordfence is exempt on purpose: it is the recovery, run precisely when the site answers
+# nothing, and a recovery that refuses to run on a down site is not a recovery.
+if [ "$MODE" = install ] && [ "$LOGIN_BEFORE" = 000 ]; then
+  die login-not-measurable "login page not measurable before install — stopping. $LOGIN_URL answered http 000, which is curl reporting that the chain never completed rather than a status the page returned. Without that baseline this run could not tell a login page it broke from one that was already down, so nothing was uploaded. Re-run when $LOGIN_URL answers a status of any kind — 200, 403 and 503 are all measurable; 000 is not."
 fi
 
 # ── remove · remove-status ────────────────────────────────────────────────────────────────────────────────────────────
@@ -381,6 +430,17 @@ if [ "$MODE" = disable ]; then
   probe; classify_status_plugin
   if [ "$STATUS_OK" = 1 ]; then read_limbs; say "before the rename: X-Atlas-Wordfence: $PROBE_HDR"
   else ST="none"; ACT="unread"; WF="none"; SELFSTATE="unknown"; say "before the rename: no usable X-Atlas-Wordfence header — $RULE (a site that is down answers no header either, which is why this mode does not need one)"; fi
+  # prep= is Wordfence's extended protection, and it is the one state in which this rename makes things WORSE. Under
+  # auto_prepend_file, PHP loads wordfence-waf.php from inside the directory about to be renamed on every single
+  # request — so a degraded site becomes a hard-down one, wp-login.php included. The run reads that limb already; it
+  # costs one `case` to consult it. Whether a missing prepended file fatals is Wordfence's own behaviour and is
+  # UNVERIFIABLE FROM HERE, which is why an unreadable prep= is a warning and not a refusal.
+  PREP="unknown"; [ "$STATUS_OK" = 1 ] && PREP="$(limb prep)"
+  case "$PREP" in
+    1) die disable-refused-prep "REFUSED, and nothing was sent. The header says prep=1 — Wordfence's extended protection is on, so PHP loads wordfence-waf.php from inside html/wp-content/plugins/wordfence on every request via auto_prepend_file. Renaming that directory away would turn a degraded site into a hard-down one, wp-login.php included. wordfence-waf.php and the auto_prepend_file line (php.ini or .user.ini) have to be dealt with first, and that needs a route this script does not have.";;
+    0) ;;
+    *) say "   prep= could not be read, so whether Wordfence's extended protection is on is UNVERIFIABLE FROM HERE (a site that is down answers no header, which is exactly when this mode runs). If it IS on, wordfence-waf.php is loaded by auto_prepend_file from inside the directory about to be renamed and has to be dealt with as well — this rename alone would not bring the site back.";;
+  esac
   printf -- 'rename "%s" "%s"\n' "$REMOTE_WF_DIR" "$REMOTE_WF_OFF" > "$B"
   say "sftp batch:"; sed 's/^/   /' "$B" | tee -a "$LOG"
   out="$(sftp_run)"; rc=$?
@@ -398,6 +458,10 @@ if [ "$MODE" = disable ]; then
   say "after:  front page http $HOME_AFTER (was $HOME_BEFORE) · WordPress-rendered http $WP_AFTER (was $WP_BEFORE) · $LOGIN_URL http $LOGIN_AFTER (was $LOGIN_BEFORE)"
   say "verify: wordfence/wordfence.php $r_live · wordfence.off/wordfence.php $r_off → $result"
   stamp "$result"
+  # The way back is printed on EVERY outcome of this mode, including the ones where the ls could not say what
+  # happened. The rename has already been sent by this line; an operator told "nothing is claimed either way" and not
+  # told how to undo it is being handed the failure branch of the remedy with no remedy on it.
+  say "   To put it back: one sftp rename in the other direction — rename \"$REMOTE_WF_OFF\" \"$REMOTE_WF_DIR\"."
   case "$result" in
     wordfence-disabled)
       say "   Wordfence cannot load from a path that is not there, so it stopped running on the request after the rename; WordPress drops the missing entry from active_plugins the next time an admin screen validates the plugin list."
@@ -406,7 +470,6 @@ if [ "$MODE" = disable ]; then
       else
         say "   The WordPress-rendered page answers http $WP_AFTER and $LOGIN_URL answers http $LOGIN_AFTER — still not both 200, so Wordfence was NOT the whole cause. Nothing else has been changed."
       fi
-      say "   To put it back: one sftp rename in the other direction — rename \"$REMOTE_WF_OFF\" \"$REMOTE_WF_DIR\"."
       say "LOOP STATUS: atlas-wordfence — Wordfence DISABLED by rename (sftp ls says $REMOTE_WF_FILE is gone and $REMOTE_WF_OFF_FILE is there); heartbeat $STAMP ✓";;
     disable-failed)
       say "LOOP STATUS: atlas-wordfence — the rename did NOT take: $REMOTE_WF_FILE is still listed. Wordfence is still running. Heartbeat $STAMP.";;
@@ -516,10 +579,14 @@ fi
 # reason — to catch a security plugin that locks the only admin out — and a measurement that cannot fail the run is
 # decoration. Any CHANGE fails, not just a 200 that stops being one: 200 → 503 and 200 → 302-to-somewhere-else are both
 # the login page behaving differently than it did ten seconds earlier, and neither is something this run may pass over.
+# There is NO exemption in this limb, and that is the round-2 fix. The version below it read
+# `[ "$LOGIN_BEFORE" != 000 ] && …`, so an unmeasurable baseline silently dropped the login page out of the verdict and
+# 000 → 503 passed. A baseline is now a precondition of the run (the die above), not a condition on the comparison —
+# the difference between "we could not measure it, so it cannot fail" and "we could not measure it, so we stop".
 regressed=""
 [ "$HOME_BEFORE" = 200 ] && [ "$HOME_AFTER" != 200 ] && regressed="the front page went from http 200 to http $HOME_AFTER"
 [ "$WP_BEFORE" = 200 ] && [ "$WP_AFTER" != 200 ] && regressed="${regressed:+$regressed; }the WordPress-rendered page went from http 200 to http $WP_AFTER"
-[ "$LOGIN_BEFORE" != 000 ] && [ "$LOGIN_AFTER" != "$LOGIN_BEFORE" ] && regressed="${regressed:+$regressed; }$LOGIN_URL went from http $LOGIN_BEFORE to http $LOGIN_AFTER"
+[ "$LOGIN_AFTER" != "$LOGIN_BEFORE" ] && regressed="${regressed:+$regressed; }$LOGIN_URL went from http $LOGIN_BEFORE to http $LOGIN_AFTER"
 
 # --status never returns the install verdict, because it never ran the sftp ls that the install verdict includes.
 ACTIVE_RESULT=active
@@ -549,6 +616,10 @@ if [ "$result" = "$ACTIVE_RESULT" ]; then
   if [ "$MODE" = install ] && [ "$SELF_LS" != absent ]; then result="self-left"
   elif [ "$MODE" = status ] && [ "$SELFSTATE" = left ]; then result="self-left"; fi
 fi
+
+# Both login codes, in the verdict, on every run that reaches it — pass or fail. A verdict that prints only the
+# after-code cannot be checked by the person reading it, and the before-code is half of the rule being applied.
+say "verdict inputs: $LOGIN_URL before http $LOGIN_BEFORE · after http $LOGIN_AFTER — any difference between those two fails this run (front page $HOME_BEFORE→$HOME_AFTER · WordPress-rendered $WP_BEFORE→$WP_AFTER)"
 
 case "$result" in
   active)
