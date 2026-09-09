@@ -416,8 +416,20 @@ def scripts(slug):
 
 
 # ── Media ─────────────────────────────────────────────────────────────────────────────────────────────────────────
-_MEDIA = re.compile(r'''(?:src|poster)=["']([^"']+)["']|background(?:-image)?:\s*url\((['"]?)([^)'"]+)\2\)''', re.I)
+# src, data-src, poster, every candidate in a srcset, and CSS url(). data-src and srcset are NAMED here since
+# 2026-09-09 (R4-3). Measured before that change on the twelve pages: `data-src` was read only by ACCIDENT — the
+# pattern carried no word boundary, so `src=` matched inside `data-src=` — and `srcset` was not read at all, because
+# in `srcset=` the characters after `src` are `set`, not `=`. The ten lazy YouTube backdrops on cuas-aerodefense are
+# the only data-src on either side; srcset measures 0 on both sides, and compare-atlas.py asserts that stays true.
+_MEDIA = re.compile(r'''(?:data-src|src|poster)=["']([^"']+)["']'''
+                    r'''|srcset=["']([^"']+)["']'''
+                    r'''|background(?:-image)?:\s*url\((['"]?)([^)'"]+)\3\)''', re.I)
 _YT = re.compile(r'''(?:youtube(?:-nocookie)?\.com/(?:embed/|watch\?v=)|videoId:\s*['"])([\w-]{6,})''')
+
+
+def srcset_urls(value):
+    """Every candidate URL a srcset offers, its density/width descriptor dropped."""
+    return [c.strip().split()[0] for c in value.split(',') if c.strip()]
 
 
 def media(slug, html=None):
@@ -427,9 +439,13 @@ def media(slug, html=None):
         html = content(slug)
     out = set()
     for m in _MEDIA.finditer(html):
-        u = (m.group(1) or m.group(3) or '').strip()
-        if u and not u.startswith('data:'):
-            out.add(u)
+        found = [m.group(1) or m.group(4) or '']
+        if m.group(2):
+            found += srcset_urls(m.group(2))
+        for u in found:
+            u = u.strip()
+            if u and not u.startswith('data:'):
+                out.add(u)
     for m in _YT.finditer(html):
         out.add('yt:' + m.group(1))
     return out

@@ -22,6 +22,9 @@ WHAT IS MEASURED, over the WHOLE VISIBLE PAGE — content, bar, mobile menu and 
      that label must equal the destinations the build puts behind it, counting repeats, after the live absolute URL
      is resolved by the build's own relink rule. The two deliberate §G-6 MAST redirects are the only exceptions and
      are printed per page.
+  6. LAZY MEDIA ATTRIBUTES.  srcset and data-src are counted on both sides and printed per page. The media pass reads
+     both (atlas_live._MEDIA, r4); srcset measures 0 on both sides on all twelve pages, and that 0 is asserted, so a
+     future srcset is a delta somebody has to look at rather than a URL that slips past.
 
 ALLOWLIST — the only build-only TEXT units permitted, printed per page in the sheet and on stdout so a reader sees
 exactly what was excused and can object to it:
@@ -29,13 +32,18 @@ exactly what was excused and can object to it:
   * the splash wordmark — on index matched against the live splash's own <h1 id="intro-title">; on the other eleven
     it is chrome the shell prints on every page, as the MAST page does, and it is named as such
   * the back-to-top control "↑"
-  * the menu controls "☰" and "×", and the sound toggle "🔇"
+  * the menu controls "☰" and "×"
   * a chapter-rail label — and ONLY where the unit is printed INSIDE the <a class="agx-rail-link"> element whose
     label repeats a heading of the chapter it links to, one excuse per anchor. Position is the point: the same string
     dropped into a footer is not a rail label and is not excused.
-  * progress text of the form "NN / NN"
 And the only build-only ATTRIBUTE units permitted: the shell's own control labels (A11Y below) and the aria-label a
-heading-less chapter's rail tick carries in place of a printed label.
+heading-less chapter's rail tick carries — one per label-less rail anchor, its value "Chapter NN" and nothing else.
+
+DROPPED 2026-09-09 (R4-4): the sound toggle "\U0001f507" and progress text "NN / NN" were excused by string, with no
+position check, and MEASURED on the twelve pages neither was ever spent — the shell's own toggle is cut from the
+script and .progress has no markup here. An excuse nothing uses is a hole nothing guards: either of those strings
+dropped anywhere on a page would have passed. They are gone rather than anchored, because there is no element on
+these pages to anchor them to.
 
 Writes atlas-compare.html at the repo root (tracked, noindex) and EXITS NON-ZERO on any delta. Run after
 scripts/assemble-atlas.py:
@@ -61,14 +69,18 @@ _RAIL_A = re.compile(r'<a class="agx-rail-link"([^>]*)>(.*?)</a>', re.S)
 _RAIL_HREF = re.compile(r'href="#(agx-c\d+)"')
 _CH = re.compile(r'<div class="agx-ch[^"]*" id="(agx-c\d+)"[^>]*>', re.I)
 _HEAD = re.compile(r'<(h[1-6])\b[^>]*>(.*?)</\1>', re.S | re.I)
-_PROGRESS = re.compile(r'^\d{2} / \d{2}$')
+# The rail tick's aria-label and nothing else: the attribute excuse is bounded by VALUE as well as by position.
+_TICK_LABEL = re.compile(r'Chapter \d\d')
+# srcset / data-src, counted on both sides so a lazy attribute cannot carry a URL past the media pass unseen.
+_SRCSET_ATTR = re.compile(r'\bsrcset\s*=', re.I)
+_LAZY_ATTR = re.compile(r'\bdata-src\s*=', re.I)
 _YT_EMBED = re.compile(r'youtube(?:-nocookie)?\.com/embed/([\w-]+)')
 _A = re.compile(r'<a\b([^>]*)>(.*?)</a>', re.S | re.I)
 _HREF = re.compile(r'\bhref=["\']([^"\']*)["\']', re.I)
 _ATTR = re.compile(r'''\b(?:alt|placeholder|value|title|aria-label|label)\s*=\s*(["'])(.*?)\1''', re.S | re.I)
 _ELEM = re.compile(r'<(option|label)\b[^>]*>(.*?)</\1>', re.S | re.I)
 
-SPLASH = ('Enter', 'Skip Intro →', '↑', '☰', '×', '\U0001f507')
+SPLASH = ('Enter', 'Skip Intro →', '↑', '☰', '×')
 
 # The shell's own control labels — the only build-only attribute units that are not read off a live page. A tuple and
 # not a set, because "Back to top" is two units: the button carries it as title and as aria-label.
@@ -270,8 +282,6 @@ def excuse(slug, added, rails):
         elif u == word:
             ok.append((u, 'splash wordmark, the live splash’s own <h1 id="intro-title">' if slug == 'index' else
                        'splash wordmark, chrome the shell prints on all twelve pages as the MAST page does'))
-        elif _PROGRESS.match(u):
-            ok.append((u, 'progress text'))
         else:
             hit = next((k for k, (_a, lab, s, e, r) in enumerate(rails)
                         if r and budget[k] and lab == u and s <= a and b <= e), None)
@@ -285,21 +295,35 @@ def excuse(slug, added, rails):
 
 def excuse_attrs(added, rails):
     """The same discipline for attribute text: the shell's control labels, spent one per declared unit, plus the
-    aria-label a heading-less chapter's rail tick carries — excused only where it sits inside that tick's own tag."""
+    aria-label a heading-less chapter's rail tick carries — excused only where it sits inside that tick's own tag,
+    ONE unit per label-less anchor, and only where the value is "Chapter NN".
+
+    Both bounds are r4 (2026-09-09). The r3 excuse was matched by position and nothing else: any number of attribute
+    units, of any name and any value, printed inside a label-less a.agx-rail-link were excused — a second aria-label,
+    a title, an invented alt, all of them. It is budgeted like excuse() now: a Counter keyed by the anchors
+    themselves, so the second unit inside the same tick has nothing left to spend."""
     budget = collections.Counter(A11Y)
+    ticks = collections.Counter(k for k, r in enumerate(rails) if not r[1])
     ok, bad = [], []
     for u, a, b in added:
         if budget[u]:
             budget[u] -= 1
             ok.append((u, 'shell control label'))
             continue
-        hit = next((k for k, (_a, lab, s, e, _r) in enumerate(rails) if not lab and s <= a and b <= e), None)
-        if hit is None:
+        hit = next((k for k, (_a, lab, s, e, _r) in enumerate(rails)
+                    if not lab and ticks[k] and s <= a and b <= e), None)
+        if hit is None or not _TICK_LABEL.fullmatch(u):
             bad.append(u)
         else:
+            ticks[hit] -= 1
             ok.append((u, 'rail tick aria-label, chapter %s carries no heading and prints no label'
                        % rails[hit][0][-2:].lstrip('c')))
     return ok, bad
+
+
+def lazy_attr_counts(markup):
+    """(srcset attributes, data-src attributes) — how many lazy media attributes the markup carries."""
+    return len(_SRCSET_ATTR.findall(markup)), len(_LAZY_ATTR.findall(markup))
 
 
 def _basename(u):
@@ -399,7 +423,20 @@ figure.film{width:100%;border:1px dashed #2a3550;padding:.25rem}
 """
 
 
+def dump_units(path):
+    """{slug: [every live text unit]} for scripts/render-audit.mjs, which asserts each one renders a non-zero box at
+    one of the two widths. Written by the extractor the sheet itself uses, so the browser pass cannot drift from the
+    parity pass: `python3 scripts/compare-atlas.py --units <path>`."""
+    import json
+    data = {slug: [t for t, _a, _b in text_spans(visible(live._read(slug)))] for slug in live.PAGES}
+    open(path, 'w', encoding='utf-8').write(json.dumps(data))
+    print('wrote %s: %d pages, %d live text units' % (path, len(data), sum(len(v) for v in data.values())))
+
+
 def main():
+    if '--units' in sys.argv:
+        dump_units(sys.argv[sys.argv.index('--units') + 1])
+        return 0
     stamp = open(os.path.join(live.LIVE, '_captured.txt'), encoding='utf-8').read().strip().split('\n')[0]
     secs, menu, off = [], [], 0
     for slug in live.PAGES:
@@ -428,15 +465,22 @@ def main():
         extra_m = sorted(mn - mo)
         ok_m, lost_m, bad_m = pair_media(sorted(mo - mn), extra_m, mo)
         bad_h, redirects = href_diff(old, new)
+        # The media pass reads srcset candidates and data-src since r4. srcset MEASURES 0 on both sides of all twelve
+        # pages today, so its absence is asserted: if either side ever grows one, this fails, and whoever added it
+        # re-measures the pass rather than trusting a regex nobody has exercised. data-src is not asserted away — the
+        # build carries ten (the lazy YouTube backdrops on cuas-aerodefense) and the media pass reads them by name.
+        srcset_o, lazy_o = lazy_attr_counts(old)
+        srcset_n, lazy_n = lazy_attr_counts(new)
+        bad_srcset = srcset_o or srcset_n
 
-        ok = not (lost_t or order or lost_a or lost_m or bad_t or bad_a or bad_m or bad_h)
+        ok = not (lost_t or order or lost_a or lost_m or bad_t or bad_a or bad_m or bad_h or bad_srcset)
         off += 0 if ok else 1
         print('%-24s text %3d/%3d %2d build-only (%d ok, %d NOT)  attr %2d/%2d %2d build-only (%d ok, %d NOT)  '
-              'media %2d/%2d %2d build-only (%d ok, %d NOT)  order %d  hrefs %d  %s'
+              'media %2d/%2d %2d build-only (%d ok, %d NOT)  srcset %d/%d  data-src %d/%d  order %d  hrefs %d  %s'
               % (slug, len(to) - len(lost_t), len(to), len(added_t), len(ok_t), len(bad_t),
                  len(uo) - len(lost_a), len(uo), len(added_a), len(ok_a), len(bad_a),
                  len(mo) - len(lost_m), len(mo), len(extra_m), len(ok_m), len(bad_m),
-                 len(order), len(bad_h), 'OK' if ok else 'DELTA'))
+                 srcset_o, srcset_n, lazy_o, lazy_n, len(order), len(bad_h), 'OK' if ok else 'DELTA'))
         for u, why in ok_t + ok_a + ok_m:
             print('    excused: %-52s  %s' % (repr(u[:50]), why))
         for line in redirects:
@@ -457,6 +501,10 @@ def main():
             print('    MEDIA NOT ON THE LIVE PAGE: %s' % u)
         for lab, l, b in bad_h:
             print('    HREF BEHIND %s  live=%s  build=%s' % (repr(lab[:60]), l, b))
+        if bad_srcset:
+            print('    SRCSET APPEARED (live %d, build %d): it measured 0 on both sides when the media pass learned '
+                  'to read it (2026-09-09). Re-measure both sides, confirm every candidate URL is carried, then '
+                  'update this assertion.' % (srcset_o, srcset_n))
 
         detail = ''.join('<li>live only: %s</li>' % H.escape(x[:160]) for x in lost_t) \
             + ''.join('<li>out of order: %s</li>' % H.escape(x[:160]) for x in order) \
@@ -466,7 +514,9 @@ def main():
             + ''.join('<li>build only, attribute: %s</li>' % H.escape(x[:160]) for x in bad_a) \
             + ''.join('<li>build only, media: %s</li>' % H.escape(u) for u in bad_m) \
             + ''.join('<li>href behind &ldquo;%s&rdquo;: live %s, build %s</li>'
-                      % (H.escape(lab[:80]), H.escape(repr(l)), H.escape(repr(b))) for lab, l, b in bad_h)
+                      % (H.escape(lab[:80]), H.escape(repr(l)), H.escape(repr(b))) for lab, l, b in bad_h) \
+            + ('<li>srcset appeared (live %d, build %d) &mdash; re-measure the media pass</li>'
+               % (srcset_o, srcset_n) if bad_srcset else '')
         excused = ''.join('<li>%s &mdash; %s</li>' % (H.escape(u[:80]), H.escape(w)) for u, w in ok_t + ok_a + ok_m) \
             + ''.join('<li>redirect allowlist: %s</li>' % H.escape(x) for x in redirects)
         menu.append('<a href="#%s">%s</a>' % (slug, slug))
