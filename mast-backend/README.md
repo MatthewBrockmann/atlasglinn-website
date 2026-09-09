@@ -47,7 +47,7 @@ The old Worker is left untouched — it still serves SafeGuard.
 | `POST` | `/contact` | Site contact form and capability-statement requests (honeypot, validation, one email to `NOTIFY_EMAIL` with reply-to the sender) |
 | `POST` | `/webhook` | Stripe events; persists orders, links registrations, sends the documents |
 | `GET` | `/roster` | Admin (`X-Admin-Key` header — every admin route, header only): recent bookings (`&sku=MAST-DA`), or `&view=registrations` for the screening → payment records, review items first |
-| `POST` | `/admin/tax/setup` | Admin: run the Stripe Tax setup for Houston, Texas now, or report it. Idempotent — reads before it writes, holds a D1 lock, sends deterministic `Idempotency-Key`s. The Worker also runs this itself (the daily cron, and a refresh enqueued behind a checkout that finds no fresh measurement — never on the customer's path), so nothing depends on it being called. `?dry=1`, and any `GET`, report `tax_ready`, the cache age and the setup heartbeat, and write nothing. See **Sales tax (Texas)** |
+| `POST` | `/admin/tax/setup` | Admin: run the Stripe Tax setup for Houston, Texas now, or report it. Idempotent — reads before it writes, holds a D1 lock, sends deterministic `Idempotency-Key`s. The Worker also runs this itself (a cron every five minutes, the daily cron, and a refresh enqueued behind a checkout that finds the measurement due — never on the customer's path), so nothing depends on it being called. `?dry=1`, and any `GET`, report `tax_ready`, the readiness cache and the setup heartbeat **from D1 alone** — no Stripe call, no row written, so they report no `settings` or `registration`. See **Sales tax (Texas)** |
 | `POST` | `/event` | First-party beacon from the pages (`action` in a fixed list: view, open_class, pick_date, start_registration, checkout, contact, gear_request, video_play, follow…), with the visitor id and first-touch attribution; feeds the CRM funnel |
 | `POST` | `/subscribe` | Newsletter sign-up: `{email, name?, consent: true, source?, attribution?}`; stored as a lead with the consent wording, upserted to Mailchimp when configured |
 | `GET` | `/admin` | The staff CRM page (noindex, no-store); the key goes in the page and travels as `X-Admin-Key` |
@@ -63,7 +63,8 @@ The old Worker is left untouched — it still serves SafeGuard.
 | `GET` | `/account/me` | Bearer token → profile, classes taken (paid/completed registrations under the account email), saved card (brand, last four, expiry) |
 | `POST` | `/account/update` / `/account/password` / `/account/setup-payment` | Bearer token → profile details; password change (needs the current one); Stripe Checkout in setup mode to save a card on the account's Stripe Customer |
 | `GET` | `/admin/crm?view=weekly` | The Monday digest as `text/plain`, exactly as it is emailed |
-| cron | daily 09:17 UTC | Purges eligibility answers past `purge_after`; marks day-old unpaid registrations abandoned; removes day-old unverified accounts; **on Monday** (or the Tuesday/Wednesday retry if Monday failed) also emails the CRM digest |
+| cron | daily 09:17 UTC | Purges eligibility answers past `purge_after`; marks day-old unpaid registrations abandoned; removes day-old unverified accounts; **on Monday** (or the Tuesday/Wednesday retry if Monday failed) also emails the CRM digest; and runs the Stripe Tax loop |
+| cron | every 5 min | Stripe Tax only: re-measure the account when the cached measurement is due and run the idempotent self-setup when it is not collecting. `scheduled()` branches on `event.cron`, so the daily work above stays daily. See **Sales tax (Texas)** |
 
 Every `/admin` route and `/roster` take the key in the **`X-Admin-Key` header**.
 The `?key=` query form was removed 2026-09-09 and now answers 401 on every one of
@@ -240,11 +241,14 @@ no ceiling, rotating IPs defeating the per-IP limit — against the same Stripe 
 budget the Checkout Session itself needs, and a tax endpoint that merely *hung*
 held every checkout open behind it. Now:
 
-* **A checkout reads the cache and nothing else.** Fresh (≤10 min) → use its
-  boolean. **Absent or stale → not ready for this checkout**, tax-off body, one
-  `tax_skipped` line. The cost is honest and worth naming: after a quiet spell the
-  first checkout back is untaxed, because the alternative is a customer waiting on
-  `api.stripe.com`.
+* **A checkout reads the cache and nothing else.** It asks that row two separate
+  questions, and conflating them is what sold orders untaxed through round 3:
+  *is a re-measurement due* (fresh: ≤10 min, or ≤60 s for a measurement that
+  failed), and *does the last measurement say the account is collecting*. A
+  measurement that said **ready** is trusted for **24 hours** — LAST-KNOWN-READY —
+  so a stale one still taxes the order while the loop catches up. **A measured
+  not-ready, a measurement that could not be made, or nothing measured inside a
+  day → tax off**, byte-identical body, one `tax_skipped` line naming which.
 * **The measurement it did not make is enqueued behind the response**
   (`ctx.waitUntil`), and that refresh **does nothing at all unless it can take the
   `tax:lock` row**. A held lock means someone is already measuring — no Stripe
@@ -256,14 +260,54 @@ held every checkout open behind it. Now:
   next stale window are what retry. That is what stops an account nobody can repair
   — Stripe Tax terms not accepted, say — from being retried on every checkout
   forever.
-* **The other trigger is the daily cron**, which runs when nobody is buying
-  anything and needs no repository secret.
+* **The trigger that keeps it warm is a cron every five minutes**
+  (`wrangler.toml [triggers]`, `*/5 * * * *`; `scheduled()` branches on
+  `event.cron` so the daily work stays daily). It re-measures only when the
+  measurement is due, so a ready account costs one D1 read per tick and two Stripe
+  GETs per ten minutes — about 288 reads a day, no writes. **This is the fix for
+  the design's worst bug.** Round 3 paired the ten-minute TTL with a daily cron, so
+  the measurement was fresh for 10 minutes out of 1440 and clustered orders were
+  taxed while isolated ones never were — measured in review as **20 isolated
+  orders, 0 taxed**. A completed Checkout Session cannot be re-taxed afterwards,
+  and the permit holder owes Texas the difference out of margin.
+* **The daily cron still runs the same tax work**, so the two triggers cover each
+  other, and neither needs a repository secret.
+
+**What silence costs, exactly.** Trigger firing → every order taxed. Trigger quiet
+for up to 24 hours → orders keep being taxed on the last measurement that said
+ready, and each checkout enqueues the refresh behind its own response. Past 24
+hours → **fail closed**: tax comes off rather than trusting a day-old reading of an
+account that may have changed, and the first checkout after that re-triggers the
+measurement. Tests simulate all three against a virtual clock.
+
+**And if last-known-ready is ever WRONG, the customer never sees it.** Stripe
+refuses a Session carrying `automatic_tax` when Tax is not active on the account.
+That refusal is retried **once**, with the tax fields removed — the byte-identical
+pre-tax body — the readiness row is written back as *unmeasured* on its 60-second
+negative TTL so the next checkouts do not repeat the failure, and one
+`{"tax_fallback":…}` line records it with the reason redacted. **Tax-class refusals
+only** (`automatic_tax`, `tax`, `registration` in the code or message), and only
+when the body actually carried tax fields: a declined card is an answer, and
+re-sending it would be a second charge attempt.
 
 **Every Stripe call in the tax path is on a clock** (`STRIPE_TAX_TIMEOUT_MS`,
-default 4 s). A timeout is not a measurement: it is cached as *unmeasured* with a
-short **60-second** negative TTL, so the next checkout neither re-triggers it
-immediately nor waits ten minutes for recovery, and the heartbeat records the
-outcome as `timeout`. **An account that could not be READ is never WRITTEN to.**
+default 4 s, **clamped to 500 ms – 15 s**). A timeout is not a measurement: it is
+cached as *unmeasured* with a short **60-second** negative TTL, so the next checkout
+neither re-triggers it immediately nor waits ten minutes for recovery, and the
+heartbeat records the outcome as `timeout`. **An account that could not be READ is
+never WRITTEN to.** The clamp is why the sentence "nothing in the tax path outlives
+the clock" is true of the clock itself: an operator typo of `999999999` used to
+remove it entirely, freeing the lock after its minute while the previous fetch was
+still open, so a new orphaned Stripe request could start every minute forever.
+
+**The membership Price call is on the same clock and behind the same gate.**
+`ensureMembershipPrice` provisions a Stripe Price on the first join of a plan; both
+of its calls now go through the bounded `stripeCall`, so a hung `/v1/prices` can no
+longer hold a membership join open (measured at 3.1 s against a 3 s stub before
+this change; the join now answers the same clean 400 it answers for a plan with no
+price). `product_data[tax_code]` rides on it only when the **cached measurement
+says the account is collecting** — the same gate the Session uses, not the switch
+alone as it was through round 3.
 
 One writing run at a time: the `tax:lock` row in D1 (INSERT-if-absent with an
 expiry, so a crashed run frees itself), **held for a further 60 s after the run
@@ -310,15 +354,21 @@ back named by the step that hit it, with a 502, as `{step, type, code, message}`
 **redacted in the Worker**, so every consumer gets the scrubbed answer rather than
 just the two workflows that happen to print it. Nothing is retried.
 
-**To just look, without changing anything:** add `?dry=1`, or use `GET`. That is
-what the *Smoke-test the MAST Worker* workflow runs; the result lands in that run's
-job summary under "Stripe Tax — Houston, Texas". The report answers with the three
-things worth knowing:
+**To just look, without changing anything:** add `?dry=1`, or use `GET`. That form
+reads **D1 and nothing else** — no Stripe call, no row written — so looking at the
+readiness cannot change it. (Through round 3 it re-measured the account and rewrote
+the row every checkout gates on, while four shipped strings called it read-only; a
+smoke run that caught a Stripe timeout left the next minute of checkouts untaxed.
+That is also why it needs no lock: ten reports cost ten D1 SELECTs.) It therefore
+reports no `settings` or `registration` — **the live read of the account is the
+`POST`**, which deploy-worker.yml runs after every deploy. The *Smoke-test the MAST
+Worker* workflow runs the read-only form; the result lands in that run's job summary
+under "Stripe Tax — Houston, Texas":
 
 | field | what it tells you |
 |---|---|
-| `tax_ready` + `tax_ready_reason` | the exact boolean every checkout gates on, and why |
-| `tax_ready_cache` | how many seconds old that measurement is, and its 600s TTL |
+| `tax_ready` + `tax_ready_reason` | the exact boolean every checkout gates on, and why (`active`, `last_known_ready`, `measurement_expired`, `settings_status:…`, `never_measured`…) |
+| `tax_ready_cache` | the row itself: `measured_at`, `age_seconds`, `ttl_seconds` (600, or 60 for a measurement that failed), `grace_seconds` (86400) and `stale` — a `stale: true` here means the five-minute trigger is overdue |
 | `last_run` | the heartbeat: when a setup run last held the lock, its outcome, its age, and `stale: true` past 25 hours |
 
 **What CI does, and what it does not.** `deploy-worker.yml`'s tax step is a
@@ -351,23 +401,24 @@ confirmation, if you want a second one against the live key, is:
 curl -sS -u "<STRIPE_SECRET_KEY>:" "https://api.stripe.com/v1/tax_codes?limit=100"
 ```
 
-**The one body that is not byte-identical, named exactly.** The claim above is
-about the **Checkout Session** body. `POST /v1/prices` — the call that provisions a
-membership Price on its first join — carries `product_data[tax_code]` whenever
-`STRIPE_TAX` is `"1"`, gated on the switch **alone** and not on readiness. That is
-deliberate (a Price created during a not-ready window would otherwise carry no code
-forever, which is the migration gap below), and the residual is disclosed rather
-than guessed at: whether Stripe accepts `product_data[tax_code]` on a Price create
-while Tax is inactive on the account is **UNVERIFIABLE FROM HERE** — `api.stripe.com`
-answers `CONNECT tunnel failed, response 403` through this build container. If it
-refuses, the symptom is a first membership join erroring on a not-ready account;
-class bookings and registrations are unaffected either way.
+**The one body that was not byte-identical — closed.** The claim above is about the
+**Checkout Session** body. `POST /v1/prices`, the call that provisions a membership
+Price on its first join, used to carry `product_data[tax_code]` whenever
+`STRIPE_TAX` was `"1"`, gated on the switch alone. It is now behind the same cached
+readiness as the Session, so with the account not measured collecting **every** body
+this Worker sends Stripe is byte-identical to the pre-tax one. The residual that
+motivated it — whether Stripe accepts `product_data[tax_code]` on a Price create
+while Tax is inactive on the account — remains **UNVERIFIABLE FROM HERE**
+(`api.stripe.com` answers `CONNECT tunnel failed, response 403` through this build
+container), and the gate makes the question moot rather than answering it. The cost
+is the migration gap below: a Price created during a not-ready window carries no
+tax code until its Product is updated.
 
 **Price migration — the one real gap.** A Checkout Session cannot override the tax
 code of a *saved* Price, so a membership's code is set on its Product the single
 time `ensureMembershipPrice` creates it. **Membership Prices that already exist —
-created before this change, or while `STRIPE_TAX` was not `"1"` — keep whatever
-code Stripe defaulted them to.** Class bookings and registrations are unaffected:
+created before this change, while `STRIPE_TAX` was not `"1"`, or while the account
+was not measured collecting — keep whatever code Stripe defaulted them to.** Class bookings and registrations are unaffected:
 they build `price_data` per session and carry the code every time. To migrate a
 membership Price, set the code on its Product:
 
@@ -835,8 +886,8 @@ the takeover.
 | `HUBSPOT_TOKEN` | secret | HubSpot private-app token (`crm.objects.contacts` write). With it every profile and every new lead is upserted as a HubSpot contact by email (`lifecyclestage` lead or customer) — a CRM record, not marketing consent, so it is not gated on the newsletter tick |
 | `CRM_DIGEST_TO` | var | Comma-separated recipients of the Monday CRM digest (`matthew@atlasglinn.com,matthew@mastsolutions.com`). Unset = the digest is logged and not sent |
 | `JOURNEYS_ENABLED` | var | `"1"` switches the daily T−7 / T−1 / T+1 emails on; `"0"` (the default) until the owner approves the texts |
-| `STRIPE_TAX` | var | `"1"` (set) lets a Checkout Session ask Stripe to compute sales tax — but only when a measurement cached in D1 says the account is collecting (`taxReadyCached`); anything else, or no fresh measurement, and the **Checkout Session** body is byte-identical to the pre-tax one. (Narrowed 2026-09-09: the one body that is *not* byte-identical is the `POST /v1/prices` that provisions a membership Price, which carries `product_data[tax_code]` whenever the switch is on — see **Sales tax (Texas)**.) Safe to ship on an unconfigured Stripe account: the Worker sets the account up itself, off the customer's path. See **Sales tax (Texas)** |
-| `STRIPE_TAX_TIMEOUT_MS` | var (optional) | The clock on every Stripe call in the tax path — measurement and setup, never checkout. Default `4000`. A tax endpoint that is up but not answering costs one timed-out measurement per lock window and nothing else |
+| `STRIPE_TAX` | var | `"1"` (set) lets a Checkout Session ask Stripe to compute sales tax — but only when a measurement cached in D1 says the account is collecting (`taxReadyCached`, last-known-ready for 24 h); anything else and **every** body this Worker sends Stripe is byte-identical to the pre-tax one. (The `POST /v1/prices` exception disclosed on 2026-09-09 is closed: that call is behind the same readiness gate now.) Safe to ship on an unconfigured Stripe account: the Worker sets the account up itself, off the customer's path. See **Sales tax (Texas)** |
+| `STRIPE_TAX_TIMEOUT_MS` | var (optional) | The clock on every Stripe call in the tax path — measurement, setup, and the membership Price provisioning; never the Checkout Session. Default `4000`, **clamped to 500–15000**, so a typo cannot remove it. A tax endpoint that is up but not answering costs one timed-out measurement per lock window and nothing else |
 | `REVIEW_URL` | var | Optional review link in the T+1 email; without it the email asks for a reply that may be quoted |
 | `BUILD` | var (deploy flag) | Not in `wrangler.toml`: passed as `--var BUILD:<short sha>` by the two deploy paths and echoed by `/health` so a runner can tell which merge is running |
 | `RANGE_ADDRESS` | secret | Range street address; emailed only to a paid participant, never on the site |
@@ -859,7 +910,10 @@ Deliberately loud rather than silently broken:
 - **`STRIPE_TAX="1"` but Stripe Tax not active on the account** → the checkout
   is **not** affected: the Worker sends the pre-tax Session body, logs one
   `{"tax_skipped":"…"}` line, and enqueues the setup behind the response. Texas
-  tax is simply not charged until the account is repaired. `deploy-worker.yml`'s
+  tax is simply not charged until the account is repaired. If the account stops
+  collecting between two measurements, Stripe refuses the Session and the Worker
+  retries it once without the tax fields (`{"tax_fallback":…}`), so the customer
+  still checks out. `deploy-worker.yml`'s
   tax step is a **report** of that state, not the thing that prevents it — with no
   `ADMIN_KEY` repository secret it prints a `::notice::` and exits 0. *(Corrected
   2026-09-09: this paragraph used to say "Stripe refuses the session and checkout

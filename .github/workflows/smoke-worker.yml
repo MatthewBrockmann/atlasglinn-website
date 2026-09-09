@@ -201,32 +201,38 @@ jobs:
           PY
               echo '```'; } >> "$GITHUB_STEP_SUMMARY"
             rm -f /tmp/crm.json
-            # Stripe Tax, READ ONLY. dry=1 makes /admin/tax/setup report the account and write nothing — this workflow is
-            # a probe and must never change the live Stripe account, which is why it is the dry form and a GET.
-            # deploy-worker.yml runs the writing form after every deploy; this is how you SEE the result without a deploy.
+            # Stripe Tax, READ ONLY — and read-only now means it: the dry form answers from the Worker's D1 alone. No
+            # Stripe call, no row written, so this probe cannot change the readiness every checkout gates on. (Through
+            # round 3 it re-measured the account and rewrote that row while this heading said nothing was written; a
+            # smoke run that caught a Stripe timeout left the next minute of checkouts untaxed.) The account itself —
+            # settings, the registration — is read by the WRITING form, which deploy-worker.yml runs after each deploy.
             code=$(curl -sS -m 40 -o /tmp/tax.json -w '%{http_code}' -H "X-Admin-Key: $ADMIN_KEY" "$WORKER/admin/tax/setup?dry=1" || echo ERR)
-            { echo; echo '### Stripe Tax — Houston, Texas (read-only; nothing was written)'; echo '```'; echo "HTTP $code"
+            { echo; echo '### Stripe Tax — Houston, Texas (read-only: the cached measurement and the heartbeat, from D1)'; echo '```'; echo "HTTP $code"
               ADMIN_KEY="$ADMIN_KEY" python3 - /tmp/tax.json <<'PY' || scrub_head /tmp/tax.json
           import json, os, re, sys
           scrub = lambda t: re.sub(r'(?i)Bearer\s+[A-Za-z0-9._~+/-]{8,}=*', 'Bearer [redacted]', re.sub(r'(sk_(?:live|test)_|rk_(?:live|test)_|pk_(?:live|test)_|whsec_|re_)[A-Za-z0-9_-]+', r'\1[redacted]', str(t).replace(os.environ.get('ADMIN_KEY') or '\0', '[redacted]')))
-          d = json.load(open(sys.argv[1])); st = d.get('settings') or {}; reg = d.get('registration') or {}; cache = d.get('tax_ready_cache') or {}; run = d.get('last_run')
-          # Scrubbed here as well as at the source: two layers, one pattern set, and neither trusts the other's coverage.
-          print('   settings status=%s head_office_set=%s' % (scrub(st.get('status')), st.get('head_office_set')))
-          print('   US/TX registration id=%s status=%s type=%s' % (scrub(reg.get('id')), scrub(reg.get('status')), scrub(reg.get('type'))))
+          d = json.load(open(sys.argv[1])); cache = d.get('tax_ready_cache') or {}; run = d.get('last_run')
           # collecting is the WORKER's own measurement (tax_ready), not this workflow's opinion of two fields — it is the
           # exact boolean every checkout gates on, so this line cannot disagree with what the Worker actually does.
+          # Scrubbed here as well as at the source: two layers, one pattern set, and neither trusts the other's coverage.
           if d.get('tax_ready') is True:
-              print('   collecting: YES — the Worker measured Stripe Tax active with an active US/TX state_sales_tax registration')
-          elif reg.get('status') == 'scheduled':
-              print('   collecting: NO — the Texas registration is SCHEDULED and starts on its active_from date: registered, not collecting yet. Nothing to do.')
+              print('   collecting: YES — the last measurement found Stripe Tax active with an active US/TX state_sales_tax registration')
           else:
-              print('   collecting: NO (%s) — the Worker retries this itself, on its daily cron and behind the next checkout that finds the measurement stale' % scrub(d.get('tax_ready_reason')))
-          print('   tax_ready=%s measured %ss ago, cached=%s (TTL %ss)' % (d.get('tax_ready'), cache.get('age_seconds'), cache.get('cached'), cache.get('ttl_seconds')))
+              print('   collecting: NO (%s) — the Worker retries this itself: the 5-minute trigger, the daily cron, and the next checkout that finds the measurement due' % scrub(d.get('tax_ready_reason')))
+          # The cache IS the gate. measured_at and age say whether the 5-minute trigger is still firing; stale says a
+          # re-measurement is due; grace says how long a measurement that said READY keeps orders taxed while nothing
+          # re-measures. Round 3's field could only ever print age 0 / cached false, so none of this was visible.
+          print('   tax_ready=%s  measured_at=%s  age=%ss  TTL=%ss  grace=%ss  stale=%s%s' % (
+              d.get('tax_ready'), cache.get('measured_at'), cache.get('age_seconds'), cache.get('ttl_seconds'),
+              cache.get('grace_seconds'), cache.get('stale'), '  ** the 5-minute trigger is overdue **' if cache.get('stale') else ''))
+          if cache.get('cached') is not True:
+              print('   no measurement is cached at all — nothing has run since the last D1 reset, or D1 is not bound. Checkout sells untaxed until one does.')
           # Wired is not firing: a setup loop that quietly stopped shows up here as a stale stamp, instead of as tax that
           # silently is not being collected.
           if run: print('   last setup run: %s  outcome=%s  age=%sh%s' % (run.get('at'), scrub(run.get('outcome')), run.get('age_hours'), '  ** STALE (>25h) **' if run.get('stale') else ''))
           else:   print('   last setup run: none recorded — no setup has run since the last D1 reset, or D1 is not bound')
           for n in d.get('notes') or []: print('   ' + scrub(n))
+          print('   the account itself (settings, registration) is read by POST /admin/tax/setup, which deploy-worker.yml runs after each deploy — this report reads D1 only.')
           PY
               echo '```'; } >> "$GITHUB_STEP_SUMMARY"
             rm -f /tmp/tax.json

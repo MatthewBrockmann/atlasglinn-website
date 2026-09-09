@@ -11,11 +11,24 @@ type = "Data"
 globs = ["**/*.pdf"]
 fallthrough = true
 
-# Daily: purge eligibility answers past their purge_after (RETENTION-POLICY.md) and
-# mark registrations that never reached payment as abandoned. The same cron carries the Monday CRM digest
-# (scheduled() checks the weekday; there is no second trigger to keep in step).
+# Two triggers, and scheduled() dispatches on event.cron — the handler branches on which one fired, so the daily work
+# does not run 288 times a day.
+#   17 9 * * *    daily: purge eligibility answers past their purge_after (RETENTION-POLICY.md), mark registrations that
+#                 never reached payment as abandoned, the T−7 / T−1 / T+1 journeys, and the Monday CRM digest
+#                 (scheduled() checks the weekday; there is no third trigger to keep in step). It also runs the tax tick.
+#   */5 * * * *   Stripe Tax ONLY: re-measure the account when the cached measurement is due, and run the idempotent
+#                 self-setup when it is genuinely not collecting. Nothing else runs on this tick.
+#
+# WHY FIVE MINUTES. The readiness a checkout reads is trusted for ten minutes (TAX_READY_TTL_MS). Refreshed once a day
+# it was stale 1430 minutes out of 1440, so an order arriving on a quiet afternoon found no fresh measurement and sold
+# UNTAXED — measured in review: 20 isolated orders, 0 taxed. A completed Checkout Session cannot be re-taxed afterwards
+# and the permit holder owes Texas the difference out of margin. Cost of the tick on a ready account: one D1 read, and
+# two Stripe GETs whenever the measurement is due — roughly 288 reads a day, no writes.
+# The second half of that fix is in the Worker: a measurement that said READY is still trusted for 24 hours
+# (TAX_READY_GRACE_MS) even once it is stale, so this trigger going quiet costs a day of grace, not the next ten minutes
+# of orders. After 24 hours of silence tax turns itself off — fail closed — and the next checkout re-triggers the loop.
 [triggers]
-crons = ["17 9 * * *"]
+crons = ["17 9 * * *", "*/5 * * * *"]
 
 # Non-secret configuration. Secrets go in via `wrangler secret put` — never here.
 [vars]
@@ -51,9 +64,12 @@ JOURNEYS_ENABLED = "1"
 # Tax is not active on the ACCOUNT — that part is true — but a checkout only asks for tax when a MEASUREMENT of the
 # account, cached in D1, says it is collecting (taxReadyCached, src/worker.js). Stripe is never called on the customer's
 # path: an account that is not collecting, or has not been measured recently, gets the byte-identical pre-tax body. The
-# measurement and the idempotent setup run OFF that path — the daily cron, and a refresh a checkout enqueues behind its
-# own response, which does nothing at all unless it can take the one-per-minute lock. So this switch is safe to ship on
-# a Stripe account that has never been set up, and deploy-worker.yml's tax step is a REPORT of what happened, not the
+# measurement and the idempotent setup run OFF that path — the */5 tick above, the daily cron, and a refresh a checkout
+# enqueues behind its own response, none of which does anything unless it can take the one-per-minute lock. A
+# measurement that said READY is trusted for 24 hours even once it is stale, so orders keep being taxed while the loop
+# is quiet, and if that trust is ever wrong Stripe says so when the Session is created and the Worker retries once
+# without the tax fields (tax_fallback in the logs) — the checkout completes either way. So this switch is safe to ship
+# on a Stripe account that has never been set up, and deploy-worker.yml's tax step is a REPORT of what happened, not the
 # thing that makes it safe. The earlier wording — "deploy-worker.yml runs it after every deploy and fails the job if the
 # account is not active, so a tax-enabled deploy cannot reach the page without it" — was wrong on its own terms: with no
 # ADMIN_KEY repository secret that step printed a warning and exited 0.

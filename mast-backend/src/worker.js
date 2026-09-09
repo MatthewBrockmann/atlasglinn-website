@@ -125,8 +125,18 @@ export default {
     }
   },
 
-  /** Daily cron (wrangler.toml [triggers]). */
+  /** The crons (wrangler.toml [triggers]), dispatched by the one that fired. */
   async scheduled(event, env, ctx) {
+    // The five-minute tick is the tax loop and nothing else. Cloudflare hands every trigger to this one handler, so
+    // without this branch the daily work — the retention purge, the journeys, the Monday digest — would run 288 times a
+    // day instead of once. The tick exists because a ten-minute readiness TTL refreshed once a day is a measurement
+    // that is stale 1430 minutes out of 1440: a business selling one order an hour would sell almost every one of them
+    // UNTAXED, and a completed Checkout Session cannot be re-taxed afterwards. Refresh at least as often as it expires.
+    if (event && event.cron === TAX_TICK_CRON) {
+      if (String(env.STRIPE_TAX) === '1') ctx.waitUntil(taxTick(env, 'tax-cron').catch((e) => console.error('[Tax] tick failed:', e.message)));
+      else console.log(JSON.stringify({ tax_tick: 'skipped', reason: 'stripe_tax_off' }));
+      return;
+    }
     ctx.waitUntil(runRetention(env).catch((e) => console.error('[Retention] failed:', e.message)));
     // T−7 / T−1 / T+1 to booked participants (DATA-AND-MARKETING.md "Triggered journeys"); one per participant, class and kind.
     // Off until the owner has read the three emails (his 2026-09-06 "show me them before"): JOURNEYS_ENABLED = "1" in wrangler.toml [vars]
@@ -146,15 +156,10 @@ export default {
     // Stripe Tax repairs itself here rather than in CI. Every run reads the cached measurement and, when the switch is on
     // and that cache is stale or says the account is not collecting, measures and runs the idempotent setup — so a Worker
     // deployed with STRIPE_TAX = "1" onto an account that was never set up converges on its own, with no repository secret
-    // and nobody's attention. This is the trigger that runs when nobody is buying anything, and it is where the Stripe
-    // calls belong: off the customer's path entirely. A checkout can only ENQUEUE the same work behind its response.
-    if (String(env.STRIPE_TAX) === '1') {
-      ctx.waitUntil((async () => {
-        const state = await taxReadyCached(env);
-        if (state.fresh && state.ready) return console.log(JSON.stringify({ tax_cron: 'ready', reason: state.reason, cached: state.cached }));
-        await ensureTaxSetup(env, { trigger: 'cron', background: true });
-      })().catch((e) => console.error('[Tax] cron setup failed:', e.message)));
-    }
+    // and nobody's attention. The */5 tick above is what keeps the measurement WARM; this daily run does the same work
+    // and is the backstop if that trigger ever stops firing. Both are where the Stripe calls belong: off the customer's
+    // path entirely. A checkout can only ENQUEUE the same work behind its response.
+    if (String(env.STRIPE_TAX) === '1') ctx.waitUntil(taxTick(env, 'cron').catch((e) => console.error('[Tax] cron setup failed:', e.message)));
   },
 };
 
@@ -1544,18 +1549,19 @@ async function lookupPlan(env, planKey) {
  * finds the Stripe recurring Price by lookup_key (mast_<plan_key>) or creates it — a Product named after the plan and a
  * monthly Price at the plan's price_cents — and stores the id on the D1 row. No price id is ever pasted anywhere; the Worker
  * already holds the Stripe key. Returns null (and the join fails cleanly) if Stripe is not configured or refuses.
+ *
+ * BOTH CALLS ARE ON THE SAME CLOCK AS THE TAX PATH (stripeCall, taxTimeoutMs). This is the one customer-blocking Stripe
+ * call the tax work left unbounded: a hung /v1/prices held a membership join open for as long as Stripe cared to hold
+ * it — measured at 3.1s against a 3s stub, unbounded in principle. A timed-out call returns status 0 like any refusal,
+ * so the join answers the same clean 400 it already answers for a plan with no price rather than hanging.
  */
 async function ensureMembershipPrice(env, row) {
   if (!env.STRIPE_SECRET_KEY || !row || !row.price_cents) return null;
   const lookupKey = 'mast_' + row.plan_key;
-  const headers = { Authorization: 'Bearer ' + env.STRIPE_SECRET_KEY, 'Content-Type': 'application/x-www-form-urlencoded' };
   let priceId = null;
-  try {
-    const found = await (await fetch('https://api.stripe.com/v1/prices?active=true&limit=1&lookup_keys[]=' + encodeURIComponent(lookupKey), { headers })).json();
-    if (found && Array.isArray(found.data) && found.data[0] && found.data[0].id) priceId = found.data[0].id;
-  } catch (e) {
-    console.error('[Plan] Stripe price lookup failed:', e.message);
-  }
+  const found = await stripeCall(env, '/prices?active=true&limit=1&lookup_keys[]=' + encodeURIComponent(lookupKey));
+  if (!found.ok) console.error('[Plan] Stripe price lookup failed:', taxSafe(env, (found.data && found.data.error && found.data.error.message) || ('status ' + found.status), 120));
+  else if (found.data && Array.isArray(found.data.data) && found.data.data[0] && found.data.data[0].id) priceId = found.data.data[0].id;
   if (!priceId) {
     const body = new URLSearchParams({
       currency: 'usd',
@@ -1566,15 +1572,16 @@ async function ensureMembershipPrice(env, row) {
       'metadata[plan_key]': row.plan_key,
     });
     // A Checkout Session cannot override the tax code of a saved Price, so a membership's code has to be set HERE, on the
-    // Product, the one time the Price is created. Behind the same switch as the Session so that with STRIPE_TAX off every
-    // body this Worker sends Stripe is byte-identical to the pre-tax one. A Price that already exists — created before
-    // this change, or while the switch was off — keeps whatever code Stripe defaulted it to; README.md "Sales tax (Texas)"
-    // carries the migration.
-    if (String(env.STRIPE_TAX) === '1') body.set('product_data[tax_code]', TAX_CODE_SERVICES);
-    const res = await fetch('https://api.stripe.com/v1/prices', { method: 'POST', headers, body: body.toString() });
-    const created = await res.json().catch(() => null);
+    // Product, the one time the Price is created. BEHIND THE SAME GATE AS THE SESSION — the switch AND a cached
+    // measurement saying the account is collecting — not the switch alone as it was through round 3. Sending a tax code
+    // to an account with Stripe Tax inactive was the last tax field on a customer path that readiness did not govern,
+    // and whether Stripe refuses it there was never verifiable from the build container. A Price created during a
+    // not-ready window keeps whatever code Stripe defaults it to; README.md "Sales tax (Texas)" carries the migration.
+    if (String(env.STRIPE_TAX) === '1' && (await taxReadyCached(env)).ready) body.set('product_data[tax_code]', TAX_CODE_SERVICES);
+    const res = await stripeCall(env, '/prices', body);
+    const created = res.data;
     if (!res.ok || !created || !created.id) {
-      console.error('[Plan] could not create the Stripe price for ' + row.plan_key + ':', JSON.stringify(created));
+      console.error('[Plan] could not create the Stripe price for ' + row.plan_key + ':', taxRedact(env, JSON.stringify(created)));
       return null;
     }
     priceId = created.id;
@@ -1697,6 +1704,11 @@ async function handleMembership(request, env, ctx, cors) {
  * checkout that HAS a fresh measurement saying not-ready enqueues nothing: the cron and the next stale window are what
  * retry, which is what stops a permanently unrepairable account from being retried forever.
  *
+ * READY is last-known-ready (taxReadyCached): a measurement that said the account is collecting still counts for 24h
+ * even once it is stale, so the five-minute trigger going quiet costs a day of grace rather than the next ten minutes
+ * of orders. If that trust turns out to be wrong, Stripe says so when the Session is created and createStripeSession
+ * retries once without the tax fields — the checkout completes either way.
+ *
  * The tax code rides on the line item only where the price is built here (price_data). A saved Price carries its own
  * code from ensureMembershipPrice, because Stripe will not let a Session override a Price's product.
  *
@@ -1711,13 +1723,18 @@ async function applyTax(payload, env, ctx, taxCode = TAX_CODE_SERVICES) {
     return payload;
   }
   const state = await taxReadyCached(env);
-  if (!state.fresh || !state.ready) {
-    console.log(JSON.stringify({ tax_skipped: state.reason, ready: false, cached: state.cached }));
-    if (!state.fresh && ctx && typeof ctx.waitUntil === 'function') {
-      ctx.waitUntil(ensureTaxSetup(env, { trigger: 'checkout', background: true }).catch((e) => console.error('[Tax] background setup failed:', e.message)));
-    }
+  const refresh = () => {
+    if (state.fresh || !ctx || typeof ctx.waitUntil !== 'function') return;
+    ctx.waitUntil(ensureTaxSetup(env, { trigger: 'checkout', background: true }).catch((e) => console.error('[Tax] background setup failed:', e.message)));
+  };
+  if (!state.ready) {
+    console.log(JSON.stringify({ tax_skipped: state.reason, ready: false, cached: state.cached, age_seconds: Math.round(state.age_ms / 1000) }));
+    refresh();
     return payload;
   }
+  // Stale but last-known-ready: the order is taxed on the measurement that is there, and the re-measurement runs BEHIND
+  // the response. Waiting for it would put Stripe back on the customer's path; not taxing would sell it untaxed.
+  refresh();
   payload.set('automatic_tax[enabled]', 'true');
   if (payload.has('line_items[0][price_data][unit_amount]')) {
     payload.set('line_items[0][price_data][product_data][tax_code]', taxCode);
@@ -1728,24 +1745,65 @@ async function applyTax(payload, env, ctx, taxCode = TAX_CODE_SERVICES) {
 
 /* ─────────────────────── Stripe session helper ─────────────────────── */
 
+/** The tax fields applyTax adds, and only those. `customer_update[address]` is deliberately NOT here: on a signed-in
+ *  checkout applyAccountCustomer sets it before applyTax ever runs, so dropping it would send a body the tax-off path
+ *  would not have sent — and the point of the retry is to send exactly the tax-off body. */
+const TAX_FIELD_RE = /^(?:automatic_tax\[|line_items\[\d+\]\[price_data\]\[product_data\]\[tax_code\]$)/;
+function withoutTaxFields(payload) {
+  const clean = new URLSearchParams();
+  let dropped = 0;
+  for (const [k, v] of payload) { if (TAX_FIELD_RE.test(k)) dropped++; else clean.append(k, v); }
+  return { clean, dropped };
+}
+
+/** Is this refusal ABOUT tax? Nothing else may be retried: a declined card, a bad price, a missing return URL are all
+ *  answers, and re-sending them is one more charge attempt against a customer who already has an answer. */
+function isTaxRefusal(err) {
+  const hay = [err && err.code, err && err.param, err && err.message].filter(Boolean).join(' ').toLowerCase();
+  return /automatic_tax|\btax\b|registration/.test(hay);
+}
+
+/**
+ * THE FALLBACK THAT MAKES LAST-KNOWN-READY SAFE. A cached readiness can be out of date — Stripe Tax deactivated on the
+ * account, a registration ended — and a Session carrying automatic_tax against an account that is no longer collecting
+ * is refused outright. That must never be what the customer sees, so a TAX-CLASS refusal is retried ONCE with the tax
+ * fields removed (the byte-identical pre-tax body), and the readiness row is written back as UNMEASURED so the next
+ * checkouts inside the 60-second negative TTL do not repeat the failure and the loop re-measures for real.
+ *
+ * One retry, tax-class only, and only when the body actually carried tax fields. Any other refusal is returned as it
+ * always was.
+ */
 async function createStripeSession(payload, env, label) {
   if (!env.STRIPE_SECRET_KEY) {
     console.error('[' + label + '] STRIPE_SECRET_KEY not set');
     return { ok: false, status: 503, error: 'Payments are not configured. Please call to book.' };
   }
+  const send = async (body) => {
+    const r = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + env.STRIPE_SECRET_KEY,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: body.toString(),
+    });
+    return { r, session: await r.json().catch(() => ({})) };
+  };
 
-  const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-    method: 'POST',
-    headers: {
-      Authorization: 'Bearer ' + env.STRIPE_SECRET_KEY,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: payload.toString(),
-  });
-
-  const session = await res.json();
+  let { r: res, session } = await send(payload);
   if (!res.ok) {
-    console.error('[' + label + '] Stripe error:', JSON.stringify(session));
+    const err = (session && session.error) || {};
+    const { clean, dropped } = withoutTaxFields(payload);
+    if (dropped && isTaxRefusal(err)) {
+      console.log(JSON.stringify({ tax_fallback: label, reason: taxSafe(env, err.code || err.message || 'tax refused', 120), fields_dropped: dropped }));
+      // Not-ready, on the short negative TTL: the cache said ready and Stripe disagreed, so what is true now is that
+      // nothing has MEASURED the account. A minute later the loop asks Stripe properly instead of guessing here.
+      await taxStatePut(env, TAX_READY_KEY, 'session_refused_tax', TAX_UNMEASURED);
+      ({ r: res, session } = await send(clean));
+    }
+  }
+  if (!res.ok) {
+    console.error('[' + label + '] Stripe error:', taxRedact(env, JSON.stringify(session)));
     // Don't leak Stripe internals to the browser.
     return { ok: false, status: 502, error: 'Could not start checkout. Please try again or call us.' };
   }
@@ -2300,20 +2358,29 @@ const TAX_IDEMPOTENCY = { settings: 'mast-tax-settings-v1', registration: 'mast-
  * and a heartbeat the daily purge eats at 24h can never be REPORTED stale at 25h.
  */
 const TAX_READY_KEY = 'tax:ready', TAX_LOCK_KEY = 'tax:lock', TAX_RUN_KEY = 'tax:last_run';
-const TAX_READY_TTL_MS = 10 * 60000;      // how long a measurement of the account is trusted
+const TAX_READY_TTL_MS = 10 * 60000;      // how long a measurement of the account is FRESH (past it, the loop re-measures)
+const TAX_READY_GRACE_MS = 24 * 3600000;  // how long a measurement that said READY is still trusted while nothing re-measures
 const TAX_RETRY_TTL_MS = 60000;           // how long a measurement that COULD NOT BE MADE suppresses the next attempt
 const TAX_LOCK_MS = 60000;                // the window: one measurement + at most one setup attempt per minute
-const TAX_RUN_STALE_MS = 25 * 3600000;    // a daily loop that has not fired in 25h is not firing
+const TAX_RUN_STALE_MS = 25 * 3600000;    // a loop that has not fired in 25h is not firing
 const TAX_TIMEOUT_MS = 4000;              // no Stripe call in the tax path may outlive this (STRIPE_TAX_TIMEOUT_MS overrides)
+const TAX_TIMEOUT_MIN_MS = 500, TAX_TIMEOUT_MAX_MS = 15000;   // the bounds an operator's override is clamped into
+const TAX_TICK_CRON = '*/5 * * * *';      // the trigger that keeps the measurement warm (wrangler.toml [triggers])
 
 /** What the tax:ready row's count column means: what the last measurement found, or that it could not be made at all. */
 const TAX_READY_YES = 1, TAX_READY_NO = 0, TAX_UNMEASURED = 2;
 
 /** The clock on every Stripe call in the tax path. Tunable without a deploy of new code, because the right value is an
- *  operational one — Stripe's tax endpoints are not the checkout endpoint and do not deserve the same patience. */
-function taxTimeoutMs(env) {
+ *  operational one — Stripe's tax endpoints are not the checkout endpoint and do not deserve the same patience.
+ *
+ *  CLAMPED at both ends. Rejecting zero and nonsense was never the risk: a typo the other way (`999999999`) removed the
+ *  clock entirely, the lock freed after its minute while the previous fetch was still open, and a new orphaned Stripe
+ *  request could be started every minute forever. A bound the value can be typed past is not a bound. Exported so the
+ *  bounds are asserted directly rather than inferred from how long a hung test takes. */
+export function taxTimeoutMs(env) {
   const n = Number(env && env.STRIPE_TAX_TIMEOUT_MS);
-  return Number.isFinite(n) && n > 0 ? n : TAX_TIMEOUT_MS;
+  if (!Number.isFinite(n) || n <= 0) return TAX_TIMEOUT_MS;
+  return Math.min(Math.max(n, TAX_TIMEOUT_MIN_MS), TAX_TIMEOUT_MAX_MS);
 }
 
 /** Anything key-shaped, gone — before it leaves the Worker, not in the workflow that happens to print it. */
@@ -2447,18 +2514,41 @@ async function measureTaxReady(env) {
 }
 
 /**
- * THE READINESS A CHECKOUT SEES: one D1 read, no Stripe call, ever. `fresh` is the whole answer — a row absent or past
- * its TTL is not a measurement, and a checkout treats it as not ready rather than waiting for one to be made. The TTL
- * depends on what the row holds: ten minutes for something measured, one minute for a measurement that failed.
+ * THE READINESS A CHECKOUT SEES: one D1 read, no Stripe call, ever. Two separate questions, and conflating them is what
+ * sold orders untaxed:
+ *
+ *   `fresh` — is a re-measurement due? Ten minutes for something measured, one minute for a measurement that FAILED.
+ *             A stale row is what makes the next checkout enqueue a refresh; it is not, by itself, an answer about tax.
+ *   `ready` — does the last measurement say the account is collecting? A measurement that said YES is trusted for
+ *             TAX_READY_GRACE_MS (24h), LAST-KNOWN-READY: only a measured not-ready, or nothing measured inside a day,
+ *             turns tax off. Round 3 turned it off at ten minutes, which with a daily cron meant almost every order.
+ *
+ * Fail-closed still holds in the direction that matters: a measured not-ready is never graced, an account that could
+ * not be read at all is never graced, and 24h of silence turns tax off rather than trusting a measurement from a
+ * Stripe account that may have changed. Grace is what a stale-ready costs; the tax-error fallback in
+ * createStripeSession is what a WRONG stale-ready costs, and it costs one retried session, not a failed checkout.
  */
 async function taxReadyCached(env) {
   const row = await taxStateGet(env, TAX_READY_KEY);
-  if (!row) return { ready: false, reason: 'never_measured', cached: false, fresh: false, age_ms: 0 };
+  if (!row) return { ready: false, reason: 'never_measured', cached: false, fresh: false, stale: true, age_ms: 0, measured_at: null, ttl_ms: TAX_READY_TTL_MS, grace_ms: TAX_READY_GRACE_MS };
   const age = Date.now() - row.at;
-  if (age >= (row.n === TAX_UNMEASURED ? TAX_RETRY_TTL_MS : TAX_READY_TTL_MS)) {
-    return { ready: false, reason: 'measurement_stale', cached: true, fresh: false, age_ms: age };
+  const ttl = row.n === TAX_UNMEASURED ? TAX_RETRY_TTL_MS : TAX_READY_TTL_MS;
+  const base = { cached: true, age_ms: age, measured_at: new Date(row.at).toISOString(), ttl_ms: ttl, grace_ms: TAX_READY_GRACE_MS, fresh: age < ttl, stale: age >= ttl };
+  if (row.n === TAX_READY_YES) {
+    if (age < TAX_READY_GRACE_MS) return { ...base, ready: true, reason: base.fresh ? (row.note || 'active') : 'last_known_ready' };
+    return { ...base, ready: false, reason: 'measurement_expired' };
   }
-  return { ready: row.n === TAX_READY_YES, reason: row.note || (row.n === TAX_READY_YES ? 'active' : 'not_ready'), cached: true, fresh: true, age_ms: age };
+  if (base.fresh) return { ...base, ready: false, reason: row.note || (row.n === TAX_UNMEASURED ? 'unmeasured' : 'not_ready') };
+  return { ...base, ready: false, reason: 'measurement_stale' };
+}
+
+/** The loop that keeps the measurement warm: the five-minute trigger, and the daily cron. A cache that is fresh AND
+ *  ready needs nothing, so a tick costs one D1 read; anything else re-measures under the lock and repairs the account
+ *  when it is genuinely not collecting. Off the customer's path by construction — a checkout can only ENQUEUE this. */
+async function taxTick(env, trigger) {
+  const state = await taxReadyCached(env);
+  if (state.fresh && state.ready) return console.log(JSON.stringify({ tax_cron: 'ready', trigger, reason: state.reason, age_seconds: Math.round(state.age_ms / 1000) }));
+  await ensureTaxSetup(env, { trigger, background: true });
 }
 
 /** Measure the account and write what was found to the cache every checkout reads. Off-path callers only. */
@@ -2579,9 +2669,15 @@ async function ensureTaxSetup(env, opts = {}) {
     return { ok: false, http: 503, step: 'config', stripe_status: null, notes: [],
       error: { type: 'worker_configuration', code: 'stripe_key_missing', message: 'Payments are not configured: STRIPE_SECRET_KEY is not set on this Worker.' } };
   }
+  // THE REPORT READS D1 AND NOTHING ELSE. It was labelled read-only in four places while it re-measured the account and
+  // REWROTE the readiness row every checkout gates on — so a smoke run that caught a Stripe timeout left an UNMEASURED
+  // row behind and the next minute of checkouts sold untaxed. A report that can change what it reports is not a report.
+  // It also needs no lock now, because a D1 read is not a Stripe call: ten reports cost ten SELECTs and zero requests to
+  // Stripe. The live read is the POST, which takes the lock like every other writing path.
   if (dry) {
-    try { return { ...(await taxRun(env, false)), dry: true }; }
-    catch (e) { return { ...taxThrew(env, e), dry: true }; }
+    const state = await taxReadyCached(env);
+    return { ok: true, dry: true, read_only: true, ready: state, settings: null, registration: null,
+      notes: ['read-only: this report is the cached measurement and the heartbeat, both read from D1. No Stripe call was made and no row was written. POST /admin/tax/setup is the live read (and the idempotent setup).'] };
   }
 
   if (!(await takeTaxLock(env))) {
@@ -2622,20 +2718,23 @@ async function ensureTaxSetup(env, opts = {}) {
 }
 
 /**
- * POST /admin/tax/setup — run the setup and report. GET, or `?dry=1`, report and write nothing.
+ * POST /admin/tax/setup — run the idempotent setup against Stripe and report. GET, or `?dry=1`, report from D1 alone:
+ * no Stripe call, no row written, which is what "read-only" has to mean to be worth printing.
  *
- * The report is the point of the GET form: `tax_ready` is the measurement every checkout gates on, `tax_ready_cache`
- * says how old that measurement is, and `last_run` is the heartbeat — a loop that quietly stopped running shows up as a
- * stale stamp here instead of as tax that silently is not being collected.
+ * `tax_ready` is the boolean every checkout gates on. `tax_ready_cache` is the row it reads — its age, its TTL, its
+ * grace, and whether a re-measurement is overdue — built from taxReadyCached rather than from the measurement this
+ * request happens to have made, because a field that can only ever say `age_seconds: 0` reports nothing. `last_run` is
+ * the heartbeat: a loop that quietly stopped shows up as a stale stamp instead of as tax silently not being collected.
  */
 async function handleTaxSetup(request, env, cors, url) {
   const dry = request.method === 'GET' || url.searchParams.get('dry') === '1';
   const res = await ensureTaxSetup(env, { dry, trigger: dry ? 'report' : 'admin' });
   if (!res.ok) return json({ step: res.step, error: res.error, stripe_status: res.stripe_status, notes: res.notes }, res.http || 502, cors);
 
-  // This route MEASURES. It is authenticated and it is off the customer's path — the two properties that let it call
-  // Stripe at all — so CI reads the account as it is now rather than whatever the checkout cache last saw.
-  const state = res.ready || await taxMeasure(env);
+  // The cache is read on BOTH paths, because it is what a checkout reads. `tax_ready` is the live measurement when this
+  // request made one (POST) and the cached one otherwise; `tax_ready_cache` always describes the row.
+  const cache = await taxReadyCached(env);
+  const state = res.ready || cache;
   const run = await taxStateGet(env, TAX_RUN_KEY);
   const runAge = run ? Date.now() - run.at : null;
   return json({
@@ -2644,8 +2743,10 @@ async function handleTaxSetup(request, env, cors, url) {
     registration: res.registration,
     tax_ready: state.ready,
     tax_ready_reason: taxSafe(env, state.reason, 60),
-    tax_ready_cache: { cached: !!state.cached, age_seconds: Math.round((state.age_ms || 0) / 1000), ttl_seconds: TAX_READY_TTL_MS / 1000 },
+    tax_ready_cache: { cached: !!cache.cached, measured_at: cache.measured_at, age_seconds: Math.round((cache.age_ms || 0) / 1000),
+      ttl_seconds: Math.round((cache.ttl_ms || TAX_READY_TTL_MS) / 1000), grace_seconds: Math.round(TAX_READY_GRACE_MS / 1000), stale: !!cache.stale },
     last_run: run ? { at: new Date(run.at).toISOString(), outcome: taxSafe(env, run.note, 60), age_hours: Math.round(runAge / 36000) / 100, stale: runAge > TAX_RUN_STALE_MS } : null,
+    read_only: !!res.read_only,
     locked_out: !!res.locked_out,
     notes: res.notes,
   }, 200, cors);

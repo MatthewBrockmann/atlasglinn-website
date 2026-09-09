@@ -158,7 +158,7 @@ jobs:
           WORKER: https://mast-booking-backend.matthew-221.workers.dev
         run: |
           if [ -z "$ADMIN_KEY" ]; then
-            echo "::notice::Stripe Tax: no ADMIN_KEY secret in this job, so this step asked the Worker for nothing — and nothing is pending on it. The Worker sets Stripe Tax up itself (the daily cron, and a refresh that runs BEHIND a checkout which finds no fresh measurement - never on the customer's path, and at most one per minute) and it never puts automatic_tax on a Checkout Session for an account it has not measured as collecting, so a deploy without this secret cannot produce a tax-broken checkout. The Smoke-test the MAST Worker workflow reports tax_ready and the tax:last_run heartbeat. Set a repository secret ADMIN_KEY (Settings -> Secrets and variables -> Actions -> Repository secrets) only to have the setup run here immediately instead of on the next cron."
+            echo "::notice::Stripe Tax: no ADMIN_KEY secret in this job, so this step asked the Worker for nothing — and nothing is pending on it. The Worker sets Stripe Tax up itself (the */5 trigger, the daily cron, and a refresh that runs BEHIND a checkout which finds the measurement due - never on the customer's path, and at most one per minute) and it never puts automatic_tax on a Checkout Session for an account it has not measured as collecting, so a deploy without this secret cannot produce a tax-broken checkout. The Smoke-test the MAST Worker workflow reports tax_ready and the tax:last_run heartbeat. Set a repository secret ADMIN_KEY (Settings -> Secrets and variables -> Actions -> Repository secrets) only to have the setup run here immediately instead of on the next cron."
             exit 0
           fi
           echo "::add-mask::$ADMIN_KEY"
@@ -181,7 +181,8 @@ jobs:
           # log layer that trusts its input is the layer that prints the one field the other one missed.
           print('   settings.status=%s head_office_set=%s' % (scrub(st.get('status')), st.get('head_office_set')))
           print('   registration id=%s status=%s type=%s collecting=%s created_now=%s' % (scrub(reg.get('id')), scrub(reg.get('status')), scrub(reg.get('type')), reg.get('collecting'), reg.get('created_now')))
-          print('   tax_ready=%s (%s) measured %ss ago, cached=%s' % (d.get('tax_ready'), scrub(d.get('tax_ready_reason')), cache.get('age_seconds'), cache.get('cached')))
+          print('   tax_ready=%s (%s)' % (d.get('tax_ready'), scrub(d.get('tax_ready_reason'))))
+          print('   readiness cache: measured_at=%s age=%ss TTL=%ss grace=%ss stale=%s' % (cache.get('measured_at'), cache.get('age_seconds'), cache.get('ttl_seconds'), cache.get('grace_seconds'), cache.get('stale')))
           if run: print('   last setup run: %s  outcome=%s  age=%sh  stale=%s' % (run.get('at'), scrub(run.get('outcome')), run.get('age_hours'), run.get('stale')))
           else:   print('   last setup run: none recorded yet (this run is the first, or D1 is not bound)')
           if d.get('tax_ready') is not True:
