@@ -51,15 +51,20 @@
 #
 # IMPORT MODE (third dispatch choice, added 2026-09-09). create ran, the zone EXISTS in the account — and
 # jump_start's scan imported NOTHING: records=0 MX=0 across 32 polls in runs 34382780038 and 34383841484. An empty
-# zone cannot be asserted on and must never be switched to, so import mode reads the records out of the domain's own
-# authoritative nameservers with dig (+norecurse, never from a recursor's cache), writes a BIND file, imports it in
-# one multipart POST with proxied=false, measures whether a DS is published at the parent — and then hands off to the
+# zone cannot be asserted on and must never be switched to, so import mode FIRST measures whether a DS is published
+# at the parent — a signed domain stops the run before a single record is written — then reads the records out of the
+# domain's own authoritative nameservers with dig (+norecurse, never from a recursor's cache), writes a BIND file,
+# imports it in one multipart POST with proxied=false, and hands off to the
 # SAME Wait / Assert / nameserver steps, so the four gates that guard create guard import unchanged. It NEVER
 # deletes and NEVER updates: no destructive HTTP method is requested anywhere in this file, and the harness greps
 # the source for one and fails if it finds it. Import is therefore recoverable by deleting the zone; nothing it
 # does can remove a record that was already there.
-# level. A PARTIAL SWEEP IS A FAILED SWEEP — an incomplete zone file imports clean and takes the missing names dark
-# on the switch, so anything unanswered stops the run instead.
+# A PARTIAL SWEEP IS A FAILED SWEEP — an incomplete zone file imports clean and takes the missing names dark
+# on the switch, so anything unanswered stops the run instead. And ABSENCE IS THE ONLY SAFE PRECONDITION FOR A
+# CREATE, at every name, not just at tak: when the zone already holds an A, AAAA or CNAME at a name and the parent
+# serves a DIFFERENT value there, the reconcile REFUSES rather than posting a second row beside it. Two addresses on
+# one name round-robin, and roughly half the traffic goes to the stale origin — intermittently, which is the shape
+# that gets diagnosed late. MX, SRV and CAA are refused on the name alone for the same reason.
 #
 # NOT RUN AGAINST CLOUDFLARE: the cloud sandbox has no route to api.cloudflare.com (egress 000). The first green
 # dispatch is the proof — and a workflow_dispatch workflow is not registered until it is on the default branch
@@ -362,7 +367,54 @@ jobs:
           printf '%s' "$zid" > "$STATE/zone_id"
           echo "proceed=true" >> "$GITHUB_OUTPUT"
 
-      # IMPORT MODE, 1 OF 3. jump_start imported nothing for this domain (measured 2026-09-09: records=0 MX=0 over 32
+      # IMPORT MODE, 1 OF 3, AND THE ONE THAT SAVES THE DOMAIN. The GoDaddy block below already tells him not to
+      # ENABLE DNSSEC at GoDaddy. It never measured whether it is already on. A DS record in the registry plus a
+      # nameserver move to Cloudflare = every validating resolver rejects the answers, and the domain is dark until
+      # the DS expires out — not minutes, and not fixable from Cloudflare's side. So this measures, and an
+      # unmeasurable answer is fatal for the same reason the zone lookup's is: an absence claim needs a successful
+      # read behind it.
+      # IT RUNS FIRST, BEFORE THE SWEEP AND BEFORE THE IMPORT. It only needs the domain, which the zone step above
+      # already wrote, and a signed domain is a domain this run must not proceed on at all — so it costs one dig and
+      # ZERO writes into the live zone rather than a dozen records that then have to be reasoned about.
+      - name: Measure DS at the parent
+        if: steps.zone.outputs.proceed == 'true' && inputs.mode == 'import'
+        run: |
+          set -eu
+          python3 - <<'PY'
+          import os, re, subprocess, sys
+          S = os.environ.get('CF_STATE_DIR', '/tmp/cf')
+          dom = open(S + '/domain').read().strip()
+          HDR = re.compile(r'status:\s*([A-Z]+)')
+          status, ds = None, []
+          for rv in (os.environ.get('CF_DNS_RESOLVERS') or '1.1.1.1 8.8.8.8').split():
+              try:
+                  p = subprocess.run(['dig', '+time=5', '+tries=2', '+nocmd', '+noall', '+comments', '+answer',
+                                      '@' + rv, dom, 'DS'], capture_output=True, text=True, timeout=20)
+              except Exception:
+                  continue
+              st, rows = None, []
+              for line in p.stdout.splitlines():
+                  if line.startswith(';'):
+                      m = HDR.search(line)
+                      if m and st is None:
+                          st = m.group(1)
+                      continue
+                  q = line.split(None, 4)
+                  if len(q) >= 5 and q[2] == 'IN' and q[3].upper() == 'DS':
+                      rows.append(q[3])
+              if st in ('NOERROR', 'NXDOMAIN'):
+                  status, ds = st, rows
+                  break
+          if status is None:
+              print('::error::No public resolver gave a usable answer for the DS record of %s, so this run cannot tell whether the domain is signed — and it will not print nameservers on an unmeasured DNSSEC state. Switching nameservers while a DS is published in the registry takes the domain dark until the DS expires out, which Cloudflare cannot fix from its side. Re-dispatch; if it repeats, check at GoDaddy -> Domains -> %s -> DNSSEC by hand.' % (dom, dom))
+              sys.exit(1)
+          if ds:
+              print('::error::DNSSEC is ON at GoDaddy for %s — the parent publishes %d DS record(s). Turn DNSSEC OFF there (Domains -> %s -> DNSSEC -> remove) and wait for the DS to leave the registry BEFORE any nameserver switch: moving the nameservers while a DS is published makes every validating resolver refuse the domain, and it stays dark until the old DS expires out. NOTHING was imported by this run — this is measured before the sweep and before any write — and nothing at GoDaddy has changed. No nameservers are printed by this run. The DS values are not printed — this log is public.' % (dom, len(ds), dom))
+              sys.exit(1)
+          print('no DS at the parent — the domain is unsigned; the nameserver switch is safe from a DNSSEC point of view')
+          PY
+
+      # IMPORT MODE, 2 OF 3. jump_start imported nothing for this domain (measured 2026-09-09: records=0 MX=0 over 32
       # polls in two runs), so the records have to be read out of the parent's own servers. NOTHING but the NS set and
       # the DS set is read from a recursive resolver: a recursor answers from a cache, and this has to be what GoDaddy
       # serves right now. Ask a public resolver ONE question — who is authoritative — then ask THOSE servers with
@@ -551,9 +603,10 @@ jobs:
           if summ:
               open(summ, 'a').write('\n'.join(out) + '\n')
           open(S + '/sweep_count', 'w').write(str(len(keep)))
+          open(S + '/sweep_rows', 'w').write(str(len(inv)))
           PY
 
-      # IMPORT MODE, 2 OF 3. Empty zone -> one multipart import of the BIND file, proxied=false so NOTHING about how
+      # IMPORT MODE, 3 OF 3. Empty zone -> one multipart import of the BIND file, proxied=false so NOTHING about how
       # the site is served changes on the nameserver switch. Zone already holding records (a previous import) ->
       # compare and add only what is missing, one POST each. THIS STEP NEVER DELETES AND NEVER UPDATES: no DELETE, no
       # PUT, no PATCH appears anywhere in this workflow, and the harness asserts that at source level.
@@ -587,29 +640,48 @@ jobs:
             rm -rf "$STATE/missing"
             mkdir -p "$STATE/missing"
             python3 - "$dom" <<'PY'
-          import json, os, sys
+          import json, os, re, sys
           S = os.environ.get('CF_STATE_DIR', '/tmp/cf')
           dom = sys.argv[1]
           cur = [r for r in (json.load(open(S + '/existing.json')).get('result') or []) if isinstance(r, dict)]
           # RECONCILE GRANULARITY, and it is not uniform on purpose:
-          #   A AAAA CNAME TXT NS -> (name, type, normalised content). Legitimately multi-valued; exact dedupe.
-          #   MX SRV CAA          -> (name, type) ONLY. A second MX beside an existing one splits the company's mail,
-          #                          a second SRV splits a service and a second CAA can lock out issuance. That is the
-          #                          same rule the tak step already enforces for A: absence is the only safe
-          #                          precondition for a create. Cloudflare's content shape for SRV/CAA was NOT read
-          #                          from a live response by the session that wrote this, which is the second reason
-          #                          not to compare it.
+          #   TXT NS     -> (name, type, normalised content). Legitimately multi-valued at one name, and a second row
+          #                 beside an existing one adds a value rather than splitting traffic between two: exact dedupe.
+          #   A AAAA CNAME -> the content is compared, but a MISMATCH IS FATAL, not a create. A second address record
+          #                 at a name that already holds one makes the name round-robin between two hosts, so roughly
+          #                 half the traffic lands on the stale origin, intermittently — the failure that gets
+          #                 diagnosed late. This is the same rule the tak step enforces one name at a time; the
+          #                 reconcile used to apply it to nothing, so an apex A already in the zone pointing somewhere
+          #                 else got a SECOND apex A posted beside it and all four gates passed, because the assert
+          #                 step only asks whether an A/AAAA/CNAME is PRESENT at the apex and at www.
+          #   MX SRV CAA -> (name, type) ONLY. A second MX beside an existing one splits the company's mail,
+          #                 a second SRV splits a service and a second CAA can lock out issuance. Cloudflare's content
+          #                 shape for SRV/CAA was NOT read from a live response by the session that wrote this, which
+          #                 is the second reason not to compare it.
           NAME_LEVEL = ('MX', 'SRV', 'CAA')
+          ADDR_LEVEL = ('A', 'AAAA', 'CNAME')
+          TXT_STRINGS = re.compile(r'"((?:[^"\\]|\\.)*)"')
+
+          def txt_value(rd):
+              # A TXT over 255 bytes — every real DKIM key, and a long SPF — is served by dig as SEVERAL quoted
+              # character-strings, and the wire value is their CONCATENATION. rd.strip('"') turned `"a" "b"` into
+              # `a" "b`, which compares unequal against the zone's real content forever and would be POSTed as a
+              # corrupted duplicate.
+              parts = TXT_STRINGS.findall(rd or '')
+              if not parts:
+                  return (rd or '').strip('"')
+              return ''.join(x.replace('\\"', '"').replace('\\\\', '\\') for x in parts)
 
           def norm(t, c):
-              return (c or '').strip().rstrip('.').lower()
+              c = txt_value(c) if t == 'TXT' else (c or '')
+              return c.strip().rstrip('.').lower()
 
           have_exact, have_nt = set(), set()
           for r in cur:
               nm, ty = (r.get('name') or '').lower(), (r.get('type') or '').upper()
               have_nt.add((nm, ty))
               have_exact.add((nm, ty, norm(ty, r.get('content'))))
-          want, blocked = [], []
+          want, blocked, conflict = [], [], []
           for line in open(S + '/zone.txt'):
               line = line.strip()
               if not line or line.startswith(('$', ';')):
@@ -627,10 +699,16 @@ jobs:
                   pri, tgt = rd.split(None, 1)
                   body = {'type': ty, 'name': owner, 'content': tgt.rstrip('.'), 'priority': int(pri), 'ttl': ttl, 'proxied': False}
               else:
-                  if (owner, ty, norm(ty, rd.strip('"'))) in have_exact:
+                  if (owner, ty, norm(ty, rd)) in have_exact:
                       continue
-                  body = {'type': ty, 'name': owner, 'content': rd.strip('"') if ty == 'TXT' else rd.rstrip('.'), 'ttl': ttl, 'proxied': False}
+                  if ty in ADDR_LEVEL and (owner, ty) in have_nt:
+                      conflict.append((owner, ty))
+                      continue
+                  body = {'type': ty, 'name': owner, 'content': txt_value(rd) if ty == 'TXT' else rd.rstrip('.'), 'ttl': ttl, 'proxied': False}
               want.append((owner, ty, body))
+          if conflict:
+              print('::error::%d name(s) already hold a record of this type with a different value: %s. This run will NOT post a second one beside it — two address records on one name round-robin, and roughly half the traffic goes to whichever host is stale, intermittently. Resolve it in the Cloudflare dashboard: decide which value is right, delete the other, then dispatch import again — it re-reads what the zone holds and only adds what is still missing. Nothing was added by this run and nothing was deleted. The values are not printed — this log is public.' % (len(conflict), ', '.join('%s %s' % (o, t) for o, t in conflict)))
+              sys.exit(1)
           if blocked:
               print('::error::%d record(s) this run swept are missing from the zone and are a type it will not create one at a time: %s. The JSON shape Cloudflare wants for SRV and CAA was never read from a live response, and a guessed one either fails or writes the wrong thing. Delete the partial record set in the Cloudflare dashboard and dispatch import again into an empty zone (the BIND import handles these types), or add them by hand. Nothing was added by this run and nothing was deleted.' % (len(blocked), ', '.join('%s %s' % (o, t) for o, t in blocked)))
               sys.exit(1)
@@ -651,50 +729,6 @@ jobs:
             done
             echo "added $i missing record(s), unproxied; nothing was deleted"
           fi
-
-      # IMPORT MODE, 3 OF 3, AND THE ONE THAT SAVES THE DOMAIN. The GoDaddy block below already tells him not to
-      # ENABLE DNSSEC at GoDaddy. It never measured whether it is already on. A DS record in the registry plus a
-      # nameserver move to Cloudflare = every validating resolver rejects the answers, and the domain is dark until
-      # the DS expires out — not minutes, and not fixable from Cloudflare's side. So this measures, and an
-      # unmeasurable answer is fatal for the same reason the zone lookup's is: an absence claim needs a successful
-      # read behind it.
-      - name: Measure DS at the parent
-        if: steps.zone.outputs.proceed == 'true' && inputs.mode == 'import'
-        run: |
-          set -eu
-          python3 - <<'PY'
-          import os, re, subprocess, sys
-          S = os.environ.get('CF_STATE_DIR', '/tmp/cf')
-          dom = open(S + '/domain').read().strip()
-          HDR = re.compile(r'status:\s*([A-Z]+)')
-          status, ds = None, []
-          for rv in (os.environ.get('CF_DNS_RESOLVERS') or '1.1.1.1 8.8.8.8').split():
-              try:
-                  p = subprocess.run(['dig', '+time=5', '+tries=2', '+nocmd', '+noall', '+comments', '+answer',
-                                      '@' + rv, dom, 'DS'], capture_output=True, text=True, timeout=20)
-              except Exception:
-                  continue
-              st, rows = None, []
-              for line in p.stdout.splitlines():
-                  if line.startswith(';'):
-                      m = HDR.search(line)
-                      if m and st is None:
-                          st = m.group(1)
-                      continue
-                  q = line.split(None, 4)
-                  if len(q) >= 5 and q[2] == 'IN' and q[3].upper() == 'DS':
-                      rows.append(q[3])
-              if st in ('NOERROR', 'NXDOMAIN'):
-                  status, ds = st, rows
-                  break
-          if status is None:
-              print('::error::No public resolver gave a usable answer for the DS record of %s, so this run cannot tell whether the domain is signed — and it will not print nameservers on an unmeasured DNSSEC state. Switching nameservers while a DS is published in the registry takes the domain dark until the DS expires out, which Cloudflare cannot fix from its side. Re-dispatch; if it repeats, check at GoDaddy -> Domains -> %s -> DNSSEC by hand.' % (dom, dom))
-              sys.exit(1)
-          if ds:
-              print('::error::DNSSEC is ON at GoDaddy for %s — the parent publishes %d DS record(s). Turn DNSSEC OFF there (Domains -> %s -> DNSSEC -> remove) and wait for the DS to leave the registry BEFORE any nameserver switch: moving the nameservers while a DS is published makes every validating resolver refuse the domain, and it stays dark until the old DS expires out. The records ARE imported into Cloudflare and are harmless while GoDaddy still answers. No nameservers are printed by this run. The DS values are not printed — this log is public.' % (dom, len(ds), dom))
-              sys.exit(1)
-          print('no DS at the parent — the domain is unsigned; the nameserver switch is safe from a DNSSEC point of view')
-          PY
 
       # jump_start's scan is asynchronous: the zone answers 200 with an empty record set for a few seconds while
       # Cloudflare is still reading GoDaddy's DNS. Polling until the count stops moving is what makes the assertions
@@ -990,6 +1024,15 @@ jobs:
               mail_note = open(S + '/mail_note.txt').read().strip()
           except Exception:
               mail_note = ''
+          # The one check only he can make, and it goes ABOVE the irreversible step rather than under it. "A PARTIAL
+          # SWEEP IS A FAILED SWEEP" is true only for probes that went UNANSWERED: a name that is outside the fixed
+          # 74-label list and outside the repository grep is never probed at all, so no gate in this file can see it.
+          # The sweep enumerates a candidate list; it cannot transfer a zone, and only GoDaddy's own DNS page holds
+          # the authoritative row count to compare against.
+          try:
+              swept_rows = int(open(S + '/sweep_rows').read().strip())
+          except Exception:
+              swept_rows = None
           out = []
 
           def w(line=''):
@@ -1007,6 +1050,13 @@ jobs:
 
           w('## %s is now a zone in your Cloudflare account — one step left, and it is yours' % dom)
           w()
+          if swept_rows is not None:
+              w('**Before you paste — count the rows.** Open GoDaddy → Domains → %s → DNS and compare its row count '
+                'against the %d name/type row(s) this run listed above. Any name GoDaddy serves that is not in that '
+                'table will stop resolving on the switch: this run enumerates a CANDIDATE list of names and asks the '
+                'parent about each one, it cannot transfer the zone, and a name nobody thought to ask about is a name '
+                'it never saw. This is the one check that is yours, and it is above the paste block on purpose.' % (dom, swept_rows))
+              w()
           w('Paste these two nameservers at GoDaddy:')
           w()
           w('```')

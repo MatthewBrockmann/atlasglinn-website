@@ -53,9 +53,26 @@ CANARY_CAA_HOST = 'caa-canary.example.net'
 CANARY_DELEG = 'deleg-canary.example.net'
 CANARY_DMARC = 'dmarc-canary@example.net'
 CANARY_DS = 'ds0canary0000000000000000000000000000000000000000000000000000cafe'
+# A TXT over 255 bytes — every real DKIM key — is served as SEVERAL quoted character-strings and its wire value is
+# their CONCATENATION. The canary rides in the SECOND string, so a workflow that keeps only the first (or that
+# corrupts the join with rd.strip('"')) is caught by the round-trip assertion rather than by inspection.
+CANARY_TXT_S1 = 'v=DKIM1; k=rsa; p=' + 'A' * 250
+CANARY_TXT_S2 = 'dkim-second-string-canary.example.net' + 'B' * 100
+CANARY_TXT_JOINED = CANARY_TXT_S1 + CANARY_TXT_S2
+CANARY_TXT_TAIL = 'dkim-second-string-canary.example.net'
+# an answer whose OWNER is outside the zone, returned under an in-zone label. The out-of-zone filter is the only
+# guard against importing a record for the wrong domain, and no dig table exercised it until this row existed.
+CANARY_OUT_OF_ZONE = '203.0.113.99'
+CANARY_OUT_OF_ZONE_OWNER = 'elsewhere.example.net'
+# the zone already holds an apex A pointing somewhere ELSE than the parent serves: the reconcile must refuse, not
+# post a second apex A beside it
+CANARY_APEX_CONFLICT = '203.0.113.55'
+# over the 2048-byte rdata ceiling the sweep refuses to put in a zone file
+CANARY_BIGRDATA = 'bigrdata-canary.example.net'
 CANARIES = [CANARY_APEX, CANARY_WWW, CANARY_MX_M365, CANARY_MX_OTHER, CANARY_SPF, CANARY_AUTO, CANARY_TAK_WRONG,
             CANARY_WWW_TXT, CANARY_APEX_TXT, CANARY_IN_ERROR, CANARY_NS1, CANARY_NS2, CANARY_MAIL, CANARY_DKIM,
-            CANARY_SRV_HOST, CANARY_CAA_HOST, CANARY_DELEG, CANARY_DMARC, CANARY_DS]
+            CANARY_SRV_HOST, CANARY_CAA_HOST, CANARY_DELEG, CANARY_DMARC, CANARY_DS, CANARY_TXT_TAIL,
+            CANARY_OUT_OF_ZONE, CANARY_OUT_OF_ZONE_OWNER, CANARY_APEX_CONFLICT, CANARY_BIGRDATA]
 ERR_CANARY_MSG = ('An identical record already exists: A tak.atlasglinn.com pointing at %s — delete it first'
                   % CANARY_IN_ERROR)
 
@@ -107,28 +124,59 @@ FULL_ANSWERS = {
              ('CAA', 3600, '0 issue "%s"' % CANARY_CAA_HOST),
              # the apex NS set IS the delegation. Cloudflare assigns its own, so the writer must drop these two.
              ('NS', 3600, CANARY_NS1 + '.'), ('NS', 3600, CANARY_NS2 + '.')],
-    'www':  [('CNAME', 3600, CANARY_WWW + '.')],
+    # the fourth element of a row is an OWNER OVERRIDE: what an authoritative server returned, whatever was asked.
+    # This one is outside the zone entirely and must never reach the zone file.
+    'www':  [('CNAME', 3600, CANARY_WWW + '.'),
+             ('A', 3600, CANARY_OUT_OF_ZONE, CANARY_OUT_OF_ZONE_OWNER + '.')],
     'mail': [('A', 3600, CANARY_MAIL)],
     'tak':  [('A', 60, TAK_IP)],                       # ttl 60 — the only proof the 300 floor is applied
     'autodiscover': [('CNAME', 3600, CANARY_AUTO + '.')],
     '_dmarc': [('TXT', 3600, '"v=DMARC1; p=none; rua=mailto:%s"' % CANARY_DMARC)],
     'selector1._domainkey': [('CNAME', 3600, CANARY_DKIM + '.')],
+    # a DKIM key: over 255 bytes, so it is two character-strings and its value is their concatenation
+    'selector2._domainkey': [('TXT', 3600, '"%s" "%s"' % (CANARY_TXT_S1, CANARY_TXT_S2))],
     '_sip._tls': [('SRV', 3600, '100 1 443 %s.' % CANARY_SRV_HOST)],
     'ops':  [('NS', 3600, CANARY_DELEG + '.')],        # a real delegation below the apex: KEPT
     'ftp':  [],                                        # NOERROR and no data — dropped, like an NXDOMAIN name
 }
-# 6 apex answers - 2 apex NS = 4, + www + mail + tak + autodiscover + _dmarc + selector1 + _sip._tls + ops = 12
+# 6 apex answers - 2 apex NS = 4, + www (the out-of-zone A is dropped) + mail + tak + autodiscover + _dmarc
+# + selector1 + selector2 + _sip._tls + ops = 13
 NO_MX_ANSWERS = dict(FULL_ANSWERS, **{'@': [r for r in FULL_ANSWERS['@'] if r[0] != 'MX']})
+# an rdata past the 2048-byte ceiling the sweep refuses to write into a zone file, and a control character in the
+# same table: both must stop the run before anything is imported.
+BAD_RDATA_ANSWERS = dict(FULL_ANSWERS, **{'blog': [('TXT', 3600, '"%s%s"' % (CANARY_BIGRDATA, 'z' * 2100))]})
+
+
+TXT_STRINGS = re.compile(r'"((?:[^"\\]|\\.)*)"')
+
+
+def txt_join(rd, strict=True):
+    """A TXT rdata's wire value: the concatenation of its quoted character-strings, unescaped.
+
+    BIND splits any TXT over 255 bytes into several quoted strings and dig prints them that way, so `"a" "b"` is the
+    single value `ab` and NOT the four-character `a" "b` that rd.strip('"') produces. strict=True is the parser's
+    contract — a TXT rdata that is not entirely quoted strings is a file Cloudflare would reject.
+    """
+    rd = (rd or '').strip()
+    if strict and not re.fullmatch(r'("(?:[^"\\]|\\.)*"\s*)+', rd):
+        raise ValueError('TXT rdata is not one or more quoted character-strings')
+    parts = TXT_STRINGS.findall(rd)
+    if not parts:
+        return rd.strip('"')
+    return ''.join(x.replace('\\"', '"').replace('\\\\', '\\') for x in parts)
 
 
 def answers_to_records(table, dom=DOM, skip=()):
     """The record set the workflow SHOULD end up with, shaped as Cloudflare rows — the prefill for a zone that has
-    already been imported once. Same three rules the workflow's own writer follows: apex NS dropped, TTLs floored at
-    300, MX split into priority + content."""
+    already been imported once. Same four rules the workflow's own writer follows: apex NS dropped, out-of-zone
+    owners dropped, TTLs floored at 300, MX split into priority + content — and a multi-string TXT joined."""
     out = []
     for lab in sorted(table):
         owner = dom if lab == '@' else lab + '.' + dom
-        for (ty, ttl, rd) in table[lab]:
+        for row in table[lab]:
+            ty, ttl, rd = row[0], row[1], row[2]
+            if len(row) > 3:                       # an owner override is out-of-zone; the workflow must drop it
+                continue
             if (ty == 'NS' and lab == '@') or (lab, ty) in skip:
                 continue
             ttl = max(300, ttl)
@@ -136,9 +184,22 @@ def answers_to_records(table, dom=DOM, skip=()):
                 pri, tgt = rd.split(None, 1)
                 out.append(rec('MX', owner, tgt.rstrip('.'), ttl=ttl, priority=int(pri)))
             elif ty == 'TXT':
-                out.append(rec('TXT', owner, rd.strip('"'), ttl=ttl))
+                out.append(rec('TXT', owner, txt_join(rd), ttl=ttl))
             else:
                 out.append(rec(ty, owner, rd.rstrip('.'), ttl=ttl))
+    return out
+
+
+def conflicting_prefill():
+    """A zone already imported once, whose apex A points somewhere ELSE than the parent serves today. Every
+    prefilled scenario before this one was built from the same dig answers the sweep reads, so no case anywhere put
+    a record in the zone whose CONTENT differed — and the reconcile's conflicting-content branch had zero coverage."""
+    out = []
+    for r in answers_to_records(FULL_ANSWERS):
+        r = dict(r)
+        if r['type'] == 'A' and r['name'] == DOM:
+            r['content'] = CANARY_APEX_CONFLICT
+        out.append(r)
     return out
 
 
@@ -193,10 +254,9 @@ def parse_bind(text, dom=DOM, proxied=False):
                 raise ValueError('MX rdata is not "<priority> <target>"')
             out.append(rec('MX', owner, bits[1].rstrip('.'), proxied=proxied, ttl=ttl, priority=int(bits[0])))
         elif ty == 'TXT':
-            if not (rd.startswith('"') and rd.endswith('"') and len(rd) >= 2):
-                raise ValueError('TXT rdata is not quoted')
-            out.append(rec('TXT', owner, rd[1:-1].replace('\\"', '"').replace('\\\\', '\\'),
-                           proxied=proxied, ttl=ttl))
+            # STRICT, and multi-string aware: Cloudflare's importer stores `"a" "b"` as the single value `ab`, and a
+            # writer that emitted `a" "b` would import a corrupted DKIM key that looks fine in a name/type table.
+            out.append(rec('TXT', owner, txt_join(rd), proxied=proxied, ttl=ttl))
         elif ty in ('CNAME', 'NS'):
             out.append(rec(ty, owner, rd.rstrip('.'), proxied=proxied, ttl=ttl))
         else:
@@ -267,6 +327,12 @@ SCENARIOS = {
     # the one missing record is an SRV, the type this run refuses to create one at a time
     'zone_prefilled_srv': {'exists': True, 'dig': FULL_ANSWERS,
                            'prefill': answers_to_records(FULL_ANSWERS, skip=(('_sip._tls', 'SRV'),))},
+    # the zone holds an apex A pointing somewhere ELSE. Nothing is "missing" by name+type, and everything the four
+    # gates ask about is present — so a reconcile that treats a differing content as a missing record posts a SECOND
+    # apex A, passes all four gates, prints the nameservers, and round-robins the website on the switch.
+    'zone_conflicting':   {'exists': True, 'dig': FULL_ANSWERS, 'prefill': conflicting_prefill()},
+    # an rdata past the 2048-byte ceiling: the sweep must refuse before writing a zone file
+    'dig_bad_rdata':      {'exists': True, 'empty': True, 'dig': BAD_RDATA_ANSWERS},
     # import dispatched at a domain that is NOT in the account: import never creates a zone
     'import_no_zone':     {},
 }
@@ -281,6 +347,7 @@ def state(scn):
                                        'created': False, 'added': [], 'last_create_body': '',
                                        'import_calls': 0, 'deletes': 0, 'puts': 0, 'parse_errors': 0,
                                        'dig_queries': 0, 'dig_dead_queries': 0, 'dig_recursor_data_queries': 0,
+                                       'dig_recursive_auth_queries': 0,
                                        'dig_names': [], 'imported': []})
 
 
@@ -481,6 +548,11 @@ class Handler(BaseHTTPRequestHandler):
         qtype = (q.get('type') or [''])[0].upper()
         with _LOCK:
             st['dig_queries'] += 1
+            # +norecurse on an authoritative query is the difference between reading what the parent serves RIGHT NOW
+            # and reading whatever that server happened to have cached. The workflow header claimed it; nothing could
+            # detect its removal until this counter existed.
+            if (q.get('norec') or ['0'])[0] != '1' and server not in RESOLVERS:
+                st['dig_recursive_auth_queries'] += 1
             key = '%s|%s' % (name, qtype)
             if key not in st['dig_names']:
                 st['dig_names'].append(key)
@@ -519,8 +591,9 @@ class Handler(BaseHTTPRequestHandler):
                 return answer('NXDOMAIN', aa=True)
             if lab not in table:
                 return answer('NXDOMAIN', aa=True)
-            return answer('NOERROR', [{'name': name + '.', 'ttl': ttl, 'type': ty, 'rdata': rd}
-                                      for (ty, ttl, rd) in table[lab] if ty == qtype], aa=True)
+            return answer('NOERROR', [{'name': (r[3] if len(r) > 3 else name + '.'), 'ttl': r[1],
+                                       'type': r[0], 'rdata': r[2]}
+                                      for r in table[lab] if r[0] == qtype], aa=True)
         return answer('REFUSED')
 
     # ── canned data ─────────────────────────────────────────────────────────────────────────────────────────────

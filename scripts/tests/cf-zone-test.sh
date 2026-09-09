@@ -180,6 +180,15 @@ else
 fi
 # a published DS at the parent plus a nameserver move takes the domain dark until it expires out, and Cloudflare
 # cannot fix that from its side. The verdict must exit, in its own step, not print and continue.
+# a recursor answers from a cache; the whole point of import mode is to copy what the parent serves RIGHT NOW. The
+# workflow's header has claimed +norecurse since round 1 and no assertion could detect its removal — the emulator now
+# counts an authoritative query that arrives without it, and case 24 pins that count at zero. This is the source half.
+if grep -qF "if norec:" "$WF" && grep -qF "a.append('+norecurse')" "$WF" && \
+   grep -qF "st, ans = dig(s, name, qtype, True)" "$WF"; then
+  ok "source/norecurse: every authoritative query carries +norecurse"
+else
+  bad "source/norecurse: the sweep no longer asks the authoritative servers with +norecurse — it would read a cache"
+fi
 DSF="$(grep -lF 'DNSSEC is ON at GoDaddy' "$STEPS"/step*.sh 2>/dev/null | head -1)"
 if [ -n "$DSF" ] && grep -qF 'sys.exit(1)' "$DSF"; then
   ok "source/ds-fatal: a DS at the parent is fatal in the step that measures it"
@@ -503,7 +512,9 @@ must   full_import "$VERIFIED"
 must   full_import "$NS_BLOCK"
 must   full_import "amber.ns.cloudflare.com"
 must   full_import "authoritative nameservers at the parent: 2"
-must   full_import "recs added: 12"
+must   full_import "recs added: 13"
+# the one check only he can make, printed ABOVE the irreversible paste rather than under it
+must   full_import "compare its row count against the 13 name/type row(s) this run listed above"
 # ONE row carrying both halves of the promise: unproxied, and the TTL floored to 300 from the 60 the parent served.
 # It is read back out of the existing assert table, so it also proves import reaches that table at all.
 must   full_import "| A | tak.atlasglinn.com | False | 300 |"
@@ -515,12 +526,39 @@ eqn "full_import: no zone was created" "$(statn full_import post_zones)" 0
 eqn "full_import: nothing was deleted" "$(statn full_import deletes)" 0
 eqn "full_import: the zone file parsed" "$(statn full_import parse_errors)" 0
 eqn "full_import: no record was read from a recursive resolver" "$(statn full_import dig_recursor_data_queries)" 0
+# the other half of the same claim, and the one nothing could measure: a query that REACHED an authoritative server
+# without +norecurse would have been answered out of that server's cache. Dropping the flag left the suite green.
+eqn "full_import: every authoritative query was +norecurse" "$(statn full_import dig_recursive_auth_queries)" 0
 # POSITIVE CONTROL. Without it a sweep that collected nothing would sail through the privacy gate looking spotless —
 # the gate can only prove an absence, so something has to prove the presence.
 if grep -Fq 203.0.113.77 "$WORK/full_import/state/zone.txt"; then
   ok "full_import: the zone file really holds the apex address the parent served"
 else
   bad "full_import: the zone file does not hold the apex address — the sweep collected nothing and the gate saw nothing"
+fi
+# THE OUT-OF-ZONE FILTER, which is the only guard against importing a record for the WRONG domain. Removing it left
+# the suite 200/200 green, because no dig table anywhere returned an answer whose owner was outside the zone. One
+# does now: the parent answers the `www` probe with an A owned by elsewhere.example.net, and it must be dropped
+# before the zone file is written — the record count above (13, not 14) is the second detector for the same thing.
+if grep -Fq 203.0.113.99 "$WORK/full_import/state/zone.txt" || grep -Fq elsewhere.example.net "$WORK/full_import/state/zone.txt"; then
+  bad "full_import: an answer whose OWNER is outside the zone reached the zone file — the out-of-zone filter is gone"
+else
+  ok "full_import: the out-of-zone owner the parent returned never reached the zone file"
+fi
+# MULTI-STRING TXT. Any TXT over 255 bytes — every real DKIM key, a long SPF — is served as several quoted
+# character-strings whose wire value is their CONCATENATION. rd.strip('"') turned `"a" "b"` into `a" "b`, and no
+# assertion would have noticed: the assert table prints names and types only. Read the expected value out of the
+# emulator rather than restating it here, so the two cannot drift.
+EXPECT_TXT="$(python3 -c "
+import importlib.util
+sp = importlib.util.spec_from_file_location('emu', '$EMU')
+m = importlib.util.module_from_spec(sp); sp.loader.exec_module(m)
+print(m.CANARY_TXT_JOINED)
+")"
+if stats full_import | grep -Fq "$EXPECT_TXT"; then
+  ok "full_import: the 405-byte two-string TXT imported as the concatenation of both character-strings"
+else
+  bad "full_import: the multi-string TXT did not round-trip — a long DKIM key would import corrupted and look fine in a name/type table"
 fi
 
 # ── 25. the parent serves no apex MX: the same gate that guards create must stop import ─────────────────────────────
@@ -535,7 +573,7 @@ mustnot import_no_mx "$VERIFIED"
 mustnot import_no_mx "$NS_BLOCK"
 
 # ── 26. DNSSEC is already ON at GoDaddy. Moving the nameservers with a DS in the registry takes the domain dark until
-# the DS expires out, and Cloudflare cannot fix it from its side. Line 658 told him not to ENABLE it; nothing ever
+# the DS expires out, and Cloudflare cannot fix it from its side. The workflow told him not to ENABLE it; nothing ever
 # measured whether it already was.
 reset_inputs; MODE=import
 run_job ds_present ds_present
@@ -543,8 +581,10 @@ expect ds_present fail
 must   ds_present "DNSSEC is ON at GoDaddy"
 mustnot ds_present "$NS_BLOCK"
 mustnot ds_present "$VERIFIED"
-# pins the designed order: the records ARE imported (harmless while GoDaddy answers) and THEN the DS verdict stops it
-eqn "ds_present: the records were imported before the DS verdict" "$(statn ds_present import_calls)" 1
+# PINS THE ORDER, and the order changed: the DS is measured BEFORE the sweep and before any write, so a signed domain
+# costs one dig and ZERO records in the live zone. This assertion read 1 while the verdict fired after the import.
+eqn "ds_present: not one record was written before the DS verdict" "$(statn ds_present import_calls)" 0
+eqn "ds_present: no record was posted either" "$(statn ds_present post_records)" 0
 
 # ── 27. the DS state cannot be measured at all: an absence claim needs a successful read behind it ──────────────────
 reset_inputs; MODE=import
@@ -587,6 +627,34 @@ run_job zone_prefilled_srv zone_prefilled_srv
 expect zone_prefilled_srv fail
 must   zone_prefilled_srv "will not create one at a time"
 eqn    "zone_prefilled_srv: nothing was posted" "$(statn zone_prefilled_srv post_records)" 0
+
+# ── 31b. THE CONFLICT. The zone already holds an apex A pointing somewhere ELSE than the parent serves today. By
+# name+type nothing is missing; by (name, type, content) the parent's apex A IS missing — so a reconcile that treats
+# a differing content as a missing record POSTS A SECOND APEX A beside the first. All four gates then pass, because
+# the assert step only asks whether an A/AAAA/CNAME is PRESENT at the apex and at www, so `verified=true` is written
+# and the nameserver paste block prints — and on the switch roughly half of the web traffic round-robins to the stale
+# origin. Every prefilled scenario before this one was built from the same dig answers the sweep reads, so nothing in
+# 200 cases put a record in the zone whose content differed and this branch had zero coverage.
+# ABSENCE IS THE ONLY SAFE PRECONDITION FOR A CREATE — the rule the tak step has enforced since round 1, now applied
+# at every name for A, AAAA and CNAME.
+reset_inputs; MODE=import
+run_job zone_conflicting zone_conflicting
+expect zone_conflicting fail
+must   zone_conflicting "already hold a record of this type with a different value"
+eqn    "zone_conflicting: not one record was posted beside the existing one" "$(statn zone_conflicting post_records)" 0
+eqn    "zone_conflicting: no zone-file import either" "$(statn zone_conflicting import_calls)" 0
+eqn    "zone_conflicting: nothing was deleted" "$(statn zone_conflicting deletes)" 0
+mustnot zone_conflicting "$VERIFIED"
+mustnot zone_conflicting "$NS_BLOCK"
+
+# ── 31c. an authoritative server answers with an rdata past the 2048-byte ceiling. The sweep refuses to put it in a
+# zone file, and refuses before anything is imported — the value is never printed, only the name and the type.
+reset_inputs; MODE=import
+run_job dig_bad_rdata dig_bad_rdata
+expect dig_bad_rdata fail
+must   dig_bad_rdata "carries a value this run will not put in a zone file"
+eqn    "dig_bad_rdata: nothing was imported" "$(statn dig_bad_rdata import_calls)" 0
+eqn    "dig_bad_rdata: no record was posted" "$(statn dig_bad_rdata post_records)" 0
 
 # ── 32. the read back after the import is truncated: the existing 100-cap check still guards import ─────────────────
 reset_inputs; MODE=import
@@ -680,7 +748,9 @@ for canary in 203.0.113.77 origin-canary.example.net atlas-canary.mail.protectio
               origin-canary-in-error.example.net \
               ns-canary-1.example.net ns-canary-2.example.net 203.0.113.88 dkim-canary.example.net \
               sipdir-canary.example.net caa-canary.example.net deleg-canary.example.net dmarc-canary@example.net \
-              ds0canary0000000000000000000000000000000000000000000000000000cafe; do
+              ds0canary0000000000000000000000000000000000000000000000000000cafe \
+              dkim-second-string-canary.example.net 203.0.113.99 elsewhere.example.net 203.0.113.55 \
+              bigrdata-canary.example.net; do
   hits="$(grep -lF -- "$canary" $SWEPT 2>/dev/null | tr '\n' ' ')"
   if [ -n "$hits" ]; then bad "privacy: record content \"$canary\" reached the log in: $hits"; LEAK=1; fi
 done
@@ -696,12 +766,14 @@ fi
 
 echo
 echo "cases: $CASES   passed: $PASS   failed: $FAIL"
-# Pinned to the EXACT count this file produces, not to a floor with slack in it. At MIN=60 against 78 actual
-# assertions, eighteen could be deleted or stop running and the harness still printed "all green". Measured, never
-# lowered: 118 before import mode, 200 with it.
-MIN=200
-if [ "$CASES" -lt "$MIN" ]; then
-  echo "FAIL harness: only $CASES cases ran, fewer than the $MIN pinned here — the run stopped early or a block was dropped"
+# An EQUALITY pin on the exact count this file produces. It was a `-lt` floor that happened to sit at the current
+# count, so a case could be added without a thought while a deletion was caught — both directions are a deliberate
+# edit now. At MIN=60 against 78 actual assertions, eighteen could be deleted or stop running and the harness still
+# printed "all green". Measured, never lowered: 118 before import mode, 200 with it, 217 with round 2's
+# conflict, out-of-zone, multi-string-TXT and +norecurse coverage.
+MIN=217
+if [ "$CASES" != "$MIN" ]; then
+  echo "FAIL harness: $CASES cases ran, not the $MIN pinned here — a block was dropped, the run stopped early, or a case was added without updating MIN"
   DONE=1; exit 1
 fi
 DONE=1
