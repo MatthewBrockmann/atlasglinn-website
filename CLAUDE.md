@@ -726,6 +726,39 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   never the GoDaddy "Domain Connect" authorization, its Gmail Setup rewrites MX) → Sitemaps → add
   `https://www.mastsolutions.com/sitemap.xml` → URL inspection → Request indexing for `https://www.mastsolutions.com/`.
 
+## atlasglinn.com → his own Cloudflare account (R3′, workflow `cf-zone-atlasglinn.yml`)
+
+- **Why there is a workflow at all.** R3 in the vault — "a Cloudflare WAF rate-limit rule on `/wp-login.php`, ~2 min in
+  the dashboard" — was re-listed for 107 days and was never executable: the Cloudflare edge in front of atlasglinn.com is
+  GoDaddy's (nameservers `ns15/ns16.domaincontrol.com`), so the zone is not in his account and the rule had nowhere to
+  land. R3′ is the prerequisite — create the zone in HIS account, prove the record import, then move the nameservers.
+- **`.github/workflows/cf-zone-atlasglinn.yml`, Actions → Run workflow. Two modes:**
+  - **plan** (default, and it never writes) — verifies the token, probes whether it can see zones at all, and either
+    reports what a create would do or, if the zone already exists, prints the full verification table for it.
+  - **create** — `POST /zones` with `jump_start: true` (Cloudflare scans GoDaddy's DNS and imports what it finds),
+    polls the imported set for up to 90 s, then ASSERTS. An existing zone is reused, never duplicated.
+  - Inputs: `domain` (default `atlasglinn.com`) and `add_missing` (default false — the only record it will create is
+    `A tak → 142.93.177.0`, unproxied; a mail route or an apex address is never guessed, it is copied from the GoDaddy
+    DNS page by hand).
+- **The gate, and it is the whole point of the run.** The run FAILS with "do NOT switch nameservers" unless the apex MX
+  records, `tak.atlasglinn.com → 142.93.177.0`, and an apex A/AAAA/CNAME all came across. Company mail
+  (matthew@atlasglinn.com, Microsoft 365) does not migrate with the site, and a nameserver switch made before the MX is
+  confirmed present takes email down. The M365 detail lines — MX target containing `mail.protection.outlook.com`, the
+  `spf.protection.outlook.com` TXT, the autodiscover CNAME — print but never fail the run. `www` missing is a warning.
+- **The nameservers are his one click, and only after a green create run.** The last step prints the two assigned
+  Cloudflare nameservers in a fenced block and the single GoDaddy step: Domains → atlasglinn.com → Nameservers → Change →
+  Custom → paste both → Save. It is skipped entirely when the assertions fail, so a red run never shows him something to
+  paste. The whole report also lands in the run's step summary.
+- **DNSSEC stays OFF at GoDaddy** (measured `unsigned` 2026-09-02). Signing there and then moving nameservers takes the
+  domain dark until the DS record expires out of the registry, and it is not the attack vector — brute force is.
+- **Token.** `CF_ZONE_TOKEN` is preferred and needs Zone:Zone:Edit + Zone:DNS:Edit at account scope (Cloudflare → My
+  Profile → API Tokens). The workflow falls back to the Workers token `deploy-worker.yml` uses only so it can measure
+  the scope and say in one sentence that it is the wrong shape — a Workers-scoped token cannot create a zone. The token
+  is never written to a step output or printed; the account id is masked.
+- **Nothing here has run against Cloudflare yet** — the container that wrote it has no route to `api.cloudflare.com`
+  (egress 000). The logic is exercised against fixture record sets in both directions; the first green dispatch is the
+  proof.
+
 ## Drop folders → gallery (Brockmann, 2026-09-05: "anytime I drop new items into the folder on my desktop, it should update in and add photos to the gallery")
 
 - **Mac:** `~/Desktop/MAST NEW WEB 2026/gallery/` and `…/range/` are the drop folders — and since 2026-09-09
