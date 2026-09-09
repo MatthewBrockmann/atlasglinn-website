@@ -149,6 +149,63 @@ way as the yardstick): text parity 1257/1257 units, media parity 35/35 URLs, typ
 page, hero `<video>` src equal to the live src on all twelve, zero horizontal overflow, one nav and one footer in every
 DOM, and not one chrome CSS rule matching an element outside the five chrome roots.
 
+### THE CINEMATIC LAYER — MAST's front end over that content (2026-09-09)
+
+Brockmann, 2026-09-08 22:57:31: *"These are not same as mastsolutions- or currewnt site = BLAND NO EXCIOTMENT NO 3D +
+LOOK AT THE no-brag for this page"*, and 23:04:11Z: *"the actual format. with the front end looks good, but content and
+everything else doesn't match mass solutions or what Atlas Lin had in it."* The content half was already right; this is
+the presentation half, and it changes **nothing** inside a chapter.
+
+- **Chapters.** `atlas_live.chapters(slug)` cuts the live page at its own top-level `<section>` boundaries (ep-app is
+  built from top-level `…-wrap` divs and cuts there). A `section-divider` band carries the next section's title, so it
+  **opens** that chapter instead of closing the last one; a `<script>` between two sections rides with whatever follows.
+  The wrapper `<div class="agx-ch" id="agx-cN">` is the only markup the split adds — `assemble-atlas._chapters_html()`
+  asserts that concatenating the chapters returns `content(slug)` byte for byte. 5–11 chapters a page, 79 in all.
+- **Backdrops.** Each chapter takes the photograph it carries itself, or the next unused one on the page, or the one
+  before it. The four pages with **no photograph at all** — training, cuas-aerodefense, contact (film heroes) and
+  ep-app (drawn in CSS) — fall back to the page's **own** opening film as the backdrop behind chapters 2..n
+  (`yt:<id>` where the live hero is a YouTube embed). No new asset, no new URL, nothing invented; ep-app has no media
+  of any kind and runs on the 3D scene alone.
+- **The scene.** `atlas_shell.cinema_three()` lifts MAST's emblem scene out of `cinematic_shell.THREE_JS` verbatim —
+  shield, rings, shards, god rays, gold dust, stars, peaks — recolored to the Atlas blue, on a camera path with one
+  keyframe per chapter. **`vendor/three.module.js`, not the live index's CDN r128**: that copy drove the live intro
+  overlay the shell replaces, and a second three.js runtime for nothing is waste. Both staging workflows already copy
+  the module (their shared resolver matches `from './….js'`), so neither workflow needed a line changed.
+- **`agx-` IS THE NAMESPACE AND IT IS NOT OPTIONAL.** MAST paints on `#three-canvas`, `#photos .ph`, `.grain`,
+  `.vignette`, `.progress`, `.chap-link`. On an Atlas page those names are unsafe: the live index ships its own
+  `#three-canvas { position:absolute }` in the `<style>` block this build carries verbatim, the live stylesheet styles
+  a **bare `nav`** (26 rules, `transform:translateY(-100%)`) — which is why the chapter rail is a `<div>`, never a
+  `<nav>` — and contact.html already has an `ag-contact-form`. `\.agx` measures 0 hits across `shared-styles.css` and
+  all twelve pages' `<style>` blocks. `atlas_shell.assert_cinema_scope()` fails the build if a cinema selector is not
+  anchored to `agx-`, the same way `assert_chrome_scope()` does for the chrome sheet.
+- **Layout, and the render P0 it avoids.** A chapter is `display:grid; grid-template-columns:100%; align-content:center`
+  with `width:100%` on its child — **not flex**. The live sections centre themselves with `max-width:1400px;
+  margin:0 auto`, and an auto cross-axis margin in a flex column shrinks the item to fit-content, which is exactly the
+  shape of the P0 that pinned a hero column to the left. Measured after the change: the hero headline is centred to the
+  pixel on all five audited pages at both widths (`left == right`, e.g. 533/533 at 1440, 35/35 at 390).
+- **Nothing may be left invisible.** The entrance motion's `opacity:0` is gated on `html.agx-motion`, a class the
+  script adds at boot, so a page whose JS never runs shows every chapter at full strength. On top of that, `CINEMA_JS`
+  turns on the live page's own reveals (`.reveal` → `.active`, ep-app `.fade-in` → `.visible`) for the chapter being
+  read, the one behind it and the one arriving — because **measured on main at 1440×900, after a full scroll pass, 11
+  blocks on index, 11 on training and 15 on ep-app were still at opacity 0** (service cards, testimonials, discipline
+  cards, hardware cards). After: a reader-paced walk of all five audited pages at both widths leaves **zero** in-view
+  elements at opacity 0 on 9 of 10, and the tenth is one chapter caught mid-fade with `agx-in` already on it.
+- **Audio is the live site's, unchanged.** `#sound-toggle` on index, residential, disaster, training and cuas because
+  those five live pages ship one; none on the other seven, because their live pages ship none. The shell's own toggle
+  stays cut. **No bed track, and no toggle added to a film whose audio cannot be measured from here.**
+- **The rail.** A tick column at the right edge, labels on hover, the chapter's line printed for the reading position
+  only above 1700px — below that the 1400px-wide live sections leave no margin to print it in without covering their
+  own text. Hidden under 1025px, where the sticky bar and the mobile menu are the navigation.
+
+Measured 2026-09-09 in Chromium at 1440×900 and 390×844 on index, executive-protection, training, ep-app and contact
+(no egress — the live photographs and films 404 here; the 3D scene, the chrome and the motion do not): three.js canvas
+present with a live WebGL context and a **frame counter that grows** on 10/10; every chapter revealed on 10/10; one
+backdrop layer per chapter and exactly one active; the progress line, the rail, the sticky bar with 16 links, both
+dropdowns and the mobile menu (opens and closes) on 10/10; intro **Enter and Skip each dismiss the splash, 14/14** of
+the runs where the splash was still up (the other 6 hit the live site's own 3.5-second auto-enter first); **zero page
+errors and zero failed local requests**. Parity unchanged and unrelaxed: `compare-atlas.py` 12 pages / 0 deltas,
+`check-links.py` 368 references / 0 dead, `assemble-atlas.py --publish` byte-identical on a second run.
+
 ### History — the hand-authored build (superseded by the block above)
 
 The rebuilt `index`, `executive-protection`, `residential-protection`, `disaster-recovery`,

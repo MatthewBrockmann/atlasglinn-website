@@ -102,6 +102,122 @@ def content(slug):
     return body
 
 
+# ── Chapters ──────────────────────────────────────────────────────────────────────────────────────────────────────
+# Brockmann, 2026-09-08 23:04:11Z: "the actual format. with the front end looks good, but content and everything else
+# doesn't match mass solutions or what Atlas Lin had in it." The format is MAST's — full-bleed chapters, a backdrop per
+# chapter, entrance motion, a chapter rail. The content is the live page's. So the live page is CUT at its own section
+# boundaries and each piece becomes one chapter; nothing is re-authored, re-cut or reordered, and the only markup the
+# split adds is the wrapper element around each piece.
+#
+# Every captured page is a flat run of top-level elements. Eleven of them open a <section class="hero"> and continue in
+# <section class="section">; ep-app is built from top-level <div class="…-wrap"> blocks instead. A section-divider band
+# introduces the section under it, so it opens the next chapter rather than closing the last one; a <script> the page
+# prints between two sections rides with whatever comes next. Document order is untouched either way — the split only
+# decides where a wrapper opens.
+_VOID = frozenset(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source',
+                   'track', 'wbr'])
+_TAG = re.compile(r'<(/?)([a-zA-Z][\w-]*)\b[^>]*?(/?)>')
+_CLASS = re.compile(r'''\bclass=["']([^"']*)["']''')
+_HEADING = re.compile(r'<(h[1-3])\b[^>]*>(.*?)</\1>', re.S | re.I)
+# Marks, badges and icons are not backdrop photography — the same three the compare sheet skips, plus the SVG line art.
+_NOT_A_BACKDROP = ('Atlas-Glinn-Logo', 'chamber-badge', 'BEST_OF', '.svg', 'maxresdefault')
+_PHOTO = re.compile(r'''(?:background(?:-image)?:\s*url\((["']?)([^)"']+)\1\)|(?:poster|src)=["']([^"']+)["'])''', re.I)
+
+
+def _top_level(html):
+    """(name, open_tag, start, end) for each top-level element, in document order."""
+    out, stack = [], []
+    for t in _TAG.finditer(html):
+        closing, name, selfclosing = t.group(1), t.group(2).lower(), t.group(3)
+        if name in _VOID or selfclosing:
+            continue
+        if not closing:
+            if not stack:
+                out.append([name, t.group(0), t.start(), None])
+            stack.append(name)
+        elif name in stack:
+            while stack and stack.pop() != name:
+                pass
+            if not stack:
+                out[-1][3] = t.end()
+    assert out and all(e[3] is not None for e in out), 'a top-level element never closes'
+    return [tuple(e) for e in out]
+
+
+def _opens_a_chapter(name, tag):
+    if name == 'section':
+        return True
+    cls = _CLASS.search(tag)
+    return name == 'div' and 'divider' not in (cls.group(1) if cls else '')
+
+
+def chapters(slug, html=None):
+    """The live page cut at its own section boundaries: [(label, markup, backdrop)] in order.
+
+    label    the chapter's own first heading, verbatim — the chapter rail's line and nothing else
+    markup   the live markup, byte for byte; concatenating every chapter's markup returns content(slug)
+    backdrop the photograph the chapter itself carries, or the next unused one on the page, or the one before it
+
+    Four of the twelve pages carry no photograph at all — training, cuas-aerodefense and contact open on a film and
+    show nothing else, and ep-app is drawn entirely in CSS. Those pages take the page's OWN opening film as the
+    backdrop behind the chapters after the hero (`yt:<id>` where the live hero is a YouTube embed), which is a file the
+    page already loads at its own URL, not a new asset. ep-app has no media of any kind and gets no backdrop layer.
+    """
+    html = content(slug) if html is None else html
+    tops = _top_level(html)
+    opens = [_opens_a_chapter(e[0], e[1]) for e in tops]
+    assert any(opens), '%s: no top-level section to cut at' % slug
+    cuts = []
+    for i, is_open in enumerate(opens):
+        if not is_open:
+            continue
+        j = i                                   # the divider band carries the next section's title, so it opens that
+        while j and not opens[j - 1]:           # chapter rather than closing the one before it
+            j -= 1
+        cuts.append(tops[j][2])
+    bounds = [0] + cuts[1:] + [len(html)]
+    parts = [html[bounds[i]:bounds[i + 1]] for i in range(len(bounds) - 1)]
+    assert ''.join(parts) == html, '%s: the chapter split lost or moved markup' % slug
+    pool = _photographs(html)
+    film = None if pool else hero_media(slug, html)
+    used, out, last = set(), [], None
+    for k, part in enumerate(parts):
+        own = _photographs(part)
+        pick = own[0] if own else next((u for u in pool if u not in used), last)
+        if pick is None and k:
+            pick = film                      # a page with no stills falls back to its own opening film
+        if pick:
+            used.add(pick)
+        out.append((_label(part), part, pick or last))
+        last = pick or last
+    # A chapter that found nothing looks back; the opening chapter looks forward, so no chapter is ever bare — except
+    # on a film-only page, where the opening chapter IS the film, full-bleed, and a second copy behind it is waste.
+    first = next((b for _, _, b in out if b), None)
+    return [(lab, mk, bd or (None if not (k or pool) else first)) for k, (lab, mk, bd) in enumerate(out)]
+
+
+def _photographs(markup):
+    """Every still the markup names, in order — a film's poster counts, a mark or an icon does not."""
+    out = []
+    for m in _PHOTO.finditer(markup):
+        u = (m.group(2) or m.group(3) or '').strip()
+        if (not u or u.startswith('data:') or u in out or any(s in u for s in _NOT_A_BACKDROP)
+                or not re.search(r'\.(?:jpe?g|png|webp|avif)(?:$|[?#])', u, re.I)):
+            continue
+        out.append(u)
+    return out
+
+
+def _label(markup):
+    """The chapter's own first heading, plain text. A divider band introduces the section under it, so its heading is
+    the chapter's; where a chapter has no heading at all the rail carries a tick and no line."""
+    m = _HEADING.search(markup)
+    if not m:
+        return ''
+    import html as H
+    return re.sub(r'\s+', ' ', H.unescape(re.sub(r'<[^>]+>', ' ', m.group(2)))).strip()
+
+
 def after_footer(slug):
     """The markup the live page prints after its footer — on eleven of the twelve that is the `>_` portal button,
     which is site content, not chrome, and would otherwise be the one text unit the new page dropped."""

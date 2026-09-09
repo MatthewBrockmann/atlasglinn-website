@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="66f6acd28a38">
+<meta name="build" content="fbb9d6985b07">
 <title>Careers - Atlas Glinn | Join the Elite</title>
 <meta name="description" content="Join Atlas Glinn's elite security team. Open positions for Personal Protection Officers and Commissioned Security Guards in Houston, TX.">
 <meta name="keywords" content="security careers Houston TX, executive protection jobs, security guard jobs Houston, Atlas Glinn careers, armed security positions">
@@ -317,11 +317,81 @@ body.intro-open { overflow:hidden; }
 .footer-awards img { height:72px; }}
   #intro-title { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(1.9rem,6.2vw,3.6rem); letter-spacing:.14em; line-height:1.1; text-transform:uppercase; background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; text-shadow:0 0 60px rgba(201,168,76,.35); animation:shimmer 3s linear infinite; }
   @media (prefers-reduced-motion: reduce) { #intro-title { animation:none; } }
+
+  /* ── The 3D scene, the backdrop and the film grain: four fixed layers under the content ── */
+  #agx-canvas { position:fixed; inset:0; width:100vw; height:100vh; height:100svh; z-index:1; pointer-events:none; }
+  #agx-photos { position:fixed; inset:0; z-index:2; pointer-events:none; }
+  /* The outgoing photograph leaves faster than the incoming one arrives, so the two never stack to a brighter frame
+     mid-switch (Brockmann, 2026-09-04: "the background pulled forward"). */
+  .agx-ph { position:absolute; inset:0; background:center/cover no-repeat; opacity:0; transition:opacity .6s ease; filter:saturate(.72) contrast(1.06); }
+  .agx-ph.agx-on { opacity:.42; transition:opacity 1.6s ease .3s; }
+  .agx-ph::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.42) 0%, rgba(5,8,16,.08) 45%, rgba(5,8,16,.72) 100%); }
+  /* A chapter's backdrop can be the page's own film instead of a still, on the four pages that carry no photograph at
+     all (Brockmann, 2026-09-05: "the video should be in the background, just a snippet playing"). Same file, same URL,
+     already loaded by the hero — it plays only while its chapter is on screen. */
+  .agx-ph video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0; transition:opacity 1.2s ease; }
+  .agx-ph video.agx-playing { opacity:1; }
+  .agx-ph.agx-film.agx-on { opacity:.58; }
+  .agx-ph.agx-yt iframe { position:absolute; top:50%; left:50%; width:100vw; height:56.25vw; min-height:100%; min-width:177.78vh; transform:translate(-50%,-50%); border:0; pointer-events:none; opacity:0; transition:opacity 1.2s ease; }
+  .agx-ph.agx-yt iframe.agx-playing { opacity:1; }
+  .agx-grain { position:fixed; inset:0; z-index:3; pointer-events:none; opacity:.035; background-image:repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(255,255,255,.3) 2px, rgba(255,255,255,.3) 3px); mix-blend-mode:overlay; }
+  .agx-vignette { position:fixed; inset:0; z-index:4; pointer-events:none; background:radial-gradient(ellipse at center, transparent 0%, transparent 55%, rgba(5,8,16,.75) 100%); }
+  /* ── The read-position line, on the bar's top edge rather than behind it ── */
+  #agx-progress { position:fixed; top:0; left:0; height:2px; width:0; background:linear-gradient(90deg, #2F7BEF, #DCEBFF, #0E3F8C); z-index:1001; box-shadow:0 0 14px rgba(26,107,222,.7); transition:width .1s linear; pointer-events:none; }
+  /* ── Chapters: each live section, full-bleed over its own backdrop ──
+     display:grid with one 100% column and width:100% on the child, NOT flex: the live sections centre themselves with
+     `max-width:1400px; margin:0 auto`, and an auto cross-axis margin in a flex column shrinks the item to fit-content —
+     which is the shape of the render P0 that pinned a hero column to the left of the viewport. A definite width keeps
+     the auto margins splitting the remainder, so the live layout is exactly what it was. */
+  .agx-content { position:relative; z-index:5; }
+  .agx-ch { position:relative; min-height:100vh; min-height:100svh; display:grid; grid-template-columns:100%; align-content:center; }
+  .agx-ch > * { width:100%; }
+  .agx-ch::before { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(180deg, rgba(8,12,20,.58) 0%, rgba(8,12,20,.3) 42%, rgba(8,12,20,.72) 100%); }
+  .agx-ch.agx-hero::before { background:none; }
+  /* Entrance motion. The opacity rule is gated on a class the script adds at boot, so a page whose JS never runs —
+     or whose IntersectionObserver never fires — shows every chapter at full strength. Nothing on an Atlas page is
+     allowed to be invisible because a script did not arrive. */
+  html.agx-motion .agx-ch { opacity:0; transform:translateY(26px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
+  html.agx-motion .agx-ch.agx-in { opacity:1; transform:translateY(0); }
+  html.agx-motion { scroll-behavior:smooth; }
+  /* ── Chapter rail: MAST's, in its tick form, so it sits in the live section's own right padding and moves nothing.
+     A <div>, never a <nav> — the live stylesheet styles a bare `nav` and would fix it to the top and slide it away. ── */
+  .agx-rail { position:fixed; right:.45rem; top:50%; transform:translateY(-50%); z-index:900; display:none; flex-direction:column; gap:.4rem; align-items:flex-end; font-family:'Inconsolata',monospace; font-size:.6rem; }
+  .agx-rail-link { display:flex; align-items:center; justify-content:flex-end; gap:.5rem; padding:.32rem .4rem; color:var(--text); font-weight:700; letter-spacing:.25em; text-transform:uppercase; text-decoration:none; text-shadow:0 1px 10px rgba(0,0,0,.9); border:1px solid transparent; transition:color .3s, border-color .3s, background .3s; }
+  .agx-rail-link span { max-width:0; overflow:hidden; white-space:nowrap; opacity:0; transition:max-width .35s ease, opacity .35s ease; }
+  .agx-rail-link::after { content:''; width:17px; height:2px; flex:none; background:rgba(240,244,255,.5); box-shadow:0 1px 6px rgba(0,0,0,.9); transition:width .3s, background .3s; }
+  .agx-rail-link:hover { color:var(--gold-champagne); border-color:rgba(26,107,222,.35); background:rgba(5,8,16,.7); }
+  .agx-rail-link:hover span { max-width:13rem; opacity:1; }
+  .agx-rail-link.agx-active { color:var(--gold-champagne); }
+  .agx-rail-link:hover::after, .agx-rail-link.agx-active::after { width:30px; background:var(--gold); box-shadow:0 0 10px rgba(26,107,222,.6); }
+  @media (min-width:1025px) { .agx-rail { display:flex; } }
+  /* The live sections are 1400px wide and centred, so below 1700px there is no margin to print a chapter's line in
+     without covering its own text: the rail stays a column of ticks and gives the line on hover. Above it, the
+     reading position carries its label the way the trailer's rail does. */
+  @media (min-width:1700px) { .agx-rail { right:1.4rem; } .agx-rail-link.agx-active span { max-width:13rem; opacity:1; } }
+  @media (prefers-reduced-motion: reduce) { html.agx-motion .agx-ch { opacity:1; transform:none; transition:none; } html.agx-motion { scroll-behavior:auto; } }
+  @media (max-width:768px) { .agx-ph.agx-on { opacity:.35; } .agx-ph.agx-film.agx-on { opacity:.5; } .agx-ch { min-height:auto; } }
 </style>
 </head>
 <body>
 <script>(function(){try{var m=document.querySelector('meta[name="build"]');if(!m||!m.content)return;var mine=m.content,p=location.pathname.split('/').pop()||'index.html';fetch('build-manifest.json?'+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){var want=j&&j[p];if(!want||want===mine)return;var q=new URLSearchParams(location.search);if(q.get('v')===want)return;q.set('v',want);location.replace(location.pathname+'?'+q.toString()+location.hash)}).catch(function(){})}catch(e){}})();</script>
 
+<canvas id="agx-canvas" aria-hidden="true"></canvas>
+<div id="agx-photos" aria-hidden="true">
+  <div class="agx-ph" data-for="01" style="background-image:url('https://atlasglinn.com/wp-content/themes/atlasglinn/images/gallery/IMG_0398.jpg')"></div>
+  <div class="agx-ph" data-for="02" style="background-image:url('https://atlasglinn.com/wp-content/themes/atlasglinn/images/gallery/IMG_0398.jpg')"></div>
+  <div class="agx-ph" data-for="03" style="background-image:url('https://atlasglinn.com/wp-content/themes/atlasglinn/images/gallery/IMG_0398.jpg')"></div>
+  <div class="agx-ph" data-for="04" style="background-image:url('https://atlasglinn.com/wp-content/themes/atlasglinn/images/gallery/IMG_0398.jpg')"></div>
+</div>
+<div class="agx-grain" aria-hidden="true"></div>
+<div class="agx-vignette" aria-hidden="true"></div>
+<div id="agx-progress" aria-hidden="true"></div>
+<div class="agx-rail" role="navigation" aria-label="Chapters">
+  <a class="agx-rail-link" href="#agx-c1"><span>Details Matter</span></a>
+  <a class="agx-rail-link" href="#agx-c2"><span>Open Positions</span></a>
+  <a class="agx-rail-link" href="#agx-c3"><span>Why Atlas Glinn</span></a>
+  <a class="agx-rail-link" href="#agx-c4"><span>Reviews</span></a>
+</div>
 <div id="intro-overlay">
   <canvas class="intro-ring" id="intro-ring" aria-hidden="true"></canvas>
   <div id="intro-content">
@@ -374,7 +444,8 @@ body.intro-open { overflow:hidden; }
   <a href="privacy.html">Privacy Policy<small>What we keep, and for how long</small></a>
 </div>
 
-<!-- ══════════ HERO ══════════ -->
+<div class="agx-content">
+<div class="agx-ch agx-hero" id="agx-c1" data-agx-ch="01"><!-- ══════════ HERO ══════════ -->
 <section class="hero">
     <img class="hero-bg-img" src="https://atlasglinn.com/wp-content/themes/atlasglinn/images/gallery/IMG_0398.jpg" alt="Atlas Glinn Careers" style="object-position:center 20%;">
     <div class="hero-overlay" style="background:linear-gradient(180deg, rgba(8,12,20,0.15) 0%, rgba(8,12,20,0.45) 100%);"></div>
@@ -385,7 +456,8 @@ body.intro-open { overflow:hidden; }
 </section>
 
 <!-- ══════════ OPEN POSITIONS ══════════ -->
-<div class="section-divider">
+</div>
+<div class="agx-ch" id="agx-c2" data-agx-ch="02"><div class="section-divider">
     <h2>Open <span class="gold-shimmer">Positions</span></h2>
     <p>We are looking for driven professionals ready to join a world-class security team</p>
 </div>
@@ -434,7 +506,8 @@ body.intro-open { overflow:hidden; }
 </section>
 
 <!-- ══════════ WHY ATLAS GLINN ══════════ -->
-<div class="section-divider">
+</div>
+<div class="agx-ch" id="agx-c3" data-agx-ch="03"><div class="section-divider">
     <h2>Why Atlas <span class="gold-shimmer">Glinn</span></h2>
     <p>What sets us apart from the rest</p>
 </div>
@@ -484,7 +557,8 @@ body.intro-open { overflow:hidden; }
 </section>
 
 <!-- ══════════ REVIEWS ══════════ -->
-<div class="section-divider">
+</div>
+<div class="agx-ch" id="agx-c4" data-agx-ch="04"><div class="section-divider">
     <h2><span class="gold-shimmer">Reviews</span></h2>
     <p>Google Reviews & LinkedIn Recommendations</p>
 </div>
@@ -532,7 +606,8 @@ body.intro-open { overflow:hidden; }
     </div>
 </section>
 
-<!-- ══════════ FOOTER ══════════ -->
+<!-- ══════════ FOOTER ══════════ --></div>
+</div>
 
 <footer class="site-footer">
   <div class="footer-container"><div class="footer-awards"><div class="badge-item"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div><div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div><div class="footer-grid"><div class="footer-section"><h4>Atlas Glinn</h4><ul><li><a href="index.html">Home</a></li><li><a href="executive-protection.html">Executive Protection</a></li><li><a href="residential-protection.html">Residential Protection</a></li><li><a href="disaster-recovery.html">Disaster Recovery</a></li><li><a href="technology.html">Technology</a></li><li><a href="ep-app.html">Atlas EP App</a></li></ul></div><div class="footer-section"><h4>MAST Solutions</h4><ul><li><a href="training.html">Training Programs</a></li><li><a href="ep-app.html">Atlas EP Platform</a></li><li><a href="cuas-aerodefense.html">Counter-Drone Solutions</a></li><li><a href="uas.html">Autonomous UAS</a></li><li><a href="https://www.mastsolutions.com/">MAST Solutions</a></li></ul></div><div class="footer-section"><h4>Company</h4><ul><li><a href="about.html">About Us</a></li><li><a href="careers.html">Careers</a></li><li><a href="contact.html">Contact</a></li></ul></div><div class="footer-section"><h4>Connect</h4><p>2450 Fondren Rd, Suite 255<br>Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a><br><a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p><div class="footer-social"><a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a><a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a><a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a><a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a><a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a><a href="https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063" target="_blank" rel="noopener" data-track="review">Google Reviews</a></div></div></div><div class="footer-bottom"><a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a></div></div>
@@ -707,6 +782,89 @@ if (ring && !reduce) {
 </script>
 <script>
 (function () {
+  var doc = document.documentElement;
+  var chs = [].slice.call(document.querySelectorAll('.agx-ch'));
+  var phs = [].slice.call(document.querySelectorAll('#agx-photos .agx-ph'));
+  var links = [].slice.call(document.querySelectorAll('.agx-rail-link'));
+  var bar = document.getElementById('agx-progress');
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!chs.length) return;
+
+  // ── Backdrops ── one chapter's photograph or film at a time; a film plays only while its chapter is on screen.
+  var photoIdx = -1;
+  function setPhoto(i) {
+    if (i === photoIdx) return; photoIdx = i;
+    phs.forEach(function (p, k) {
+      var on = k === i;
+      p.classList.toggle('agx-on', on);
+      var v = p.querySelector('video');
+      if (v) { if (on && !reduce) { var q = v.play(); if (q && q.catch) q.catch(function () {}); } else v.pause(); }
+      var f = p.querySelector('iframe[data-src]');
+      if (f) {
+        if (on && !reduce) { if (!f.getAttribute('src')) { f.addEventListener('load', function () { f.classList.add('agx-playing'); }, { once: true }); f.src = f.dataset.src; } }
+        else if (f.getAttribute('src')) { f.classList.remove('agx-playing'); f.removeAttribute('src'); }
+      }
+    });
+  }
+  document.querySelectorAll('#agx-photos video').forEach(function (v) {
+    v.addEventListener('playing', function () { v.classList.add('agx-playing'); });
+  });
+  window.agxSetPhoto = setPhoto;
+
+  // ── Entrance motion ── the class that arms it is added here, so a page whose script never ran shows everything.
+  function reveal(el) { el.classList.add('agx-in'); }
+  if (reduce || !('IntersectionObserver' in window)) { chs.forEach(reveal); }
+  else {
+    doc.classList.add('agx-motion');
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        reveal(e.target); io.unobserve(e.target);
+        setTimeout(function () { unhide(e.target); }, 700);
+      });
+    }, { threshold: 0, rootMargin: '0px 0px -8% 0px' });
+    chs.forEach(function (c) { io.observe(c); });
+    // Belt and braces: anything within a screen and a bit of the top turns on after three seconds whatever the
+    // observer did, so a chapter can never be left at opacity 0 in front of a reader.
+    setTimeout(function () { chs.forEach(function (c) { if (c.getBoundingClientRect().top < innerHeight * 1.25) { reveal(c); unhide(c); } }); }, 3000);
+  }
+
+  // ── The live page's own reveals ──
+  // Eleven of the twelve pages reveal their blocks on scroll with `.reveal` → `.active`; ep-app uses `.fade-in` →
+  // `.visible`. Measured on main at 1440x900: after a full scroll pass, 11 blocks on index, 11 on training and 15 on
+  // ep-app were still at opacity 0 — service cards, testimonials, discipline cards, hardware cards. A block a reader
+  // has scrolled to is not allowed to stay invisible, so when a chapter arrives its own blocks are turned on with the
+  // page's own class. The live observer usually gets there first; this only ever closes a gap.
+  var LIVE_REVEALS = [['.reveal', 'active'], ['.fade-in', 'visible']];
+  function unhide(root) {
+    if (!root) return;
+    LIVE_REVEALS.forEach(function (pair) {
+      [].slice.call(root.querySelectorAll(pair[0])).forEach(function (el) { el.classList.add(pair[1]); });
+    });
+  }
+
+  // ── Read position and the rail ──
+  var active = -1;
+  function here() { var mid = innerHeight * .45, idx = 0; chs.forEach(function (s, i) { if (s.getBoundingClientRect().top <= mid) idx = i; }); return idx; }
+  function onScroll() {
+    var total = document.documentElement.scrollHeight - innerHeight;
+    if (bar) bar.style.width = (Math.max(0, Math.min(1, scrollY / Math.max(1, total))) * 100) + '%';
+    var idx = here();
+    if (idx === active) return;
+    active = idx;
+    links.forEach(function (l, k) { l.classList.toggle('agx-active', k === idx); });
+    setPhoto(idx);
+    // The chapter being read, the one behind it and the one arriving from the bottom of the window.
+    [idx - 1, idx, idx + 1].forEach(function (k) { if (chs[k]) { reveal(chs[k]); unhide(chs[k]); } });
+  }
+  addEventListener('scroll', onScroll, { passive: true });
+  addEventListener('resize', onScroll, { passive: true });
+  onScroll();
+  setPhoto(0);
+})();
+</script>
+<script>
+(function () {
   var API = 'https://mast-booking-backend.matthew-221.workers.dev';
   var KEY = 'mast_first_touch', VKEY = 'mast_visitor';
   function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -741,6 +899,137 @@ if (ring && !reduce) {
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready); else ready();
 })();
+</script>
+<script type="module">import * as THREE from './vendor/three.module.js';
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const mobile = matchMedia('(max-width: 768px)').matches;
+
+// ── Three: the Tier 3 emblem scene ──
+const canvas = document.getElementById('agx-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, alpha: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.5 : 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050810);
+scene.fog = new THREE.FogExp2(0x0B1221, 0.03);
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 1000);
+camera.position.set(0, 0, 9);
+
+// Lights — all warm
+scene.add(new THREE.AmbientLight(0x0a1020, 0.5));
+const keyL = new THREE.DirectionalLight(0x1A6BDE, 3.0); keyL.position.set(6, 10, 7); scene.add(keyL);
+const rimL = new THREE.DirectionalLight(0x0E3F8C, 1.6); rimL.position.set(-7, -4, -5); scene.add(rimL);
+const fillL = new THREE.DirectionalLight(0x5B9BFF, 0.9); fillL.position.set(0, -8, 3); scene.add(fillL);
+const pt = new THREE.PointLight(0xDCEBFF, 3.5, 18); pt.position.set(0, 0, 4); scene.add(pt);
+
+// Reflective floor
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(140, 140, 40, 40),
+  new THREE.MeshStandardMaterial({ color: 0x0B1221, metalness: .95, roughness: .28, emissive: 0x080808, emissiveIntensity: .15 }));
+floor.rotation.x = -Math.PI / 2; floor.position.y = -4.5; scene.add(floor);
+
+// Distant peaks
+const peaks = new THREE.Group();
+for (let i = 0; i < 11; i++) {
+  const m = new THREE.Mesh(new THREE.ConeGeometry(2 + Math.random() * 2.2, 4.5 + Math.random() * 4, 5),
+    new THREE.MeshStandardMaterial({ color: 0x0B1221, roughness: 1, metalness: 0 }));
+  m.position.set(-34 + i * 7 + Math.random() * 3, -3.5, -23 - Math.random() * 7);
+  m.rotation.y = Math.random() * Math.PI; peaks.add(m);
+}
+scene.add(peaks);
+
+// Hero emblem: hexagonal shield, rings, bars, gem, shards
+const emblem = new THREE.Group();
+const gold = new THREE.MeshStandardMaterial({ color: 0x1A6BDE, metalness: 1, roughness: .12, emissive: 0x081a3a, emissiveIntensity: .4 });
+const copper = new THREE.MeshStandardMaterial({ color: 0x0E3F8C, metalness: 1, roughness: .18, emissive: 0x071535, emissiveIntensity: .5 });
+const champagne = new THREE.MeshStandardMaterial({ color: 0x5B9BFF, metalness: 1, roughness: .1, emissive: 0x112a55, emissiveIntensity: .8 });
+const shield = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.3, 0.4, 6), gold); shield.rotation.x = Math.PI / 2; emblem.add(shield);
+const innerHex = new THREE.Mesh(new THREE.CylinderGeometry(1.75, 1.75, 0.45, 6), new THREE.MeshStandardMaterial({ color: 0x050810, metalness: .6, roughness: .4 }));
+innerHex.rotation.x = Math.PI / 2; emblem.add(innerHex);
+for (let i = 0; i < 3; i++) { const ring = new THREE.Mesh(new THREE.TorusGeometry(1.85 + i * .18, .028, 16, 128), i === 1 ? champagne : gold); ring.rotation.x = i * .08; ring.rotation.z = i * .08; emblem.add(ring); }
+for (let i = 0; i < 3; i++) { const bar = new THREE.Mesh(new THREE.BoxGeometry(.12, 2.8, .12), gold); bar.rotation.z = (Math.PI / 3) * i; emblem.add(bar); }
+emblem.add(new THREE.Mesh(new THREE.IcosahedronGeometry(.4, 1), copper));
+const shards = [];
+for (let i = 0; i < 10; i++) {
+  const s = new THREE.Mesh(new THREE.OctahedronGeometry(.08, 0), i % 2 ? champagne : gold);
+  s.userData = { a: (Math.PI * 2 * i) / 10, r: 2.6 + Math.random() * .5, sp: .4 + Math.random() * .3 };
+  emblem.add(s); shards.push(s);
+}
+scene.add(emblem);
+
+// God rays
+const rays = new THREE.Group();
+for (let i = 0; i < 14; i++) {
+  const r = new THREE.Mesh(new THREE.ConeGeometry(.08, 16, 8, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0x1A6BDE, transparent: true, opacity: .04, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+  r.rotation.z = (Math.PI * 2 * i) / 14; r.position.z = -2; rays.add(r);
+}
+scene.add(rays);
+
+// Particles: gold dust + champagne sparks
+function pts(count, color, size, range) {
+  const g = new THREE.BufferGeometry(); const p = new Float32Array(count * 3), v = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) { p[i*3] = (Math.random() - .5) * range; p[i*3+1] = (Math.random() - .5) * range * .7; p[i*3+2] = (Math.random() - .5) * range; v[i*3] = (Math.random() - .5) * .002; v[i*3+1] = (Math.random() - .5) * .002; v[i*3+2] = (Math.random() - .5) * .002; }
+  g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  const o = new THREE.Points(g, new THREE.PointsMaterial({ color, size, transparent: true, opacity: .65, blending: THREE.AdditiveBlending, depthWrite: false }));
+  o.userData = { v }; return o;
+}
+const gd = pts(mobile ? 220 : 600, 0x1A6BDE, .035, 40), ch = pts(mobile ? 60 : 150, 0x5B9BFF, .028, 30);
+scene.add(gd); scene.add(ch);
+
+// Stars
+const sg = new THREE.BufferGeometry(); const sp = new Float32Array(2200 * 3);
+for (let i = 0; i < 2200; i++) { const r = 80 + Math.random() * 40, th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1); sp[i*3] = r * Math.sin(ph) * Math.cos(th); sp[i*3+1] = r * Math.cos(ph); sp[i*3+2] = r * Math.sin(ph) * Math.sin(th); }
+sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+const stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xF0F4FF, size: .15, transparent: true, opacity: .5 }));
+scene.add(stars);
+
+
+// ── One continuous camera path ──
+// The camera reads the page's scroll fraction and nothing else. The chapter index drives the backdrop, and that lives
+// in the plain script, so this module can fail on a machine without WebGL and the page still reads and still moves.
+const chs = [...document.querySelectorAll('.agx-ch')];
+const lerp = (a, b, t) => a + (b - a) * t;
+const kf = [
+  { x: 0, y: 0, z: 9, lx: 0, ly: 0, lz: 0 },
+  { x: 3, y: 1, z: 11, lx: 0, ly: 0, lz: 0 },
+  { x: -3, y: 2, z: 13, lx: 0, ly: -1, lz: 0 },
+  { x: 0, y: -4, z: 18, lx: 0, ly: 2, lz: 0 },
+];
+function update() {
+  const total = document.documentElement.scrollHeight - innerHeight;
+  const t = Math.max(0, Math.min(1, scrollY / Math.max(1, total)));
+  const sc = t * (kf.length - 1), i = Math.floor(sc), f = sc - i;
+  const a = kf[i], b = kf[Math.min(i + 1, kf.length - 1)];
+  camera.position.set(lerp(a.x, b.x, f), lerp(a.y, b.y, f), lerp(a.z, b.z, f));
+  camera.lookAt(lerp(a.lx, b.lx, f), lerp(a.ly, b.ly, f), lerp(a.lz, b.lz, f));
+  const now = performance.now();
+  emblem.rotation.y += 0.004; emblem.rotation.x = Math.sin(now * .0004) * .14;
+  shards.forEach(s => { const ang = s.userData.a + now * .0002 * s.userData.sp; s.position.set(Math.cos(ang) * s.userData.r, Math.sin(ang * 1.3) * .6, Math.sin(ang) * s.userData.r); s.rotation.x += .02; s.rotation.y += .015; });
+  rays.rotation.z += .001;
+  emblem.position.y = -t * 2; emblem.scale.setScalar(1 - t * .25);
+  [gd, ch].forEach(p => { const pos = p.geometry.attributes.position.array, v = p.userData.v; for (let k = 0; k < pos.length; k++) pos[k] += v[k]; p.geometry.attributes.position.needsUpdate = true; });
+  gd.rotation.y = t * .3; ch.rotation.y = -t * .2; stars.rotation.y += .0002;
+  scene.fog.density = 0.03 + t * .025;
+}
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+let mx = 0;
+addEventListener('mousemove', e => { mx = (e.clientX / innerWidth - .5) * 2; });
+let paused = false;
+document.addEventListener('visibilitychange', () => { paused = document.hidden; if (!paused) animate(); });
+// The frame counter is the proof the scene is running: a render check reads it twice and compares.
+window.__agxFrames = 0;
+function animate() {
+  if (paused) return;
+  requestAnimationFrame(animate);
+  window.__agxFrames++;
+  emblem.position.x += (mx * .4 - emblem.position.x) * .04;
+  update(); renderer.render(scene, camera);
+}
+animate();
 </script>
 </body>
 </html>
