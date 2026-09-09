@@ -490,7 +490,7 @@ SECTIONS = f"""
            MAP, with dealer and volume pricing on request and free shipping over $500."). -->
       <div class="eyebrow">Store &middot; IWA</div>
       <h2 class="section-h"><span class="gold">Store.</span></h2>
-      <p class="sub">Atlas Glinn is an authorized dealer for IWA International training devices. IWA devices are priced each, three-unit minimum, hazmat shipping included; a PPC certification is required and every order is verified before fulfillment. Every item is quoted, not sold from a cart. Nothing is charged online.</p>
+      <p class="sub">Atlas Glinn is an authorized dealer for IWA International training devices. IWA devices are priced each, three-unit minimum, hazmat shipping included; a PPC certification is required and every order is verified before fulfillment. Email us about any item for availability and lead time. Nothing is charged online.</p>
       <div class="gear-panel rise" id="gear-panel"></div>
       <p class="gate-fine" style="max-width:820px;margin:1.6rem auto 0;">Tell us the item and quantity; we confirm availability and shipping by email within one business day.</p>
       {BOOK_CTA}
@@ -759,7 +759,8 @@ assert 'if(done||!i.isConnected||i.classList.contains("done")){document.removeEv
     'the splash key listener outlives the splash again: the first Enter/Space/Escape typed into a form would be swallowed'
 
 # Store chapter guards (2026-09-08). Owner, on the screenshot of chapter 12: '"GEAR" = wrong - STORE = header + IWA + Training
-# Devices + List price + OUT OF STOCK + link to add acutal product info https://iwainternationalinc.com/shop/'. One assert per
+# Devices + List price + OUT OF STOCK + link to add acutal product info https://iwainternationalinc.com/shop/' — read 23:57 UTC as: IWA's
+# shop is the SOURCE of product information for OUR cards, never a destination for buyers. One assert per
 # thing he named, so the chapter cannot quietly go back to being Gear.
 assert 'class="chap-link">12 &middot; Store</a>' in html and 'class="chap-link">12 &middot; Gear</a>' not in html, \
     'chapter 12 reads Gear again: the rail, the HUD counter and the mobile menu all take their label from CHAPTERS'
@@ -769,10 +770,12 @@ assert 'IWA Training Devices' in html, 'the brand header over the cards lost its
 assert 'list price' in html.lower(), 'the device price lost its LIST PRICE label'
 assert ('const GEAR_OUT_OF_STOCK = true;' not in html) or '<div class="gear-oos">OUT OF STOCK</div>' in html, \
     'GEAR_OUT_OF_STOCK holds but no card renders the OUT OF STOCK badge'   # the badge markup, not the phrase: the constant's own comment quotes him
-_gear_link = """(g.device ? '<a class="gear-link" href="' + esc(gearUrl(g))"""
-_iwa_urls = re.findall(r"'(https?://[^']*iwainternationalinc[^']*)'", html)
-assert _gear_link in html and len(_iwa_urls) >= 7 and all(u.startswith('https://iwainternationalinc.com/') for u in _iwa_urls), \
-    'the device cards lost their link to iwainternationalinc.com, or one of those links points off that host'
+# Owner 2026-09-08: "the link to IWA sends them to their store. We need them to buy from our store, not theirs." — no card
+# may carry an outbound IWA link; the IWA URLs stay in the page only as the SOURCE map for product information.
+assert 'class="gear-link"' not in html and 'IWA International ↗' not in html, 'a Store card links out to IWA again'
+assert 'href="https://iwainternationalinc.com' not in html and "href='https://iwainternationalinc.com" not in html, \
+    'an outbound iwainternationalinc.com href is rendered somewhere on the page'
+assert 'GEAR_PRODUCT_URL' in html, 'the IWA source map (where product information is read from) was dropped'
 assert 'id="gear"' in html and 'id="gear-panel"' in html, \
     'the Store chapter lost the #gear anchor the Atlas pages link to (mastsolutions.html#gear) or its panel'
 
@@ -873,3 +876,9 @@ _ms_sitemap = ('<?xml version="1.0" encoding="UTF-8"?>\n'
 open(f'{REPO}/dist/mastsolutions/robots.txt', 'w', encoding='utf-8').write(_ms_robots)
 open(f'{REPO}/dist/mastsolutions/sitemap.xml', 'w', encoding='utf-8').write(_ms_sitemap)
 print('wrote dist/mastsolutions/robots.txt + sitemap.xml')
+
+# In Action is photographs only (owner, 2026-09-08/09: "This is a video and does not belong" / "NOT VIDEOS"): no clip may
+# be a gallery tile. The tiles.txt list is what the assembler reads, so the check is on the list and on the built page.
+_gallery_tiles = [l.strip() for l in open(os.path.join(REPO, 'images', 'mast', 'gallery', 'tiles.txt'), encoding='utf-8') if l.strip() and not l.startswith('#')]
+assert not [t for t in _gallery_tiles if t.lower().endswith(('.mp4', '.mov', '.webm', '.m4v'))], 'a clip is listed as an In Action tile: ' + str([t for t in _gallery_tiles if t.lower().endswith(('.mp4', '.mov', '.webm', '.m4v'))])
+assert 'gallery/g14.mp4' not in html, 'the shoot-house clip is back in the In Action grid'
