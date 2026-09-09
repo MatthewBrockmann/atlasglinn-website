@@ -17,7 +17,8 @@
  *   - NEVER eligibility_answers (nor the eligibility columns beyond the cleared/flagged status). Those never leave D1.
  *   - Consent is separate from purchase: only an explicit newsletter tick (registration or /subscribe) puts an address in
  *     the audience or in Mailchimp. Journeys are transactional (a booked class) and go to the participant only.
- *   - Everything staff-facing is behind ADMIN_KEY (header X-Admin-Key or ?key=); /admin is noindex, no-store.
+ *   - Everything staff-facing is behind ADMIN_KEY, in the X-Admin-Key HEADER only (the ?key= form was removed
+ *     2026-09-09: a key in a URL lands in history, in a Referer and in every log on the way); /admin is noindex, no-store.
  */
 import { directionsAttachment } from './directions.js';
 

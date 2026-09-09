@@ -158,7 +158,7 @@ jobs:
           WORKER: https://mast-booking-backend.matthew-221.workers.dev
         run: |
           if [ -z "$ADMIN_KEY" ]; then
-            echo "::notice::Stripe Tax: no ADMIN_KEY secret in this job, so this step asked the Worker for nothing — and nothing is pending on it. The Worker sets Stripe Tax up itself (daily cron, and the first checkout that finds the account not collecting) and it never puts automatic_tax on a Checkout Session for an account it has not measured as active, so a deploy without this secret cannot produce a tax-broken checkout. The Smoke-test the MAST Worker workflow reports tax_ready and the tax:last_run heartbeat. Set a repository secret ADMIN_KEY (Settings -> Secrets and variables -> Actions -> Repository secrets) only to have the setup run here immediately instead of on the next cron."
+            echo "::notice::Stripe Tax: no ADMIN_KEY secret in this job, so this step asked the Worker for nothing — and nothing is pending on it. The Worker sets Stripe Tax up itself (the daily cron, and a refresh that runs BEHIND a checkout which finds no fresh measurement - never on the customer's path, and at most one per minute) and it never puts automatic_tax on a Checkout Session for an account it has not measured as collecting, so a deploy without this secret cannot produce a tax-broken checkout. The Smoke-test the MAST Worker workflow reports tax_ready and the tax:last_run heartbeat. Set a repository secret ADMIN_KEY (Settings -> Secrets and variables -> Actions -> Repository secrets) only to have the setup run here immediately instead of on the next cron."
             exit 0
           fi
           echo "::add-mask::$ADMIN_KEY"
@@ -169,7 +169,7 @@ jobs:
           ADMIN_KEY="$ADMIN_KEY" python3 - /tmp/tax.json "$code" <<'PY'
           import json, os, re, sys
           raw = open(sys.argv[1], encoding='utf-8', errors='replace').read() if os.path.exists(sys.argv[1]) else ''
-          scrub = lambda t: re.sub(r'(sk_(?:live|test)_|rk_(?:live|test)_|pk_(?:live|test)_|whsec_|re_)[A-Za-z0-9_-]+', r'\1[redacted]', str(t).replace(os.environ.get('ADMIN_KEY') or '\0', '[redacted]'))
+          scrub = lambda t: re.sub(r'(?i)Bearer\s+[A-Za-z0-9._~+/-]{8,}=*', 'Bearer [redacted]', re.sub(r'(sk_(?:live|test)_|rk_(?:live|test)_|pk_(?:live|test)_|whsec_|re_)[A-Za-z0-9_-]+', r'\1[redacted]', str(t).replace(os.environ.get('ADMIN_KEY') or '\0', '[redacted]')))
           if sys.argv[2] != '200':
               print(scrub(raw)[:2000])
               print('::error::Stripe Tax setup did not answer 200 (HTTP %s), so this job could not confirm the account is collecting. Checkout is NOT broken by this: the Worker only sends automatic_tax on an account it has measured as active, so sessions keep working untaxed. What is wrong is that Texas sales tax is not being charged - read the step above for which step Stripe refused.' % sys.argv[2])
@@ -177,13 +177,15 @@ jobs:
           d = json.loads(raw)
           st = (d.get('settings') or {}); reg = d.get('registration') or {}; cache = d.get('tax_ready_cache') or {}; run = d.get('last_run')
           for n in d.get('notes') or []: print('   ' + scrub(str(n)))
-          print('   settings.status=%s head_office_set=%s' % (st.get('status'), st.get('head_office_set')))
-          print('   registration id=%s status=%s type=%s collecting=%s created_now=%s' % (reg.get('id'), reg.get('status'), reg.get('type'), reg.get('collecting'), reg.get('created_now')))
-          print('   tax_ready=%s (%s) measured %ss ago, cached=%s' % (d.get('tax_ready'), d.get('tax_ready_reason'), cache.get('age_seconds'), cache.get('cached')))
+          # The Worker scrubs these at the source now (taxSafe, src/worker.js). They are scrubbed here too because a
+          # log layer that trusts its input is the layer that prints the one field the other one missed.
+          print('   settings.status=%s head_office_set=%s' % (scrub(st.get('status')), st.get('head_office_set')))
+          print('   registration id=%s status=%s type=%s collecting=%s created_now=%s' % (scrub(reg.get('id')), scrub(reg.get('status')), scrub(reg.get('type')), reg.get('collecting'), reg.get('created_now')))
+          print('   tax_ready=%s (%s) measured %ss ago, cached=%s' % (d.get('tax_ready'), scrub(d.get('tax_ready_reason')), cache.get('age_seconds'), cache.get('cached')))
           if run: print('   last setup run: %s  outcome=%s  age=%sh  stale=%s' % (run.get('at'), scrub(run.get('outcome')), run.get('age_hours'), run.get('stale')))
           else:   print('   last setup run: none recorded yet (this run is the first, or D1 is not bound)')
           if d.get('tax_ready') is not True:
-              print('::error::Stripe Tax is still NOT collecting after the setup run: tax_ready=%s (%s). Checkout keeps working - the Worker will not put automatic_tax on a session for an account it has not measured as active - but Texas sales tax is NOT being charged on it. The notes above name the step that refused; a fresh account usually has to accept the Stripe Tax terms once, which is an account-holder action nothing here can do for you. A registration showing status=scheduled starts collecting on its active_from date and needs no action.' % (d.get('tax_ready'), d.get('tax_ready_reason')))
+              print('::error::Stripe Tax is still NOT collecting after the setup run: tax_ready=%s (%s) — this is a REPORT, not a broken checkout. Checkout keeps working - the Worker will not put automatic_tax on a session for an account it has not measured as active - but Texas sales tax is NOT being charged on it. The notes above name the step that refused; a fresh account usually has to accept the Stripe Tax terms once, which is an account-holder action nothing here can do for you. A registration showing status=scheduled starts collecting on its active_from date and needs no action.' % (d.get('tax_ready'), scrub(d.get('tax_ready_reason'))))
               sys.exit(1)
           print('Stripe Tax is collecting: settings active, US/TX state_sales_tax active. Tax-enabled checkout is live on this deploy.')
           PY

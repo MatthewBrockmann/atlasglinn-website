@@ -185,7 +185,7 @@ jobs:
           # print the first 400 bytes of that body VERBATIM into the job summary, walking straight past the scrub defined
           # two lines below its own call (security review, 2026-09-09: reproduced with an edge error page carrying a key
           # shape). One function, used by both blocks, so the unparseable path is scrubbed exactly like the JSON one.
-          scrub_head () { ADMIN_KEY="$ADMIN_KEY" python3 -c 'import os,re,sys;t=open(sys.argv[1],encoding="utf-8",errors="replace").read()[:400];k=os.environ.get("ADMIN_KEY");t=t.replace(k,"[redacted]") if k else t;print(re.sub(r"(sk_(?:live|test)_|rk_(?:live|test)_|pk_(?:live|test)_|whsec_|re_)[A-Za-z0-9_-]+",r"\1[redacted]",t))' "$1"; }
+          scrub_head () { ADMIN_KEY="$ADMIN_KEY" python3 -c 'import os,re,sys;t=open(sys.argv[1],encoding="utf-8",errors="replace").read()[:400];k=os.environ.get("ADMIN_KEY");t=t.replace(k,"[redacted]") if k else t;t=re.sub(r"(sk_(?:live|test)_|rk_(?:live|test)_|pk_(?:live|test)_|whsec_|re_)[A-Za-z0-9_-]+",r"\1[redacted]",t);print(re.sub(r"(?i)Bearer\s+[A-Za-z0-9._~+/-]{8,}=*","Bearer [redacted]",t))' "$1"; }
           # The CRM figures, in this run's job summary and nowhere else.
           if [ -n "$ADMIN_KEY" ]; then
             code=$(curl -sS -m 40 -o /tmp/crm.json -w '%{http_code}' -H "X-Admin-Key: $ADMIN_KEY" "$WORKER/admin/crm?view=summary" || echo ERR)
@@ -208,10 +208,11 @@ jobs:
             { echo; echo '### Stripe Tax — Houston, Texas (read-only; nothing was written)'; echo '```'; echo "HTTP $code"
               ADMIN_KEY="$ADMIN_KEY" python3 - /tmp/tax.json <<'PY' || scrub_head /tmp/tax.json
           import json, os, re, sys
-          scrub = lambda t: re.sub(r'(sk_(?:live|test)_|rk_(?:live|test)_|pk_(?:live|test)_|whsec_|re_)[A-Za-z0-9_-]+', r'\1[redacted]', str(t).replace(os.environ.get('ADMIN_KEY') or '\0', '[redacted]'))
+          scrub = lambda t: re.sub(r'(?i)Bearer\s+[A-Za-z0-9._~+/-]{8,}=*', 'Bearer [redacted]', re.sub(r'(sk_(?:live|test)_|rk_(?:live|test)_|pk_(?:live|test)_|whsec_|re_)[A-Za-z0-9_-]+', r'\1[redacted]', str(t).replace(os.environ.get('ADMIN_KEY') or '\0', '[redacted]')))
           d = json.load(open(sys.argv[1])); st = d.get('settings') or {}; reg = d.get('registration') or {}; cache = d.get('tax_ready_cache') or {}; run = d.get('last_run')
-          print('   settings status=%s head_office_set=%s' % (st.get('status'), st.get('head_office_set')))
-          print('   US/TX registration id=%s status=%s type=%s' % (reg.get('id'), reg.get('status'), reg.get('type')))
+          # Scrubbed here as well as at the source: two layers, one pattern set, and neither trusts the other's coverage.
+          print('   settings status=%s head_office_set=%s' % (scrub(st.get('status')), st.get('head_office_set')))
+          print('   US/TX registration id=%s status=%s type=%s' % (scrub(reg.get('id')), scrub(reg.get('status')), scrub(reg.get('type'))))
           # collecting is the WORKER's own measurement (tax_ready), not this workflow's opinion of two fields — it is the
           # exact boolean every checkout gates on, so this line cannot disagree with what the Worker actually does.
           if d.get('tax_ready') is True:
@@ -219,7 +220,7 @@ jobs:
           elif reg.get('status') == 'scheduled':
               print('   collecting: NO — the Texas registration is SCHEDULED and starts on its active_from date: registered, not collecting yet. Nothing to do.')
           else:
-              print('   collecting: NO (%s) — the Worker retries this itself, on its daily cron and on the first checkout that finds it' % d.get('tax_ready_reason'))
+              print('   collecting: NO (%s) — the Worker retries this itself, on its daily cron and behind the next checkout that finds the measurement stale' % scrub(d.get('tax_ready_reason')))
           print('   tax_ready=%s measured %ss ago, cached=%s (TTL %ss)' % (d.get('tax_ready'), cache.get('age_seconds'), cache.get('cached'), cache.get('ttl_seconds')))
           # Wired is not firing: a setup loop that quietly stopped shows up here as a stale stamp, instead of as tax that
           # silently is not being collected.
