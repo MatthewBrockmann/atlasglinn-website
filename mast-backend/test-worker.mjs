@@ -95,6 +95,16 @@ const fakePlans = {                // memberships rows; a plan without a stripe_
 const holdsASeat = (r, live, fresh) => r.status === 'pending' && (r.stripe_session_id ? r.created_at > live : r.created_at > fresh);
 const pendingSignups = new Map();  // pending_signups rows: address_digest -> row (a sign-up nobody has verified yet)
 const rateLimits = new Map();      // rate_limits rows: key -> { key, window_start, count }
+/* EVERY key the table has ever been asked about, kept across resetLimits() (round 6). The "no key carries a plaintext
+   address" assertion used to read rateLimits.keys() at one instant, which is whatever the last few requests happened to
+   leave behind — it passed with the loginfail key back in clear, because no loginfail row existed at that moment. The
+   key is read off the statement rather than assumed to be args[0], so a family added later is covered without an edit. */
+const rateKeysEver = new Set();
+const rateKeyArg = (sql) => {
+  const m = /\bkey (?:=|LIKE) \?/.exec(sql);
+  if (m) return (sql.slice(0, m.index).match(/\?/g) || []).length;
+  return /INSERT OR IGNORE INTO rate_limits \(key,/.test(sql) ? 0 : -1;
+};
 const resetLimits = () => rateLimits.clear();   // a fresh window; the per-IP limits get their own block below
 let rateFail = false;              // flip on to make every rate_limits statement throw (the fail-closed test)
 const sqlLog = [];
@@ -127,7 +137,7 @@ const DB = {
               for (const r of registrations.values()) if (holdsASeat(r, live, fresh) && cols.every((c, i) => r[c] === args[2 + i])) n++;
               return { n };
             }
-            if (sql.includes('FROM rate_limits')) { if (rateFail) throw new Error('D1_ERROR: rate_limits unavailable'); const row = rateLimits.get(args[0]); return row ? { ...row } : null; }
+            if (sql.includes('FROM rate_limits')) { rateKeysEver.add(args[0]); if (rateFail) throw new Error('D1_ERROR: rate_limits unavailable'); const row = rateLimits.get(args[0]); return row ? { ...row } : null; }
             if (sql.includes('FROM offerings')) {
               const row = { 'MAST-DA': { sku: 'MAST-DA', name: 'Direct Action', price_cents: 69500, capacity: 10 },
                             'MAST-HG-OP': { sku: 'MAST-HG-OP', name: 'Handgun Operator', price_cents: 45000, capacity: 10 },
@@ -165,11 +175,15 @@ const DB = {
             if (sql.startsWith('DELETE FROM email_log')) { const st = (/status = '(\w+)'/.exec(sql) || [])[1]; const i = emailLog.findIndex(x => x.email === args[0] && x.ref === args[1] && x.kind === args[2] && (!st || x.status === st)); if (i >= 0) emailLog.splice(i, 1); return { meta: { changes: i >= 0 ? 1 : 0 } }; }
             if (sql.startsWith('INSERT OR IGNORE INTO worker_keys')) { const [name, created_at, key_id, public_jwk, private_jwk] = args; if (!workerKeys.has(name)) workerKeys.set(name, { name, created_at, key_id, public_jwk, private_jwk }); return { meta: { changes: 1 } }; }
             if (sql.includes('pending_signups')) {
-              if (sql.startsWith('INSERT OR REPLACE INTO pending_signups')) {
+              if (sql.startsWith('INSERT INTO pending_signups')) {
                 const cols = sql.slice(sql.indexOf('(') + 1, sql.indexOf(')')).split(',').map((c) => c.trim());
                 const vals = [...args]; vals.splice(cols.indexOf('verify_attempts'), 0, 0);   // the SQL carries 0 as a literal
                 const row = Object.fromEntries(cols.map((c, i) => [c, vals[i]]));
-                pendingSignups.set(row.address_digest, row);
+                const held = pendingSignups.get(row.address_digest);
+                // ON CONFLICT(address_digest) DO UPDATE SET … : only the columns the statement names move. verify_attempts
+                // is not one of them (round 6), and neither are created_at, created_ip or burn_cleared_at.
+                if (held) [...sql.matchAll(/(\w+) = excluded\.\w+/g)].map((m) => m[1]).forEach((c) => { held[c] = row[c]; });
+                else pendingSignups.set(row.address_digest, row);
                 return { meta: { changes: 1 } };
               }
               if (sql.startsWith('UPDATE pending_signups SET verify_attempts = verify_attempts + 1')) {
@@ -179,9 +193,11 @@ const DB = {
                 return { meta: { changes: live ? 1 : 0 } };
               }
               if (sql.startsWith('UPDATE pending_signups SET verify_code_hash = ?') && sql.includes('AND verify_code_hash IS NOT NULL')) {
+                // The burn. Columns read off the statement rather than named here, so a change to what it writes shows up
+                // as a failing assertion instead of a fake D1 that quietly keeps writing the old set (round 6).
                 const row = pendingSignups.get(args[args.length - 1]);
                 if (!row || !row.verify_code_hash) return { meta: { changes: 0 } };
-                Object.assign(row, { verify_code_hash: args[0], verify_expires_at: args[1], verify_attempts: args[2], code_sent_at: args[3] });
+                [...sql.matchAll(/(\w+) = \?/g)].map((m) => m[1]).forEach((k, i) => { row[k] = args[i]; });
                 return { meta: { changes: 1 } };
               }
               if (sql.startsWith('UPDATE pending_signups SET')) {
@@ -194,6 +210,7 @@ const DB = {
               return { meta: { changes: 0 } };
             }
             if (sql.includes('rate_limits')) {
+              const ki = rateKeyArg(sql); if (ki >= 0 && typeof args[ki] === 'string') rateKeysEver.add(args[ki]);
               if (rateFail) throw new Error('D1_ERROR: rate_limits unavailable');
               if (sql.startsWith('INSERT OR IGNORE INTO rate_limits')) { const [key, window_start, count] = args; if (rateLimits.has(key)) return { meta: { changes: 0 } }; rateLimits.set(key, { key, window_start, count }); return { meta: { changes: 1 } }; }
               if (sql.startsWith('UPDATE rate_limits SET window_start = ?, count = ?')) { const [window_start, count, key, cutoff] = args; const r = rateLimits.get(key); if (!r || !(r.window_start <= cutoff)) return { meta: { changes: 0 } }; r.window_start = window_start; r.count = count; return { meta: { changes: 1 } }; }
@@ -848,11 +865,19 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   const soon = await post('/account/register', { email: 'victim@example.com', password: 'the real owner pw', name: 'Vic Owner' });
   ok('a second sign-up within a minute → the same 202 envelope with no second email, never a 429 that confirms the address', soon.status === 202 && (await soon.json()).pending === true && emails.length === 0, String(soon.status) + ' emails=' + emails.length);
   ok('… and a sign-up that mails nothing replaces nothing either: a stranger cannot silently kill the code in a mailbox by re-posting the address', (await pendingFor('victim@example.com')).name === 'Mallory', JSON.stringify((await pendingFor('victim@example.com')).name));
-  (await pendingFor('victim@example.com')).code_sent_at = new Date(Date.now() - 120000).toISOString();   // a minute later
+  // A minute is no longer enough (round 6): the replace waits out the CODE's own fifteen minutes, because sixty seconds
+  // was all it cost a stranger to take a sign-up out from under an owner whose code was still live in their inbox.
+  (await pendingFor('victim@example.com')).code_sent_at = new Date(Date.now() - 120000).toISOString();
+  emails.length = 0;
+  const stillHeld = await post('/account/register', { email: 'victim@example.com', password: 'the real owner pw', name: 'Vic Owner' });
+  ok('a sign-up a MINUTE later no longer replaces the pending row — the same 202, no second code, and the credentials belonging to the live code stay on it',
+     stillHeld.status === 202 && emails.length === 0 && (await pendingFor('victim@example.com')).name === 'Mallory',
+     JSON.stringify({ status: stillHeld.status, mails: emails.length, name: (await pendingFor('victim@example.com')).name }));
+  (await pendingFor('victim@example.com')).code_sent_at = new Date(Date.now() - 16 * 60000).toISOString();   // the code has run out
   emails.length = 0;
   const owner = await post('/account/register', { email: 'victim@example.com', password: 'the real owner pw', name: 'Vic Owner' });
   const ownerCode = codeIn(emails[0]);
-  ok("a sign-up that DOES mail replaces the pending one — last writer wins on the pending side, where no account exists to take over", owner.status === 202 && !!ownerCode && (await pendingFor('victim@example.com')).name === 'Vic Owner', JSON.stringify({ status: owner.status, name: (await pendingFor('victim@example.com')).name }));
+  ok("a sign-up that DOES mail replaces the pending one — once the code it would replace is past its own fifteen minutes, where no account exists to take over", owner.status === 202 && !!ownerCode && (await pendingFor('victim@example.com')).name === 'Vic Owner', JSON.stringify({ status: owner.status, name: (await pendingFor('victim@example.com')).name }));
   ok("the squatter's code is dead", squatCode === ownerCode || (await post('/account/verify', { email: 'victim@example.com', code: squatCode })).status === 400);
   ok('an unknown address and a wrong code answer byte for byte the same 400', await (async () => {
     const a = await post('/account/verify', { email: 'nobody-at-all@example.com', code: '123456' });
@@ -958,9 +983,19 @@ console.log('\n── Rate limiting, lockout and seat holds (security review, 20
   for (let i = 0; i < LOGIN_FAILURES_PER_LOCK; i++) wrong.push((await post('/account/login', { email: 'lockme@example.com', password: 'not the password ' + i })).status);
   ok('five wrong passwords all answer the plain 401 — the fifth does not announce that the address exists', wrong.join() === '401,401,401,401,401', wrong.join());
   ok('… and the fifth failure set a lock 15 minutes out', rowFor('lockme@example.com').failed_logins === 5 && Date.parse(rowFor('lockme@example.com').locked_until) - Date.now() > 14 * 60000, JSON.stringify({ n: rowFor('lockme@example.com').failed_logins, until: rowFor('lockme@example.com').locked_until }));
+  // The sixth answers what the fifth answered, and what an address with no account answers (round 6). It used to answer
+  // `429 locked`, which is a per-ACCOUNT state — the lock is global — so six requests from six connections classified
+  // any address on status alone. What the lock still does is refuse a CORRECT password, which is the whole of its job.
   const sixth = await post('/account/login', { email: 'lockme@example.com', password: 'not the password 6' }); const sb = await sixth.json();
-  ok('the sixth attempt → 429 locked with retry_after and a Retry-After header', sixth.status === 429 && sb.code === 'locked' && sb.retry_after > 0 && sixth.headers.get('Retry-After') === String(sb.retry_after), String(sixth.status) + ' ' + JSON.stringify(sb));
-  ok('a locked account is refused BEFORE the password is hashed: the RIGHT password is refused too', (await post('/account/login', { email: 'lockme@example.com', password: 'a long enough password' })).status === 429);
+  const fifthBody = { error: 'That email and password do not match.', code: 'bad_login' };
+  ok('the sixth attempt answers the same 401 bad_login the fifth did, with no Retry-After and nothing that names a lock',
+     sixth.status === 401 && JSON.stringify(sb) === JSON.stringify(fifthBody) && !sixth.headers.get('Retry-After'),
+     String(sixth.status) + ' ' + JSON.stringify(sb) + ' retry-after=' + sixth.headers.get('Retry-After'));
+  ok('a locked account still refuses the RIGHT password — and refuses it with that same 401, so the refusal does not say the account exists',
+     await (async () => { const r = await post('/account/login', { email: 'lockme@example.com', password: 'a long enough password' }); return r.status === 401 && JSON.stringify(await r.json()) === JSON.stringify(fifthBody); })(),
+     'the lock shows only in that a correct password is refused');
+  ok('… and a locked account does NOT walk its own ladder up: the requests the lock refuses take the absent branch, so failed_logins stays where the fifth failure left it',
+     rowFor('lockme@example.com').failed_logins === 5, 'failed_logins=' + rowFor('lockme@example.com').failed_logins);
   ok('the lock doubles at every further five, capped at a day', lockMs(5) === 900000 && lockMs(10) === 1800000 && lockMs(15) === 3600000 && lockMs(500) === 86400000, [lockMs(5), lockMs(10), lockMs(15), lockMs(500)].join());
   ok('the lock is per account, not global: another account signs in while this one is locked', (await post('/account/login', { email: 'student@example.com', password: 'yet another long password' })).status === 200);
 
@@ -1176,7 +1211,9 @@ console.log('\n── Account oracles, limiter coverage and schema retry (securi
   const sixReal = await from('/account/login', { email: 'locksym@example.com', password: 'wrong password 6' }, ONE);
   const sixGhost = await from('/account/login', { email: GHOST, password: 'wrong password 6' }, ONE);
   ok('five wrong passwords answer 401 whether or not the address has an account', real.join() === '401,401,401,401,401' && ghost.join() === '401,401,401,401,401', real.join() + ' / ' + ghost.join());
-  ok('the SIXTH answers 429 locked for both — an invented address locks exactly as a real one does', sixReal.status === 429 && sixGhost.status === 429 && (await sixReal.clone().json()).code === 'locked' && (await sixGhost.clone().json()).code === 'locked' && (await same(sixReal, sixGhost)), sixReal.status + ' ' + (await sixReal.clone().text()) + '  vs  ' + sixGhost.status + ' ' + (await sixGhost.clone().text()));
+  ok('the SIXTH answers 401 bad_login for both — a locked address and an invented one are the same answer, byte for byte (round 6: it used to be 429 locked for both, which still separated a locked address from an unlocked one)',
+     sixReal.status === 401 && sixGhost.status === 401 && (await sixReal.clone().json()).code === 'bad_login' && (await sixGhost.clone().json()).code === 'bad_login' && (await same(sixReal, sixGhost)),
+     sixReal.status + ' ' + (await sixReal.clone().text()) + '  vs  ' + sixGhost.status + ' ' + (await sixGhost.clone().text()));
   ok('… and the lock is per (connection, address): a different address from the same connection is unaffected', (await from('/account/login', { email: 'oracle@example.com', password: 'not it either' }, ONE)).status === 401);
   ok('the right password clears the pair: a sign-in after four failures leaves no lock behind', await (async () => {
     const IP2 = '198.51.100.71';
@@ -1436,9 +1473,14 @@ console.log('\n── Uniform code routes, immovable credentials, per-connection
   ok('twenty wrong tries in total, from twenty connections, DO burn the code — six digits against twenty tries is a 0.002% chance', globalStatuses.every((s) => s === 400) && !burned.verify_code_hash, globalStatuses.length + ' tries, code live=' + !!burned.verify_code_hash);
   ok('… and the owner is emailed exactly once that it happened, with no code in the notice', emails.length === 1 && emails[0].to[0] === 'r3global@example.com' && /invalidated/i.test(emails[0].subject) && !/\b\d{6}\b/.test(emails[0].text), emails.length + ' ' + (emails[0] && emails[0].subject));
   emails.length = 0;
-  const clearedByBurn = burned.code_sent_at;
+  // The exemption is burn_cleared_at, NOT a nulled code_sent_at (round 6): the owner still gets their replacement at
+  // once, and the column /account/register's replace gate reads is left exactly where it was.
+  const stampKept = burned.code_sent_at, clearedByBurn = burned.burn_cleared_at;
   const replacement = await post('/account/resend', { email: 'r3global@example.com' });
-  ok('… and the one-a-minute throttle is lifted with the burn, so the owner asks for a replacement at once', clearedByBurn === null && replacement.status === 200 && emails.length === 1, 'sent_at=' + clearedByBurn + ' emails=' + emails.length);
+  ok('… and the one-a-minute throttle is lifted with the burn, so the owner asks for a replacement at once',
+     !!clearedByBurn && replacement.status === 200 && emails.length === 1, 'burn_cleared_at=' + clearedByBurn + ' emails=' + emails.length);
+  ok('… while code_sent_at — the column the /account/register replace gate reads — is NOT cleared, so burning a code buys a stranger no right to the row',
+     !!stampKept, 'code_sent_at=' + stampKept);
 
   /* ── H3-4: the seat claim is atomic, and it is the authority ── */
   const CLAIM_SKU = 'MAST-HG-FUND', CLAIM_DATE = '2027-01-09';   // capacity 16 in the fake catalog
@@ -1560,43 +1602,59 @@ console.log('\n── Round 4: ghost counters per address, sign-in cost symmetry
   ok('… and the fifth try costs more than the fourth on BOTH paths: the lock write is what the twin had to spend too',
      realCosts[4] > realCosts[3] && ghostCosts[4] === realCosts[4], 'real ' + realCosts.join() + ' invented ' + ghostCosts.join());
 
-  /* ── R4-3: the twenty-try burn fires even when the attacker interleaves a reissue ──
+  /* ── R4-3: the twenty-try burn fires even when the attacker interleaves a reissue, THROUGH EVERY ROUTE THAT REISSUES ──
      issueCode zeroed verify_attempts AND dropped every connection's guess counter, and /account/register,
      /account/forgot and /account/resend all reach it UNAUTHENTICATED. One reissue between every five guesses therefore
      bought an endless run of five-guess batches and deferred the global burn for ever: the probe ran 25 wrong codes
-     across five connections with a sign-up between each batch, and the code was still live with no notice sent. */
-  resetLimits(); emails.length = 0;
-  await post('/account/register', { email: 'r4burn@example.com', password: 'a long enough password' });
-  const burnRow = await pendingFor('r4burn@example.com');
+     across five connections with a sign-up between each batch, and the code was still live with no notice sent.
+
+     ALL THREE ROUTES, not just the one that was safe (round 6, 2026-09-09). This test drove the reissue through
+     /account/resend only — the one of the three named routes that never touched the counter — while PENDING_UPSERT,
+     the statement /account/register writes, bound verify_attempts to a literal 0 and reset it on every sign-up. The
+     round-4 primitive was therefore alive on the round-5 pending path and this test could not see it: swapping the one
+     line to /account/register left the code live at 20 tries with no notice sent. Each route gets its own address, its
+     own connections and its own window, and each must end with the code burned and the owner emailed exactly once.
+
+     What each route has to be stepped past before it will reissue: /account/register waits out the CODE's fifteen
+     minutes (the round-6 replace gate), /account/resend the one-a-minute throttle, and /account/forgot serves accounts
+     only — for an address that has just a pending sign-up it mails nothing at all, which is itself the assertion. */
   const { pendingGuessId } = await import('./src/ratelimit.js');
-  const burnCounter = await pendingGuessId('r4burn@example.com');
-  // Every reissue mails a NEW code, so the wrong guess is chosen against the live one each time — a fixed string would
-  // eventually BE the code and pass.
-  let liveCode = codeIn(emails[0]);
-  const wrongNow = () => (liveCode === '111111' ? '222222' : '111111');
-  emails.length = 0;
-  const burnIps = ['198.51.100.71', '198.51.100.72', '198.51.100.73', '198.51.100.74'];
-  const burnStatuses = [];
-  let sixthAfterReissue = null;
-  for (let b = 0; b < burnIps.length; b++) {
-    for (let i = 0; i < 5; i++) burnStatuses.push((await from('/account/verify', { email: 'r4burn@example.com', code: wrongNow() }, burnIps[b])).status);
-    if (b < burnIps.length - 1) {
-      // the interleaved UNAUTHENTICATED reissue — the whole primitive
-      burnRow.code_sent_at = new Date(Date.now() - 120000).toISOString();
-      emails.length = 0;
-      await from('/account/resend', { email: 'r4burn@example.com' }, '198.51.100.7' + (5 + b));
-      liveCode = codeIn(emails[emails.length - 1]) || liveCode;
-      if (b === 0) sixthAfterReissue = rateLimits.get('codeguess:' + burnIps[0] + ':' + burnCounter);
+  for (const [route, addr, mark] of [['/account/resend', 'r4burn@example.com', 'r4'], ['/account/register', 'r6burn-register@example.com', 'r6a'], ['/account/forgot', 'r6burn-forgot@example.com', 'r6b']]) {
+    resetLimits(); emails.length = 0;
+    await post('/account/register', { email: addr, password: 'a long enough password' });
+    const burnCounter = await pendingGuessId(addr);
+    // Every reissue mails a NEW code, so the wrong guess is chosen against the live one each time — a fixed string would
+    // eventually BE the code and pass.
+    let liveCode = codeIn(emails[0]);
+    const wrongNow = () => (liveCode === '111111' ? '222222' : '111111');
+    const notices = () => emails.filter((m) => /invalidated/i.test(m.subject));
+    emails.length = 0;
+    const burnIps = [1, 2, 3, 4].map((n) => '198.51.100.' + mark.length + n + '0');
+    const burnStatuses = [];
+    let sixthAfterReissue = null;
+    for (let b = 0; b < burnIps.length; b++) {
+      for (let i = 0; i < 5; i++) burnStatuses.push((await from('/account/verify', { email: addr, code: wrongNow() }, burnIps[b])).status);
+      if (b < burnIps.length - 1) {
+        // the interleaved UNAUTHENTICATED reissue — the whole primitive
+        const row = await pendingFor(addr);
+        if (row) row.code_sent_at = new Date(Date.now() - (route === '/account/register' ? 16 * 60000 : 120000)).toISOString();
+        await from(route, { email: addr, password: 'the reissuing password' }, '198.51.100.' + mark.length + b + '5');
+        const fresh = [...emails].reverse().find((m) => /verification code/i.test(m.subject));
+        liveCode = codeIn(fresh) || liveCode;
+        if (b === 0) sixthAfterReissue = rateLimits.get('codeguess:' + burnIps[0] + ':' + burnCounter);
+      }
     }
+    const burnRow = await pendingFor(addr);
+    ok('a reissue through ' + route + ' does not hand a refused connection a fresh budget: its counter still stands at five afterwards',
+       !!sixthAfterReissue && sixthAfterReissue.count === 5, JSON.stringify(sixthAfterReissue));
+    ok('twenty wrong codes with an unauthenticated reissue through ' + route + ' between every five STILL burn the code by try 20 — the global count is no longer resettable by a stranger',
+       burnStatuses.length === 20 && burnStatuses.every((st) => st === 400) && !!burnRow && !burnRow.verify_code_hash,
+       burnStatuses.length + ' tries, code live=' + !!(burnRow && burnRow.verify_code_hash));
+    ok('… and the owner is emailed once that it happened, which is the notice the reissue used to suppress entirely (' + route + ')',
+       notices().length === 1 && notices()[0].to[0] === addr,
+       emails.map((m) => m.subject).join(' | '));
   }
-  ok('a reissue does not hand a refused connection a fresh budget: its counter still stands at five afterwards',
-     !!sixthAfterReissue && sixthAfterReissue.count === 5, JSON.stringify(sixthAfterReissue));
-  ok('twenty wrong codes with an unauthenticated reissue between every five STILL burn the code — the global count is no longer resettable by a stranger',
-     burnStatuses.every((st) => st === 400) && !burnRow.verify_code_hash,
-     burnStatuses.length + ' tries, code live=' + !!burnRow.verify_code_hash);
-  ok('… and the owner is emailed once that it happened, which is the notice the reissue used to suppress entirely',
-     emails.filter((m) => /invalidated/i.test(m.subject)).length === 1 && emails.filter((m) => /invalidated/i.test(m.subject))[0].to[0] === 'r4burn@example.com',
-     emails.map((m) => m.subject).join(' | '));
+  resetLimits(); emails.length = 0;
 
   /* ── R4-4 and R4-5 are superseded by round 5 and are measured in its own block below ──
      R4-4's per-ADDRESS mail budget was a counter a stranger shared with the owner, and R4-5's 6/5/5 register split was
@@ -1691,8 +1749,8 @@ console.log('\n── Round 5: no account until a code comes back, budgets a str
      strangerStatuses.join() === '200,200,200' && strangerMails === 3 && ownerForgot.res.status === 200 && emails.length === 1 && !!ownerCode && /Reset your MAST Solutions password/.test(emails[0].subject),
      'stranger mails=' + strangerMails + ' owner mails=' + emails.length + ' ' + (emails[0] && emails[0].subject));
   const reclaimed = await from('/account/reset', { email: 'r5owner@example.com', code: ownerCode, password: 'a brand new owner password' }, '198.51.100.140');
-  ok('… so the documented escape hatch out of a sign-in lock actually works: locked out on the guessed connection, back in through the mailbox',
-     lockedNow.status === 429 && reclaimed.status === 200 && (await from('/account/login', { email: 'r5owner@example.com', password: 'a brand new owner password' }, '198.51.100.141')).status === 200,
+  ok('… so the documented escape hatch out of a sign-in lock actually works: locked out on the guessed connection (a plain 401 on the right password, round 6), back in through the mailbox',
+     lockedNow.status === 401 && reclaimed.status === 200 && (await from('/account/login', { email: 'r5owner@example.com', password: 'a brand new owner password' }, '198.51.100.141')).status === 200,
      'locked=' + lockedNow.status + ' reset=' + reclaimed.status);
   ok('… and the budgets that replaced it are keyed on the connection AND a digest, never on the address alone',
      mailKeys().length > 0 && mailKeys().every((k) => /^codemail:[^:]+:[0-9a-f]{16}$/.test(k) || /^codemailtotal:[^:]+$/.test(k)) && mailKeys().some((k) => k.startsWith('codemailtotal:')),
@@ -1717,7 +1775,9 @@ console.log('\n── Round 5: no account until a code comes back, budgets a str
   const REG_IP = '198.51.100.160';
   const regMailStatuses = [], regMailCosts = [];
   for (let i = 0; i < 4; i++) {
-    const pend = await pendingFor('r5regmail@example.com'); if (pend) pend.code_sent_at = new Date(Date.now() - 120000).toISOString();
+    // Past the CODE's own fifteen minutes, not merely past the one-a-minute throttle: since round 6 that is what makes a
+    // second sign-up at the same address mail again, and this test is about the budget, not the gate.
+    const pend = await pendingFor('r5regmail@example.com'); if (pend) pend.code_sent_at = new Date(Date.now() - 16 * 60000).toISOString();
     clearRouteWindows();
     const c = await cost('/account/register', { email: 'r5regmail@example.com', password: 'a long enough password' }, REG_IP);
     regMailStatuses.push(c.res.status); regMailCosts.push(c.statements);
@@ -1741,15 +1801,19 @@ console.log('\n── Round 5: no account until a code comes back, budgets a str
      emails.length + ' mails, total counter=' + JSON.stringify(rateLimits.get('codemailtotal:' + SPRAY_IP)));
 
   /* ── R5-2 / the round-4 P3: rate_limits must not be a list of the addresses strangers have typed ── */
-  ok('no key in rate_limits carries a plaintext address — not the mail budgets, not the sign-in failure counter',
-     [...rateLimits.keys()].every((k) => !k.includes('@')) && [...rateLimits.keys()].some((k) => k.startsWith('codemail')),
-     [...rateLimits.keys()].filter((k) => k.includes('@')).slice(0, 3).join(' ') || 'none');
   ok('… including loginfail, which carried the address in clear from round 2 until now', await (async () => {
     resetLimits();
     await from('/account/login', { email: 'r5-plaintext-probe@example.com', password: 'wrong password here' }, '198.51.100.180');
     const keys = [...rateLimits.keys()].filter((k) => k.startsWith('loginfail:'));
     return keys.length === 1 && /^loginfail:198\.51\.100\.180:[0-9a-f]{16}$/.test(keys[0]);
   })(), [...rateLimits.keys()].filter((k) => k.startsWith('loginfail:')).join(' '));
+  /* rateKeysEver, NOT rateLimits.keys() (round 6): this used to read the map at one instant — here, right after a
+     resetLimits() and a 31-request register spray, so it held codemail keys and nothing else. Putting the plaintext
+     address back into the loginfail key left it PASSING; only the loginfail-shaped regex above failed. The sweep runs
+     below that probe now, and over every key the fake table has been asked about since the first request of this file. */
+  ok('no key rate_limits has been asked about carries a plaintext address — the mail budgets, the guess counters and the sign-in failure counter alike',
+     [...rateKeysEver].every((k) => !k.includes('@')) && ['loginfail:', 'codeguess:', 'codemail:', 'codemailtotal:'].every((fam) => [...rateKeysEver].some((k) => k.startsWith(fam))),
+     [...rateKeysEver].filter((k) => k.includes('@')).slice(0, 3).join(' ') || (rateKeysEver.size + ' keys, none'));
 
   /* ── R5-1: pending_signups holds no plaintext address either ── */
   ok('a pending sign-up is keyed on a digest and stores no address: the table is not a list of half-finished sign-ups by name',
@@ -1772,6 +1836,226 @@ console.log('\n── Round 5: no account until a code comes back, budgets a str
     ok('… and the Worker self-heals the same table, so a deploy that lands ahead of the migration still takes sign-ups',
        RATE_SCHEMA.some((st) => /CREATE TABLE IF NOT EXISTS pending_signups/.test(st)) && cols.every((c) => RATE_SCHEMA.some((st) => st.includes('pending_signups') && st.includes(c))),
        String(RATE_SCHEMA.filter((st) => st.includes('pending_signups')).length));
+  }
+
+  resetLimits(); emails.length = 0;
+}
+
+console.log('\n── Round 6: a pending row a stranger cannot take, a burn that keeps the throttle stamp, a lock that reads as a wrong password (security review round 6, 2026-09-09) ──');
+{
+  const from = (path, body, ip) => post(path, body, 'https://mastsolutions.com', ip);
+  const rowFor = (email) => [...accounts.values()].find((a) => a.email === email);
+  const codeIn = (m) => (/\b(\d{6})\b/.exec((m && m.text) || '') || [])[1];
+  const lastCode = () => codeIn([...emails].reverse().find((m) => /verification code/i.test(m.subject)));
+  const notices = (to) => emails.filter((m) => /invalidated/i.test(m.subject) && m.to[0] === to);
+  const cost = async (path, body, ip) => {
+    const before = sqlLog.length, t0 = performance.now();
+    const res = await from(path, body, ip);
+    return { res, statements: sqlLog.length - before, ms: performance.now() - t0 };
+  };
+  const clearRouteWindows = () => { for (const k of [...rateLimits.keys()]) if (/^(login|signup|code|verify|seat|contact|subscribe|admin|event):/.test(k)) rateLimits.delete(k); };
+  /** Step the row's code_sent_at back, which is the only clock these tests can move. */
+  const age = async (email, ms) => { const r = await pendingFor(email); if (r) r.code_sent_at = new Date(Date.now() - ms).toISOString(); return r; };
+  /** Twenty wrong codes across four connections — five each, the per-connection cap — which is what burns a code. */
+  const burnFrom = async (email, live, ips) => {
+    const st = [];
+    for (const ip of ips) for (let i = 0; i < 5; i++) st.push((await from('/account/verify', { email, code: live === '111111' ? '222222' : '111111' }, ip)).status);
+    return st;
+  };
+
+  /* ═══ R6-1 · the squat takeover, all three orderings the round-5 review measured ═══
+     burnPendingCode set code_sent_at = NULL, and code_sent_at is exactly the column /account/register reads to decide
+     whether a later sign-up may replace the pending row. A stranger therefore did not need to win a race: twenty wrong
+     codes across four connections cleared the stamp, and their twenty-first request — a plain /account/register — wrote
+     their password_hash onto the sign-up. The site's own advice ("ask for a new verification code") then re-minted a
+     code against THEIR row, and the owner, entering the code from their own mailbox, created an account holding the
+     stranger's password. 21 requests, 5 connections, no race and no timing luck. Both halves of the fix are load-bearing
+     and neither closes it alone: the burn keeps the stamp (burn_cleared_at carries the owner's exemption instead), and
+     the replace is gated on the AGE of code_sent_at rather than on whether the code is still alive. */
+
+  /* ── probe 1d: the burn ordering, end to end ── */
+  resetLimits(); emails.length = 0;
+  const V = 'r6victim@example.com';
+  await from('/account/register', { email: V, password: 'the real owner pw', name: 'Vic Owner' }, '198.51.100.200');
+  const ownerCode1 = lastCode();
+  const ownerHash = (await pendingFor(V)).password_hash;
+  const guesses = await burnFrom(V, ownerCode1, ['198.51.100.201', '198.51.100.202', '198.51.100.203', '198.51.100.204']);
+  const burnt = await pendingFor(V);
+  ok('1d step 2: twenty wrong codes across four connections burn the owner\'s code and mail them the notice',
+     guesses.length === 20 && guesses.every((s) => s === 400) && !burnt.verify_code_hash && notices(V).length === 1,
+     guesses.length + ' tries, live=' + !!burnt.verify_code_hash + ' notices=' + notices(V).length);
+  ok('1d step 2b: the burn stamps burn_cleared_at and LEAVES code_sent_at — the exemption the owner needs is not the column the replace gate reads',
+     !!burnt.burn_cleared_at && !!burnt.code_sent_at, 'burn_cleared_at=' + burnt.burn_cleared_at + ' code_sent_at=' + burnt.code_sent_at);
+  emails.length = 0;
+  const grab = await from('/account/register', { email: V, password: 'attacker password 1', name: 'Mallory' }, '198.51.100.205');
+  const afterGrab = await pendingFor(V);
+  ok('1d step 3: the stranger\'s twenty-first request does NOT take the row — the same 202, no second code, and the sign-up still carries the owner\'s credentials',
+     grab.status === 202 && emails.length === 0 && afterGrab.name === 'Vic Owner' && afterGrab.password_hash === ownerHash,
+     grab.status + ' mails=' + emails.length + ' name=' + afterGrab.name);
+  const fresh = await from('/account/resend', { email: V }, '198.51.100.206');
+  const ownerCode2 = lastCode();
+  ok('1d step 4: the owner follows the product\'s own advice and gets a new code at once — the burn exemption still works, it just lives somewhere the replace cannot see',
+     fresh.status === 200 && !!ownerCode2 && ownerCode2 !== ownerCode1, fresh.status + ' code=' + !!ownerCode2);
+  const made = await from('/account/verify', { email: V, code: ownerCode2 }, '198.51.100.206');
+  const ownerIn = await from('/account/login', { email: V, password: 'the real owner pw' }, '198.51.100.207');
+  const strangerIn = await from('/account/login', { email: V, password: 'attacker password 1' }, '198.51.100.208');
+  ok('1d: THE DETERMINISTIC TAKEOVER IS CLOSED — after 21 requests from 5 connections the OWNER\'s password issues the token and the stranger\'s answers 401',
+     made.status === 200 && ownerIn.status === 200 && strangerIn.status === 401,
+     'verify=' + made.status + ' owner=' + ownerIn.status + ' stranger=' + strangerIn.status);
+  /* ── probe 1e: there is no stranger token to read /account/me with ── */
+  const strangerBody = await strangerIn.clone().json();
+  const meWithOwner = await worker.fetch(new Request('https://api.test/account/me', { headers: { Origin: 'https://mastsolutions.com', Authorization: 'Bearer ' + (await made.clone().json()).token } }), env, ctx);
+  const meBody = await meWithOwner.json();
+  ok('1e: no token is ever issued to the stranger, so /account/me carries the owner\'s account and there is nothing for the stranger to read it with',
+     !strangerBody.token && strangerBody.code === 'bad_login' && meWithOwner.status === 200 && meBody.account.email === V && meBody.account.name === 'Vic Owner',
+     JSON.stringify({ stranger: strangerBody.code, me: meWithOwner.status, name: meBody.account && meBody.account.name }));
+
+  /* ── probe 1b: the owner signs up first and a stranger posts the address a minute later, no burn involved ── */
+  resetLimits(); emails.length = 0;
+  const V2 = 'r6owner-first@example.com';
+  await from('/account/register', { email: V2, password: 'the real owner pw', name: 'Vic Owner' }, '198.51.100.210');
+  const code1b = lastCode();
+  await age(V2, 120000);   // a minute has passed — all it used to take
+  emails.length = 0;
+  const grab1b = await from('/account/register', { email: V2, password: 'attacker password 1', name: 'Mallory' }, '198.51.100.211');
+  ok('1b: a stranger posting the address a minute into the owner\'s window is answered the same 202 and mails nothing — the row is not theirs to take',
+     grab1b.status === 202 && emails.length === 0 && (await pendingFor(V2)).name === 'Vic Owner',
+     grab1b.status + ' mails=' + emails.length + ' name=' + (await pendingFor(V2)).name);
+  const made1b = await from('/account/verify', { email: V2, code: code1b }, '198.51.100.212');
+  ok('1b: … so the code in the owner\'s mailbox is still THEIR code: the owner\'s password issues the token and the stranger\'s answers 401',
+     made1b.status === 200 &&
+     (await from('/account/login', { email: V2, password: 'the real owner pw' }, '198.51.100.213')).status === 200 &&
+     (await from('/account/login', { email: V2, password: 'attacker password 1' }, '198.51.100.214')).status === 401,
+     'verify=' + made1b.status);
+
+  /* ── probe 1c: the stranger signs up first — the gate is symmetric, and so is its cost ──
+     The gate holds whoever writes SECOND, and that is the honest shape of it: inside the stranger's fifteen minutes the
+     owner's own sign-up mails nothing, because one row per address means one live code per address. What the gate
+     guarantees is that the live code and the credentials on the row always belong to the same sign-up, and that the
+     owner's next attempt takes the row as soon as the stranger's code has run out. The residual it does NOT close — an
+     owner entering a code that arrived BEFORE they asked for one — is named in README "What is NOT closed". */
+  resetLimits(); emails.length = 0;
+  const V3 = 'r6stranger-first@example.com';
+  await from('/account/register', { email: V3, password: 'attacker password 1', name: 'Mallory' }, '198.51.100.220');
+  const strangerCode = lastCode();
+  emails.length = 0;
+  const held1c = await from('/account/register', { email: V3, password: 'the real owner pw', name: 'Vic Owner' }, '198.51.100.221');
+  ok('1c: the gate is symmetric — a sign-up inside ANOTHER sign-up\'s live window is held whoever sends it, on the same 202 with no second code, so one live code and one set of credentials are never out of step',
+     held1c.status === 202 && emails.length === 0 && (await pendingFor(V3)).name === 'Mallory',
+     held1c.status + ' mails=' + emails.length + ' name=' + (await pendingFor(V3)).name);
+  await age(V3, 16 * 60000);   // the stranger's code has run out
+  clearRouteWindows();
+  const takes1c = await from('/account/register', { email: V3, password: 'the real owner pw', name: 'Vic Owner' }, '198.51.100.222');
+  const code1c = lastCode();
+  const deadStranger = await from('/account/verify', { email: V3, code: strangerCode }, '198.51.100.223');
+  const made1c = await from('/account/verify', { email: V3, code: code1c }, '198.51.100.224');
+  ok('1c: … and once it has, the owner\'s own sign-up takes the row: the stranger\'s old code is dead, the owner\'s password issues the token and the stranger\'s answers 401',
+     takes1c.status === 202 && deadStranger.status === 400 && made1c.status === 200 &&
+     (await from('/account/login', { email: V3, password: 'the real owner pw' }, '198.51.100.225')).status === 200 &&
+     (await from('/account/login', { email: V3, password: 'attacker password 1' }, '198.51.100.226')).status === 401,
+     'stranger code=' + deadStranger.status + ' owner verify=' + made1c.status);
+
+  /* ═══ R6-3 · probe 2b: the account lock must not classify an address ═══
+     lockedFor() reads accounts.locked_until, which is GLOBAL, while identityLockedFor() is per (connection, address).
+     Five wrong passwords from any five connections locked a real account, and the sixth request from ANY connection
+     then answered 429 in 5 statements and 0.7 ms where an absent address and a pending-only address both answered 401
+     in 10 statements and 45.7 ms. That is a three-way classifier on status, statement count and time — the round-2
+     property held at one request and fell at six. The lock now runs the dummy hash and the same statements the absent
+     path runs, and answers the same 401 body. */
+  resetLimits(); emails.length = 0;
+  const LOCKED = 'r6locked@example.com', PEND = 'r6pending-only@example.com';
+  await from('/account/register', { email: LOCKED, password: 'the owners real password' }, '198.51.100.230');
+  await from('/account/verify', { email: LOCKED, code: lastCode() }, '198.51.100.230');
+  await from('/account/register', { email: PEND, password: 'a long enough password' }, '198.51.100.231');
+  ok('2b fixture: one verified account, one address with only a sign-up in progress, and one that has never been seen',
+     !!rowFor(LOCKED) && !!rowFor(LOCKED).verified_at && !rowFor(PEND) && !!(await pendingFor(PEND)), 'fixture');
+  // Five wrong passwords from five different connections lock the ACCOUNT — the global half, which is the one a
+  // stranger can drive for anybody.
+  for (let i = 0; i < 5; i++) await from('/account/login', { email: LOCKED, password: 'wrong password ' + i }, '198.51.100.24' + i);
+  ok('2b: five wrong passwords from five different connections lock the account globally', !!rowFor(LOCKED).locked_until && Date.parse(rowFor(LOCKED).locked_until) > Date.now(), 'locked_until=' + rowFor(LOCKED).locked_until);
+  const SAMPLES = 21;
+  const classes = { absent: [], 'pending-only': [], 'verified-locked': [] };
+  for (let i = 0; i < SAMPLES; i++) {
+    // A fresh connection for every sample, so the per-(connection, address) counter is 1 on every one of them and the
+    // only thing that can differ between the classes is the class itself.
+    classes.absent.push(await cost('/account/login', { email: 'r6-never-seen-' + i + '@example.com', password: 'wrong password here' }, '10.6.1.' + (i + 1)));
+    classes['pending-only'].push(await cost('/account/login', { email: PEND, password: 'wrong password here' }, '10.6.2.' + (i + 1)));
+    classes['verified-locked'].push(await cost('/account/login', { email: LOCKED, password: 'wrong password here' }, '10.6.3.' + (i + 1)));
+  }
+  const bodies = {}, stmts = {}, medians = {};
+  for (const [name, runs] of Object.entries(classes)) {
+    bodies[name] = [...new Set(await Promise.all(runs.map(async (r) => r.res.status + ' ' + (await r.res.clone().text()))))];
+    stmts[name] = [...new Set(runs.map((r) => r.statements))].sort((a, b) => a - b).join('/');
+    medians[name] = runs.map((r) => r.ms).sort((a, b) => a - b)[Math.floor(SAMPLES / 2)];
+  }
+  const oneBody = [...new Set(Object.values(bodies).flat())];
+  ok('2b: 21 samples per class — an absent address, an address with only a sign-up, and a LOCKED verified account all answer one 401 bad_login, byte for byte',
+     oneBody.length === 1 && oneBody[0].startsWith('401') && JSON.parse(oneBody[0].slice(4)).code === 'bad_login', oneBody.join('  |  '));
+  ok('2b: … on the same statement set, so a caller who counts D1 statements cannot separate them either (round 5: 10 / 10 / 5)',
+     new Set(Object.values(stmts)).size === 1, Object.entries(stmts).map(([k, v]) => k + '=' + v).join(' '));
+  const med = Object.values(medians), spread = Math.max(...med) / Math.min(...med);
+  ok('2b: … and the medians sit inside the noise floor rather than two orders of magnitude apart (round 5: 45.7 / 45.8 / 0.7 ms — the lock skipped the PBKDF2)',
+     spread < 2, Object.entries(medians).map(([k, v]) => k + '=' + v.toFixed(1) + 'ms').join(' ') + ' spread=' + spread.toFixed(2) + 'x');
+  const right = await from('/account/login', { email: LOCKED, password: 'the owners real password' }, '10.6.4.1');
+  ok('2b: … and the lock still does the one thing a lock is for: the RIGHT password is refused while it holds, with that same 401',
+     right.status === 401 && (await right.clone().json()).code === 'bad_login' && (await right.clone().text()) === oneBody[0].slice(4),
+     right.status + ' ' + (await right.clone().text()));
+  ok('2b: … and the refused requests do not walk the ladder up: failed_logins stays at the five that set the lock, so a guesser cannot drive a customer to the 24-hour cap',
+     rowFor(LOCKED).failed_logins === 5, 'failed_logins=' + rowFor(LOCKED).failed_logins);
+
+  /* ═══ R6-4 · the burn notice is outside the mail budgets, and bounded at one per code ═══
+     Routing it through noteCodeMail would put six budget statements on the burning request and nowhere else, which is a
+     statement-count tell on a route whose whole design is that every wrong code costs the same — and it would let an
+     attacker suppress a security notice by pre-spending a connection's allowance. It is bounded by construction
+     instead: burnPendingCode is conditional on `verify_code_hash IS NOT NULL`, so exactly ONE burn fires per live code,
+     and a live code exists only because a mail passed noteCodeMail. Burn notices <= code mails, so the per-mailbox
+     ceiling is 2x the code-mail figures — which is what README now says. */
+  resetLimits(); emails.length = 0;
+  const BOX = 'r6mailbox@example.com', MAILER = '198.51.100.250';
+  let codeMails = 0;
+  for (let round = 0; round < 4; round++) {
+    await age(BOX, 16 * 60000);
+    clearRouteWindows();
+    const before = emails.length;
+    await from('/account/register', { email: BOX, password: 'a long enough password' }, MAILER);
+    const live = lastCode();
+    if (emails.length > before) codeMails++;
+    await burnFrom(BOX, live, [0, 1, 2, 3].map((n) => '10.6.5.' + (round * 4 + n + 1)));
+  }
+  const toBox = emails.filter((m) => m.to[0] === BOX);
+  ok('R6-4: one connection buys three code mails at a mailbox and can convert each into one burn notice and no more — six mails, which is the 2x the README ceiling now states',
+     codeMails === 3 && notices(BOX).length === 3 && toBox.length === 6,
+     'code mails=' + codeMails + ' burn notices=' + notices(BOX).length + ' total to the mailbox=' + toBox.length);
+  const spentAgain = await burnFrom(BOX, '111111', ['10.6.6.1', '10.6.6.2', '10.6.6.3', '10.6.6.4']);
+  ok('R6-4: … and twenty more wrong codes against a burned one send nothing: no live code, no burn, no notice — the bound is the code, not a counter that can be reset',
+     spentAgain.every((s) => s === 400) && notices(BOX).length === 3, 'notices still ' + notices(BOX).length);
+
+  /* ═══ R6-5 · the '@' sweep, over every key the table has ever been asked about ═══
+     The round-5 assertion read rateLimits.keys() at one instant, immediately after a resetLimits() and a register
+     spray, so the map held only codemail keys — the loginfail family was not in it, and putting the plaintext address
+     back into that key left the assertion PASSING. This one sweeps rateKeysEver, which the fake table has been
+     collecting since the first request of this file. */
+  ok('R6-5: the same sweep at the END of the file, where it covers every key every block has spent — the round-5 copy above cannot see what round 6 writes after it',
+     rateKeysEver.size > 100 && [...rateKeysEver].every((k) => !k.includes('@')),
+     [...rateKeysEver].filter((k) => k.includes('@')).slice(0, 3).join(' ') || (rateKeysEver.size + ' keys, none'));
+  ok('… and the sweep is wide enough to mean something: every counter family this Worker keys on an address is in it',
+     ['loginfail:', 'codeguess:', 'codemail:', 'codemailtotal:'].every((fam) => [...rateKeysEver].some((k) => k.startsWith(fam))),
+     ['loginfail:', 'codeguess:', 'codemail:', 'codemailtotal:'].filter((fam) => ![...rateKeysEver].some((k) => k.startsWith(fam))).join() || 'all four present');
+
+  /* ── R6-5: migrations/011 and the guard that applies it ── */
+  {
+    const mig = readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'migrations', '011-pending-burn-stamp.sql'), 'utf8');
+    const wf = readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '.github', 'workflows', 'deploy-worker.yml'), 'utf8');
+    const { RATE_SCHEMA } = await import('./src/ratelimit.js');
+    ok('migrations/011 ALTERs the burn stamp on rather than re-CREATEing the table, so a database that already carries round 5\'s eleven columns gets the twelfth',
+       /ALTER TABLE pending_signups ADD COLUMN burn_cleared_at TEXT/.test(mig) && !/CREATE TABLE/.test(mig), 'alter-only=' + !/CREATE TABLE/.test(mig));
+    ok('… and deploy-worker.yml carries its own GUARDS row for it — 010\'s row still names its ELEVEN columns, because a round-5 Worker self-heals exactly those and a twelfth there would read as HALF APPLIED and stop every deploy',
+       /migrations\/011-pending-burn-stamp\.sql\|pending_signups\|burn_cleared_at/.test(wf) &&
+       !/migrations\/010-pending-signups\.sql\|pending_signups\|[a-z_,]*burn_cleared_at/.test(wf), 'guard rows');
+    ok('… and the Worker self-heals the same column, so a deploy that lands ahead of the migration still burns codes',
+       RATE_SCHEMA.some((st) => /ALTER TABLE pending_signups ADD COLUMN burn_cleared_at/.test(st)) &&
+       RATE_SCHEMA.some((st) => /CREATE TABLE IF NOT EXISTS pending_signups/.test(st) && st.includes('burn_cleared_at')),
+       String(RATE_SCHEMA.filter((st) => st.includes('pending_signups')).length) + ' statements');
   }
 
   resetLimits(); emails.length = 0;

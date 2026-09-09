@@ -1,0 +1,21 @@
+-- 011 — The burn must not un-gate the replace (security review round 6, 2026-09-09).
+-- Run once on the live database, after 010:
+--   npx wrangler d1 execute mast_bookings --remote --file=migrations/011-pending-burn-stamp.sql
+--
+-- WHAT THIS CLOSES. `burnPendingCode` set `code_sent_at = NULL` so that an owner whose code a stranger had just burned
+-- was not ALSO made to wait out the one-a-minute reissue throttle. But `code_sent_at` is the column
+-- `POST /account/register` reads to decide whether a later sign-up may replace the pending row, so nulling it handed a
+-- stranger the row: twenty wrong codes across four connections burned the code, the twenty-first request — a plain
+-- `/account/register` — wrote THEIR password_hash, name and phone onto the sign-up, and the product's own advice
+-- ("ask for a new verification code") then re-minted a code against it. The owner entered the code from their own
+-- mailbox and the account came up holding the stranger's password. 21 requests, 5 connections, no race.
+--
+-- The owner's exemption moves here, to a column the replace decision does not read: `pendingTooSoon()` treats a
+-- burn_cleared_at at or after code_sent_at as "the throttle is lifted", and `pendingHeld()` — the replace gate — reads
+-- code_sent_at alone. The two answers can no longer be moved by the same write.
+--
+-- The Worker also self-heals this column through `ensureRateSchema` (src/ratelimit.js), because a round-5 deploy that
+-- landed before this file ran already created pending_signups with eleven columns; the CREATE there is a no-op against
+-- an existing table and the same ALTER is what adds the twelfth. Running this file when the column is already present
+-- fails on "duplicate column name", which is why deploy-worker.yml carries a GUARDS row that skips it in that case.
+ALTER TABLE pending_signups ADD COLUMN burn_cleared_at TEXT;

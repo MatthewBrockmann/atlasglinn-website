@@ -78,8 +78,13 @@ export const RATE_SCHEMA = [
   // the one memoised self-heal every limited route already awaits — and /account/register is a limited route — so a
   // Worker deployed ahead of migrations/010 still has the table rather than answering 500 to every sign-up. The row is
   // keyed on a DIGEST of the address: pending_signups never holds the plaintext address of someone who has not verified.
-  'CREATE TABLE IF NOT EXISTS pending_signups (address_digest TEXT PRIMARY KEY, password_hash TEXT NOT NULL, name TEXT, phone TEXT, organization TEXT, verify_code_hash TEXT, verify_expires_at TEXT, verify_attempts INTEGER NOT NULL DEFAULT 0, code_sent_at TEXT, created_ip TEXT, created_at TEXT NOT NULL)',
+  'CREATE TABLE IF NOT EXISTS pending_signups (address_digest TEXT PRIMARY KEY, password_hash TEXT NOT NULL, name TEXT, phone TEXT, organization TEXT, verify_code_hash TEXT, verify_expires_at TEXT, verify_attempts INTEGER NOT NULL DEFAULT 0, code_sent_at TEXT, created_ip TEXT, created_at TEXT NOT NULL, burn_cleared_at TEXT)',
   'CREATE INDEX IF NOT EXISTS idx_pending_signups_created ON pending_signups (created_at)',
+  // Separately as well as in the CREATE above (migrations/011), because a Worker deployed during round 5 already made
+  // the table with eleven columns: the CREATE is a no-op against it and the ALTER is what adds the twelfth. The owner's
+  // post-burn throttle exemption lives here rather than in code_sent_at, which is what /account/register's replace
+  // decision reads — a stranger who burns a code must not thereby be allowed to replace the row (round 6, 2026-09-09).
+  'ALTER TABLE pending_signups ADD COLUMN burn_cleared_at TEXT',
 ];
 
 let schemaReady = null;

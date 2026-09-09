@@ -327,7 +327,9 @@ CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email);
 -- nothing — a one-request account-existence oracle.
 --
 -- The key is a SHA-256 digest of the normalised address, so this table is not a readable list of half-finished sign-ups.
--- A later sign-up replaces the row when it mails a code; the daily cron drops anything a day old.
+-- A later sign-up replaces the row only once the code it would replace is past its own fifteen minutes (round 6,
+-- 2026-09-09 — sixty seconds was enough to take the row from an owner mid-sign-up, which is an account takeover), and
+-- only when it mails; the daily cron drops anything a day old.
 CREATE TABLE IF NOT EXISTS pending_signups (
   address_digest    TEXT PRIMARY KEY,              -- SHA-256 of the normalised address, hex. Never the address itself.
   password_hash     TEXT NOT NULL,                 -- pbkdf2-sha256$<iterations>$<salt b64>$<hash b64>
@@ -336,10 +338,11 @@ CREATE TABLE IF NOT EXISTS pending_signups (
   organization      TEXT,
   verify_code_hash  TEXT,                          -- HMAC(ACCOUNT_SECRET, digest:verify:code)
   verify_expires_at TEXT,                          -- 15 minutes
-  verify_attempts   INTEGER NOT NULL DEFAULT 0,    -- twenty wrong tries burn the code
-  code_sent_at      TEXT,                          -- the one-a-minute reissue throttle
+  verify_attempts   INTEGER NOT NULL DEFAULT 0,    -- twenty wrong tries burn the code; a later sign-up does NOT reset it
+  code_sent_at      TEXT,                          -- the one-a-minute reissue throttle AND the replace gate (round 6)
   created_ip        TEXT,
-  created_at        TEXT NOT NULL
+  created_at        TEXT NOT NULL,
+  burn_cleared_at   TEXT                           -- migrations/011: the owner's post-burn exemption from the throttle
 );
 CREATE INDEX IF NOT EXISTS idx_pending_signups_created ON pending_signups (created_at);
 

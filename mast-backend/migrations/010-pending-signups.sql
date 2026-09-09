@@ -18,8 +18,21 @@
 --                          address on the internet.
 --
 -- A pending sign-up now lives here instead, and handleAccountVerify is what INSERTs the accounts row — atomically, and
--- only when no row for the address exists yet. A later sign-up REPLACES the pending row when it mails a code, so the
--- credentials that become an account are always the ones belonging to the code the mailbox actually received.
+-- only when no row for the address exists yet.
+--
+-- WHEN A LATER SIGN-UP MAY REPLACE THE ROW — corrected in round 6, 2026-09-09, and the correction is load-bearing.
+-- This file first read "a later sign-up REPLACES the pending row when it mails a code", and the code gated that on the
+-- one-a-minute reissue throttle. Sixty seconds was enough for a stranger to take a sign-up out from under an owner
+-- whose code was still live in their inbox, and `burnPendingCode` nulling the same column made it a burn away rather
+-- than a wait away. The replace is gated on the AGE of code_sent_at now — while the code it mailed can still be used,
+-- the credentials belonging to it stay on the row — and the owner's post-burn throttle exemption moved to
+-- burn_cleared_at (migrations/011), which the replace decision does not read. verify_attempts is preserved across a
+-- replace as well: `INSERT OR REPLACE` bound it to a literal 0, so an unauthenticated sign-up reset the twenty-try
+-- burn counter for the address.
+--
+-- What is still open, stated here because this file is where the row is defined: ONE row per address means one live
+-- code per address, and an owner who enters a code that arrived BEFORE their own sign-up is entering a stranger's.
+-- Closing that means a row per sign-up rather than a row per address. See README "What is NOT closed".
 --
 -- NO PLAINTEXT ADDRESS. The primary key is the SHA-256 digest of the normalised address, so a table of half-finished
 -- sign-ups is not a list of who has typed what. Every route that needs the row has the address in hand and computes the
