@@ -3,7 +3,7 @@
  * The browser pass on the twelve rebuilt Atlas Glinn pages. Everything CLAUDE.md states about how these pages RENDER
  * is measured here, so the numbers in that file are reproducible instead of being one session's terminal scrollback.
  *
- *   node scripts/render-audit.mjs --shots <dir>
+ *   node scripts/render-audit.mjs --shots <dir> [--only <slug>[,<slug>]]
  *
  * It serves the repo with `python3 -m http.server` on 127.0.0.1 (a port at or above 8900) and kills it on the way
  * out, drives Chromium through Playwright, and prints one line per page per measurement plus a SUMMARY block. It
@@ -64,7 +64,17 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
-const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+// Playwright from wherever this machine keeps it: the repo, a normal global install, or the container's node22 tree.
+// PLAYWRIGHT=<path> overrides. A hard-coded /opt path is how a tool ends up runnable on exactly one machine.
+const { chromium } = (() => {
+  const tried = [];
+  for (const cand of [process.env.PLAYWRIGHT, 'playwright', '/opt/node22/lib/node_modules/playwright',
+    '/usr/local/lib/node_modules/playwright', '/opt/homebrew/lib/node_modules/playwright']) {
+    if (!cand) continue;
+    try { return require(cand); } catch (e) { tried.push(cand); }
+  }
+  throw new Error('playwright not found; tried ' + tried.join(', ') + '. Set PLAYWRIGHT=<path to the module>.');
+})();
 
 const REPO = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const PAGES = ['index', 'executive-protection', 'residential-protection', 'disaster-recovery', 'training',
@@ -91,6 +101,9 @@ const HIDDEN_ON_LIVE = {
 const args = process.argv.slice(2);
 const argOf = (name, dflt) => { const i = args.indexOf(name); return i < 0 ? dflt : args[i + 1]; };
 const SHOTS = argOf('--shots', '');
+// --only <slug>[,<slug>] narrows the run. The full pass is 36 page loads and takes minutes; a smoke test after
+// touching this file should not have to.
+const ONLY = argOf('--only', '');
 
 function norm(s) { return s.replace(/\s+/g, ' ').trim(); }
 
@@ -311,10 +324,15 @@ async function main() {
   let maxScroll = 0, maxScrollText = '', minGap = 1e9, noEllipsis = 0, overlap1440 = 0, maxOverlap = 0;
   let headMin = 1e9, headMax = -1e9;
 
+  const pages = ONLY ? PAGES.filter((p) => ONLY.split(',').includes(p)) : PAGES;
+  if (!pages.length) throw new Error('--only matched no page of: ' + PAGES.join(', '));
   try {
-    browser = await chromium.launch({ executablePath: process.env.CHROMIUM || '/opt/pw-browsers/chromium',
+    // CHROMIUM=<path> wins; then the container's symlink if it is there; otherwise Playwright's own download.
+    const exe = process.env.CHROMIUM
+      || (fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined);
+    browser = await chromium.launch({ ...(exe ? { executablePath: exe } : {}),
       args: ['--no-sandbox', '--disable-dev-shm-usage'] });
-    for (const slug of PAGES) {
+    for (const slug of pages) {
       const file = slug === 'index' ? 'index.html' : slug + '.html';
       const want = liveUnits[slug];
       const seen = new Set();
@@ -445,7 +463,7 @@ async function main() {
   console.log(`         page errors ${sum.pageErrors}, failed same-origin requests ${sum.localFails}`);
   if (sum.unmeasured) bad++;
   if (sum.headUnderBar) bad++;
-  console.log(`         ${PAGES.length} pages x 1440x900 + 390x844 (+1800x1000 for the rail) = ${PAGES.length * 3} runs, ${bad ? bad + ' WITH A DELTA' : '0 with a delta'}`);
+  console.log(`         ${pages.length} page(s) x 1440x900 + 390x844 (+1800x1000 for the rail) = ${pages.length * 3} runs, ${bad ? bad + ' WITH A DELTA' : '0 with a delta'}`);
   return bad;
 }
 
