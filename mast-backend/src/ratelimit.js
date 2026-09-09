@@ -76,16 +76,35 @@ export const RATE_SCHEMA = [
   'ALTER TABLE accounts ADD COLUMN signup_notice_sent_at TEXT',
   // A sign-up that nobody has proved yet. It lives HERE, in the rate-limiter's schema hook, because ensureRateSchema is
   // the one memoised self-heal every limited route already awaits — and /account/register is a limited route — so a
-  // Worker deployed ahead of migrations/010 still has the table rather than answering 500 to every sign-up. The row is
-  // keyed on a DIGEST of the address: pending_signups never holds the plaintext address of someone who has not verified.
-  'CREATE TABLE IF NOT EXISTS pending_signups (address_digest TEXT PRIMARY KEY, password_hash TEXT NOT NULL, name TEXT, phone TEXT, organization TEXT, verify_code_hash TEXT, verify_expires_at TEXT, verify_attempts INTEGER NOT NULL DEFAULT 0, code_sent_at TEXT, created_ip TEXT, created_at TEXT NOT NULL, burn_cleared_at TEXT)',
+  // Worker deployed ahead of migrations/012 still has the table rather than answering 500 to every sign-up. The row is
+  // keyed on a RANDOM signup_id and carries the address only as a DIGEST: pending_signups never holds the plaintext
+  // address of someone who has not verified, and one address may hold as many rows as the mail budgets allow.
+  'CREATE TABLE IF NOT EXISTS pending_signups (signup_id TEXT PRIMARY KEY, address_digest TEXT NOT NULL, password_hash TEXT NOT NULL, name TEXT, phone TEXT, organization TEXT, code_hash TEXT, verify_expires_at TEXT, verify_attempts INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, created_ip TEXT)',
+  // The lookup /account/verify makes: ONE indexed read on (address_digest, code_hash) finds at most one row however
+  // many sign-ups are waiting at the address, which is what keeps the route's statement count independent of them.
+  'CREATE INDEX IF NOT EXISTS idx_pending_signups_code ON pending_signups (address_digest, code_hash)',
   'CREATE INDEX IF NOT EXISTS idx_pending_signups_created ON pending_signups (created_at)',
-  // Separately as well as in the CREATE above (migrations/011), because a Worker deployed during round 5 already made
-  // the table with eleven columns: the CREATE is a no-op against it and the ALTER is what adds the twelfth. The owner's
-  // post-burn throttle exemption lives here rather than in code_sent_at, which is what /account/register's replace
-  // decision reads — a stranger who burns a code must not thereby be allowed to replace the row (round 6, 2026-09-09).
-  'ALTER TABLE pending_signups ADD COLUMN burn_cleared_at TEXT',
 ];
+
+/**
+ * The one schema step a CREATE cannot do: rounds 5 and 6 keyed pending_signups on address_digest as its PRIMARY KEY, and
+ * round 7 keys it on a random signup_id so an address can hold a row per sign-up. A primary key cannot be ALTERed onto an
+ * existing table, and `CREATE TABLE IF NOT EXISTS` is a no-op against the old one — so a Worker that met a round-5/6
+ * database would write signup_id into a table that has no such column and every sign-up would fail silently.
+ *
+ * This drops the table when, and only when, it exists WITHOUT signup_id: the old shape and nothing else. What is lost is
+ * unverified sign-ups minutes old by design, which is the same thing migrations/012 drops and the same thing the daily
+ * purge drops. It exists because ONE of the two live deploy paths (scripts/wp-upload.sh, hourly) applies no migrations
+ * at all — see README residual 5 — so "the migration will have run first" is not something this Worker may assume.
+ */
+export async function healPendingSignups(env) {
+  const cols = await env.DB.prepare("SELECT name FROM pragma_table_info('pending_signups')").all();
+  const names = ((cols && cols.results) || []).map((r) => r.name);
+  if (!names.length || names.includes('signup_id')) return false;
+  await env.DB.prepare('DROP TABLE IF EXISTS pending_signups').run();
+  console.error('[Rate] pending_signups was the pre-round-7 shape (no signup_id) — dropped so the per-sign-up table can be created');
+  return true;
+}
 
 let schemaReady = null;
 /**
@@ -103,6 +122,8 @@ export function ensureRateSchema(env) {
     let attempt;
     attempt = (async () => {
       let allOk = true;
+      try { await healPendingSignups(env); }
+      catch (e) { allOk = false; console.error('[Rate] pending_signups heal failed:', e.message); }
       for (const s of RATE_SCHEMA) {
         try { await env.DB.prepare(s).run(); }
         catch (e) {

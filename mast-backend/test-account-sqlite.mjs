@@ -2,19 +2,26 @@
  * The pending-sign-up statements, replayed against a REAL SQL engine.
  *
  * Why this file exists (security review round 5, 2026-09-09): test-worker.mjs runs against a fake D1 that answers the
- * Worker's queries in JavaScript rather than executing their SQL. Round 5 moved account creation onto four statements
- * that suite therefore never executes — an INSERT OR REPLACE that has to replace, a claim UPDATE whose whole job is its
- * WHERE clause, and an INSERT ... SELECT ... WHERE NOT EXISTS that is the only thing standing between a verified code
- * and a second account on an address that acquired one mid-flight. A JavaScript stand-in cannot say whether any of them
- * is valid SQLite, let alone whether it does what the comment above it claims.
+ * Worker's queries in JavaScript rather than executing their SQL. Account creation rests on statements that suite
+ * therefore never executes — a claim UPDATE whose whole job is its WHERE clause, a lookup that must return at most one
+ * row out of several, a DELETE whose predicate lives in its binds, and an INSERT ... SELECT ... WHERE NOT EXISTS that
+ * is the only thing standing between a verified code and a second account on an address that acquired one mid-flight.
+ * A JavaScript stand-in cannot say whether any of them is valid SQLite, let alone whether it does what the comment
+ * above it claims.
+ *
+ * ROUND 7 moved the table to ONE ROW PER SIGN-UP, which is more SQL, not less: the address is no longer a key, so
+ * "which row is this code's" and "which rows does a burn take" are now questions the database answers rather than the
+ * JavaScript. Every one of them is driven below.
  *
  * The statements are READ OUT OF src/worker.js — not retyped here — loaded into sqlite alongside schema.sql, and driven
  * through the sequences that matter:
  *
- *   1  a second sign-up at the same address REPLACES the first, and one row survives            (the squat takeover)
- *   2  the claim UPDATE takes a try only while a code is live, unexpired and under the cap      (the guess counter)
- *   3  the guarded INSERT refuses to create a second account for an address that has one        (the atomic create)
- *   4  migrations/010 removes unverified accounts rows and NOT ONE verified one                 (the one-time move)
+ *   1  two sign-ups at one address are TWO rows, and neither can reach the other                (the takeover class)
+ *   2  the lookup finds the row belonging to the code, among several, and only while it is live (the verification)
+ *   3  the claim counts every live row at the address in one statement, and a NEW row cannot lower the count
+ *   4  the burn's predicate lives in its binds: nothing below the cap, everything at it         (the statement-count tell)
+ *   5  the guarded INSERT refuses a second account, and the two DELETEs clear the address       (the atomic create)
+ *   6  migrations/012 recreates the table and removes unverified accounts rows, not one verified one
  *
  * RUN IT DIRECTLY AND IT SAYS SO: every assertion prints, and it exits 1 on any failure.
  * Engine: node:sqlite (node 22+, what CI runs), then better-sqlite3 if it is installed. No engine is a FAILURE, never a
@@ -37,29 +44,33 @@ export function statementsFromWorker() {
     return m[1];
   };
   return {
-    UPSERT: grab('PENDING_UPSERT', /const PENDING_UPSERT = '([^']+)';/),
+    INSERT: grab('PENDING_INSERT', /const PENDING_INSERT = '([^']+)';/),
     ISSUE: grab('PENDING_ISSUE', /const PENDING_ISSUE = '([^']+)';/),
-    CLAIM: grab('the pending claim UPDATE', /prepare\('(UPDATE pending_signups SET verify_attempts = verify_attempts \+ 1 [^']+)'\)\s*\n?\s*\.bind\(row\.address_digest/),
-    BURN: grab('burnPendingCode', /prepare\('(UPDATE pending_signups SET verify_code_hash = \?, verify_expires_at = \?, verify_attempts = \?, burn_cleared_at = \? WHERE address_digest = \? AND verify_code_hash IS NOT NULL)'\)/),
-    READ: grab('pendingByDigest', /prepare\('(SELECT \* FROM pending_signups WHERE address_digest = \?)'\)/),
+    NEWEST: grab('PENDING_NEWEST', /const PENDING_NEWEST = '([^']+)';/),
+    BY_CODE: grab('PENDING_BY_CODE', /const PENDING_BY_CODE = '([^']+)';/),
+    CLAIM: grab('PENDING_CLAIM', /const PENDING_CLAIM = '([^']+)';/),
+    SPENT: grab('PENDING_SPENT', /const PENDING_SPENT = '([^']+)';/),
+    BURN: grab('PENDING_BURN', /const PENDING_BURN = '([^']+)';/),
+    DROP: grab('PENDING_DROP', /const PENDING_DROP = '([^']+)';/),
+    DROP_OTHERS: grab('PENDING_DROP_OTHERS', /const PENDING_DROP_OTHERS = '([^']+)';/),
     CREATE: grab('the guarded account INSERT', /prepare\('(INSERT INTO accounts \(id, email[^']+WHERE NOT EXISTS \(SELECT 1 FROM accounts WHERE email = \?\))'\)/),
-    DROP: grab('the pending DELETE', /prepare\('(DELETE FROM pending_signups WHERE address_digest = \?)'\)/),
   };
 }
 
-/** The one-time step at the bottom of migrations/010, read out of the migration rather than retyped. */
+/** The one-time step at the bottom of migrations/012, read out of the migration rather than retyped. */
 function migrationDelete() {
-  const sql = read('migrations/010-pending-signups.sql');
+  const sql = read('migrations/012-pending-signup-per-row.sql');
   const m = /(DELETE FROM accounts\s+WHERE verified_at IS NULL);/.exec(sql);
-  if (!m) throw new Error('migrations/010 no longer carries the one-time DELETE this test replays');
+  if (!m) throw new Error('migrations/012 no longer carries the one-time DELETE this test replays');
   return m[1];
 }
 
 const NOW = () => new Date().toISOString();
 const LATER = (ms) => new Date(Date.now() + ms).toISOString();
 const D1 = 'a'.repeat(64), D2 = 'b'.repeat(64);
-/** PENDING_UPSERT's bind order, as src/worker.js binds it. */
-const upsertArgs = (digest, hash, name, codeHash, expires, sentAt, ip) => [digest, hash, name, '', '', codeHash, expires, sentAt, ip, NOW()];
+const MAX = 20;   // CODE_MAX_TRIES
+/** PENDING_INSERT's bind order, as src/worker.js binds it: signup_id first, verify_attempts a literal 0. */
+const insertArgs = (id, digest, hash, name, codeHash, expires, ip, createdAt) => [id, digest, hash, name, '', '', codeHash, expires, createdAt || NOW(), ip];
 /** The guarded INSERT's 25 binds: 24 columns, then the address the WHERE NOT EXISTS guards on. */
 const createArgs = (id, email) => {
   const now = NOW();
@@ -72,78 +83,100 @@ export function run(db) {
   const results = [];
   const add = (name, pass, detail) => results.push({ name, pass, detail: String(detail) });
 
-  // schema.sql is the fresh-install shape; migrations/010 + 011 are the same table for a database that already exists.
+  // schema.sql is the fresh-install shape; migrations/012 is the same table for a database that already exists.
   const cols = db.all("SELECT name FROM pragma_table_info('pending_signups')").map((r) => r.name);
-  const migCols = [...read('migrations/010-pending-signups.sql').matchAll(/^\s{2}(\w+)\s+(TEXT|INTEGER)/gm)].map((m) => m[1])
-    .concat([...read('migrations/011-pending-burn-stamp.sql').matchAll(/^ALTER TABLE pending_signups ADD COLUMN (\w+)/gm)].map((m) => m[1]));
-  add('schema.sql and migrations/010 + 011 create the SAME pending_signups columns — a fresh install and an existing database agree',
+  const migCols = [...read('migrations/012-pending-signup-per-row.sql').matchAll(/^\s{2}(\w+)\s+(TEXT|INTEGER)/gm)].map((m) => m[1]);
+  add('schema.sql and migrations/012 create the SAME pending_signups columns — a fresh install and an existing database agree',
       cols.length > 0 && migCols.length === cols.length && migCols.every((c) => cols.includes(c)), 'schema=' + cols.join() + ' migration=' + migCols.join());
-  // The Worker self-heals the same twelve at runtime, so a deploy that lands ahead of either migration still takes
-  // sign-ups — and ALTERing a table round 5 already created is the only way the twelfth column reaches such a database.
+  add('… and signup_id is the PRIMARY KEY while address_digest is an ordinary column — the address is not a slot anybody can be in',
+      db.get("SELECT COUNT(*) AS n FROM pragma_table_info('pending_signups') WHERE name = 'signup_id' AND pk = 1").n === 1 &&
+      db.get("SELECT COUNT(*) AS n FROM pragma_table_info('pending_signups') WHERE name = 'address_digest' AND pk = 1").n === 0,
+      'signup_id pk=' + db.get("SELECT pk FROM pragma_table_info('pending_signups') WHERE name = 'signup_id'").pk);
+  // The Worker self-heals the same table at runtime, so a deploy that lands ahead of the migration still takes sign-ups.
   const { RATE_SCHEMA } = SELF_HEAL;
-  add('… and src/ratelimit.js self-heals every one of them, CREATE and ALTER together',
+  add('… and src/ratelimit.js self-heals every one of them, with the (address_digest, code_hash) index /account/verify reads',
       cols.every((c) => RATE_SCHEMA.some((st) => st.includes('pending_signups') && st.includes(c))) &&
-      RATE_SCHEMA.some((st) => /ALTER TABLE pending_signups ADD COLUMN burn_cleared_at/.test(st)),
+      RATE_SCHEMA.some((st) => /CREATE INDEX IF NOT EXISTS idx_pending_signups_code ON pending_signups \(address_digest, code_hash\)/.test(st)),
       String(RATE_SCHEMA.filter((st) => st.includes('pending_signups')).length) + ' statements');
 
-  // ── 1. a later sign-up replaces the earlier one, and there is only ever one row per address ──
-  db.run(S.UPSERT, upsertArgs(D1, 'hash-of-the-strangers-password', 'Mallory', 'code-hash-1', LATER(900000), NOW(), '198.51.100.1'));
-  db.run(S.UPSERT, upsertArgs(D1, 'hash-of-the-owners-password', 'Vic Owner', 'code-hash-2', LATER(900000), NOW(), '198.51.100.2'));
+  /* ── 1. two sign-ups at one address are TWO rows, and neither write can reach the other ──
+     This is the round-7 change stated in SQL. Rounds 5 and 6 replaced the row here — an upsert on address_digest — and
+     the entire takeover class lived in who won that replace. A row per sign-up has no winner. */
+  db.run(S.INSERT, insertArgs('11'.repeat(16), D1, 'hash-of-the-strangers-password', 'Mallory', 'code-hash-stranger', LATER(900000), '198.51.100.1', '2026-09-09T10:00:00.000Z'));
+  db.run(S.INSERT, insertArgs('22'.repeat(16), D1, 'hash-of-the-owners-password', 'Vic Owner', 'code-hash-owner', LATER(900000), '198.51.100.2', '2026-09-09T10:00:01.000Z'));
   const after = db.all('SELECT * FROM pending_signups WHERE address_digest = ?', [D1]);
-  add('a second sign-up REPLACES the pending row rather than adding one — the credentials that become an account are the ones whose code was mailed last',
-      after.length === 1 && after[0].password_hash === 'hash-of-the-owners-password' && after[0].name === 'Vic Owner',
-      after.length + ' rows, hash=' + (after[0] && after[0].password_hash));
+  add('a second sign-up at the same address ADDS a row rather than replacing one — the credentials of both sign-ups survive, each with its own code',
+      after.length === 2 && after.some((r) => r.password_hash === 'hash-of-the-owners-password') && after.some((r) => r.password_hash === 'hash-of-the-strangers-password'),
+      after.length + ' rows: ' + after.map((r) => r.name).join('/'));
+  add('… and the non-mailing branch writes to ONE constant key, so a refused sign-up rewrites a row of nothing instead of growing the table',
+      (() => { db.run(S.INSERT, insertArgs('absent', 'absent', 'dummy', '', null, null, '', NOW())); db.run(S.INSERT, insertArgs('absent', 'absent', 'dummy', '', null, null, '', NOW()));
+               return db.get("SELECT COUNT(*) AS n FROM pending_signups WHERE signup_id = 'absent'").n === 1 && db.all('SELECT * FROM pending_signups WHERE address_digest = ?', [D1]).length === 2; })(),
+      'absent rows=' + db.get("SELECT COUNT(*) AS n FROM pending_signups WHERE signup_id = 'absent'").n);
+  add('… and the newest sign-up at an address is what /account/resend can re-mail: one row, ordered, never ambiguous',
+      db.get(S.NEWEST, [D1]).signup_id === '22'.repeat(16), 'newest=' + db.get(S.NEWEST, [D1]).name);
 
-  /* R6-2, in SQL rather than in JavaScript: the UPSERT must NOT reset the twenty-try burn counter. `INSERT OR REPLACE`
-     cannot preserve a column — it deletes the row and inserts a new one — so this is the assertion that says the
-     statement is an ON CONFLICT upsert and not the old one. An unauthenticated /account/register resetting this to 0
-     is the whole of the deferred-burn primitive. created_at and created_ip must not move either: created_at is what
-     the daily purge measures. */
-  db.run('UPDATE pending_signups SET verify_attempts = 19, created_at = ?, created_ip = ? WHERE address_digest = ?', ['2001-01-01T00:00:00.000Z', '198.51.100.2', D1]);
-  db.run(S.UPSERT, upsertArgs(D1, 'hash-of-a-third-password', 'Third', 'code-hash-2b', LATER(900000), NOW(), '198.51.100.9'));
-  const kept = db.get(S.READ, [D1]);
-  add('… and the replace does NOT reset verify_attempts, created_at or created_ip — a sign-up is unauthenticated, and zeroing the counter is how the twenty-try burn was deferred for ever',
-      kept.verify_attempts === 19 && kept.created_at === '2001-01-01T00:00:00.000Z' && kept.created_ip === '198.51.100.2' && kept.password_hash === 'hash-of-a-third-password',
-      'attempts=' + kept.verify_attempts + ' created_at=' + kept.created_at + ' created_ip=' + kept.created_ip);
-  db.run('UPDATE pending_signups SET verify_attempts = 0 WHERE address_digest = ?', [D1]);
+  /* ── 2. the lookup: the code selects the row, and the row carries the password that must match ── */
+  const found = db.get(S.BY_CODE, [D1, 'code-hash-owner', NOW()]);
+  add('the verification lookup finds the row belonging to the CODE, among several at the address, and it carries that sign-up\'s own password',
+      !!found && found.password_hash === 'hash-of-the-owners-password' && found.signup_id === '22'.repeat(16),
+      'found=' + (found && found.name));
+  add('… and the stranger\'s code finds the stranger\'s row and nobody else\'s — the two sign-ups never cross',
+      db.get(S.BY_CODE, [D1, 'code-hash-stranger', NOW()]).password_hash === 'hash-of-the-strangers-password', 'crossed=no');
+  add('… and a code nobody was issued finds nothing, on the same one statement', !db.get(S.BY_CODE, [D1, 'code-hash-invented', NOW()]), 'no row');
+  db.run('UPDATE pending_signups SET verify_expires_at = ? WHERE signup_id = ?', [new Date(Date.now() - 1000).toISOString(), '11'.repeat(16)]);
+  add('… and an EXPIRED sign-up is not found by its own code: the lookup carries the liveness test rather than a branch after it',
+      !db.get(S.BY_CODE, [D1, 'code-hash-stranger', NOW()]), 'expired row not returned');
+  db.run('UPDATE pending_signups SET verify_expires_at = ? WHERE signup_id = ?', [LATER(900000), '11'.repeat(16)]);
 
-  // ── 2. the claim UPDATE is the guess counter, and its WHERE clause is the whole control ──
-  const claim = (digest, max) => db.changes(S.CLAIM, [digest, NOW(), max]);
-  add('the claim takes a try while the code is live and under the cap', claim(D1, 20) === 1 && db.get(S.READ, [D1]).verify_attempts === 1, 'attempts=' + db.get(S.READ, [D1]).verify_attempts);
-  add('… and takes nothing at an address with no row at all — which is what makes the absent twin cost the same and change nothing',
-      claim('absent', 20) === 0, 'changes at a key no address carries');
-  db.run('UPDATE pending_signups SET verify_attempts = 20 WHERE address_digest = ?', [D1]);
-  add('… and takes nothing once the twenty tries are spent, however many requests arrive', claim(D1, 20) === 0 && claim(D1, 20) === 0, 'spent');
-  db.run('UPDATE pending_signups SET verify_attempts = 0, verify_expires_at = ? WHERE address_digest = ?', [new Date(Date.now() - 1000).toISOString(), D1]);
-  add('… and takes nothing on an expired code', claim(D1, 20) === 0, 'expired');
-  db.run(S.ISSUE, ['code-hash-3', LATER(900000), NOW(), D1]);
-  add('the reissue statement puts a live code back on the row and the claim takes again', db.get(S.READ, [D1]).verify_code_hash === 'code-hash-3' && claim(D1, 20) === 1, 'reissued');
-  /* R6-1(a): the burn clears the code and stamps burn_cleared_at, and it LEAVES code_sent_at alone. Nulling
-     code_sent_at was half of a deterministic takeover — it is the column /account/register's replace gate reads, so a
-     stranger who burned the code could immediately write their own credentials onto the sign-up. */
-  const beforeBurn = db.get(S.READ, [D1]).code_sent_at;
-  const burnAt = NOW();
-  add('the burn clears the code and stamps burn_cleared_at, and LEAVES code_sent_at exactly where it was — the replace gate cannot be moved by a stranger burning a code',
-      db.changes(S.BURN, [null, null, 0, burnAt, D1]) === 1 && !db.get(S.READ, [D1]).verify_code_hash &&
-      db.get(S.READ, [D1]).code_sent_at === beforeBurn && db.get(S.READ, [D1]).burn_cleared_at === burnAt,
-      'code_sent_at=' + db.get(S.READ, [D1]).code_sent_at + ' burn_cleared_at=' + db.get(S.READ, [D1]).burn_cleared_at);
+  /* ── 3. the claim, and the count the burn reads ── */
+  const claim = (digest) => db.changes(S.CLAIM, [digest, NOW(), MAX]);
+  const spent = (digest) => Number(db.get(S.SPENT, [digest, NOW()]).used || 0);
+  add('one claim statement counts a try against EVERY live sign-up at the address — two rows, one statement, two counts',
+      claim(D1) === 2 && spent(D1) === 1, 'changes=2 used=' + spent(D1));
+  add('… and it takes nothing at an address with no sign-ups, which is why the absent case needs no twin statement',
+      claim('f'.repeat(64)) === 0, 'changes at an address with nothing');
+  db.run(S.INSERT, insertArgs('33'.repeat(16), D1, 'hash-of-a-later-signup', 'Latecomer', 'code-hash-later', LATER(900000), '198.51.100.3', '2026-09-09T10:00:02.000Z'));
+  add('A NEW SIGN-UP CANNOT LOWER THE BURN COUNT — it starts at 0 and MAX ignores it, so a stranger cannot defer the twenty-try burn by opening one (the round-4 primitive, in SQL)',
+      spent(D1) === 1 && claim(D1) === 3 && spent(D1) === 2, 'used=' + spent(D1));
+  db.run('UPDATE pending_signups SET verify_attempts = ? WHERE signup_id = ?', [MAX, '22'.repeat(16)]);
+  add('… and a row at the cap stops being claimed while the address\'s count stands at the cap, so the burn still fires',
+      claim(D1) === 2 && spent(D1) === MAX, 'used=' + spent(D1));
+
+  /* ── 4. the burn: its predicate is in the BINDS, which is what makes every refused verification cost the same ── */
+  add('the burn statement removes NOTHING when the tries are not spent — the same statement, the same one execution, on every wrong code at every address',
+      db.changes(S.BURN, [D1, 5, MAX]) === 0 && db.all('SELECT * FROM pending_signups WHERE address_digest = ?', [D1]).length === 3,
+      'rows still ' + db.all('SELECT * FROM pending_signups WHERE address_digest = ?', [D1]).length);
+  add('… and at the cap it takes EVERY sign-up waiting at the address, in one statement, whoever made them',
+      db.changes(S.BURN, [D1, MAX, MAX]) === 3 && db.all('SELECT * FROM pending_signups WHERE address_digest = ?', [D1]).length === 0, 'burned');
   add('… and burning twice reports nothing the second time — one racing guess is told it did the burning, not five',
-      db.changes(S.BURN, [null, null, 0, NOW(), D1]) === 0, 'idempotent');
+      db.changes(S.BURN, [D1, MAX, MAX]) === 0, 'idempotent');
+  db.run(S.INSERT, insertArgs('44'.repeat(16), D2, 'h', 'N', 'code-hash-2', LATER(900000), '198.51.100.4', NOW()));
+  db.run(S.ISSUE, ['code-hash-2b', LATER(900000), '44'.repeat(16)]);
+  add('the reissue statement moves the code of ONE sign-up, named by its signup_id — there is no statement in this Worker that can move somebody else\'s',
+      db.get(S.BY_CODE, [D2, 'code-hash-2b', NOW()]).signup_id === '44'.repeat(16) && !db.get(S.BY_CODE, [D2, 'code-hash-2', NOW()]), 'reissued');
 
-  // ── 3. the guarded create: one account per address, whatever arrives at once ──
+  /* ── 5. the guarded create, and the two DELETEs that settle the address ── */
+  db.run(S.INSERT, insertArgs('55'.repeat(16), D2, 'h2', 'Other', 'code-hash-other', LATER(900000), '198.51.100.5', NOW()));
   add('a verified code creates the account', db.changes(S.CREATE, createArgs('acct_1', 'owner@example.com')) === 1, 'first create');
   add('… and a SECOND create for the same address changes nothing: the account cannot be made twice, and a code held from before an account existed cannot make another one',
       db.changes(S.CREATE, createArgs('acct_2', 'owner@example.com')) === 0 && db.get('SELECT COUNT(*) AS n FROM accounts WHERE email = ?', ['owner@example.com']).n === 1,
       'accounts for that address = ' + db.get('SELECT COUNT(*) AS n FROM accounts WHERE email = ?', ['owner@example.com']).n);
-  db.run(S.UPSERT, upsertArgs(D2, 'h', 'N', 'c', LATER(900000), NOW(), '198.51.100.3'));
-  add('… and dropping the pending row is one statement that finds it by digest', db.changes(S.DROP, [D2]) === 1 && !db.get(S.READ, [D2]), 'dropped');
+  add('… and the batch drops the verified sign-up by its own id and every OTHER sign-up at the address with it — no row is left that nothing can complete',
+      db.changes(S.DROP, ['44'.repeat(16)]) === 1 && db.changes(S.DROP_OTHERS, [D2, '44'.repeat(16)]) === 1 && db.all('SELECT * FROM pending_signups WHERE address_digest = ?', [D2]).length === 0,
+      'address settled');
 
-  // ── 4. migrations/010's one-time step touches no verified account ──
+  /* ── 6. migrations/012: the shape change a CREATE cannot do, and the one-time step ── */
+  {
+    const mig = read('migrations/012-pending-signup-per-row.sql');
+    add('migrations/012 DROPs the table before creating it, because SQLite cannot ALTER a primary key from address_digest onto signup_id — the reason the file recreates rather than alters, in the file',
+        /DROP TABLE IF EXISTS pending_signups;/.test(mig) && /CREATE TABLE IF NOT EXISTS pending_signups \(\s*\n\s*signup_id\s+TEXT PRIMARY KEY/.test(mig),
+        'drop+create present');
+  }
   db.run('UPDATE accounts SET verified_at = NULL WHERE email = ?', ['owner@example.com']);
   db.run(S.CREATE, createArgs('acct_v', 'verified@example.com'));
   const removed = db.changes(migrationDelete(), []);
   const left = db.all('SELECT email, verified_at FROM accounts');
-  add('migrations/010 removes the unverified rows and NOT ONE verified one — the one-time equivalence, in SQL',
+  add('migrations/012 removes the unverified rows and NOT ONE verified one — the one-time equivalence, in SQL',
       removed === 1 && left.length === 1 && left[0].email === 'verified@example.com' && !!left[0].verified_at,
       'removed=' + removed + ' left=' + left.map((r) => r.email).join());
 

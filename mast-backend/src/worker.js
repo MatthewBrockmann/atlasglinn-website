@@ -226,12 +226,12 @@ function publicAccount(a) {
 
      the squat takeover  a stranger signed up victim@, their password landed on the accounts row, and round 3's "a
                          sign-up never overwrites an existing row" then PROTECTED it — the owner entered the code from
-                         their own mailbox and the account came up holding the stranger's password. A sign-up REPLACES
-                         the pending row instead — and, since round 6, only once the code it would replace is past its
-                         own fifteen minutes, so the credentials on the row and the only live code at the address always
-                         belong to the same sign-up. Round 5 gated that on sixty seconds and on burnPendingCode not
-                         having nulled the stamp, which made the takeover a wait or a burn away rather than closed.
-                         A credential a stranger typed can no longer be waiting inside an account the owner verifies.
+                         their own mailbox and the account came up holding the stranger's password. Rounds 5 and 6 moved
+                         the same contest onto the pending row and kept losing it, because ONE ROW PER ADDRESS is a slot
+                         and a slot can be taken, held and renewed. ROUND 7 REMOVES THE SLOT: a row per SIGN-UP, and
+                         /account/verify takes the code AND the password that sign-up was made with, so the credentials
+                         that become an account are always the ones whose own code came back. A stranger's row is inert
+                         to the owner and the owner's is unreachable to the stranger.
      register→login      an address that had started a sign-up had an accounts row, so /account/login answered 403
                          'unverified' for it and 401 for an address with nothing — a one-request existence oracle. A
                          pending sign-up is not an accounts row, so it answers the 401 an absent address answers, on the
@@ -278,10 +278,11 @@ async function codeHash(env, acct, kind, code) {
  * them is right or twenty of them are wrong and the code burns.
  *
  * TRUE HERE ALL ALONG, AND FALSE NEXT DOOR FOR THE WHOLE OF ROUND 5 (round 6, 2026-09-09). This function is the
- * ACCOUNTS path and /account/forgot is now its only caller; sign-ups moved to pending_signups, where PENDING_UPSERT
- * bound verify_attempts to a literal 0 and /account/register reset it on every unauthenticated call. The primitive
- * described above was therefore alive on the new path while this comment, and five documents quoting it, said it was
- * closed. The pending statement is an ON CONFLICT ... DO UPDATE that does not name the column now.
+ * ACCOUNTS path and /account/forgot is now its only caller; sign-ups moved to pending_signups, where the write bound
+ * verify_attempts to a literal 0 and /account/register reset it on every unauthenticated call. The primitive described
+ * above was therefore alive on the new path while this comment, and five documents quoting it, said it was closed. A
+ * pending row still starts at 0 (it is a new row, not a reset one), and the counter the burn reads is MAX across the
+ * live rows at the address — so opening a sign-up cannot lower it (round 7).
  */
 async function issueCode(env, acct, kind) {
   const code = newCode(), now = Date.now();
@@ -374,103 +375,99 @@ async function dummyCheckCode(env, kind, code) {
    the classes booked under the address stay invisible until a code from that mailbox comes back and handleAccountVerify
    creates the accounts row.
 
-   Keyed on the SHA-256 digest of the normalised address, never the address, so a table of half-finished sign-ups is not
-   a list of who has typed what. The code lives on the pending row under the same HMAC as an account's, bound to the
-   digest instead of an account id.
+   ONE ROW PER SIGN-UP, NOT ONE PER ADDRESS (security review round 7, 2026-09-09). Rounds 5 and 6 gave the address a
+   single row, and six rounds of review each closed one way of contesting it and opened the next: whoever held the row
+   held the address, so the whole surface reduced to a race for a slot. Round 5 let the LAST writer win (a stranger took
+   a sign-up in flight); round 6 let the FIRST writer win and gated the replace on the code's age, which made the slot a
+   HOLD — and /account/resend renewed that hold every sixty seconds, so a stranger squatted an address indefinitely and
+   the only live code in the owner's mailbox was always bound to the stranger's password.
 
-   The row is dropped when the account is created, replaced when a later sign-up for the same address mails a new code,
+   THERE IS NO SLOT NOW. The primary key is a random signup_id, the address is an ordinary indexed column, and a sign-up
+   only ever INSERTS its own row. A stranger can create rows at any address the mail budgets let them mail; none of them
+   touches the owner's, none of them delays the owner's, and there is nothing left to renew. Verification takes the
+   triple {email, code, password}: the row is found by (address_digest, code_hash) and the account is created only if
+   the password on that row also matches, so an owner who receives a stranger's code cannot complete the stranger's
+   sign-up (the password is not theirs) and a stranger cannot complete the owner's (the code is not theirs).
+
+   Keyed on the SHA-256 digest of the normalised address, never the address, so a table of half-finished sign-ups is not
+   a list of who has typed what. The code lives on the row under the same HMAC as an account's, bound to the digest.
+
+   The rows for an address are dropped when the account is created, dropped together when twenty wrong codes burn them,
    and purged by the daily cron after a day. */
 const PENDING_ABSENT = 'absent';   // 'absent' is not a 64-hex digest, so no address can ever key this row
-/**
- * The one statement /account/register writes, on every branch. The non-mailing branch binds the placeholders below.
- *
- * UPSERT, NOT `INSERT OR REPLACE` (security review round 6, 2026-09-09). The old statement bound verify_attempts as a
- * literal 0, so a sign-up — an UNAUTHENTICATED request — reset the twenty-try global burn counter for the address. That
- * is the round-4 primitive reproduced on the pending path: a stranger interleaving one /account/register between every
- * five wrong codes deferred the burn, and the owner's "your code was invalidated" notice with it, indefinitely.
- * /account/resend (PENDING_ISSUE) and the accounts path (issueCode) already left the counter alone; register was the
- * only route that reset it. ON CONFLICT names every column a later sign-up may move and verify_attempts is not one of
- * them, so the count survives however many codes were issued at the address. created_ip and created_at are not moved
- * either: created_at is what the daily purge measures, and a replace must not push the row's expiry out.
- */
-const PENDING_UPSERT = 'INSERT INTO pending_signups (address_digest, password_hash, name, phone, organization, verify_code_hash, verify_expires_at, verify_attempts, code_sent_at, created_ip, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?) ON CONFLICT(address_digest) DO UPDATE SET password_hash = excluded.password_hash, name = excluded.name, phone = excluded.phone, organization = excluded.organization, verify_code_hash = excluded.verify_code_hash, verify_expires_at = excluded.verify_expires_at, code_sent_at = excluded.code_sent_at';
-/** The one statement /account/resend writes, on every branch. */
-const PENDING_ISSUE = 'UPDATE pending_signups SET verify_code_hash = ?, verify_expires_at = ?, code_sent_at = ? WHERE address_digest = ?';
-async function pendingByDigest(env, digest) {
-  return await env.DB.prepare('SELECT * FROM pending_signups WHERE address_digest = ?').bind(digest).first();
+/** A random 128-bit primary key. Two sign-ups at one address are two rows; nothing about one is reachable from the other. */
+function newSignupId() {
+  return [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 /**
- * The pending row's twin of codeTooSoon: one code a minute at one address, whoever asks for it — with the owner's
- * exemption after a burn carried in burn_cleared_at, a column the replace decision below never reads (round 6).
- * burnPendingCode used to null code_sent_at to lift this throttle, and code_sent_at is the field pendingHeld() reads,
- * so twenty wrong codes from a stranger un-throttled the REPLACE as well as the resend and handed them the row.
+ * The one statement /account/register writes, on every branch.
+ *
+ * INSERT OR REPLACE and never an upsert on the address (round 7): the key is a fresh signup_id, so the REPLACE half can
+ * only ever fire on the branch that mails nothing, which binds the constant PENDING_ABSENT and therefore rewrites one
+ * row of nothing rather than growing the table. A sign-up that mails never touches a row that already exists — that
+ * capability is the whole of what rounds 5 and 6 were trying to gate, and it is gone rather than gated.
  */
-function pendingTooSoon(row) {
-  if (!row || !row.code_sent_at) return false;
-  if (row.burn_cleared_at && Date.parse(row.burn_cleared_at) >= Date.parse(row.code_sent_at)) return false;
-  return Date.now() - Date.parse(row.code_sent_at) < CODE_RESEND_MS;
+const PENDING_INSERT = 'INSERT OR REPLACE INTO pending_signups (signup_id, address_digest, password_hash, name, phone, organization, code_hash, verify_expires_at, verify_attempts, created_at, created_ip) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)';
+/** The one statement /account/resend writes, on every branch. It names a signup_id, so it can only ever move the row it found. */
+const PENDING_ISSUE = 'UPDATE pending_signups SET code_hash = ?, verify_expires_at = ? WHERE signup_id = ?';
+/** The row /account/resend may re-mail: the newest sign-up at the address, whoever made it. The IP test is in the route. */
+const PENDING_NEWEST = 'SELECT * FROM pending_signups WHERE address_digest = ? ORDER BY created_at DESC, rowid DESC LIMIT 1';
+/**
+ * The lookup /account/verify makes: ONE indexed read that returns at most one row however many sign-ups are waiting at
+ * the address, which is what keeps the route's statement count independent of them. Two live rows can only collide here
+ * by carrying the SAME six digits — one chance in a million — and the newest wins (rowid breaks a same-millisecond
+ * tie the way an insertion order does); the password decides after that, so a collision refuses rather than crosses the
+ * two sign-ups over.
+ */
+const PENDING_BY_CODE = 'SELECT * FROM pending_signups WHERE address_digest = ? AND code_hash = ? AND verify_expires_at > ? ORDER BY created_at DESC, rowid DESC LIMIT 1';
+/**
+ * The guess counter, claimed FIRST and across every live row at the address, so concurrent guesses cannot share a count
+ * and a stranger cannot reset the twenty-try burn by opening a new sign-up — a row created later starts at 0, and MAX
+ * below ignores it. One statement whatever the address holds: it bumps three rows, or one, or none.
+ */
+const PENDING_CLAIM = 'UPDATE pending_signups SET verify_attempts = verify_attempts + 1 WHERE address_digest = ? AND verify_expires_at > ? AND verify_attempts < ?';
+const PENDING_SPENT = 'SELECT MAX(verify_attempts) AS used FROM pending_signups WHERE address_digest = ? AND verify_expires_at > ?';
+/**
+ * The burn: twenty wrong codes at an address end every sign-up waiting there, and the owner is emailed once.
+ *
+ * `AND ? >= ?` LOOKS ODD AND IS THE POINT (round 7). The statement runs on EVERY refused verification, at every address,
+ * and the binds decide whether it deletes anything: an address with nothing has used = 0, so the predicate is false and
+ * the statement changes nothing. Round 6 ran the burn only when it was due, which spent one statement on the twentieth
+ * guess at a real address and none at an invented one — an existence classifier at the twentieth request, measured by
+ * the round-6 review (10 x19 then 11, against 10 x20). Whoever's DELETE removes rows is the request that burned, so
+ * exactly one racing guess sends the notice.
+ */
+const PENDING_BURN = 'DELETE FROM pending_signups WHERE address_digest = ? AND ? >= ?';
+/** The verified sign-up's own row, and then every other sign-up waiting at the address. Both inside the create batch. */
+const PENDING_DROP = 'DELETE FROM pending_signups WHERE signup_id = ?';
+const PENDING_DROP_OTHERS = 'DELETE FROM pending_signups WHERE address_digest = ? AND signup_id <> ?';
+/** The code on a pending row: HMAC(ACCOUNT_SECRET, digest:verify:code), the same shape an account's code carries. */
+async function pendingCodeHash(env, digest, code) {
+  return await codeHash(env, { id: digest }, 'verify', String(code || '').replace(/\D/g, ''));
 }
 /**
- * May a later /account/register replace this pending row? Only once the code it mailed is past its own lifetime.
+ * ONE verification attempt: five statements and exactly one PBKDF2, whatever the address is and whatever it holds.
  *
- * THE REPLACE IS GATED ON THE AGE OF code_sent_at, NOT ON THE LIVENESS OF THE CODE (security review round 6,
- * 2026-09-09), and it reads that one column and nothing else. Round 5 gated it on pendingTooSoon() — sixty seconds —
- * so a stranger took the row from an owner whose code was still sitting live in their inbox: wait a minute, or spend
- * twenty wrong codes and let the burn clear the stamp, POST /account/register, and the row carried the stranger's
- * password_hash while the site's own "ask for a new verification code" advice re-minted a code against it. Measured at
- * 21 requests from 5 connections, no race and no timing luck. While a code can still be used, the credentials that
- * belong to it stay on the row.
+ * Every statement is keyed on the caller's own digest and runs unconditionally, so a brand-new address, an address with
+ * one sign-up waiting, an address with three, and an address that already has an account all cost the same — there is
+ * no absent twin to keep in step because there is no absent branch. `blocked` is an address that already has an
+ * account: the statements still run, the row is discarded, and the answer is the one a wrong code gets.
  *
- * The cost, stated: a genuine second sign-up at the same address inside fifteen minutes is answered the same 202 with
- * no second mail, and the way to get another code is /account/resend. That is a delay a stranger can impose; it is
- * bounded by the code's own lifetime and by the per-connection mail budgets, and it buys the takeover.
+ * The PBKDF2 runs against DUMMY_PASSWORD_HASH when no row matched, so the cost of a wrong code and the cost of a wrong
+ * password are the same cost, and neither says whether a sign-up exists.
  */
-function pendingHeld(row) { return !!(row && row.code_sent_at && Date.now() - Date.parse(row.code_sent_at) < CODE_TTL_MS); }
-/**
- * checkCode against a pending row: the same claim-first UPDATE and the same read-back, so concurrent guesses cannot
- * share a try, and twenty wrong ones burn the code exactly as they burn an account's.
- */
-async function pendingCheckCode(env, row, code) {
+async function pendingVerify(env, digest, code, password, blocked) {
   const now = new Date().toISOString();
-  const claim = await env.DB.prepare('UPDATE pending_signups SET verify_attempts = verify_attempts + 1 WHERE address_digest = ? AND verify_code_hash IS NOT NULL AND verify_expires_at > ? AND verify_attempts < ?')
-    .bind(row.address_digest, now, CODE_MAX_TRIES).run();
-  if (!claim || !claim.meta || !claim.meta.changes) {
-    const back = await env.DB.prepare('SELECT verify_code_hash, verify_expires_at, verify_attempts FROM pending_signups WHERE address_digest = ?').bind(row.address_digest).first().catch(() => null);
-    const live = !!(back && back.verify_code_hash && back.verify_expires_at && back.verify_expires_at > now);
-    if (live) return (await burnPendingCode(env, row)) ? 'burned' : 'locked';
-    return 'expired';
-  }
-  const want = row.verify_code_hash, got = await codeHash(env, { id: row.address_digest }, 'verify', String(code || '').replace(/\D/g, ''));
-  let diff = want.length ^ got.length; for (let i = 0; i < Math.min(want.length, got.length); i++) diff |= want.charCodeAt(i) ^ got.charCodeAt(i);
-  if (diff === 0) return 'ok';
-  const back = await env.DB.prepare('SELECT verify_code_hash, verify_expires_at, verify_attempts FROM pending_signups WHERE address_digest = ?').bind(row.address_digest).first().catch(() => null);
-  const used = back && typeof back.verify_attempts === 'number' ? back.verify_attempts : (row.verify_attempts || 0) + 1;
-  row.verify_attempts = used;
-  if (!back || !back.verify_code_hash) return 'locked';
-  if (used >= CODE_MAX_TRIES) return (await burnPendingCode(env, row)) ? 'burned' : 'locked';
-  return 'wrong';
-}
-/**
- * burnCode for a pending row. THE THROTTLE STAMP STAYS (security review round 6, 2026-09-09): this used to null
- * code_sent_at so the owner was not also made to wait a minute for a replacement, and that one null was half of a
- * deterministic account takeover — code_sent_at is what gates the /account/register replace, so a stranger who burned
- * the code could immediately write their own credentials onto the row. The owner's exemption is carried in
- * burn_cleared_at instead, which pendingTooSoon() reads and pendingHeld() does not.
- */
-async function burnPendingCode(env, row) {
-  const now = new Date().toISOString();
-  const res = await env.DB.prepare('UPDATE pending_signups SET verify_code_hash = ?, verify_expires_at = ?, verify_attempts = ?, burn_cleared_at = ? WHERE address_digest = ? AND verify_code_hash IS NOT NULL')
-    .bind(null, null, 0, now, row.address_digest).run().catch(() => null);
-  Object.assign(row, { verify_code_hash: null, verify_expires_at: null, verify_attempts: 0, burn_cleared_at: now });
-  return !!(res && res.meta && res.meta.changes);
-}
-/** The absent twin of pendingCheckCode: the same HMAC, the same claim and the same read-back, on a key no address carries. */
-async function dummyPendingCheck(env, code) {
-  await codeHash(env, { id: PENDING_ABSENT }, 'verify', String(code || '').replace(/\D/g, ''));
-  await env.DB.prepare('UPDATE pending_signups SET verify_attempts = verify_attempts + 1 WHERE address_digest = ? AND verify_code_hash IS NOT NULL AND verify_expires_at > ? AND verify_attempts < ?')
-    .bind(PENDING_ABSENT, new Date().toISOString(), CODE_MAX_TRIES).run().catch(() => {});
-  await env.DB.prepare('SELECT verify_code_hash, verify_expires_at, verify_attempts FROM pending_signups WHERE address_digest = ?').bind(PENDING_ABSENT).first().catch(() => null);
-  return 'expired';
+  await env.DB.prepare(PENDING_CLAIM).bind(digest, now, CODE_MAX_TRIES).run().catch(() => {});
+  const spent = await env.DB.prepare(PENDING_SPENT).bind(digest, now).first().catch(() => null);
+  const used = Number((spent && spent.used) || 0);
+  const hash = await pendingCodeHash(env, digest, code);
+  const found = await env.DB.prepare(PENDING_BY_CODE).bind(digest, hash, now).first().catch(() => null);
+  const row = blocked ? null : found;
+  const okPw = await verifyPassword(password, row ? row.password_hash : DUMMY_PASSWORD_HASH);
+  if (row && okPw) return { r: 'ok', row };
+  const burn = await env.DB.prepare(PENDING_BURN).bind(digest, used, CODE_MAX_TRIES).run().catch(() => null);
+  return { r: burn && burn.meta && burn.meta.changes ? 'burned' : 'wrong', row: null };
 }
 
 /**
@@ -491,13 +488,28 @@ async function guardedCheckCode(request, env, ctx, acct, email, kind, code) {
   return await guardedCode(request, env, ctx, id, email, kind, acct, () => (acct ? checkCode(env, acct, kind, code) : dummyCheckCode(env, kind, code)));
 }
 /**
- * The same cap in front of a PENDING sign-up's code. The counter id is the address either way (round 5): a stranger who
- * spends five guesses at an address must not get five more the moment a sign-up row appears there, and the row appearing
- * is something they can cause themselves with one /account/register.
+ * The same per-connection cap in front of a PENDING sign-up's verification, and the owner's burn notice behind it.
+ *
+ * The counter id is the address either way (round 5): a stranger who spends five guesses at an address must not get
+ * five more the moment a sign-up row appears there, and the row appearing is something they can cause themselves with
+ * one /account/register.
+ *
+ * It no longer shares guardedCode with the accounts path (round 7). That function decides the notice from whether a row
+ * was found, and a pending verification does not find a row when the password is wrong — the notice is owed to the
+ * address whenever the twenty tries are actually spent, which is what the burn statement itself reports.
  */
-async function guardedPendingCheck(request, env, ctx, row, email, code) {
+async function guardedPendingVerify(request, env, ctx, { email, digest, code, password, blocked }) {
+  const ip = clientIp(request);
   const id = await pendingGuessId(email);
-  return await guardedCode(request, env, ctx, id, email, 'verify', row ? { email } : null, () => (row ? pendingCheckCode(env, row, code) : dummyPendingCheck(env, code)));
+  if ((await codeGuessesSpent(env, ip, id)) >= CODE_GUESSES_PER_IP) return { r: 'wrong', row: null };
+  const out = await pendingVerify(env, digest, code, password, blocked);
+  if (out.r === 'ok') { await clearCodeGuesses(env, id); return out; }
+  await noteCodeGuess(env, ip, id);
+  if (out.r === 'burned') {
+    const send = notifyCodeBurned(env, { email }, 'verify').catch((e) => console.error('[Account] burn notice failed:', e.message));
+    if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(send);
+  }
+  return out;
 }
 /** The cap, the run, and the burn notice — shared by the account and pending paths so neither can drift from the other. */
 async function guardedCode(request, env, ctx, id, email, kind, owner, run) {
@@ -509,9 +521,8 @@ async function guardedCode(request, env, ctx, id, email, kind, owner, run) {
   const acct = owner;
   if (r === 'burned' && acct) {
     // The owner is told, and the throttle on their own next request is lifted with it: a burn they did not cause must
-    // not also cost them the minute codeTooSoon() would hold the replacement for. burnPendingCode has already written
-    // the pending row's own exemption (burn_cleared_at, round 6 — it no longer clears code_sent_at, which is what the
-    // replace decision reads), so only the accounts path has a column left to clear here.
+    // not also cost them the minute codeTooSoon() would hold the replacement for. This is the ACCOUNTS path only now —
+    // the pending path has no throttle column left to clear, because round 7 gave it no hold to be throttled out of.
     if (acct.id) { await env.DB.prepare('UPDATE accounts SET verify_sent_at = ? WHERE id = ?').bind(null, acct.id).run().catch(() => {}); acct.verify_sent_at = null; }
     const send = notifyCodeBurned(env, acct, kind).catch((e) => console.error('[Account] burn notice failed:', e.message));
     if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(send);
@@ -525,9 +536,10 @@ async function guardedCode(request, env, ctx, id, email, kind, owner, run) {
  * would put six budget statements on the burning request and nowhere else, which is a statement-count tell on a route
  * whose whole design is that every wrong code costs the same; and a security notice the owner should always get is the
  * wrong thing to let an attacker suppress by pre-spending a connection's allowance. The ceiling is bounded anyway:
- * burnCode / burnPendingCode are conditional on `verify_code_hash IS NOT NULL`, so exactly ONE burn fires per live
- * code, and a live code exists only because a mail passed noteCodeMail. Burn notices <= code mails, so the per-mailbox
- * ceiling in README is 2x the code-mail figures rather than 1x. Stated there, not claimed away.
+ * burnCode is conditional on `verify_code_hash IS NOT NULL` and PENDING_BURN reports the rows it actually removed, so
+ * exactly ONE burn fires per live code, and a live code exists only because a mail passed noteCodeMail. Burn notices <=
+ * code mails, so the per-mailbox ceiling in README is 2x the code-mail figures rather than 1x. Stated there, not
+ * claimed away.
  */
 async function notifyCodeBurned(env, acct, kind) {
   const text = [
@@ -598,27 +610,35 @@ async function handleAccountRegister(request, env, ctx, cors) {
   if (password.length < 10) return json({ error: 'Use a password of at least 10 characters.', field: 'password' }, 400, cors);
   if (password.length > 200) return json({ error: 'That password is too long.', field: 'password' }, 400, cors);
   const ip = clientIp(request), digest = await addressDigest(email), now = new Date().toISOString();
-  // BOTH reads happen on every branch, and there is exactly ONE write below, so a brand-new address, an address with a
-  // sign-up already waiting and an address with an account all cost nine statements (round 5). Round 4 measured 6/5/5
-  // here — the INSERT was the tell — and a caller who can count statements can tell which addresses are taken however
-  // uniform the body is.
+  // ONE read and exactly ONE write on every branch, so a brand-new address, an address with sign-ups already waiting
+  // and an address with an account all cost the same (round 4 measured 6 / 5 / 5 here — the INSERT was the tell).
+  //
+  // THE PENDING READ IS GONE (round 7) and its absence is the fix, not an optimisation: this route used to read the
+  // address's pending row in order to decide whether it was ALLOWED to write one. That decision — the replace gate —
+  // is what made a single row per address a slot strangers could contest, and every takeover of rounds 5 and 6 lived
+  // in it. A sign-up now inserts its own row unconditionally, so there is nothing to gate and nothing to read.
   const existing = await accountByEmail(env, email);
-  const pending = await pendingByDigest(env, digest);
   const name = str(body.name).trim().slice(0, 120), phone = str(body.phone).replace(/[^\d+()\-.\s]/g, '').trim().slice(0, 40), organization = str(body.organization).trim().slice(0, 120);
-  // Hashed on every branch, so the answer costs the same time as well as the same statements.
+  // Hashed on every branch, so the answer costs the same time as well as the same statements. The code and its HMAC are
+  // computed on every branch too (round 7) — the branch that mails nothing binds them away rather than skipping them.
   const hash = await hashPassword(password);
+  const code = newCode();
+  const issued = await pendingCodeHash(env, digest, code);
   // An address that already has an account answers exactly what a brand-new one answers — same status, same body
   // (security review 2026-09-08: the old 409 'exists' turned this route into an address checker, and the 429 'too_soon'
   // did the same job one step later). Nothing on the account changes; the person who actually owns the address is told
   // that someone tried, and can sign in or reset.
-  // pendingHeld, NOT pendingTooSoon (round 6): a pending row whose code can still be used is not replaceable, so a
-  // stranger cannot write their own password onto a sign-up the owner is in the middle of. Refusing lands on the branch
-  // below that binds PENDING_ABSENT — the same 202, the same nine statements, the same one write — so the gate adds no
-  // answer this route did not already give.
-  const sending = existing ? !noticeTooSoon(existing) : !pendingHeld(pending);
+  //
+  // A NEW SIGN-UP IS NEVER REFUSED ON ACCOUNT OF ANOTHER ONE (round 7). There is no pendingHeld() and no
+  // pendingTooSoon() on this route: whoever posts the address gets their own row and their own code, inside their own
+  // mail budgets. That is what removes the delay a stranger could impose on the owner AND the hold a stranger could
+  // renew — neither is gated better, both are gone.
+  const sending = existing ? !noticeTooSoon(existing) : true;
   // The SAME budgets /account/forgot and /account/resend spend, and the same rule about when a slot is taken (round 5).
   // Round 4 left this route outside them entirely, so the ceiling it was written to lower — a mail a minute at any
-  // mailbox on earth — was unmoved: twelve connections still delivered twelve emails to one address.
+  // mailbox on earth — was unmoved: twelve connections still delivered twelve emails to one address. They are also the
+  // ONLY bound on how many pending rows an address can hold, which is deliberate: a stranger's rows cost a stranger's
+  // mails and reach nothing of the owner's.
   const mayMail = await noteCodeMail(env, ip, email, sending);
   const mail = sending && mayMail;
   if (existing) {
@@ -639,19 +659,16 @@ async function handleAccountRegister(request, env, ctx, cors) {
   // stranger cannot leave credentials sitting inside an account the owner later verifies, and /account/login answers an
   // address that has only started a sign-up exactly what it answers an address that has nothing.
   //
-  // A later sign-up replaces the earlier one only once the earlier code is past its own fifteen minutes (round 6) — and
-  // only when it actually mails, so a stranger can neither silently invalidate the code in someone's inbox by posting
-  // the address again nor write their own credentials over a sign-up that is still in flight. On the account side there
-  // is no writer at all until a code comes back.
-  const code = mail ? newCode() : null;
-  await env.DB.prepare(PENDING_UPSERT).bind(
+  // The row is this sign-up's own, keyed on a random signup_id (round 7). The branch that mails nothing binds the
+  // constant PENDING_ABSENT, so it rewrites one row of nothing: same statement, same count, no row an address can find.
+  await env.DB.prepare(PENDING_INSERT).bind(
+    mail ? newSignupId() : PENDING_ABSENT,
     mail ? digest : PENDING_ABSENT,
     mail ? hash : DUMMY_PASSWORD_HASH,
     mail ? name : '', mail ? phone : '', mail ? organization : '',
-    mail ? await codeHash(env, { id: digest }, 'verify', code) : null,
+    mail ? issued : null,
     mail ? new Date(Date.now() + CODE_TTL_MS).toISOString() : null,
-    mail ? now : null,
-    mail ? ip : '', now,
+    now, mail ? ip : '',
   ).run().catch((e) => console.error('[Account] pending sign-up write failed:', e.message));
   if (mail) {
     // Handed to ctx.waitUntil like every other code send: a refusing mail provider is a log line, never a status code.
@@ -685,44 +702,50 @@ async function handleAccountVerify(request, env, ctx, cors) {
   const off = accountsOff(env, cors); if (off) return off;
   const body = await request.json().catch(() => null);
   const email = String((body && body.email) || '').trim().toLowerCase();
+  const password = String((body && body.password) || '');
   const digest = await addressDigest(email);
   // THIS is where an account is created (round 5, 2026-09-09). /account/register only writes a pending row, so the
   // credentials that become an account are the ones belonging to the code the mailbox actually received.
   //
-  // Unknown address, already-verified address and simply the wrong six digits all answer the same 400 bad_code, and the
-  // unknown one does the same HMAC work and spends the same statements first (security review 2026-09-08: 400-vs-409,
-  // and the tries_left field, each told a caller which addresses have accounts).
+  // IT TAKES THE TRIPLE — email, code AND the password the sign-up was made with (round 7, 2026-09-09). One row per
+  // address made the code alone sufficient, and that is what every takeover of rounds 5 and 6 exploited: whoever owned
+  // the row owned whatever the mailbox typed back. With a row per sign-up the code selects the row and the password
+  // proves it is the caller's own. An owner who receives a stranger's code cannot complete the stranger's sign-up, and
+  // a stranger who owns a row cannot complete the owner's. Neither can wait the other out, because neither is holding
+  // anything the other needs.
   //
-  // 'expired' and 'locked' answer it too (security review round 2, 2026-09-08). The comment that used to sit here said
-  // "both need a live code to reach", and that was FACTUALLY WRONG for 'expired': checkCode returns 'expired' exactly
-  // when there is NO live code, which is the ordinary state, so one request separated a real address from an invented
-  // one. The code is still burned by twenty wrong tries either way; only the answer is uniform.
+  // Unknown address, already-verified address, a wrong six digits and a wrong password all answer the same 401
+  // bad_code, on the same statements and after the same single PBKDF2 (security review 2026-09-08: 400-vs-409, and the
+  // tries_left field, each told a caller which addresses have accounts; round 2: answering 'expired' told them the
+  // same thing, because no live code is the ordinary state). It answers 401 rather than round 6's 400 because the
+  // request now carries a credential and a refusal is an authentication failure.
   const taken = await accountByEmail(env, email);
-  const pending = await pendingByDigest(env, digest);
-  // An address that already has an account is answered as if the pending row were not there: nothing a stranger left
-  // behind can be applied over an account that exists.
-  const target = taken ? null : (pending || null);
-  const r = await guardedPendingCheck(request, env, ctx, target, email, body && body.code);
-  if (r !== 'ok') return json(badCode(), 400, cors);
+  // An address that already has an account is answered as if the rows were not there: nothing a stranger left behind
+  // can be applied over an account that exists. The statements run all the same.
+  const { r, row } = await guardedPendingVerify(request, env, ctx, { email, digest, code: body && body.code, password, blocked: !!taken });
+  if (r !== 'ok') return json(badCode(), 401, cors);
   const now = new Date().toISOString();
   const acct = {
-    id: 'acct_' + crypto.randomUUID(), email, password_hash: pending.password_hash, token_version: 1,
-    name: pending.name || '', phone: pending.phone || '', organization: pending.organization || '',
+    id: 'acct_' + crypto.randomUUID(), email, password_hash: row.password_hash, token_version: 1,
+    name: row.name || '', phone: row.phone || '', organization: row.organization || '',
     address1: '', address2: '', emergency_name: '', emergency_phone: '', emergency_relationship: '',
     stripe_customer_id: '', standards_passed: '[]', notes: '', created_at: now, updated_at: now, last_login_at: null,
     verified_at: now, verify_kind: null, verify_code_hash: null, verify_expires_at: null, verify_attempts: 0,
     verify_sent_at: null, signup_notice_sent_at: null, failed_logins: 0, locked_until: null,
   };
-  // ONE batch, so the account and the disappearance of the pending row are the same act, and WHERE NOT EXISTS so the
-  // INSERT cannot land on an address that acquired an account while this request was in flight. D1 runs a batch in order
-  // inside a single implicit transaction.
+  // ONE batch, so the account, the disappearance of this sign-up and the disappearance of every OTHER sign-up waiting
+  // at the address are the same act, and WHERE NOT EXISTS so the INSERT cannot land on an address that acquired an
+  // account while this request was in flight. D1 runs a batch in order inside a single implicit transaction. The other
+  // rows go because the address is settled: a code still sitting in the mailbox from somebody else's attempt is dead
+  // the moment the account exists, and leaving it would leave a row nothing can ever complete.
   const res = await env.DB.batch([
     env.DB.prepare('INSERT INTO accounts (id, email, password_hash, token_version, name, phone, organization, address1, address2, emergency_name, emergency_phone, emergency_relationship, stripe_customer_id, standards_passed, notes, created_at, updated_at, last_login_at, verified_at, verify_kind, verify_code_hash, verify_expires_at, verify_attempts, verify_sent_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE email = ?)')
       .bind(acct.id, acct.email, acct.password_hash, 1, acct.name, acct.phone, acct.organization, '', '', '', '', '', '', '[]', '', now, now, null, now, null, null, null, 0, null, email),
-    env.DB.prepare('DELETE FROM pending_signups WHERE address_digest = ?').bind(digest),
+    env.DB.prepare(PENDING_DROP).bind(row.signup_id),
+    env.DB.prepare(PENDING_DROP_OTHERS).bind(digest, row.signup_id),
   ]);
   const made = !!(res && res[0] && res[0].meta && res[0].meta.changes);
-  if (!made) return json(badCode(), 400, cors);
+  if (!made) return json(badCode(), 401, cors);
   return await signedIn(env, acct, cors);
 }
 
@@ -732,25 +755,33 @@ async function handleAccountResend(request, env, ctx, cors) {
   const email = String((body && body.email) || '').trim().toLowerCase();
   const ip = clientIp(request), digest = await addressDigest(email);
   // ONE answer, ONE statement count, and the mail leg outside the response entirely: unknown address, address with an
-  // account already, and a throttled retry are indistinguishable in body, status AND time. The route used to await
-  // Resend only when the account existed, and to answer 502 when Resend refused it — a one-request oracle either way
-  // round (security review round 3, 2026-09-08).
+  // account already, and a request that mails nothing are indistinguishable in body, status AND time. The route used to
+  // await Resend only when the account existed, and to answer 502 when Resend refused it — a one-request oracle either
+  // way round (security review round 3, 2026-09-08).
   //
-  // It re-sends the code for a PENDING SIGN-UP now (round 5), because that is where an unverified address lives; an
-  // address that already has an account has nothing to verify and is served the same nothing an unknown address is.
+  // IT RENEWS NOTHING OF ANYBODY ELSE'S (round 7, 2026-09-09). This route is unauthenticated: it cannot be told which
+  // of the sign-ups waiting at an address is the caller's, and round 6 answered that by re-mailing whatever row the
+  // address held — which re-stamped the column /account/register read as its replace gate, so a stranger renewed a hold
+  // on the address every sixty seconds and the owner never got the row back. Measured at six hours and 51 refused
+  // owner attempts by the round-6 review.
+  //
+  // The rule now is the narrow one that can be checked without a credential: re-mail the NEWEST sign-up at the address
+  // only if it was created from THIS connection and its code has not run out. Anything else — no rows, somebody else's
+  // row, an expired one, an address with an account — runs the same statements, takes no allowance and mails nothing.
+  // There is no hold to renew in any case: a caller who is refused here can simply sign up again and get their own row.
   const taken = await accountByEmail(env, email);
-  const pending = await pendingByDigest(env, digest);
-  const row = taken ? null : pending;
-  const sending = !!row && !pendingTooSoon(row);
+  const newest = await env.DB.prepare(PENDING_NEWEST).bind(digest).first().catch(() => null);
+  const now = new Date().toISOString();
+  const sending = !!newest && !taken && newest.created_ip === ip && !!newest.verify_expires_at && newest.verify_expires_at > now;
   const mayMail = await noteCodeMail(env, ip, email, sending);
   const mail = sending && mayMail;
-  const code = mail ? newCode() : null;
-  // The same statement on every branch; the branch that mails nothing binds a key no address carries.
+  const code = newCode();
+  const issued = await pendingCodeHash(env, digest, code);
+  // The same statement on every branch; the branch that mails nothing binds a signup_id no sign-up carries.
   await env.DB.prepare(PENDING_ISSUE).bind(
-    mail ? await codeHash(env, { id: digest }, 'verify', code) : null,
+    mail ? issued : null,
     mail ? new Date(Date.now() + CODE_TTL_MS).toISOString() : null,
-    mail ? new Date().toISOString() : null,
-    mail ? digest : PENDING_ABSENT,
+    mail ? newest.signup_id : PENDING_ABSENT,
   ).run().catch((e) => console.error('[Account] code reissue failed:', e.message));
   if (mail) {
     const send = sendCode(env, { email }, 'verify', code).catch((e) => console.error('[Account] code email failed:', e.message));

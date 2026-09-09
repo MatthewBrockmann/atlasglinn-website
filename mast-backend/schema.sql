@@ -316,34 +316,35 @@ CREATE TABLE IF NOT EXISTS accounts (
 );
 CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email);
 
--- ── Sign-ups nobody has proved yet (migrations/010-pending-signups.sql on a live database) ──
+-- ── Sign-ups nobody has proved yet (migrations/012-pending-signup-per-row.sql on a live database) ──
 -- A sign-up is NOT an account. POST /account/register writes a row here and nothing else; POST /account/verify, given
--- the code emailed to the address, INSERTs the accounts row and drops this one — in one batch, and only when no account
--- for the address exists yet (security review round 5, 2026-09-09).
+-- the address, the code emailed to it AND the password that sign-up was made with, INSERTs the accounts row and drops
+-- every pending row for the address — in one batch, and only when no account for the address exists yet.
 --
--- That one change closes two findings the previous three rounds patched around: a stranger could no longer leave their
--- password sitting inside an account the owner later verified (the row the owner verified WAS the stranger's), and
--- /account/login stopped answering 403 'unverified' for an address mid-sign-up where it answers 401 for an address with
--- nothing — a one-request account-existence oracle.
+-- ONE ROW PER SIGN-UP, keyed on a random signup_id (security review round 7, 2026-09-09). Rounds 5 and 6 keyed it on
+-- address_digest, one row per address, and that single row was a slot: whoever held it held whatever the mailbox typed
+-- back. Round 5 let the last writer take it, round 6 let the first writer hold it for fifteen minutes — and
+-- /account/resend renewed that hold every sixty seconds, so a stranger could squat an address indefinitely. There is no
+-- slot now. A sign-up only ever inserts its own row, the code selects the row, and the password proves the row is the
+-- caller's; a stranger's rows are inert to the owner and the owner's is unreachable to the stranger.
 --
--- The key is a SHA-256 digest of the normalised address, so this table is not a readable list of half-finished sign-ups.
--- A later sign-up replaces the row only once the code it would replace is past its own fifteen minutes (round 6,
--- 2026-09-09 — sixty seconds was enough to take the row from an owner mid-sign-up, which is an account takeover), and
--- only when it mails; the daily cron drops anything a day old.
+-- address_digest is a SHA-256 of the normalised address and is NOT unique, so this table is neither a readable list of
+-- half-finished sign-ups nor a place anyone can be kept out of. How many rows an address may hold is bounded by the
+-- mail budgets alone (3 an hour per connection). The daily cron drops anything a day old.
 CREATE TABLE IF NOT EXISTS pending_signups (
-  address_digest    TEXT PRIMARY KEY,              -- SHA-256 of the normalised address, hex. Never the address itself.
-  password_hash     TEXT NOT NULL,                 -- pbkdf2-sha256$<iterations>$<salt b64>$<hash b64>
+  signup_id         TEXT PRIMARY KEY,              -- random 128-bit hex. One sign-up, one row, one code, one password.
+  address_digest    TEXT NOT NULL,                 -- SHA-256 of the normalised address, hex. Never the address itself, never unique.
+  password_hash     TEXT NOT NULL,                 -- pbkdf2-sha256$<iterations>$<salt b64>$<hash b64>. /account/verify must match it.
   name              TEXT,
   phone             TEXT,
   organization      TEXT,
-  verify_code_hash  TEXT,                          -- HMAC(ACCOUNT_SECRET, digest:verify:code)
+  code_hash         TEXT,                          -- HMAC(ACCOUNT_SECRET, digest:verify:code)
   verify_expires_at TEXT,                          -- 15 minutes
-  verify_attempts   INTEGER NOT NULL DEFAULT 0,    -- twenty wrong tries burn the code; a later sign-up does NOT reset it
-  code_sent_at      TEXT,                          -- the one-a-minute reissue throttle AND the replace gate (round 6)
-  created_ip        TEXT,
-  created_at        TEXT NOT NULL,
-  burn_cleared_at   TEXT                           -- migrations/011: the owner's post-burn exemption from the throttle
+  verify_attempts   INTEGER NOT NULL DEFAULT 0,    -- twenty wrong tries at the address burn every row waiting there
+  created_at        TEXT NOT NULL,                 -- what the daily purge measures, and what orders 'the newest sign-up'
+  created_ip        TEXT                           -- the connection that made it: /account/resend re-mails its own only
 );
+CREATE INDEX IF NOT EXISTS idx_pending_signups_code ON pending_signups (address_digest, code_hash);
 CREATE INDEX IF NOT EXISTS idx_pending_signups_created ON pending_signups (created_at);
 
 -- ── Per-IP request counters (migrations/008-rate-limits.sql on a live database) ──

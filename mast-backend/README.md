@@ -54,15 +54,15 @@ The old Worker is left untouched — it still serves SafeGuard.
 | `GET` | `/admin/audience.csv?key=…` | The opted-in audience as CSV (Mailchimp / any list tool imports it) |
 | `POST` | `/admin/sync?key=…` | Push every opted-in profile to Mailchimp (no-op until `MAILCHIMP_*` exist) |
 | `POST` | `/admin/journeys?key=…` | Run today's T−7 / T−1 / T+1 emails now (idempotent through `email_log`) |
-| `POST` | `/account/register` | Student account sign-up (email, password ≥ 10, name, phone). Answers **202 pending** and emails a 6-digit code. **It creates no account** — it writes a `pending_signups` row keyed on a digest of the address, and a later sign-up replaces it only once the code it would replace is past its own 15 minutes (round 6) |
-| `POST` | `/account/verify` | `{email, code}` → **this is what creates the account**, in one batch, and only if the address has none; answers the sign-in token. 15-minute codes, one at a time, five wrong guesses per connection and twenty in total |
-| `POST` | `/account/resend` | New verification code for a sign-up in progress (at most once a minute); always 200 so it does not reveal which addresses have one |
+| `POST` | `/account/register` | Student account sign-up (email, password ≥ 10, name, phone). Answers **202 pending** and emails a 6-digit code. **It creates no account** — it writes a `pending_signups` row of its OWN, keyed on a random `signup_id` and carrying the address as a digest. It replaces nothing and is refused on account of nothing (round 7); how many sign-ups an address may hold is bounded by the mail budgets alone |
+| `POST` | `/account/verify` | `{email, code, password}` → **this is what creates the account**, in one batch, and only if the address has none; answers the sign-in token. The code selects the sign-up and the **password proves it is yours** (round 7), so a code that reached your mailbox from somebody else's sign-up cannot create your account. Any miss — wrong code, wrong password, unknown address, address already taken — is one `401 bad_code`. 15-minute codes, five wrong guesses per connection and twenty per address in total |
+| `POST` | `/account/resend` | New verification code for the newest sign-up at the address **if this connection is the one that started it** (round 7); always 200 so it does not reveal which addresses have one. Anyone else — and any caller whose connection has changed — signs up again instead, which always mails |
 | `POST` | `/account/login` | `{email, password}` → token. An address that has only started a sign-up answers exactly what an address with nothing answers — `401 bad_login`, same body, same statement count |
 | `POST` | `/account/forgot` / `/account/reset` | Forgotten password: `forgot {email}` emails a reset code (always 200); `reset {email, code, password}` sets the new password, signs every other session out and answers a token |
 | `GET` | `/account/me` | Bearer token → profile, classes taken (paid/completed registrations under the account email), saved card (brand, last four, expiry) |
 | `POST` | `/account/update` / `/account/password` / `/account/setup-payment` | Bearer token → profile details; password change (needs the current one); Stripe Checkout in setup mode to save a card on the account's Stripe Customer |
 | `GET` | `/admin/crm?key=…&view=weekly` | The Monday digest as `text/plain`, exactly as it is emailed |
-| cron | daily 09:17 UTC | Purges eligibility answers past `purge_after`; marks day-old unpaid registrations abandoned; drops day-old pending sign-ups (and any unverified account row left from before `migrations/010`); **on Monday** (or the Tuesday/Wednesday retry if Monday failed) also emails the CRM digest |
+| cron | daily 09:17 UTC | Purges eligibility answers past `purge_after`; marks day-old unpaid registrations abandoned; drops day-old pending sign-ups (and any unverified account row left from before `migrations/012`); **on Monday** (or the Tuesday/Wednesday retry if Monday failed) also emails the CRM digest |
 
 `POST /register` body — the page sends what the participant saw; there is **no
 price field**, and the three `version` values must match the Worker's
@@ -209,13 +209,15 @@ curl "https://mast-booking-backend.<subdomain>.workers.dev/roster?key=$ADMIN_KEY
 ## Tests
 
 ```bash
-node test-worker.mjs               # the suite: 431 assertions, 0 failing as committed
+node test-worker.mjs               # the suite: 486 assertions, 0 failing as committed
 node test-seat-claim-sqlite.mjs    # the seat claim against a real SQL engine, on its own
 node test-account-sqlite.mjs       # the pending-sign-up statements against a real SQL engine, on its own
 ```
 
-**431 assertions**, all passing as committed — the number is what the run printed, not a number from the last time
-somebody looked (it read `105` until round 4, when the suite was at 383). Two files are imported by the suite and also
+**486 assertions**, all passing as committed — the number is what the run printed, not a number from the last time
+somebody looked. It read `105` until round 4, when the suite was at 383; it read `431` through the whole of round 6,
+when the suite printed `466`, in the same commit whose own summary quoted 466 — which is exactly the failure this
+sentence claims immunity from, so the number is now re-read from the run at the end of every round. Two files are imported by the suite and also
 run directly: `test-seat-claim-sqlite.mjs` and, since round 5, `test-account-sqlite.mjs`. Both are imported by the suite
 *and* run on their own, printing every assertion and a summary line and **exiting 1 on any failure**. Until round 4 the
 seat-claim file printed nothing and exited 0 however it went, which is the exact shape of a test that looks like it
@@ -223,12 +225,12 @@ passed. `SEAT_CLAIM_ENGINE=python node test-worker.mjs` forces the python3 sqlit
 than assumed.
 
 `test-account-sqlite.mjs` exists for the same reason the seat file does: the fake D1 answers queries in JavaScript and
-executes none of their SQL, and round 5 moved account creation onto statements whose whole meaning is a `WHERE` clause —
-an `ON CONFLICT … DO UPDATE` that must replace the credentials **and keep `verify_attempts`** — a thing
-`INSERT OR REPLACE` cannot express, which is why that assertion is here and not in the JavaScript fake — a claim
-`UPDATE` that must take nothing on an expired or spent code, a burn that must leave `code_sent_at` alone, and an
-`INSERT … WHERE NOT EXISTS` that is the only thing between a verified code and a second account on an address that
-acquired one mid-flight. Like the seat file it **lifts the statements out of `src/worker.js`** rather than retyping them,
+executes none of their SQL, and account creation rests on statements whose whole meaning is a `WHERE` clause. Round 7
+added more of them, not fewer: a lookup that must return **the one row belonging to a code** out of however many
+sign-ups an address is holding, a claim `UPDATE` that must count a try against **every live row at the address in one
+statement** while a row created later cannot lower the count, a burn whose predicate lives in its **binds** so that the
+twentieth wrong code costs what the first one costs, and an `INSERT … WHERE NOT EXISTS` that is the only thing between a
+verified code and a second account on an address that acquired one mid-flight. Like the seat file it **lifts the statements out of `src/worker.js`** rather than retyping them,
 so editing the Worker without editing the test fails loudly instead of silently replaying last week's SQL.
 
 The assertions cover (the first three parse every file under
@@ -415,7 +417,7 @@ address, three an hour, whoever asked**, and got two things wrong that this roun
 
 | Key | Budget | What it bounds |
 |---|---|---|
-| `codemail:<ip>:<digest of the address>` | 3 an hour | what one connection can mail to one mailbox — about 72 a day |
+| `codemail:<ip>:<digest of the address>` | 3 an hour | what one connection can mail to one mailbox — about 72 **code mails** a day, and up to ~144 messages once each is turned into a burn notice |
 | `codemailtotal:<ip>` | 30 an hour | what one connection can mail to every address it can invent |
 
 A stranger spends their own three at the owner's address and their own thirty everywhere else. The owner's next request
@@ -430,9 +432,12 @@ has already authenticated.
 
 **There is deliberately no global per-address cap, and that is a trade rather than an omission.** Any counter keyed on
 the address alone is, by construction, spendable by a stranger — the P1 above. So the ceiling at one mailbox is priced
-in connections instead: 3 an hour each, meaning an attacker who rents twenty addresses can still reach roughly 1,440 a
-day at one mailbox, exactly as before, while a single host drops from ~1,440 to ~72. That residual is listed under
-**What is NOT closed** rather than claimed shut.
+in connections instead: 3 an hour each. Stated at the 2x that counts the unmetered burn notice, which is the number
+that reaches the mailbox: an attacker who rents twenty addresses can still reach roughly **2,880 a day** at one mailbox,
+while a single host drops from ~1,440 to **~144**. (This paragraph and the table above it said ~72 and ~1,440 — the 1x
+code-mail figures — through round 6, while the residual below said ~144 and ~2,880. Two numbers for one quantity in one
+document is the defect; the 2x pair is the true one.) That residual is listed under **What is NOT closed** rather than
+claimed shut.
 
 **Every key in `rate_limits` carries a digest now, never the address.** `codemail:`, `codeguess:` and `loginfail:` — the
 last of which had stored the plaintext address since round 2, while the comment three functions above it claimed *"the
@@ -535,33 +540,38 @@ it and `401 bad_login` for an address with nothing. One unauthenticated request 
 branch was also the branch that mailed nobody an alarm.
 
 **What ships.** `POST /account/register` writes a `pending_signups` row and nothing else. `POST /account/verify` is what
-INSERTs the `accounts` row — in one `env.DB.batch()` with the `DELETE` of the pending row, under
+INSERTs the `accounts` row — in one `env.DB.batch()` with the `DELETE` of the pending rows, under
 `WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE email = ?)` so it cannot land on an address that acquired an account
-while the request was in flight. A later sign-up **replaces** the pending row, but only when it actually mails a code —
-**and, since round 6, only once the code it would replace is past its own fifteen minutes.** On the *account* side there
-is no writer at all until a code comes back.
+while the request was in flight. A later sign-up **replaced** the pending row (round 5), and then replaced it only once
+the earlier code had run out (round 6); **since round 7 it replaces nothing — it writes a row of its own** and the
+password decides at verification. On the *account* side there is no writer at all until a code comes back.
 
-- The credentials that become an account are the ones belonging to the code the mailbox received. The four-step probe is
-  in `test-worker.mjs`, and its last assertion is the one that used to fail. **This paragraph read "the takeover is
-  impossible by construction" until round 6, and that was wrong** — see the round-6 section below, which measured a
-  deterministic takeover against exactly this code at 21 requests from 5 connections.
+- The credentials that become an account are the ones belonging to the code the mailbox received — **and, since round 7,
+  to the password posted with it**. The four-step probe is in `test-worker.mjs`, and its last assertion is the one that
+  used to fail. **This paragraph read "the takeover is impossible by construction" until round 6, and that was wrong**:
+  the round-6 section below measured a deterministic takeover against exactly this code at 21 requests from 5
+  connections, and the round-6 review then measured another against the fix. The sentence is only true from round 7,
+  where it does not rest on who won a race for a row.
 - `/account/login` has nothing to say about an address that has only started a sign-up, so it says what it says about an
   address with nothing: `401 bad_login`, **same body and same statement count**, both asserted. The `403 unverified`
   answer is gone from the source, and the suite reads `src/worker.js` to check that it stays gone — the behaviour is
   closed by the *absence* of a row, so putting the branch back would pass every request-level assertion until something
   else wrote one.
 
-**The pending row holds no plaintext address.** Its primary key is the SHA-256 digest of the normalised address, so a
-table of half-finished sign-ups is not a list of who has typed what; every route that needs it has the address in hand.
+**The pending row holds no plaintext address.** It carries the SHA-256 digest of the normalised address — as its primary
+key through rounds 5 and 6, as an ordinary indexed column since round 7 — so a table of half-finished sign-ups is not a
+list of who has typed what; every route that needs it has the address in hand.
 The daily cron drops rows a day old, which is where the old *"unverified accounts are purged after a day"* behaviour
 went.
 
-**Register now costs the same on all three branches.** Round 3 called the difference *"one extra statement"* and implied
-the two existing-address branches cost the same; measured, it was **7 / 6 / 5**, and round 4 got it to **6 / 5 / 5** —
-still a three-way split's worth of signal in one request, since the brand-new branch's `INSERT` was the tell. Round 5
-runs **two reads, one mail budget and exactly one write on every branch**, so the three are identical.
-`test-worker.mjs` prints the three numbers and asserts they are equal rather than asserting a constant, because the
-constant is an implementation detail and the equality is the property.
+**Register now costs the same on every branch.** Round 3 called the difference *"one extra statement"* and implied the
+two existing-address branches cost the same; measured, it was **7 / 6 / 5**, and round 4 got it to **6 / 5 / 5** — still
+a three-way split's worth of signal in one request, since the brand-new branch's `INSERT` was the tell. Round 5 ran two
+reads, one mail budget and exactly one write on every branch; round 7 dropped one of the two reads, because the pending
+read existed only to feed the replace gate that is now gone. `test-worker.mjs` prints the numbers and asserts they are
+equal rather than asserting a constant, because the constant is an implementation detail and the equality is the
+property — and it now measures **four** classes rather than three, the fourth being an address a *stranger* has sign-ups
+at, which is a state rounds 5 and 6 could not produce.
 
 **How does the real owner get their address back?** Through the mailbox, which is the only evidence of ownership this
 system has — and now the *ordinary* path is the one that works. Verifying a sign-up creates the account under the
@@ -569,7 +579,9 @@ password belonging to that sign-up. `POST /account/forgot` → `POST /account/re
 account that already exists. An address with only a pending sign-up is served by `POST /account/resend`, not by
 `forgot`: `forgot` answers it exactly what it answers an address with nothing, which is the point of `forgot`.
 
-**Round 6 — the pending row was still takeable, and the burn was the key to it.** Round 5's claim above —
+**Round 6 — the pending row was still takeable, and the burn was the key to it.** *(Superseded by round 7 below: the
+gate and the two columns described in this section no longer exist. Kept because the failure is the argument for what
+replaced it — every fix here was correct about the mechanism and wrong about the shape.)* Round 5's claim above —
 *"the takeover is impossible by construction"* — was refuted against the shipped code, deterministically and without a
 race, in **21 requests from 5 connections**:
 
@@ -595,9 +607,13 @@ owner's sign-up simply replaced it, and a stranger who signed up *first* left th
   decision does not. Mutating this one line back: the takeover reproduces, `owner=401 stranger=200`.
 - **The replace is gated on the AGE of `code_sent_at`, not on whether the code is still alive.** `pendingHeld()` refuses
   to replace a pending row whose code was sent within `CODE_TTL_MS`. The refusal lands on the branch that already binds
-  `PENDING_ABSENT`, so it answers the same `202` with the same nine statements and the same single write — no new
-  branch, no new oracle. Mutating this one line back to round 5's sixty seconds: the takeover reproduces, and so does
-  the no-burn ordering.
+  `PENDING_ABSENT`, so it answered the same `202` with the same statement count and the same single write — no new
+  branch, no new oracle. (This line read *"the same nine statements"*; the suite printed **12**. The round-6 review
+  called it out, and the lesson is the one at the head of this section: cite the assertion, not a number typed from
+  memory. Round 7's equivalent line quotes what the run prints.) Mutating this one line back to round 5's sixty
+  seconds: the takeover reproduces, and so does the no-burn ordering. **Its own review then found that
+  `/account/resend` re-stamped `code_sent_at`, so the gate renewed every sixty seconds and the hold was unbounded** —
+  which is the finding round 7 answers by removing the gate, the column and the single row together.
 
 **And `POST /account/register` no longer resets the burn counter.** `PENDING_UPSERT` was
 `INSERT OR REPLACE … verify_attempts … VALUES (…, 0, …)` — a literal zero, written by an **unauthenticated** route. That
@@ -618,6 +634,72 @@ while it holds. Two consequences, both deliberate: a locked account no longer sa
 route limit is what bounds that), and requests the lock refuses take the absent branch, so a guesser can no longer walk
 a customer's lock up to its 24-hour cap by typing at it. Measured with 21 samples per class — same status, same body,
 same statement set, medians inside the noise floor instead of 65x apart.
+
+**Round 7 — the row was the bug. Six rounds argued over who should hold it; this one deletes the question.**
+
+Rounds 3, 5 and 6 each closed a takeover and opened the next, and the reason is one line long: **an address had exactly
+one pending row, so a sign-up was a slot, and a slot is something a stranger can be in.** Round 5 let the last writer
+take the slot — a stranger replaced a sign-up in flight. Round 6 gave it to the first writer and gated the replace on
+the code's age, which turned the slot into a **hold** — and `/account/resend` re-stamped the very column that gate read,
+so the hold renewed every sixty seconds. The round-6 review held an address for **six hours against 51 consecutive owner
+sign-ups**, with 26 codes reaching the owner's mailbox and every one of them bound to the attacker's password.
+
+**What ships: one row per SIGN-UP, and verification takes the triple.**
+
+- `pending_signups` is keyed on a random 128-bit `signup_id`. `address_digest` is an ordinary indexed column and is
+  **not unique**. `POST /account/register` only ever INSERTs its own row: it reads no pending row, replaces nothing, and
+  is refused on account of nothing. How many rows an address may hold is bounded by the mail budgets alone — a stranger
+  spends a stranger's three an hour to make one, and it reaches nothing of the owner's.
+- `POST /account/verify` takes `{email, code, password}`. One indexed `SELECT` on `(address_digest, code_hash)` returns
+  at most one row; `verifyPassword` then runs **exactly once**, against that row's hash or against `DUMMY_PASSWORD_HASH`
+  when there is no row. The account is created only when the code selected a row *and* its password matched.
+- The consequence, stated as the two attacks it kills: **an owner who receives a stranger's code cannot complete the
+  stranger's sign-up** (the password is not theirs) and **a stranger cannot complete the owner's** (the code is not
+  theirs). Neither can wait the other out, because neither is holding anything the other needs. Both orderings, plus the
+  burn ordering and the six-hour hold script, are in `test-worker.mjs` and each fails on a one-line mutation back.
+- `POST /account/resend` re-mails the newest sign-up at the address **only if this connection created it**
+  (`created_ip`) and its code is still live. It is unauthenticated, so that is the strongest test available to it. It
+  moves one row, named by `signup_id`. **Nothing renews anything of anybody else's, and there is no hold to renew.**
+  The cost, stated: a visitor whose connection has changed since they signed up gets no re-send. They sign up again,
+  which always mails — that is the whole recovery, and the page says so where the button is.
+- The burn deletes every sign-up waiting at the address and mails the owner one notice, as before. What is gone is the
+  throttle exemption the owner used to need afterwards: there is no row for them to reclaim.
+
+**And it costs the same in every class, which is the property the last four rounds were built on.** The suite measures
+four classes now — a brand-new address, one with a sign-up waiting, one with an account, and one a *stranger* has
+sign-ups at, which is a state rounds 5 and 6 could not produce. The run prints:
+
+```
+(/account/verify — brand-new 11, pending 11, account 11, stranger-rows 11 statements)
+(/account/resend — brand-new 12, pending 12, account 12, stranger-rows 12 statements)
+(/account/register — brand-new 11, pending 11, account 11, stranger-rows 11 statements)
+```
+
+Every statement on the verify path is keyed on the caller's own digest and runs unconditionally, so there is no absent
+twin to keep in step — there is no absent *branch*. That also closes the round-6 P2: the burn used to run only when it
+was due, which spent one statement more on the twentieth guess at a real address than at an invented one (`10 ×19 then
+11` against `10 ×20`), classifying an address for the price of twenty requests. `PENDING_BURN` now runs on every refused
+verification with its predicate in the **binds** — `DELETE FROM pending_signups WHERE address_digest = ? AND ? >= ?` —
+and the suite drives the burning request against a ghost's twentieth guess and asserts the counts are equal.
+
+**One refusal, one status.** Every miss on `/account/verify` — wrong code, wrong password, unknown address, an address
+that already has an account, a spent budget — is `401 {code:'bad_code'}`, after the same statements and the same single
+PBKDF2. It answered `400` through round 6; the request now carries a credential, so a refusal is an authentication
+failure. `/account/reset` keeps its `400`: it proves the mailbox, not a password.
+
+**The migration is a DROP, and that is deliberate.** A primary key cannot be ALTERed, so
+`migrations/012-pending-signup-per-row.sql` recreates the table. **Every pending sign-up in the old table is dropped** —
+they are unverified sign-ups minutes old by design, so the cost is that whoever was mid-sign-up signs up again. Nothing
+verified is touched. Two consequences worth reading before deploying:
+
+- the deploy guard for 012 keys on `signup_id,code_hash` — the columns **unique** to the new shape — because listing the
+  columns the two shapes share would read `HALF APPLIED` against an old table and stop every deploy. `010` and `011`
+  lose their GUARDS rows for the same reason, and 010's one-time `DELETE FROM accounts WHERE verified_at IS NULL` moved
+  into 012 with them.
+- the Worker heals the shape itself. `healPendingSignups()` drops a `pending_signups` that exists **without**
+  `signup_id`, and only that, before `ensureRateSchema` runs its `CREATE`. This exists because one of the two live
+  deploy paths applies no migrations at all (residual 5), so "the migration will have run first" is not something this
+  Worker may assume. Driven three ways in the suite: old shape → dropped, new shape → untouched, no table → untouched.
 
 **Round 3 — the code routes are uniform in time and in statement count, not only in body.** Round 2 made the body
 identical and left two ways to tell the paths apart, both measured:
@@ -666,20 +748,20 @@ silent since round 2 made every wrong answer identical. Tries are counted twice 
 | global, on `verify_attempts` — `accounts` for a reset code, `pending_signups` for a sign-up code | 20 | the code is burned — twenty tries against six digits is a 0.002% chance, so the burn costs the attacker far more than the owner |
 
 When the global burn fires the owner is emailed a plain notice (*"your code was invalidated after repeated wrong
-attempts; ask for a new one"* — no code in it, sent once however many guesses raced), and the same act lifts the
-one-a-minute throttle so the owner can request a replacement immediately. **Which column that lift is written to
-matters, and round 6 moved it.** On the `accounts` path it clears `verify_sent_at`. On the pending path it used to clear
-`code_sent_at` — the column `/account/register` reads to decide whether a later sign-up may replace the row, so a
-stranger who burned a code thereby earned the right to write their own password onto the sign-up. The pending path
-stamps `burn_cleared_at` instead and leaves `code_sent_at` exactly where it was; `pendingTooSoon()` honours the
-exemption and `pendingHeld()` — the replace gate — never reads it.
+attempts; ask for a new one"* — no code in it, sent once however many guesses raced). On the `accounts` path the same
+act clears `verify_sent_at`, so the owner is not also made to wait a minute for a replacement they did not cost
+themselves. **On the pending path there is no longer anything to lift**, and that is round 7's doing rather than a
+simplification: rounds 5 and 6 had to hand the owner an exemption because one row per address meant they had to get
+*that row* back, and the first version of the exemption — nulling `code_sent_at` — was half of a deterministic account
+takeover, because that was the column the replace gate read. A burn now deletes the sign-ups at the address and the
+owner's way on is the ordinary one, signing up again, which always mails.
 
 The burn notice is **outside** the two mail budgets, deliberately: metering it would put six budget statements on the
 burning request and nowhere else, which is a statement-count tell on a route whose whole design is that every wrong code
 costs the same, and it would let an attacker suppress a security notice by pre-spending a connection's allowance. It is
-bounded by construction instead — the burn `UPDATE` is conditional on `verify_code_hash IS NOT NULL`, so exactly one
-burn fires per live code and a live code exists only because a mail passed `noteCodeMail`. **Burn notices ≤ code mails**,
-which is why the per-mailbox ceilings below are stated at 2x.
+bounded by construction instead — the burn `DELETE` reports the rows it removed, so exactly one burn fires per live
+code and a live code exists only because a mail passed `noteCodeMail`. **Burn notices ≤ code mails**, which is why every
+per-mailbox ceiling in this file is stated at 2x.
 
 **Round 4 — a reissue no longer clears either counter, because a stranger can ask for one.** Round 3 had `issueCode`
 zero `verify_attempts` *and* drop every connection's guess counter for the account, described as the convenience that
@@ -694,9 +776,12 @@ since round 5, with the same claim-first `UPDATE`, the same five per connection 
 twentieth wrong try burns whatever code is live and mails the owner —
 which the test drives with a reissue between every batch of five, **through all three of the named routes since round
 6.** It drove `/account/resend` alone until then, and that is the one of the three that never touched the counter:
-`PENDING_UPSERT`, the statement `/account/register` writes, bound `verify_attempts` to a literal `0` and reset it on
-every unauthenticated sign-up, so the sentence above was false on the pending path for the whole of round 5. It is an
-`ON CONFLICT … DO UPDATE` that does not name the column now. The burn itself resets the count (it always did), so
+the statement `/account/register` wrote bound `verify_attempts` to a literal `0` and reset it on every unauthenticated
+sign-up, so the sentence above was false on the pending path for the whole of round 5. Round 6 made it an
+`ON CONFLICT … DO UPDATE` that did not name the column; round 7 makes the question different rather than answered
+differently — a sign-up writes a NEW row, which starts at 0 because it is new, and the count the burn reads is
+`MAX(verify_attempts)` across the live rows at the address, which a new row cannot lower. Driven in SQL as well as in
+JavaScript, because "MAX ignores a fresh row" is a claim about SQLite and not about this Worker. The burn itself resets the count (it always did), so
 the replacement the owner asks for afterwards carries a full twenty again. The mistyping customer's way back is the same one it
 always was, minus the stranger's copy of it: sign in, or use another connection, or wait for the daily purge.
 
@@ -749,79 +834,75 @@ this backend reaches a person, so they belong with it:
 
 ## What is NOT closed — the open residuals, named
 
-Round 4 listed two, both on the sign-up surface. `pending_signups` (`migrations/010`) closed the shape both had: a
-sign-up no longer creates an account, so a stranger's password cannot be waiting inside an account the owner verifies,
-and `/account/login` answers an address mid-sign-up exactly what it answers an address with nothing. The four-step
-takeover probe and the register→login pair are both in `test-worker.mjs`, and both fail on the round-4 code.
+Round 4 listed two, both on the sign-up surface. Round 5 declared both closed and both were still reachable. Round 6
+closed those two and its own review found a third — a **renewable hold** that let a stranger squat an address for six
+hours — plus two statement-count tells. Round 7 removes the structure all of them lived in rather than gating it again.
+What a round declares closed is worth exactly the probe that was run against it, which is why the probes are in the
+suite rather than in this paragraph.
 
-**Round 5 declared both CLOSED and both were still reachable, by different routes** — the takeover through the pending
-row's replace gate (deterministic, 21 requests) and the oracle through the global sign-in lock (six requests). Round 6
-closes those two; what a round declares closed is worth exactly the probe that was run against it, which is why the
-probes are in the suite rather than in this paragraph.
-
-What is genuinely open after round 6:
+What is genuinely open after round 7:
 
 **1. The per-mailbox mail ceiling is priced in connections, not closed — and the figure is 2x, because the burn notice
 is not metered.** The two budgets are per connection on purpose — a counter keyed on the address alone is one a stranger
 spends on the owner's behalf, which is exactly the denial of service round 4 shipped. The burn notice sits outside them
 by design (see the burn section above: metering it is a statement-count tell on the guess route, and a suppressible
 security notice), and it is bounded at **one per live code**, so every budgeted code mail can be turned into a second
-message at the same mailbox. The consequence, stated at the corrected number: **one host gets 3 code mails an hour at
-one address plus up to 3 burn notices — ~144 a day, not the ~72 this line claimed through round 5 — where it used to get
+message at the same mailbox. The consequence, at the corrected number and now stated the same way everywhere in this
+file: **one host gets 3 code mails an hour at one address plus up to 3 burn notices — ~144 a day — where it used to get
 ~1,440, and an attacker with twenty addresses can still reach ~2,880 a day at one mailbox.** Driven and counted in the
-suite: three code mails from one connection, three burns, six messages, and a fourth burn attempt that sends nothing. For a
-firm sending from its own Resend domain that is a deliverability and sender-reputation exposure, not an account-security
-one. The honest fixes are outside this file: a per-address cap that a *proved* owner can bypass (which needs a signal of
-ownership that an unauthenticated route does not have), or moving code mail to a sending domain whose reputation is not
-the firm's. A high global per-address cap was considered and rejected — at any number low enough to bound the mailbox it
-is also low enough for a stranger to hold shut, which is the P1 again with more steps.
+suite: three code mails from one connection, three burns, six messages, and a fourth burn attempt that sends nothing.
+**Round 7 widens the ROWS, not the mails**: a stranger can now create as many pending rows as their budget allows, and
+that budget is the same three an hour it was — the rows are cheap (one small row, purged daily) and reach nothing of the
+owner's, which is the trade the whole design rests on. For a firm sending from its own Resend domain this is a
+deliverability and sender-reputation exposure, not an account-security one. The honest fixes are outside this file: a
+per-address cap a *proved* owner can bypass (which needs a signal of ownership an unauthenticated route does not have),
+or moving code mail to a sending domain whose reputation is not the firm's.
 
-**2. A stranger can suppress one code mail per minute at any address, and one sign-up REPLACEMENT for fifteen.**
-`codeTooSoon()` / `pendingTooSoon()` allow one code a minute per address whoever asks, so a stranger's request refreshes
-the stamp and the owner's own request inside that minute answers `200` with no mail. Round 6 adds the longer one on
-purpose: `pendingHeld()` refuses to let a later `/account/register` replace a pending row for the fifteen minutes its
-code is usable, so a stranger who signs up at an address delays a genuine sign-up there by up to that long — answered
-with the same `202`, and `/account/resend` still mails the code that row already carries. **That delay is what buys the
-takeover in "What ships" above, and it is the right side of the trade.** Both are bounded by the same budgets — 3 an
-hour per connection — and the burn's exemption is `burn_cleared_at` now, which lifts the minute without lifting the
-fifteen. Nuisances at ordinary cost, not lockouts, and the price of throttles that cannot tell the owner from a
-stranger.
+**2. A stranger can still cost the owner one code mail per minute of the mailbox's attention, and can still burn a live
+code.** What they can no longer do is take, hold or renew anything. Twenty wrong codes across four connections still
+delete the sign-ups waiting at an address and still mail the owner the notice; the owner's answer is to sign up again,
+which mails immediately — no throttle exemption, no fifteen minutes, no row to reclaim. **The delay this used to impose
+is gone, and with it the residual that bought every takeover from round 5 on.** The cost that remains is noise in a
+mailbox, bounded by residual 1.
 
-**3. The sign-in lock is still global, so a stranger can still cost the owner 15 minutes of sign-in.** Five wrong
+**3. `/account/resend` is unauthenticated, so it can only match on the connection — and a visitor whose connection
+changed loses the button.** A phone that moves between wifi and cell between signing up and tapping *Resend code* is
+answered the same `200` and mailed nothing. This is a real usability cost and it is on the page rather than hidden: the
+note under the button says to use *Create account* again, which always mails. The alternative — re-mailing whatever row
+the address holds, whoever made it — is the round-6 P1, and it is not coming back. A resend that carried the password
+would be strictly better and is the obvious round-8 candidate; it was left out here because the mandate for this round
+was the structural change and because the page's *Resend* button does not currently hold a password when a returning
+visitor taps it.
+
+**4. The sign-in lock is still global, so a stranger can still cost the owner 15 minutes of sign-in.** Five wrong
 passwords from any connection write `accounts.locked_until`, and the owner's own correct password then answers the plain
-`401` (round 6 — it answered `429 locked`, which classified the address; see the lockout section). What round 5 added is
-that the documented way out actually works: `forgot` → `reset` from the owner's own connection mails a code and a
-successful reset clears the lock, driven end to end in the suite. What round 6 added is that the refusals no longer feed
-the ladder, so the lock cannot be walked past its first 15 minutes by continued guessing. Scoping the lock per
-`(connection, account)` is still the real fix; its cost is written out in the lockout section above — it removes the only
-global brake on a guesser spreading attempts across rented connections, and it moves two functions whose
-statement-for-statement parity round 4 had just established. Named, priced, not done.
+`401` (round 6 — it answered `429 locked`, which classified the address; see the lockout section). The documented way
+out works: `forgot` → `reset` from the owner's own connection mails a code and a successful reset clears the lock,
+driven end to end in the suite; and refusals no longer feed the ladder, so the lock cannot be walked past its first 15
+minutes by continued guessing. Scoping the lock per `(connection, account)` is still the real fix; its cost is written
+out in the lockout section above. Named, priced, not done.
 
-**4. One row per address means one live code per address, so an owner who enters a code that arrived BEFORE they asked
-for one is entering a stranger's.** This is what is left of the takeover after round 6, and it is a different shape from
-what it replaced. A stranger can no longer take a sign-up that is in flight — `pendingHeld()` refuses that, and the
-suite drives both the burn ordering and the plain minute-later ordering. What remains is the *first*-writer case: a
-stranger signs up at `victim@`, a code lands in that mailbox, and the owner — who then starts their own sign-up and is
-answered `202` with no second mail, because the stranger's code is still live — types in the code they can see. The
-account is created under the stranger's password.
+**5. Two statement-count tells remain, both on the ACCOUNTS path, both inherited and both now measured.** Round 7 closed
+the pending-side one (the burn branch) because it rewrote that path; it did not rewrite the accounts path, and saying so
+is cheaper than implying a clean sweep:
 
-What it costs the attacker and what it costs the owner, both stated: the attacker must sign up at the address *before*
-the owner does and spend one of their own three mails an hour, and the owner must enter a code that predates their own
-request. The owner's next attempt takes the row as soon as the stranger's code has run out, and recovery from a wrong
-outcome is `forgot` → `reset`, which sets the password, marks the address verified and bumps `token_version` so any
-token the stranger holds dies. Round 5's shape was the reverse and worse — the *last* writer won, so a stranger could
-take a row from an owner who had done everything right, at any moment of the attacker's choosing.
+- **`/account/reset`, the burning request.** `burnCode()` runs only when the burn is due and `dummyCheckCode()` has no
+  twin for it, so the twentieth wrong reset code at an address with an account costs **11 statements where the first
+  nineteen cost 9**, and an address that has never been seen costs **9 for all twenty** (round-6 review, probe
+  `p8-resetburn`). Same status, same body, same timing. The fix is the one round 7 used on the pending side: move the
+  predicate into the binds so the statement always runs.
+- **`/account/login`, the lock write.** `noteFailedLogin()`'s conditional `UPDATE … SET locked_until` fires on the fifth
+  failure, and `dummyFailedLogin()`'s twin is laddered on the per-`(IP, address)` count, which is 1 on a fresh
+  connection. So the fifth wrong password at one address from five **fresh** connections costs **11 statements** if the
+  address has an account and **10** if it does not (round-6 review, probe `p2d`: real `10 10 10 10 11`, ghost
+  `10 10 10 10 10`). Probe 2b samples absent / pending / verified-**locked** and never a verified-**unlocked** account,
+  which is why its "one statement set" result is true of the three classes it measures and not of the fourth.
 
-**The durable fix is a row per sign-up rather than a row per address**, so a verified code creates the account out of
-the credentials that code was issued with. It is not done here because it is a redesign, not a gate: a composite key
-changes `PENDING_UPSERT`, `PENDING_ISSUE` and the burn's scope, and `/account/verify` would have to find the right row
-among several without spending a variable number of statements or HMACs — which is the uniformity property this whole
-surface is built on. Stated rather than traded blind.
+Both cost an attacker five to twenty requests per address tested and neither leaks a credential. They are listed here
+with their measured numbers so the next round can pick them up with the measurement already done.
 
-**5. Nothing here is deployed, and there are TWO live deploy paths — only one of them applies migrations.**
-`migrations/010` and `migrations/011` are merged, not applied. The Worker self-heals the same table and the same twelfth
-column through `ensureRateSchema`, so a deploy that lands ahead of either migration still takes sign-ups and still burns
-codes; what only the migration does is 010's one-time `DELETE FROM accounts WHERE verified_at IS NULL`.
+**6. Nothing here is deployed, and there are TWO live deploy paths — only one of them applies migrations. Round 7 raises
+the stakes on that.** `migrations/012` is merged, not applied.
 
 - **`.github/workflows/deploy-worker.yml`** — applies migrations in the step *before* the deploy, guarded per file by a
   `PRAGMA table_info` column check, and `set -e` stops the job on a half-applied schema. A normal merge to `main` does
@@ -830,14 +911,15 @@ codes; what only the migration does is 010's one-time `DELETE FROM accounts WHER
   the owner's Mac whenever `mast-backend/` has moved, and its own comment says *"Secrets and D1 migrations are
   untouched."* **It deploys code without applying a single migration.**
 
-The consequence, which is why both paths are named here rather than one: if the Mac path lands a Worker first,
-`ensureRateSchema` creates `pending_signups` at runtime with exactly the eleven columns 010's GUARDS row checks, so
-every later workflow run prints *"already applied"* and the one-time `DELETE` **never runs**. For a file that CREATEs a
-table, the columns are not evidence the file ran. Bounded, not zero: `runRetention` deletes the same set daily on the
-09:17 UTC cron, so legacy unverified rows carry the round-4 findings for at most a day — but the guard reports
-"applied" for ever and nothing surfaces it. 011 is an ordinary `ALTER` and does not have this shape; its guard row is
-one column, present or absent. Fixing 010 properly means a marker the running Worker cannot create (a
-`schema_migrations` row); until then this paragraph is the record.
+Through round 6 that was survivable because `ensureRateSchema` created the same table the migration created. Round 7
+changes the table's **primary key**, and a `CREATE TABLE IF NOT EXISTS` is a no-op against the old shape — so a Worker
+landing on a round-5/6 database would write `signup_id` into a table with no such column and every sign-up would fail
+silently. That is why `healPendingSignups()` exists: it drops a `pending_signups` that has no `signup_id` and only that,
+before the `CREATE`, on the first request of an isolate. The Mac path therefore converges by itself; what it still does
+**not** do is 012's one-time `DELETE FROM accounts WHERE verified_at IS NULL`, and the guard cannot see the difference
+because for a file that CREATEs a table the columns are not evidence the file ran. Bounded, not zero: `runRetention`
+deletes the same set daily on the 09:17 UTC cron. Fixing that properly means a marker the running Worker cannot create
+(a `schema_migrations` row); until then this paragraph is the record.
 
 ## Configuration reference
 

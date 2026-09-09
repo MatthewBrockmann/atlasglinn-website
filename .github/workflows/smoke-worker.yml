@@ -21,7 +21,7 @@ on:
         type: boolean
         default: false
       account:
-        description: "Exercise sign-up: POST /account/register for matthew+smoke<run>@atlasglinn.com (the Worker emails a code), then a wrong-password /account/login"
+        description: "Exercise sign-up: POST /account/register for matthew+smoke<run>@atlasglinn.com (the Worker emails a code), then a wrong-code /account/verify and a wrong-password /account/login"
         type: boolean
         default: false
 # contents: write, not read — the last step commits the report to the claude/desktop-assets branch, which is the whole
@@ -112,10 +112,17 @@ jobs:
               #   with no email in the mailbox means Resend, not the Worker (round 5, 2026-09-09: the mail leg leaves through
               #   ctx.waitUntil, so a refusing provider can no longer turn this into a 502)
               # 503 accounts_off = ACCOUNT_SECRET missing on the Worker · 503 email_off = RESEND_API_KEY missing
+              # FINISHING a sign-up now needs the TRIPLE — {email, code, password} (round 7, 2026-09-09). An address may
+              #   hold more than one sign-up, so the code says which row and the password says the row is yours. The probe
+              #   below sends a deliberately wrong code with the RIGHT password: 401 bad_code is the expected answer, and
+              #   it is what proves the route takes the triple rather than 400ing on a missing field or 500ing on a schema
+              #   that migrations/012 has not reached. A 200 here would mean a wrong code created an account.
               # The password is random, not derived from the public run id, and is masked so no later step can print it.
               em="matthew+smoke$GITHUB_RUN_ID@atlasglinn.com"; pw="$(openssl rand -hex 24)"; echo "::add-mask::$pw"
               echo "--- account sign-up (POST /account/register for $em)"
               req POST /account/register "{\"email\":\"$em\",\"password\":\"$pw\",\"name\":\"Smoke test (GitHub Actions)\"}"
+              echo "--- account verify, wrong code with the right password (expect 401 bad_code — the route takes email + code + password)"
+              req POST /account/verify "{\"email\":\"$em\",\"code\":\"000000\",\"password\":\"$pw\"}"
               echo "--- account sign-in, wrong password (expect 401 bad_login, never 5xx — a sign-up in progress answers what an unknown address answers)"
               req POST /account/login "{\"email\":\"$em\",\"password\":\"not-the-password-1\"}"
             else echo "--- account: skipped (input account=false)"; fi
