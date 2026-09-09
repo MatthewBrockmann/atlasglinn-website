@@ -143,6 +143,27 @@
         .gear-card .gear-oos.in { color: #7BC67E; border-color: rgba(123,198,126,.45); }
         .gear-card .gear-link { display: block; margin-top: .55rem; font-family: 'Share Tech Mono', monospace; font-size: .58rem; letter-spacing: .1em; color: #1A6BDE; text-decoration: none; }
         .gear-card .gear-link:hover, .gear-card .gear-link:focus-visible { color: #fff; }
+        /* The whole card opens the product view (owner, 2026-09-09: "the actual marketing and verbiage so that you can
+           click on it and see"), so it is a control: pointer, focus ring, and a cue that there is more behind it. */
+        .gear-card { cursor: pointer; }
+        .gear-card:focus-visible { outline: 2px solid #C9A84C; outline-offset: 2px; }
+        .gear-card .gear-more { margin-top: .7rem; font-family: 'Share Tech Mono', monospace; font-size: .58rem; letter-spacing: .18em; text-transform: uppercase; color: #8B98AD; }
+        .gear-card:hover .gear-more, .gear-card:focus-visible .gear-more { color: #C9A84C; }
+        .gear-card .cta-button { position: relative; z-index: 1; }
+        /* Product view: the manufacturer's photographs, their copy and the spec lines they publish, with OUR price and
+           OUR stock line. Nothing here links out. */
+        .modal.prod .prod-gal { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .6rem; margin: 1rem 0; }
+        .modal.prod .prod-gal img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: #0B1221; border: 1px solid rgba(201,168,76,.25); }
+        .modal.prod .prod-copy { color: #d8dce6; line-height: 1.6; font-size: 1rem; }
+        .modal.prod .prod-copy p { margin: .65rem 0; }
+        .modal.prod .prod-copy strong { color: #fff; }
+        .modal.prod .prod-specs { list-style: none; margin: 1.1rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1.4rem; }
+        .modal.prod .prod-specs li { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: .45rem 0; border-top: 1px solid rgba(201,168,76,.16); color: #d8dce6; font-size: .95rem; }
+        .modal.prod .prod-specs b { flex: 0 0 auto; max-width: 55%; font-family: 'Share Tech Mono', monospace; font-weight: 400; font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; color: #8B98AD; }
+        .modal.prod .prod-stock { margin-top: .6rem; }
+        .modal.prod .prod-actions { margin-top: 1.3rem; }
+        .modal.prod .prod-src { margin-top: 1rem; font-family: 'Share Tech Mono', monospace; font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: #777; }
+        @media (max-width: 768px) { .modal.prod .prod-specs { grid-template-columns: 1fr; } }
         .modal.req [hidden] { display: none !important; }
         @media (max-width: 900px) { .gear-panel { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 600px) { .gear-panel { grid-template-columns: 1fr; } }
@@ -211,7 +232,7 @@
         .modal.gate .gate-actions .cta-button { margin: 0; }
         .modal.gate .gate-fine { margin-top: 1rem; font-size: .8rem; color: #888; line-height: 1.5; }
         .course-row.flash { box-shadow: inset 0 0 0 2px #1A6BDE; }
-        .modal h3 { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; font-weight: 700; padding-right: 2rem; margin: .35rem 0 .2rem; }
+        .modal h3 { font-family: 'Orbitron', sans-serif; font-size: var(--head-modal, 1.3rem); font-weight: 700; padding-right: 2rem; margin: .35rem 0 .2rem; }
         .modal-meta { font-family: 'Inconsolata', monospace; font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: #888; }
         .modal-price { font-family: 'Orbitron', sans-serif; font-weight: 900; color: #C9A84C; font-size: 1.1rem; margin-top: .4rem; }
         .cal-nav { display: flex; align-items: center; justify-content: space-between; margin: 1.4rem 0 .8rem; }
@@ -841,6 +862,26 @@
     <button class="cta-button" onclick="closePolicy()" style="margin-top:1rem">Close</button>
 </div>
 
+<!-- PRODUCT VIEW (owner, 2026-09-09: "What we want is the actual marketing and verbiage so that you can click on it and
+     see -- take request quiote off- they can click product if out of stock _ email + inventory available"). The
+     manufacturer's own words, specs and photographs, read at build time from the captured IWA pages
+     (scripts/store-intake.py -> scripts/store-products.json). The price is OUR list price and the stock line is OUR
+     constant; the one control emails us. Nothing in here links to IWA. -->
+<div id="prod-bd" class="modal-bd" onclick="closeProduct()"></div>
+<div id="prod" class="modal wide prod" role="dialog" aria-modal="true" aria-labelledby="prod-title">
+    <button class="modal-x" aria-label="Close" onclick="closeProduct()">&times;</button>
+    <div class="eyebrow" id="prod-eyebrow"></div>
+    <h3 id="prod-title"></h3>
+    <div class="modal-meta" id="prod-meta"></div>
+    <div class="modal-price" id="prod-price"></div>
+    <div class="gear-oos prod-stock" id="prod-stock"></div>
+    <div class="prod-gal" id="prod-gal"></div>
+    <div class="prod-copy" id="prod-copy"></div>
+    <ul class="prod-specs" id="prod-specs"></ul>
+    <div class="gate-actions prod-actions"><button class="cta-button" type="button" onclick="productEmail()">Email about availability</button></div>
+    <p class="prod-src">Manufacturer information: IWA International</p>
+</div>
+
 <!-- QUALIFICATIONS -->
 <div id="quals-bd" class="modal-bd" onclick="closeQuals()"></div>
 <div id="quals" class="modal wide" role="dialog" aria-modal="true" aria-labelledby="quals-title">
@@ -1096,31 +1137,53 @@ const GEAR_HIDDEN = ['Aimpoint'];
 // on a GEAR row wins over it, so one device can come back before the line does; flip it to false when the line is stocked.
 const GEAR_OUT_OF_STOCK = true;
 function gearOut(g){ return g.stock ? g.stock === 'out' : (GEAR_OUT_OF_STOCK && g.device); }
-// Each device links to its own page on the maker's shop (owner, 2026-09-08: "link to add acutal product info
-// https://iwainternationalinc.com/shop/"). The URLs are the ones that shop's own listing carries, read from the 2026-09-08
-// capture of https://iwainternationalinc.com/shop/ (reference/desktop/live/shop.html on claude/desktop-assets). That shop
-// paginates and the capture is page 1 of 5, so PA-85, TH-14 and the door charge are not in the table and fall back to the
-// shop root — a guessed product URL would be worse than the listing he asked for.
-// SOURCE ONLY — never rendered as a link (owner 2026-09-08). These are where the product descriptions, specs and
-// images for our cards are read from (captured by capture-live into reference/desktop/live/); buyers stay on MAST.
-const GEAR_SHOP = 'https://iwainternationalinc.com/shop/';
-const GEAR_PRODUCT_URL = {
-  'IWA-M11-4B': 'https://iwainternationalinc.com/m11-multibang-device-4-bang/',
-  'IWA-M11-7B': 'https://iwainternationalinc.com/m11-multibang-device-7-bang/',
-  'IWA-M12': 'https://iwainternationalinc.com/m12-distraction-device/',
-  'IWA-M13': 'https://iwainternationalinc.com/m13-thermobaric-device/',
-  'IWA-M14': 'https://iwainternationalinc.com/m14-smoke-deployment-device/',
-  'IWA-M15': 'https://iwainternationalinc.com/m15-large-smoke-grenade/' };
-function gearUrl(g){ return GEAR_PRODUCT_URL[g.sku] || GEAR_SHOP; }
+// The maker's product URLs are NOT in this page (owner, 2026-09-08: "the link to IWA sends them to their store. We need
+// them to buy from our store, not theirs"). Two constants and a helper held them here until 2026-09-09 — nothing called
+// the helper, but a JS-built href is one edit away and produces no literal for a guard to match. They live in
+// scripts/store-intake.py now, which is the only thing that uses them: it reads the captured product pages. Each
+// product's own URL is kept in the "source" field of scripts/store-products.json, and scripts/assemble-cinematic.py
+// strips source and capture before STORE_PRODUCTS reaches the browser. The assembler asserts the names are absent, so
+// this comment does not name them either.
 function renderGear(){ const p = $('gear-panel'); if (!p) return; let html = '', brand = '';
   GEAR.forEach((g, i) => { if (GEAR_HIDDEN.includes(g.brand)) return; if (g.brand !== brand) { brand = g.brand; html += '<div class="gear-brand"><h3>' + esc(GEAR_BRAND_NAMES[brand] || brand) + '</h3><span>' + esc(GEAR_BRANDS[brand] || '') + '</span></div>'; }
-    html += '<div class="gear-card' + (g.device ? ' device' : '') + '"><div class="gear-sku">' + esc(g.sku) + '</div><h4>' + esc(g.name) + '</h4><div class="gear-fam">' + esc(g.brand + ' · ' + g.fam) + '</div>'
+    html += '<div class="gear-card' + (g.device ? ' device' : '') + '" role="button" tabindex="0" aria-haspopup="dialog" aria-label="' + esc(g.name) + ' \u2014 open product details"'
+         + ' onclick="openProduct(' + i + ')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openProduct(' + i + ');}">'
+         + '<div class="gear-sku">' + esc(g.sku) + '</div><h4>' + esc(g.name) + '</h4><div class="gear-fam">' + esc(g.brand + ' · ' + g.fam) + '</div>'
          + (gearOut(g) ? '<div class="gear-oos">OUT OF STOCK</div>' : (g.device ? '<div class="gear-oos in">IN STOCK</div>' : ''))
          + (g.price ? '<div class="gear-price">' + esc(g.price) + '<small>' + (g.device ? 'list price · each · 3-unit minimum' : 'MAP · dealer pricing on request') + '</small></div>' : '')
          /* no outbound link: owner 2026-09-08 "the link to IWA sends them to their store. We need them to buy from our store, not theirs." — the buy path stays on MAST (Email about availability; MAST is the dealer); IWA's pages are only the SOURCE of the product information shown here */
          /* owner 2026-09-09: "take request quiote off ... they can click product if out of stock _ email + inventory available" — the card's one control emails us about availability and files to the CRM; the click-to-see product view with IWA's own verbiage lands with the captured product pages */
-         + '<button class="cta-button" type="button" onclick="requestGear(' + i + ')">Email about availability</button></div>'; });
+         + '<div class="gear-more">View product &rarr;</div>'
+         + '<button class="cta-button" type="button" onclick="event.stopPropagation();requestGear(' + i + ')">Email about availability</button></div>'; });
   p.innerHTML = html; }
+/* ── Product view (owner, 2026-09-09: "What we want is the actual marketing and verbiage so that you can click on it and
+   see -- take request quiote off- they can click product if out of stock _ email + inventory available"). A card click
+   opens IWA's own product copy ON THIS PAGE: their title, their description, the spec lines they publish and their
+   photographs, with OUR list price (GEAR_PRICE_TABLE) and OUR stock line (gearOut). scripts/assemble-cinematic.py
+   replaces the hook below with scripts/store-products.json at build time; a SKU with no capture yet still opens, showing
+   the name, the price, the stock and the email control rather than invented copy. No outbound IWA link, ever. ── */
+const STORE_PRODUCTS = {};
+let prodIdx = null;
+function openProduct(i){
+  const g = GEAR[i]; if (!g || !$('prod')) return; prodIdx = i;
+  const p = STORE_PRODUCTS[g.sku] || {}, out = gearOut(g);
+  if (window.mastTrack) mastTrack('product_view', g.name, g.sku);
+  lastFocus = document.activeElement;
+  $('prod-eyebrow').textContent = g.sku + ' · ' + (GEAR_BRAND_NAMES[g.brand] || g.brand);
+  $('prod-title').textContent = p.name || g.name;
+  $('prod-meta').textContent = g.brand + ' · ' + g.fam;
+  $('prod-price').textContent = g.price ? g.price + (g.device ? ' each · list price · 3-unit minimum' : ' MAP') : '';
+  const st = $('prod-stock'); st.textContent = out ? 'OUT OF STOCK' : 'IN STOCK'; st.className = 'gear-oos prod-stock' + (out ? '' : ' in');
+  $('prod-gal').innerHTML = (p.images || []).map(u => '<img src="' + esc(u) + '" alt="' + esc(p.name || g.name) + '" loading="lazy">').join('');
+  $('prod-copy').innerHTML = p.html || '<p>Availability, lead time and shipping for this device come by email; the manufacturer\u2019s description is not on file here yet.</p>';
+  $('prod-specs').innerHTML = (p.specs || []).map(([k, v]) => '<li><b>' + esc(k) + '</b><span>' + esc(v) + '</span></li>').join('');
+  $('prod-bd').classList.add('open'); $('prod').classList.add('open'); document.body.style.overflow = 'hidden';
+  $('prod').scrollTop = 0; setTimeout(() => $('prod').querySelector('.modal-x').focus(), 60);
+}
+function closeProduct(){ $('prod-bd').classList.remove('open'); $('prod').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+/* One dialog at a time: they share z-index 3001, so the request sheet opens after this one has closed. */
+function productEmail(){ const i = prodIdx; closeProduct(); if (i !== null) requestGear(i); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('prod') && $('prod').classList.contains('open')) closeProduct(); });
 let reqKind = 'private';
 function openReqDialog(kind, title, meta, eyebrow, fine){ reqKind = kind; lastFocus = document.activeElement; $('req-eyebrow').textContent = eyebrow; $('req-title').textContent = title; $('req-meta').textContent = meta; $('req-fine').textContent = fine;
   $('req-org-wrap').hidden = kind !== 'gear'; $('req-qty-wrap').hidden = kind !== 'gear'; if ($('req-qty')) $('req-qty').value = 1; $('req-msg').value = ''; $('req-err').hidden = true;

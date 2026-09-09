@@ -113,6 +113,7 @@ cd "$R" || die "cannot enter $R"
 # add to this list rather than inventing a second paste.
 DEFAULT_SOURCES=(
   "$DESK/MAST NEW WEB 2026"
+  "$DESK/MAST Solutions Web 2026"   # the same drop folder under the name he says aloud (owner, 2026-09-09); missing folders are skipped
   "$DESK/mast_tier3_trailer.html"
   "$DESK/atlas_mast_landing_4d.html"
   "$DESK/atlas_demo_hero.html"
@@ -228,7 +229,7 @@ copy_file() { # copy_file <source file> <destination directory>; returns 2 when 
   # quality 82 — because the cloud container has no image tools; clips get a poster frame beside them (qlmanage ships with
   # macOS) so the tile has a picture. scripts/photo-intake.py turns them into tiles.
   # The top-level drop folder counts too (2026-09-06: he drops clips and photographs there, and photo-intake reads it).
-  local drop=0; case "$d" in */gallery|*/gallery/*|*/range|*/range/*|*/mast-new-web-2026|*/mast-new-web-2026/*) drop=1 ;; esac
+  local drop=0; case "$d" in */gallery|*/gallery/*|*/range|*/range/*|*/mast-new-web-2026|*/mast-new-web-2026/*|*/mast-solutions-web-2026|*/mast-solutions-web-2026/*) drop=1 ;; esac
   case "$e" in
     heic|heif)
       if command -v sips >/dev/null 2>&1 && sips -s format jpeg -s formatOptions 82 $([ "$drop" = 1 ] && echo -Z 2000) "$f" --out "$d/${b%.*}.jpg" >/dev/null 2>&1; then :; else cp "$f" "$d/$b"; fi ;;

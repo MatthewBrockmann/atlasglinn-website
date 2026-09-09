@@ -3,7 +3,8 @@
 # update in and add photos to the gallery"; later that day, leaving without a Terminal: "Do it yourself or figure out an
 # easier way"). Installs two LaunchAgents on this Mac:
 #
-#   com.atlasglinn.handoff    watches  ~/Desktop/MAST NEW WEB 2026/gallery  and  …/range
+#   com.atlasglinn.handoff    watches  ~/Desktop/MAST NEW WEB 2026  and  ~/Desktop/MAST Solutions Web 2026 (both, with
+#                             their gallery/ and range/ subfolders)
 #                             a new file there -> scripts/mac-handoff.sh pushes the two folders to branch claude/desktop-assets
 #                             (web-sized JPEGs, a poster beside every clip). The cloud session's hourly check turns them into
 #                             tiles (scripts/photo-intake.py), regenerates the page and opens a PR.
@@ -23,7 +24,12 @@ say() { printf '\033[1;36m%s\033[0m\n' "$*"; }
 [ "$(uname -s)" = "Darwin" ] || { echo "macOS only (LaunchAgents); run this on the Mac"; exit 1; }
 CACHE="$HOME/Library/Caches/atlasglinn/atlasglinn-website"
 REPO_URL="https://github.com/MatthewBrockmann/atlasglinn-website.git"
+# Two drop folders (owner, 2026-09-09, naming the folder aloud: "MAST Solutions Web 2026"; the agent was installed on
+# "MAST NEW WEB 2026"). Both are watched and both are handed off, so whichever name he uses works. The handoff branch
+# keeps them apart as mast-new-web-2026/ and mast-solutions-web-2026/; scripts/photo-intake.py reads both.
 DROP="$HOME/Desktop/MAST NEW WEB 2026"
+DROP2="$HOME/Desktop/MAST Solutions Web 2026"
+DROPS=("$DROP/gallery" "$DROP/range" "$DROP" "$DROP2/gallery" "$DROP2/range" "$DROP2")
 AGENTS="$HOME/Library/LaunchAgents"; LOGS="$HOME/Library/Logs"
 H_LABEL="com.atlasglinn.handoff"; U_LABEL="com.atlasglinn.wp-upload"
 H_PLIST="$AGENTS/$H_LABEL.plist"; U_PLIST="$AGENTS/$U_LABEL.plist"
@@ -61,9 +67,9 @@ cat <<EOF
   <key>Label</key><string>$H_LABEL</string>
   <key>ProgramArguments</key><array>
     <string>/bin/bash</string><string>-c</string>
-    <string>export PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin; export HANDOFF_ONLY=1 HANDOFF_REPO="$R"; exec /bin/bash "$R/scripts/mac-handoff.sh" "$DROP/gallery" "$DROP/range" "$DROP"</string>
+    <string>export PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin; export HANDOFF_ONLY=1 HANDOFF_REPO="$R"; exec /bin/bash "$R/scripts/mac-handoff.sh" "$DROP/gallery" "$DROP/range" "$DROP" "$DROP2/gallery" "$DROP2/range" "$DROP2"</string>
   </array>
-  <key>WatchPaths</key><array><string>$DROP/gallery</string><string>$DROP/range</string><string>$DROP</string></array>
+  <key>WatchPaths</key><array>$(printf '<string>%s</string>' "${DROPS[@]}")</array>
   <key>ThrottleInterval</key><integer>120</integer>
   <key>StandardOutPath</key><string>$LOGS/atlasglinn-handoff.log</string>
   <key>StandardErrorPath</key><string>$LOGS/atlasglinn-handoff.log</string>
@@ -95,7 +101,7 @@ case "${1:-}" in
     security find-generic-password -s mast-wp-sftp >/dev/null 2>&1 || { echo "save the SFTP login first: bash scripts/wp-upload.sh --save-login"; exit 1; }
     ensure_cache || true   # a failed pull does not stop the install; the hourly job keeps trying
     HR="$(handoff_repo)"
-    mkdir -p "$DROP/gallery" "$DROP/range" "$AGENTS" "$LOGS"
+    mkdir -p "$DROP/gallery" "$DROP/range" "$DROP2/gallery" "$DROP2/range" "$AGENTS" "$LOGS"
     unload "$H_LABEL"; unload "$U_LABEL"
     plist_handoff "$HR" > "$H_PLIST"; plist_upload > "$U_PLIST"
     plutil -lint "$H_PLIST" "$U_PLIST" >/dev/null
@@ -104,6 +110,7 @@ case "${1:-}" in
     say "Drop photographs or clips into:"
     say "   $DROP/gallery      -> the gallery under In Action"
     say "   $DROP/range        -> The Range chapter"
+    say "   (or the same two folders under $DROP2)"
     say "Check in a few minutes with: bash $CACHE/scripts/mac-autopilot.sh status" ;;
   uninstall)
     unload "$H_LABEL"; unload "$U_LABEL"; rm -f "$H_PLIST" "$U_PLIST"; say "Removed both agents (the drop folders, the private clone and the logs stay)." ;;
@@ -125,9 +132,32 @@ case "${1:-}" in
   hourly)   # the wp-upload LaunchAgent's command: this script is pulled fresh from main each hour, so fixes reach the Mac without a paste
     ensure_cache || exit 0
     ATLAS_REPO="$CACHE" /bin/bash "$CACHE/scripts/wp-upload.sh" --if-changed || true
+    # Self-repair of the watcher (2026-09-09). The handoff plist is written by `install` only, so a Mac installed before
+    # the second drop folder existed keeps watching one root — the fix reaches this script hourly but never reaches the
+    # agent. Both folders are made, and if the installed plist does not name every path in DROPS it is rewritten and
+    # re-bootstrapped. Idempotent: a plist that already names them all is left alone and nothing is printed.
+    mkdir -p "$DROP/gallery" "$DROP/range" "$DROP2/gallery" "$DROP2/range"
+    if [ -f "$H_PLIST" ]; then
+      missing=""
+      for d in "${DROPS[@]}"; do grep -qF "<string>$d</string>" "$H_PLIST" || missing="$missing
+   $d"; done
+      if [ -n "$missing" ]; then
+        say "handoff watcher is not watching:$missing"
+        plist_handoff "$(handoff_repo)" > "$H_PLIST"
+        if plutil -lint "$H_PLIST" >/dev/null 2>&1; then
+          unload "$H_LABEL"; load "$H_LABEL" || say "rewrote $H_PLIST but launchctl would not load it; run: bash scripts/mac-autopilot.sh install"
+          say "rewrote $H_PLIST with ${#DROPS[@]} watched folders and reloaded $H_LABEL"
+        else
+          say "rewrote $H_PLIST but plutil rejected it; leaving the running agent alone"
+        fi
+      fi
+    fi
     # Retry pass over the drop folders (2026-09-06: CQB-P3.MOV was seen by the watcher while still copying and listed in
     # SKIPPED.txt with nothing to retry it). mac-handoff.sh skips what the branch already holds, so a quiet hour costs a
     # 3 MB fetch; a clip that was still being written lands here.
-    if [ -d "$DROP" ]; then HANDOFF_ONLY=1 HANDOFF_REPO="$(handoff_repo)" /bin/bash "$(handoff_repo)/scripts/mac-handoff.sh" "$DROP/gallery" "$DROP/range" "$DROP" || true; fi ;;
+    for d in "$DROP" "$DROP2"; do
+      [ -d "$d" ] || continue
+      HANDOFF_ONLY=1 HANDOFF_REPO="$(handoff_repo)" /bin/bash "$(handoff_repo)/scripts/mac-handoff.sh" "$d/gallery" "$d/range" "$d" || true
+    done ;;
   *) echo "usage: bash scripts/mac-autopilot.sh install | status | kick | uninstall"; exit 1 ;;
 esac
