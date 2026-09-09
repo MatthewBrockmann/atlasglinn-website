@@ -213,10 +213,13 @@ export async function checkRate(request, env, method, pathname) {
   }
 }
 
-/** Rows nobody has touched for a day carry no live window; the daily cron drops them. */
+/** Rows nobody has touched for a day carry no live window; the daily cron drops them.
+ *  `tax:%` is exempt: those rows are Worker STATE (the Stripe Tax readiness cache, the setup lock and the setup
+ *  heartbeat, src/worker.js), not per-IP counters, and a heartbeat this purge eats at 24h could never be reported stale
+ *  at 25h — the staleness signal would look like "never ran" forever. */
 export async function purgeRateLimits(env) {
   if (!env.DB) return 0;
-  const res = await env.DB.prepare('DELETE FROM rate_limits WHERE window_start < ?').bind(new Date(Date.now() - 86400000).toISOString()).run().catch(() => null);
+  const res = await env.DB.prepare('DELETE FROM rate_limits WHERE window_start < ? AND key NOT LIKE ?').bind(new Date(Date.now() - 86400000).toISOString(), 'tax:%').run().catch(() => null);
   return (res && res.meta && res.meta.changes) || 0;
 }
 
