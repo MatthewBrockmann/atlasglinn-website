@@ -17,22 +17,35 @@ Then: python3 scripts/assemble-cinematic.py, commit, PR; the page re-upload is t
 
   python3 scripts/photo-intake.py            # import and report
   python3 scripts/photo-intake.py --dry-run  # report only
+  python3 scripts/photo-intake.py --check    # guard: exit 1 if a dump file is offered as a drop
   HANDOFF_REF=some-branch python3 …          # read another ref (tests)
 Exit 0 always; prints NOTHING NEW when there is nothing to do."""
 import json, os, re, subprocess, sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REF = os.environ.get('HANDOFF_REF', 'origin/claude/desktop-assets')
+# Two Desktop drop folders (owner, 2026-09-09, saying the folder's name aloud: "MAST Solutions Web 2026" beside the
+# "MAST NEW WEB 2026" the watcher was installed on). mac-handoff.sh lower-cases a folder name and turns its spaces into
+# dashes, so the two land here as mast-new-web-2026/ and mast-solutions-web-2026/; both are read, and a new one is one
+# line in DROP_ROOTS.
+DROP_ROOTS = ['reference/desktop/mast-new-web-2026', 'reference/desktop/mast-solutions-web-2026']
 KINDS = {  # kind: (destination under the repo, tile prefix, folders to scan on the handoff ref)
-    'gallery': ('images/mast/gallery', 'g', ['reference/desktop/gallery', 'reference/desktop/mast-new-web-2026/gallery']),
-    'range':   ('images/mast/range',   'a', ['reference/desktop/range',   'reference/desktop/mast-new-web-2026/range']),
+    'gallery': ('images/mast/gallery', 'g', ['reference/desktop/gallery'] + [r + '/gallery' for r in DROP_ROOTS]),
+    'range':   ('images/mast/range',   'a', ['reference/desktop/range']   + [r + '/range'   for r in DROP_ROOTS]),
 }
 IMAGES = {'.jpg', '.jpeg', '.png', '.webp'}
 CLIPS = {'.mp4', '.mov', '.webm', '.m4v'}
 # The Desktop folder itself (owner, 2026-09-06: "MAST WEB 2026 = JUST JPGS update to gallery but they do not" — his files sit
-# at its top level, not in gallery/ or range/). The Mac watcher hands the folder off since the same day; here only what the
-# Mac ADDED after the original WordPress dump counts as a drop, and WordPress derivative sizes (-300x200, @2x) never do.
-DROP_ROOT, DROP_SINCE = 'reference/desktop/mast-new-web-2026', '2026-09-05T17:00:00Z'
+# at its top level, not in gallery/ or range/). Only what the MAC ADDED counts as a drop, and WordPress derivative sizes
+# (-300x200, @2x) never do.
+#
+# A date alone could not tell the two apart: the original WordPress dump of that folder was itself pushed on 2026-09-08
+# (e5b4c0c, 04:16 UTC), AFTER the 2026-09-05 floor this line used to carry, so a dry run offered to import 1,211 dump
+# files as gallery tiles. What separates them is the commit that added the file: scripts/mac-handoff.sh writes
+# "Hand off from Mac: N file(s) on <date>" on every push it makes, and nothing else does. So a drop is a file added by a
+# handoff commit; the date stays as a cheap floor. --check proves it (see check_drops below).
+DROP_SUBJECT = '^Hand off from Mac: '
+DROP_SINCE = '2026-09-05T17:00:00Z'
 DERIVATIVE = re.compile(r'-\d+x\d+(@2x)?\.[a-z]+$', re.I)
 
 
@@ -48,17 +61,55 @@ def listing(folder):
         return []
 
 
-def recent_drops():
-    """Top-level media the Mac added to the Desktop folder after the dump: photographs and clips he dropped there."""
+def recent_drops(root):
+    """Top-level media the Mac ADDED to a Desktop drop folder: the files that arrived in one of its own handoff commits."""
     try:
-        out = git('log', f'--since={DROP_SINCE}', '--diff-filter=A', '--name-only', '--format=', REF, '--', DROP_ROOT)
+        out = git('log', f'--since={DROP_SINCE}', f'--grep={DROP_SUBJECT}', '--diff-filter=A', '--name-only', '--format=',
+                  REF, '--', root)
     except subprocess.CalledProcessError:
         return []
-    depth = DROP_ROOT.count('/') + 1
+    depth = root.count('/') + 1
     return sorted({l for l in out.splitlines() if l and l.count('/') == depth and not DERIVATIVE.search(l)})
 
 
+def dump_paths(root):
+    """What was already in the drop folder before the Mac's first handoff — the WordPress dump, never a drop."""
+    try:
+        first = git('log', '--reverse', '--format=%H', f'--grep={DROP_SUBJECT}', REF, '--', root).split()
+    except subprocess.CalledProcessError:
+        return set()
+    if not first:
+        return set()
+    try:
+        return {l for l in git('ls-tree', '-r', '--name-only', first[0] + '^', '--', root).splitlines() if l}
+    except subprocess.CalledProcessError:
+        return set()
+
+
+def check_drops():
+    """--check: the intake must offer nothing that was in the folder before the Mac's first handoff. Exit 1 if it does.
+    The number is printed either way, so a change in it is visible in the run log."""
+    bad, total = [], 0
+    for root in DROP_ROOTS:
+        drops = recent_drops(root)
+        total += len(drops)
+        bad += sorted(set(drops) & dump_paths(root))
+    print(f'drop candidates: {total} across ' + ', '.join(DROP_ROOTS))
+    if bad:
+        print(f'FAIL: {len(bad)} of them are files from the original dump, not drops. First five:')
+        for b in bad[:5]:
+            print('  ' + b)
+        return 1
+    print('OK: no dump file is offered as a drop')
+    return 0
+
+
 def main(dry):
+    # The guard runs on every import, not only when someone remembers to pass --check: this is the path that would put
+    # 1,211 WordPress dump files into the gallery, so it fails closed before a single file is copied.
+    if check_drops():
+        print('refusing to import: the drop filter is matching dump files (see FAIL above)')
+        return 1
     added, notes = [], []
     for kind, (dest, prefix, folders) in KINDS.items():
         ddir = os.path.join(REPO, dest)
@@ -73,7 +124,7 @@ def main(dry):
         n = max([int(m.group(1)) for f in os.listdir(ddir) for m in [re.match(re.escape(prefix) + r'(\d+)\.', f)] if m], default=0)
         sources = [(listing(f), None) for f in folders]
         if kind == 'gallery':
-            sources.append((recent_drops(), set(listing(DROP_ROOT))))
+            sources += [(recent_drops(r), set(listing(r))) for r in DROP_ROOTS]
         known = set()
         for files, all_names in sources:
             names = all_names if all_names is not None else set(files)
@@ -135,4 +186,4 @@ def main(dry):
 
 
 if __name__ == '__main__':
-    sys.exit(main('--dry-run' in sys.argv[1:]))
+    sys.exit(check_drops() if '--check' in sys.argv[1:] else main('--dry-run' in sys.argv[1:]))
