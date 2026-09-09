@@ -1426,6 +1426,154 @@ console.log('\n── Uniform code routes, immovable credentials, per-connection
   resetLimits(); emails.length = 0;
 }
 
+console.log('\n── Round 4: ghost counters per address, sign-in cost symmetry, a burn a reissue cannot defer, a per-address mail budget (security review round 4, 2026-09-08) ──');
+{
+  const from = (path, body, ip) => post(path, body, 'https://mastsolutions.com', ip);
+  const rowFor = (email) => [...accounts.values()].find((a) => a.email === email);
+  const codeIn = (m) => (/\b(\d{6})\b/.exec((m && m.text) || '') || [])[1];
+  const same = async (a, b) => a.status === b.status && (await a.clone().text()) === (await b.clone().text());
+  /** One request, and the number of D1 statements it spent. The criterion the round-3 parity claim is written in. */
+  const cost = async (path, body, ip) => {
+    const before = sqlLog.length;
+    const res = await from(path, body, ip);
+    return { res, statements: sqlLog.length - before };
+  };
+  const guessKeys = () => [...rateLimits.keys()].filter((k) => k.startsWith('codeguess:'));
+
+  resetLimits(); emails.length = 0;
+  await post('/account/register', { email: 'r4real@example.com', password: 'a long enough password' });
+  await post('/account/verify', { email: 'r4real@example.com', code: codeIn(emails[0]) });
+  ok('round-4 fixture: r4real@example.com is a verified account', !!rowFor('r4real@example.com').verified_at);
+
+  /* ── R4-1: the guess cap for an address with NO account is keyed on that address ──
+     Round 3 keyed it on the constant absent id, so every invented address on the internet shared one row. Five wrong
+     guesses at one throwaway address armed it, and from the sixth request on the refusal fired BEFORE the twin
+     statements ran: an invented address cost 5 statements where a real one cost 9, with the same 400 and the same body.
+     Disjoint cost ranges are an account-existence oracle. This measures the state the round-3 assertion never entered —
+     the counter ALREADY at five. */
+  resetLimits(); emails.length = 0;
+  const R4IP = '198.51.100.60';
+  const ARM = 'r4-arming-ghost@example.com';
+  for (let i = 0; i < 5; i++) await from('/account/reset', { email: ARM, code: '111111', password: 'a long enough password' }, R4IP);
+  const armKey = guessKeys().find((k) => k.startsWith('codeguess:' + R4IP + ':absent:'));
+  ok('five wrong codes at an invented address arm a counter of its OWN — codeguess:<ip>:absent:<digest>, not one shared row',
+     !!armKey && /^codeguess:198\.51\.100\.60:absent:[0-9a-f]{16}$/.test(armKey) && rateLimits.get(armKey).count === 5,
+     guessKeys().join(' '));
+
+  const armed = await cost('/account/reset', { email: ARM, code: '111111', password: 'a long enough password' }, R4IP);
+  const realAfterArm = await cost('/account/reset', { email: 'r4real@example.com', code: '111111', password: 'a long enough password' }, R4IP);
+  const ghostAfterArm = await cost('/account/reset', { email: 'r4-second-ghost@example.com', code: '111111', password: 'a long enough password' }, R4IP);
+  ok('with the arming address at its cap, a real address and a DIFFERENT invented one still cost the same — same body, same statement count',
+     (await same(realAfterArm.res, ghostAfterArm.res)) && realAfterArm.res.status === 400 && realAfterArm.statements === ghostAfterArm.statements,
+     realAfterArm.res.status + ' ' + (await realAfterArm.res.clone().text()) + ' stmts ' + realAfterArm.statements + ' vs ' + ghostAfterArm.statements);
+  ok('… and the arming address is the only one refused: its own sixth guess is the cheap one, and it is cheaper than both of theirs',
+     armed.statements < realAfterArm.statements && armed.res.status === 400 && (await same(armed.res, realAfterArm.res)),
+     'armed ' + armed.statements + ' vs real ' + realAfterArm.statements + ' vs ghost ' + ghostAfterArm.statements);
+
+  // The shape the probe used: eight unknown addresses from one connection, one request each. Round 3 answered
+  // 9,9,9,9,9,5,5,5 — every address after the fifth was free to classify. Every one of them costs the same now.
+  const spray = [];
+  for (let i = 0; i < 8; i++) spray.push((await cost('/account/reset', { email: 'r4-spray-' + i + '@example.com', code: '111111', password: 'a long enough password' }, R4IP)).statements);
+  const realSpray = (await cost('/account/reset', { email: 'r4real@example.com', code: '111111', password: 'a long enough password' }, R4IP)).statements;
+  ok('eight unknown addresses probed from one connection all cost what a real address costs — no address is free to test',
+     spray.every((n) => n === spray[0]) && spray[0] === realSpray, spray.join() + ' vs real ' + realSpray);
+  ok('… and rotating invented addresses cannot spend the real account’s budget: its counter holds only its own guesses',
+     rateLimits.get('codeguess:' + R4IP + ':' + rowFor('r4real@example.com').id).count === 2,
+     JSON.stringify(guessKeys().map((k) => k + '=' + rateLimits.get(k).count)));
+
+  /* ── R4-2: a wrong password costs the same whether or not the address has an account ──
+     noteFailedLogin ran only `if (acct)` — an UPDATE and a read-back a ghost never spent, plus the lock write on every
+     fifth try. The 100k-iteration PBKDF2 both branches run buried it in wall clock, which is why it is measured in
+     statements. */
+  resetLimits(); emails.length = 0;
+  await post('/account/register', { email: 'r4login@example.com', password: 'a long enough password' });
+  await post('/account/verify', { email: 'r4login@example.com', code: codeIn(emails[0]) });
+  resetLimits();
+  const realCosts = [], ghostCosts = [];
+  for (let i = 0; i < 5; i++) realCosts.push((await cost('/account/login', { email: 'r4login@example.com', password: 'wrong password ' + i }, '198.51.100.61')).statements);
+  for (let i = 0; i < 5; i++) ghostCosts.push((await cost('/account/login', { email: 'r4-no-such-account@example.com', password: 'wrong password ' + i }, '198.51.100.62')).statements);
+  ok('five wrong passwords cost an invented address exactly what they cost a real one, try by try',
+     realCosts.join() === ghostCosts.join(), 'real ' + realCosts.join() + ' vs invented ' + ghostCosts.join());
+  ok('… and the fifth try costs more than the fourth on BOTH paths: the lock write is what the twin had to spend too',
+     realCosts[4] > realCosts[3] && ghostCosts[4] === realCosts[4], 'real ' + realCosts.join() + ' invented ' + ghostCosts.join());
+
+  /* ── R4-3: the twenty-try burn fires even when the attacker interleaves a reissue ──
+     issueCode zeroed verify_attempts AND dropped every connection's guess counter, and /account/register,
+     /account/forgot and /account/resend all reach it UNAUTHENTICATED. One reissue between every five guesses therefore
+     bought an endless run of five-guess batches and deferred the global burn for ever: the probe ran 25 wrong codes
+     across five connections with a sign-up between each batch, and the code was still live with no notice sent. */
+  resetLimits(); emails.length = 0;
+  await post('/account/register', { email: 'r4burn@example.com', password: 'a long enough password' });
+  const burnRow = rowFor('r4burn@example.com');
+  // Every reissue mails a NEW code, so the wrong guess is chosen against the live one each time — a fixed string would
+  // eventually BE the code and pass.
+  let liveCode = codeIn(emails[0]);
+  const wrongNow = () => (liveCode === '111111' ? '222222' : '111111');
+  emails.length = 0;
+  const burnIps = ['198.51.100.71', '198.51.100.72', '198.51.100.73', '198.51.100.74'];
+  const burnStatuses = [];
+  let sixthAfterReissue = null;
+  for (let b = 0; b < burnIps.length; b++) {
+    for (let i = 0; i < 5; i++) burnStatuses.push((await from('/account/verify', { email: 'r4burn@example.com', code: wrongNow() }, burnIps[b])).status);
+    if (b < burnIps.length - 1) {
+      // the interleaved UNAUTHENTICATED reissue — the whole primitive
+      burnRow.verify_sent_at = new Date(Date.now() - 120000).toISOString();
+      emails.length = 0;
+      await from('/account/resend', { email: 'r4burn@example.com' }, '198.51.100.7' + (5 + b));
+      liveCode = codeIn(emails[emails.length - 1]) || liveCode;
+      if (b === 0) sixthAfterReissue = rateLimits.get('codeguess:' + burnIps[0] + ':' + burnRow.id);
+    }
+  }
+  ok('a reissue does not hand a refused connection a fresh budget: its counter still stands at five afterwards',
+     !!sixthAfterReissue && sixthAfterReissue.count === 5, JSON.stringify(sixthAfterReissue));
+  ok('twenty wrong codes with an unauthenticated reissue between every five STILL burn the code — the global count is no longer resettable by a stranger',
+     burnStatuses.every((st) => st === 400) && !rowFor('r4burn@example.com').verify_code_hash,
+     burnStatuses.length + ' tries, code live=' + !!rowFor('r4burn@example.com').verify_code_hash);
+  ok('… and the owner is emailed once that it happened, which is the notice the reissue used to suppress entirely',
+     emails.filter((m) => /invalidated/i.test(m.subject)).length === 1 && emails.filter((m) => /invalidated/i.test(m.subject))[0].to[0] === 'r4burn@example.com',
+     emails.map((m) => m.subject).join(' | '));
+
+  /* ── R4-4: three unauthenticated code mails an hour at any one address ──
+     The 60-second reissue throttle and a 5-per-window-per-IP limit left the ADDRESS uncapped: twelve connections spaced
+     past the throttle delivered twelve mails to one mailbox, out of the firm's own sending domain. */
+  resetLimits(); emails.length = 0;
+  const MAILTARGET = 'r4real@example.com';
+  const mailStatuses = [], mailCosts = [];
+  for (let i = 0; i < 4; i++) {
+    rowFor(MAILTARGET).verify_sent_at = new Date(Date.now() - 120000).toISOString();
+    const c = await cost('/account/forgot', { email: MAILTARGET }, '198.51.100.8' + i);
+    mailStatuses.push(c.res.status); mailCosts.push(c.statements);
+  }
+  ok('four unauthenticated /account/forgot from four connections mail one address THREE times, not four',
+     emails.filter((m) => m.to[0] === MAILTARGET).length === 3 && rateLimits.get('codemail:' + MAILTARGET).count === 3,
+     emails.length + ' mails, counter=' + JSON.stringify(rateLimits.get('codemail:' + MAILTARGET)));
+  ok('… and being over the budget changes nothing a caller can see: same 200, same statement count as the mails that went',
+     mailStatuses.join() === '200,200,200,200' && mailCosts.every((n) => n === mailCosts[0]), mailStatuses.join() + ' stmts ' + mailCosts.join());
+  const ghostMail = await cost('/account/forgot', { email: 'r4-mail-ghost@example.com' }, '198.51.100.89');
+  ok('… and an invented address still costs what the real one costs, over budget or under it',
+     ghostMail.res.status === 200 && ghostMail.statements === mailCosts[3], 'ghost ' + ghostMail.statements + ' vs over-budget real ' + mailCosts[3]);
+
+  /* ── R4-5: what POST /account/register actually costs, measured, because the README has to say a number ──
+     The round-3 residual called it "one extra statement". It is a three-way split, and the doc now states what this
+     prints rather than what reads well. */
+  resetLimits(); emails.length = 0;
+  await post('/account/register', { email: 'r4taken-unverified@example.com', password: 'a long enough password' });
+  const regBranch = async (email) => {
+    const row = rowFor(email);
+    if (row) { row.verify_sent_at = new Date(Date.now() - 120000).toISOString(); row.signup_notice_sent_at = null; }
+    resetLimits();
+    return (await cost('/account/register', { email, password: 'a long enough password' }, '198.51.100.90')).statements;
+  };
+  const regNew = await regBranch('r4brand-new@example.com');
+  const regUnverified = await regBranch('r4taken-unverified@example.com');
+  const regVerified = await regBranch('r4real@example.com');
+  console.log('  (register branch cost — brand-new ' + regNew + ', existing-unverified ' + regUnverified + ', existing-verified ' + regVerified + ' statements)');
+  ok('POST /account/register costs 6 / 5 / 5 statements for brand-new / existing-unverified / existing-verified — the number the README states',
+     regNew === 6 && regUnverified === 5 && regVerified === 5, [regNew, regUnverified, regVerified].join());
+
+  resetLimits(); emails.length = 0;
+}
+
 console.log('\n── The seat claim against a real SQL engine (security review round 3, 2026-09-08) ──');
 {
   // The fake D1 above answers the Worker's queries in JavaScript, so every seat assertion in this file exercises the JS

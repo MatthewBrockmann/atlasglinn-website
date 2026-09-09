@@ -24,7 +24,7 @@
 import { AGREEMENT_VERSION, fillAgreement } from './agreement.js';
 import { directionsAttachment, directionsStatus } from './directions.js';
 import { publicKeyInfo } from './sealed.js';
-import { checkRate, purgeRateLimits, clientIp, lockedFor, noteFailedLogin, clearFailedLogins, identityLockedFor, noteFailedIdentity, clearFailedIdentity, codeGuessesSpent, noteCodeGuess, clearCodeGuesses, CODE_GUESSES_PER_IP } from './ratelimit.js';
+import { checkRate, purgeRateLimits, clientIp, lockedFor, noteFailedLogin, dummyFailedLogin, clearFailedLogins, identityLockedFor, noteFailedIdentity, clearFailedIdentity, codeGuessesSpent, noteCodeGuess, clearCodeGuesses, absentGuessId, noteCodeMail, CODE_GUESSES_PER_IP } from './ratelimit.js';
 import { ensureCrmSchema, crmSnapshot, audienceCsv, syncAudience, syncOnPayment, syncLead, adminPage, attributionFrom, recordContact, markContactEmailed, recordEvent, handleEvent, handleSubscribe, runJourneys, weeklyDigest, weeklyDigestPeriod } from './crm.js';
 
 const REPLAY_WINDOW_SECONDS = 300; // reject webhook timestamps older than 5 min
@@ -218,8 +218,12 @@ function publicAccount(a) {
 }
 
 /* Email ownership (Codex review of PR #10, 2026-09-05, P1): an account is only live — and only sees the classes booked under
-   its email — after a 6-digit code emailed to that address comes back. Until then no token is issued; an unverified account
-   is overwritten by the next sign-up for the same address (nobody can squat a student's email) and is purged after a day.
+   its email — after a 6-digit code emailed to that address comes back. Until then no token is issued, and an unverified
+   row is purged after a day. This paragraph used to end "an unverified account is overwritten by the next sign-up for the
+   same address (nobody can squat a student's email)", and round 3 reversed exactly that: a sign-up writes NOTHING to an
+   existing row, so the first password typed is the one on it and handleAccountVerify never moves it. Who owns a squatted
+   address is therefore not settled here — /account/forgot → /account/reset is what moves a password and marks the address
+   verified, and README.md "What is NOT closed" carries the measured probe and the two fixes (round 4, 2026-09-08).
    The same code mechanism carries the forgotten-password path (P2). Codes: 6 digits, 15 minutes, one at a time per
    account, stored as an HMAC of (account id, purpose, code) under ACCOUNT_SECRET; re-sends at most once a minute.
 
@@ -246,27 +250,37 @@ function newCode() { const n = crypto.getRandomValues(new Uint32Array(1))[0] % 1
 async function codeHash(env, acct, kind, code) {
   return b64url(await crypto.subtle.sign('HMAC', await hmacKey(env.ACCOUNT_SECRET), new TextEncoder().encode(acct.id + ':' + kind + ':' + String(code))));
 }
+/**
+ * A fresh code. It does NOT reset the abuse counters (security review round 4, 2026-09-08), and that is the whole
+ * change: it used to zero verify_attempts AND drop every connection's guess counter for the account, while every route
+ * that calls it — /account/register, /account/forgot, /account/resend — is UNAUTHENTICATED. So a stranger who
+ * interleaved one reissue between every five guesses bought themselves an unbounded run of five-guess batches and
+ * deferred the twenty-try global burn indefinitely: 25 wrong codes across five connections with a sign-up between each
+ * batch left the code live and sent the owner nothing. The counters are cleared by a CORRECT code (guardedCheckCode)
+ * and by the owner signing in with their password (handleAccountLogin), which are the two things a stranger cannot do.
+ * verify_attempts therefore counts wrong tries against the ADDRESS across however many codes were issued, until one of
+ * them is right or twenty of them are wrong and the code burns.
+ */
 async function issueCode(env, acct, kind) {
   const code = newCode(), now = Date.now();
   const hash = await codeHash(env, acct, kind, code);
   const exp = new Date(now + CODE_TTL_MS).toISOString(), sent = new Date(now).toISOString();
-  await env.DB.prepare('UPDATE accounts SET verify_kind = ?, verify_code_hash = ?, verify_expires_at = ?, verify_attempts = ?, verify_sent_at = ? WHERE id = ?').bind(kind, hash, exp, 0, sent, acct.id).run();
-  await clearCodeGuesses(env, acct.id);   // a fresh code un-refuses the connection that typed its way to five
-  Object.assign(acct, { verify_kind: kind, verify_code_hash: hash, verify_expires_at: exp, verify_attempts: 0, verify_sent_at: sent });
+  await env.DB.prepare('UPDATE accounts SET verify_kind = ?, verify_code_hash = ?, verify_expires_at = ?, verify_sent_at = ? WHERE id = ?').bind(kind, hash, exp, sent, acct.id).run();
+  Object.assign(acct, { verify_kind: kind, verify_code_hash: hash, verify_expires_at: exp, verify_sent_at: sent });
   return code;
 }
 /**
- * The absent-account twin of issueCode: the same HMAC and the same two statements, bound to an id no row carries, so
+ * The absent-account twin of issueCode: the same HMAC and the same statement, bound to an id no row carries, so
  * /account/forgot and /account/resend cost an invented address what they cost a real one. Before this the real path ran
  * an UPDATE and awaited a Resend round trip while the ghost path ran neither — 165 ms against 34 ms, a one-request
- * existence oracle inside a route written to be uniform (security review round 3, 2026-09-08).
+ * existence oracle inside a route written to be uniform (security review round 3, 2026-09-08). It was two statements
+ * until round 4 dropped the counter-clearing DELETE from issueCode; the two move together or the parity is gone.
  */
 async function dummyIssue(env, kind) {
   const now = Date.now();
   const hash = await codeHash(env, { id: ABSENT_ID }, kind, newCode());
-  await env.DB.prepare('UPDATE accounts SET verify_kind = ?, verify_code_hash = ?, verify_expires_at = ?, verify_attempts = ?, verify_sent_at = ? WHERE id = ?')
-    .bind(kind, hash, new Date(now + CODE_TTL_MS).toISOString(), 0, new Date(now).toISOString(), ABSENT_ID).run().catch(() => {});
-  await clearCodeGuesses(env, ABSENT_ID);
+  await env.DB.prepare('UPDATE accounts SET verify_kind = ?, verify_code_hash = ?, verify_expires_at = ?, verify_sent_at = ? WHERE id = ?')
+    .bind(kind, hash, new Date(now + CODE_TTL_MS).toISOString(), new Date(now).toISOString(), ABSENT_ID).run().catch(() => {});
 }
 /**
  * One body for every wrong-code answer — wrong digits, no live code, and a code whose tries are spent alike. No
@@ -341,9 +355,15 @@ async function dummyCheckCode(env, kind, code) {
  * Order matters: the cap is read BEFORE the code is touched, so a refused connection can neither spend a try on the
  * global count nor burn anything. What it gets back is the answer every other wrong guess gets — a refused guesser
  * learns that it guessed wrong, which it already knew.
+ *
+ * The cap for an address with NO account is keyed on that address, never on the shared absent id (security review round
+ * 4, 2026-09-08). One shared row meant five wrong guesses at any throwaway address armed a classifier: from the sixth
+ * request on, an invented address was refused before the twin statements ran and a real one still spent them — 5
+ * statements against 9, two ranges that do not overlap, one request per address tested. Both branches now spend the
+ * same statements from the same point in their own five-guess budget, and neither can spend the other's.
  */
-async function guardedCheckCode(request, env, ctx, acct, kind, code) {
-  const id = acct ? acct.id : ABSENT_ID;
+async function guardedCheckCode(request, env, ctx, acct, email, kind, code) {
+  const id = acct ? acct.id : await absentGuessId(email);
   const ip = clientIp(request);
   if ((await codeGuessesSpent(env, ip, id)) >= CODE_GUESSES_PER_IP) return 'wrong';
   const r = acct ? await checkCode(env, acct, kind, code) : await dummyCheckCode(env, kind, code);
@@ -374,13 +394,19 @@ async function notifyCodeBurned(env, acct, kind) {
   await sendEmail(env, { to: [acct.email], subject: 'Your MAST Solutions code was invalidated', text, bcc: false });
 }
 /**
- * The code leg of /account/forgot, /account/resend and the unverified-sign-in path: ONE issue-shaped pair of statements
- * whether or not the address has an account, and the send itself handed to ctx.waitUntil() so it can neither be awaited
- * before the response nor change it. A refusing mail provider is a log line, never a status code — 502 for a real
- * address and 200 for an invented one was the same oracle the uniform body existed to close.
+ * The code leg of /account/forgot, /account/resend and the unverified-sign-in path: ONE issue-shaped statement whether
+ * or not the address has an account, and the send itself handed to ctx.waitUntil() so it can neither be awaited before
+ * the response nor change it. A refusing mail provider is a log line, never a status code — 502 for a real address and
+ * 200 for an invented one was the same oracle the uniform body existed to close.
+ *
+ * `budget` spends the per-ADDRESS mail allowance first (round 4): the two UNAUTHENTICATED routes carry it, and the
+ * sign-in path does not, because the caller there has already proved the password. It is spent on the posted address
+ * before the account is looked at, so it costs an invented address exactly what it costs a real one, and being over it
+ * changes nothing a caller can see — same 200, same statements, no mail.
  */
-async function mailCodeAside(env, ctx, acct, kind) {
-  if (!acct || codeTooSoon(acct)) { await dummyIssue(env, kind); return; }
+async function mailCodeAside(env, ctx, acct, kind, opts = {}) {
+  const mayMail = opts.budget ? await noteCodeMail(env, opts.email) : true;
+  if (!acct || !mayMail || codeTooSoon(acct)) { await dummyIssue(env, kind); return; }
   const code = await issueCode(env, acct, kind);
   const send = sendCode(env, acct, kind, code).catch((e) => console.error('[Account] code email failed:', e.message));
   if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(send);
@@ -508,7 +534,7 @@ async function handleAccountVerify(request, env, ctx, cors) {
   // unverified address ('expired') from an invented one ('bad_code'). 'locked' is only reachable on an address that has
   // an account at all, and no invented address can ever produce it, so it goes the same way. The code is still burned by
   // checkCode either way; only the answer is uniform.
-  const r = await guardedCheckCode(request, env, ctx, !acct || acct.verified_at ? null : acct, 'verify', body && body.code);
+  const r = await guardedCheckCode(request, env, ctx, !acct || acct.verified_at ? null : acct, email, 'verify', body && body.code);
   if (r !== 'ok') return json(badCode(), 400, cors);
   const now = new Date().toISOString();
   await env.DB.prepare('UPDATE accounts SET verified_at = ?, updated_at = ? WHERE id = ?').bind(now, now, acct.id).run();
@@ -520,12 +546,13 @@ async function handleAccountVerify(request, env, ctx, cors) {
 async function handleAccountResend(request, env, ctx, cors) {
   const off = accountsOff(env, cors) || signupOff(env, cors); if (off) return off;
   const body = await request.json().catch(() => null);
-  const acct = await accountByEmail(env, String((body && body.email) || '').trim().toLowerCase());
+  const email = String((body && body.email) || '').trim().toLowerCase();
+  const acct = await accountByEmail(env, email);
   // ONE answer, ONE statement count, and the mail leg outside the response entirely (mailCodeAside): unknown address,
   // already-verified address and throttled retry are indistinguishable in body, status AND time. The route used to
   // await Resend only when the account existed, and to answer 502 when Resend refused it — a one-request oracle either
   // way round (security review round 3, 2026-09-08).
-  await mailCodeAside(env, ctx, acct && !acct.verified_at ? acct : null, 'verify');
+  await mailCodeAside(env, ctx, acct && !acct.verified_at ? acct : null, 'verify', { email, budget: true });
   return json({ ok: true }, 200, cors);
 }
 
@@ -552,17 +579,26 @@ async function handleAccountLogin(request, env, ctx, cors) {
     // The failing attempt itself always answers 401; the lock it may have just set shows on the next one, so the fifth
     // wrong password does not announce that the address exists. The (IP, address) counter is bumped whether or not the
     // address has an account — that is what makes the sixth attempt symmetric.
-    await noteFailedIdentity(env, ip, email);
+    //
+    // And the per-ACCOUNT counter costs the same on both branches (security review round 4, 2026-09-08). noteFailedLogin
+    // ran only `if (acct)`, so a wrong password at a real address spent two statements an invented one did not, and
+    // three on the try where the lock is written. The twin runs the same statements against an id no row carries,
+    // laddered on the (IP, address) count — the only failure count an address with no account has.
+    const failures = await noteFailedIdentity(env, ip, email);
     if (acct) await noteFailedLogin(env, acct);
+    else await dummyFailedLogin(env, ABSENT_ID, failures);
     return json({ error: 'That email and password do not match.', code: 'bad_login' }, 401, cors);
   }
-  // The right password clears the pair, whether or not the email has been verified yet.
+  // The right password clears the pair, whether or not the email has been verified yet — and, since round 4, the code
+  // guesses spent against this account: a reissue no longer clears them, so the owner proving the password is what
+  // un-refuses a connection that typed its way to five wrong codes. A stranger cannot reach this line.
   await clearFailedIdentity(env, ip, email);
+  await clearCodeGuesses(env, acct.id);
   if (!acct.verified_at) {
     // Right password, email never confirmed: send a fresh code (at most once a minute) and let the page open the code
     // box. The send is handed to ctx.waitUntil like every other code send, so a refusing mail provider cannot turn a
     // sign-in answer into a 502.
-    if (env.RESEND_API_KEY) await mailCodeAside(env, ctx, acct, 'verify');
+    if (env.RESEND_API_KEY) await mailCodeAside(env, ctx, acct, 'verify', { email });
     return json({ error: 'Verify your email first. Enter the code we sent you.', code: 'unverified', email }, 403, cors);
   }
   return await signedIn(env, acct, cors);
@@ -571,14 +607,18 @@ async function handleAccountLogin(request, env, ctx, cors) {
 async function handleAccountForgot(request, env, ctx, cors) {
   const off = accountsOff(env, cors) || signupOff(env, cors); if (off) return off;
   const body = await request.json().catch(() => null);
-  const acct = await accountByEmail(env, String((body && body.email) || '').trim().toLowerCase());
+  const email = String((body && body.email) || '').trim().toLowerCase();
+  const acct = await accountByEmail(env, email);
   // Same 200, same statement count, mail leg in the background — see handleAccountResend.
   //
   // UNVERIFIED accounts are served too (security review round 3, 2026-09-08). /account/register no longer overwrites an
   // existing row's password, so this is the path by which the real owner of an address someone else started a sign-up
   // on takes it back: the code goes to the mailbox, and a successful reset sets the password AND marks the address
   // verified. It also removes a state branch from a route whose whole job is not to have any.
-  await mailCodeAside(env, ctx, acct, 'reset');
+  // The per-address budget (round 4): three unauthenticated code mails an hour at any one mailbox, whoever asks and
+  // from wherever. Nothing capped the address before — 60 seconds between mails and 5 per window per IP left ~1,440 a
+  // day at any address, out of the firm's own sending domain.
+  await mailCodeAside(env, ctx, acct, 'reset', { email, budget: true });
   return json({ ok: true }, 200, cors);
 }
 
@@ -594,7 +634,7 @@ async function handleAccountReset(request, env, ctx, cors) {
   // and — until round 2 — no rate limit on the route at all. guardedCheckCode carries the absent-account branch now, so
   // an invented address also spends the same statements a real one spends, and five wrong guesses from one connection
   // refuse that connection instead of burning the code in the owner's inbox (round 3, 2026-09-08).
-  const r = await guardedCheckCode(request, env, ctx, acct, 'reset', body && body.code);
+  const r = await guardedCheckCode(request, env, ctx, acct, email, 'reset', body && body.code);
   if (r !== 'ok') return json(badCode(), 400, cors);
   const v = (acct.token_version || 1) + 1, now = new Date().toISOString();
   // The code proved control of the mailbox, so the address is verified by the same act that sets the password. That is

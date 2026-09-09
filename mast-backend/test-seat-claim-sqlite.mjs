@@ -19,10 +19,14 @@
  *
  * Engine: node:sqlite (node 22+, what CI runs), then better-sqlite3 if it happens to be installed, then python3's
  * sqlite3 module. No engine at all is reported as a failure, never a silent skip.
+ *
+ * RUN IT DIRECTLY AND IT SAYS SO. `node test-seat-claim-sqlite.mjs` printed nothing and exited 0 (security review round
+ * 4, 2026-09-08) — the exact shape of a test that looks like it passed. It now prints every assertion, a summary line,
+ * and exits 1 on any failure, so the file cannot be run and mistaken for green either by a person or by CI.
  */
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -194,4 +198,21 @@ export async function runSeatClaimSql() {
   }
   try { return { engine: 'python3 sqlite3', results: pythonRun() }; }
   catch (e) { return { skipped: 'no SQLite engine: ' + (e && e.message) }; }
+}
+
+/* ─────────────────────────────── run directly ─────────────────────────────── */
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const out = await runSeatClaimSql();
+  let pass = 0, fail = 0;
+  if (out.skipped) { fail++; console.log('  \u2717 the seat claim is proved against a real SQL engine  SKIPPED: ' + out.skipped); }
+  else {
+    console.log('  (engine: ' + out.engine + ')');
+    for (const r of out.results) {
+      if (r.pass) { pass++; console.log('  \u2713 ' + r.name); }
+      else { fail++; console.log('  \u2717 ' + r.name + '  ' + r.detail); }
+    }
+  }
+  console.log(`\n${pass} passed, ${fail} failed\n`);
+  process.exit(fail ? 1 : 0);
 }

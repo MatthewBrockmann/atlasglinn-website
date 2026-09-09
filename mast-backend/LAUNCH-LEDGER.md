@@ -335,11 +335,18 @@ video has ever been handed off — the post URLs are needed (`scripts/handoff-ur
        prefills the registration sheet. 146/146 Worker tests pass.
      - **Codex review of the merged PR #10 (2026-09-05 04:21 UTC), both findings fixed on the follow-up branch (PR #11):**
        P1 "verify email ownership before issuing account tokens" — sign-up now answers 202 and emails a 6-digit code; no token
-       (and no class history) until the code comes back; an unverified address is taken over by the next sign-up and purged
-       after a day, so nobody can squat a student's email; sign-in on an unverified email answers 403 and re-sends the code.
+       (and no class history) until the code comes back; unverified rows are purged after a day.
+       **CORRECTED 2026-09-08 (round 4): this line used to read "an unverified address is taken over by the next sign-up …
+       so nobody can squat a student's email", and round 3 reversed exactly that** — a sign-up no longer writes anything to
+       an existing row, so the FIRST password typed is the one on it. Who owns a squatted address is not settled: verifying
+       it does not move the password, and the way back is Forgot password → reset, which does. Named as open residual 1 in
+       `README.md` → "What is NOT closed", with the measured probe and the two fixes.
+       Sign-in on an unverified email answers 403 and re-sends the code.
        P2 "provide a recovery path for forgotten passwords" — Forgot your password → emailed reset code → new password (every
        other session signed out). Codes are hashed under `ACCOUNT_SECRET`, live 15 minutes, one resend a minute, five wrong
-       guesses per connection and twenty in total before the code is burned and its owner emailed,
+       guesses per connection and twenty in total before the code is burned and its owner emailed — and since round 4 the
+       twenty count across however many codes were issued, because a reissue is an unauthenticated request and used to zero
+       it; three unauthenticated code mails an hour per address on top of the per-connection limits,
        never BCC'd. Needs `migrations/005-account-verification.sql` after 004, and `RESEND_API_KEY` (sign-up answers 503
        `email_off` without it; sign-in for verified students still works). Codex's three follow-ups on #11 (atomic attempt
        counting, no-enumeration throttles, deploy-before-secret) are **PR #12, merged 2026-09-05 16:29 UTC (main 4c16337)**.

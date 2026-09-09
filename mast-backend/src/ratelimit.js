@@ -182,6 +182,8 @@ export function lockedFor(acct, now = Date.now()) {
 /**
  * A wrong password on an existing account. The failure is claimed with one conditional UPDATE and the count read back,
  * so parallel guesses cannot land on the same number and skip a lock. Returns the seconds locked, or 0.
+ *
+ * Its absent-account twin is dummyFailedLogin below, and the two must stay statement-for-statement identical.
  */
 export async function noteFailedLogin(env, acct) {
   if (!env || !env.DB || !acct) return 0;
@@ -199,6 +201,27 @@ export async function noteFailedLogin(env, acct) {
     acct.locked_until = until;
     return lockedFor(acct);
   } catch (e) { console.error('[Rate] failed-login counter:', e.message); return 0; }
+}
+
+/**
+ * The absent-account twin of noteFailedLogin: the same UPDATE, the same read-back and the same conditional lock write,
+ * bound to an id no row carries. /account/login ran noteFailedLogin only `if (acct)`, so a wrong password cost a real
+ * address two statements more than an invented one — and three on every fifth try, where the lock is written (security
+ * review round 4, 2026-09-08). The ladder is driven by the (IP, address) count, which is the only failure count an
+ * absent address has; against a real account the two counts move together on one connection, and can differ when the
+ * same address is sprayed from several, which is stated in the README rather than claimed away.
+ */
+export async function dummyFailedLogin(env, id, failures) {
+  if (!env || !env.DB) return 0;
+  try {
+    await ensureRateSchema(env);
+    await env.DB.prepare('UPDATE accounts SET failed_logins = failed_logins + 1 WHERE id = ?').bind(id).run();
+    await env.DB.prepare('SELECT failed_logins FROM accounts WHERE id = ?').bind(id).first();
+    if (!failures || failures % LOGIN_FAILURES_PER_LOCK !== 0) return 0;
+    const until = new Date(Date.now() + lockMs(failures)).toISOString();
+    await env.DB.prepare('UPDATE accounts SET locked_until = ? WHERE id = ? AND (locked_until IS NULL OR locked_until < ?)').bind(until, id, until).run();
+    return 0;
+  } catch (e) { console.error('[Rate] failed-login twin:', e.message); return 0; }
 }
 
 /* ──────────── Failed sign-ins per (IP, address), whether or not the address has an account ────────────
@@ -228,7 +251,13 @@ export async function identityLockedFor(env, ip, email, now = Date.now()) {
   return Number.isFinite(until) && until > now ? seconds(until - now) : 0;
 }
 
-/** A wrong password, on any address. Same ladder as the per-account lock so the two fire on the same attempt. */
+/**
+ * A wrong password, on any address. Same ladder as the per-account lock so the two fire on the same attempt.
+ *
+ * Returns the failure COUNT this attempt landed on, not the seconds locked (round 4): it is the only failure count an
+ * address with no account has, so it is what drives the absent twin of noteFailedLogin. The lock itself is read back by
+ * identityLockedFor on the next attempt, which is where it is answered, so nothing needed the seconds here.
+ */
 export async function noteFailedIdentity(env, ip, email) {
   if (!env || !env.DB) return 0;
   const key = identityKey(ip, email);
@@ -239,11 +268,11 @@ export async function noteFailedIdentity(env, ip, email) {
     if (!bumped || !bumped.meta || !bumped.meta.changes) return 0;
     const row = await env.DB.prepare('SELECT window_start, count FROM rate_limits WHERE key = ?').bind(key).first();
     const n = row && typeof row.count === 'number' ? row.count : 0;
-    if (!n || n % LOGIN_FAILURES_PER_LOCK !== 0) return 0;
+    if (!n || n % LOGIN_FAILURES_PER_LOCK !== 0) return n;
     const until = new Date(Date.now() + lockMs(n)).toISOString();
     // Never shorten a longer lock a parallel request already wrote.
     await env.DB.prepare('UPDATE rate_limits SET window_start = ? WHERE key = ? AND window_start < ?').bind(until, key, until).run();
-    return seconds(Date.parse(until) - Date.now());
+    return n;
   } catch (e) { console.error('[Rate] identity failure counter:', e.message); return 0; }
 }
 
@@ -267,11 +296,28 @@ export async function clearFailedIdentity(env, ip, email) {
                         chance of a hit, so the burn costs an attacker far more than it costs the owner — who is emailed
                         that it happened and can ask for a new one immediately.
 
-   key    'codeguess:<ip>:<account id>'
+   key    'codeguess:<ip>:<account id>', or 'codeguess:<ip>:absent:<digest of the address>' when there is no account
    count  wrong guesses from that connection against that account
-   The row is dropped when a fresh code is issued for the account, when a guess is right, and by the daily purge. */
+   The row is dropped when a guess is RIGHT and when the owner signs in with their password, and by the daily purge. A
+   fresh code no longer drops it (round 4) — see issueCode in src/worker.js.
+
+   THE ABSENT KEY IS PER ADDRESS (round 4, 2026-09-08). It used to be the constant id every absent path binds, so every
+   invented address on the internet shared one row: five wrong guesses at one throwaway address armed it, and from the
+   sixth request onward any address could be classified in ONE request — an invented one was refused before the twin
+   statements ran (5 statements) where a real one still spent them (9). Two ranges that do not overlap is an
+   account-existence oracle, whatever the body says. Keyed on a digest of the address, a ghost gets its own five-guess
+   budget exactly as a real account does: an attacker rotating invented addresses cannot exhaust one shared row, cannot
+   spend a real account's budget, and a real address never shares a counter with ghosts. The digest, not the address, so
+   the table never holds a list of the addresses strangers have typed. */
 export const CODE_GUESSES_PER_IP = 5;
 const codeGuessKey = (ip, id) => 'codeguess:' + (ip || 'unknown') + ':' + id;
+
+/** The counter id for an address with no account: 'absent:' + the first 16 hex of SHA-256 over the normalised address. */
+export async function absentGuessId(email) {
+  const bytes = new TextEncoder().encode(String(email || '').trim().toLowerCase());
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  return 'absent:' + [...digest.slice(0, 8)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 /** Wrong guesses this connection has already spent against this account. A D1 failure counts as none — the global
  *  counter inside checkCode is the control that must not fail open, and it lives on the accounts row. */
@@ -292,11 +338,52 @@ export async function noteCodeGuess(env, ip, id) {
   } catch (e) { console.error('[Rate] code-guess counter:', e.message); }
 }
 
-/** A right guess, or a fresh code, clears what EVERY connection has spent against this account: the owner asking for a
- *  new code is what un-refuses the connection that typo'd its way to five. */
+/**
+ * A RIGHT guess, or the owner signing in with their password, clears what every connection has spent against this
+ * account. Asking for a fresh code no longer does (round 4, 2026-09-08): a reissue is an UNAUTHENTICATED request, so
+ * clearing here let one /account/register or /account/forgot between every five guesses buy an attacker an endless run
+ * of five-guess batches — and, with verify_attempts zeroed alongside it, the twenty-try global burn never fired at all.
+ * The mistyping customer's way back is the same one it always was, minus the stranger's copy of it: sign in, or use
+ * another connection, or wait for the daily purge.
+ */
 export async function clearCodeGuesses(env, id) {
   if (!env || !env.DB) return;
   await env.DB.prepare('DELETE FROM rate_limits WHERE key LIKE ?').bind('codeguess:%:' + id).run().catch((e) => console.error('[Rate] code-guess clear failed:', e.message));
+}
+
+/* ──────────── Unauthenticated code mail, per ADDRESS ────────────
+   /account/forgot and /account/resend mail a 6-digit code to whatever address is posted, and nothing capped the ADDRESS:
+   the 60-second reissue throttle and a 5-per-10-minutes-per-IP limit left a ceiling of about one mail a minute at any
+   mailbox on earth, ~1,440 a day, sent from the firm's own sending domain (security review round 4, 2026-09-08). That is
+   a deliverability and sender-reputation problem before it is anything else.
+
+   key    'codemail:<normalised address>'
+   count  unauthenticated code mails to that address in the current hour
+   Over the budget the route still answers the same 200 and still spends the same statements — a refusal that changed the
+   answer would be the oracle this whole surface exists to close. The address is the key here (not a digest) because the
+   throttle is only useful if a second request for the SAME mailbox finds it, and every value in it is an address someone
+   posted to a public route; the daily purge drops the rows. */
+export const CODE_MAIL_PER_ADDRESS = 3;
+export const CODE_MAIL_WINDOW_MS = 60 * MINUTE;
+const codeMailKey = (email) => 'codemail:' + String(email || '').trim().toLowerCase();
+
+/**
+ * true = mail it. THREE statements whichever way it answers, and the same three on every branch: the row is created,
+ * a run-out window is rolled back to zero, and the try is taken with one conditional UPDATE that cannot be shared or
+ * skipped by a parallel request. Fails CLOSED, like every other limiter here.
+ */
+export async function noteCodeMail(env, email) {
+  if (!env || !env.DB) return false;
+  const key = codeMailKey(email);
+  const nowIso = new Date().toISOString();
+  const cutoff = new Date(Date.now() - CODE_MAIL_WINDOW_MS).toISOString();
+  try {
+    await ensureRateSchema(env);
+    await env.DB.prepare('INSERT OR IGNORE INTO rate_limits (key, window_start, count) VALUES (?, ?, ?)').bind(key, nowIso, 0).run();
+    await env.DB.prepare('UPDATE rate_limits SET window_start = ?, count = ? WHERE key = ? AND window_start <= ?').bind(nowIso, 0, key, cutoff).run();
+    const took = await env.DB.prepare('UPDATE rate_limits SET count = count + 1 WHERE key = ? AND count < ?').bind(key, CODE_MAIL_PER_ADDRESS).run();
+    return !!(took && took.meta && took.meta.changes);
+  } catch (e) { console.error('[Rate] code-mail budget:', e.message); return false; }
 }
 
 /** Any successful authentication clears the counter and the lock. Best-effort: an unmigrated column never blocks a sign-in. */
