@@ -36,6 +36,11 @@ on:
       - '.github/workflows/deploy-page.yml'
   workflow_dispatch:
 
+# Least privilege: this workflow only reads the repository (it uploads over SFTP, it never writes a ref). Every other
+# scope becomes 'none' the moment this block exists.
+permissions:
+  contents: read
+
 concurrency:
   group: upload-page
   cancel-in-progress: false

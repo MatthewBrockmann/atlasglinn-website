@@ -143,6 +143,27 @@
         .gear-card .gear-oos.in { color: #7BC67E; border-color: rgba(123,198,126,.45); }
         .gear-card .gear-link { display: block; margin-top: .55rem; font-family: 'Share Tech Mono', monospace; font-size: .58rem; letter-spacing: .1em; color: #1A6BDE; text-decoration: none; }
         .gear-card .gear-link:hover, .gear-card .gear-link:focus-visible { color: #fff; }
+        /* The whole card opens the product view (owner, 2026-09-09: "the actual marketing and verbiage so that you can
+           click on it and see"), so it is a control: pointer, focus ring, and a cue that there is more behind it. */
+        .gear-card { cursor: pointer; }
+        .gear-card:focus-visible { outline: 2px solid #C9A84C; outline-offset: 2px; }
+        .gear-card .gear-more { margin-top: .7rem; font-family: 'Share Tech Mono', monospace; font-size: .58rem; letter-spacing: .18em; text-transform: uppercase; color: #8B98AD; }
+        .gear-card:hover .gear-more, .gear-card:focus-visible .gear-more { color: #C9A84C; }
+        .gear-card .cta-button { position: relative; z-index: 1; }
+        /* Product view: the manufacturer's photographs, their copy and the spec lines they publish, with OUR price and
+           OUR stock line. Nothing here links out. */
+        .modal.prod .prod-gal { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .6rem; margin: 1rem 0; }
+        .modal.prod .prod-gal img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: #0B1221; border: 1px solid rgba(201,168,76,.25); }
+        .modal.prod .prod-copy { color: #d8dce6; line-height: 1.6; font-size: 1rem; }
+        .modal.prod .prod-copy p { margin: .65rem 0; }
+        .modal.prod .prod-copy strong { color: #fff; }
+        .modal.prod .prod-specs { list-style: none; margin: 1.1rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1.4rem; }
+        .modal.prod .prod-specs li { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: .45rem 0; border-top: 1px solid rgba(201,168,76,.16); color: #d8dce6; font-size: .95rem; }
+        .modal.prod .prod-specs b { flex: 0 0 auto; max-width: 55%; font-family: 'Share Tech Mono', monospace; font-weight: 400; font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; color: #8B98AD; }
+        .modal.prod .prod-stock { margin-top: .6rem; }
+        .modal.prod .prod-actions { margin-top: 1.3rem; }
+        .modal.prod .prod-src { margin-top: 1rem; font-family: 'Share Tech Mono', monospace; font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: #777; }
+        @media (max-width: 768px) { .modal.prod .prod-specs { grid-template-columns: 1fr; } }
         .modal.req [hidden] { display: none !important; }
         @media (max-width: 900px) { .gear-panel { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 600px) { .gear-panel { grid-template-columns: 1fr; } }
@@ -211,7 +232,7 @@
         .modal.gate .gate-actions .cta-button { margin: 0; }
         .modal.gate .gate-fine { margin-top: 1rem; font-size: .8rem; color: #888; line-height: 1.5; }
         .course-row.flash { box-shadow: inset 0 0 0 2px #1A6BDE; }
-        .modal h3 { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; font-weight: 700; padding-right: 2rem; margin: .35rem 0 .2rem; }
+        .modal h3 { font-family: 'Orbitron', sans-serif; font-size: var(--head-modal, 1.3rem); font-weight: 700; padding-right: 2rem; margin: .35rem 0 .2rem; }
         .modal-meta { font-family: 'Inconsolata', monospace; font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: #888; }
         .modal-price { font-family: 'Orbitron', sans-serif; font-weight: 900; color: #C9A84C; font-size: 1.1rem; margin-top: .4rem; }
         .cal-nav { display: flex; align-items: center; justify-content: space-between; margin: 1.4rem 0 .8rem; }
@@ -690,10 +711,14 @@
         <label class="acct-field" id="acct-phone-wrap" hidden>Phone <span class="opt">(optional)</span><input id="acct-phone" type="tel" autocomplete="tel"></label>
         <div class="gate-actions"><button class="cta-button" id="acct-go" type="button" onclick="acctSubmit()">Sign in</button><button type="button" class="acct-forgot" id="acct-forgot" onclick="acctForgot()">Forgot your password?</button></div>
         </div>
-        <!-- One-time code: finishes a sign-up (email ownership) or a password reset. The Worker emails a 6-digit code, 15 minutes, 5 tries. -->
+        <!-- One-time code: finishes a sign-up (email ownership) or a password reset. The Worker emails a 6-digit code, 15 minutes, 5 tries.
+             Finishing a SIGN-UP posts the code AND the password it was made with (backend security review round 7, 2026-09-09): a code alone
+             used to be enough, and an address may now have more than one sign-up waiting, so the password is what says which one is yours —
+             and what stops a code that arrived before you asked for one from creating your account under somebody else's password. -->
         <div id="acct-code-wrap" hidden>
             <p class="acct-line" id="acct-code-msg">We emailed a 6-digit code to <b id="acct-code-email"></b>. Enter it to finish.</p>
             <label class="acct-field">Code<input id="acct-code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code"></label>
+            <label class="acct-field" id="acct-codepass-wrap" hidden>Your password<input id="acct-codepass" type="password" autocomplete="current-password"><span class="acct-note">The one you chose when you started this sign-up.</span></label>
             <label class="acct-field" id="acct-newpass-wrap" hidden>New password<input id="acct-newpass" type="password" autocomplete="new-password"><span class="acct-note">At least 10 characters.</span></label>
             <div class="gate-actions"><button class="cta-button" id="acct-code-go" type="button" onclick="acctCodeSubmit()">Verify</button><button type="button" class="chip" onclick="acctResend()">Resend code</button><button type="button" class="chip" onclick="acctMode(acctModeNow)">Back</button></div>
             <p class="acct-note" id="acct-code-note" hidden></p>
@@ -839,6 +864,26 @@
         <p class="policy-version">Policy version 2026-09-01 &middot; your acceptance is recorded with this version, the time and your IP address.</p>
     </div>
     <button class="cta-button" onclick="closePolicy()" style="margin-top:1rem">Close</button>
+</div>
+
+<!-- PRODUCT VIEW (owner, 2026-09-09: "What we want is the actual marketing and verbiage so that you can click on it and
+     see -- take request quiote off- they can click product if out of stock _ email + inventory available"). The
+     manufacturer's own words, specs and photographs, read at build time from the captured IWA pages
+     (scripts/store-intake.py -> scripts/store-products.json). The price is OUR list price and the stock line is OUR
+     constant; the one control emails us. Nothing in here links to IWA. -->
+<div id="prod-bd" class="modal-bd" onclick="closeProduct()"></div>
+<div id="prod" class="modal wide prod" role="dialog" aria-modal="true" aria-labelledby="prod-title">
+    <button class="modal-x" aria-label="Close" onclick="closeProduct()">&times;</button>
+    <div class="eyebrow" id="prod-eyebrow"></div>
+    <h3 id="prod-title"></h3>
+    <div class="modal-meta" id="prod-meta"></div>
+    <div class="modal-price" id="prod-price"></div>
+    <div class="gear-oos prod-stock" id="prod-stock"></div>
+    <div class="prod-gal" id="prod-gal"></div>
+    <div class="prod-copy" id="prod-copy"></div>
+    <ul class="prod-specs" id="prod-specs"></ul>
+    <div class="gate-actions prod-actions"><button class="cta-button" type="button" onclick="productEmail()">Email about availability</button></div>
+    <p class="prod-src">Manufacturer information: IWA International</p>
 </div>
 
 <!-- QUALIFICATIONS -->
@@ -1096,31 +1141,53 @@ const GEAR_HIDDEN = ['Aimpoint'];
 // on a GEAR row wins over it, so one device can come back before the line does; flip it to false when the line is stocked.
 const GEAR_OUT_OF_STOCK = true;
 function gearOut(g){ return g.stock ? g.stock === 'out' : (GEAR_OUT_OF_STOCK && g.device); }
-// Each device links to its own page on the maker's shop (owner, 2026-09-08: "link to add acutal product info
-// https://iwainternationalinc.com/shop/"). The URLs are the ones that shop's own listing carries, read from the 2026-09-08
-// capture of https://iwainternationalinc.com/shop/ (reference/desktop/live/shop.html on claude/desktop-assets). That shop
-// paginates and the capture is page 1 of 5, so PA-85, TH-14 and the door charge are not in the table and fall back to the
-// shop root — a guessed product URL would be worse than the listing he asked for.
-// SOURCE ONLY — never rendered as a link (owner 2026-09-08). These are where the product descriptions, specs and
-// images for our cards are read from (captured by capture-live into reference/desktop/live/); buyers stay on MAST.
-const GEAR_SHOP = 'https://iwainternationalinc.com/shop/';
-const GEAR_PRODUCT_URL = {
-  'IWA-M11-4B': 'https://iwainternationalinc.com/m11-multibang-device-4-bang/',
-  'IWA-M11-7B': 'https://iwainternationalinc.com/m11-multibang-device-7-bang/',
-  'IWA-M12': 'https://iwainternationalinc.com/m12-distraction-device/',
-  'IWA-M13': 'https://iwainternationalinc.com/m13-thermobaric-device/',
-  'IWA-M14': 'https://iwainternationalinc.com/m14-smoke-deployment-device/',
-  'IWA-M15': 'https://iwainternationalinc.com/m15-large-smoke-grenade/' };
-function gearUrl(g){ return GEAR_PRODUCT_URL[g.sku] || GEAR_SHOP; }
+// The maker's product URLs are NOT in this page (owner, 2026-09-08: "the link to IWA sends them to their store. We need
+// them to buy from our store, not theirs"). Two constants and a helper held them here until 2026-09-09 — nothing called
+// the helper, but a JS-built href is one edit away and produces no literal for a guard to match. They live in
+// scripts/store-intake.py now, which is the only thing that uses them: it reads the captured product pages. Each
+// product's own URL is kept in the "source" field of scripts/store-products.json, and scripts/assemble-cinematic.py
+// strips source and capture before STORE_PRODUCTS reaches the browser. The assembler asserts the names are absent, so
+// this comment does not name them either.
 function renderGear(){ const p = $('gear-panel'); if (!p) return; let html = '', brand = '';
   GEAR.forEach((g, i) => { if (GEAR_HIDDEN.includes(g.brand)) return; if (g.brand !== brand) { brand = g.brand; html += '<div class="gear-brand"><h3>' + esc(GEAR_BRAND_NAMES[brand] || brand) + '</h3><span>' + esc(GEAR_BRANDS[brand] || '') + '</span></div>'; }
-    html += '<div class="gear-card' + (g.device ? ' device' : '') + '"><div class="gear-sku">' + esc(g.sku) + '</div><h4>' + esc(g.name) + '</h4><div class="gear-fam">' + esc(g.brand + ' · ' + g.fam) + '</div>'
+    html += '<div class="gear-card' + (g.device ? ' device' : '') + '" role="button" tabindex="0" aria-haspopup="dialog" aria-label="' + esc(g.name) + ' \u2014 open product details"'
+         + ' onclick="openProduct(' + i + ')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openProduct(' + i + ');}">'
+         + '<div class="gear-sku">' + esc(g.sku) + '</div><h4>' + esc(g.name) + '</h4><div class="gear-fam">' + esc(g.brand + ' · ' + g.fam) + '</div>'
          + (gearOut(g) ? '<div class="gear-oos">OUT OF STOCK</div>' : (g.device ? '<div class="gear-oos in">IN STOCK</div>' : ''))
          + (g.price ? '<div class="gear-price">' + esc(g.price) + '<small>' + (g.device ? 'list price · each · 3-unit minimum' : 'MAP · dealer pricing on request') + '</small></div>' : '')
          /* no outbound link: owner 2026-09-08 "the link to IWA sends them to their store. We need them to buy from our store, not theirs." — the buy path stays on MAST (Email about availability; MAST is the dealer); IWA's pages are only the SOURCE of the product information shown here */
          /* owner 2026-09-09: "take request quiote off ... they can click product if out of stock _ email + inventory available" — the card's one control emails us about availability and files to the CRM; the click-to-see product view with IWA's own verbiage lands with the captured product pages */
-         + '<button class="cta-button" type="button" onclick="requestGear(' + i + ')">Email about availability</button></div>'; });
+         + '<div class="gear-more">View product &rarr;</div>'
+         + '<button class="cta-button" type="button" onclick="event.stopPropagation();requestGear(' + i + ')">Email about availability</button></div>'; });
   p.innerHTML = html; }
+/* ── Product view (owner, 2026-09-09: "What we want is the actual marketing and verbiage so that you can click on it and
+   see -- take request quiote off- they can click product if out of stock _ email + inventory available"). A card click
+   opens IWA's own product copy ON THIS PAGE: their title, their description, the spec lines they publish and their
+   photographs, with OUR list price (GEAR_PRICE_TABLE) and OUR stock line (gearOut). scripts/assemble-cinematic.py
+   replaces the hook below with scripts/store-products.json at build time; a SKU with no capture yet still opens, showing
+   the name, the price, the stock and the email control rather than invented copy. No outbound IWA link, ever. ── */
+const STORE_PRODUCTS = {};
+let prodIdx = null;
+function openProduct(i){
+  const g = GEAR[i]; if (!g || !$('prod')) return; prodIdx = i;
+  const p = STORE_PRODUCTS[g.sku] || {}, out = gearOut(g);
+  if (window.mastTrack) mastTrack('product_view', g.name, g.sku);
+  lastFocus = document.activeElement;
+  $('prod-eyebrow').textContent = g.sku + ' · ' + (GEAR_BRAND_NAMES[g.brand] || g.brand);
+  $('prod-title').textContent = p.name || g.name;
+  $('prod-meta').textContent = g.brand + ' · ' + g.fam;
+  $('prod-price').textContent = g.price ? g.price + (g.device ? ' each · list price · 3-unit minimum' : ' MAP') : '';
+  const st = $('prod-stock'); st.textContent = out ? 'OUT OF STOCK' : 'IN STOCK'; st.className = 'gear-oos prod-stock' + (out ? '' : ' in');
+  $('prod-gal').innerHTML = (p.images || []).map(u => '<img src="' + esc(u) + '" alt="' + esc(p.name || g.name) + '" loading="lazy">').join('');
+  $('prod-copy').innerHTML = p.html || '<p>Availability, lead time and shipping for this device come by email; the manufacturer\u2019s description is not on file here yet.</p>';
+  $('prod-specs').innerHTML = (p.specs || []).map(([k, v]) => '<li><b>' + esc(k) + '</b><span>' + esc(v) + '</span></li>').join('');
+  $('prod-bd').classList.add('open'); $('prod').classList.add('open'); document.body.style.overflow = 'hidden';
+  $('prod').scrollTop = 0; setTimeout(() => $('prod').querySelector('.modal-x').focus(), 60);
+}
+function closeProduct(){ $('prod-bd').classList.remove('open'); $('prod').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+/* One dialog at a time: they share z-index 3001, so the request sheet opens after this one has closed. */
+function productEmail(){ const i = prodIdx; closeProduct(); if (i !== null) requestGear(i); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('prod') && $('prod').classList.contains('open')) closeProduct(); });
 let reqKind = 'private';
 function openReqDialog(kind, title, meta, eyebrow, fine){ reqKind = kind; lastFocus = document.activeElement; $('req-eyebrow').textContent = eyebrow; $('req-title').textContent = title; $('req-meta').textContent = meta; $('req-fine').textContent = fine;
   $('req-org-wrap').hidden = kind !== 'gear'; $('req-qty-wrap').hidden = kind !== 'gear'; if ($('req-qty')) $('req-qty').value = 1; $('req-msg').value = ''; $('req-err').hidden = true;
@@ -1194,13 +1261,13 @@ function acctHeaders(){ return acctToken ? { 'Content-Type': 'application/json',
 function acctLinkText(){ document.querySelectorAll('.acct-link').forEach(a => { a.textContent = acctData ? (acctData.name ? acctData.name.split(' ')[0] : 'Account') : 'Sign in'; }); }
 function openAcct(){ lastFocus = document.activeElement; $('acct-bd').classList.add('open'); $('acct').classList.add('open'); document.body.style.overflow = 'hidden'; if (acctToken) { $('acct-auth').hidden = true; $('acct-panel').hidden = false; acctLoad(); } else acctMode(acctModeNow); }
 function closeAcct(){ $('acct-bd').classList.remove('open'); $('acct').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
-function acctMode(m){ acctModeNow = m; const up = m === 'up'; $('acct-tab-in').classList.toggle('sel', !up); $('acct-tab-up').classList.toggle('sel', up); $('acct-name-wrap').hidden = !up; $('acct-phone-wrap').hidden = !up; $('acct-pass-note').hidden = !up; $('acct-forgot').hidden = up; $('acct-pass').setAttribute('autocomplete', up ? 'new-password' : 'current-password'); $('acct-go').textContent = up ? 'Create account' : 'Sign in'; $('acct-title').textContent = up ? 'Create your account' : 'Sign in'; $('acct-auth').hidden = false; $('acct-form').hidden = false; $('acct-code-wrap').hidden = true; $('acct-panel').hidden = true; $('acct-err').hidden = true; }
+function acctMode(m){ acctModeNow = m; const up = m === 'up'; $('acct-tab-in').classList.toggle('sel', !up); $('acct-tab-up').classList.toggle('sel', up); $('acct-name-wrap').hidden = !up; $('acct-phone-wrap').hidden = !up; $('acct-pass-note').hidden = !up; $('acct-forgot').hidden = up; $('acct-pass').setAttribute('autocomplete', up ? 'new-password' : 'current-password'); $('acct-go').textContent = up ? 'Create account' : 'Sign in'; $('acct-title').textContent = up ? 'Create your account' : 'Sign in'; $('acct-auth').hidden = false; $('acct-form').hidden = false; $('acct-code-wrap').hidden = true; $('acct-panel').hidden = true; $('acct-err').hidden = true; acctCodePass = ''; }
 const ACCT_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-let acctCodeKind = 'verify', acctCodeEmail = '';
+let acctCodeKind = 'verify', acctCodeEmail = '', acctCodePass = '';   // the sign-up's password, kept for the code box and never stored
 function acctErr(msg){ const err = $('acct-err'); err.textContent = msg; err.hidden = !msg; }
-function acctSignedIn(d){ acctToken = d.token; try { localStorage.setItem(ACCT_KEY, acctToken); } catch (e) {} acctData = d.account; $('acct-pass').value = ''; $('acct-code').value = ''; $('acct-newpass').value = ''; acctLinkText(); $('acct-auth').hidden = true; $('acct-panel').hidden = false; return acctLoad(); }
+function acctSignedIn(d){ acctToken = d.token; try { localStorage.setItem(ACCT_KEY, acctToken); } catch (e) {} acctData = d.account; acctCodePass = ''; $('acct-pass').value = ''; $('acct-code').value = ''; $('acct-newpass').value = ''; $('acct-codepass').value = ''; acctLinkText(); $('acct-auth').hidden = true; $('acct-panel').hidden = false; return acctLoad(); }
 /* The code box: 'verify' finishes a sign-up (the Worker only issues a token once the emailed code comes back), 'reset' sets a new password. */
-function acctShowCode(kind, email, note){ acctCodeKind = kind; acctCodeEmail = email; const reset = kind === 'reset'; $('acct-form').hidden = true; $('acct-code-wrap').hidden = false; $('acct-newpass-wrap').hidden = !reset; $('acct-code-go').textContent = reset ? 'Set password' : 'Verify'; $('acct-title').textContent = reset ? 'Reset your password' : 'Check your email'; $('acct-code-email').textContent = email; $('acct-code').value = ''; const n = $('acct-code-note'); n.textContent = note || ''; n.hidden = !note; acctErr(''); setTimeout(() => $('acct-code').focus(), 50); }
+function acctShowCode(kind, email, note, password){ acctCodeKind = kind; acctCodeEmail = email; acctCodePass = password || ''; const reset = kind === 'reset'; $('acct-form').hidden = true; $('acct-code-wrap').hidden = false; $('acct-newpass-wrap').hidden = !reset; $('acct-codepass-wrap').hidden = reset || !!acctCodePass; $('acct-codepass').value = ''; $('acct-code-go').textContent = reset ? 'Set password' : 'Verify'; $('acct-title').textContent = reset ? 'Reset your password' : 'Check your email'; $('acct-code-email').textContent = email; $('acct-code').value = ''; const n = $('acct-code-note'); n.textContent = note || ''; n.hidden = !note; acctErr(''); setTimeout(() => $('acct-code').focus(), 50); }
 async function acctPost(path, body){ const r = await fetch(API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const d = await r.json().catch(() => ({})); return { r, d }; }
 async function acctSubmit(){
   const b = $('acct-go'); const email = $('acct-email').value.trim(), password = $('acct-pass').value;
@@ -1210,9 +1277,12 @@ async function acctSubmit(){
   const body = acctModeNow === 'up' ? { email, password, name: $('acct-name').value.trim(), phone: $('acct-phone').value.trim() } : { email, password };
   try {
     const { r, d } = await acctPost(acctModeNow === 'up' ? '/account/register' : '/account/login', body);
-    if (r.status === 202 && d.pending) { $('acct-pass').value = ''; acctShowCode('verify', d.email || email); }
-    else if (r.status === 403 && d.code === 'unverified') { $('acct-pass').value = ''; acctShowCode('verify', d.email || email, 'This email was never verified. We sent a fresh code.'); }
-    else if (!r.ok || !d.token) throw new Error(d.error || 'Could not sign in.');
+    // The code box opens on the sign-up's 202, which is the one answer /account/register ever gives. It used to open on
+    // a 403 'unverified' from sign-in as well, and that answer is gone (backend security review round 5, 2026-09-09): it
+    // came back only for an address that had started a sign-up, so it told anyone who asked which addresses those were.
+    // A refused sign-in now says both things it could mean and neither of them about a particular address.
+    if (r.status === 202 && d.pending) { acctShowCode('verify', d.email || email, '', password); $('acct-pass').value = ''; }
+    else if (!r.ok || !d.token) throw new Error(r.status === 401 ? 'That email and password do not match — or you never finished creating the account. Use Create account to get a fresh code.' : (d.error || 'Could not sign in.'));
     else await acctSignedIn(d);
   } catch (e) { acctErr(e.message); }
   b.disabled = false;
@@ -1222,9 +1292,13 @@ async function acctCodeSubmit(){
   if (code.length !== 6) { acctErr('Enter the 6-digit code from the email.'); $('acct-code').focus(); return; }
   const password = $('acct-newpass').value;
   if (reset && password.length < 10) { acctErr('Use a password of at least 10 characters.'); $('acct-newpass').focus(); return; }
+  // Finishing a sign-up posts the password too. Held from the Create-account form when the code box opened; typed here
+  // when the visitor came back to it later, which is why the field exists rather than being assumed to be in memory.
+  const signupPass = reset ? '' : (acctCodePass || $('acct-codepass').value);
+  if (!reset && signupPass.length < 10) { acctErr('Enter the password you chose when you started this sign-up.'); $('acct-codepass-wrap').hidden = false; $('acct-codepass').focus(); return; }
   acctErr(''); b.disabled = true;
   try {
-    const { r, d } = await acctPost(reset ? '/account/reset' : '/account/verify', reset ? { email: acctCodeEmail, code, password } : { email: acctCodeEmail, code });
+    const { r, d } = await acctPost(reset ? '/account/reset' : '/account/verify', reset ? { email: acctCodeEmail, code, password } : { email: acctCodeEmail, code, password: signupPass });
     if (!r.ok || !d.token) throw new Error(d.error || 'That code did not work.');
     await acctSignedIn(d);
   } catch (e) { acctErr(e.message); }
@@ -1232,7 +1306,7 @@ async function acctCodeSubmit(){
 }
 async function acctResend(){
   acctErr('');
-  try { const { r, d } = await acctPost(acctCodeKind === 'reset' ? '/account/forgot' : '/account/resend', { email: acctCodeEmail }); if (!r.ok) throw new Error(d.error || 'Could not resend the code.'); const n = $('acct-code-note'); n.textContent = 'If your last code is more than a minute old, a new one is on its way to ' + acctCodeEmail + '.'; n.hidden = false; }
+  try { const { r, d } = await acctPost(acctCodeKind === 'reset' ? '/account/forgot' : '/account/resend', { email: acctCodeEmail }); if (!r.ok) throw new Error(d.error || 'Could not resend the code.'); const n = $('acct-code-note'); n.textContent = 'If we can match this to the sign-up you started on this connection, a new code is on its way to ' + acctCodeEmail + '. If nothing arrives, go Back and use Create account again — that always sends one.'; n.hidden = false; }
   catch (e) { acctErr(e.message); }
 }
 async function acctForgot(){

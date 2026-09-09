@@ -8,6 +8,12 @@
 # Until both exist the job runs the tests and then stops with a notice; nothing is deployed.
 # Worker secrets (Stripe, Resend, ACCOUNT_SECRET, …) live on the Worker already and are untouched by a deploy.
 # D1 migrations: applied by the guarded step below (2026-09-08); mast-backend/README.md still describes the Mac command as the fallback.
+# DEPLOY ORDER (round 9, 2026-09-09): THE PAGE, then the schema, then the Worker. /account/verify takes
+# {email, code, password} since round 7, and the page and the Worker ship on two independent workflows — a new page
+# against an old Worker is harmless (the extra field is ignored) and a new Worker against a cached old page is not, so
+# the first step of the three waits for www.mastsolutions.com to serve this commit's build hash and fails the run rather
+# than landing first. The page moved AHEAD of the migrations in round 9: with the wait between them and the deploy, a
+# page that never arrived left 012 applied and the Worker undeployed. Waiting first makes that failure change nothing.
 name: Deploy MAST Worker
 
 on:
@@ -17,6 +23,10 @@ on:
       - 'mast-backend/**'
       - '.github/workflows/deploy-worker.yml'
   workflow_dispatch:
+
+# Least privilege: this workflow only reads the repository. Every other scope becomes 'none' the moment this block exists.
+permissions:
+  contents: read
 
 concurrency:
   group: deploy-worker
@@ -35,14 +45,18 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: mast-backend/package-lock.json
-      - name: Install dependencies (pdf-lib for the agreement; the tests import the Worker)
-        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+      # No '|| npm install' fallback: that silently accepted a missing or stale lockfile and installed whatever the
+      # registry served that minute, including an unpinned wrangler. A lockfile problem must fail the deploy, not float it.
+      - name: Install dependencies (pdf-lib for the agreement, wrangler pinned in devDependencies; the tests import the Worker)
+        run: npm ci --no-audit --no-fund
       - name: Tests
         run: node test-worker.mjs
       # The token is what matters; wrangler finds the account on its own when the token sees one account, so the account
       # id is optional. Common alternative names are accepted, and the notice says which names are present (never the
       # values) so a secret saved under the wrong name or tab shows up in the log (2026-09-07: "Cloudflare is in secrets"
       # and the runner still saw nothing).
+      # Presence only. The token itself is NEVER written to $GITHUB_OUTPUT (step outputs are readable by every later step
+      # and land in the run's object store); each step that needs it takes it from secrets directly, in its own env.
       - name: Check for Cloudflare credentials
         id: creds
         env:
@@ -55,47 +69,134 @@ jobs:
         run: |
           have=""; for n in T1:CLOUDFLARE_API_TOKEN T2:CF_API_TOKEN T3:CLOUDFLARE_TOKEN A1:CLOUDFLARE_ACCOUNT_ID A2:CF_ACCOUNT_ID A3:vars.CLOUDFLARE_ACCOUNT_ID; do
             v="${n%%:*}"; [ -n "${!v}" ] && have="$have ${n#*:}"; done
-          TOKEN="${T1:-${T2:-$T3}}"; ACCOUNT="${A1:-${A2:-$A3}}"
           echo "present:${have:- none}"
-          if [ -z "$TOKEN" ]; then
+          if [ -z "${T1:-${T2:-$T3}}" ]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
             echo "::notice::No Cloudflare API token reached this job (present:${have:- none}). It must be a REPOSITORY secret named CLOUDFLARE_API_TOKEN under Settings → Secrets and variables → Actions → Repository secrets (not Variables, not an environment, not Codespaces). Tests ran, deploy skipped."
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
-            echo "account=$ACCOUNT" >> "$GITHUB_OUTPUT"
-            echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
-            echo "::add-mask::$TOKEN"
           fi
       - name: Short commit id for /health (build = the commit this deploy was made from)
         id: sha
         run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-      # Schema before code (2026-09-08). Migrations used to be a Mac step ("D1 migrations stay a manual step"); the
+      # THE PAGE GOES FIRST — BEFORE THE SCHEMA AND BEFORE THE WORKER (round 9, 2026-09-09) — and this step enforces it.
+      #
+      # Round 7 changed the /account/verify contract: it takes {email, code, password} where it used to take {email, code}.
+      # The two halves ship on two independent workflows (this one on mast-backend/**, pages-mastsolutions.yml on the
+      # page), so on a merge that moves both, whichever runner finishes first is what visitors meet. One order is
+      # harmless and the other is not:
+      #   page first, Worker second  — the new page posts {email, code, password}; the OLD Worker ignores the extra field
+      #                                and verifies on the code, exactly as it always did. Nobody notices.
+      #   Worker first, page second  — the cached old page posts {email, code}, and until round 8 the new Worker answered
+      #                                401 bad_code, which reads as "your code is wrong" and has no way forward.
+      # So this step waits for the page and FAILS the run rather than shipping into the second order. Failing leaves the
+      # old Worker serving the new page, which is the harmless combination; re-run this workflow once the Pages publish
+      # is green.
+      #
+      # IT RUNS BEFORE THE MIGRATIONS NOW, NOT BETWEEN THEM AND THE DEPLOY (round 9). It used to sit after them, so a
+      # page that never arrived failed the run with 012 APPLIED and the Worker undeployed — the database moved forward
+      # under code that had not, which is the one combination neither half is written for. Waiting first means a failure
+      # here changes nothing at all: no schema, no code, the old Worker still serving the old page.
+      #
+      # IT ALWAYS COMPARES, and no longer asks what the push moved (round 9). The old pushed-range test read the compare
+      # API and skipped the wait when the range carried no page file, which is wrong in both directions: a re-run or a
+      # workflow_dispatch has no range to read at all, and the page can be behind for reasons this push did not cause (a
+      # Pages run that failed, a CDN still serving the previous build). The live manifest is the only thing that answers
+      # the question the deploy depends on, and when the host already serves this build the answer costs ONE request.
+      #
+      # The build hash is the page's own content hash (scripts/build_manifest.py), and dist/mastsolutions/build-manifest.json
+      # is the copy pages-mastsolutions.yml stages as the site's /build-manifest.json — so the field to compare is
+      # "index.html", not "mastsolutions.html" (that key belongs to the atlasglinn.com copy in the ROOT manifest).
+      - name: Wait for www.mastsolutions.com to carry this commit's page (before the schema, and before the Worker)
+        if: steps.creds.outputs.ready == 'true'
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -e
+          MANIFEST=dist/mastsolutions/build-manifest.json
+          test -f "$MANIFEST" || { echo "::error::$MANIFEST is missing — run python3 scripts/assemble-cinematic.py and commit its output"; exit 1; }
+          want="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("index.html") or "")' "$MANIFEST")"
+          test -n "$want" || { echo "::error::empty build hash in $MANIFEST — it carries no index.html key, so this run cannot tell which page the host serves"; exit 1; }
+          echo "waiting for https://www.mastsolutions.com/build-manifest.json to carry index.html=$want (max 10 minutes, every 20 s)"
+          for i in $(seq 1 30); do
+            live="$(curl -sS -m 20 "https://www.mastsolutions.com/build-manifest.json?ci=$(date +%s)" 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("index.html") or "")' 2>/dev/null || true)"
+            live="${live//[^0-9a-f]/}"   # a build hash is hex; nothing else from the host is echoed into the log
+            if [ "$live" = "$want" ]; then echo "attempt $i: the host serves $live — the page knows the {email, code, password} contract; the schema and the Worker may follow"; exit 0; fi
+            echo "attempt $i: host has '${live:-unreachable}', want $want"
+            sleep 20
+          done
+          echo "::error::www.mastsolutions.com still does not serve this commit's page (build $want) after 10 minutes, so NEITHER the migrations NOR the Worker have run — the old Worker keeps serving the new page correctly, which is the safe half of the pair. Check the 'Publish mastsolutions.com (GitHub Pages)' run for this commit, then re-run this workflow."
+          exit 1
+      # Schema before code (2026-09-08), and AFTER THE PAGE (round 9): the wait above has to pass before a single
+      # ALTER runs, so a page that never arrives leaves the database exactly where it was.
+      # Migrations used to be a Mac step ("D1 migrations stay a manual step"); the
       # Actions token now carries D1:Edit, so each numbered file in mast-backend/migrations/ is applied here when its
-      # marker column is missing — a guard, because SQLite's ALTER TABLE ADD COLUMN is not idempotent. Add a row to
-      # GUARDS for every new migration: "<file>|<table>|<column that file adds>". Files without a row are not run.
+      # columns are missing — a guard, because SQLite's ALTER TABLE ADD COLUMN is not idempotent. Add a row to GUARDS for
+      # every new migration: "<file>|<table>|<every column that file adds, comma separated>". Files without a row are not run.
+      #
+      # EVERY column is checked, not one marker (security review 2026-09-08): 007 adds five columns and the guard read
+      # credential_type alone, so a run that died after the first ALTER left four columns missing and looked applied
+      # forever after. All present = skip; none present = apply; SOME present = stop, because re-running the file would
+      # fail on the first duplicate and a half-applied schema needs a person.
+      # A file that CREATEs a table rather than ALTERing one fits the same shape: PRAGMA table_info on a table that does
+      # not exist yet returns no rows, so every column reads missing and the file is applied (migrations/012).
+      # 010 AND 011 HAVE NO ROWS ANY MORE, AND REMOVING THEM IS THE FIX, NOT AN OVERSIGHT (round 7, 2026-09-09): 012
+      # DROPs and recreates pending_signups on a different primary key, so once it has run, 010's eleven columns are
+      # half-present by construction (address_digest and created_at survive, verify_code_hash and code_sent_at do not)
+      # and this guard would print HALF APPLIED and stop every deploy for ever. 012's row therefore names only the two
+      # columns UNIQUE to its shape — signup_id and code_hash — which no earlier shape carries: an old table reads
+      # "apply", a new one reads "already applied", and neither can read half. 010's one-time DELETE moved into 012 with
+      # it, because a file with no row never runs. Files stay in the tree; the row is what schedules them.
+      #
+      # WHAT THIS GUARD CANNOT SEE, and it is written down rather than left to be rediscovered: for a file that CREATEs,
+      # the columns are not evidence the FILE ran — ensureRateSchema creates the same table at runtime. If a Worker
+      # reaches the live environment before 012 does, this step prints "already applied" for ever and 012's one-time
+      # `DELETE FROM accounts WHERE verified_at IS NULL` never runs. That is bounded, not zero: runRetention deletes the
+      # same set daily on the 09:17 UTC cron, so the legacy rows go within a day either way. What the Worker DOES handle
+      # by itself is the shape change: healPendingSignups (src/ratelimit.js) drops a pending_signups that has no
+      # signup_id column before the CREATE runs, so a deploy that lands ahead of 012 — the hourly wp-upload.sh path
+      # applies no migrations at all — converges instead of writing into a table that cannot take it. See the README
+      # residual titled "Nothing here is deployed, and there are TWO live deploy paths" (named, not numbered: round 7
+      # inserted one above it and three pointers went on saying 5).
+      # npx with no -y and no @version: it resolves the wrangler pinned in mast-backend/package.json + package-lock.json,
+      # so the CLI that touches the live database is the one the lockfile names.
       - name: Apply pending D1 migrations (schema before code)
         if: steps.creds.outputs.ready == 'true'
         working-directory: mast-backend
         env:
-          CLOUDFLARE_API_TOKEN: ${{ steps.creds.outputs.token }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ steps.creds.outputs.account }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN || secrets.CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CF_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -e
-          GUARDS="migrations/007-account-credentials.sql|accounts|credential_type"
-          for g in $GUARDS; do
-            f="${g%%|*}"; rest="${g#*|}"; tbl="${rest%%|*}"; col="${rest#*|}"
+          GUARDS="migrations/007-account-credentials.sql|accounts|credential_type,credential_org,credential_id,credential_status,credential_submitted_at
+          migrations/008-rate-limits.sql|accounts|failed_logins,locked_until,signup_notice_sent_at
+          migrations/009-seat-claim.sql|registrations|abandoned_reason
+          migrations/012-pending-signup-per-row.sql|pending_signups|signup_id,code_hash"
+          echo "$GUARDS" | while IFS= read -r g; do
+            g="$(echo "$g" | xargs)"; [ -n "$g" ] || continue
+            f="${g%%|*}"; rest="${g#*|}"; tbl="${rest%%|*}"; cols="${rest#*|}"
             test -f "$f" || { echo "::error::$f missing"; exit 1; }
-            have=$(npx -y wrangler@3.90.0 d1 execute mast_bookings --remote --json --command "PRAGMA table_info($tbl)" 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(" ".join(r["name"] for r in d[0]["results"]))')
-            if echo " $have " | grep -q " $col "; then echo "$f: already applied ($tbl.$col present)"; else
-              npx -y wrangler@3.90.0 d1 execute mast_bookings --remote --file="$f" && echo "$f: applied"
+            have=$(npx wrangler d1 execute mast_bookings --remote --json --command "PRAGMA table_info($tbl)" 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(" ".join(r["name"] for r in d[0]["results"]))')
+            missing=""; present=""
+            for c in $(echo "$cols" | tr ',' ' '); do
+              if echo " $have " | grep -q " $c "; then present="$present $c"; else missing="$missing $c"; fi
+            done
+            if [ -z "$missing" ]; then echo "$f: already applied ($tbl:$present)"
+            elif [ -n "$present" ]; then
+              echo "::error::$f is HALF APPLIED on $tbl — present:$present missing:$missing. Re-running the file would fail on the first duplicate column; apply the missing ALTERs by hand, then re-run this workflow."
+              exit 1
+            else
+              npx wrangler d1 execute mast_bookings --remote --file="$f" && echo "$f: applied ($tbl:$(echo "$cols" | tr ',' ' '))"
             fi
           done
+      # wranglerVersion matches the devDependency: the action installs its own CLI, so leaving it unset floated the
+      # deploy onto whatever wrangler v3 was current that day.
       - name: Deploy
         if: steps.creds.outputs.ready == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ steps.creds.outputs.token }}
-          accountId: ${{ steps.creds.outputs.account }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN || secrets.CLOUDFLARE_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CF_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '3.90.0'
           workingDirectory: mast-backend
           command: deploy --var BUILD:${{ steps.sha.outputs.short }}
       # Worker secrets from a phone: a repository secret named WORKER_RESEND_API_KEY (or WORKER_<NAME> for any other
@@ -104,8 +205,8 @@ jobs:
       - name: Push Worker secrets that are set as repository secrets
         if: steps.creds.outputs.ready == 'true'
         env:
-          CLOUDFLARE_API_TOKEN: ${{ steps.creds.outputs.token }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ steps.creds.outputs.account }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN || secrets.CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CF_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
           WORKER_RESEND_API_KEY: ${{ secrets.WORKER_RESEND_API_KEY }}
           WORKER_ACCOUNT_SECRET: ${{ secrets.WORKER_ACCOUNT_SECRET }}
           WORKER_NOTIFY_EMAIL: ${{ secrets.WORKER_NOTIFY_EMAIL }}

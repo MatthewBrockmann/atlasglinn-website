@@ -1,4 +1,16 @@
 {
+ "_check": {
+  "at": "2026-09-09T02:05:15Z",
+  "baseline": "e5b4c0c92b262ce356d2ced7e4fcd34f81b13e3b",
+  "candidates": 9,
+  "dump_matches": 0,
+  "head": "a729d42a7a2ba1e7d34eef33ecaa76a9f93386cd",
+  "ref": "origin/claude/desktop-assets",
+  "result": "ok"
+ },
  "reference/desktop/mast-new-web-2026/CQB-P3-web-poster.png": "g14-poster.png",
- "reference/desktop/mast-new-web-2026/CQB-P3-web.mp4": "g14.mp4"
+ "reference/desktop/mast-new-web-2026/CQB-P3-web.mp4": "g14.mp4",
+ "reference/desktop/mast-new-web-2026/IMG_4349.jpg": "g15.jpg",
+ "reference/desktop/mast-new-web-2026/INSTRUCTOR PHOTO.jpg": "g16.jpg",
+ "reference/desktop/mast-new-web-2026/MAST- mil training.jpg": "g17.jpg"
 }

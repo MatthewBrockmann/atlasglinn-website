@@ -34,15 +34,75 @@ the Atlas Training submenu's "Aimpoint Optics" entry is commented out in `assemb
 three edits on his word. **Renamed Gear → Store (Brockmann, 2026-09-08, on a screenshot of the chapter: `"GEAR"= wrong -
 STORE = header + IWA + Training Devices + List price + OUT OF STOCK + link to add acutal product info
 https://iwainternationalinc.com/shop/`):** the `CHAPTERS` label in `assemble-cinematic.py` carries the rail, the HUD and
-the mobile menu, the heading is "Store." and the brand header over the cards reads "IWA Training Devices"; the `<div
-id="gear">` anchor stays, because the Atlas pages' Training submenu links to `mastsolutions.html#gear`. **`GEAR_OUT_OF_STOCK
-= true` in `mastsolutions-tesla.html`** puts an OUT OF STOCK badge on every device card and a sentence in the quote
-dialog's fine print; a per-item `g.stock` on a `GEAR` row overrides it, so flipping the constant to false is the one edit
-that restocks the line. **Each device card links to its own page on `iwainternationalinc.com`** through
-`GEAR_PRODUCT_URL`, whose URLs were read from the 2026-09-08 capture of `https://iwainternationalinc.com/shop/`
-(`reference/desktop/live/shop.html` on `claude/desktop-assets`); that shop paginates and the capture is page 1 of 5, so
-PA-85, TH-14 and the door charge fall back to the shop root rather than a guessed URL, and the IWA price now renders under
-the label "list price · each · 3-unit minimum". Seven asserts at the foot of `assemble-cinematic.py` hold all of it.
+the mobile menu, the brand header over the cards reads "IWA Training Devices", and the chapter is its eyebrow only —
+"Store · IWA" — since the h2 repeated it (2026-09-09, below). The `<div id="gear">` anchor stays, because the Atlas pages'
+Training submenu links to `mastsolutions.html#gear`. **`GEAR_OUT_OF_STOCK = true` in `mastsolutions-tesla.html`** puts an
+OUT OF STOCK badge on every device card, in the product view and in the request dialog's fine print; a per-item `g.stock`
+on a `GEAR` row overrides it, so flipping the constant to false is the one edit that restocks the line.
+
+**No outbound IWA link; the product view is ours (Brockmann, 2026-09-08: "the link to IWA sends them to their store. We
+need them to buy from our store, not theirs", then 2026-09-09: "What we want is the actual marketing and verbiage so that
+you can click on it and see -- take request quiote off- they can click product if out of stock _ email + inventory
+available"):** IWA's URLs are a SOURCE list, never a destination — and since 2026-09-09 they are **not in the browser at
+all**. `SOURCE_URLS` lives in `scripts/store-intake.py`, which is the only thing that uses them; the page's old
+`GEAR_SHOP` / `GEAR_PRODUCT_URL` / `gearUrl()` are deleted, because nothing called `gearUrl()` but a JS-built href is one
+edit away and leaves no literal for a guard to match — which is exactly how the links he killed on 2026-09-08 were made.
+`scripts/store-intake.py` reads the captured IWA product pages (`reference/desktop/live/<slug>.html` on
+`claude/desktop-assets`) and writes `scripts/store-products.json` (**16,388 bytes**, 6 products, 23 image URLs) — their
+title, their description sanitized to a nine-tag allowlist, `KEEP_TAGS = {'p','ul','ol','li','strong','b','em','i','br'}`
+with every attribute dropped (it is assigned with `innerHTML`, so that allowlist is the only thing between their markup
+and the DOM), the spec lines they publish and their photographs; `assemble-cinematic.py` splices it into the page as
+`STORE_PRODUCTS`, stripping each product's `source` and `capture` fields on the way in. A click on any card (whole card, `tabindex=0`,
+Enter/Space) opens `#prod` on our page with that copy, OUR list price from `GEAR_PRICE_TABLE`, OUR stock line from
+`gearOut`, one control — **Email about availability**, the existing `requestGear` path — and the line "Manufacturer
+information: IWA International" (text, not a link). IWA's own order/shipping policy block is cut: it describes checkout on
+their site. Six devices have captures; PA-85, TH-14 and the door charge are queued in `scripts/handoff-urls.txt` (their
+URLs read off the captured shop pages 2 and 4) and until they land their view shows name, price, stock and the email
+control. The product photographs are still IWA's BigCommerce CDN URLs — declared, and it means IWA sees this store's traffic and
+can blank all 23 by renaming a file. The next capture closes it without another edit: all **23** image URLs are queued in
+`scripts/handoff-urls.txt` (verified 2026-09-09 — the file lists them without the `?c=` query, which is the form
+`localise()` looks them up by), and on the next `store-intake.py` run each one that has landed in
+`reference/desktop/live/` is written into `images/mast/store/<sku>-<n>.<ext>` and the JSON rewritten to that local path.
+Until then the run prints one `no captured file …; the view uses IWA's CDN URL` line per image, and `images/mast/store/`
+is not created at all. Re-run `store-intake.py` after a capture; the JSON is committed. Asserts at the foot of
+`assemble-cinematic.py` hold all of it, including "no `href` to iwainternationalinc.com anywhere".
+
+**One header size (Brockmann, 2026-09-08: "make all headers the same. font size. And for some, obviously, we are saying
+this exact same thing. So we don't need team memberships and then team memberships in a gigantic header"):** the size is
+**one token in one `:root`**, and that `:root` is MAST-only — `--head-chapter` in the `GOLD_KEEP` block of
+`assemble-cinematic.py`, which is spliced after the shell's stylesheet, so `h1.mega`, `h2.section-h` and the dialogs'
+`.modal h3` all end on it. `scripts/cinematic_shell.py` is **byte-identical to `main`**: it is the Atlas generator's input
+too, and the first version of this put the tokens there, which changed what `assemble-atlas.py` emits for all twelve
+Atlas pages. Two `:root` blocks declaring the same token at the same specificity is the defect — order decides — so the
+build asserts there is exactly one, and that each heading's LAST `font-size` is the token (measured in Chromium
+2026-09-09: 51.2 px on all seven headings at 1280, 28.8 px at 393). And a chapter whose h2 only repeated its eyebrow lost the h2: s5 "The Range.", s7 "Team Memberships.",
+s9 "In Action.", s12 "Store." — the eyebrow stays and carries the chapter, as s6 already did. s8 (Instructors / Meet The
+Team) and s10 (Testimonials / In Their Words) say the same thing in different words and stay until he says otherwise. A
+guard walks every chapter and fails the build if an h2's words are a subset of its eyebrow's.
+
+**In Action, exactly: the photo grid, not the chapter (2026-09-09).** His words — "This is a video and does not belong",
+then "NOT VIDEOS" — were about `#gallery-tiles`, and that grid is now 18 tiles, every one a `.jpg`, no clip, no play
+glyph, `g15`–`g17` his 2026-09-08 photographs (a build assert reads `images/mast/gallery/tiles.txt` and fails on any
+`.mp4/.mov/.webm/.m4v`). **The ten `<video>` film cards above the grid are the chapter's FILM section and are still
+there, unchanged since before this pass** — a separate thing from the grid, left alone on purpose rather than removed on
+inference. If they should go too, that is one word from him and one edit.
+
+**MAST → Atlas links are the approved public URLs (2026-09-09):** the footer's Atlas destinations are the WordPress slugs
+the live site's own navigation uses — `https://atlasglinn.com/<slug>/` for executive-protection, residential-protection,
+disaster-recovery, training, technology, cuas-aerodefense, uas, about, careers, contact, ep-app, **privacy, terms**, and
+`https://atlasglinn.com/` for home (`AG_SLUG` in `assemble-cinematic.py`). They used to point at
+`atlasglinn.com/<slug>.html`, the static preview builds — publicly reachable but not approved
+(`00-rules/website-go-live-gate.md`), and MAST's public footer was the path into them. **The first version of this fixed
+only the eleven links it knew about.** The guard walked `AG_SLUG`, so the five it did not know about were invisible to
+it, and the `mastsolutions.com` copy — the one that host actually serves — promoted them all to `.html` anyway through a
+blanket rewrite: Privacy, Terms, the eligibility anchor, the capability one-pager and the hidden Blogs entry. Now: the
+blanket rewrite is gone; `privacy/` and `terms/` are `AG_SLUG` (the live `ep-app` page links to exactly those two, read
+off the capture 2026-09-09, so they are his approved URLs); and the guard is a shape check — **no `atlasglinn.com` target
+ending in `.html`, in either copy, whatever its name.** `mast-capability-statement.html` and the preview-only
+`articles/index.html` are MAST's own pages with no equivalent anywhere in the live captures (grepped, 0 hits) and stay
+relative. **Named gap:** `.github/workflows/pages-mastsolutions.yml` stages `index.html`, the manifest, `robots.txt`,
+`sitemap.xml` and the assets its resolver finds, and that resolver skips `.html` — so `mast-capability-statement.html` is
+not on the Pages host and its "View One-Pager" link 404s there until that workflow stages it.
 
 **Experiences chapter (Brockmann, 2026-09-08: "add in Courses = 'EXPERIENCES' Couples + groups = Pics and Content coming",
 then by email the four he wants):** `EXPERIENCES` in `mastsolutions-tesla.html` holds them — Couples Range Experience, Date
@@ -793,7 +853,15 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
 
 ## Drop folders → gallery (Brockmann, 2026-09-05: "anytime I drop new items into the folder on my desktop, it should update in and add photos to the gallery")
 
-- **Mac:** `~/Desktop/MAST NEW WEB 2026/gallery/` and `…/range/` are the drop folders. `scripts/mac-autopilot.sh install`
+- **Mac:** `~/Desktop/MAST NEW WEB 2026/gallery/` and `…/range/` are the drop folders — and since 2026-09-09
+  `~/Desktop/MAST Solutions Web 2026/` beside it, the name he says aloud; both are handed off and the handoff branch keeps
+  them apart as `mast-new-web-2026/` and `mast-solutions-web-2026/`. Files dropped at the top level of either folder count
+  too. **The real-time watcher needed a re-install to see the second folder** — the `WatchPaths` array and the `mkdir` are
+  written by `mac-autopilot.sh install` only, while the hourly job (which does sweep both) is the part that self-updates
+  from `main`. Since 2026-09-09 the hourly pass repairs it: it makes both folders, and if the installed
+  `com.atlasglinn.handoff` plist does not name every watched path it rewrites the plist and `launchctl bootout`/
+  `bootstrap`s it, logging the folders it was not watching. Idempotent and silent when the plist is already right, so no
+  paste is needed after this reaches `main`. `scripts/mac-autopilot.sh install`
   (paste: `curl -fsSL https://raw.githubusercontent.com/MatthewBrockmann/atlasglinn-website/main/scripts/mac-autopilot.sh |
   bash -s -- install`, after `wp-upload.sh --save-login`) puts two LaunchAgents on the Mac. **The hourly job runs from a
   private clone at `~/Library/Caches/atlasglinn/atlasglinn-website`, never from the Desktop clone:** the Desktop is
@@ -918,6 +986,20 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   `images/mast/gallery/` (gNN) or `images/mast/range/` (aNN), appends to `images/mast/<kind>/tiles.txt` and records the
   source in `intake.json`; then `python3 scripts/assemble-cinematic.py`, commit, PR. The assembler reads the two `tiles.txt`
   files; a person reorders or removes tiles by editing them. The merge of that PR is the one hand left.
+  **What counts as a drop (fixed 2026-09-09, re-measured the same day):** a file **added in a commit after the dump
+  baseline** — `DUMP_BASELINE = e5b4c0c92b262ce356d2ced7e4fcd34f81b13e3b` in `scripts/photo-intake.py`, the root commit of
+  `claude/desktop-assets` (2026-09-08 04:16 UTC), whose tree already holds **16,386** of the folder's files. Measured on
+  `a729d42`: without it, **4,433** top-level candidates of which **4,424** are dump files; with it, **9** candidates and
+  **0** dump files. The two earlier rules are both dead ends and both were tried: a date floor separates nothing (every
+  commit on that branch is after it), and the `Hand off from Mac:` subject is not a stable fact either — the branch has
+  been rebuilt as an orphan once already. A SHA does not move when a filter is edited, which is the point: the previous
+  guard read its oracle through the same constant it guarded, so emptying that constant made it report OK on all 4,433.
+  `--check` **fails closed** — exit 1, not a silent OK, when the handoff ref does not resolve, when the baseline is not
+  in the clone, or when the baseline is not an ancestor of the ref — and stamps every run under `_check` in
+  `images/mast/gallery/intake.json` (time, ref, head, baseline, counts, result), so a check that never ran is
+  distinguishable from one that found nothing. `main()` runs it before copying a single file. Clips in a drop folder are
+  listed and skipped: In Action is photographs only. **Not claimed:** the baseline is one commit for both roots, and
+  `mast-solutions-web-2026` does not exist at it, so a WordPress dump copied into *that* folder would still import.
 - **Clips seen while still copying (2026-09-06):** his `CQB-P3.MOV` (370 MB, dropped in the top-level folder) reached
   the handoff branch only as a line in `reference/desktop/SKIPPED.txt`: the watcher fired while the file was still
   being written, avconvert failed, and nothing retried it. Now `mac-handoff.sh` waits for a stable size (up to 90 s),

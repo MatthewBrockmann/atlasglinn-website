@@ -90,3 +90,37 @@ https://iwainternationalinc.com/shop/?page=2
 https://iwainternationalinc.com/shop/?page=3
 https://iwainternationalinc.com/shop/?page=4
 https://iwainternationalinc.com/shop/?page=5
+
+# Added 2026-09-09 (owner: "the actual marketing and verbiage so that you can click on it and see"). The three device
+# pages the shop's page 1 did not carry — found on the captured shop pages 2 and 4 — so PA-85, TH-14 and the door charge
+# get the same product view as the other six (scripts/store-intake.py reads the captures; nothing links out).
+https://iwainternationalinc.com/pa-85-pepper-pava-grenade/
+https://iwainternationalinc.com/th-14-thermite-device/
+https://iwainternationalinc.com/electric-indirect-door-charge-idc/
+
+# The product photographs the six captured pages show. Until the Mac fetches them the product view uses IWA's CDN URL;
+# once they land beside the captures, scripts/store-intake.py copies them into images/mast/store/ and the page serves
+# them from our own domain.
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/115/1771/TLSFX_2-1921-Edit__67442.1778185578.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/115/1786/new_m11__26155.1778185574.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/115/1787/new_m11_r_side__17486.1778185572.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/115/839/IMG_3354__09425.1777324665.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/253/1770/TLSFX_2-1926-Edit__03998.1778183231.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/253/1760/TLSFX_-1452-Edit__39433.1778183247.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/253/1769/mew_m11_7__85863.1778183251.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/253/1758/TLSFX_-1450-Edit__45012.1777324846.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/116/1788/TLSFX_2-1934-Edit_1__67203.1778188712.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/116/1790/TLSFX_2-1935-Edit__20880.1778188711.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/116/838/IMG_3354__94667.1777328081.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/144/1784/TLSFX_2-1915-Edit__75489.1778184954.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/144/1782/new_m13_r_center__29918.1778185089.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/144/1785/new_m13_r_side__92298.1778185063.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/144/1761/TLSFX_-1458-Edit__31726.1777325748.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/118/1774/TLSFX_2-1938-Edit__06721.1784861495.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/118/1773/TLSFX_2-1943-Edit__66066.1784861490.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/118/1778/TLSFX_2-1940-Edit__08745.1778184339.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/118/1780/TLSFX_2-1944-Edit__50225.1778184334.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/173/1573/DD7A4044__52088.1776869081.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/173/1574/DD7A4045__29272.1758822054.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/173/1572/DD7A4043__62787.1758821977.jpg
+https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/173/835/m15_ex_number__37489.1759510600.png
