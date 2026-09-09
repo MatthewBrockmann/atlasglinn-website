@@ -44,10 +44,14 @@ the live page prints twice and the build once is NOT a delta here — element-co
 implemented. Text and attribute units are counted with repeats; media is not. Anyone who needs media counted per
 element extends live.media to return a multiset first.
 
-DROPPED 2026-09-09 (R4-8): the menu glyphs "☰" and "×" were excused by string and MEASURED on the twelve pages neither
-is printed anywhere — the menu button carries its label as aria-label, which the attribute pass already covers by
-name. Two more excuses nothing used; gone. The three splash/chrome controls that ARE printed are no longer excused
-by string either: each is bound to the element that earns it (CONTROLS) and spent once per page.
+DROPPED 2026-09-09 (R4-8, wording corrected R5 after the verifier measured it): the menu glyphs "☰" and "×" were
+excused by string. They ARE printed — once on every built page and once on every live capture, as &#9776; and
+&times; on the nav-toggle and mobile-nav-close buttons (a raw glyph grep of the markup finds nothing; the extractor's
+unescape finds twelve of each) — so they match the live page in the both-ways TEXT pass and never needed an excuse.
+The live buttons carry no aria-label, so the attribute pass has nothing to do with it. The excuse was a hole: with it,
+a second "☰" anywhere on a page passed; without it, a second &#9776; in about's footer exits 1 and deleting the real
+one exits 1 ("MISSING FROM BUILD"). The three splash/chrome controls that are build-only are no longer excused by
+string either: each is bound to the element that earns it (CONTROLS) and spent once per page.
 
 DROPPED 2026-09-09 (R4-4): the sound toggle "\U0001f507" and progress text "NN / NN" were excused by string, with no
 position check, and MEASURED on the twelve pages neither was ever spent — the shell's own toggle is cut from the

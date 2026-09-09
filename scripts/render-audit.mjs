@@ -435,8 +435,10 @@ async function main() {
         await ctx.close();
       }
 
-      const unseen = want.filter((u) => !seen.has(norm(u)) && !(u in HIDDEN_ON_LIVE));
-      for (const u of want.filter((u) => !seen.has(norm(u)) && u in HIDDEN_ON_LIVE)) hiddenSpends.push([slug, u]);
+      // Object.hasOwn, not `in`: `in` walks Object.prototype, so a live unit reading 'constructor' or 'toString' would
+      // count as allowed-invisible (r5 verifier; 0 such units today, measured over all 2019 live units).
+      const unseen = want.filter((u) => !seen.has(norm(u)) && !Object.hasOwn(HIDDEN_ON_LIVE, u));
+      for (const u of want.filter((u) => !seen.has(norm(u)) && Object.hasOwn(HIDDEN_ON_LIVE, u))) hiddenSpends.push([slug, u]);
       sum.units += want.length;
       sum.unseen += unseen.length;
       sum.pageErrors += pageErrors;
