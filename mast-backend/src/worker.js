@@ -1804,11 +1804,23 @@ function isStripeRefusal(status, data) {
  * part, a description, a URL path — turned tax OFF for every other buyer for the length of the negative TTL, and a
  * completed Session cannot be re-taxed. The same write de-taxed everyone on a CUSTOMER-scoped code
  * (customer_tax_location_invalid) that says nothing about the account. So the refusal now buys exactly one thing: a
- * measurement, enqueued behind the response, that takes the tax:lock and ASKS STRIPE. No string ever flips the gate.
+ * measurement, enqueued behind the response, that takes the tax:lock and ASKS STRIPE.
+ *
+ * SAID EXACTLY. What is proved is that the READINESS ROW is unreachable from here by any string — a test pins the row
+ * byte-for-byte across a refusal carrying attacker-chosen text. isTaxRefusal still reads FREE TEXT, and it still
+ * matches on it: a message a stranger influenced and Stripe echoes back can therefore start ONE bounded second Session
+ * attempt inside the same ceiling. That is the whole of what a string can buy, and it cannot buy an untaxed order for
+ * anybody — not for the sender, whose second body is the one this Worker would have sent anyway, and not for the next
+ * buyer, whose tax is decided by the row this path never writes.
  *
  * One retry, tax-class only, only on a 4xx refusal Stripe actually answered, only when the body carried tax fields,
  * and only if the shared budget has room — both attempts live inside ONE checkout ceiling, so the retry cannot double
  * the worst case a customer waits.
+ *
+ * THE STREAK is the one thing it does write, and it is a counter with nothing behind it: +1 on the tax:last_run count
+ * column per refusal, cleared the moment a tax-carrying Session is accepted. It exists because the double fault — tax
+ * endpoints unreadable, so the grace holds the row at ready, AND Stripe refusing every tax-carrying body — is invisible
+ * otherwise: every order completes, every order completes untaxed, and the report says tax_ready: true for 24 hours.
  */
 async function createStripeSession(payload, env, label, ctx) {
   if (!env.STRIPE_SECRET_KEY) {
@@ -1818,7 +1830,10 @@ async function createStripeSession(payload, env, label, ctx) {
   const deadline = Date.now() + checkoutTimeoutMs(env);
   const send = (body) => checkoutCall(env, '/checkout/sessions', { method: 'POST', headers: stripeHeaders(env), body: body.toString() }, Math.max(CHECKOUT_RETRY_FLOOR_MS, deadline - Date.now()));
 
+  // Asked BEFORE the call, because after a retry `payload` is no longer what the successful attempt carried.
+  const carriedTax = payload.has('automatic_tax[enabled]');
   let res = await send(payload);
+  const taxAccepted = res.ok && carriedTax;
   if (!res.ok) {
     const err = (res.data && res.data.error) || {};
     const { clean, dropped } = withoutTaxFields(payload);
@@ -1828,10 +1843,17 @@ async function createStripeSession(payload, env, label, ctx) {
       // The real measurement, behind the response and under the lock. It is what may write the readiness row; this path
       // never does. A held lock means somebody is already asking, and then this costs nothing at all.
       if (ctx && typeof ctx.waitUntil === 'function') {
-        ctx.waitUntil(ensureTaxSetup(env, { trigger: 'session_refused', background: true }).catch((e) => console.error('[Tax] refused-session measurement failed:', e.message)));
+        ctx.waitUntil(taxFallbackBump(env)
+          .then(() => ensureTaxSetup(env, { trigger: 'session_refused', background: true }))
+          .catch((e) => console.error('[Tax] refused-session measurement failed:', e.message)));
       }
       if (left >= CHECKOUT_RETRY_FLOOR_MS) res = await send(clean);
     }
+  }
+  // Stripe took a tax-carrying body: whatever the double fault was, it is over. Conditional in D1, and behind the
+  // response, so an ordinary taxed checkout pays nothing for it.
+  if (taxAccepted && ctx && typeof ctx.waitUntil === 'function') {
+    ctx.waitUntil(taxFallbackReset(env).catch((e) => console.error('[Tax] fallback streak reset failed:', e.message)));
   }
   if (!res.ok) {
     console.error('[' + label + '] Stripe error:', taxSafe(env, JSON.stringify(res.data), 300));
@@ -2354,13 +2376,20 @@ async function stripeCall(env, path, form, idempotencyKey) {
  * the customer's checkout path on checkoutTimeoutMs. A transport failure and a timeout both come back as status 0 with
  * an error object rather than throwing, so a caller reports Stripe's silence the same way it reports Stripe's refusal.
  * Two implementations of a clock is how one of them ends up without a clamp, which is what the whole of round 2 was.
+ *
+ * `parse_error` is the third kind of answer, and it used to be indistinguishable from the first: a 200 whose body does
+ * not parse — a proxy's HTML error page, a truncated stream — came back as `data: {}`, exactly like a 200 that really
+ * said `{}`. `data` still keeps that shape so no caller has to change, and the flag is what lets a log line say which
+ * of the two happened. A body of literal `null` PARSES; it is a null answer, not an unparseable one.
  */
 async function boundedStripe(env, path, init, ms) {
   const ac = new AbortController();
   let timer = null;
   const call = (async () => {
     const r = await fetch('https://api.stripe.com/v1' + path, { ...init, signal: ac.signal });
-    return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
+    let data = {}, parseError = false;
+    try { data = await r.json(); } catch { parseError = true; }
+    return { ok: r.ok, status: r.status, data, parse_error: parseError };
   })();
   call.catch(() => {});   // the loser of the race is nobody's error; it must not surface as an unhandled rejection
   try {
@@ -2415,13 +2444,25 @@ const TAX_IDEMPOTENCY = { settings: 'mast-tax-settings-v1', registration: 'mast-
 /**
  * Three rows of Worker state, in the rate_limits table — no new binding, no migration to apply by hand.
  *
- *   tax:ready      the measured readiness of the Stripe account. count 1/0, good for TAX_READY_TTL_MS.
+ *   tax:ready      the measured readiness of the Stripe account. count 1/0/2, good for TAX_READY_TTL_MS.
  *   tax:lock       held while a setup run is writing. window_start is the EXPIRY, so a crashed run frees itself.
- *   tax:last_run   the heartbeat: when the last setup run finished and how it went.
+ *   tax:last_run   the heartbeat: when the last setup run finished and how it went — window_start. Its COUNT column is
+ *                  the consecutive tax_fallback streak (the double fault below), which is why the two are written by
+ *                  separate statements that each touch one column.
  *
  * The table's columns are (key, window_start TEXT, count INTEGER), so the timestamp and the note share window_start as
  * `<iso>|<note>`. purgeRateLimits skips `tax:%` (src/ratelimit.js) — these rows are Worker state, not per-IP counters,
  * and a heartbeat the daily purge eats at 24h can never be REPORTED stale at 25h.
+ *
+ * THE DOUBLE FAULT, COUNTED. Tax endpoints unreadable AND Stripe refusing every tax-carrying Session is the one state
+ * where the design is working exactly as written and still losing money: the grace keeps the readiness row saying
+ * ready, every order pays for two Session creates, every order completes UNTAXED, and for 24 hours nothing anywhere
+ * says so — each refusal writes one tax_fallback line into a stream nobody reads and the report keeps printing
+ * tax_ready: true. The streak is the counter that makes it visible, and it is deliberately ONLY a counter: nothing
+ * gates on it, nothing is suppressed by it. A number an anonymous request can raise must never be able to decide
+ * whether the next buyer is taxed — that is the round-4 de-tax write R5-2 removed, and it is not coming back as a
+ * threshold. It resets on the two things that mean the fault ended: a Session that carried tax and was ACCEPTED, and
+ * a measurement that Stripe actually answered.
  */
 const TAX_READY_KEY = 'tax:ready', TAX_LOCK_KEY = 'tax:lock', TAX_RUN_KEY = 'tax:last_run';
 const TAX_READY_TTL_MS = 10 * 60000;      // how long a measurement of the account is FRESH (past it, the loop re-measures)
@@ -2429,6 +2470,7 @@ const TAX_READY_GRACE_MS = 24 * 3600000;  // how long a measurement that said RE
 const TAX_RETRY_TTL_MS = 60000;           // how long a measurement that COULD NOT BE MADE suppresses the next attempt
 const TAX_LOCK_MS = 60000;                // the window: one measurement + at most one setup attempt per minute
 const TAX_RUN_STALE_MS = 25 * 3600000;    // a loop that has not fired in 25h is not firing
+const TAX_FALLBACK_LOUD = 3;              // consecutive tax_fallbacks past which the report says so in words
 const TAX_TIMEOUT_MS = 4000;              // no Stripe call in the tax path may outlive this (STRIPE_TAX_TIMEOUT_MS overrides)
 const TAX_TIMEOUT_MIN_MS = 500, TAX_TIMEOUT_MAX_MS = 15000;   // the bounds an operator's override is clamped into
 const TAX_TICK_CRON = '*/5 * * * *';      // the trigger that keeps the measurement warm (wrangler.toml [triggers])
@@ -2464,13 +2506,27 @@ function taxRedact(env, value) {
     .replace(/(sk_(?:live|test)_|rk_(?:live|test)_|pk_(?:live|test)_|whsec_|re_)[A-Za-z0-9_-]+/g, '$1[redacted]')
     .replace(/\bBearer\s+[A-Za-z0-9._~+/-]{8,}=*/gi, 'Bearer [redacted]')
     // Not Stripe's own shapes, and that is the point: whatever a Stripe error quotes back came from a request body
-    // somebody else wrote. A denylist can only remove what it has been told about, so it is told about the four classes
-    // that turn up most often beside a checkout — a Google key, an AWS id, a Slack token, a JWT.
+    // somebody else wrote. A denylist can only remove what it has been told about, so it is told about the classes the
+    // vault's canonical set names — a Google key, an AWS id, a Slack token, a JWT, a GitHub or GitLab token, a
+    // RevenueCat key, a Twilio SID — rather than the four that happened to turn up in a round-2 probe.
     .replace(/AIzaSy[A-Za-z0-9_-]{33}/g, '[redacted]')
     .replace(/AKIA[A-Z0-9]{16}/g, '[redacted]')
     .replace(/xox[bpar]-[A-Za-z0-9-]+/g, '[redacted]')
-    .replace(/eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[redacted]');
+    .replace(/eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[redacted]')
+    .replace(/gh[pousr]_[A-Za-z0-9]{36,}/g, '[redacted]')
+    .replace(/glpat-[A-Za-z0-9_-]{20,}/g, '[redacted]')
+    .replace(/appl_[A-Za-z0-9]{20,}/g, '[redacted]')
+    .replace(/\b(?:AC|SK)[a-f0-9]{32}\b/g, '[redacted]')
+    // The heuristic, and the only one here: a 32-40 character hex string is not a shape anybody owns, so it is removed
+    // only where a label BESIDE it says it is a credential. That is how the AISStream opaque hash was missed once — it
+    // belongs to no vendor and matches no prefix, and the label is the only thing that identifies it.
+    .replace(/((?:_key|_token|_secret|api_key|access_token)\W{0,4})[a-fA-F0-9]{32,40}\b/gi, '$1[redacted]')
+    .replace(/\b[a-fA-F0-9]{32,40}(\W{0,4}(?:_key|_token|_secret|api_key|access_token))/gi, '[redacted]$1');
 }
+
+/** The ceiling on an accepted enum or id. A Stripe status is one of three words and a registration id is under thirty
+ *  characters; nothing legitimate comes near this. */
+const TAX_ENUM_MAX = 60;
 
 /**
  * A Stripe ENUM or ID — a settings status, a registration id, a registration type. These are not free text and are no
@@ -2481,19 +2537,37 @@ function taxRedact(env, value) {
  * "does this look like a secret" but "is this one of the three". A round-2 probe read a planted key back out of
  * settings.status; an allow-list is what makes the NEXT unanticipated shape an `[unexpected]` instead of a leak.
  * Redacted first, so a value that happens to equal a configured secret cannot be enum-shaped on its way through.
+ *
+ * AND THE ACCEPTED VALUE IS CAPPED, which round 5 dropped when it replaced taxSafe here: `^[a-z_]+$` is satisfied by a
+ * 50,000-character lowercase status, so an allow-list with no length was a strictly larger write than the taxSafe it
+ * replaced — the whole of it persisted into D1 and mirrored back out through /admin/tax/setup. Shape and size are two
+ * checks, and passing one is not passing the other.
  */
 function taxEnum(env, value) {
   const t = taxRedact(env, value == null ? '' : String(value));
-  return (/^[a-z_]+$/.test(t) || /^taxreg_[A-Za-z0-9]+$/.test(t)) ? t : '[unexpected]';
+  if (!(/^[a-z_]+$/.test(t) || /^taxreg_[A-Za-z0-9]+$/.test(t))) return '[unexpected]';
+  return t.length > TAX_ENUM_MAX ? t.slice(0, TAX_ENUM_MAX) + '…' : t;
 }
 
-/** Any Stripe-controlled string on the SUCCESS path — a settings status, a registration id, a registration type, a
- *  readiness reason, anything interpolated into a note. Redaction used to be the error path's job alone, and a round-2
- *  probe read a planted key back out of settings.status verbatim through /admin/tax/setup. Same scrubber, plus a length
- *  cap, because an id is short and anything long arriving in one of these fields is not an id. */
+/** Any Stripe-controlled string on the SUCCESS path that is genuinely FREE TEXT — a readiness reason, an outcome note,
+ *  anything interpolated into a sentence. Redaction used to be the error path's job alone, and a round-2 probe read a
+ *  planted key back out of settings.status verbatim through /admin/tax/setup. Same scrubber as the error path, plus a
+ *  length cap. The enum and id fields do NOT come through here: they go through taxEnum, which asks the stronger
+ *  question and caps as well. */
 function taxSafe(env, value, max = 120) {
   const t = taxRedact(env, value == null ? '' : String(value));
   return t.length > max ? t.slice(0, max) + '…' : t;
+}
+
+/** `active_from` on a registration is a TIMESTAMP — an ISO-8601 date-time or unix seconds — and it was going through
+ *  taxSafe, the free-text scrubber, which only removes the shapes the denylist knows. It is not free text, so it gets
+ *  the same treatment as the enums: checked against the two shapes it is allowed to be, replaced whole otherwise. */
+function taxDate(env, value) {
+  if (value == null || value === '') return 'unknown';
+  const t = taxRedact(env, String(value));
+  if (/^\d{9,10}$/.test(t)) return t;
+  if (/^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/.test(t)) return t;
+  return '[unexpected]';
 }
 
 /** Stripe's error, reduced to the four fields worth reporting and scrubbed. The raw object is never mirrored: whoever
@@ -2520,6 +2594,48 @@ async function taxStateGet(env, key) {
   } catch (e) {
     console.error('[Tax] state read failed (' + key + '):', e.message);
     return null;
+  }
+}
+
+/** The heartbeat, and ONLY the heartbeat: window_start is stamped, the count column (the fallback streak) is left
+ *  alone unless something succeeded. taxStatePut would write both, which is why this exists — a run finishing must not
+ *  silently zero a streak that is still running, and a run that read the account must not leave a stale one standing. */
+async function taxRunStamp(env, note, measured) {
+  if (!env || !env.DB) return false;
+  try {
+    await ensureRateSchema(env);
+    await env.DB.prepare('INSERT INTO rate_limits (key, window_start, count) VALUES (?, ?, 0) ON CONFLICT(key) DO UPDATE SET window_start = excluded.window_start'
+      + (measured ? ', count = 0' : ''))
+      .bind(TAX_RUN_KEY, new Date().toISOString() + '|' + note).run();
+    return true;
+  } catch (e) {
+    console.error('[Tax] heartbeat write failed:', e.message);
+    return false;
+  }
+}
+
+/** +1 on the streak, and nothing else — the heartbeat's timestamp is NOT touched, because a customer's refused Session
+ *  is not evidence that the setup loop ran. The row is created only if the loop has never run at all, and the
+ *  measurement this same refusal enqueues re-stamps it a moment later with the real outcome. */
+async function taxFallbackBump(env) {
+  if (!env || !env.DB) return;
+  try {
+    await ensureRateSchema(env);
+    await env.DB.prepare('INSERT INTO rate_limits (key, window_start, count) VALUES (?, ?, 1) ON CONFLICT(key) DO UPDATE SET count = rate_limits.count + 1')
+      .bind(TAX_RUN_KEY, new Date().toISOString() + '|session_refused/fallback').run();
+  } catch (e) {
+    console.error('[Tax] fallback streak write failed:', e.message);
+  }
+}
+
+/** The fault ended: a tax-carrying Session was accepted. Conditional, so the ordinary taxed checkout writes nothing. */
+async function taxFallbackReset(env) {
+  if (!env || !env.DB) return;
+  try {
+    await ensureRateSchema(env);
+    await env.DB.prepare('UPDATE rate_limits SET count = 0 WHERE key = ? AND count <> 0').bind(TAX_RUN_KEY).run();
+  } catch (e) {
+    console.error('[Tax] fallback streak reset failed:', e.message);
   }
 }
 
@@ -2590,17 +2706,30 @@ const isTexasAnyType = (r) => !!(r && r.country === 'US' && r.country_options &&
  * `measured` separates the two kinds of no: an account read successfully and found not collecting (trusted for the full
  * TTL) from an account that could not be read at all (cached for TAX_RETRY_TTL_MS only, so recovery is a minute away
  * rather than ten, and a hung or rate-limited Stripe still cannot be re-asked per request).
+ *
+ * AND `res.ok` IS NOT THE WHOLE OF "READ SUCCESSFULLY". Round 5 defined a failed measurement as `!res.ok`, so a 200
+ * whose body says nothing this function can decide on — `{}`, a proxy's `<html>502 Bad Gateway</html>`, a registrations
+ * list with no `data` array — counted as a MEASURED not-ready. That overwrote the row that said ready, took the whole
+ * 24-hour grace with it, and sold the next order untaxed with no grace at all. A measurement is measured only when the
+ * FIELDS IT DECIDES ON are present and well-typed; anything else is silence wearing a 200, and silence is not evidence.
+ *
+ * `has_more` is the same rule applied to the page rather than the body. The list is read one page deep, so a Texas row
+ * past the first hundred registrations was reported as a measured "no Texas registration" when the honest answer is
+ * that this function did not look. Unmeasured, and the grace applies — a false negative here turns tax off.
  */
 async function measureTaxReady(env) {
   if (!env || !env.STRIPE_SECRET_KEY) return { ready: false, reason: 'no_stripe_key', measured: false };
   const settings = await stripeCall(env, '/tax/settings');
   if (!settings.ok) return { ready: false, reason: settings.timeout ? 'timeout' : 'settings_read_failed', measured: false };
+  if (typeof (settings.data && settings.data.status) !== 'string') return { ready: false, reason: 'settings_unparseable', measured: false, parse_error: !!settings.parse_error };
   if (settings.data.status !== 'active') return { ready: false, reason: 'settings_status:' + taxEnum(env, settings.data.status || 'unknown'), measured: true };
   const list = await stripeCall(env, '/tax/registrations?status=active&limit=100');
   if (!list.ok) return { ready: false, reason: list.timeout ? 'timeout' : 'registrations_read_failed', measured: false };
-  const rows = (list.data && Array.isArray(list.data.data)) ? list.data.data : [];
+  if (!Array.isArray(list.data && list.data.data)) return { ready: false, reason: 'registrations_unparseable', measured: false, parse_error: !!list.parse_error };
+  const rows = list.data.data;
   const tx = rows.find((r) => isTexasSalesTax(r) && r.status === 'active');
   if (tx) return { ready: true, reason: 'active', measured: true };
+  if (list.data.has_more === true) return { ready: false, reason: 'registrations_paged', measured: false };
   return { ready: false, reason: rows.some(isTexasAnyType) ? 'tx_registration_wrong_type' : 'no_active_tx_state_sales_tax', measured: true };
 }
 
@@ -2648,8 +2777,10 @@ async function taxTick(env, trigger) {
  * A FAILED MEASUREMENT IS NOT A MEASUREMENT, AND IT NEVER OVERWRITES A ROW THAT SAID READY INSIDE THE GRACE. Round 4
  * shipped the 24-hour grace and then let the five-minute tick destroy it on the first bad tick: a Stripe 5xx or a timeout wrote
  * TAX_UNMEASURED over the ready row, taxReadyCached grants the grace only to a TAX_READY_YES row, and so tax came off
- * within seconds of an outage rather than after a day of it. Measured: an hour of 500s → 12 orders, 11 untaxed; one bad
- * tick → 3 of 6 buyers untaxed over 70 seconds. A completed Session cannot be re-taxed afterwards.
+ * within seconds of an outage rather than after a day of it. Measured by reverting the fix against this repo's suite:
+ * an hour of 500s → 12 orders, 10 untaxed; one bad tick → 6 of 6 buyers untaxed over 70 seconds. (Those two numbers
+ * read 11 of 12 and 3 of 6 until round 6; they were the round-4 reviewer's, carried forward rather than measured here.)
+ * A completed Session cannot be re-taxed afterwards.
  *
  * So silence and failure leave the row alone and are recorded in the heartbeat and the log instead. A MEASURED
  * not-ready still overwrites, immediately: Stripe answered and said the account is not collecting, and that is
@@ -2662,8 +2793,8 @@ async function taxMeasure(env) {
     const row = await taxStateGet(env, TAX_READY_KEY);
     const age = row ? Date.now() - row.at : 0;
     if (row && row.n === TAX_READY_YES && age < TAX_READY_GRACE_MS) {
-      await taxStatePut(env, TAX_RUN_KEY, 'measure_failed/' + taxSafe(env, m.reason, 40), 0);
-      console.log(JSON.stringify({ tax_measure: 'failed', reason: taxSafe(env, m.reason, 40), kept: 'last_known_ready', age_seconds: Math.round(age / 1000) }));
+      await taxRunStamp(env, 'measure_failed/' + taxSafe(env, m.reason, 40), false);
+      console.log(JSON.stringify({ tax_measure: 'failed', reason: taxSafe(env, m.reason, 40), parse_error: !!m.parse_error, kept: 'last_known_ready', age_seconds: Math.round(age / 1000) }));
       return { ready: false, reason: m.reason, measured: false, kept_ready: true, cached: true, fresh: false, age_ms: age };
     }
   }
@@ -2714,7 +2845,7 @@ async function taxRun(env, write) {
   if (registration && registration.status === 'active') {
     notes.push('registration: US/TX state_sales_tax already active (' + taxEnum(env, registration.id) + '); not created. ' + found.length + ' registration(s) read, none other touched.');
   } else if (registration) {
-    notes.push('registration: US/TX state_sales_tax exists but is SCHEDULED (' + taxEnum(env, registration.id) + ', active_from ' + taxSafe(env, registration.active_from || 'unknown', 40) + ') — registered, NOT collecting yet. No second one is created: a duplicate registration is not undoable.');
+    notes.push('registration: US/TX state_sales_tax exists but is SCHEDULED (' + taxEnum(env, registration.id) + ', active_from ' + taxDate(env, registration.active_from) + ') — registered, NOT collecting yet. No second one is created: a duplicate registration is not undoable.');
   } else if (!write) {
     notes.push('registration: WOULD create US/TX state_sales_tax active from now — report only, nothing written. ' + found.length + ' existing registration(s) read.');
   } else {
@@ -2739,7 +2870,8 @@ async function taxRun(env, write) {
   // Every Stripe-controlled string in the report goes out through taxEnum: they are enums and ids, so they are checked
   // AGAINST THE SHAPES THEY ARE ALLOWED TO BE rather than scrubbed of the shapes a denylist happens to know. The
   // round-2 probe that read a planted key back out of settings.status is why they are not trusted to stay enums.
-  // active_from is a timestamp, not an enum, so it keeps the free-text scrubber.
+  // active_from is a timestamp, so it gets taxDate — the same allow-list question asked of the two shapes a timestamp
+  // is allowed to be. It used to get taxSafe, the free-text scrubber, which is the wrong tool for a field with a shape.
   return {
     ok: true,
     settings: { status: read.data.status ? taxEnum(env, read.data.status) : null, head_office_set: !!(read.data.head_office && read.data.head_office.address && read.data.head_office.address.line1) },
@@ -2811,7 +2943,7 @@ async function ensureTaxSetup(env, opts = {}) {
       // one this must not WRITE to — a blind write is how a stuck account got 6.6 Stripe calls per checkout in round 2.
       const seen = await taxMeasure(env);
       if (seen.ready || !seen.measured) {
-        await taxStatePut(env, TAX_RUN_KEY, trigger + '/' + (seen.ready ? 'ready' : seen.reason), seen.ready ? 1 : 0);
+        await taxRunStamp(env, trigger + '/' + (seen.ready ? 'ready' : seen.reason), !!seen.measured);
         console.log(JSON.stringify({ tax_setup: seen.ready ? 'ready' : seen.reason, trigger, ready: seen.ready, measured: seen.measured }));
         return { ok: true, dry: false, background: true, measured_only: true, ready: seen, notes: [] };
       }
@@ -2825,7 +2957,8 @@ async function ensureTaxSetup(env, opts = {}) {
     await holdTaxWindow(env);
   }
   const outcome = res.ok ? (res.registration.created_now ? 'created' : 'ok') : ('error:' + res.step);
-  await taxStatePut(env, TAX_RUN_KEY, trigger + '/' + outcome, res.ok ? 1 : 0);
+  // res.ok means every read in the run answered, which is the successful measurement that clears the streak.
+  await taxRunStamp(env, trigger + '/' + outcome, res.ok);
   // The account just changed: re-measure rather than serving a cache written before the write.
   const m = await taxMeasure(env).catch(() => ({ ready: false, reason: 'measure_failed', measured: false, cached: false, fresh: false, age_ms: 0 }));
   console.log(JSON.stringify({ tax_setup: outcome, trigger, ready: m.ready, reason: m.reason }));
@@ -2840,6 +2973,11 @@ async function ensureTaxSetup(env, opts = {}) {
  * grace, and whether a re-measurement is overdue — built from taxReadyCached rather than from the measurement this
  * request happens to have made, because a field that can only ever say `age_seconds: 0` reports nothing. `last_run` is
  * the heartbeat: a loop that quietly stopped shows up as a stale stamp instead of as tax silently not being collected.
+ *
+ * `tax_fallback_streak` is the double fault, and it is the one number here that can be nonzero while every other field
+ * on this page looks healthy: tax_ready true, a fresh cache, a recent heartbeat, and every order for the last day sold
+ * untaxed because Stripe refused each tax-carrying Session and the retry quietly completed the sale without tax. Three
+ * in a row is already a day's worth on a slow week, so that is where the note appears.
  */
 async function handleTaxSetup(request, env, cors, url) {
   const dry = request.method === 'GET' || url.searchParams.get('dry') === '1';
@@ -2852,6 +2990,11 @@ async function handleTaxSetup(request, env, cors, url) {
   const state = res.ready || cache;
   const run = await taxStateGet(env, TAX_RUN_KEY);
   const runAge = run ? Date.now() - run.at : null;
+  const streak = run && run.n > 0 ? run.n : 0;
+  const notes = [...(res.notes || [])];
+  if (streak >= TAX_FALLBACK_LOUD) {
+    notes.push('tax_fallback_streak is ' + streak + ': Stripe has refused ' + streak + ' consecutive Checkout Sessions that carried automatic_tax, and each one completed WITHOUT tax on the retry. The readiness row still says ready because the tax endpoints are not answering either — that is the double fault, and it sells untaxed for the whole 24-hour grace. Read last_run for what the measurement is failing on.');
+  }
   return json({
     dry,
     settings: res.settings,
@@ -2861,9 +3004,10 @@ async function handleTaxSetup(request, env, cors, url) {
     tax_ready_cache: { cached: !!cache.cached, measured_at: cache.measured_at, age_seconds: Math.round((cache.age_ms || 0) / 1000),
       ttl_seconds: Math.round((cache.ttl_ms || TAX_READY_TTL_MS) / 1000), grace_seconds: Math.round(TAX_READY_GRACE_MS / 1000), stale: !!cache.stale },
     last_run: run ? { at: new Date(run.at).toISOString(), outcome: taxSafe(env, run.note, 60), age_hours: Math.round(runAge / 36000) / 100, stale: runAge > TAX_RUN_STALE_MS } : null,
+    tax_fallback_streak: streak,
     read_only: !!res.read_only,
     locked_out: !!res.locked_out,
-    notes: res.notes,
+    notes,
   }, 200, cors);
 }
 

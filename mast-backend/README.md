@@ -249,6 +249,26 @@ held every checkout open behind it. Now:
   so a stale one still taxes the order while the loop catches up. **A measured
   not-ready, a measurement that could not be made, or nothing measured inside a
   day → tax off**, byte-identical body, one `tax_skipped` line naming which.
+* **A 200 is not automatically an answer.** A measurement is *measured* only when
+  the fields it decides on are **present and well-typed**: `settings.status` a
+  string, `registrations.data` an array. Round 5 defined a failed measurement as
+  `!res.ok`, so a 200 carrying `{}`, a proxy's `<html>502 Bad Gateway</html>`, or a
+  registrations list with no `data` array counted as a **measured not-ready** — it
+  overwrote the row that said ready, took the whole 24-hour grace with it, and sold
+  the next order untaxed with **no grace at all**. Those three now read
+  `settings_unparseable` / `registrations_unparseable`, take the same
+  keep-the-ready-row path as a 5xx, and the log line carries `parse_error` so an
+  empty body and an unparseable one are distinguishable rather than both printing
+  as `{}`. Reverting it against the suite sells **4 of 6** orders untaxed per shape
+  (measured, not estimated: `taxed=2 untaxed=4` for each of the three).
+* **`has_more` means this function did not look.** The readiness read is one page
+  deep (`?status=active&limit=100`). A Texas registration past the first hundred
+  read as a measured *"no Texas registration"*, which turns tax off. It is
+  `registrations_paged` and **unmeasured** now, so the grace applies. **The residual,
+  stated: an account with more than 100 active registrations is not measured by this
+  path** — it is no longer measured *wrongly*, which is the difference between a
+  false negative that stops collection and an honest gap the grace covers. Paging
+  the list is the fix if that account ever exists; it does not today.
 * **A measurement that FAILS does not drop a row that said ready.** Only a measured
   *no* — Stripe answered and said the account is not collecting — or 24 hours of
   silence turns tax off. A Stripe 5xx, a timeout or an unreachable network leaves
@@ -321,6 +341,24 @@ afterwards. The same write de-taxed everyone on a *customer-scoped* code such as
 the refusal now buys exactly one thing beyond the retry: a real measurement,
 enqueued behind the response with `ctx.waitUntil`, that takes the `tax:lock` row
 and **asks Stripe**. No inference from a string ever flips the gate.
+
+**The double fault, counted — `tax_fallback_streak`.** There is one state where
+every rule above is working exactly as written and the business still loses the
+tax: the tax endpoints are unreadable (so the grace correctly holds the readiness
+row at *ready*) **and** Stripe is refusing every Session that carries
+`automatic_tax`. Each order then pays for two Session creates, each one completes
+on the tax-off retry, nothing 5xxs, nothing alerts — and every sale for the whole
+24-hour grace goes out untaxed while the report keeps printing `tax_ready: true`.
+So the consecutive refusals are counted, in the `count` column of the `tax:last_run`
+row, and surfaced as **`tax_fallback_streak`** in the report and in the smoke
+workflow's summary, with a warning line at **three in a row**.
+
+It is **only a counter**. Nothing gates on it and nothing is suppressed by it — a
+number an anonymous request can raise must never decide whether the next buyer is
+taxed, which is exactly the round-4 de-tax write that was removed, and it is not
+coming back as a threshold. A test pins the readiness row byte-for-byte across all
+six refusals. It resets on either half of the fault ending: a tax-carrying Session
+Stripe **accepts**, or a measurement Stripe **answers**.
 
 **Every Stripe call in the tax path is on a clock** (`STRIPE_TAX_TIMEOUT_MS`,
 default 4 s, **clamped to 500 ms – 15 s**). A timeout is not a measurement: it is
@@ -474,6 +512,30 @@ curl -sS -X POST https://api.stripe.com/v1/products/<product_id> \
 ```
 
 The product id is on the Price: `GET /v1/prices?lookup_keys[]=mast_<plan_key>`.
+
+**The one premise still unmeasured — `isStripeRefusal`, and the script that
+answers it.** The tax-off retry fires only on an HTTP **400 or 402** carrying a
+Stripe error object. If a genuine tax refusal ever comes back with another status,
+that checkout answers the customer **502** instead of completing untaxed — the
+narrowing fails toward a broken checkout, not toward an untaxed one. **This premise
+is UNVERIFIABLE FROM HERE**: `api.stripe.com` answers `CONNECT tunnel failed,
+response 403` through the build container, so it has never been observed. It is not
+being widened on a guess. The residual, as it must be run:
+
+<!-- verbatim, on one line on purpose: this is the residual as written, and a wrapped copy is not the same string. -->
+> Before the first live Checkout with automatic_tax, run one Session against the Stripe TEST account with Tax inactive and record the HTTP status and whether an error object is present; if it is not 400/402, widen isStripeRefusal to the observed status. Runs on the Mac (has egress): node mast-backend/scripts/probe-tax-refusal.mjs
+
+```
+STRIPE_SECRET_KEY=<the Stripe TEST key> node mast-backend/scripts/probe-tax-refusal.mjs
+```
+
+The script reads the key **from the environment only** — no file, no default, no
+literal — refuses to run on anything but a test key, posts one Checkout Session
+with `automatic_tax[enabled]=true` and a customer with no address, and prints the
+status with `error.type` / `code` / `param` (never the message, which is free text
+Stripe may quote a request body into). **It exits non-zero on anything but 400/402**,
+so the answer is a measurement rather than a reading: exit 0 means the Worker is
+correct as written, exit 1 names the status to widen `isStripeRefusal` to.
 
 **Watch item on the first live membership join.** `/create-membership` sends
 `billing_address_collection=auto` and this change did not alter it, because

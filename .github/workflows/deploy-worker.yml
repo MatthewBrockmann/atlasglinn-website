@@ -142,7 +142,7 @@ jobs:
             fi
           done
       # Stripe Tax, REPORTED — not gated. The Worker is tax-self-sufficient: it sends automatic_tax only on an account it
-      # has MEASURED as collecting (taxReady, src/worker.js), and when it finds one that is not, it runs the idempotent
+      # has MEASURED as collecting (taxReadyCached, src/worker.js), and when it finds one that is not, it runs the idempotent
       # setup itself — from its daily cron, and from the first checkout that notices. So this step no longer decides
       # whether a tax-enabled deploy is safe; the Worker does, on every single request, which is the only place that can.
       #

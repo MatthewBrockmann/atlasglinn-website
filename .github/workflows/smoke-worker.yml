@@ -219,18 +219,29 @@ jobs:
               print('   collecting: YES — the last measurement found Stripe Tax active with an active US/TX state_sales_tax registration')
           else:
               print('   collecting: NO (%s) — the Worker retries this itself: the 5-minute trigger, the daily cron, and the next checkout that finds the measurement due' % scrub(d.get('tax_ready_reason')))
-          # The cache IS the gate. measured_at and age say whether the 5-minute trigger is still firing; stale says a
-          # re-measurement is due; grace says how long a measurement that said READY keeps orders taxed while nothing
+          # The cache IS the gate. grace says how long a measurement that said READY keeps orders taxed while nothing
           # re-measures. Round 3's field could only ever print age 0 / cached false, so none of this was visible.
+          # cache.stale says a RE-MEASUREMENT is overdue and nothing more: a Stripe outage leaves it true while the
+          # trigger fires on time every five minutes and correctly declines to overwrite a good row. The trigger's own
+          # liveness is last_run below — reading a dead loop out of this line is reading the wrong measurement.
           print('   tax_ready=%s  measured_at=%s  age=%ss  TTL=%ss  grace=%ss  stale=%s%s' % (
               d.get('tax_ready'), cache.get('measured_at'), cache.get('age_seconds'), cache.get('ttl_seconds'),
-              cache.get('grace_seconds'), cache.get('stale'), '  ** the 5-minute trigger is overdue **' if cache.get('stale') else ''))
+              cache.get('grace_seconds'), cache.get('stale'), '  ** a re-measurement is overdue **' if cache.get('stale') else ''))
           if cache.get('cached') is not True:
               print('   no measurement is cached at all — nothing has run since the last D1 reset, or D1 is not bound. Checkout sells untaxed until one does.')
           # Wired is not firing: a setup loop that quietly stopped shows up here as a stale stamp, instead of as tax that
           # silently is not being collected.
           if run: print('   last setup run: %s  outcome=%s  age=%sh%s' % (run.get('at'), scrub(run.get('outcome')), run.get('age_hours'), '  ** STALE (>25h) **' if run.get('stale') else ''))
           else:   print('   last setup run: none recorded — no setup has run since the last D1 reset, or D1 is not bound')
+          # THE DOUBLE FAULT, and the one number here that can be loud while every other field on this page looks
+          # healthy: tax endpoints unreadable (so the grace holds tax_ready at true) AND Stripe refusing every
+          # tax-carrying Session. Each order completes — on the tax-off retry — so nothing 5xxs, nothing alerts, and
+          # the sales go out untaxed for the whole 24-hour grace. Reset by a tax-carrying Session Stripe accepts, or
+          # by a measurement it answers.
+          streak = d.get('tax_fallback_streak') or 0
+          print('   tax_fallback_streak=%s' % streak)
+          if streak >= 3:
+              print('   ** WARNING: %s consecutive tax-carrying Checkout Sessions were REFUSED by Stripe and completed WITHOUT tax on the retry. Orders are being sold untaxed right now. Read last_run for what the measurement is failing on. **' % streak)
           for n in d.get('notes') or []: print('   ' + scrub(n))
           print('   the account itself (settings, registration) is read by POST /admin/tax/setup, which deploy-worker.yml runs after each deploy — this report reads D1 only.')
           PY
