@@ -16,7 +16,14 @@
 # It also holds down the privacy rule that decides whether this workflow is safe to run at all: the repository is
 # PUBLIC (measured 2026-09-09: the GitHub API answers "private": false) and an Actions log on a public repo is
 # world-readable, so a DNS record's content must never be printed. Every record the emulator serves carries a canary
-# value; the last case greps every byte the whole run produced — logs and step summaries — for all of them.
+# value; the last case greps every byte the whole run produced — logs, step summaries AND step outputs — for all of
+# them, across every case, failing ones included, and it fails if a case ran that the sweep did not reach.
+#
+# THE SWEEP USED TO BE BLIND TO ONE CHANNEL. It only ever saw values the emulator served as record CONTENT, and every
+# error body it returned carried fixed text — so it could not tell an enforced "no value in an error" rule from an
+# unenforced one, and the workflow echoed Cloudflare's errors[].message verbatim at three places. The emulator now
+# serves a canary INSIDE errors[].message in err_leak_token / err_leak_create / err_leak_tak, each of which drives one
+# of those three points on a FAILING path, so the sweep covers the error limb of the claim and not only the table.
 #
 # The step gating is emulated, not guessed: the harness reads each step's `if:` out of the YAML and refuses to run if
 # it meets a condition it does not know how to evaluate, so re-wiring a gate in the workflow cannot silently leave a
@@ -68,14 +75,36 @@ if grep -q '::warning::' "$WF"; then
 else
   ok "source/no-warnings: no ::warning:: anywhere (each risk exits 1 instead)"
 fi
-if grep -n 'api\.cloudflare\.com' "$WF" | grep -qv 'CF_API_BASE:-'; then
-  # every live use must come through the CF_API_BASE default; a bare hardcoded URL is untestable
-  if grep -n 'API=' "$WF" | grep -q 'API="\${CF_API_BASE:-https://api.cloudflare.com/client/v4}"'; then
-    HARD=$(grep -c 'curl .*https://api\.cloudflare\.com' "$WF" || true)
-    if [ "$HARD" = "0" ]; then ok "source/api-base: every call goes through \$CF_API_BASE"; else bad "source/api-base: $HARD curl(s) still hardcode api.cloudflare.com"; fi
-  else
-    bad "source/api-base: no CF_API_BASE default found"
-  fi
+# every live use must come through the CF_API_BASE default; a bare hardcoded URL is untestable. This assertion used to
+# sit INSIDE an `if` that only two prose comment lines satisfied — reword those comments and it emitted no verdict at
+# all and vanished. It is unconditional now: it always says PASS or FAIL.
+if grep -q 'API="\${CF_API_BASE:-https://api.cloudflare.com/client/v4}"' "$WF"; then
+  HARD=$(grep -c 'curl .*https://api\.cloudflare\.com' "$WF" || true)
+  if [ "$HARD" = "0" ]; then ok "source/api-base: every call goes through \$CF_API_BASE"; else bad "source/api-base: $HARD curl(s) still hardcode api.cloudflare.com"; fi
+else
+  bad "source/api-base: no CF_API_BASE default found"
+fi
+# the vendor's own error TEXT is never echoed — only its numeric codes. A `.get('message'` back in this file is the
+# regression that would put "an identical record already exists: A tak.<dom> -> <address>" into a public log.
+VMSG=$(grep -c "get('message'" "$WF" || true)
+if [ "$VMSG" = "0" ]; then
+  ok "source/no-vendor-text: no Cloudflare errors[].message string is echoed anywhere in the workflow"
+else
+  bad "source/no-vendor-text: $VMSG place(s) read errors[].message — vendor text can quote a record and this log is public"
+fi
+# the tak classifier speaks in codes that a crash cannot forge: an uncaught exception exits 1, and 1 must not mean
+# "already the expected address". Non-default codes plus a catch-all fatal are what make that true.
+if grep -q 'sys.exit(10 if not a else (11 if len(ok) == len(a) else 12))' "$WF" && grep -q 'takstate" != "10"' "$WF"; then
+  ok "source/tak-codes: the tak classifier uses non-default exit codes and anything unexpected is fatal"
+else
+  bad "source/tak-codes: the tak classifier is back on 0/1/2, or lost its catch-all — a crash would read as 'already correct'"
+fi
+# both website names are typed. `www` matching on name alone is the round-2 P1: a TXT satisfied it.
+if grep -q "www_any = \[r for r in recs if r.get('name') == 'www.' + dom\]" "$WF" && \
+   grep -q "www = \[r for r in www_any if r.get('type') in WEB_TYPES\]" "$WF"; then
+  ok "source/www-typed: the www gate filters on A/AAAA/CNAME, not on the name alone"
+else
+  bad "source/www-typed: the www gate no longer filters by record type — a TXT-only www would pass it"
 fi
 if grep -qE '^\s*\[ -[nz] .*\] &&' "$WF"; then
   bad "source/no-and-lists: a '[ -n x ] && ...' AND-list is back — set -e does not fail on the left of &&"
@@ -110,8 +139,10 @@ cond_ok() {   # $1 = the step's `if:` expression, verbatim out of the YAML
 }
 last_out() { sed -n "s/^$1=//p" "$CASE/gh_output" 2>/dev/null | tail -1; }
 
+RUNS=""      # every case name run_job has driven; the privacy sweep asserts it reached all of them
 run_job() {   # $1 = case name, $2 = emulator scenario. Reads MODE/ADD_MISSING/ALLOW_OTHER_MX/DOMAIN/TOKENS from env.
   CASE="$WORK/$1"; SCN="$2"
+  RUNS="$RUNS $1"
   mkdir -p "$CASE/state"
   : > "$CASE/out"; : > "$CASE/gh_output"; : > "$CASE/summary"
   JOB_RC=0; TRACE=""
@@ -220,6 +251,24 @@ must   no_www "www.atlasglinn.com has no record"
 mustnot no_www "$VERIFIED"
 mustnot no_www "$NS_BLOCK"
 
+# ── 8b. a www record EXISTS and it is a TXT: it cannot serve a website, so it must fail like an absent one ──────────
+# The gate asked "is there a record called www". A TXT answered yes, the run printed the nameservers, and www would
+# have stopped resolving on the switch — one record type away from case 8, and no case reached it.
+reset_inputs; MODE=create
+run_job www_txt_only www_txt_only
+expect www_txt_only fail
+must   www_txt_only "a TXT at www is a record and it is not a website"
+mustnot www_txt_only "$VERIFIED"
+mustnot www_txt_only "$NS_BLOCK"
+
+# ── 8c. the same shape at the apex: TXT and MX at the apex, no address record ───────────────────────────────────────
+reset_inputs; MODE=create
+run_job apex_txt_only apex_txt_only
+expect apex_txt_only fail
+must   apex_txt_only "a TXT or an MX at the apex is a record and it is not a website"
+mustnot apex_txt_only "$VERIFIED"
+mustnot apex_txt_only "$NS_BLOCK"
+
 # ── 9. MX present but not Microsoft 365, without the input ──────────────────────────────────────────────────────────
 reset_inputs; MODE=create
 run_job mx_other mx_other
@@ -234,6 +283,26 @@ expect mx_other_allowed pass
 must   mx_other_allowed "other route, accepted by input"
 must   mx_other_allowed "$NS_BLOCK"
 must   mx_other_allowed "they do NOT target Microsoft 365"
+
+# ── 10b. ONE M365 MX beside one stale registrar MX — the realistic GoDaddy leftover. ANY is not ALL: this cleared the
+# gate and then printed "the apex MX records were confirmed present AND targeting Microsoft 365", plural and false for
+# one of the two. It must fail without the input.
+reset_inputs; MODE=create
+run_job mx_mixed mx_mixed
+expect mx_mixed fail
+must   mx_mixed "1 of the 2 apex MX records"
+must   mx_mixed "and 1 do not"
+mustnot mx_mixed "$VERIFIED"
+mustnot mx_mixed "$NS_BLOCK"
+
+# ── 10c. the same mixed set, accepted on purpose — and the closing sentence must name the count it measured ─────────
+reset_inputs; MODE=create; ALLOW_OTHER_MX=true
+run_job mx_mixed_allowed mx_mixed
+expect mx_mixed_allowed pass
+must   mx_mixed_allowed "$NS_BLOCK"
+must   mx_mixed_allowed "1 of the 2 apex MX records target Microsoft 365 and 1 do NOT"
+must   mx_mixed_allowed "M365 on 1 of 2 rows, the other 1 accepted by input"
+mustnot mx_mixed_allowed "Mail keeps flowing throughout"
 
 # ── 11. a tak A record pointing somewhere else: never post a second one ─────────────────────────────────────────────
 reset_inputs; MODE=create; ADD_MISSING=true
@@ -293,20 +362,75 @@ expect no_nameservers fail
 must   no_nameservers "has not assigned nameservers"
 mustnot no_nameservers "$NS_BLOCK"
 
-# ── 18. THE PRIVACY GATE: no record content in any byte this run produced ───────────────────────────────────────────
+# ── 18. the create is refused because the zone already exists (Cloudflare 1061): reuse it, create nothing twice ─────
+# The emulator has shipped this scenario since round 2 and no case drove it, so the workflow's most tangled branch —
+# create fails, look up by name, reuse or report — was outside the CI gate that "all green" was speaking for.
+reset_inputs; MODE=create
+run_job create_refused create_refused
+expect create_refused pass
+must   create_refused "reusing it"
+must   create_refused "$NS_BLOCK"
+eqn    "create_refused: exactly one POST /zones" "$(statn create_refused post_zones)" 1
+
+# ── 19. Cloudflare assigned ONE nameserver: the GoDaddy form takes a pair, so print nothing ─────────────────────────
+reset_inputs; MODE=create
+run_job ns_single ns_single
+expect ns_single fail
+must   ns_single "the GoDaddy form takes exactly two"
+mustnot ns_single "$NS_BLOCK"
+mustnot ns_single "solo.ns.cloudflare.com"
+
+# ── 20-22. the three vendor-error-text paths, each on a FAILING run. Cloudflare's message quotes a record here; the
+# workflow must print its numeric code and nothing else. The canary sweep at the end is what actually catches a leak —
+# these cases exist to DRIVE those three paths so the sweep has something to look at.
+reset_inputs
+run_job err_leak_token err_leak_token
+expect err_leak_token fail
+must   err_leak_token "code(s) 6003"
+must   err_leak_token "deliberately not echoed"
+
+reset_inputs; MODE=create
+run_job err_leak_create err_leak_create
+expect err_leak_create fail
+must   err_leak_create "code(s) 1109"
+must   err_leak_create "message text is not echoed"
+
+reset_inputs; MODE=create; ADD_MISSING=true
+run_job err_leak_tak err_leak_tak
+expect err_leak_tak fail
+must   err_leak_tak "code(s) 81057"
+must   err_leak_tak "message text is not echoed"
+mustnot err_leak_tak "$NS_BLOCK"
+
+# ── 23. THE PRIVACY GATE: no record content in any byte this run produced ───────────────────────────────────────────
 # Every value the emulator serves is a canary. This log is public on this repo, and a record's content is the origin
 # address the WAF rule exists to hide.
+# The sweep is built from the list of cases run_job actually drove, not from a glob, and it asserts that the list and
+# the directories on disk are the same set — so a case cannot run and quietly sit outside the privacy gate. Failing
+# cases are in it by construction: err_leak_* and the txt-only and mixed-MX cases all exit non-zero.
+SWEPT=""
+for c in $RUNS; do
+  for f in out summary gh_output; do
+    [ -f "$WORK/$c/$f" ] && SWEPT="$SWEPT $WORK/$c/$f"
+  done
+done
+NRUNS=$(printf '%s\n' $RUNS | wc -l | tr -d ' ')
+NDIRS=$(find "$WORK" -mindepth 1 -maxdepth 1 -type d ! -name steps | wc -l | tr -d ' ')
+eqn "privacy: the sweep covers every case that ran" "$NRUNS" "$NDIRS"
+
 LEAK=0
 for canary in 203.0.113.77 origin-canary.example.net atlas-canary.mail.protection.outlook.com \
-              mx-canary.secureserver-example.net 'v=spf1' autodiscover-canary.outlook.com 198.51.100.9 canary-filler-; do
-  hits="$(grep -rlF -- "$canary" "$WORK"/*/out "$WORK"/*/summary 2>/dev/null | tr '\n' ' ')"
+              mx-canary.secureserver-example.net 'v=spf1' autodiscover-canary.outlook.com 198.51.100.9 \
+              canary-filler- www-txt-canary-verification-string apex-txt-canary-verification-string \
+              origin-canary-in-error.example.net; do
+  hits="$(grep -lF -- "$canary" $SWEPT 2>/dev/null | tr '\n' ' ')"
   if [ -n "$hits" ]; then bad "privacy: record content \"$canary\" reached the log in: $hits"; LEAK=1; fi
 done
-[ "$LEAK" = "0" ] && ok "privacy: no record content in any log or step summary across every case"
+[ "$LEAK" = "0" ] && ok "privacy: no record content in any log, step summary or step output across every case, failing ones included"
 
 # the tak address is the one address this workflow is allowed to name — it is a constant in the file, public DNS
 # today, and never a value read back from the API. Assert it as an expectation, not a leak.
-if grep -rqF -- '142.93.177.0' "$WORK"/*/out 2>/dev/null; then
+if grep -qF -- '142.93.177.0' $SWEPT 2>/dev/null; then
   bad "privacy: 142.93.177.0 was printed — it is public DNS, but this workflow prints no addresses at all"
 else
   ok "privacy: even the expected tak address is not printed"
@@ -314,7 +438,9 @@ fi
 
 echo
 echo "cases: $CASES   passed: $PASS   failed: $FAIL"
-MIN=60
+# Pinned to the EXACT count this file produces, not to a floor with slack in it. At MIN=60 against 78 actual
+# assertions, eighteen could be deleted or stop running and the harness still printed "all green".
+MIN=118
 if [ "$CASES" -lt "$MIN" ]; then
   echo "FAIL harness: only $CASES cases ran, fewer than the $MIN pinned here — the run stopped early or a block was dropped"
   DONE=1; exit 1

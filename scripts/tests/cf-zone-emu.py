@@ -34,7 +34,17 @@ CANARY_MX_OTHER = 'mx-canary.secureserver-example.net'
 CANARY_SPF = 'v=spf1 include:spf.protection.outlook.com -all'
 CANARY_AUTO = 'autodiscover-canary.outlook.com'
 CANARY_TAK_WRONG = '198.51.100.9'
-CANARIES = [CANARY_APEX, CANARY_WWW, CANARY_MX_M365, CANARY_MX_OTHER, CANARY_SPF, CANARY_AUTO, CANARY_TAK_WRONG]
+CANARY_WWW_TXT = 'www-txt-canary-verification-string'
+CANARY_APEX_TXT = 'apex-txt-canary-verification-string'
+# Cloudflare's own error strings quote the record they are about — "an identical record already exists: A tak.<dom>
+# → <address>" is a real shape. The canary sweep used to be blind to that whole channel, because every error body
+# served here carried only fixed text, so it could not tell an enforced privacy rule from an unenforced one. This
+# canary rides INSIDE errors[].message in the three scenarios below, on paths that FAIL.
+CANARY_IN_ERROR = 'origin-canary-in-error.example.net'
+CANARIES = [CANARY_APEX, CANARY_WWW, CANARY_MX_M365, CANARY_MX_OTHER, CANARY_SPF, CANARY_AUTO, CANARY_TAK_WRONG,
+            CANARY_WWW_TXT, CANARY_APEX_TXT, CANARY_IN_ERROR]
+ERR_CANARY_MSG = ('An identical record already exists: A tak.atlasglinn.com pointing at %s — delete it first'
+                  % CANARY_IN_ERROR)
 
 ZONE_ID = 'z0000000000000000000000000000001'
 ACCOUNT_ID = 'a0000000000000000000000000000001'
@@ -46,13 +56,23 @@ def rec(rtype, name, content, proxied=False, ttl=1, rid=None):
             'type': rtype, 'name': name, 'content': content, 'proxied': proxied, 'ttl': ttl}
 
 
-def base_records(dom, mx=CANARY_MX_M365, tak=TAK_IP, www=True):
-    out = [rec('A', dom, CANARY_APEX, proxied=True, ttl=1),
-           rec('MX', dom, mx, ttl=1),
+def base_records(dom, mx=CANARY_MX_M365, tak=TAK_IP, www=True, apex=True, extra_mx=None):
+    # www and apex take three values, not two: True = the CNAME/A that serves the website, False = the name is
+    # absent entirely, 'txt' = a record EXISTS at that name and it cannot serve a website. The third one is the
+    # case the gate used to pass: "is there a record called www" is not the same question as "can www serve".
+    out = [rec('MX', dom, mx, ttl=1),
            rec('TXT', dom, CANARY_SPF, ttl=1),
            rec('CNAME', 'autodiscover.' + dom, CANARY_AUTO, ttl=1)]
-    if www:
+    for extra in (extra_mx or []):
+        out.append(rec('MX', dom, extra, ttl=1))
+    if apex is True:
+        out.append(rec('A', dom, CANARY_APEX, proxied=True, ttl=1))
+    elif apex == 'txt':
+        out.append(rec('TXT', dom, CANARY_APEX_TXT, ttl=1))
+    if www is True:
         out.append(rec('CNAME', 'www.' + dom, CANARY_WWW, proxied=True, ttl=1))
+    elif www == 'txt':
+        out.append(rec('TXT', 'www.' + dom, CANARY_WWW_TXT, ttl=1))
     if tak:
         out.append(rec('A', 'tak.' + dom, tak, ttl=1))
     return out
@@ -72,7 +92,13 @@ SCENARIOS = {
     'create_refused':   {'create_code': 1061, 'exists_after_create': True},
     'growing':          {'growing': True},
     'no_www':           {'www': False},
+    # a record at www that is not a website: the gate asked "is there a record called www", and a TXT answered yes
+    'www_txt_only':     {'www': 'txt'},
+    # the same shape one name up: an apex carrying TXT and MX and no address record
+    'apex_txt_only':    {'apex': 'txt'},
     'mx_other':         {'mx': CANARY_MX_OTHER},
+    # the realistic GoDaddy-to-M365 leftover: the M365 MX plus one stale registrar MX on the same apex
+    'mx_mixed':         {'extra_mx': [CANARY_MX_OTHER]},
     'tak_mismatch':     {'tak': CANARY_TAK_WRONG},
     'tak_missing':      {'tak': None},
     # a second, untouched copy: the POST in the tak_missing case above is remembered by that scenario's state, so a
@@ -81,6 +107,12 @@ SCENARIOS = {
     'byname_500':       {'byname_code': 500},
     'truncated':        {'total_count': 99},
     'no_nameservers':   {'nameservers': []},
+    # Cloudflare assigned one name, and the GoDaddy form takes a pair
+    'ns_single':        {'nameservers': ['solo.ns.cloudflare.com']},
+    # the three error-body canary scenarios: each drives one of the workflow's three vendor-text echo points
+    'err_leak_token':   {'verify': 403, 'zones_probe': 403, 'err_canary': True},
+    'err_leak_create':  {'create_code': 1109, 'err_canary': True},
+    'err_leak_tak':     {'tak': None, 'post_record_code': 400, 'err_canary': True},
     # used by the domain-injection case, which must fail before a single request is made — so its counters must stay 0
     'injection':        {},
 }
@@ -146,7 +178,7 @@ class Handler(BaseHTTPRequestHandler):
             code = cfg.get('verify', 200)
             if code == 200:
                 return self._ok({'id': 'tok', 'status': cfg.get('verify_status', 'active')})
-            return self._err(code, 6003, 'Invalid request headers')
+            return self._err(code, 6003, ERR_CANARY_MSG if cfg.get('err_canary') else 'Invalid request headers')
 
         if path == '/accounts':
             return self._ok([{'id': ACCOUNT_ID, 'name': 'atlas'}], result_info={'total_count': 1})
@@ -156,7 +188,8 @@ class Handler(BaseHTTPRequestHandler):
             if name is None:                                   # the scope probe
                 code = cfg.get('zones_probe', 200)
                 if code != 200:
-                    return self._err(code, 9109, 'Unauthorized to access requested resource')
+                    return self._err(code, 9109,
+                                     ERR_CANARY_MSG if cfg.get('err_canary') else 'Unauthorized to access requested resource')
                 return self._ok([], result_info={'total_count': 0})
             code = cfg.get('byname_code', 200)                 # the lookup by name
             if code != 200:
@@ -197,7 +230,7 @@ class Handler(BaseHTTPRequestHandler):
             if code == 1061:
                 return self._err(400, 1061, 'The zone name is already taken by another account')
             if code:
-                return self._err(400, code, 'refused by scenario')
+                return self._err(400, code, ERR_CANARY_MSG if cfg.get('err_canary') else 'refused by scenario')
             with _LOCK:
                 st['created'] = True
             body = json.loads(raw) if raw else {}
@@ -207,6 +240,9 @@ class Handler(BaseHTTPRequestHandler):
             with _LOCK:
                 st['post_records'] += 1
                 st['added'].append(raw)
+            rcode = cfg.get('post_record_code')
+            if rcode:
+                return self._err(rcode, 81057, ERR_CANARY_MSG if cfg.get('err_canary') else 'refused by scenario')
             try:
                 body = json.loads(raw)
             except Exception:
@@ -229,7 +265,8 @@ class Handler(BaseHTTPRequestHandler):
             polls = st['polls']
         recs = base_records(dom, mx=cfg.get('mx', CANARY_MX_M365),
                             tak=cfg['tak'] if 'tak' in cfg else TAK_IP,
-                            www=cfg.get('www', True))
+                            www=cfg.get('www', True), apex=cfg.get('apex', True),
+                            extra_mx=cfg.get('extra_mx'))
         if cfg.get('growing'):
             # the import that never settles: three more filler records on every poll, with the gated three always
             # present so the ONLY reason this scenario can fail is instability at the deadline
