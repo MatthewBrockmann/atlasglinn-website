@@ -69,10 +69,26 @@ CANARY_OUT_OF_ZONE_OWNER = 'elsewhere.example.net'
 CANARY_APEX_CONFLICT = '203.0.113.55'
 # over the 2048-byte rdata ceiling the sweep refuses to put in a zone file
 CANARY_BIGRDATA = 'bigrdata-canary.example.net'
+# a zone whose contents cannot be enumerated by asking a candidate list: the parent SYNTHESISES this address for
+# every name nobody has a record for, so every probe answers, nothing ever answers NXDOMAIN, and the wildcard record
+# itself is revealed by no query except one for the literal owner `*`.
+CANARY_WILDCARD = '203.0.113.66'
+# the filler that pushes a zone past one page of 100. The row the first page does NOT reach is the conflicting apex
+# A, which is the whole point: the reconcile read it as absent and posted a second one beside it.
+CANARY_PAGEFILL = 'pagefill-canary.example.net'
+# an IPv6 address in its EXPANDED spelling in the zone and its COMPRESSED spelling at the parent — one address, two
+# strings, and a text compare calls them a conflict and refuses a run where nothing is wrong
+CANARY_V6 = '2001:db8:beef::1'
+CANARY_V6_EXPANDED = '2001:0db8:beef:0000:0000:0000:0000:0001'
+# a name answering with a CNAME AND another type — illegal at any owner, and Cloudflare rejects the file part-way
+CANARY_CNAME_CLASH = 'clash-canary.example.net'
+CANARY_CNAME_CLASH_TXT = 'clash-txt-canary-verification-string'
 CANARIES = [CANARY_APEX, CANARY_WWW, CANARY_MX_M365, CANARY_MX_OTHER, CANARY_SPF, CANARY_AUTO, CANARY_TAK_WRONG,
             CANARY_WWW_TXT, CANARY_APEX_TXT, CANARY_IN_ERROR, CANARY_NS1, CANARY_NS2, CANARY_MAIL, CANARY_DKIM,
             CANARY_SRV_HOST, CANARY_CAA_HOST, CANARY_DELEG, CANARY_DMARC, CANARY_DS, CANARY_TXT_TAIL,
-            CANARY_OUT_OF_ZONE, CANARY_OUT_OF_ZONE_OWNER, CANARY_APEX_CONFLICT, CANARY_BIGRDATA]
+            CANARY_OUT_OF_ZONE, CANARY_OUT_OF_ZONE_OWNER, CANARY_APEX_CONFLICT, CANARY_BIGRDATA,
+            CANARY_WILDCARD, CANARY_PAGEFILL, CANARY_V6, CANARY_V6_EXPANDED, CANARY_CNAME_CLASH,
+            CANARY_CNAME_CLASH_TXT]
 ERR_CANARY_MSG = ('An identical record already exists: A tak.atlasglinn.com pointing at %s — delete it first'
                   % CANARY_IN_ERROR)
 
@@ -145,6 +161,13 @@ NO_MX_ANSWERS = dict(FULL_ANSWERS, **{'@': [r for r in FULL_ANSWERS['@'] if r[0]
 # an rdata past the 2048-byte ceiling the sweep refuses to write into a zone file, and a control character in the
 # same table: both must stop the run before anything is imported.
 BAD_RDATA_ANSWERS = dict(FULL_ANSWERS, **{'blog': [('TXT', 3600, '"%s%s"' % (CANARY_BIGRDATA, 'z' * 2100))]})
+# a name answering with a CNAME and a TXT. No server should serve it and plenty do — a name mid-migration keeping a
+# leftover verification TXT beside its new CNAME is the ordinary way. Cloudflare rejects the zone file for it and
+# rejects it part-way, so the sweep has to catch it before the file is written.
+CNAME_CLASH_ANSWERS = dict(FULL_ANSWERS, **{'blog': [('CNAME', 3600, CANARY_CNAME_CLASH + '.'),
+                                                     ('TXT', 3600, '"%s"' % CANARY_CNAME_CLASH_TXT)]})
+# one AAAA, on a label no other table uses so the record counts every other import case pins stay put
+V6_ANSWERS = dict(FULL_ANSWERS, **{'app': [('AAAA', 3600, CANARY_V6)]})
 
 
 TXT_STRINGS = re.compile(r'"((?:[^"\\]|\\.)*)"')
@@ -199,6 +222,36 @@ def conflicting_prefill():
         r = dict(r)
         if r['type'] == 'A' and r['name'] == DOM:
             r['content'] = CANARY_APEX_CONFLICT
+        out.append(r)
+    return out
+
+
+def paged_prefill(total=122, cap=100):
+    """A zone too big for one page, with the CONFLICTING apex A on the page the reconcile never reads.
+
+    Cloudflare serves per_page=100 as a PAGE and reports the zone's real size in result_info.total_count. Every
+    prefilled scenario before this one held fewer than 100 records, so the reconcile's single un-paged read was
+    always the whole zone and nothing could tell the difference between "not in the zone" and "not on page one".
+    122 records with the conflict at row 101 can: a reconcile reading one page sees no apex A at all, calls the
+    parent's apex A missing, and POSTs a second one beside the one it could not see.
+    """
+    base = conflicting_prefill()
+    clash = [r for r in base if r['type'] == 'A' and r['name'] == DOM]
+    rest = [r for r in base if r not in clash]
+    filler = [rec('TXT', 'pagefill%d.%s' % (i, DOM), '%s-%03d' % (CANARY_PAGEFILL, i), ttl=300)
+              for i in range(total - len(base))]
+    out = rest + filler
+    out.insert(cap, clash[0])
+    return out
+
+
+def v6_prefill():
+    """A zone holding the same AAAA the parent serves, written the other legal way round."""
+    out = []
+    for r in answers_to_records(V6_ANSWERS):
+        r = dict(r)
+        if r['type'] == 'AAAA':
+            r['content'] = CANARY_V6_EXPANDED
         out.append(r)
     return out
 
@@ -331,6 +384,22 @@ SCENARIOS = {
     # gates ask about is present — so a reconcile that treats a differing content as a missing record posts a SECOND
     # apex A, passes all four gates, prints the nameservers, and round-robins the website on the switch.
     'zone_conflicting':   {'exists': True, 'dig': FULL_ANSWERS, 'prefill': conflicting_prefill()},
+    # the same zone, one page bigger than the reconcile's single read. per_page=100 answers with a SLICE and reports
+    # the true size in result_info.total_count, and the conflicting apex A sits at row 101 — so a reconcile built on
+    # that one page sees no apex A, calls the parent's apex A missing, and posts a second one into a live zone.
+    'zone_paged':         {'exists': True, 'dig': FULL_ANSWERS, 'prefill': paged_prefill(), 'page_cap': 100},
+    # the zone holds everything except the two-character-string DKIM TXT: exactly one record is posted one at a time,
+    # and its content must be the CONCATENATION of both strings
+    'zone_prefilled_txt': {'exists': True, 'dig': FULL_ANSWERS,
+                           'prefill': answers_to_records(FULL_ANSWERS, skip=(('selector2._domainkey', 'TXT'),))},
+    # the zone holds the AAAA the parent serves, spelled out in full. One address, two strings: a text compare calls
+    # it a conflict and refuses a run where nothing is wrong.
+    'zone_prefilled_v6':  {'exists': True, 'dig': V6_ANSWERS, 'prefill': v6_prefill()},
+    # a wildcard at the parent: every name answers, nothing answers NXDOMAIN, and no query but one for the literal
+    # `*` owner reveals the record. A candidate list cannot enumerate this zone and must not pretend it did.
+    'wildcard':           {'exists': True, 'empty': True, 'dig': FULL_ANSWERS, 'wildcard': CANARY_WILDCARD},
+    # a name answering with a CNAME AND a TXT: illegal at any owner, and Cloudflare rejects the file part-way
+    'dig_cname_clash':    {'exists': True, 'empty': True, 'dig': CNAME_CLASH_ANSWERS},
     # an rdata past the 2048-byte ceiling: the sweep must refuse before writing a zone file
     'dig_bad_rdata':      {'exists': True, 'empty': True, 'dig': BAD_RDATA_ANSWERS},
     # import dispatched at a domain that is NOT in the account: import never creates a zone
@@ -431,8 +500,18 @@ class Handler(BaseHTTPRequestHandler):
         if m:
             dom = cfg.get('domain', 'atlasglinn.com')
             recs = self._records(scn, cfg, dom)
-            total = cfg.get('total_count', len(recs))
-            return self._ok(recs, result_info={'total_count': total, 'page': 1, 'per_page': 100})
+            total = len(recs)
+            tc = cfg.get('total_count')
+            # A zone that REPORTS more records than the page it served. In import mode the pre-import read of an
+            # empty zone is a genuine zero — what those scenarios model is a truncated read AFTER the import — so
+            # the inflation starts once the import has landed, which is where the original 100-cap check lives.
+            if tc is not None and (not cfg.get('empty') or st['import_calls'] > 0):
+                total = tc
+            cap = cfg.get('page_cap')
+            if cap is not None and len(recs) > cap:
+                # what Cloudflare does at per_page=100: serve one page, report the zone's real size beside it
+                recs = recs[:cap]
+            return self._ok(recs, result_info={'total_count': total, 'page': 1, 'per_page': cap or 100})
 
         return self._send(404, {'success': False, 'errors': [{'message': 'no route ' + path}]})
 
@@ -589,8 +668,20 @@ class Handler(BaseHTTPRequestHandler):
                 lab = name[:-(len(dom) + 1)]
             else:
                 return answer('NXDOMAIN', aa=True)
+            wc = cfg.get('wildcard')
             if lab not in table:
+                if wc:
+                    # A WILDCARD IS SYNTHESISED INTO THE ANSWER. The row that comes back is owned by the name that
+                    # was ASKED FOR, never by `*`, and the name EXISTS for every type — so a query for a type the
+                    # wildcard does not carry answers NOERROR with no data rather than NXDOMAIN. That is the shape
+                    # that quietly turns the sweep's name-level NXDOMAIN shortcut off and still looks green.
+                    rows = [{'name': name + '.', 'ttl': 3600, 'type': 'A', 'rdata': wc}] if qtype == 'A' else []
+                    return answer('NOERROR', rows, aa=True)
                 return answer('NXDOMAIN', aa=True)
+            if lab == '*' and wc and qtype == 'A':
+                # asking for the literal owner is the ONE query that reveals a wildcard, which is why the sweep's
+                # candidate list carries '*'
+                return answer('NOERROR', [{'name': '*.' + dom + '.', 'ttl': 3600, 'type': 'A', 'rdata': wc}], aa=True)
             return answer('NOERROR', [{'name': (r[3] if len(r) > 3 else name + '.'), 'ttl': r[1],
                                        'type': r[0], 'rdata': r[2]}
                                       for r in table[lab] if r[0] == qtype], aa=True)

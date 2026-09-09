@@ -65,6 +65,21 @@
 # serves a DIFFERENT value there, the reconcile REFUSES rather than posting a second row beside it. Two addresses on
 # one name round-robin, and roughly half the traffic goes to the stale origin — intermittently, which is the shape
 # that gets diagnosed late. MX, SRV and CAA are refused on the name alone for the same reason.
+# AN ABSENCE CLAIM NEEDS A COMPLETE READ BEHIND IT, NOT JUST A SUCCESSFUL ONE (round 3). The reconcile decides what
+# is missing from ONE GET of per_page=100 — and that is a PAGE, not a zone. Past 100 records Cloudflare serves a
+# slice and reports the real size in result_info.total_count, so every record on page two read as absent and got a
+# duplicate posted beside it, on the only step here that writes. Measured: a zone of 122 with a conflicting apex A
+# at row 101 took a second apex A, and the run then failed one step later with a sentence about a truncated read
+# that never mentioned the record it had just created. The count is compared BEFORE the reconcile now, and a zone
+# too big for one page stops the run rather than being reconciled against a slice of itself.
+# AND A CANDIDATE LIST CANNOT ENUMERATE A WILDCARD ZONE (round 3). A server under `*.<zone>` SYNTHESISES an answer
+# owned by whatever name was asked, so it answers for every name, reveals the wildcard for none of them, and never
+# returns NXDOMAIN. The sweep came back long and complete-looking, all four gates passed and the nameservers
+# printed, while every name the wildcard covered went dark on the switch — and the operator note above the paste
+# block inverted, telling him to compare row counts when the run listed 77 rows against GoDaddy's handful. So the
+# sweep asks for one name that cannot exist before it asks for anything else, and refuses the whole run on any
+# answer but NXDOMAIN. `*` is also in the candidate list, for the wildcard the probe cannot see: one carrying a
+# type other than A leaves the probe reading NXDOMAIN while the record itself is still there to be copied.
 #
 # NOT RUN AGAINST CLOUDFLARE: the cloud sandbox has no route to api.cloudflare.com (egress 000). The first green
 # dispatch is the proof — and a workflow_dispatch workflow is not registered until it is on the default branch
@@ -380,6 +395,13 @@ jobs:
         if: steps.zone.outputs.proceed == 'true' && inputs.mode == 'import'
         run: |
           set -eu
+          # THIS IS THE FIRST STEP IN IMPORT MODE THAT RUNS dig, so this is where dig has to be. The install lived in
+          # the sweep below until the DS measurement moved ahead of it, which left the first dig of the run upstream
+          # of the only apt-get in the job. And an apt-get that FAILS is worse than one that is missing: every query
+          # afterwards raises, every probe lands in the "unanswered" list, and the run refuses 75 times over with a
+          # partial-sweep sentence that says nothing about the real cause. Measured here, once, and fatal.
+          command -v dig >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq dnsutils >/dev/null 2>&1 || true; }
+          command -v dig >/dev/null || { echo "::error::dig is not on this runner and installing dnsutils did not put it there. import mode reads every record out of the domain's own authoritative nameservers with dig and can do nothing without it. NOTHING was imported, no record was posted and nothing at GoDaddy has changed. Re-dispatch; if it repeats, the runner image has changed and this job needs a different way to query DNS."; exit 1; }
           python3 - <<'PY'
           import os, re, subprocess, sys
           S = os.environ.get('CF_STATE_DIR', '/tmp/cf')
@@ -431,14 +453,19 @@ jobs:
           command -v dig >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq dnsutils >/dev/null; }
           dig -v 2>&1 | head -1 || true
           python3 - <<'PY'
-          import os, re, subprocess, sys, time
+          import os, random, re, subprocess, sys, time
 
           S   = os.environ.get('CF_STATE_DIR', '/tmp/cf')
           dom = open(S + '/domain').read().strip()
           budget    = int(os.environ.get('CF_SWEEP_BUDGET_S') or '300')
           resolvers = (os.environ.get('CF_DNS_RESOLVERS') or '1.1.1.1 8.8.8.8').split()
           TYPES = ('A', 'AAAA', 'CNAME', 'MX', 'TXT', 'SRV', 'CAA', 'NS')
-          LABELS = ['@','www','mail','smtp','imap','pop','pop3','webmail','email','ftp','cpanel','autodiscover',
+          # '*' is a NAME, and it is the one name an authoritative server never volunteers: a wildcard is
+          # SYNTHESISED into an answer owned by whatever was asked for, so sweeping the 74 labels below can
+          # never reveal it. Asking for the literal owner is the only way it reaches the zone file. The probe
+          # further down is the other half — it catches the wildcard that this query cannot, because a
+          # wildcard of any type stops the parent from ever answering NXDOMAIN.
+          LABELS = ['@','*','www','mail','smtp','imap','pop','pop3','webmail','email','ftp','cpanel','autodiscover',
                     'autoconfig','_dmarc','_domainkey','selector1._domainkey','selector2._domainkey',
                     'enterpriseenrollment','enterpriseregistration','lyncdiscover','sip','msoid','_sip._tls',
                     '_sipfederationtls._tcp','_acme-challenge','_domainconnect','tak','api','app','dev','staging',
@@ -490,7 +517,7 @@ jobs:
           def dig(server, name, qtype, norec):
               if time.time() - started > budget:
                   raise Budget()
-              a = ['dig', '+time=5', '+tries=1', '+nocmd', '+noall', '+comments', '+answer']
+              a = ['dig', '+time=5', '+tries=2', '+nocmd', '+noall', '+comments', '+answer']
               if norec:
                   a.append('+norecurse')
               a += ['@' + server, name, qtype]
@@ -514,18 +541,35 @@ jobs:
                   return None, []
               return status, ans
 
-          servers, alive, found = [], [], {}
+          servers, alive, found, strikes = [], [], {}, {}
 
 
           def ask(name, qtype):
+              # ONE LOST UDP PACKET IS NOT A DEAD SERVER, and this sweep makes ~600 queries over a live domain. A
+              # server used to leave the rotation permanently on its first timeout, so a single dropped datagram
+              # early in the run put the whole sweep on one nameserver for the remaining 599 — and if that one then
+              # blinked, every probe after it landed in the unanswered list and the run refused. So: two strikes
+              # before a server is rested, and a rested server is asked again before any probe is called unanswered.
               for s in list(alive):
                   st, ans = dig(s, name, qtype, True)
                   if st is not None:
+                      strikes[s] = 0
                       return st, ans
-                  if s in alive and len(alive) > 1:
+                  strikes[s] = strikes.get(s, 0) + 1
+                  if strikes[s] >= 2 and s in alive and len(alive) > 1:
                       alive.remove(s)
                       print('%d of the %d authoritative nameservers did not answer — the sweep used another'
                             % (len(servers) - len(alive), len(servers)))
+              for s in servers:
+                  if s in alive:
+                      continue
+                  st, ans = dig(s, name, qtype, True)
+                  if st is not None:
+                      alive.append(s)
+                      strikes[s] = 0
+                      print('a rested authoritative nameserver answered again — the sweep put it back, %d of %d in use'
+                            % (len(alive), len(servers)))
+                      return st, ans
               unanswered.append((name, qtype))
               return None, []
 
@@ -544,7 +588,37 @@ jobs:
               print('authoritative nameservers at the parent: %d' % len(servers))
               alive[:] = servers
 
-              # 2. the sweep
+              # 2. IS THIS ZONE ENUMERABLE AT ALL? A wildcard breaks the one assumption a candidate list rests on.
+              # An authoritative server under a wildcard SYNTHESISES an answer owned by whatever name was asked, so
+              # it answers for every name and reveals the wildcard for none of them — and it never answers NXDOMAIN,
+              # which also degenerates the name-level shortcut below into asking all 8 types for all 75 labels. The
+              # result is a run that sweeps a long, complete-looking list, imports it, passes all four gates and
+              # prints the nameservers, while every name the wildcard was covering goes dark on the switch. Nothing
+              # downstream can see that: the gates ask about the apex, www, MX and tak, and all four are present.
+              # So ask for a name that CANNOT exist. NXDOMAIN is the only answer this run will proceed on.
+              probe = 'cfzoneprobe-%012x' % random.getrandbits(48)
+              pst, pans = ask(probe + '.' + dom, 'A')
+              if pst is not None and pst != 'NXDOMAIN':
+                  print('::error::A name that cannot exist answered %s (with %d answer row(s)) at the authoritative '
+                        'servers for %s, so this domain either publishes a WILDCARD or never answers NXDOMAIN — and '
+                        'either way its contents CANNOT be enumerated by asking a candidate list of names. Every '
+                        'name would answer, the swept list would look long and complete, all four gates would pass '
+                        'and the nameservers would print, while every name the wildcard covers went dark on the '
+                        'switch. Import this zone from GoDaddy\'s own zone export instead: GoDaddy -> Domains -> %s '
+                        '-> DNS -> Export (a BIND file of the whole zone, which is the only complete answer), then '
+                        'import that file in the Cloudflare dashboard (DNS -> Records -> Import and Export). NOTHING '
+                        'was imported by this run, no record was posted, nothing was deleted and nothing at GoDaddy '
+                        'has changed. The probe name and the answer are not printed — this log is public.'
+                        % (pst, len(pans), dom, dom))
+                  sys.exit(1)
+              # An unanswered probe is NOT given its own verdict here: ask() has already put it in `unanswered`,
+              # and an unanswered probe is fatal below with the sentence that names the whole partial sweep. A
+              # second exit for the same fact would only make the first failure of a dead-parent run read as a
+              # wildcard problem.
+              if pst == 'NXDOMAIN':
+                  print('the parent answers NXDOMAIN for a name that cannot exist — no wildcard in the way of the sweep')
+
+              # 3. the sweep
               for lab in LABELS:
                   qn = dom if lab == '@' else lab + '.' + dom
                   st, ans = ask(qn, TYPES[0])
@@ -564,7 +638,7 @@ jobs:
               print('::error::The sweep is incomplete: %d candidate name/type probe(s) got no answer from any authoritative nameserver. NOTHING was imported. A zone file missing the half that did not answer would import clean and take those names dark on the switch. Re-dispatch.' % len(unanswered))
               sys.exit(1)
 
-          # 3. filter. Out-of-zone owners, the apex NS set (that IS the delegation — Cloudflare assigns its own),
+          # 4. filter. Out-of-zone owners, the apex NS set (that IS the delegation — Cloudflare assigns its own),
           #    unrequested types and anything with a control character are dropped.
           keep = {}
           for (o, ty, rd), ttl in found.items():
@@ -582,8 +656,19 @@ jobs:
           if len(keep) > 500:
               print('::error::The sweep collected %d records, which is past the 500 this run will import in one go. NOTHING was imported.' % len(keep))
               sys.exit(1)
+          # A CNAME CANNOT SHARE AN OWNER WITH ANY OTHER TYPE (RFC 1034 3.6.2), and this sweep asks eight types at
+          # every name, so it is perfectly capable of collecting a pair that no server should have served — a name
+          # mid-migration carrying a CNAME beside a leftover TXT is the ordinary way it happens. Cloudflare rejects
+          # the file for it, and rejects it PART-WAY: the records before the clash are created, which leaves a
+          # half-imported zone the next dispatch would reconcile against. So it is caught here, before the file is
+          # written, and the sentence names the owner and the types rather than the reason Cloudflare will give.
+          cn = {o for (o, ty, rd) in keep if ty == 'CNAME'} & {o for (o, ty, rd) in keep if ty != 'CNAME'}
+          if cn:
+              rows = sorted({(o, ty) for (o, ty, rd) in keep if o in cn})
+              print('::error::%d name(s) answered with a CNAME AND another record type: %s. A CNAME cannot share a name with any other type, Cloudflare refuses a zone file that does, and it refuses it part-way — the records before the clash are created and the zone is left half imported. NOTHING was imported by this run. Fix it at GoDaddy -> Domains -> %s -> DNS (a name is a CNAME or it is everything else, not both), then dispatch import again. The values are not printed — this log is public.' % (len(cn), ', '.join('%s %s' % (o, t) for o, t in rows), dom))
+              sys.exit(1)
 
-          # 4. the BIND file. Never echoed, never cat'd — it is the one artefact in this job that holds record values.
+          # 5. the BIND file. Never echoed, never cat'd — it is the one artefact in this job that holds record values.
           lines = ['$ORIGIN %s.' % dom, '$TTL 300']
           for key in sorted(keep):
               o, ty, rd = key
@@ -626,7 +711,25 @@ jobs:
             echo "::error::Reading the zone's current records answered HTTP $ecode, so this run cannot tell whether it is importing into an empty zone or a full one — and it will not guess, because guessing empty is how a duplicate MX gets created. Nothing was imported. Re-dispatch."
             exit 1
           fi
-          have=$(python3 -c "import json,os;d=json.load(open(os.environ.get('CF_STATE_DIR','/tmp/cf')+'/existing.json'));print(len([r for r in (d.get('result') or []) if isinstance(r,dict)]))")
+          # THE READ EVERY GUARD BELOW IS BUILT FROM, AND IT IS ONE PAGE. per_page=100 is a page, not the zone:
+          # Cloudflare reports the real size in result_info.total_count, and a zone past 100 records answers with a
+          # SLICE. Every limb of the reconcile — the exact dedupe, the name+type dedupe, and therefore the conflict
+          # and blocked lists — reads ABSENCE out of this one file, so a truncated read turns "not in the first 100"
+          # into "not in the zone" and posts a duplicate beside every record on page two. That is the exact harm the
+          # conflict limb was added to refuse, on the only step in this file that WRITES. The Wait step has carried
+          # this same check since round 1, and it runs 150 lines too late to stop a POST. Fail closed, here, first.
+          python3 - <<'PY'
+          import json, os, sys
+          S = os.environ.get('CF_STATE_DIR', '/tmp/cf')
+          d = json.load(open(S + '/existing.json', encoding='utf-8', errors='replace'))
+          rows = [r for r in (d.get('result') or []) if isinstance(r, dict)]
+          total = (d.get('result_info') or {}).get('total_count')
+          if isinstance(total, int) and total > len(rows):
+              print('::error::The zone holds %d record(s) and this run read the first %d, so it cannot tell what the zone already holds. Every comparison this step makes reads absence out of that one page: a record on the page it never read would be treated as MISSING and a duplicate posted beside it — two addresses on one name round-robin, and a second MX splits the mail. NOTHING was imported, no record was posted and nothing was deleted. This needs a paged read before import can run against a zone this size; until then, reconcile it in the Cloudflare dashboard. The record names are not printed — this log is public.' % (total, len(rows)))
+              sys.exit(1)
+          open(S + '/have', 'w').write(str(len(rows)))
+          PY
+          have=$(cat "$STATE/have")
           if [ "$have" = "0" ]; then
             code=$(curl -sS -m 120 -o "$STATE/import_out.json" -w '%{http_code}' -X POST -H "Authorization: Bearer $CF_TOKEN" -F "file=@$STATE/zone.txt" -F "proxied=false" "$API/zones/$zid/dns_records/import" || echo ERR)
             echo "HTTP $code  POST /zones/<id>/dns_records/import  (multipart, proxied=false)"
@@ -640,7 +743,7 @@ jobs:
             rm -rf "$STATE/missing"
             mkdir -p "$STATE/missing"
             python3 - "$dom" <<'PY'
-          import json, os, re, sys
+          import ipaddress, json, os, re, sys
           S = os.environ.get('CF_STATE_DIR', '/tmp/cf')
           dom = sys.argv[1]
           cur = [r for r in (json.load(open(S + '/existing.json')).get('result') or []) if isinstance(r, dict)]
@@ -673,8 +776,20 @@ jobs:
               return ''.join(x.replace('\\"', '"').replace('\\\\', '\\') for x in parts)
 
           def norm(t, c):
-              c = txt_value(c) if t == 'TXT' else (c or '')
-              return c.strip().rstrip('.').lower()
+              # AN IPv6 ADDRESS HAS MANY SPELLINGS AND ONE VALUE. 2001:db8:0:0:0:0:0:1 and 2001:db8::1 are the same
+              # address, and Cloudflare stores what it was given — so a text compare between what the zone holds and
+              # what the parent serves calls them different, and the conflict limb above then REFUSES a run where
+              # nothing is wrong. Compare A and AAAA as addresses; fall back to the text compare for anything
+              # ipaddress will not parse, because a value this run does not understand must not silently match.
+              if t == 'TXT':
+                  return txt_value(c).strip().rstrip('.').lower()
+              c = (c or '').strip()
+              if t in ('A', 'AAAA'):
+                  try:
+                      return ipaddress.ip_address(c).compressed
+                  except ValueError:
+                      pass
+              return c.rstrip('.').lower()
 
           have_exact, have_nt = set(), set()
           for r in cur:
@@ -707,7 +822,7 @@ jobs:
                   body = {'type': ty, 'name': owner, 'content': txt_value(rd) if ty == 'TXT' else rd.rstrip('.'), 'ttl': ttl, 'proxied': False}
               want.append((owner, ty, body))
           if conflict:
-              print('::error::%d name(s) already hold a record of this type with a different value: %s. This run will NOT post a second one beside it — two address records on one name round-robin, and roughly half the traffic goes to whichever host is stale, intermittently. Resolve it in the Cloudflare dashboard: decide which value is right, delete the other, then dispatch import again — it re-reads what the zone holds and only adds what is still missing. Nothing was added by this run and nothing was deleted. The values are not printed — this log is public.' % (len(conflict), ', '.join('%s %s' % (o, t) for o, t in conflict)))
+              print('::error::%d name(s) already hold a record of this type with a different value: %s. This run will NOT post a second one beside it — two address records on one name round-robin, and roughly half the traffic goes to whichever host is stale, intermittently. Resolve it in the Cloudflare dashboard: decide which value is right, delete the other, then dispatch import again — it re-reads what the zone holds and only adds what is still missing. Nothing was added by this run and nothing was deleted. The values are not printed — this log is public. One legitimate shape lands here too: a name GoDaddy deliberately serves TWO addresses for (a round-robin) reaches this limb on the second one, because this run cannot tell a deliberate pair from a stale leftover and will not guess with the website or the mail. The answer is the same — settle it in the dashboard, or delete the partial set and import into an empty zone, where the BIND file carries both rows at once.' % (len(conflict), ', '.join('%s %s' % (o, t) for o, t in conflict)))
               sys.exit(1)
           if blocked:
               print('::error::%d record(s) this run swept are missing from the zone and are a type it will not create one at a time: %s. The JSON shape Cloudflare wants for SRV and CAA was never read from a live response, and a guessed one either fails or writes the wrong thing. Delete the partial record set in the Cloudflare dashboard and dispatch import again into an empty zone (the BIND import handles these types), or add them by hand. Nothing was added by this run and nothing was deleted.' % (len(blocked), ', '.join('%s %s' % (o, t) for o, t in blocked)))

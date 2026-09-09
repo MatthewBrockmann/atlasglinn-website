@@ -189,6 +189,18 @@ if grep -qF "if norec:" "$WF" && grep -qF "a.append('+norecurse')" "$WF" && \
 else
   bad "source/norecurse: the sweep no longer asks the authoritative servers with +norecurse — it would read a cache"
 fi
+# THE dig INSTALL IS STRUCTURALLY UNREACHABLE FROM HERE — the harness puts its own dig on PATH, so `command -v dig`
+# always succeeds and no case has ever executed the apt-get limb or its failure. That is exactly why it needs a
+# source-level pin: it lived in the sweep until the DS step moved ahead of it, which left the first dig of the run
+# upstream of the only apt-get in the job, and an apt-get that FAILS silently leaves every probe unanswered and the
+# run refusing with a partial-sweep sentence that names the wrong cause.
+DIGF="$(grep -lF 'dig is not on this runner' "$STEPS"/step*.sh 2>/dev/null | head -1)"
+if [ -n "$DIGF" ] && [ "$DIGF" = "$(grep -lF 'DNSSEC is ON at GoDaddy' "$STEPS"/step*.sh 2>/dev/null | head -1)" ] \
+   && grep -qF 'exit 1; }' "$DIGF"; then
+  ok "source/dig-fatal: dig is installed in the first step that queries DNS, and its absence is fatal there"
+else
+  bad "source/dig-fatal: the dig install is not in the DS step, or its absence is no longer fatal — a runner without dig would refuse 75 probes instead of naming the cause"
+fi
 DSF="$(grep -lF 'DNSSEC is ON at GoDaddy' "$STEPS"/step*.sh 2>/dev/null | head -1)"
 if [ -n "$DSF" ] && grep -qF 'sys.exit(1)' "$DSF"; then
   ok "source/ds-fatal: a DS at the parent is fatal in the step that measures it"
@@ -519,6 +531,17 @@ must   full_import "compare its row count against the 13 name/type row(s) this r
 # It is read back out of the existing assert table, so it also proves import reaches that table at all.
 must   full_import "| A | tak.atlasglinn.com | False | 300 |"
 mustnot full_import "ns-canary-1.example.net"
+# THE WILDCARD PROBE, on the path where it finds nothing. A candidate list can only enumerate a zone whose parent
+# answers NXDOMAIN for names that do not exist; the probe is what establishes that, and it has to be seen firing on
+# the green run or its absence would only ever show up as a green run against a wildcard zone (case 37b).
+must   full_import "no wildcard in the way of the sweep"
+# and the literal `*` owner is QUERIED, not merely listed: a wildcard is synthesised into an answer owned by the name
+# that was asked for, so asking for `*` is the only query that can ever put the wildcard record into the zone file.
+if stats full_import | grep -Fq '*.atlasglinn.com|A'; then
+  ok "full_import: the literal '*' owner was asked for at the parent"
+else
+  bad "full_import: '*' never reached a dig query — the one name that can reveal a wildcard record is not in the candidate list"
+fi
 mustnot full_import "This was a **plan** run"
 eqn "full_import: exactly one zone-file import" "$(statn full_import import_calls)" 1
 eqn "full_import: no record posted one at a time" "$(statn full_import post_records)" 0
@@ -647,6 +670,58 @@ eqn    "zone_conflicting: nothing was deleted" "$(statn zone_conflicting deletes
 mustnot zone_conflicting "$VERIFIED"
 mustnot zone_conflicting "$NS_BLOCK"
 
+# ── 31d. THE PAGE. Everything the reconcile knows about the zone comes from ONE un-paged read of
+# per_page=100 — and per_page=100 is a PAGE, not a zone: Cloudflare serves a slice and reports the real size in
+# result_info.total_count. This zone holds 122 records with the CONFLICTING apex A at row 101, so a reconcile built
+# on page one cannot see an apex A at all, reads the parent's apex A as MISSING, and POSTs a second one beside the
+# one it never read — into a live zone, on the only step in this file that writes. The run did exit 1 before this
+# fix, but at the NEXT step, after the write, with a sentence about a truncated read that never mentioned the
+# duplicate it had just created. Every prefilled scenario before this one held fewer than 100 records, so the single
+# read was always the whole zone and nothing in 217 cases could tell absence from truncation.
+reset_inputs; MODE=import
+run_job zone_paged zone_paged
+expect zone_paged fail
+must   zone_paged "so it cannot tell what the zone already holds"
+eqn    "zone_paged: not one record was posted against a partial view" "$(statn zone_paged post_records)" 0
+eqn    "zone_paged: no zone-file import either" "$(statn zone_paged import_calls)" 0
+eqn    "zone_paged: nothing was deleted" "$(statn zone_paged deletes)" 0
+mustnot zone_paged "$VERIFIED"
+mustnot zone_paged "$NS_BLOCK"
+
+# ── 31e. the one missing record is the two-character-string DKIM TXT, and the reconcile posts it ONE AT A TIME —
+# a different code path from the BIND import, with its own body, and it had zero assertion coverage. The value that
+# body must carry is the CONCATENATION of both strings: the join is the fix round 2 shipped, and only the multipart
+# import path was ever asserted on it.
+reset_inputs; MODE=import
+run_job zone_prefilled_txt zone_prefilled_txt
+expect zone_prefilled_txt pass
+eqn    "zone_prefilled_txt: exactly the one missing TXT was posted" "$(statn zone_prefilled_txt post_records)" 1
+if [ -n "${EXPECT_TXT:-}" ] && stats zone_prefilled_txt | grep -Fq "$EXPECT_TXT"; then
+  ok "zone_prefilled_txt: the one-at-a-time POST carried the concatenation of both character-strings"
+else
+  bad "zone_prefilled_txt: the reconcile's POST body for the multi-string TXT is not the joined value — a long DKIM key would be added corrupted and would look correct in every name/type table this workflow prints"
+fi
+must   zone_prefilled_txt "$NS_BLOCK"
+
+# ── 31f. ONE ADDRESS, TWO SPELLINGS. The zone holds an AAAA written out in full and the parent serves the same
+# address compressed. Compared as text they differ, so the conflict limb added in round 2 refuses a run where
+# nothing is wrong — a false positive on a limb whose whole job is to stop the run.
+reset_inputs; MODE=import
+run_job zone_prefilled_v6 zone_prefilled_v6
+expect zone_prefilled_v6 pass
+eqn    "zone_prefilled_v6: the two spellings of one address are not a conflict and nothing was posted" "$(statn zone_prefilled_v6 post_records)" 0
+must   zone_prefilled_v6 "$NS_BLOCK"
+
+# ── 31g. a name answers with a CNAME and a TXT. A CNAME cannot share an owner with any other type; Cloudflare
+# rejects the zone file for it and rejects it PART-WAY, leaving the records before the clash created — a half
+# imported zone the next dispatch would then reconcile against.
+reset_inputs; MODE=import
+run_job dig_cname_clash dig_cname_clash
+expect dig_cname_clash fail
+must   dig_cname_clash "cannot share a name with any other type"
+eqn    "dig_cname_clash: nothing was imported" "$(statn dig_cname_clash import_calls)" 0
+eqn    "dig_cname_clash: no record was posted" "$(statn dig_cname_clash post_records)" 0
+
 # ── 31c. an authoritative server answers with an rdata past the 2048-byte ceiling. The sweep refuses to put it in a
 # zone file, and refuses before anything is imported — the value is never printed, only the name and the type.
 reset_inputs; MODE=import
@@ -717,6 +792,23 @@ else
   ok "import_repo_grep: the out-of-domain hostname in the same file was never queried"
 fi
 
+# ── 37b. A WILDCARD AT THE PARENT, and the run this fix stops used to be fully green. An authoritative server
+# under `*.<zone>` SYNTHESISES an answer owned by whatever name was asked, so it answers for every name, reveals the
+# wildcard for none of them, and never returns NXDOMAIN — which also turns the sweep's name-level shortcut off, so
+# all 8 types get asked for all 75 labels and the swept list comes back long and complete-looking. Measured before
+# the fix: the run reached the nameserver step, the zone file held 77 explicit A records, `grep -c '^\*'` on it
+# returned 0, and every name GoDaddy served outside the candidate list would have gone dark on the switch. The four
+# gates cannot see it — apex, www, MX and tak are all present — and the operator note above the paste block INVERTS
+# here, telling him to compare row counts when the run would list ~77 rows against GoDaddy's handful.
+reset_inputs; MODE=import
+run_job wildcard wildcard
+expect wildcard fail
+must   wildcard "CANNOT be enumerated by asking a candidate list of names"
+eqn    "wildcard: nothing was imported" "$(statn wildcard import_calls)" 0
+eqn    "wildcard: no record was posted" "$(statn wildcard post_records)" 0
+mustnot wildcard "$VERIFIED"
+mustnot wildcard "$NS_BLOCK"
+
 # ── 38. import dispatched at a domain that is NOT in the account. import never creates a zone: create is the step
 # that decides which account owns a domain, and this run will not guess.
 reset_inputs; MODE=import
@@ -750,7 +842,9 @@ for canary in 203.0.113.77 origin-canary.example.net atlas-canary.mail.protectio
               sipdir-canary.example.net caa-canary.example.net deleg-canary.example.net dmarc-canary@example.net \
               ds0canary0000000000000000000000000000000000000000000000000000cafe \
               dkim-second-string-canary.example.net 203.0.113.99 elsewhere.example.net 203.0.113.55 \
-              bigrdata-canary.example.net; do
+              bigrdata-canary.example.net 203.0.113.66 pagefill-canary.example.net 2001:db8:beef::1 \
+              2001:0db8:beef:0000:0000:0000:0000:0001 clash-canary.example.net \
+              clash-txt-canary-verification-string; do
   hits="$(grep -lF -- "$canary" $SWEPT 2>/dev/null | tr '\n' ' ')"
   if [ -n "$hits" ]; then bad "privacy: record content \"$canary\" reached the log in: $hits"; LEAK=1; fi
 done
@@ -770,8 +864,9 @@ echo "cases: $CASES   passed: $PASS   failed: $FAIL"
 # count, so a case could be added without a thought while a deletion was caught — both directions are a deliberate
 # edit now. At MIN=60 against 78 actual assertions, eighteen could be deleted or stop running and the harness still
 # printed "all green". Measured, never lowered: 118 before import mode, 200 with it, 217 with round 2's
-# conflict, out-of-zone, multi-string-TXT and +norecurse coverage.
-MIN=217
+# conflict, out-of-zone, multi-string-TXT and +norecurse coverage, and 244 with round 3's paged-read, wildcard,
+# one-at-a-time-TXT-body, IPv6-spelling and CNAME-clash coverage.
+MIN=244
 if [ "$CASES" != "$MIN" ]; then
   echo "FAIL harness: $CASES cases ran, not the $MIN pinned here — a block was dropped, the run stopped early, or a case was added without updating MIN"
   DONE=1; exit 1
