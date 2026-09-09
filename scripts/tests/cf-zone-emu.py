@@ -41,8 +41,21 @@ CANARY_APEX_TXT = 'apex-txt-canary-verification-string'
 # served here carried only fixed text, so it could not tell an enforced privacy rule from an unenforced one. This
 # canary rides INSIDE errors[].message in the three scenarios below, on paths that FAIL.
 CANARY_IN_ERROR = 'origin-canary-in-error.example.net'
+# The nine below belong to import mode, which reads the records out of the parent's own authoritative nameservers.
+# The parent's NAMESERVER NAMES are canaries too, deliberately: the sweep is required to print a count and never the
+# names, and that claim was unenforceable while every canary was a record's content.
+CANARY_NS1 = 'ns-canary-1.example.net'
+CANARY_NS2 = 'ns-canary-2.example.net'
+CANARY_MAIL = '203.0.113.88'
+CANARY_DKIM = 'dkim-canary.example.net'
+CANARY_SRV_HOST = 'sipdir-canary.example.net'
+CANARY_CAA_HOST = 'caa-canary.example.net'
+CANARY_DELEG = 'deleg-canary.example.net'
+CANARY_DMARC = 'dmarc-canary@example.net'
+CANARY_DS = 'ds0canary0000000000000000000000000000000000000000000000000000cafe'
 CANARIES = [CANARY_APEX, CANARY_WWW, CANARY_MX_M365, CANARY_MX_OTHER, CANARY_SPF, CANARY_AUTO, CANARY_TAK_WRONG,
-            CANARY_WWW_TXT, CANARY_APEX_TXT, CANARY_IN_ERROR]
+            CANARY_WWW_TXT, CANARY_APEX_TXT, CANARY_IN_ERROR, CANARY_NS1, CANARY_NS2, CANARY_MAIL, CANARY_DKIM,
+            CANARY_SRV_HOST, CANARY_CAA_HOST, CANARY_DELEG, CANARY_DMARC, CANARY_DS]
 ERR_CANARY_MSG = ('An identical record already exists: A tak.atlasglinn.com pointing at %s — delete it first'
                   % CANARY_IN_ERROR)
 
@@ -51,18 +64,21 @@ ACCOUNT_ID = 'a0000000000000000000000000000001'
 NAMESERVERS = ['amber.ns.cloudflare.com', 'kirk.ns.cloudflare.com']
 
 
-def rec(rtype, name, content, proxied=False, ttl=1, rid=None):
-    return {'id': rid or ('r%02d' % (abs(hash(name + rtype + content)) % 100)),
-            'type': rtype, 'name': name, 'content': content, 'proxied': proxied, 'ttl': ttl}
+def rec(rtype, name, content, proxied=False, ttl=1, rid=None, priority=None):
+    d = {'id': rid or ('r%02d' % (abs(hash(name + rtype + content)) % 100)),
+         'type': rtype, 'name': name, 'content': content, 'proxied': proxied, 'ttl': ttl}
+    if priority is not None:
+        d['priority'] = priority
+    return d
 
 
 def base_records(dom, mx=CANARY_MX_M365, tak=TAK_IP, www=True, apex=True, extra_mx=None):
     # www and apex take three values, not two: True = the CNAME/A that serves the website, False = the name is
     # absent entirely, 'txt' = a record EXISTS at that name and it cannot serve a website. The third one is the
     # case the gate used to pass: "is there a record called www" is not the same question as "can www serve".
-    out = [rec('MX', dom, mx, ttl=1),
-           rec('TXT', dom, CANARY_SPF, ttl=1),
-           rec('CNAME', 'autodiscover.' + dom, CANARY_AUTO, ttl=1)]
+    out = [rec('MX', dom, mx, ttl=1, priority=10)] if mx else []
+    out += [rec('TXT', dom, CANARY_SPF, ttl=1),
+            rec('CNAME', 'autodiscover.' + dom, CANARY_AUTO, ttl=1)]
     for extra in (extra_mx or []):
         out.append(rec('MX', dom, extra, ttl=1))
     if apex is True:
@@ -75,6 +91,118 @@ def base_records(dom, mx=CANARY_MX_M365, tak=TAK_IP, www=True, apex=True, extra_
         out.append(rec('TXT', 'www.' + dom, CANARY_WWW_TXT, ttl=1))
     if tak:
         out.append(rec('A', 'tak.' + dom, tak, ttl=1))
+    return out
+
+# ── what the parent's authoritative nameservers answer, per scenario ────────────────────────────────────────────────
+# import mode never asks a recursive resolver for a record — a recursor answers from a cache and the point is to copy
+# what the parent serves right now. It asks a public resolver exactly two questions (who is authoritative, and is
+# there a DS) and everything else goes to the authoritative servers with +norecurse. RESOLVERS is the set this
+# emulator will answer those two questions for; a record query aimed at one of them is counted and REFUSED, which is
+# what makes "the sweep never read a record from a cache" a counter rather than a claim.
+DOM = 'atlasglinn.com'
+RESOLVERS = {'1.1.1.1', '8.8.8.8', '9.9.9.9'}
+
+FULL_ANSWERS = {
+    '@':    [('A', 3600, CANARY_APEX), ('MX', 3600, '10 %s.' % CANARY_MX_M365), ('TXT', 3600, '"%s"' % CANARY_SPF),
+             ('CAA', 3600, '0 issue "%s"' % CANARY_CAA_HOST),
+             # the apex NS set IS the delegation. Cloudflare assigns its own, so the writer must drop these two.
+             ('NS', 3600, CANARY_NS1 + '.'), ('NS', 3600, CANARY_NS2 + '.')],
+    'www':  [('CNAME', 3600, CANARY_WWW + '.')],
+    'mail': [('A', 3600, CANARY_MAIL)],
+    'tak':  [('A', 60, TAK_IP)],                       # ttl 60 — the only proof the 300 floor is applied
+    'autodiscover': [('CNAME', 3600, CANARY_AUTO + '.')],
+    '_dmarc': [('TXT', 3600, '"v=DMARC1; p=none; rua=mailto:%s"' % CANARY_DMARC)],
+    'selector1._domainkey': [('CNAME', 3600, CANARY_DKIM + '.')],
+    '_sip._tls': [('SRV', 3600, '100 1 443 %s.' % CANARY_SRV_HOST)],
+    'ops':  [('NS', 3600, CANARY_DELEG + '.')],        # a real delegation below the apex: KEPT
+    'ftp':  [],                                        # NOERROR and no data — dropped, like an NXDOMAIN name
+}
+# 6 apex answers - 2 apex NS = 4, + www + mail + tak + autodiscover + _dmarc + selector1 + _sip._tls + ops = 12
+NO_MX_ANSWERS = dict(FULL_ANSWERS, **{'@': [r for r in FULL_ANSWERS['@'] if r[0] != 'MX']})
+
+
+def answers_to_records(table, dom=DOM, skip=()):
+    """The record set the workflow SHOULD end up with, shaped as Cloudflare rows — the prefill for a zone that has
+    already been imported once. Same three rules the workflow's own writer follows: apex NS dropped, TTLs floored at
+    300, MX split into priority + content."""
+    out = []
+    for lab in sorted(table):
+        owner = dom if lab == '@' else lab + '.' + dom
+        for (ty, ttl, rd) in table[lab]:
+            if (ty == 'NS' and lab == '@') or (lab, ty) in skip:
+                continue
+            ttl = max(300, ttl)
+            if ty == 'MX':
+                pri, tgt = rd.split(None, 1)
+                out.append(rec('MX', owner, tgt.rstrip('.'), ttl=ttl, priority=int(pri)))
+            elif ty == 'TXT':
+                out.append(rec('TXT', owner, rd.strip('"'), ttl=ttl))
+            else:
+                out.append(rec(ty, owner, rd.rstrip('.'), ttl=ttl))
+    return out
+
+
+BIND_TYPES = ('A', 'AAAA', 'CNAME', 'MX', 'TXT', 'SRV', 'CAA', 'NS')
+
+
+def parse_bind(text, dom=DOM, proxied=False):
+    """Cloudflare rows out of a BIND master file, parsed STRICTLY — every deviation raises.
+
+    This is the only thing in the suite that can tell whether the workflow's zone-file WRITER emits something
+    Cloudflare could parse. A lenient parser here would pass a writer that emits a broken file and the failure would
+    surface on the live dispatch, against the real zone, which is the one place it must not.
+
+    It does NOT reject an apex NS. Cloudflare's own importer's handling of that was never read from a live response,
+    and guessing it would put a guess in the middle of the assertion that the workflow drops those records itself —
+    the record COUNT is the detector for that, not this parser.
+    """
+    origin, out = None, []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith(';'):
+            continue
+        if line.startswith('$'):
+            p = line.split()
+            if len(p) != 2 or p[0] not in ('$ORIGIN', '$TTL'):
+                raise ValueError('unparseable directive')
+            if p[0] == '$ORIGIN':
+                origin = p[1].rstrip('.').lower()
+            elif not p[1].isdigit():
+                raise ValueError('$TTL is not a number')
+            continue
+        if origin != dom:
+            raise ValueError('records before a $ORIGIN for this zone')
+        p = line.split(None, 4)
+        if len(p) != 5:
+            raise ValueError('a record line needs owner, ttl, class, type and rdata')
+        owner, ttl, cls, ty, rd = p
+        if not owner.endswith('.'):
+            raise ValueError('owner is not fully qualified')
+        owner = owner.rstrip('.').lower()
+        if not (owner == dom or owner.endswith('.' + dom)):
+            raise ValueError('owner is outside the zone')
+        if not ttl.isdigit() or cls != 'IN':
+            raise ValueError('bad ttl or class')
+        ty = ty.upper()
+        if ty not in BIND_TYPES:
+            raise ValueError('unsupported type ' + ty)
+        ttl = int(ttl)
+        if ty == 'MX':
+            bits = rd.split(None, 1)
+            if len(bits) != 2 or not bits[0].isdigit():
+                raise ValueError('MX rdata is not "<priority> <target>"')
+            out.append(rec('MX', owner, bits[1].rstrip('.'), proxied=proxied, ttl=ttl, priority=int(bits[0])))
+        elif ty == 'TXT':
+            if not (rd.startswith('"') and rd.endswith('"') and len(rd) >= 2):
+                raise ValueError('TXT rdata is not quoted')
+            out.append(rec('TXT', owner, rd[1:-1].replace('\\"', '"').replace('\\\\', '\\'),
+                           proxied=proxied, ttl=ttl))
+        elif ty in ('CNAME', 'NS'):
+            out.append(rec(ty, owner, rd.rstrip('.'), proxied=proxied, ttl=ttl))
+        else:
+            # A/AAAA/SRV/CAA: stored verbatim. Cloudflare's JSON shape for SRV and CAA was never read from a live
+            # response, so nothing here pretends to know it.
+            out.append(rec(ty, owner, rd, proxied=proxied, ttl=ttl))
     return out
 
 
@@ -115,6 +243,32 @@ SCENARIOS = {
     'err_leak_tak':     {'tak': None, 'post_record_code': 400, 'err_canary': True},
     # used by the domain-injection case, which must fail before a single request is made — so its counters must stay 0
     'injection':        {},
+    # ── import mode. 'empty' is the measured truth for atlasglinn.com: the zone exists and jump_start imported
+    # nothing (records=0 MX=0 across 32 polls, runs 34382780038 / 34383841484), so the records have to be swept out
+    # of the parent and posted. 'dig' names the answer table those authoritative nameservers serve.
+    'full_import':        {'exists': True, 'empty': True, 'dig': FULL_ANSWERS},
+    # own state, because the repo-grep and budget cases must not inherit another case's counters
+    'full_import_repo':   {'exists': True, 'empty': True, 'dig': FULL_ANSWERS},
+    'full_import_budget': {'exists': True, 'empty': True, 'dig': FULL_ANSWERS},
+    'import_no_mx':       {'exists': True, 'empty': True, 'dig': NO_MX_ANSWERS},
+    'ds_present':         {'exists': True, 'empty': True, 'dig': FULL_ANSWERS, 'ds': [CANARY_DS]},
+    'ds_unknown':         {'exists': True, 'empty': True, 'dig': FULL_ANSWERS, 'ds_status': 'SERVFAIL'},
+    # the parent names no authoritative server: there is nothing to copy from
+    'dig_no_ns':          {'exists': True, 'empty': True, 'ns': [], 'dig': FULL_ANSWERS},
+    'dig_empty':          {'exists': True, 'empty': True, 'dig': {}},
+    'ns_failover':        {'exists': True, 'empty': True, 'dig': FULL_ANSWERS, 'dead': [CANARY_NS1]},
+    # both authoritative servers stop answering: a PARTIAL sweep, which must refuse rather than import half a zone
+    'dig_all_dead':       {'exists': True, 'empty': True, 'dig': FULL_ANSWERS, 'dead': [CANARY_NS1, CANARY_NS2]},
+    'import_truncated':   {'exists': True, 'empty': True, 'dig': FULL_ANSWERS, 'total_count': 99},
+    'import_4xx':         {'exists': True, 'empty': True, 'dig': FULL_ANSWERS, 'import_code': 400, 'err_canary': True},
+    # the zone already holds a previous import, minus www and tak: exactly two records are missing
+    'zone_prefilled':     {'exists': True, 'dig': FULL_ANSWERS,
+                           'prefill': answers_to_records(FULL_ANSWERS, skip=(('www', 'CNAME'), ('tak', 'A')))},
+    # the one missing record is an SRV, the type this run refuses to create one at a time
+    'zone_prefilled_srv': {'exists': True, 'dig': FULL_ANSWERS,
+                           'prefill': answers_to_records(FULL_ANSWERS, skip=(('_sip._tls', 'SRV'),))},
+    # import dispatched at a domain that is NOT in the account: import never creates a zone
+    'import_no_zone':     {},
 }
 
 _LOCK = threading.Lock()
@@ -124,7 +278,10 @@ _STATE = {}
 def state(scn):
     with _LOCK:
         return _STATE.setdefault(scn, {'reqs': 0, 'polls': 0, 'post_records': 0, 'post_zones': 0,
-                                       'created': False, 'added': [], 'last_create_body': ''})
+                                       'created': False, 'added': [], 'last_create_body': '',
+                                       'import_calls': 0, 'deletes': 0, 'puts': 0, 'parse_errors': 0,
+                                       'dig_queries': 0, 'dig_dead_queries': 0, 'dig_recursor_data_queries': 0,
+                                       'dig_names': [], 'imported': []})
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -173,6 +330,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == '/_stats':
             return self._send(200, st)
+
+        if path == '/_dig':
+            return self._dig(scn, cfg, st, q)
 
         if path == '/user/tokens/verify':
             code = cfg.get('verify', 200)
@@ -236,6 +396,31 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(raw) if raw else {}
             return self._ok(self._zone(cfg, body.get('name', 'atlasglinn.com')))
 
+        m = re.match(r'^/zones/([^/]+)/dns_records/import$', path)
+        if m:
+            with _LOCK:
+                st['import_calls'] += 1
+            code = cfg.get('import_code')
+            if code:
+                return self._err(code, 1004, ERR_CANARY_MSG if cfg.get('err_canary') else 'refused by scenario')
+            fields = self._multipart(raw)
+            if 'file' not in fields:
+                with _LOCK:
+                    st['parse_errors'] += 1
+                return self._err(400, 1004, 'no file part in the multipart body')
+            try:
+                recs = parse_bind(fields['file'], cfg.get('domain', DOM),
+                                  proxied=(fields.get('proxied', 'false').strip().lower() == 'true'))
+            except ValueError:
+                # STRICTNESS IS THE POINT. This parser is the only thing in the suite that proves the workflow's BIND
+                # writer emits a file Cloudflare could actually parse; a lenient one would pass a broken writer.
+                with _LOCK:
+                    st['parse_errors'] += 1
+                return self._err(400, 1004, 'the zone file did not parse')
+            with _LOCK:
+                st['imported'].extend(recs)
+            return self._ok({'recs_added': len(recs), 'total_records_parsed': len(recs)})
+
         if re.match(r'^/zones/([^/]+)/dns_records$', path):
             with _LOCK:
                 st['post_records'] += 1
@@ -252,6 +437,92 @@ class Handler(BaseHTTPRequestHandler):
 
         return self._send(404, {'success': False, 'errors': [{'message': 'no route ' + path}]})
 
+    def _multipart(self, raw):
+        # ~20 lines instead of the cgi module (gone in 3.13). curl sends one part per -F, each headed by a
+        # Content-Disposition carrying name="...", and every part body ends with the CRLF before the next boundary.
+        ctype = self.headers.get('Content-Type') or ''
+        b = re.search(r'boundary="?([^";]+)"?', ctype)
+        if not b:
+            return {}
+        fields = {}
+        for part in raw.split('--' + b.group(1)):
+            if '\r\n\r\n' not in part:
+                continue
+            head, body = part.split('\r\n\r\n', 1)
+            nm = re.search(r'name="([^"]+)"', head)
+            if not nm:
+                continue
+            fields[nm.group(1)] = body[:-2] if body.endswith('\r\n') else body
+        return fields
+
+    # Never-deletes and never-updates stop being a claim about the workflow's source and become a counter: no path
+    # in cf-zone-atlasglinn.yml may reach either of these, in any mode.
+    def do_DELETE(self):
+        return self._refuse('deletes')
+
+    def do_PUT(self):
+        return self._refuse('puts')
+
+    def _refuse(self, counter):
+        scn, path, q = self._route()
+        if scn is None or SCENARIOS.get(scn) is None:
+            return self._send(404, {'success': False, 'errors': [{'message': 'bad path'}]})
+        st = state(scn)
+        with _LOCK:
+            st['reqs'] += 1
+            st[counter] += 1
+        return self._err(405, 7003, 'this emulator serves no destructive method')
+
+    # ── the parent's DNS, as seen through scripts/tests/cf-zone-dig-stub.py ─────────────────────────────────────
+    def _dig(self, scn, cfg, st, q):
+        dom = cfg.get('domain', DOM)
+        server = (q.get('server') or [''])[0].rstrip('.').lower()
+        name = (q.get('name') or [''])[0].rstrip('.').lower()
+        qtype = (q.get('type') or [''])[0].upper()
+        with _LOCK:
+            st['dig_queries'] += 1
+            key = '%s|%s' % (name, qtype)
+            if key not in st['dig_names']:
+                st['dig_names'].append(key)
+                st['dig_names'].sort()
+        ns = [n.rstrip('.').lower() for n in cfg.get('ns', [CANARY_NS1, CANARY_NS2])]
+        dead = [n.rstrip('.').lower() for n in cfg.get('dead', [])]
+
+        def answer(status, rows=(), aa=False):
+            return self._send(200, {'status': status, 'aa': aa, 'answers': list(rows)})
+
+        if server in RESOLVERS:
+            # the two questions a recursor is allowed to answer, and nothing else
+            if qtype == 'NS':
+                return answer('NOERROR', [{'name': name + '.', 'ttl': 3600, 'type': 'NS', 'rdata': n + '.'}
+                                          for n in cfg.get('ns', [CANARY_NS1, CANARY_NS2])])
+            if qtype == 'DS':
+                return answer(cfg.get('ds_status', 'NOERROR'),
+                              [{'name': name + '.', 'ttl': 3600, 'type': 'DS', 'rdata': '2371 13 2 %s' % v}
+                               for v in cfg.get('ds', [])])
+            with _LOCK:
+                st['dig_recursor_data_queries'] += 1
+            return answer('REFUSED')
+        if server in dead:
+            with _LOCK:
+                st['dig_dead_queries'] += 1
+            return answer('TIMEOUT')
+        if server in ns:
+            table = cfg.get('dig')
+            if table is None:
+                return answer('REFUSED')
+            if name == dom:
+                lab = '@'
+            elif name.endswith('.' + dom):
+                lab = name[:-(len(dom) + 1)]
+            else:
+                return answer('NXDOMAIN', aa=True)
+            if lab not in table:
+                return answer('NXDOMAIN', aa=True)
+            return answer('NOERROR', [{'name': name + '.', 'ttl': ttl, 'type': ty, 'rdata': rd}
+                                      for (ty, ttl, rd) in table[lab] if ty == qtype], aa=True)
+        return answer('REFUSED')
+
     # ── canned data ─────────────────────────────────────────────────────────────────────────────────────────────
     def _zone(self, cfg, name):
         return {'id': ZONE_ID, 'name': name, 'status': 'pending',
@@ -263,10 +534,16 @@ class Handler(BaseHTTPRequestHandler):
         with _LOCK:
             st['polls'] += 1
             polls = st['polls']
-        recs = base_records(dom, mx=cfg.get('mx', CANARY_MX_M365),
-                            tak=cfg['tak'] if 'tak' in cfg else TAK_IP,
-                            www=cfg.get('www', True), apex=cfg.get('apex', True),
-                            extra_mx=cfg.get('extra_mx'))
+        if cfg.get('empty'):
+            recs = []                                  # the measured atlasglinn.com: the zone exists and holds nothing
+        elif cfg.get('prefill') is not None:
+            recs = [dict(r) for r in cfg['prefill']]   # a zone that has already been imported once
+        else:
+            recs = base_records(dom, mx=cfg.get('mx', CANARY_MX_M365),
+                                tak=cfg['tak'] if 'tak' in cfg else TAK_IP,
+                                www=cfg.get('www', True), apex=cfg.get('apex', True),
+                                extra_mx=cfg.get('extra_mx'))
+        recs += [dict(r) for r in st['imported']]
         if cfg.get('growing'):
             # the import that never settles: three more filler records on every poll, with the gated three always
             # present so the ONLY reason this scenario can fail is instability at the deadline

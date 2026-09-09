@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Harness for .github/workflows/cf-zone-atlasglinn.yml. It does not read the workflow and reason about it — it EXTRACTS
-# the seven `run:` blocks with PyYAML and executes those exact bytes against scripts/tests/cf-zone-emu.py, a canned
+# the ten `run:` blocks with PyYAML — and the one `uses:` step it deliberately does not run — and executes those exact bytes against scripts/tests/cf-zone-emu.py, a canned
 # Cloudflare, with $CF_API_BASE pointed at it. Run from anywhere:
 #
 #   bash scripts/tests/cf-zone-test.sh
@@ -43,6 +43,20 @@ EMU_PID=""
 DONE=0
 trap 'rc=$?; [ -n "$EMU_PID" ] && kill "$EMU_PID" 2>/dev/null; rm -rf -- "$WORK"; if [ "$DONE" != 1 ]; then printf "\nFAIL harness: died before its summary (exit %s) — the count below is not the whole run\n" "$rc"; exit 1; fi' EXIT
 
+# ── harness-owned files, all under $WORK/_h so the privacy sweep's directory count stays a count of CASES ──────────
+# import mode reads the domain's records with dig, so the harness owns a dig: a wrapper on PATH ahead of everything
+# else, pointing at cf-zone-dig-stub.py, which answers only from the emulator and never reaches the network. The
+# workflow's `command -v dig` limb therefore finds it and never reaches apt-get.
+STUB="$HERE/cf-zone-dig-stub.py"
+[ -f "$STUB" ] || { echo "FAIL harness: no $STUB"; exit 1; }
+mkdir -p "$WORK/_h/bin" "$WORK/_h/fakerepo/wp-ops"
+printf '#!/bin/sh\nexec python3 "%s" "$@"\n' "$STUB" > "$WORK/_h/bin/dig"
+chmod 755 "$WORK/_h/bin/dig"
+# a fake repository for the candidate-list grep: one hostname under the domain that no fixed list holds, and one
+# hostname that is NOT under the domain and must never be queried
+printf '%s\n' '<a href="https://zzcanaryhost.atlasglinn.com/x">x</a> and <a href="https://www.example.org/y">y</a>' \
+  > "$WORK/_h/fakerepo/wp-ops/page.html"
+
 PASS=0; FAIL=0; CASES=0
 ok()   { PASS=$((PASS+1)); CASES=$((CASES+1)); echo "PASS $*"; }
 bad()  { FAIL=$((FAIL+1)); CASES=$((CASES+1)); echo "FAIL $*"; }
@@ -56,16 +70,32 @@ d = yaml.safe_load(open(wf, encoding='utf-8'))
 steps = d['jobs']['zone']['steps']
 man = []
 for i, st in enumerate(steps):
-    open(os.path.join(out, 'step%d.sh' % i), 'w', encoding='utf-8').write(st['run'])
-    man.append('%d\t%s\t%s' % (i, st.get('id', ''), st.get('if', '')))
+    # FAIL CLOSED on a step this harness cannot execute. `st['run']` used to be unconditional, so adding any `uses:`
+    # step killed the extractor with a KeyError before the summary — loudly, but with no verdict about the step.
+    if 'run' in st:
+        kind, body = 'run', st['run']
+    elif 'uses' in st:
+        kind, body = 'uses:' + st['uses'], ''
+    else:
+        raise SystemExit('step %d has neither run: nor uses: — teach the harness about it' % i)
+    open(os.path.join(out, 'step%d.sh' % i), 'w', encoding='utf-8').write(body)
+    man.append('%d\t%s\t%s\t%s' % (i, st.get('id', ''), st.get('if', ''), kind))
 open(os.path.join(out, 'manifest.tsv'), 'w', encoding='utf-8').write('\n'.join(man) + '\n')
-print('extracted %d run blocks' % len(steps))
+# yaml.safe_load parses the `on:` key as the Python bool True (measured: the top keys are
+# ['name', True, 'permissions', 'concurrency', 'jobs']), so it is read under both spellings.
+on = d.get('on', d.get(True)) or {}
+open(os.path.join(out, 'modes.txt'), 'w', encoding='utf-8').write(
+    ' '.join(on['workflow_dispatch']['inputs']['mode']['options']) + '\n')
+print('extracted %d step(s)' % len(steps))
 PY
 [ -f "$STEPS/manifest.tsv" ] || { echo "FAIL harness: extraction produced no manifest"; exit 1; }
 NSTEPS=$(wc -l < "$STEPS/manifest.tsv" | tr -d ' ')
 
 # every extracted block must be syntactically valid bash, checked here as well as in CI
+step_kind() { awk -F'\t' -v n="$1" '$1==n{print $4}' "$STEPS/manifest.tsv"; }
 for i in $(seq 0 $((NSTEPS-1))); do
+  # an empty file passes `bash -n`, so a uses: step would print a meaningless PASS
+  case "$(step_kind "$i")" in uses:*) continue ;; esac
   if bash -n "$STEPS/step$i.sh" 2>"$WORK/syn.$i"; then ok "bash -n step$i"; else bad "bash -n step$i: $(cat "$WORK/syn.$i")"; fi
 done
 
@@ -111,6 +141,51 @@ if grep -qE '^\s*\[ -[nz] .*\] &&' "$WF"; then
 else
   ok "source/no-and-lists: no bare test-AND-list under set -e"
 fi
+# the three modes, read out of the dispatch input rather than out of prose
+MODES="$(tr -d '\n' < "$STEPS/modes.txt")"
+if [ "$MODES" = "plan create import" ]; then
+  ok "source/modes: the dispatch offers exactly plan, create and import"
+else
+  bad "source/modes: the mode input offers [$MODES], not [plan create import]"
+fi
+# the ONE step this harness does not execute, and the condition it is allowed to carry. Anything else entering the
+# file unexecuted by this harness is a step CI would run and nothing here has ever proved.
+USES="$(awk -F'\t' '$4 ~ /^uses:/ {printf "%s@@%s;", $4, $3}' "$STEPS/manifest.tsv")"
+if [ "$USES" = "uses:actions/checkout@v4@@inputs.mode == 'import';" ]; then
+  ok "source/uses-allowlist: the only non-run step is the import-gated checkout"
+else
+  bad "source/uses-allowlist: the non-run steps are [$USES] — expected only the import-gated actions/checkout@v4"
+fi
+# NEVER DELETES, NEVER UPDATES. The emulator counts DELETE and PUT as well, so this is belt and braces on the one
+# guarantee that makes running import against a live zone recoverable.
+DESTR=$(grep -cE -- '-X (DELETE|PUT|PATCH)' "$WF" || true)
+if [ "$DESTR" = "0" ]; then
+  ok "source/no-destructive: no -X DELETE / PUT / PATCH anywhere in the workflow"
+else
+  bad "source/no-destructive: $DESTR destructive method(s) in the workflow — import must only ever add"
+fi
+# both write paths are unproxied: the multipart import, and the one-at-a-time reconcile body. A proxied import would
+# change how the site is served the moment the nameservers move, which is the one thing this run promises not to do.
+if grep -qF -- '-F "proxied=false"' "$WF" && grep -qF "'proxied': False" "$WF"; then
+  ok "source/import-unproxied: the zone-file import and the reconcile POST are both unproxied"
+else
+  bad "source/import-unproxied: a write path lost its unproxied flag — the switch would change how the site is served"
+fi
+# import is gated by the SAME assertions as create, and prints nameservers on the same output. If either of these
+# reverts to create-only, every import case degrades silently: the gate still runs, the paste block never appears.
+if grep -qF "mode in ('create', 'import')" "$WF" && grep -qF "mode not in ('create', 'import')" "$WF"; then
+  ok "source/verified-modes: import reaches the verified output and the plan sentence excludes it"
+else
+  bad "source/verified-modes: the assert step is back on create-only — import can never print nameservers"
+fi
+# a published DS at the parent plus a nameserver move takes the domain dark until it expires out, and Cloudflare
+# cannot fix that from its side. The verdict must exit, in its own step, not print and continue.
+DSF="$(grep -lF 'DNSSEC is ON at GoDaddy' "$STEPS"/step*.sh 2>/dev/null | head -1)"
+if [ -n "$DSF" ] && grep -qF 'sys.exit(1)' "$DSF"; then
+  ok "source/ds-fatal: a DS at the parent is fatal in the step that measures it"
+else
+  bad "source/ds-fatal: the DNSSEC verdict is missing or no longer exits — a signed domain would be handed nameservers"
+fi
 
 # ── the emulator ────────────────────────────────────────────────────────────────────────────────────────────────────
 python3 "$EMU" 0 > "$WORK/emu.out" 2>"$WORK/emu.err" &
@@ -134,6 +209,10 @@ cond_ok() {   # $1 = the step's `if:` expression, verbatim out of the YAML
         [ "$(last_out proceed)" = "true" ] && [ "$MODE" = "create" ] && [ "$ADD_MISSING" = "true" ] ;;
     "steps.assert.outputs.verified == 'true'")
         [ "$(last_out verified)" = "true" ] ;;
+    "inputs.mode == 'import'")
+        [ "$MODE" = "import" ] ;;
+    "steps.zone.outputs.proceed == 'true' && inputs.mode == 'import'")
+        [ "$(last_out proceed)" = "true" ] && [ "$MODE" = "import" ] ;;
     *)  echo "FAIL harness: unknown step condition in the workflow: [$1] — teach cond_ok about it before trusting this run"; exit 1 ;;
   esac
 }
@@ -150,10 +229,14 @@ run_job() {   # $1 = case name, $2 = emulator scenario. Reads MODE/ADD_MISSING/A
   for i in $(seq 0 $((NSTEPS-1))); do
     cond="$(awk -F'\t' -v n="$i" '$1==n{print $3}' "$STEPS/manifest.tsv")"
     if ! cond_ok "$cond"; then TRACE="$TRACE ${i}:skip"; continue; fi
-    env -i PATH="$PATH" HOME="$HOME" LANG=C \
+    # a uses: step is Actions' to run, not this harness's — recorded in the trace so it cannot be silently absent
+    case "$(step_kind "$i")" in uses:*) TRACE="$TRACE ${i}:uses"; continue ;; esac
+    env -i PATH="$WORK/_h/bin:$PATH" HOME="$HOME" LANG=C \
       CF_API_BASE="http://127.0.0.1:$PORT/$SCN/client/v4" \
       CF_STATE_DIR="$CASE/state" \
-      CF_IMPORT_DEADLINE_S=3 CF_POLL_SLEEP_S=1 \
+      CF_IMPORT_DEADLINE_S="$IMPORT_DEADLINE" CF_POLL_SLEEP_S=1 \
+      CF_SWEEP_BUDGET_S="$SWEEP_BUDGET" CF_DNS_RESOLVERS="1.1.1.1 8.8.8.8" \
+      GITHUB_WORKSPACE="$WORKSPACE" \
       GITHUB_OUTPUT="$CASE/gh_output" GITHUB_STEP_SUMMARY="$CASE/summary" \
       Z1="${Z1-}" T1="${T1-}" T2="${T2-}" T3="${T3-}" A1="${A1-}" A2="" A3="" \
       CF_TOKEN="${Z1:-${T1-}}" CF_ACCOUNT="${A1-}" \
@@ -166,8 +249,11 @@ run_job() {   # $1 = case name, $2 = emulator scenario. Reads MODE/ADD_MISSING/A
 }
 
 # defaults every case starts from
+# WORKSPACE defaults to the REAL repository, so every import case greps the real tree — which is also the only proof
+# the candidate-list grep does not crash on it.
 reset_inputs() { Z1="stub-zone-token-not-a-real-credential"; T1=""; T2=""; T3=""; A1="stub-account-id"; \
-                 DOMAIN="atlasglinn.com"; MODE="plan"; ADD_MISSING="false"; ALLOW_OTHER_MX="false"; }
+                 DOMAIN="atlasglinn.com"; MODE="plan"; ADD_MISSING="false"; ALLOW_OTHER_MX="false"; \
+                 WORKSPACE="$ROOT"; SWEEP_BUDGET=300; IMPORT_DEADLINE=3; }
 
 has()  { grep -Fq "$2" "$WORK/$1/out" || grep -Fq "$2" "$WORK/$1/summary"; }
 stats() { curl -sS -m 10 "http://127.0.0.1:$PORT/$1/client/v4/_stats"; }
@@ -402,7 +488,176 @@ must   err_leak_tak "code(s) 81057"
 must   err_leak_tak "message text is not echoed"
 mustnot err_leak_tak "$NS_BLOCK"
 
-# ── 23. THE PRIVACY GATE: no record content in any byte this run produced ───────────────────────────────────────────
+# ══ IMPORT MODE ═════════════════════════════════════════════════════════════════════════════════════════════════════
+# The zone for atlasglinn.com exists in the account and holds NOTHING — jump_start's scan imported zero records
+# (measured 2026-09-09: records=0 MX=0 across 32 polls in runs 34382780038 and 34383841484). Import mode reads the
+# records out of the parent's own authoritative nameservers with dig, writes a BIND file, imports it unproxied, and
+# then hands off to the SAME Wait / Assert / nameserver steps that guard create. Every case below drives that with a
+# stub dig on PATH; nothing here reaches a network.
+
+# ── 24. the whole import path, green: sweep 12 records, import them once, pass all four gates, print the pair ───────
+reset_inputs; MODE=import
+run_job full_import full_import
+expect full_import pass
+must   full_import "$VERIFIED"
+must   full_import "$NS_BLOCK"
+must   full_import "amber.ns.cloudflare.com"
+must   full_import "authoritative nameservers at the parent: 2"
+must   full_import "recs added: 12"
+# ONE row carrying both halves of the promise: unproxied, and the TTL floored to 300 from the 60 the parent served.
+# It is read back out of the existing assert table, so it also proves import reaches that table at all.
+must   full_import "| A | tak.atlasglinn.com | False | 300 |"
+mustnot full_import "ns-canary-1.example.net"
+mustnot full_import "This was a **plan** run"
+eqn "full_import: exactly one zone-file import" "$(statn full_import import_calls)" 1
+eqn "full_import: no record posted one at a time" "$(statn full_import post_records)" 0
+eqn "full_import: no zone was created" "$(statn full_import post_zones)" 0
+eqn "full_import: nothing was deleted" "$(statn full_import deletes)" 0
+eqn "full_import: the zone file parsed" "$(statn full_import parse_errors)" 0
+eqn "full_import: no record was read from a recursive resolver" "$(statn full_import dig_recursor_data_queries)" 0
+# POSITIVE CONTROL. Without it a sweep that collected nothing would sail through the privacy gate looking spotless —
+# the gate can only prove an absence, so something has to prove the presence.
+if grep -Fq 203.0.113.77 "$WORK/full_import/state/zone.txt"; then
+  ok "full_import: the zone file really holds the apex address the parent served"
+else
+  bad "full_import: the zone file does not hold the apex address — the sweep collected nothing and the gate saw nothing"
+fi
+
+# ── 25. the parent serves no apex MX: the same gate that guards create must stop import ─────────────────────────────
+# The Wait step's fast path is "MX present and the count stopped moving", so a zone with no MX needs FOUR polls to
+# settle on the count alone — more than the 3 s every other case runs under. The deadline is raised for this case
+# only, because the point here is the MX gate, not the deadline.
+reset_inputs; MODE=import; IMPORT_DEADLINE=12
+run_job import_no_mx import_no_mx
+expect import_no_mx fail
+must   import_no_mx "no MX record on the apex"
+mustnot import_no_mx "$VERIFIED"
+mustnot import_no_mx "$NS_BLOCK"
+
+# ── 26. DNSSEC is already ON at GoDaddy. Moving the nameservers with a DS in the registry takes the domain dark until
+# the DS expires out, and Cloudflare cannot fix it from its side. Line 658 told him not to ENABLE it; nothing ever
+# measured whether it already was.
+reset_inputs; MODE=import
+run_job ds_present ds_present
+expect ds_present fail
+must   ds_present "DNSSEC is ON at GoDaddy"
+mustnot ds_present "$NS_BLOCK"
+mustnot ds_present "$VERIFIED"
+# pins the designed order: the records ARE imported (harmless while GoDaddy answers) and THEN the DS verdict stops it
+eqn "ds_present: the records were imported before the DS verdict" "$(statn ds_present import_calls)" 1
+
+# ── 27. the DS state cannot be measured at all: an absence claim needs a successful read behind it ──────────────────
+reset_inputs; MODE=import
+run_job ds_unknown ds_unknown
+expect ds_unknown fail
+must   ds_unknown "cannot tell whether the domain is signed"
+mustnot ds_unknown "$NS_BLOCK"
+
+# ── 28. no authoritative nameserver is named at the parent: there is nothing to copy from ───────────────────────────
+reset_inputs; MODE=import
+run_job dig_no_ns dig_no_ns
+expect dig_no_ns fail
+must   dig_no_ns "Could not read the authoritative nameservers"
+eqn    "dig_no_ns: nothing was imported" "$(statn dig_no_ns import_calls)" 0
+eqn    "dig_no_ns: no record was posted" "$(statn dig_no_ns post_records)" 0
+mustnot dig_no_ns "$NS_BLOCK"
+
+# ── 29. the servers answer, and answer nothing for every candidate name ─────────────────────────────────────────────
+reset_inputs; MODE=import
+run_job dig_empty dig_empty
+expect dig_empty fail
+must   dig_empty "answered nothing for any candidate name"
+eqn    "dig_empty: nothing was imported" "$(statn dig_empty import_calls)" 0
+eqn    "dig_empty: no record was posted" "$(statn dig_empty post_records)" 0
+
+# ── 30. the zone already holds a previous import, minus www and tak: add exactly those two, delete nothing ──────────
+reset_inputs; MODE=import
+run_job zone_prefilled zone_prefilled
+expect zone_prefilled pass
+must   zone_prefilled "adding only what is missing, deleting nothing"
+eqn    "zone_prefilled: exactly the two missing records were posted" "$(statn zone_prefilled post_records)" 2
+eqn    "zone_prefilled: no second zone-file import" "$(statn zone_prefilled import_calls)" 0
+eqn    "zone_prefilled: nothing was deleted" "$(statn zone_prefilled deletes)" 0
+must   zone_prefilled "$NS_BLOCK"
+
+# ── 31. the one missing record is an SRV. Cloudflare's JSON shape for SRV and CAA was never read from a live
+# response, so the reconcile refuses to guess it rather than writing a guess into a service path.
+reset_inputs; MODE=import
+run_job zone_prefilled_srv zone_prefilled_srv
+expect zone_prefilled_srv fail
+must   zone_prefilled_srv "will not create one at a time"
+eqn    "zone_prefilled_srv: nothing was posted" "$(statn zone_prefilled_srv post_records)" 0
+
+# ── 32. the read back after the import is truncated: the existing 100-cap check still guards import ─────────────────
+reset_inputs; MODE=import
+run_job import_truncated import_truncated
+expect import_truncated fail
+must   import_truncated "running against a slice of the import"
+mustnot import_truncated "$NS_BLOCK"
+
+# ── 33. Cloudflare refuses the zone-file import. Its message quotes the record it is about; only the numeric code
+# may reach this log, and the canary riding inside that message is what the privacy sweep at the end looks for.
+reset_inputs; MODE=import
+run_job import_4xx import_4xx
+expect import_4xx fail
+must   import_4xx "code(s) 1004"
+must   import_4xx "message text is not echoed"
+mustnot import_4xx "$NS_BLOCK"
+eqn    "import_4xx: no record was posted after the refusal" "$(statn import_4xx post_records)" 0
+
+# ── 34. one of the two authoritative nameservers stops answering: use the other, and say so as a COUNT ──────────────
+reset_inputs; MODE=import
+run_job ns_failover ns_failover
+expect ns_failover pass
+must   ns_failover "did not answer — the sweep used another"
+must   ns_failover "$NS_BLOCK"
+eqn    "ns_failover: the import still ran exactly once" "$(statn ns_failover import_calls)" 1
+
+# ── 35. BOTH authoritative nameservers stop answering half way. A PARTIAL SWEEP IS A FAILED SWEEP: a zone file
+# missing the half that did not answer imports clean and takes those names dark on the switch.
+reset_inputs; MODE=import
+run_job dig_all_dead dig_all_dead
+expect dig_all_dead fail
+must   dig_all_dead "The sweep is incomplete"
+eqn    "dig_all_dead: nothing was imported" "$(statn dig_all_dead import_calls)" 0
+eqn    "dig_all_dead: no record was posted" "$(statn dig_all_dead post_records)" 0
+
+# ── 36. the sweep runs out of its budget: refuse, rather than import the records it happened to have ────────────────
+reset_inputs; MODE=import; SWEEP_BUDGET=0
+run_job import_budget full_import_budget
+expect import_budget fail
+must   import_budget "sweep budget"
+eqn    "import_budget: nothing was imported" "$(statn full_import_budget import_calls)" 0
+eqn    "import_budget: no record was posted" "$(statn full_import_budget post_records)" 0
+
+# ── 37. the candidate list is extended by every <label>.<domain> the repository itself mentions, so a name this
+# project invented cannot be missed by a fixed list. Against the REAL repository that limb adds zero names today
+# (measured: www, tak, selector1._domainkey, selector2._domainkey and _dmarc, all five already in the fixed list) —
+# which is exactly why it needs a fake tree to be provable at all.
+reset_inputs; MODE=import; WORKSPACE="$WORK/_h/fakerepo"
+run_job import_repo_grep full_import_repo
+expect import_repo_grep pass
+must   import_repo_grep "candidate names added by the repository grep (1): zzcanaryhost"
+if stats full_import_repo | grep -q 'zzcanaryhost.atlasglinn.com'; then
+  ok "import_repo_grep: the grepped label was actually QUERIED at the parent, not just printed"
+else
+  bad "import_repo_grep: the grepped label never reached a dig query — the limb prints a name it does not sweep"
+fi
+if stats full_import_repo | grep -q 'example.org'; then
+  bad "import_repo_grep: a hostname OUTSIDE the domain was queried — the grep is matching more than <label>.<domain>"
+else
+  ok "import_repo_grep: the out-of-domain hostname in the same file was never queried"
+fi
+
+# ── 38. import dispatched at a domain that is NOT in the account. import never creates a zone: create is the step
+# that decides which account owns a domain, and this run will not guess.
+reset_inputs; MODE=import
+run_job import_no_zone import_no_zone
+expect import_no_zone fail
+must   import_no_zone "import mode will not create a zone"
+eqn    "import_no_zone: no zone was created" "$(statn import_no_zone post_zones)" 0
+
+# ── 39. THE PRIVACY GATE: no record content in any byte this run produced ───────────────────────────────────────────
 # Every value the emulator serves is a canary. This log is public on this repo, and a record's content is the origin
 # address the WAF rule exists to hide.
 # The sweep is built from the list of cases run_job actually drove, not from a glob, and it asserts that the list and
@@ -415,14 +670,17 @@ for c in $RUNS; do
   done
 done
 NRUNS=$(printf '%s\n' $RUNS | wc -l | tr -d ' ')
-NDIRS=$(find "$WORK" -mindepth 1 -maxdepth 1 -type d ! -name steps | wc -l | tr -d ' ')
+NDIRS=$(find "$WORK" -mindepth 1 -maxdepth 1 -type d ! -name steps ! -name _h | wc -l | tr -d ' ')
 eqn "privacy: the sweep covers every case that ran" "$NRUNS" "$NDIRS"
 
 LEAK=0
 for canary in 203.0.113.77 origin-canary.example.net atlas-canary.mail.protection.outlook.com \
               mx-canary.secureserver-example.net 'v=spf1' autodiscover-canary.outlook.com 198.51.100.9 \
               canary-filler- www-txt-canary-verification-string apex-txt-canary-verification-string \
-              origin-canary-in-error.example.net; do
+              origin-canary-in-error.example.net \
+              ns-canary-1.example.net ns-canary-2.example.net 203.0.113.88 dkim-canary.example.net \
+              sipdir-canary.example.net caa-canary.example.net deleg-canary.example.net dmarc-canary@example.net \
+              ds0canary0000000000000000000000000000000000000000000000000000cafe; do
   hits="$(grep -lF -- "$canary" $SWEPT 2>/dev/null | tr '\n' ' ')"
   if [ -n "$hits" ]; then bad "privacy: record content \"$canary\" reached the log in: $hits"; LEAK=1; fi
 done
@@ -439,8 +697,9 @@ fi
 echo
 echo "cases: $CASES   passed: $PASS   failed: $FAIL"
 # Pinned to the EXACT count this file produces, not to a floor with slack in it. At MIN=60 against 78 actual
-# assertions, eighteen could be deleted or stop running and the harness still printed "all green".
-MIN=118
+# assertions, eighteen could be deleted or stop running and the harness still printed "all green". Measured, never
+# lowered: 118 before import mode, 200 with it.
+MIN=200
 if [ "$CASES" -lt "$MIN" ]; then
   echo "FAIL harness: only $CASES cases ran, fewer than the $MIN pinned here — the run stopped early or a block was dropped"
   DONE=1; exit 1
