@@ -33,6 +33,18 @@ POLICY_MARK = 'ORDER &amp; SHIPMENT POLICIES'
 KEEP_TAGS = {'p', 'ul', 'ol', 'li', 'strong', 'b', 'em', 'i', 'br'}
 SPEC_LINE = re.compile(r'^([A-Z][A-Za-z0-9 ()/.\']{1,44}?)\s*-\s*(.+)$')
 IMG_URL = r'https://cdn11\.bigcommerce\.com/[^\s"\']+?1280x1280/[^\s"\']+?\.(?:jpg|jpeg|png)(?:\?c=\d+)?'
+# The six devices IWA's own shop listing carries a page for, read from the 2026-09-08 capture of its shop root
+# (reference/desktop/live/shop.html on claude/desktop-assets). That shop paginates and the capture is page 1 of 5, so
+# PA-85, TH-14 and the door charge have no entry here and no capture; their cards open with our name, our price, our
+# stock and the email control rather than invented copy.
+SOURCE_URLS = {
+    'IWA-M11-4B': 'https://iwainternationalinc.com/m11-multibang-device-4-bang/',
+    'IWA-M11-7B': 'https://iwainternationalinc.com/m11-multibang-device-7-bang/',
+    'IWA-M12': 'https://iwainternationalinc.com/m12-distraction-device/',
+    'IWA-M13': 'https://iwainternationalinc.com/m13-thermobaric-device/',
+    'IWA-M14': 'https://iwainternationalinc.com/m14-smoke-deployment-device/',
+    'IWA-M15': 'https://iwainternationalinc.com/m15-large-smoke-grenade/',
+}
 
 
 def git(*args):
@@ -43,11 +55,12 @@ def git(*args):
 
 
 def source_map():
-    """SKU -> IWA product URL, read from GEAR_PRODUCT_URL in mastsolutions-tesla.html so there is one source list."""
-    src = open(os.path.join(REPO, 'mastsolutions-tesla.html'), encoding='utf-8').read()
-    blk = src[src.index('const GEAR_PRODUCT_URL = {'):]
-    blk = blk[:blk.index('};') + 2]
-    return dict(re.findall(r"'([A-Z0-9-]+)':\s*'(https://[^']+)'", blk))
+    """SKU -> IWA product URL. The list lives here, not in the page. It was a browser constant (GEAR_PRODUCT_URL in
+    mastsolutions-tesla.html) until 2026-09-09; nothing rendered it, but a JS-built href is exactly how the outbound
+    links the owner killed on 2026-09-08 were made, and a guard that matches literal href= strings cannot see one. So
+    the map is on the intake side, where it is read, and each product carries its own URL into store-products.json as
+    "source" — which assemble-cinematic.py strips before the constant reaches the browser."""
+    return dict(SOURCE_URLS)
 
 
 def slug_of(url):
@@ -66,8 +79,10 @@ def strip_tags(s):
 
 
 def sanitize(frag):
-    """IWA's description, verbatim words, with everything but p/ul/ol/li/strong/em/br unwrapped and every attribute
-    dropped (their inline colours and font sizes would fight this page's stylesheet)."""
+    """IWA's description, verbatim words, with everything but the nine tags in KEEP_TAGS — p, ul, ol, li, strong, b, em,
+    i, br — unwrapped and every attribute dropped (their inline colours and font sizes would fight this page's
+    stylesheet). The page assigns this with innerHTML, so KEEP_TAGS is the only thing between their markup and the DOM;
+    quote it exactly, not from memory."""
     def tag(m):
         closing, name = m.group(1), m.group(2).lower()
         if name not in KEEP_TAGS:
@@ -158,7 +173,6 @@ def localise(sku, urls, dry):
     """A photograph the Mac has already fetched (scripts/handoff-urls.txt lists them) is served from images/mast/store/;
     until then the card shows IWA's CDN URL. Same JSON either way, so the page does not change shape when they land."""
     out, notes = [], []
-    os.makedirs(STORE_IMAGES, exist_ok=True)
     for i, u in enumerate(urls, 1):
         base = u.split('?')[0].rsplit('/', 1)[-1]
         local = f'{sku.lower()}-{i}' + os.path.splitext(base)[1].lower()
@@ -168,6 +182,7 @@ def localise(sku, urls, dry):
         blob = git('show', f'{REF}:{CAPTURES}/{base}')
         if blob:
             if not dry:
+                os.makedirs(STORE_IMAGES, exist_ok=True)
                 open(os.path.join(STORE_IMAGES, local), 'wb').write(blob)
             out.append(rel); notes.append(f'{sku}: imported {base} -> {rel}')
         else:

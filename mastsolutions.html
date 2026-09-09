@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="3b4ca04f4d14">
+<meta name="build" content="b4edc2918366">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
 <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
@@ -46,10 +46,6 @@
     --midnight:#050810; --deep-navy:#0B1221; --gunmetal:#1E2A3A; --gunmetal-lt:#2C3845; --steel:#3A4A5C;
     --gold:#1A6BDE; --gold-antique:#2F7BEF; --gold-champagne:#5B9BFF; --gold-bright:#DCEBFF; --copper:#0E3F8C;
     --text:#F0F4FF; --text-dim:#8B95A8; --text-mute:#5B6474;
-    /* Heading sizes are tokens, never literals in the rules below: a page sets them in one place and every heading
-       follows, so "one header size" does not depend on which stylesheet is spliced last (owner, 2026-09-08: "make all
-       headers the same. font size"). MAST points --head-h1 and --head-h2 at one chapter token; Atlas keeps two scales. */
-    --head-h1:clamp(2.6rem,7.2vw,6.6rem); --head-h2:clamp(2rem,5vw,4.5rem); --head-modal:1.3rem;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   html { scroll-behavior:smooth; }
@@ -117,12 +113,12 @@
   section.panel > div { width:100%; max-width:1200px; }
   .eyebrow { font-family:'Share Tech Mono',monospace; color:var(--gold-champagne); letter-spacing:.45em; font-size:.75rem; text-transform:uppercase; margin-bottom:1.6rem; opacity:0; transform:translateY(20px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
   .eyebrow.in { opacity:1; transform:translateY(0); }
-  h1.mega { font-family:'Orbitron',sans-serif; font-weight:900; font-size:var(--head-h1); letter-spacing:.02em; line-height:.95; margin-bottom:2rem; opacity:0; filter:blur(20px); transform:scale(1.15); transition:opacity 1.2s cubic-bezier(.2,.7,.2,1), filter 1.2s cubic-bezier(.2,.7,.2,1), transform 1.4s cubic-bezier(.2,.7,.2,1); }
+  h1.mega { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2.6rem,7.2vw,6.6rem); letter-spacing:.02em; line-height:.95; margin-bottom:2rem; opacity:0; filter:blur(20px); transform:scale(1.15); transition:opacity 1.2s cubic-bezier(.2,.7,.2,1), filter 1.2s cubic-bezier(.2,.7,.2,1), transform 1.4s cubic-bezier(.2,.7,.2,1); }
   h1.mega.in { opacity:1; filter:blur(0); transform:scale(1); }
   .gold { background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
   h1.mega .gold { text-shadow:0 0 80px rgba(26,107,222,.3); }
   h1.mega .white { color:var(--text); }
-  h2.section-h { font-family:'Orbitron',sans-serif; font-weight:700; font-size:var(--head-h2); letter-spacing:.03em; margin-bottom:1.4rem; opacity:0; filter:blur(12px); transform:translateY(24px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), filter 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
+  h2.section-h { font-family:'Orbitron',sans-serif; font-weight:700; font-size:clamp(2rem,5vw,4.5rem); letter-spacing:.03em; margin-bottom:1.4rem; opacity:0; filter:blur(12px); transform:translateY(24px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), filter 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
   h2.section-h.in { opacity:1; filter:blur(0); transform:translateY(0); }
   .sub { font-size:clamp(1rem,1.3vw,1.25rem); color:var(--text-dim); max-width:720px; margin:0 auto 2.5rem; line-height:1.55; font-weight:300; opacity:0; transform:translateY(16px); transition:opacity 1s ease-out .3s, transform 1s ease-out .3s; }
   .sub.in { opacity:1; transform:translateY(0); }
@@ -468,12 +464,15 @@
   #s6 .gold, #s7 .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
   /* The live atlasglinn.com hero, verbatim (owner, 2026-09-04: "Grab the code from Atlas Glinn. Apply same font size and same code"):
      .hero-headline metrics, the .gold-shimmer rule on "Details", flat #1A6BDE on "Matter", no entrance effect. */
-  /* ONE heading size for the whole page (owner, 2026-09-08: "make all headers the same. font size"): --head-chapter is
-     the only place a chapter-heading size is written, the hero wordmark and every h2 read it through the shell's tokens,
-     and the dialogs read --head-modal. No rule below carries a font-size literal, so nothing depends on cascade order. */
-  :root { --head-chapter:3.2rem; --head-h1:var(--head-chapter); --head-h2:var(--head-chapter); --head-modal:1.3rem; }
+  /* ONE heading size for the whole page (owner, 2026-09-08: "make all headers the same. font size"). MAST-only, and it
+     stays that way: cinematic_shell.py is the Atlas generator's input too, so the token lives here, in the block this
+     assembler splices after the shell's stylesheet. --head-chapter is the only place a heading size is written; the hero
+     wordmark, every chapter h2 and the dialog h3 read this one :root. It is spliced last, so it wins the cascade over the
+     shell's own h1.mega / h2.section-h literals without a second :root competing with it at the same specificity. */
+  :root { --head-chapter:3.2rem; --head-modal:1.3rem; }
   @media (max-width:768px) { :root { --head-chapter:2rem; } }
   @media (max-width:480px) { :root { --head-chapter:1.8rem; } }
+  h1.mega, h2.section-h { font-size:var(--head-chapter); }
   h1.mega { font-family:'Orbitron',sans-serif; font-weight:900; margin-bottom:1rem; letter-spacing:.02em; line-height:1.1; opacity:1; filter:none; transform:none; transition:none; }
   h1.mega .gold { background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; animation:shimmer 6s linear infinite; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; text-shadow:none; }
   h1.mega .white { color:#1A6BDE; }
@@ -679,7 +678,7 @@
   <a href="#s7" class="chap-link">07 &middot; Team Memberships</a>
   <a href="#s8" class="chap-link">08 &middot; Instructors</a>
   <a href="#s9" class="chap-link">09 &middot; In Action</a>
-  <a href="https://atlasglinn.com/articles/index.html" class="chap-extra preview-only">&middot; Blogs</a>
+  <a href="articles/index.html" class="chap-extra preview-only">&middot; Blogs</a>
   <a href="#s10" class="chap-link">10 &middot; Testimonials</a>
   <a href="#s11" class="chap-link">11 &middot; Privacy</a>
   <a href="#s12" class="chap-link">12 &middot; Store</a>
@@ -916,7 +915,7 @@
       <p class="sub">Individual seats, team blocks, and agency instruction.</p>
       <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div>
       <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a><a href="https://atlasglinn.com/" class="secondary-cta">Atlas Glinn &rarr;</a></div>
-      <div class="foot site rise"><span class="fg">Atlas Glinn</span><a href="https://atlasglinn.com/">Home</a> &middot; <a href="https://atlasglinn.com/executive-protection/">Executive Protection</a> &middot; <a href="https://atlasglinn.com/residential-protection/">Residential Protection</a> &middot; <a href="https://atlasglinn.com/disaster-recovery/">Disaster Recovery</a> &middot; <a href="https://atlasglinn.com/technology/">Technology</a> &middot; <a href="https://atlasglinn.com/ep-app/">Atlas EP App</a><br><span class="fg">MAST Solutions</span><a href="https://atlasglinn.com/training/">Training Programs</a> &middot; <a href="https://atlasglinn.com/ep-app/">Atlas EP Platform</a> &middot; <a href="https://atlasglinn.com/cuas-aerodefense/">Counter-Drone Solutions</a> &middot; <a href="#s1">MAST Solutions</a><br><span class="fg">Company</span><a href="https://atlasglinn.com/about/">About Us</a> &middot; <a href="https://atlasglinn.com/careers/">Careers</a> &middot; <a href="https://atlasglinn.com/about/#s5">Resources</a> &middot; <a href="#s13">Contact</a><br><span class="fg">Connect</span>2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063 &middot; <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a><br><a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@mastsolutions" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a>&middot;<a href="https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063" target="_blank" rel="noopener" data-track="review">Google Reviews</a><div class="badges"><div class="badge-item"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div><div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div><a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br><a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a>&middot;<a href="#s1" class="to-top">Back to top &uarr;</a></div>
+      <div class="foot site rise"><span class="fg">Atlas Glinn</span><a href="https://atlasglinn.com/">Home</a> &middot; <a href="https://atlasglinn.com/executive-protection/">Executive Protection</a> &middot; <a href="https://atlasglinn.com/residential-protection/">Residential Protection</a> &middot; <a href="https://atlasglinn.com/disaster-recovery/">Disaster Recovery</a> &middot; <a href="https://atlasglinn.com/technology/">Technology</a> &middot; <a href="https://atlasglinn.com/ep-app/">Atlas EP App</a><br><span class="fg">MAST Solutions</span><a href="https://atlasglinn.com/training/">Training Programs</a> &middot; <a href="https://atlasglinn.com/ep-app/">Atlas EP Platform</a> &middot; <a href="https://atlasglinn.com/cuas-aerodefense/">Counter-Drone Solutions</a> &middot; <a href="#s1">MAST Solutions</a><br><span class="fg">Company</span><a href="https://atlasglinn.com/about/">About Us</a> &middot; <a href="https://atlasglinn.com/careers/">Careers</a> &middot; <a href="https://atlasglinn.com/about/#s5">Resources</a> &middot; <a href="#s13">Contact</a><br><span class="fg">Connect</span>2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063 &middot; <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a><br><a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@mastsolutions" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a>&middot;<a href="https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063" target="_blank" rel="noopener" data-track="review">Google Reviews</a><div class="badges"><div class="badge-item"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div><div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div><a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br><a href="https://atlasglinn.com/privacy/">Privacy Policy</a>&middot;<a href="https://atlasglinn.com/terms/">Terms of Service</a>&middot;<a href="#s1" class="to-top">Back to top &uarr;</a></div>
     </div>
   </section>
 
@@ -1102,7 +1101,7 @@
     </div>
 
     <div class="reg-step" id="reg-2" hidden>
-        <p class="reg-lead">Two questions before you sign. These are live-fire courses. Your answers are seen by MAST staff only, never emailed, and deleted on a schedule (see the <a href="privacy.html#eligibility" target="_blank" rel="noopener" style="color:#5B9BFF;text-decoration:none;">Privacy Policy</a>).</p>
+        <p class="reg-lead">Two questions before you sign. These are live-fire courses. Your answers are seen by MAST staff only, never emailed, and deleted on a schedule (see the <a href="https://atlasglinn.com/privacy/#eligibility" target="_blank" rel="noopener" style="color:#5B9BFF;text-decoration:none;">Privacy Policy</a>).</p>
         <fieldset class="reg-q"><legend>1. Are you a citizen of the United States?</legend><div class="reg-yn"><label><input type="radio" name="q1" value="yes">Yes</label><label><input type="radio" name="q1" value="no">No</label></div></fieldset>
         <fieldset class="reg-q"><legend>2. Do you have a felony conviction that prevents you from using or handling a firearm?</legend><div class="reg-yn"><label><input type="radio" name="q2" value="yes">Yes</label><label><input type="radio" name="q2" value="no">No</label></div></fieldset>
         <label class="reg-check"><input type="checkbox" id="q-attest"><span>I confirm these answers are true. I understand MAST Solutions relies on them to admit me to a live-fire course.</span></label>
@@ -1135,7 +1134,7 @@
         <div class="total"><span>Total</span><span class="amt" id="co-total">&mdash;</span></div>
         <div class="reg-nav"><button type="button" class="reg-back" onclick="regBack(4)">&larr; Back</button><button class="cta-button" id="co-pay" onclick="startCheckout()">Continue to Secure Checkout</button></div>
         <div class="secure">&#128274; PAYMENTS PROCESSED BY STRIPE</div>
-        <div class="secure" style="letter-spacing:.04em;text-transform:none;font-family:'Rajdhani',sans-serif;font-size:.85rem;">By continuing you agree to our <a href="privacy.html" target="_blank" rel="noopener" style="color:#5B9BFF;text-decoration:none;">Privacy Policy</a>. Your range address and gear list follow by email.</div>
+        <div class="secure" style="letter-spacing:.04em;text-transform:none;font-family:'Rajdhani',sans-serif;font-size:.85rem;">By continuing you agree to our <a href="https://atlasglinn.com/privacy/" target="_blank" rel="noopener" style="color:#5B9BFF;text-decoration:none;">Privacy Policy</a>. Your range address and gear list follow by email.</div>
     </div>
     <div class="err" id="co-err"></div>
     <div class="reg-review" id="reg-review" hidden></div>
@@ -1712,22 +1711,13 @@ const GEAR_HIDDEN = ['Aimpoint'];
 // on a GEAR row wins over it, so one device can come back before the line does; flip it to false when the line is stocked.
 const GEAR_OUT_OF_STOCK = true;
 function gearOut(g){ return g.stock ? g.stock === 'out' : (GEAR_OUT_OF_STOCK && g.device); }
-// Each device links to its own page on the maker's shop (owner, 2026-09-08: "link to add acutal product info
-// https://iwainternationalinc.com/shop/"). The URLs are the ones that shop's own listing carries, read from the 2026-09-08
-// capture of https://iwainternationalinc.com/shop/ (reference/desktop/live/shop.html on claude/desktop-assets). That shop
-// paginates and the capture is page 1 of 5, so PA-85, TH-14 and the door charge are not in the table and fall back to the
-// shop root — a guessed product URL would be worse than the listing he asked for.
-// SOURCE ONLY — never rendered as a link (owner 2026-09-08). These are where the product descriptions, specs and
-// images for our cards are read from (captured by capture-live into reference/desktop/live/); buyers stay on MAST.
-const GEAR_SHOP = 'https://iwainternationalinc.com/shop/';
-const GEAR_PRODUCT_URL = {
-  'IWA-M11-4B': 'https://iwainternationalinc.com/m11-multibang-device-4-bang/',
-  'IWA-M11-7B': 'https://iwainternationalinc.com/m11-multibang-device-7-bang/',
-  'IWA-M12': 'https://iwainternationalinc.com/m12-distraction-device/',
-  'IWA-M13': 'https://iwainternationalinc.com/m13-thermobaric-device/',
-  'IWA-M14': 'https://iwainternationalinc.com/m14-smoke-deployment-device/',
-  'IWA-M15': 'https://iwainternationalinc.com/m15-large-smoke-grenade/' };
-function gearUrl(g){ return GEAR_PRODUCT_URL[g.sku] || GEAR_SHOP; }
+// The maker's product URLs are NOT in this page (owner, 2026-09-08: "the link to IWA sends them to their store. We need
+// them to buy from our store, not theirs"). Two constants and a helper held them here until 2026-09-09 — nothing called
+// the helper, but a JS-built href is one edit away and produces no literal for a guard to match. They live in
+// scripts/store-intake.py now, which is the only thing that uses them: it reads the captured product pages. Each
+// product's own URL is kept in the "source" field of scripts/store-products.json, and scripts/assemble-cinematic.py
+// strips source and capture before STORE_PRODUCTS reaches the browser. The assembler asserts the names are absent, so
+// this comment does not name them either.
 function renderGear(){ const p = $('gear-panel'); if (!p) return; let html = '', brand = '';
   GEAR.forEach((g, i) => { if (GEAR_HIDDEN.includes(g.brand)) return; if (g.brand !== brand) { brand = g.brand; html += '<div class="gear-brand"><h3>' + esc(GEAR_BRAND_NAMES[brand] || brand) + '</h3><span>' + esc(GEAR_BRANDS[brand] || '') + '</span></div>'; }
     html += '<div class="gear-card' + (g.device ? ' device' : '') + '" role="button" tabindex="0" aria-haspopup="dialog" aria-label="' + esc(g.name) + ' \u2014 open product details"'

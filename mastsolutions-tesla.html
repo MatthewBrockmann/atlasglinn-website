@@ -1137,22 +1137,13 @@ const GEAR_HIDDEN = ['Aimpoint'];
 // on a GEAR row wins over it, so one device can come back before the line does; flip it to false when the line is stocked.
 const GEAR_OUT_OF_STOCK = true;
 function gearOut(g){ return g.stock ? g.stock === 'out' : (GEAR_OUT_OF_STOCK && g.device); }
-// Each device links to its own page on the maker's shop (owner, 2026-09-08: "link to add acutal product info
-// https://iwainternationalinc.com/shop/"). The URLs are the ones that shop's own listing carries, read from the 2026-09-08
-// capture of https://iwainternationalinc.com/shop/ (reference/desktop/live/shop.html on claude/desktop-assets). That shop
-// paginates and the capture is page 1 of 5, so PA-85, TH-14 and the door charge are not in the table and fall back to the
-// shop root — a guessed product URL would be worse than the listing he asked for.
-// SOURCE ONLY — never rendered as a link (owner 2026-09-08). These are where the product descriptions, specs and
-// images for our cards are read from (captured by capture-live into reference/desktop/live/); buyers stay on MAST.
-const GEAR_SHOP = 'https://iwainternationalinc.com/shop/';
-const GEAR_PRODUCT_URL = {
-  'IWA-M11-4B': 'https://iwainternationalinc.com/m11-multibang-device-4-bang/',
-  'IWA-M11-7B': 'https://iwainternationalinc.com/m11-multibang-device-7-bang/',
-  'IWA-M12': 'https://iwainternationalinc.com/m12-distraction-device/',
-  'IWA-M13': 'https://iwainternationalinc.com/m13-thermobaric-device/',
-  'IWA-M14': 'https://iwainternationalinc.com/m14-smoke-deployment-device/',
-  'IWA-M15': 'https://iwainternationalinc.com/m15-large-smoke-grenade/' };
-function gearUrl(g){ return GEAR_PRODUCT_URL[g.sku] || GEAR_SHOP; }
+// The maker's product URLs are NOT in this page (owner, 2026-09-08: "the link to IWA sends them to their store. We need
+// them to buy from our store, not theirs"). Two constants and a helper held them here until 2026-09-09 — nothing called
+// the helper, but a JS-built href is one edit away and produces no literal for a guard to match. They live in
+// scripts/store-intake.py now, which is the only thing that uses them: it reads the captured product pages. Each
+// product's own URL is kept in the "source" field of scripts/store-products.json, and scripts/assemble-cinematic.py
+// strips source and capture before STORE_PRODUCTS reaches the browser. The assembler asserts the names are absent, so
+// this comment does not name them either.
 function renderGear(){ const p = $('gear-panel'); if (!p) return; let html = '', brand = '';
   GEAR.forEach((g, i) => { if (GEAR_HIDDEN.includes(g.brand)) return; if (g.brand !== brand) { brand = g.brand; html += '<div class="gear-brand"><h3>' + esc(GEAR_BRAND_NAMES[brand] || brand) + '</h3><span>' + esc(GEAR_BRANDS[brand] || '') + '</span></div>'; }
     html += '<div class="gear-card' + (g.device ? ' device' : '') + '" role="button" tabindex="0" aria-haspopup="dialog" aria-label="' + esc(g.name) + ' \u2014 open product details"'

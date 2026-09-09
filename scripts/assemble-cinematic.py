@@ -185,7 +185,9 @@ MEMBERSHIP = f"""
 #    chapters by index.
 _in_action = '  <a href="#s9" class="chap-link">09 &middot; In Action</a>'
 assert CHROME.count(_in_action) == 1, 'In Action nav entry not found'
-CHROME = CHROME.replace(_in_action, _in_action + '\n  <a href="https://atlasglinn.com/articles/index.html" class="chap-extra preview-only">&middot; Blogs</a>')
+# Relative, not atlasglinn.com/articles/index.html: articles/ is MAST's own folder in this repo and the Atlas static
+# builds are not an approved destination. The entry is preview-only (display:none) either way.
+CHROME = CHROME.replace(_in_action, _in_action + '\n  <a href="articles/index.html" class="chap-extra preview-only">&middot; Blogs</a>')
 
 # ── Account (owner, 2026-09-05: "ADD ACCOUNT"): a Sign in link in the HUD's top-right corner and an entry at the foot of the chapter
 #    menu; both open the account dialog lifted from the booking page. The label becomes the student's first name once signed in.
@@ -340,8 +342,15 @@ AG = 'https://atlasglinn.com/'
 # /about/, /careers/, /contact/, /technology/, /ep-app/, /cuas-aerodefense/; /uas/ on the UAS capture). The
 # atlasglinn.com/<slug>.html copies this footer used to point at are the static preview builds, publicly reachable but
 # NOT approved (00-rules/website-go-live-gate.md), and MAST's public footer is what sent visitors into them.
+# privacy/ and terms/ join them 2026-09-09: MAST's footer and its two registration dialogs pointed at privacy.html /
+# terms.html, which the mastsolutions.com copy promoted to atlasglinn.com/privacy.html — a static preview build. The
+# live WordPress site links to https://atlasglinn.com/privacy/ and https://atlasglinn.com/terms/ from its own ep-app
+# page (reference/desktop/live/ep-app.html on claude/desktop-assets, read 2026-09-09), so those are the approved URLs
+# and both copies now carry them. mast-capability-statement.html and articles/index.html have no such equivalent
+# anywhere in the live captures (grepped, 0 hits): they are MAST's own pages and stay relative in both copies.
 AG_SLUG = {s: AG + s + '/' for s in ('executive-protection', 'residential-protection', 'disaster-recovery', 'training',
-                                     'technology', 'cuas-aerodefense', 'uas', 'about', 'careers', 'contact', 'ep-app')}
+                                     'technology', 'cuas-aerodefense', 'uas', 'about', 'careers', 'contact', 'ep-app',
+                                     'privacy', 'terms')}
 def _fl(pairs): return ' &middot; '.join(f'<a href="{h}">{t}</a>' for h, t in pairs)
 FOOT_SITE = ('<span class="fg">Atlas Glinn</span>' + _fl([(AG, 'Home'), (AG_SLUG['executive-protection'], 'Executive Protection'),
                                                           (AG_SLUG['residential-protection'], 'Residential Protection'), (AG_SLUG['disaster-recovery'], 'Disaster Recovery'),
@@ -358,7 +367,7 @@ FOOT_SITE = ('<span class="fg">Atlas Glinn</span>' + _fl([(AG, 'Home'), (AG_SLUG
              + '<div class="badges"><div class="badge-item"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div>'
                '<div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div>'
              + '<a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br>'
-             + '<a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a>&middot;<a href="#s1" class="to-top">Back to top &uarr;</a>')
+             + f'<a href="{AG_SLUG["privacy"]}">Privacy Policy</a>&middot;<a href="{AG_SLUG["terms"]}">Terms of Service</a>&middot;<a href="#s1" class="to-top">Back to top &uarr;</a>')
 
 SECTIONS = f"""
   <section class="panel" id="s1" data-section="01">
@@ -686,12 +695,15 @@ GOLD_KEEP = """
   #s6 .gold, #s7 .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
   /* The live atlasglinn.com hero, verbatim (owner, 2026-09-04: "Grab the code from Atlas Glinn. Apply same font size and same code"):
      .hero-headline metrics, the .gold-shimmer rule on "Details", flat #1A6BDE on "Matter", no entrance effect. */
-  /* ONE heading size for the whole page (owner, 2026-09-08: "make all headers the same. font size"): --head-chapter is
-     the only place a chapter-heading size is written, the hero wordmark and every h2 read it through the shell's tokens,
-     and the dialogs read --head-modal. No rule below carries a font-size literal, so nothing depends on cascade order. */
-  :root { --head-chapter:3.2rem; --head-h1:var(--head-chapter); --head-h2:var(--head-chapter); --head-modal:1.3rem; }
+  /* ONE heading size for the whole page (owner, 2026-09-08: "make all headers the same. font size"). MAST-only, and it
+     stays that way: cinematic_shell.py is the Atlas generator's input too, so the token lives here, in the block this
+     assembler splices after the shell's stylesheet. --head-chapter is the only place a heading size is written; the hero
+     wordmark, every chapter h2 and the dialog h3 read this one :root. It is spliced last, so it wins the cascade over the
+     shell's own h1.mega / h2.section-h literals without a second :root competing with it at the same specificity. */
+  :root { --head-chapter:3.2rem; --head-modal:1.3rem; }
   @media (max-width:768px) { :root { --head-chapter:2rem; } }
   @media (max-width:480px) { :root { --head-chapter:1.8rem; } }
+  h1.mega, h2.section-h { font-size:var(--head-chapter); }
   h1.mega { font-family:'Orbitron',sans-serif; font-weight:900; margin-bottom:1rem; letter-spacing:.02em; line-height:1.1; opacity:1; filter:none; transform:none; transition:none; }
   h1.mega .gold { background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; animation:shimmer 6s linear infinite; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; text-shadow:none; }
   h1.mega .white { color:#1A6BDE; }
@@ -765,6 +777,14 @@ html = shell._recolor(html, PALETTE).replace('/*__BOOKING_CSS__*/', booking_css_
 html = html.replace('/*__MOBILE_NAV_CSS__*/', MOBILE_NAV_CSS, 1)
 assert '__MOBILE_NAV_CSS__' not in html, 'the mobile menu stylesheet was not spliced'
 assert html.count('__BOOKING_CSS__') == 0 and '.cat-btn {' in html and 'h1.mega .gold { text-shadow' in html, 'booking css / gold keep not spliced'
+
+# The two legal pages, in both copies, in one place. The registration dialog and the sign-in fine print in
+# mastsolutions-tesla.html link to privacy.html / privacy.html#eligibility / terms.html; on the mastsolutions.com copy the
+# old blanket rewrite turned those into atlasglinn.com/privacy.html — a static preview build, not the approved page. They
+# resolve to AG_SLUG here, before either copy is written, so neither can carry a .html form of them again.
+for _legal in ('privacy', 'terms'):
+    html = re.sub(r'href="%s\.html(#[^"]*)?"' % _legal,
+                  lambda m, _s=_legal: 'href="%s%s"' % (AG_SLUG[_s], m.group(1) or ''), html)
 # Second-pass guards (2026-09-08). Each one is a regression that shipped once.
 assert 'ludocid' not in html, 'the rejected Google review URL is back'
 assert html.count('openDCal();return false;') >= len(CHAPTERS), 'a chapter lost its Book a Class CTA'
@@ -798,7 +818,15 @@ assert ('const GEAR_OUT_OF_STOCK = true;' not in html) or '<div class="gear-oos"
 assert 'class="gear-link"' not in html and 'IWA International ↗' not in html, 'a Store card links out to IWA again'
 assert 'href="https://iwainternationalinc.com' not in html and "href='https://iwainternationalinc.com" not in html, \
     'an outbound iwainternationalinc.com href is rendered somewhere on the page'
-assert 'GEAR_PRODUCT_URL' in html, 'the IWA source map (where product information is read from) was dropped'
+# ...and the URL map is not in the browser at all any more (2026-09-09). The two asserts above match rendered literals,
+# which is the ONE form this codebase never used: the links he killed were built in JS —
+# `'<a class="gear-link" href="' + esc(gearUrl(g)) + '"...'` (mastsolutions-tesla.html at fe1c43e^1) — and produced zero
+# literal href= strings. Re-wiring gearUrl() would have passed every guard. So the map is gone from the page (it lives
+# in scripts/store-intake.py, where it is used) and these asserts check for its absence instead of its presence: with no
+# URL in the payload there is nothing for a JS-built href to point at.
+for _dead in ('gearUrl(', 'GEAR_SHOP', 'GEAR_PRODUCT_URL'):
+    assert _dead not in html, \
+        'the IWA URL map is back in the browser payload (%s): a JS-built href needs no literal to reach their store' % _dead
 assert 'id="gear"' in html and 'id="gear-panel"' in html, \
     'the Store chapter lost the #gear anchor the Atlas pages link to (mastsolutions.html#gear) or its panel'
 
@@ -858,7 +886,16 @@ print('wrote', out, len(html.encode('utf-8')), 'bytes')
 import json as _json
 ms = html.replace('https://atlasglinn.com/mastsolutions.html', 'https://www.mastsolutions.com/')
 ms = re.sub(r'href="mastsolutions\.html(#[^"]*)?"', lambda m: 'href="/%s"' % (m.group(1) or ''), ms)
-ms = re.sub(r'href="([a-z0-9-]+\.html(?:#[^"]*)?)"', r'href="https://atlasglinn.com/\1"', ms)
+# No blanket promotion of relative .html links to atlasglinn.com any more (2026-09-09). It was written for the Atlas
+# destinations, but those are absolute WordPress slugs now (AG_SLUG), and all it still caught were MAST's OWN pages —
+# privacy.html, terms.html, mast-capability-statement.html — which it sent to atlasglinn.com/<name>.html, the static
+# preview builds that are publicly reachable but not approved (00-rules/website-go-live-gate.md). Privacy and Terms are
+# AG_SLUG now; mast-capability-statement.html stays relative, because it is MAST's own one-pager and has no WordPress
+# equivalent in any live capture. KNOWN GAP, named rather than hidden: .github/workflows/pages-mastsolutions.yml stages
+# index.html, the manifest, robots.txt, sitemap.xml and the assets its resolver finds, and that resolver skips .html
+# (line 82: `or u.endswith('.html')`), so mast-capability-statement.html is not on the Pages host yet — the "View
+# One-Pager" link 404s there until that workflow stages it. It is the assembler's link to get right; the staging is that
+# workflow's, and this pass does not own it.
 # Search Console ownership for www.mastsolutions.com (2026-09-08). Verification by DNS TXT failed: the zone carries
 # google-site-verification=u-Y9Tw… (another Google account's token). The 8ndz0nAQ… token in atlasglinn.com's DNS was
 # tried first and Google rejected it too ("meta tag for a different user account") — so atlasglinn.com was verified by
@@ -908,15 +945,20 @@ assert 'gallery/g14.mp4' not in html, 'the shoot-house clip is back in the In Ac
 
 # ── Fourth-pass guards (2026-09-09). One per thing he named; each has been fired against a broken copy of this file.
 
-# H-1, owner 2026-09-08: "make all headers the same. font size." Every heading size in the built stylesheet is a token,
-# so no chapter can pick up a different size from whichever rule is spliced last.
+# H-1, owner 2026-09-08: "make all headers the same. font size." The shell's own h1.mega / h2.section-h keep their
+# literals (cinematic_shell.py is the Atlas generator's input and is not MAST's to edit), so the check is on the LAST
+# font-size each heading gets: that is what the browser computes, and it has to be the one MAST token. One :root declares
+# it — a second one at the same specificity would make the size depend on splice order, which is the defect this guards.
 _css = between(html, '<style>', '</style>')
-_head_sizes = {v.strip() for sel, body in re.findall(r'([^{}]*)\{([^{}]*)\}', _css) if 'h1.mega' in sel or 'h2.section-h' in sel
-               for v in re.findall(r'font-size:\s*([^;]+);', body)}
-assert _head_sizes <= {'var(--head-h1)', 'var(--head-h2)'}, \
-    'a heading rule carries a font-size literal again, so the size depends on cascade order: ' + str(sorted(_head_sizes))
-assert '--head-h1:var(--head-chapter); --head-h2:var(--head-chapter)' in _css, \
-    'the hero wordmark and the chapter headings no longer read ONE size token'
+_rules = re.findall(r'([^{}]*)\{([^{}]*)\}', _css)
+for _mark in ('h1.mega', 'h2.section-h'):
+    _sizes = [v.strip() for sel, body in _rules if _mark in sel for v in re.findall(r'font-size:\s*([^;]+);', body)]
+    assert _sizes[-1:] == ['var(--head-chapter)'], \
+        '%s does not end on the one heading token, so its size depends on cascade order: %s' % (_mark, _sizes)
+_top_roots = [b for sel, b in re.findall(r'([^{}]*)\{([^{}]*)\}', re.sub(r'@media[^{]*\{(?:[^{}]|\{[^{}]*\})*\}', '', _css))
+              if sel.strip().endswith(':root')]
+assert sum('--head-chapter' in b for b in _top_roots) == 1, \
+    'the heading size is declared in %d top-level :root blocks; at equal specificity the last one wins' % sum('--head-chapter' in b for b in _top_roots)
 assert 'font-size: var(--head-modal' in _css, 'the dialog heading stopped following the shared token'
 
 # H-2, owner 2026-09-08: "we don't need team memberships and then team memberships in a gigantic header." A chapter's h2
@@ -938,12 +980,25 @@ for _cid in ('s5', 's7', 's9', 's12'):
         _cid + ' has a chapter heading again; its eyebrow already says it'
 
 # H-12, ledger section D: MAST's footer sent visitors to atlasglinn.com/<slug>.html — the static preview builds, not the
-# approved public site. Every mapped slug is now the WordPress URL, in this copy and in the mastsolutions.com copy below.
-for _slug in AG_SLUG:
-    assert ('atlasglinn.com/%s.html' % _slug) not in html, \
-        'a MAST link points at the unapproved static build again: atlasglinn.com/%s.html' % _slug
-    assert ('atlasglinn.com/%s.html' % _slug) not in ms, \
-        'the mastsolutions.com copy points at atlasglinn.com/%s.html' % _slug
+# approved public site. The first version of this guard walked AG_SLUG, so it could only see the eleven targets already
+# fixed; the five that were left (privacy, terms, the capability one-pager, the eligibility anchor, the hidden Blogs
+# entry) were invisible to it and shipped in the copy www.mastsolutions.com serves. It is a shape check now: NO
+# atlasglinn.com target ending in .html, in either copy, whatever its name.
+for _copy, _doc in (('mastsolutions.html', html), ('dist/mastsolutions/index.html', ms)):
+    _static = sorted(set(re.findall(r'atlasglinn\.com/[^"\'\s<>)]*\.html', _doc)))
+    assert not _static, \
+        '%s points at the unapproved static builds: %s' % (_copy, ', '.join(_static))
+
+# MS-32, the other half of the same class: with the URL map out of the payload, the maker's domain has nothing left to
+# do on the page except inside a product photograph's src. Their photographs are on a BigCommerce CDN, so the count is
+# zero today; if they ever move to their own host this counts the image URLs and allows exactly those.
+_iwa_imgs = sum(u.count('iwainternationalinc.com') for _p in STORE_PRODUCTS.values() for u in _p['images'])
+for _copy, _doc in (('mastsolutions.html', html), ('dist/mastsolutions/index.html', ms)):
+    for _dead in ('gearUrl(', 'GEAR_SHOP', 'GEAR_PRODUCT_URL'):
+        assert _dead not in _doc, '%s carries %s again: the IWA URL map is back in the browser' % (_copy, _dead)
+    assert _doc.count('iwainternationalinc.com') == _iwa_imgs, \
+        '%s mentions iwainternationalinc.com %d time(s); only the %d product image URL(s) on that host may' \
+        % (_copy, _doc.count('iwainternationalinc.com'), _iwa_imgs)
 
 # MS-33: every device card opens a product view on this page, keyboard included, and the six captured devices carry IWA's
 # own copy. MS-32: nothing links out to IWA.

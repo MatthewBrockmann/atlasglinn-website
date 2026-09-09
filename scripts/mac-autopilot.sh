@@ -132,6 +132,26 @@ case "${1:-}" in
   hourly)   # the wp-upload LaunchAgent's command: this script is pulled fresh from main each hour, so fixes reach the Mac without a paste
     ensure_cache || exit 0
     ATLAS_REPO="$CACHE" /bin/bash "$CACHE/scripts/wp-upload.sh" --if-changed || true
+    # Self-repair of the watcher (2026-09-09). The handoff plist is written by `install` only, so a Mac installed before
+    # the second drop folder existed keeps watching one root — the fix reaches this script hourly but never reaches the
+    # agent. Both folders are made, and if the installed plist does not name every path in DROPS it is rewritten and
+    # re-bootstrapped. Idempotent: a plist that already names them all is left alone and nothing is printed.
+    mkdir -p "$DROP/gallery" "$DROP/range" "$DROP2/gallery" "$DROP2/range"
+    if [ -f "$H_PLIST" ]; then
+      missing=""
+      for d in "${DROPS[@]}"; do grep -qF "<string>$d</string>" "$H_PLIST" || missing="$missing
+   $d"; done
+      if [ -n "$missing" ]; then
+        say "handoff watcher is not watching:$missing"
+        plist_handoff "$(handoff_repo)" > "$H_PLIST"
+        if plutil -lint "$H_PLIST" >/dev/null 2>&1; then
+          unload "$H_LABEL"; load "$H_LABEL" || say "rewrote $H_PLIST but launchctl would not load it; run: bash scripts/mac-autopilot.sh install"
+          say "rewrote $H_PLIST with ${#DROPS[@]} watched folders and reloaded $H_LABEL"
+        else
+          say "rewrote $H_PLIST but plutil rejected it; leaving the running agent alone"
+        fi
+      fi
+    fi
     # Retry pass over the drop folders (2026-09-06: CQB-P3.MOV was seen by the watcher while still copying and listed in
     # SKIPPED.txt with nothing to retry it). mac-handoff.sh skips what the branch already holds, so a quiet hour costs a
     # 3 MB fetch; a clip that was still being written lands here.
