@@ -11,8 +11,12 @@ type = "Data"
 globs = ["**/*.pdf"]
 fallthrough = true
 
-# Two triggers, and scheduled() dispatches on event.cron — the handler branches on which one fired, so the daily work
-# does not run 288 times a day.
+# Two triggers, and scheduled() dispatches on event.cron — the handler branches on BOTH strings BY NAME, so the daily
+# work does not run 288 times a day. Anything that is neither string (a trigger added here, a renamed schedule, an event
+# with no cron) logs { unknown_cron } and runs the TICK, which is one D1 read on a ready account. It used to fall
+# through to the daily branch, so the fail direction was 288 retention purges, journey passes and digest attempts a day.
+# ADD A TRIGGER HERE AND YOU MUST ADD ITS STRING TO scheduled() (src/worker.js): otherwise it runs the tick, not the
+# work you added it for.
 #   17 9 * * *    daily: purge eligibility answers past their purge_after (RETENTION-POLICY.md), mark registrations that
 #                 never reached payment as abandoned, the T−7 / T−1 / T+1 journeys, and the Monday CRM digest
 #                 (scheduled() checks the weekday; there is no third trigger to keep in step). It also runs the tax tick.
@@ -27,6 +31,10 @@ fallthrough = true
 # The second half of that fix is in the Worker: a measurement that said READY is still trusted for 24 hours
 # (TAX_READY_GRACE_MS) even once it is stale, so this trigger going quiet costs a day of grace, not the next ten minutes
 # of orders. After 24 hours of silence tax turns itself off — fail closed — and the next checkout re-triggers the loop.
+# AND A FAILED MEASUREMENT DOES NOT SPEND THAT GRACE. Only a measured "no" from Stripe, or 24 hours of silence, turns
+# tax off; a 5xx, a timeout or an unreachable network leaves the ready row alone and is recorded in tax:last_run. Round
+# 4 wrote UNMEASURED over the ready row on any failure, and the grace only applies to a row that says READY, so this
+# tick destroyed the grace on its first bad tick: an hour of Stripe 500s sold 10 of 12 orders untaxed, measured.
 [triggers]
 crons = ["17 9 * * *", "*/5 * * * *"]
 
@@ -68,7 +76,10 @@ JOURNEYS_ENABLED = "1"
 # enqueues behind its own response, none of which does anything unless it can take the one-per-minute lock. A
 # measurement that said READY is trusted for 24 hours even once it is stale, so orders keep being taxed while the loop
 # is quiet, and if that trust is ever wrong Stripe says so when the Session is created and the Worker retries once
-# without the tax fields (tax_fallback in the logs) — the checkout completes either way. So this switch is safe to ship
+# without the tax fields (tax_fallback in the logs) — the checkout completes either way. That retry does NOT write the
+# readiness row: it enqueues a real measurement behind the response, under the tax:lock, because the row it used to
+# write was reachable by an anonymous request on any Stripe free text matching /automatic_tax|tax|registration/ and so
+# turned tax off for every other buyer. So this switch is safe to ship
 # on a Stripe account that has never been set up, and deploy-worker.yml's tax step is a REPORT of what happened, not the
 # thing that makes it safe. The earlier wording — "deploy-worker.yml runs it after every deploy and fails the job if the
 # account is not active, so a tax-enabled deploy cannot reach the page without it" — was wrong on its own terms: with no

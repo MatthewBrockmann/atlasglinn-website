@@ -1,4 +1,4 @@
-import worker, { taxTimeoutMs } from './src/worker.js';
+import worker, { taxTimeoutMs, checkoutTimeoutMs } from './src/worker.js';
 import { execFileSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -46,7 +46,10 @@ let sessionFail = null;           // { n, status, body }: make the next n Checko
 let taxRegSeq = 0;
 let fakeDefaultCard = null;         // what GET /v1/customers/<id>?expand=... returns as the default payment method
 const fakePrices = [];         // prices "in Stripe" ({ id, lookup_key })
-let stripeGate = null;         // set to a promise to hold the Checkout Session call open (the oversell-race test)
+let stripeGate = null;         // a promise, or a function of the attempt number, held before the Checkout Session answers
+                               // (the oversell race, and round 5's shared budget across the two Session attempts)
+let customerHang = null;       // the same for /v1/customers: the Customer create and the saved-card read were raw fetch
+                               // with no AbortController until round 5, on the customer's own blocking path
 let sealedJson = null;         // what raw.githubusercontent.com serves for the sealed range directions (null = 404)
 const workerKeys = new Map();  // worker_keys rows (the sealing key pair)
 globalThis.fetch = async (url, init) => {
@@ -64,6 +67,7 @@ globalThis.fetch = async (url, init) => {
   if (u.includes('api.stripe.com/v1/customers')) {
     const method = (init && init.method) || 'GET';
     stripeCustomerCalls.push({ method, url: u, body: init && init.body ? new URLSearchParams(init.body) : null });
+    if (customerHang) await customerHang;   // never settles: only the Worker's own clock can end this one
     if (method === 'POST' && /\/v1\/customers$/.test(u)) return new Response(JSON.stringify({ id: 'cus_test_1' }), { status: 200 });
     if (method === 'GET') return new Response(JSON.stringify({ id: 'cus_test_1', invoice_settings: { default_payment_method: fakeDefaultCard } }), { status: 200 });
     return new Response(JSON.stringify({ id: 'cus_test_1' }), { status: 200 });
@@ -95,7 +99,9 @@ globalThis.fetch = async (url, init) => {
   }
   if (u.includes('api.stripe.com')) {
     stripeCalls.push(new URLSearchParams(init.body));
-    if (stripeGate) await stripeGate;   // held open by the oversell-race test; null everywhere else
+    // A function form so a test can hold ONE attempt open and not the other: the two Session attempts share a single
+    // ceiling, which can only be measured by making the first slow and the second never answer.
+    if (stripeGate) await (typeof stripeGate === 'function' ? stripeGate(stripeCalls.length) : stripeGate);
     // Stripe refusing a Checkout Session: the tax-fallback tests need the FIRST creation to fail and the retry to pass,
     // so the refusal is consumed rather than latched.
     if (sessionFail && sessionFail.n > 0) { sessionFail.n--; return new Response(JSON.stringify(sessionFail.body), { status: sessionFail.status || 400 }); }
@@ -341,10 +347,18 @@ const expireTaxWindow = () => { const r = rateLimits.get('tax:lock'); if (r) r.w
 const ageTaxState = (k, ms) => { const r = rateLimits.get(k); if (!r) return false; const [at, note] = String(r.window_start).split('|'); r.window_start = new Date(Date.parse(at) - ms).toISOString() + '|' + (note || ''); return true; };
 // Everything the Worker logs during one call, so "one structured tax_skipped line" can be asserted rather than assumed.
 const captureLogs = async (fn) => { const real = console.log; const lines = []; console.log = (...a) => lines.push(a.map(String).join(' ')); try { await fn(); } finally { console.log = real; } return lines; };
+// Both streams, because the raw Stripe body a failed checkout prints goes to console.error, and "none of these shapes
+// echo anywhere" is a claim about every line the Worker writes, not about the half of them that are console.log.
+const captureAll = async (fn) => { const rl = console.log, re = console.error; const lines = []; const grab = (...a) => lines.push(a.map(String).join(' ')); console.log = grab; console.error = grab; try { await fn(); } finally { console.log = rl; console.error = re; } return lines; };
 // Every request comes from its own address unless a test pins one: the per-IP limits and the per-IP seat-hold cap are
 // real controls, so they are exercised in the block that is about them rather than tripping every other block.
 let ipSeq = 0;
 const nextIp = () => '203.0.113.' + ((ipSeq++ % 250) + 1);
+// The two trigger strings from wrangler.toml [triggers]. scheduled() branches on both BY NAME (round 5): an event that
+// is neither runs the cheap tax tick, so a test that wants the daily work has to say which trigger fired. Every call
+// below used to pass {} and get the daily branch by default — the same default that would have run the retention
+// purge, the journeys and the digest 288 times a day off the five-minute trigger.
+const DAILY_CRON = '17 9 * * *', TICK_CRON = '*/5 * * * *';
 const raw = (path, body, origin = 'https://mastsolutions.com', ip = nextIp()) =>
   worker.fetch(new Request('https://api.test' + path, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin, 'CF-Connecting-IP': ip }, body: JSON.stringify(body),
@@ -706,7 +720,7 @@ const party = (n, over = {}) => goodReg({ customer: { name: 'Cap ' + n, email: '
   answers.push([99, '{}', '', '2020-01-01T00:00:00Z', '2020-01-08T00:00:00Z']);
   const keep = answers.length - 1;
   registrations.set('reg_old', { id: 'reg_old', status: 'pending', created_at: '2020-01-01T00:00:00Z' });
-  let ran = null; await worker.scheduled({}, env, { waitUntil: (p) => { ran = p; } }); await ran;
+  let ran = null; await worker.scheduled({ cron: DAILY_CRON }, env, { waitUntil: (p) => { ran = p; } }); await ran;
   ok('expired answers purged, current ones kept', answers.length === keep && !answers.some(a => a[4] < '2021'));
   ok('stale pending registration marked abandoned', registrations.get('reg_old').status === 'abandoned');
   ok('outcomes untouched by the purge', outcomes.length >= 2);
@@ -945,7 +959,7 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   ok('a used reset code does not work twice', (await post('/account/reset', { email: 'student@example.com', code: resetCode, password: 'yet another long password 2' })).status === 400);
   // retention: unverified accounts older than a day go, verified ones stay
   accounts.set('acct_stale', { id: 'acct_stale', email: 'stale@example.com', password_hash: 'x', token_version: 1, created_at: '2020-01-01T00:00:00Z', verified_at: null });
-  let ran2 = null; await worker.scheduled({}, env, { waitUntil: (p) => { ran2 = p; } }); await ran2;
+  let ran2 = null; await worker.scheduled({ cron: DAILY_CRON }, env, { waitUntil: (p) => { ran2 = p; } }); await ran2;
   ok('the daily cron removes unverified accounts older than a day and keeps verified ones', !accounts.has('acct_stale') && accounts.has(r1.account.id));
   // no email leg → sign-up is off, sign-in still works
   const savedResend = env.RESEND_API_KEY; env.RESEND_API_KEY = '';
@@ -1127,7 +1141,7 @@ console.log('\n── Rate limiting, lockout and seat holds (security review, 20
   resetLimits();
   rateLimits.set('login:1.2.3.4', { key: 'login:1.2.3.4', window_start: '2020-01-01T00:00:00Z', count: 9 });
   rateLimits.set('login:5.6.7.8', { key: 'login:5.6.7.8', window_start: new Date().toISOString(), count: 1 });
-  let ranRate = null; await worker.scheduled({}, env, { waitUntil: (p) => { ranRate = p; } }); await ranRate;
+  let ranRate = null; await worker.scheduled({ cron: DAILY_CRON }, env, { waitUntil: (p) => { ranRate = p; } }); await ranRate;
   ok('the daily cron drops rate-limit rows older than a day and keeps live ones', !rateLimits.has('login:1.2.3.4') && rateLimits.has('login:5.6.7.8'), [...rateLimits.keys()].join());
   resetLimits();
   emails.length = 0;
@@ -1865,7 +1879,7 @@ console.log('\n── Monday CRM digest (owner, 2026-09-08: "weekly CRM Emails t
   ok('with the snapshot the lifetime totals are appended, money formatted the same way', /LIFETIME/.test(withStats) && /Revenue:\s+\$16,680\.00\s+\(30 days: \$2,085\.00\)/.test(withStats) && /Registrations:\s+31\s+\(paid 24 · pending 4 · abandoned 3\)/.test(withStats) && /Seats upcoming:\s+2026-10-10: 6/.test(withStats), withStats);
 
   // Gating: the daily cron carries the digest — Monday, or the Tuesday/Wednesday retry — once per ISO week, never at the purge's expense.
-  const runCron = async (event, en) => { const queued = []; await worker.scheduled(event, en, { waitUntil: (p) => queued.push(p) }); await Promise.all(queued); };
+  const runCron = async (event, en) => { const queued = []; await worker.scheduled({ cron: DAILY_CRON, ...event }, en, { waitUntil: (p) => queued.push(p) }); await Promise.all(queued); };
   const digestEnv = { ...env, CRM_DIGEST_TO: 'matthew@atlasglinn.com,matthew@mastsolutions.com' };
   const monday = Date.UTC(2026, 8, 7, 9, 17), tuesday = Date.UTC(2026, 8, 8, 9, 17), wednesday = Date.UTC(2026, 8, 9, 9, 17), thursday = Date.UTC(2026, 8, 10, 9, 17);
   const stale = (id) => { registrations.set(id, { id, status: 'pending', created_at: '2020-01-01T00:00:00Z' }); return id; };
@@ -2318,12 +2332,12 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
 
   // ── the cron is the other trigger, and it is the one that runs when nobody is buying anything ──
   taxAccountBlank(); forgetTaxState(); stripeTaxCalls.length = 0;
-  const cron1 = []; await worker.scheduled({}, on, { waitUntil: (p) => cron1.push(p) }); await Promise.all(cron1);
+  const cron1 = []; await worker.scheduled({ cron: DAILY_CRON }, on, { waitUntil: (p) => cron1.push(p) }); await Promise.all(cron1);
   ok('the daily cron sets the account up when the switch is on and the account is not collecting',
      stripeTaxCalls.filter((c) => c.method === 'POST').length === 2 && fakeTaxRegistrations.length === 1, 'POSTs=' + stripeTaxCalls.filter((c) => c.method === 'POST').length);
   ok('… and stamps the heartbeat with the trigger that ran it', /\|cron\/created$/.test(String((taxStateRow('tax:last_run') || {}).window_start)), JSON.stringify(taxStateRow('tax:last_run')));
   stripeTaxCalls.length = 0;
-  const cron2 = []; await worker.scheduled({}, on, { waitUntil: (p) => cron2.push(p) }); await Promise.all(cron2);
+  const cron2 = []; await worker.scheduled({ cron: DAILY_CRON }, on, { waitUntil: (p) => cron2.push(p) }); await Promise.all(cron2);
   ok('… and a cron run against a ready account asks Stripe nothing at all — the cached measurement answers', stripeTaxCalls.length === 0, JSON.stringify(stripeTaxCalls.map((c) => c.url)));
 
   // ── the heartbeat: wired ≠ firing, so a loop that stopped running has to be visible without opening a run log ──
@@ -2337,7 +2351,7 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
   ok('… beside the readiness the checkout actually gates on, and how old that measurement is',
      report.tax_ready === true && typeof report.tax_ready_cache.age_seconds === 'number' && report.tax_ready_cache.ttl_seconds === 600, JSON.stringify({ ready: report.tax_ready, cache: report.tax_ready_cache }));
   ageTaxState('tax:last_run', 26 * 3600000);
-  const purgeRun = []; await worker.scheduled({}, env, { waitUntil: (p) => purgeRun.push(p) }); await Promise.all(purgeRun);
+  const purgeRun = []; await worker.scheduled({ cron: DAILY_CRON }, env, { waitUntil: (p) => purgeRun.push(p) }); await Promise.all(purgeRun);
   ok('the daily purge does NOT eat the tax state rows — a heartbeat deleted at 24h could never be reported stale at 25h', !!taxStateRow('tax:last_run'), JSON.stringify([...rateLimits.keys()].filter((k) => k.startsWith('tax:'))));
   const stale = await (await adminTax('?dry=1', 'GET')).json();
   ok('… so a run that last fired 26 hours ago is REPORTED stale', stale.last_run.stale === true && stale.last_run.age_hours >= 25, JSON.stringify(stale.last_run));
@@ -2359,8 +2373,24 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
   await taxPost('/create-booking', booking);
   ok('… past the 10-minute TTL the measurement is DUE, not void: it said ready, so the order is taxed on it and the re-measurement runs behind the response',
      stripeCalls[0].toString() === TAXED_BOOKING, stripeCalls[0].toString());
+  const rowBefore = JSON.stringify(taxStateRow('tax:ready'));
   await drain();
-  ok('… the re-measurement runs behind it, and a Stripe error is cached as UNMEASURED (count 2) rather than not cached at all',
+  // ROUND 5, R5-1. This assertion used to read the other way — "a Stripe error is cached as UNMEASURED (count 2)" —
+  // and that write is what destroyed the 24-hour grace on the first failed tick, because taxReadyCached grants the
+  // grace only to a row that says READY. A failure is not an answer about the account.
+  ok('… and a re-measurement that FAILS leaves the ready row exactly as it was: silence is not evidence, so the grace survives the outage',
+     JSON.stringify(taxStateRow('tax:ready')) === rowBefore && (taxStateRow('tax:ready') || {}).count === 1, JSON.stringify(taxStateRow('tax:ready')));
+  stripeCalls.length = 0; stripeTaxCalls.length = 0;
+  await taxPost('/create-booking', booking); await drain();
+  ok('… so the NEXT checkout through the same outage is still taxed, and the held window means it costs no Stripe call',
+     stripeTaxCalls.length === 0 && stripeCalls[0].toString() === TAXED_BOOKING, 'taxCalls=' + stripeTaxCalls.length + ' body=' + stripeCalls[0].toString());
+
+  // The other half of the same rule: with NO ready measurement to protect, a failure still writes UNMEASURED on the
+  // short negative TTL — which is what stops the next checkout re-triggering it, and what fails closed.
+  forgetTaxState(); expireTaxWindow();
+  stripeCalls.length = 0; stripeTaxCalls.length = 0;
+  await taxPost('/create-booking', booking); await drain();
+  ok('… while a failure with no ready row behind it IS cached as UNMEASURED (count 2): fail-closed is unchanged where there is nothing to grace',
      (taxStateRow('tax:ready') || {}).count === 2 && /\|settings_read_failed$/.test(String((taxStateRow('tax:ready') || {}).window_start)), JSON.stringify(taxStateRow('tax:ready')));
   stripeCalls.length = 0; stripeTaxCalls.length = 0;
   await taxPost('/create-booking', booking); await drain();
@@ -2443,8 +2473,12 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
   // still reaches a response: a POST that finds the window held reports the account (taxRun read-only) and writes nothing.
   rateLimits.set('tax:lock', { key: 'tax:lock', window_start: new Date(Date.now() + 60000).toISOString(), count: 1 });
   const planted = await (await adminTax()).text();
-  ok('a key shape planted in a SUCCESS field (settings.status) is redacted before it reaches the report',
-     !planted.includes(PLANTED) && planted.includes('[redacted]'), planted.slice(0, 300));
+  // ROUND 5, R5-5. settings.status is an ENUM, so it is checked against the shapes it is allowed to be rather than
+  // scrubbed of the shapes a denylist knows: 'pending_sk_live_…' is not one of them and the whole value is replaced.
+  // That is the difference that matters — the previous behaviour reported 'pending_[redacted]', which is a leak of
+  // structure and depends on the pattern set having heard of the shape. This one does not.
+  ok('a key shape planted in a SUCCESS field (settings.status) never reaches the report: an enum that is not enum-shaped is replaced whole',
+     !planted.includes(PLANTED) && !planted.includes('pending_') && JSON.parse(planted).settings.status === '[unexpected]', planted.slice(0, 300));
   ok('… including the copy of it that rides inside tax_ready_reason and the notes',
      !JSON.stringify(JSON.parse(planted).notes).includes(PLANTED) && !String(JSON.parse(planted).tax_ready_reason).includes(PLANTED),
      JSON.stringify({ reason: JSON.parse(planted).tax_ready_reason, notes: JSON.parse(planted).notes.slice(0, 2) }));
@@ -2575,25 +2609,56 @@ console.log('\n── Stripe Tax kept warm: the five-minute trigger, the 24-hour
     ok('… so the one after it is taxed again, with no cron run in between', stripeCalls[0].toString() === TAXED_BODY, stripeCalls[0].toString());
 
     // ── the price of trusting a stale measurement: Stripe refuses the Session, and the customer must not feel it ──
+    // ROUND 5, R5-2. The refusal keeps the checkout alive and buys ONE thing beyond that: a measurement, behind the
+    // response, under the lock. It does NOT write the readiness row any more. That write was reachable by an anonymous
+    // request with no lock and no rate limit, on any non-ok body whose free text matched /automatic_tax|tax|
+    // registration/ — so a string Stripe echoes back (an email local part, a description, a URL path) turned tax off
+    // for every other buyer, and a completed Session cannot be re-taxed. The message planted below is exactly that:
+    // attacker-controlled text carrying the trigger words, and a key shape for the redactor to eat.
     const KEY_SHAPE = ['sk', 'live', '51NoTaReAlKeY0123456789'].join('_');
+    const ECHOED = 'tax-registration+automatic_tax@evil.example';
     taxAccountReady(); forgetTaxState(); cacheTaxReady(); stripeCalls.length = 0; stripeTaxCalls.length = 0;
-    sessionFail = { n: 1, status: 400, body: { error: { type: 'invalid_request_error',
-      message: 'You cannot use automatic_tax[enabled]=true because Stripe Tax is not active on this account (key ' + KEY_SHAPE + ').' } } };
+    sessionFail = { n: 1, status: 400, body: { error: { type: 'invalid_request_error', code: 'parameter_invalid_string_empty', param: 'customer_email',
+      message: 'Invalid email address: ' + ECHOED + ' (key ' + KEY_SHAPE + ') — no such customer, and automatic_tax needs a registration.' } } };
+    const fbQ = [];
+    const fbCtx = { waitUntil: (p) => { fbQ.push(Promise.resolve(p).catch(() => {})); return p; } };
+    const rowBeforeRefusal = JSON.stringify(taxStateRow('tax:ready'));
     let fallbackRes;
-    const fbLines = await captureLogs(async () => { fallbackRes = await bookAlone(); });
+    const fbLines = await captureLogs(async () => { fallbackRes = await bookWith(fbCtx); });
     ok('Stripe refuses a Session for a TAX reason and the customer still gets a checkout URL: one retry, without the tax fields',
        fallbackRes.status === 200 && stripeCalls.length === 2, fallbackRes.status + ' attempts=' + stripeCalls.length);
     ok('… the first attempt carried tax and the retry is the tax-off body, byte for byte',
        stripeCalls[0].toString() === TAXED_BODY && stripeCalls[1].toString() === OFF_BODY, stripeCalls[1].toString());
     const fb = fbLines.filter((l) => l.includes('tax_fallback'));
-    ok('… exactly one tax_fallback line, and the reason went out through the same redactor as everything else',
-       fb.length === 1 && !fb[0].includes(KEY_SHAPE) && fb[0].includes('[redacted]') && JSON.parse(fb[0]).fields_dropped === 2, JSON.stringify(fb));
-    ok('… and the readiness row is written back as UNMEASURED on the 60-second negative TTL: the cache said ready, Stripe disagreed, so nothing has measured it now',
-       (taxStateRow('tax:ready') || {}).count === 2 && /\|session_refused_tax$/.test(String((taxStateRow('tax:ready') || {}).window_start)), JSON.stringify(taxStateRow('tax:ready')));
+    ok('… exactly one tax_fallback line, carrying Stripe\'s own code and neither the planted key nor the string the caller chose',
+       fb.length === 1 && !fb[0].includes(KEY_SHAPE) && !fb[0].includes(ECHOED) && JSON.parse(fb[0]).fields_dropped === 2 && JSON.parse(fb[0]).retried === true, JSON.stringify(fb));
+    ok('… and the readiness row is UNTOUCHED by the refusal, byte for byte: no attacker-influenced string flips the gate every other buyer reads',
+       JSON.stringify(taxStateRow('tax:ready')) === rowBeforeRefusal, JSON.stringify(taxStateRow('tax:ready')));
+    ok('… what it enqueued instead is exactly ONE background measurement, behind the response',
+       fbQ.length === 1, 'enqueued=' + fbQ.length);
+    const fbBg = await captureLogs(async () => { await Promise.all(fbQ); });
+    ok('… and that measurement takes the lock and ASKS STRIPE rather than inferring anything from the message',
+       stripeTaxCalls.length > 0 && fbBg.filter((l) => l.includes('"trigger":"session_refused"')).length === 1,
+       'taxCalls=' + stripeTaxCalls.length + ' lines=' + JSON.stringify(fbBg.filter((l) => l.includes('tax_setup'))));
+    ok('… Stripe said the account IS collecting, so the row still says ready — the refusal cost nobody their tax',
+       (taxStateRow('tax:ready') || {}).count === 1, JSON.stringify(taxStateRow('tax:ready')));
     stripeCalls.length = 0;
-    await bookAlone();
-    ok('… so the next checkout is untaxed FIRST TIME and repeats neither the refusal nor the retry',
-       stripeCalls.length === 1 && stripeCalls[0].toString() === OFF_BODY, 'attempts=' + stripeCalls.length);
+    for (let i = 0; i < 5; i++) await bookAlone();
+    ok('… and the five buyers behind that one are ALL taxed: round 4 sold every one of them untaxed on a string a stranger chose',
+       stripeCalls.length === 5 && stripeCalls.every((b) => b.toString() === TAXED_BODY), 'bodies=' + stripeCalls.length + ' taxed=' + stripeCalls.filter((b) => b.toString() === TAXED_BODY).length);
+
+    // ── a 5xx is not a refusal: Stripe did not read the body and say no, it failed to answer about it ──
+    taxAccountReady(); forgetTaxState(); cacheTaxReady(); stripeCalls.length = 0; stripeTaxCalls.length = 0;
+    const rowBefore5xx = JSON.stringify(taxStateRow('tax:ready'));
+    const q5 = []; const ctx5 = { waitUntil: (p) => { q5.push(Promise.resolve(p).catch(() => {})); return p; } };
+    sessionFail = { n: 1, status: 500, body: { error: { type: 'api_error', message: 'automatic_tax is temporarily unavailable' } } };
+    let serverErr;
+    const lines5 = await captureLogs(async () => { serverErr = await bookWith(ctx5); });
+    ok('a 5xx mentioning tax is NOT retried: one attempt, one 502, and no second charge attempt on a Stripe that is already struggling',
+       serverErr.status === 502 && stripeCalls.length === 1, serverErr.status + ' attempts=' + stripeCalls.length);
+    ok('… no tax_fallback line, nothing enqueued, and the readiness row untouched',
+       !lines5.some((l) => l.includes('tax_fallback')) && q5.length === 0 && JSON.stringify(taxStateRow('tax:ready')) === rowBefore5xx, JSON.stringify(taxStateRow('tax:ready')));
+    sessionFail = null;
 
     // ── and nothing else is ever retried ──
     taxAccountReady(); forgetTaxState(); cacheTaxReady(); stripeCalls.length = 0;
@@ -2647,6 +2712,84 @@ console.log('\n── Stripe Tax kept warm: the five-minute trigger, the 24-hour
     priceHang = null;
     freshPrice();
 
+    // ── ROUND 5, R5-1: a measurement that FAILED never drops a row that said ready inside the grace ──
+    // Round 4 shipped the 24-hour grace and then let its own five-minute tick destroy it: taxMeasure wrote UNMEASURED
+    // on any Stripe 5xx or timeout, and taxReadyCached graces only a row that says READY. Probed by the revenue lens at
+    // 60 minutes of 500s — 12 orders, 11 of them untaxed — and at one bad tick, 3 of 6 buyers untaxed over 70 seconds.
+    // A completed Checkout Session cannot be re-taxed, so each of those is margin the permit holder owes Texas.
+    taxAccountReady(); forgetTaxState(); cacheTaxReady(); stripeTaxCalls.length = 0;
+    taxFail = { on: '/tax/settings', method: 'GET', status: 500, body: { error: { message: 'Stripe is having a moment' } } };
+    let outageTaxed = 0, outageUntaxed = 0;
+    for (let i = 0; i < 12; i++) {
+      await tick();
+      stripeCalls.length = 0;
+      await bookAlone();
+      if (stripeCalls[0].toString() === TAXED_BODY) outageTaxed++; else outageUntaxed++;
+      advance(5 * 60000);
+    }
+    ok('an hour of Stripe 500s with the tick firing every five minutes: 12 orders, ZERO untaxed — reverting this fix sells 10 of the 12 untaxed, measured',
+       outageTaxed === 12 && outageUntaxed === 0, 'taxed=' + outageTaxed + ' untaxed=' + outageUntaxed);
+    ok('… because the row is still the measurement that said ready, not an UNMEASURED one written over it by a failure',
+       (taxStateRow('tax:ready') || {}).count === 1 && /\|active$/.test(String((taxStateRow('tax:ready') || {}).window_start)), JSON.stringify(taxStateRow('tax:ready')));
+    ok('… with the failure recorded where a failure belongs — the heartbeat, which is what makes a dying loop visible',
+       /\|tax-cron\/settings_read_failed$/.test(String((taxStateRow('tax:last_run') || {}).window_start)), JSON.stringify(taxStateRow('tax:last_run')));
+
+    // ONE bad tick, then a burst — the shape a five-minute Stripe blip actually has. The row is aged past its TTL
+    // first, or the tick reads a fresh cache and returns without measuring anything, and the probe measures nothing.
+    taxAccountReady(); forgetTaxState(); cacheTaxReady(); ageTaxState('tax:ready', 11 * 60000); expireTaxWindow(); stripeTaxCalls.length = 0;
+    taxFail = { on: '/tax/settings', method: 'GET', status: 500, body: { error: { message: 'Stripe is having a moment' } } };
+    await tick();
+    ok('(the tick really did try and really did fail)', stripeTaxCalls.length > 0 && /\|tax-cron\/settings_read_failed$/.test(String((taxStateRow('tax:last_run') || {}).window_start)),
+       'taxCalls=' + stripeTaxCalls.length + ' beat=' + JSON.stringify(taxStateRow('tax:last_run')));
+    taxFail = null;
+    let burstTaxed = 0;
+    for (let i = 0; i < 6; i++) { stripeCalls.length = 0; await bookAlone(); if (stripeCalls[0].toString() === TAXED_BODY) burstTaxed++; advance(12000); }
+    ok('one failed tick, then six buyers over the next seventy seconds: all six taxed — reverting this fix sells all six untaxed',
+       burstTaxed === 6, 'taxed=' + burstTaxed + '/6');
+
+    // A MEASURED not-ready is the other direction, and it is unchanged: Stripe answered and said no.
+    taxAccountReady(); forgetTaxState(); cacheTaxReady(); ageTaxState('tax:ready', 11 * 60000); expireTaxWindow();
+    fakeTaxSettings = { status: 'pending', head_office: null, defaults: {} }; fakeTaxRegistrations.length = 0;
+    taxFail = { on: '/tax/settings', method: 'POST', status: 402, body: { error: { type: 'invalid_request_error', code: 'tax_terms_not_accepted', message: 'Accept the Stripe Tax terms first.' } } };
+    await tick();
+    taxFail = null;
+    ok('a MEASURED not-ready still overwrites the ready row at once: a real "no" from Stripe is evidence where its silence is not',
+       (taxStateRow('tax:ready') || {}).count === 0, JSON.stringify(taxStateRow('tax:ready')));
+    stripeCalls.length = 0;
+    await bookAlone();
+    ok('… so the very next order is the tax-off body, with no grace at all',
+       stripeCalls[0].toString() === OFF_BODY, stripeCalls[0].toString());
+
+    // And past the grace, a failure DOES overwrite — the grace protects a measurement, not a memory.
+    taxAccountReady(); forgetTaxState(); cacheTaxReady(); expireTaxWindow();
+    advance(25 * 3600000);
+    taxFail = { on: '/tax/settings', method: 'GET', status: 500, body: { error: { message: 'Stripe is having a moment' } } };
+    await tick();
+    taxFail = null;
+    ok('past 24 hours a failed measurement DOES replace the ready row with UNMEASURED: the grace has an end, and this is it',
+       (taxStateRow('tax:ready') || {}).count === 2, JSON.stringify(taxStateRow('tax:ready')));
+    stripeCalls.length = 0;
+    await bookAlone();
+    ok('… and 25 hours of silence still fails CLOSED, exactly as it did before',
+       stripeCalls[0].toString() === OFF_BODY, stripeCalls[0].toString());
+
+    // ── ROUND 5, R5-4: an unrecognised trigger runs the TICK, never the daily work ──
+    // scheduled() branched on the tick string and treated everything else as the daily cron, so the fail direction was
+    // 288 retention purges, 288 journey passes and 288 chances at the weekly digest in a day. Both strings are named now.
+    taxAccountReady(); forgetTaxState(); cacheTaxReady();
+    sqlDeletes = 0;
+    const unknownLines = await captureLogs(() => tick('0 * * * *'));
+    ok('a cron string the handler does not know runs the tax tick and nothing else: zero DELETEs, and it says so out loud',
+       sqlDeletes === 0 && unknownLines.some((l) => l.includes('"unknown_cron":"0 * * * *"')),
+       'deletes=' + sqlDeletes + ' ' + JSON.stringify(unknownLines.filter((l) => l.includes('cron'))));
+    sqlDeletes = 0;
+    await tick('');
+    ok('… and an event carrying no cron string at all is the same — that is the shape round 4 defaulted into the daily branch',
+       sqlDeletes === 0, 'deletes=' + sqlDeletes);
+    sqlDeletes = 0;
+    await tick(DAILY_CRON);
+    ok('… while the daily string still does the daily work, so nothing was traded for the fix', sqlDeletes > 0, 'deletes=' + sqlDeletes);
+
     // ── the clock itself: bounded at BOTH ends, because a typo the other way removes it ──
     ok('STRIPE_TAX_TIMEOUT_MS is clamped above: 999999999 becomes 15000, so no override can leave a Stripe call without a clock',
        taxTimeoutMs({ STRIPE_TAX_TIMEOUT_MS: '999999999' }) === 15000 && taxTimeoutMs({ STRIPE_TAX_TIMEOUT_MS: '15001' }) === 15000,
@@ -2661,6 +2804,136 @@ console.log('\n── Stripe Tax kept warm: the five-minute trigger, the 24-hour
     sessionFail = null; priceHang = null; taxFail = null; taxHang = null;
     taxAccountReady(); forgetTaxState();
   }
+}
+
+console.log('\n── Round 5: what is validated is what is sent, an allow-list on the enum fields, and a clock on the calls a customer waits behind ──');
+{
+  const on = { ...env, STRIPE_TAX: '1' };
+  const bookRaw = (body, e = on, c = ctx) => worker.fetch(new Request('https://api.test/create-booking', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() },
+    body: JSON.stringify(body) }), e, c);
+
+  /* ── R5-3: a field validated on a normalised copy and transmitted raw ──
+     isEmail() trims before it tests, so " a@b.com " passed the check and then went to Stripe with its whitespace on.
+     The approved string and the transmitted string have to be the same string. */
+  taxAccountReady(); forgetTaxState(); stripeCalls.length = 0;
+  await bookRaw({ sku: 'MAST-HG-FUND', customer_email: '  spaced@example.com  ', qty: 1 });
+  ok('a booking email that passed validation TRIMMED is transmitted trimmed: what was approved is what Stripe receives',
+     stripeCalls[0].get('customer_email') === 'spaced@example.com', JSON.stringify(stripeCalls[0].get('customer_email')));
+  stripeCalls.length = 0;
+  await worker.fetch(new Request('https://api.test/create-membership', { method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() },
+    body: JSON.stringify({ plan: 'range_member', email: '  spaced@example.com  ', seats: 1 }) }), on, ctx);
+  ok('… and the same on a membership join, on the Session field AND the subscription metadata that becomes the CRM row',
+     stripeCalls[0].get('customer_email') === 'spaced@example.com' && stripeCalls[0].get('subscription_data[metadata][email]') === 'spaced@example.com',
+     JSON.stringify({ email: stripeCalls[0].get('customer_email'), meta: stripeCalls[0].get('subscription_data[metadata][email]') }));
+
+  /* ── R5-5: the enum fields are an ALLOW-LIST, and the free-text ones learned four more shapes ──
+     A denylist only removes what it has been told about; the shapes below are what turns up in a request body a
+     stranger wrote, quoted back inside a Stripe error message. Planted on BOTH paths — the tax refusal and the ordinary
+     one — because the raw Stripe body is printed on the second and nobody had checked it. */
+  const SHAPES = {
+    google: 'AIzaSy' + 'B'.repeat(33),
+    aws: 'AKIA' + 'B'.repeat(16),
+    slack: 'xoxb-' + '111111111111-abcdefABCDEF',
+    jwt: ['eyJhbGciOiJIUzI1NiJ9', 'eyJzdWIiOiIxIiwibmFtZSI6IkpEIn0', 'abc_DEF-123'].join('.'),
+    stripe: ['sk', 'live', '51NoTaReAlKeY0123456789'].join('_'),
+  };
+  const planted = Object.values(SHAPES).join(' ');
+  const FILLER = ' ' + 'x'.repeat(400);   // so the 300-character cap on the raw body has something to bite on
+  const echoes = (lines) => Object.entries(SHAPES).filter(([, v]) => lines.some((l) => l.includes(v))).map(([k]) => k);
+
+  taxAccountReady(); forgetTaxState(); cacheTaxReady(); stripeCalls.length = 0;
+  sessionFail = { n: 1, status: 400, body: { error: { type: 'invalid_request_error',
+    message: 'automatic_tax registration refused: ' + planted + FILLER } } };
+  const taxShapeLines = await captureAll(async () => { await bookRaw({ sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 }, on, { waitUntil: () => {} }); });
+  ok('every planted credential shape is scrubbed out of a TAX refusal before any line is written',
+     echoes(taxShapeLines).length === 0, 'echoed: ' + echoes(taxShapeLines).join(', '));
+
+  taxAccountReady(); forgetTaxState(); cacheTaxReady(); stripeCalls.length = 0;
+  sessionFail = { n: 1, status: 400, body: { error: { type: 'card_error', code: 'card_declined',
+    message: 'Your card was declined: ' + planted + FILLER } } };
+  const plainShapeLines = await captureAll(async () => { await bookRaw({ sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 }, on, { waitUntil: () => {} }); });
+  ok('… and out of the ORDINARY error path too, which is where the whole Stripe body is printed and nobody had looked',
+     echoes(plainShapeLines).length === 0, 'echoed: ' + echoes(plainShapeLines).join(', '));
+  const rawLine = plainShapeLines.find((l) => l.includes('Stripe error:'));
+  ok('… and that raw body is capped at 300 characters rather than mirrored whole into the log',
+     !!rawLine && rawLine.endsWith('…') && rawLine.length < 360, rawLine && ('len=' + rawLine.length + ' ' + rawLine.slice(-40)));
+  sessionFail = null;
+
+  // The allow-list itself, on the three enum/id fields, through the report a POST returns when the window is held.
+  const adminTax5 = (q = '', method = 'POST') => worker.fetch(new Request('https://api.test/admin/tax/setup' + q,
+    { method, headers: { 'X-Admin-Key': 'super-secret-admin-key', 'CF-Connecting-IP': nextIp() } }), on, ctx);
+  forgetTaxState(); stripeTaxCalls.length = 0;
+  fakeTaxSettings = { status: 'active <script>alert(1)</script>', head_office: { address: { line1: '2450 Fondren Rd' } }, defaults: {} };
+  fakeTaxRegistrations.length = 0;
+  fakeTaxRegistrations.push({ id: 'taxreg_ok1', object: 'tax.registration', status: 'active', country: 'US', country_options: { us: { type: 'state_sales_tax', state: 'TX' } } });
+  rateLimits.set('tax:lock', { key: 'tax:lock', window_start: new Date(Date.now() + 60000).toISOString(), count: 1 });
+  const enumReport = await (await adminTax5()).json();
+  ok('a settings status that is not enum-shaped is replaced WHOLE — an allow-list answers "is this one of the three", not "does this look like a secret"',
+     enumReport.settings.status === '[unexpected]', JSON.stringify(enumReport.settings));
+  ok('… while the id and type that ARE shaped as Stripe writes them come through untouched, so the report still says something',
+     enumReport.registration.id === 'taxreg_ok1' && enumReport.registration.type === 'state_sales_tax' && enumReport.registration.status === 'active', JSON.stringify(enumReport.registration));
+  forgetTaxState(); taxAccountReady();
+
+  /* ── R5-6: the three Stripe calls a customer waits behind are on a clock, and the two Session attempts share ONE ──
+     ensureStripeCustomer's POST /v1/customers and stripeDefaultCard were raw fetch with no AbortController while the
+     tax reads beside them were bounded; round 5's retry then made the Session create run up to twice. Two unbounded
+     waits on one customer is not a ceiling. */
+  ok('STRIPE_CHECKOUT_TIMEOUT_MS is clamped at both ends like the tax clock, and defaults to 8s',
+     checkoutTimeoutMs({}) === 8000 && checkoutTimeoutMs({ STRIPE_CHECKOUT_TIMEOUT_MS: '999999999' }) === 15000
+     && checkoutTimeoutMs({ STRIPE_CHECKOUT_TIMEOUT_MS: '1' }) === 500 && checkoutTimeoutMs({ STRIPE_CHECKOUT_TIMEOUT_MS: '0' }) === 8000
+     && checkoutTimeoutMs({ STRIPE_CHECKOUT_TIMEOUT_MS: 'abc' }) === 8000,
+     JSON.stringify([{}, '999999999', '1', '0', 'abc'].map((v) => checkoutTimeoutMs(typeof v === 'string' ? { STRIPE_CHECKOUT_TIMEOUT_MS: v } : v))));
+
+  // A real account, made here so the block owns its own state: register, read the code out of the email, verify.
+  emails.length = 0;
+  await post('/account/register', { email: 'clock@example.com', password: 'a long enough password', name: 'Clock Test' });
+  const clockCode = (/\b(\d{6})\b/.exec((emails[0] && emails[0].text) || '') || [])[1];
+  const verified = await (await post('/account/verify', { email: 'clock@example.com', code: clockCode })).json();
+  const authed = (path, body, e = env) => worker.fetch(new Request('https://api.test' + path, { method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', Authorization: 'Bearer ' + verified.token, 'CF-Connecting-IP': nextIp() },
+    body: JSON.stringify(body || {}) }), e, ctx);
+  ok('(fixture) a verified account with no Stripe customer yet', typeof verified.token === 'string' && !accounts.get(verified.account.id).stripe_customer_id, JSON.stringify(verified.account && verified.account.email));
+
+  const fastCustomer = { ...env, STRIPE_CHECKOUT_TIMEOUT_MS: '400' };
+  customerHang = new Promise(() => {});
+  let cardStart = Date.now();
+  const hungCard = await authed('/account/setup-payment', {}, fastCustomer);
+  const cardMs = Date.now() - cardStart;
+  ok('a hung POST /v1/customers no longer holds a signed-in checkout open: it dies on the checkout clock and answers 503',
+     cardMs < 3000 && hungCard.status === 503, 'elapsed=' + cardMs + 'ms status=' + hungCard.status);
+  cardStart = Date.now();
+  const hungMe = await worker.fetch(new Request('https://api.test/account/me', { method: 'GET',
+    headers: { Origin: 'https://mastsolutions.com', Authorization: 'Bearer ' + verified.token } }), fastCustomer, ctx);
+  const meMs = Date.now() - cardStart;
+  ok('… and a hung saved-card read no longer holds /account/me open either: the page loads without the card',
+     meMs < 3000 && hungMe.status === 200 && (await hungMe.json()).payment_method === null, 'elapsed=' + meMs + 'ms status=' + hungMe.status);
+  customerHang = null;
+
+  // The shared budget. First attempt slow and refusing for a tax reason, second attempt never answering: if the retry
+  // got its own ceiling the customer would wait for two of them.
+  taxAccountReady(); forgetTaxState(); cacheTaxReady(); stripeCalls.length = 0;
+  stripeGate = (n) => (n === 1 ? new Promise((r) => setTimeout(r, 700)) : new Promise(() => {}));
+  sessionFail = { n: 1, status: 400, body: { error: { type: 'invalid_request_error', message: 'Stripe Tax is not active on this account (automatic_tax).' } } };
+  const budgetStart = Date.now();
+  const budgetRes = await bookRaw({ sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 }, { ...on, STRIPE_CHECKOUT_TIMEOUT_MS: '1000' }, { waitUntil: () => {} });
+  const budgetMs = Date.now() - budgetStart;
+  ok('both Session attempts live inside ONE ceiling: a 700ms refusal plus a retry that never answers costs the customer one second, not two',
+     budgetMs >= 850 && budgetMs < 1500 && stripeCalls.length === 2 && budgetRes.status === 502,
+     'elapsed=' + budgetMs + 'ms attempts=' + stripeCalls.length + ' status=' + budgetRes.status);
+
+  // And with nothing left in the budget the retry is not started at all.
+  taxAccountReady(); forgetTaxState(); cacheTaxReady(); stripeCalls.length = 0;
+  stripeGate = (n) => (n === 1 ? new Promise((r) => setTimeout(r, 300)) : new Promise(() => {}));
+  sessionFail = { n: 1, status: 400, body: { error: { type: 'invalid_request_error', message: 'Stripe Tax is not active on this account (automatic_tax).' } } };
+  const noBudget = await captureAll(async () => { await bookRaw({ sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 }, { ...on, STRIPE_CHECKOUT_TIMEOUT_MS: '500' }, { waitUntil: () => {} }); });
+  const fbSkipped = noBudget.filter((l) => l.includes('tax_fallback'));
+  ok('… and when the first attempt has spent the budget the retry is skipped rather than started without a clock',
+     stripeCalls.length === 1 && (fbSkipped.length === 0 || JSON.parse(fbSkipped[0]).retried === false),
+     'attempts=' + stripeCalls.length + ' ' + JSON.stringify(fbSkipped));
+  stripeGate = null; sessionFail = null; customerHang = null;
+  taxAccountReady(); forgetTaxState();
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
