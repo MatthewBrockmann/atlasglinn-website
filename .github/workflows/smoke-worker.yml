@@ -181,11 +181,16 @@ jobs:
           print('report guard: %d line(s) redacted from the committed file' % hits)
           PY
           { echo '```'; cat out/_worker-smoke.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          # The fallback for a body Python could not parse — a Cloudflare 1101, a WAF block page, an HTML 502. It used to
+          # print the first 400 bytes of that body VERBATIM into the job summary, walking straight past the scrub defined
+          # two lines below its own call (security review, 2026-09-09: reproduced with an edge error page carrying a key
+          # shape). One function, used by both blocks, so the unparseable path is scrubbed exactly like the JSON one.
+          scrub_head () { ADMIN_KEY="$ADMIN_KEY" python3 -c 'import os,re,sys;t=open(sys.argv[1],encoding="utf-8",errors="replace").read()[:400];k=os.environ.get("ADMIN_KEY");t=t.replace(k,"[redacted]") if k else t;print(re.sub(r"(sk_(?:live|test)_|rk_(?:live|test)_|pk_(?:live|test)_|whsec_|re_)[A-Za-z0-9_-]+",r"\1[redacted]",t))' "$1"; }
           # The CRM figures, in this run's job summary and nowhere else.
           if [ -n "$ADMIN_KEY" ]; then
             code=$(curl -sS -m 40 -o /tmp/crm.json -w '%{http_code}' -H "X-Admin-Key: $ADMIN_KEY" "$WORKER/admin/crm?view=summary" || echo ERR)
             { echo; echo '### CRM summary (this run only — not committed)'; echo '```'; echo "HTTP $code"
-              python3 - /tmp/crm.json <<'PY' || head -c 400 /tmp/crm.json
+              python3 - /tmp/crm.json <<'PY' || scrub_head /tmp/crm.json
           import json, sys
           d = json.load(open(sys.argv[1])); s = d.get('stats', {})
           print('   profiles=%s opted_in=%s leads=%s subscribers=%s accounts=%s' % (s.get('profiles'), s.get('opted_in'), (s.get('leads') or {}).get('total'), s.get('subscribers'), (s.get('accounts') or {}).get('verified')))
@@ -201,13 +206,25 @@ jobs:
             # deploy-worker.yml runs the writing form after every deploy; this is how you SEE the result without a deploy.
             code=$(curl -sS -m 40 -o /tmp/tax.json -w '%{http_code}' -H "X-Admin-Key: $ADMIN_KEY" "$WORKER/admin/tax/setup?dry=1" || echo ERR)
             { echo; echo '### Stripe Tax — Houston, Texas (read-only; nothing was written)'; echo '```'; echo "HTTP $code"
-              ADMIN_KEY="$ADMIN_KEY" python3 - /tmp/tax.json <<'PY' || head -c 400 /tmp/tax.json
+              ADMIN_KEY="$ADMIN_KEY" python3 - /tmp/tax.json <<'PY' || scrub_head /tmp/tax.json
           import json, os, re, sys
-          scrub = lambda t: re.sub(r'(sk_(?:live|test)_|whsec_|rk_live_|re_)[A-Za-z0-9_-]+', r'\1[redacted]', str(t).replace(os.environ.get('ADMIN_KEY') or '\0', '[redacted]'))
-          d = json.load(open(sys.argv[1])); st = d.get('settings') or {}; reg = d.get('registration') or {}
+          scrub = lambda t: re.sub(r'(sk_(?:live|test)_|rk_(?:live|test)_|pk_(?:live|test)_|whsec_|re_)[A-Za-z0-9_-]+', r'\1[redacted]', str(t).replace(os.environ.get('ADMIN_KEY') or '\0', '[redacted]'))
+          d = json.load(open(sys.argv[1])); st = d.get('settings') or {}; reg = d.get('registration') or {}; cache = d.get('tax_ready_cache') or {}; run = d.get('last_run')
           print('   settings status=%s head_office_set=%s' % (st.get('status'), st.get('head_office_set')))
-          print('   US/TX registration id=%s status=%s' % (reg.get('id'), reg.get('status')))
-          print('   collecting: %s' % ('YES — Stripe Tax is active and Texas is registered' if st.get('status') == 'active' and reg.get('id') else 'NO — run the Deploy MAST Worker workflow, whose "Stripe Tax setup" step creates what is missing'))
+          print('   US/TX registration id=%s status=%s type=%s' % (reg.get('id'), reg.get('status'), reg.get('type')))
+          # collecting is the WORKER's own measurement (tax_ready), not this workflow's opinion of two fields — it is the
+          # exact boolean every checkout gates on, so this line cannot disagree with what the Worker actually does.
+          if d.get('tax_ready') is True:
+              print('   collecting: YES — the Worker measured Stripe Tax active with an active US/TX state_sales_tax registration')
+          elif reg.get('status') == 'scheduled':
+              print('   collecting: NO — the Texas registration is SCHEDULED and starts on its active_from date: registered, not collecting yet. Nothing to do.')
+          else:
+              print('   collecting: NO (%s) — the Worker retries this itself, on its daily cron and on the first checkout that finds it' % d.get('tax_ready_reason'))
+          print('   tax_ready=%s measured %ss ago, cached=%s (TTL %ss)' % (d.get('tax_ready'), cache.get('age_seconds'), cache.get('cached'), cache.get('ttl_seconds')))
+          # Wired is not firing: a setup loop that quietly stopped shows up here as a stale stamp, instead of as tax that
+          # silently is not being collected.
+          if run: print('   last setup run: %s  outcome=%s  age=%sh%s' % (run.get('at'), scrub(run.get('outcome')), run.get('age_hours'), '  ** STALE (>25h) **' if run.get('stale') else ''))
+          else:   print('   last setup run: none recorded — no setup has run since the last D1 reset, or D1 is not bound')
           for n in d.get('notes') or []: print('   ' + scrub(n))
           PY
               echo '```'; } >> "$GITHUB_STEP_SUMMARY"

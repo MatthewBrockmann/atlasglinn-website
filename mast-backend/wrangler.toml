@@ -47,9 +47,14 @@ JOURNEYS_ENABLED = "1"
 # the business holds a Texas Sales and Use Tax Permit. Tax is EXCLUSIVE: added on top of the listed price.
 # TO TURN IT OFF: set this to "0" and redeploy (push to main, or run the Deploy MAST Worker workflow). Nothing else needs
 # undoing — the account keeps its Stripe Tax registration, the Worker just stops asking.
-# ORDER MATTERS: a Session with automatic_tax fails outright when Stripe Tax is not active on the ACCOUNT, so
-# POST /admin/tax/setup has to have run once before the first tax-enabled checkout. deploy-worker.yml runs it after every
-# deploy and fails the job if the account is not active, so a tax-enabled deploy cannot reach the page without it.
+# ORDER DOES NOT MATTER, and this comment used to claim it did. A Session with automatic_tax fails outright when Stripe
+# Tax is not active on the ACCOUNT — that part is true — but the Worker now MEASURES the account before it asks for tax
+# (taxReady, src/worker.js) and never sends automatic_tax to an account that is not collecting. When it finds one that is
+# not, it runs the idempotent setup itself: from the daily cron, and from the first checkout that notices. So this switch
+# is safe to ship on a Stripe account that has never been set up, and deploy-worker.yml's tax step is a REPORT of what
+# happened, not the thing that makes it safe. The earlier wording — "deploy-worker.yml runs it after every deploy and
+# fails the job if the account is not active, so a tax-enabled deploy cannot reach the page without it" — was wrong on
+# its own terms: with no ADMIN_KEY repository secret that step printed a warning and exited 0.
 STRIPE_TAX = "1"
 # The Google review link in the T+1 email and on both sites (same value as GOOGLE_REVIEW_URL in scripts/cinematic_shell.py).
 # 2026-09-07, Brockmann from his phone: "The google review is wrong" - the search-dialog link built from the id in his

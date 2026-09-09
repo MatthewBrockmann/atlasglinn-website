@@ -141,49 +141,49 @@ jobs:
               printf '%s' "$val" | npx wrangler secret put "$name" --name mast-booking-backend >/dev/null && echo "secret $name updated on the Worker"
             fi
           done
-      # Stripe Tax has to be ACTIVE on the Stripe account before a Session with automatic_tax will do anything but fail,
-      # and wrangler.toml ships STRIPE_TAX = "1", so every deploy asks for it. The Worker's own POST /admin/tax/setup is
-      # idempotent — it reads before it writes and creates nothing on a run where the settings and the Texas registration
-      # are already there — so running it after every deploy is free and means the account can never drift behind the code.
+      # Stripe Tax, REPORTED — not gated. The Worker is tax-self-sufficient: it sends automatic_tax only on an account it
+      # has MEASURED as collecting (taxReady, src/worker.js), and when it finds one that is not, it runs the idempotent
+      # setup itself — from its daily cron, and from the first checkout that notices. So this step no longer decides
+      # whether a tax-enabled deploy is safe; the Worker does, on every single request, which is the only place that can.
       #
-      # Be exact about what this does and does not prevent: the deploy has ALREADY happened by the time this runs, because
-      # the endpoint has to exist to be called. This is not a pre-flight gate; it is the step that makes the account match
-      # what was just shipped, and it fails the job LOUDLY if it could not. A red deploy is the signal that checkout is
-      # broken — do not merge past it.
-      - name: Stripe Tax setup (idempotent)
+      # What it still does, with a repository secret ADMIN_KEY: run the setup NOW rather than waiting for the cron, and
+      # report what the account looks like afterwards. It fails the job only if the account is still not collecting when
+      # the run is done — that is a revenue condition (tax is not being charged), never a broken-checkout one.
+      # Without ADMIN_KEY it prints a notice and exits 0, which is honest now: the Worker cannot enable automatic_tax on
+      # an account it has not measured, with or without this step.
+      - name: Stripe Tax setup + report (the Worker self-sets; this is the immediate run)
         if: steps.creds.outputs.ready == 'true'
         env:
           ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
           WORKER: https://mast-booking-backend.matthew-221.workers.dev
         run: |
           if [ -z "$ADMIN_KEY" ]; then
-            echo "::warning::Stripe Tax setup skipped: no ADMIN_KEY reached this job. Add a REPOSITORY secret named ADMIN_KEY (Settings → Secrets and variables → Actions → Repository secrets, not Variables and not an environment) whose value is the Worker's admin key — the same string ADMIN_KEY holds on the Worker (wrangler secret list --name mast-booking-backend shows the name; the value is the one you set with wrangler secret put ADMIN_KEY). Until it is set, Stripe Tax is NOT confirmed active and a tax-enabled checkout may fail at Stripe."
+            echo "::notice::Stripe Tax: no ADMIN_KEY secret in this job, so this step asked the Worker for nothing — and nothing is pending on it. The Worker sets Stripe Tax up itself (daily cron, and the first checkout that finds the account not collecting) and it never puts automatic_tax on a Checkout Session for an account it has not measured as active, so a deploy without this secret cannot produce a tax-broken checkout. The Smoke-test the MAST Worker workflow reports tax_ready and the tax:last_run heartbeat. Set a repository secret ADMIN_KEY (Settings -> Secrets and variables -> Actions -> Repository secrets) only to have the setup run here immediately instead of on the next cron."
             exit 0
           fi
           echo "::add-mask::$ADMIN_KEY"
           code=$(curl -sS -m 40 -o /tmp/tax.json -w '%{http_code}' -X POST -H "X-Admin-Key: $ADMIN_KEY" "$WORKER/admin/tax/setup" || echo ERR)
           echo "HTTP $code  POST /admin/tax/setup"
-          # The response carries ids and statuses, not secrets — but it is printed to a log anyone who can read the run can
-          # read, so anything key-shaped is scrubbed on the way out rather than trusted not to be there.
+          # The Worker already redacts its own error bodies (taxRedact, src/worker.js). This is the second layer, for the
+          # log: anything key-shaped is scrubbed on the way out rather than trusted not to be there.
           ADMIN_KEY="$ADMIN_KEY" python3 - /tmp/tax.json "$code" <<'PY'
           import json, os, re, sys
           raw = open(sys.argv[1], encoding='utf-8', errors='replace').read() if os.path.exists(sys.argv[1]) else ''
-          scrub = lambda t: re.sub(r'(sk_(?:live|test)_|whsec_|rk_live_|re_)[A-Za-z0-9_-]+', r'\1[redacted]', t.replace(os.environ.get('ADMIN_KEY') or '\0', '[redacted]'))
+          scrub = lambda t: re.sub(r'(sk_(?:live|test)_|rk_(?:live|test)_|pk_(?:live|test)_|whsec_|re_)[A-Za-z0-9_-]+', r'\1[redacted]', str(t).replace(os.environ.get('ADMIN_KEY') or '\0', '[redacted]'))
           if sys.argv[2] != '200':
               print(scrub(raw)[:2000])
-              print('::error::Stripe Tax setup did not answer 200 (HTTP %s). Checkout sends automatic_tax on every session (STRIPE_TAX="1" in wrangler.toml) and Stripe REFUSES a session with automatic_tax when Tax is not active on the account, so this is a broken-checkout condition, not a warning.' % sys.argv[2])
+              print('::error::Stripe Tax setup did not answer 200 (HTTP %s), so this job could not confirm the account is collecting. Checkout is NOT broken by this: the Worker only sends automatic_tax on an account it has measured as active, so sessions keep working untaxed. What is wrong is that Texas sales tax is not being charged - read the step above for which step Stripe refused.' % sys.argv[2])
               sys.exit(1)
           d = json.loads(raw)
-          st = (d.get('settings') or {}).get('status')
-          reg = d.get('registration') or {}
+          st = (d.get('settings') or {}); reg = d.get('registration') or {}; cache = d.get('tax_ready_cache') or {}; run = d.get('last_run')
           for n in d.get('notes') or []: print('   ' + scrub(str(n)))
-          print('   settings.status=%s head_office_set=%s' % (st, (d.get('settings') or {}).get('head_office_set')))
-          print('   registration id=%s status=%s created_now=%s' % (reg.get('id'), reg.get('status'), reg.get('created_now')))
-          bad = []
-          if st != 'active': bad.append('settings.status is %r, not "active"' % st)
-          if not reg.get('id'): bad.append('no US/TX sales tax registration on the account')
-          if bad:
-              print('::error::Stripe Tax is NOT ready: %s. Every Checkout Session this deploy creates asks Stripe for automatic tax and Stripe will refuse it. Either finish Stripe Tax on the account (the notes above say which step refused — a fresh account usually has to accept the Stripe Tax terms once) or set STRIPE_TAX = "0" in mast-backend/wrangler.toml and redeploy.' % '; '.join(bad))
+          print('   settings.status=%s head_office_set=%s' % (st.get('status'), st.get('head_office_set')))
+          print('   registration id=%s status=%s type=%s collecting=%s created_now=%s' % (reg.get('id'), reg.get('status'), reg.get('type'), reg.get('collecting'), reg.get('created_now')))
+          print('   tax_ready=%s (%s) measured %ss ago, cached=%s' % (d.get('tax_ready'), d.get('tax_ready_reason'), cache.get('age_seconds'), cache.get('cached')))
+          if run: print('   last setup run: %s  outcome=%s  age=%sh  stale=%s' % (run.get('at'), scrub(run.get('outcome')), run.get('age_hours'), run.get('stale')))
+          else:   print('   last setup run: none recorded yet (this run is the first, or D1 is not bound)')
+          if d.get('tax_ready') is not True:
+              print('::error::Stripe Tax is still NOT collecting after the setup run: tax_ready=%s (%s). Checkout keeps working - the Worker will not put automatic_tax on a session for an account it has not measured as active - but Texas sales tax is NOT being charged on it. The notes above name the step that refused; a fresh account usually has to accept the Stripe Tax terms once, which is an account-holder action nothing here can do for you. A registration showing status=scheduled starts collecting on its active_from date and needs no action.' % (d.get('tax_ready'), d.get('tax_ready_reason')))
               sys.exit(1)
-          print('Stripe Tax active, US/TX registered — tax-enabled checkout is safe on this deploy.')
+          print('Stripe Tax is collecting: settings active, US/TX state_sales_tax active. Tax-enabled checkout is live on this deploy.')
           PY

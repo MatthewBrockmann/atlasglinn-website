@@ -47,7 +47,7 @@ The old Worker is left untouched — it still serves SafeGuard.
 | `POST` | `/contact` | Site contact form and capability-statement requests (honeypot, validation, one email to `NOTIFY_EMAIL` with reply-to the sender) |
 | `POST` | `/webhook` | Stripe events; persists orders, links registrations, sends the documents |
 | `GET` | `/roster?key=…` | Admin: recent bookings (`&sku=MAST-DA`), or `&view=registrations` for the screening → payment records, review items first |
-| `POST` | `/admin/tax/setup` | Admin: turn Stripe Tax on for Houston, Texas, or report it. Idempotent — reads before it writes, creates nothing that is already there. `?dry=1`, and any `GET`, report and write nothing. See **Sales tax (Texas)** |
+| `POST` | `/admin/tax/setup` | Admin: run the Stripe Tax setup for Houston, Texas now, or report it. Idempotent — reads before it writes, holds a D1 lock, sends deterministic `Idempotency-Key`s. The Worker also runs this itself (cron + first checkout), so nothing depends on it being called. `?dry=1`, and any `GET`, report `tax_ready`, the cache age and the setup heartbeat, and write nothing. See **Sales tax (Texas)** |
 | `POST` | `/event` | First-party beacon from the pages (`action` in a fixed list: view, open_class, pick_date, start_registration, checkout, contact, gear_request, video_play, follow…), with the visitor id and first-touch attribution; feeds the CRM funnel |
 | `POST` | `/subscribe` | Newsletter sign-up: `{email, name?, consent: true, source?, attribution?}`; stored as a lead with the consent wording, upserted to Mailchimp when configured |
 | `GET` | `/admin` | The staff CRM page (noindex, no-store); the key goes in the page and travels as `X-Admin-Key` |
@@ -213,9 +213,42 @@ Houston head office, computed by Stripe Tax at checkout. Collection is
 **exclusive**: the tax is added **on top of** the listed price and shown as its own
 line. A $695 class stays $695 on the page. Tax is never folded into the price.
 
-**How it was set up — over the API, with no Dashboard.** The owner is locked out of
+**Nobody sets this up. The Worker does.** Two conditions decide whether a checkout
+asks Stripe for tax, and the second one is a measurement, not a setting:
+
+1. `STRIPE_TAX = "1"` in `wrangler.toml` — the owner's switch.
+2. `taxReady()` — the Worker read `GET /v1/tax/settings` and
+   `GET /v1/tax/registrations?status=active` and found the settings `active` **and**
+   an **active** `US` / `TX` / `state_sales_tax` registration.
+
+Both, or the body sent to Stripe is byte-identical to the pre-tax one and a single
+structured line says why (`{"tax_skipped":"…"}`). So `automatic_tax` can never
+reach an account that is not collecting, whatever CI did or did not run — and a
+Stripe error while measuring is treated as NOT ready: **fail closed for tax, open
+for checkout.** The customer still pays; the tax is simply not added.
+
+When the account is not ready, the Worker **sets it up itself**, from either
+trigger:
+
+* the **daily cron**, on every run where the switch is on and the account is not
+  collecting;
+* the **first checkout that notices**, kicked off behind `ctx.waitUntil` — the
+  customer never waits for it and a failed setup cannot fail their checkout.
+
+One writing run at a time: a `tax:lock` row in D1 (INSERT-if-absent with an
+expiry, so a crashed run frees itself), and both POSTs carry deterministic
+`Idempotency-Key` headers — `mast-tax-settings-v1` and `mast-tax-reg-us-tx-v1` —
+so Stripe itself refuses a duplicate even if the lock is unavailable. A second
+Texas registration is not undoable, which is why it gets two independent controls
+rather than one.
+
+The measurement is cached in D1 (`tax:ready`) for **10 minutes**, so a busy hour
+costs two Stripe reads rather than two per checkout. A failed measurement is not
+cached.
+
+**The manual trigger, over the API, with no Dashboard.** The owner is locked out of
 the Stripe Dashboard, so every step is an API call the Worker's own key already
-authorises, behind `ADMIN_KEY`:
+authorises, behind `ADMIN_KEY`. Nothing depends on this being run:
 
 ```
 curl -sS -X POST -H "X-Admin-Key: <the Worker's ADMIN_KEY>" \
@@ -229,24 +262,41 @@ It is **idempotent**. Each step reads before it writes:
    Houston, TX 77063, US) with `defaults[tax_behavior]=exclusive` and the services
    tax code.
 2. `GET /v1/tax/registrations` for `active` **and** `scheduled` → if none is
-   `country=US` with `country_options.us.state=TX`, `POST` one
-   (`state_sales_tax`, `active_from=now`). A registration for another state does
-   not count as Texas, a *scheduled* Texas one does, and no other registration is
-   ever touched.
+   `country=US`, `country_options.us.state=TX` **and
+   `country_options.us.type=state_sales_tax`**, `POST` one (`active_from=now`). A
+   registration for another state is not Texas; a Texas registration of another
+   **type** (say `local_lease_tax`) is not a sales-tax registration and does not
+   satisfy it either — that hole is why the type is checked. A *scheduled* Texas
+   sales-tax registration blocks a duplicate (creating a second one is not
+   undoable) but is reported as **registered, not collecting yet** and does **not**
+   make the account ready. No other registration is ever touched.
 3. Re-read the settings, so the reported status is the one the account ended on.
 
 Run it twice and the second run writes nothing and says so. A Stripe error comes
-back **verbatim**, named by the step that hit it, with a 502 — nothing is retried.
+back named by the step that hit it, with a 502, as `{step, type, code, message}` —
+**redacted in the Worker**, so every consumer gets the scrubbed answer rather than
+just the two workflows that happen to print it. Nothing is retried.
 
 **To just look, without changing anything:** add `?dry=1`, or use `GET`. That is
 what the *Smoke-test the MAST Worker* workflow runs; the result lands in that run's
-job summary under "Stripe Tax — Houston, Texas".
+job summary under "Stripe Tax — Houston, Texas". The report answers with the three
+things worth knowing:
 
-**Nobody has to run any of this by hand.** `deploy-worker.yml` calls the writing
-form after every deploy and **fails the job** if the settings are not `active` or
-the Texas registration is absent — so the account cannot drift behind the code. It
-needs a repository secret `ADMIN_KEY` holding the Worker's admin key; without it
-the step prints a warning naming exactly that and exits 0.
+| field | what it tells you |
+|---|---|
+| `tax_ready` + `tax_ready_reason` | the exact boolean every checkout gates on, and why |
+| `tax_ready_cache` | how many seconds old that measurement is, and its 600s TTL |
+| `last_run` | the heartbeat: when a setup run last held the lock, its outcome, its age, and `stale: true` past 25 hours |
+
+**What CI does, and what it does not.** `deploy-worker.yml`'s tax step is a
+**report, not a gate**. With a repository secret `ADMIN_KEY` it runs the setup
+immediately instead of waiting for the cron, prints the report, and fails the job
+only if `tax_ready` is still false afterwards — a *revenue* condition (Texas tax is
+not being charged), never a broken-checkout one. Without `ADMIN_KEY` it prints a
+`::notice::` and exits 0, and that exit is honest: the Worker cannot enable
+`automatic_tax` on an account it has not measured, so a deploy with no secret
+cannot produce a tax-broken checkout. It will simply not collect tax until the
+first cron run or the first checkout repairs the account.
 
 **To turn it off.** Set `STRIPE_TAX = "0"` in `wrangler.toml` and redeploy (push to
 `main`, or run *Deploy MAST Worker*). Every request body then goes back to being
@@ -254,15 +304,19 @@ byte-identical to the pre-tax one — a test pins that exact string against the 
 measured from the pre-change Worker. Nothing on the Stripe account needs undoing;
 the Worker simply stops asking.
 
-**Tax codes.** `txcd_20030000` "General - Services" for everything sold today —
-training courses, private instruction, experiences and memberships.
-`txcd_99999999` "General - Tangible Goods" is defined for IWA devices should gear
-ever be sold through Checkout; **no route sells goods today**, so nothing carries
-it. ⚠ **UNVERIFIED FROM HERE** — both ids were written from recall, not read:
-`docs.stripe.com` is unreachable from the build environment and `GET /v1/tax_codes`
-needs the live key. **Confirm both against
-`GET https://api.stripe.com/v1/tax_codes` before the first live tax-enabled sale.**
-A wrong code is a wrong rate and Stripe will not tell you it is wrong.
+**Tax codes — verified.** `txcd_20030000` "General - Services" for everything sold
+today: training courses, private instruction, experiences and memberships.
+`txcd_99999999` "General - Physical Goods" (any tangible or physical good; the
+standard rate applies) is defined for IWA devices should gear ever be sold through
+Checkout; **no route sells goods today**, so nothing carries it. Both ids read
+2026-09-09 00:52 UTC from Stripe's published list,
+<https://docs.stripe.com/tax/tax-codes>. That page does not open from inside the
+build container — the agent proxy answers 403 to CONNECT — so the in-account
+confirmation, if you want a second one against the live key, is:
+
+```
+curl -sS -u "<STRIPE_SECRET_KEY>:" "https://api.stripe.com/v1/tax_codes?limit=100"
+```
 
 **Price migration — the one real gap.** A Checkout Session cannot override the tax
 code of a *saved* Price, so a membership's code is set on its Product the single
@@ -735,7 +789,7 @@ the takeover.
 | `HUBSPOT_TOKEN` | secret | HubSpot private-app token (`crm.objects.contacts` write). With it every profile and every new lead is upserted as a HubSpot contact by email (`lifecyclestage` lead or customer) — a CRM record, not marketing consent, so it is not gated on the newsletter tick |
 | `CRM_DIGEST_TO` | var | Comma-separated recipients of the Monday CRM digest (`matthew@atlasglinn.com,matthew@mastsolutions.com`). Unset = the digest is logged and not sent |
 | `JOURNEYS_ENABLED` | var | `"1"` switches the daily T−7 / T−1 / T+1 emails on; `"0"` (the default) until the owner approves the texts |
-| `STRIPE_TAX` | var | `"1"` (set) makes every Checkout Session ask Stripe to compute sales tax and puts the tax code on the line; anything else and the bodies sent to Stripe are byte-identical to the pre-tax ones. See **Sales tax (Texas)** |
+| `STRIPE_TAX` | var | `"1"` (set) lets a Checkout Session ask Stripe to compute sales tax — but only on an account the Worker has MEASURED as collecting (`taxReady`); anything else, or an account that is not collecting, and the bodies sent to Stripe are byte-identical to the pre-tax ones. Safe to ship on an unconfigured Stripe account: the Worker sets the account up itself. See **Sales tax (Texas)** |
 | `REVIEW_URL` | var | Optional review link in the T+1 email; without it the email asks for a reply that may be quoted |
 | `BUILD` | var (deploy flag) | Not in `wrangler.toml`: passed as `--var BUILD:<short sha>` by the two deploy paths and echoed by `/health` so a runner can tell which merge is running |
 | `RANGE_ADDRESS` | secret | Range street address; emailed only to a paid participant, never on the site |
