@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="6d62b75ce184">
+<meta name="build" content="fdceccc788d3">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
 <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
@@ -26,7 +26,7 @@
   "name": "MAST Solutions",
   "description": "Tactical training division of Atlas Glinn, LLC. Firearms, CQB, combatives, medical, leadership, low-light and protective courses for military, law enforcement and private citizens. Houston, Texas since 2005.",
   "parentOrganization": { "@type": "Organization", "name": "Atlas Glinn, LLC", "url": "https://atlasglinn.com/" },
-  "founder": { "@type": "Person", "name": "Matthew Brockmann", "jobTitle": "Founder", "url": "https://atlasglinn.com/about.html" },
+  "founder": { "@type": "Person", "name": "Matthew Brockmann", "jobTitle": "Founder", "url": "https://atlasglinn.com/about/" },
   "foundingDate": "2005",
   "image": "https://atlasglinn.com/images/mast/hero-casualty-carry.jpg",
   "address": { "@type": "PostalAddress", "streetAddress": "2450 Fondren Rd, Suite 255", "addressLocality": "Houston", "addressRegion": "TX", "postalCode": "77063", "addressCountry": "US" },
@@ -58,7 +58,7 @@
   .reticle::after { left:50%; top:0; width:1px; height:100%; transform:translateX(-50%); }
   .reticle-ring { position:absolute; inset:10px; border:1px solid var(--gold); border-radius:50%; opacity:.7; }
   .reticle-dot { position:absolute; top:50%; left:50%; width:3px; height:3px; background:var(--gold-bright); border-radius:50%; transform:translate(-50%,-50%); }
-  #three-canvas { position:fixed; inset:0; width:100vw; height:100vh; z-index:1; pointer-events:none; }
+  #three-canvas { position:fixed; inset:0; width:100vw; height:100vh; height:100svh; z-index:1; pointer-events:none; }
   /* Photography layer: one still per chapter, ghosted behind the 3D emblem and the grain */
   #photos { position:fixed; inset:0; z-index:2; pointer-events:none; }
   /* Backdrop crossfade: the outgoing photograph leaves faster than the incoming one arrives, so the two never stack to a brighter
@@ -84,8 +84,9 @@
   .letterbox-top, .letterbox-bottom { position:fixed; left:0; right:0; height:0; background:#000; z-index:50; pointer-events:none; transition:height .6s cubic-bezier(.7,.15,.3,.95); }
   .letterbox-top { top:0; } .letterbox-bottom { bottom:0; }
   body.cinema .letterbox-top, body.cinema .letterbox-bottom { height:50px; }
-  #intro-seq { position:fixed; inset:0; z-index:9000; background:#000; display:flex; align-items:center; justify-content:center; flex-direction:column; font-family:'Cinzel',serif; pointer-events:none; transition:opacity 1s ease-out; }
-  #intro-seq.done { opacity:0; }
+  #intro-seq { position:fixed; inset:0; z-index:9000; background:#000; display:flex; align-items:center; justify-content:center; flex-direction:column; font-family:'Cinzel',serif; pointer-events:auto; transition:opacity 1s ease-out; }   /* a tap ends the splash; on a phone six seconds of black is where a visitor leaves */
+  #intro-seq.done { opacity:0; }   /* fades but keeps taking hits: releasing them here is what let the dismissing tap's click reach the CTA underneath */
+  #intro-seq.gone { pointer-events:none; }   /* released once that click can no longer arrive */
   .intro-credit { position:relative; z-index:1; font-size:.75rem; letter-spacing:.6em; color:var(--text-dim); opacity:0; animation:introFade 2.8s ease-in-out forwards; text-transform:uppercase; }
   /* The gold sparkle ring from the atlasglinn.com intro, drawn around the wordmark; the script fades it in after the wordmark and out before the splash ends. */
   .intro-ring { position:absolute; inset:0; width:100%; height:100%; z-index:0; opacity:0; pointer-events:none; }
@@ -102,13 +103,14 @@
   .chap-link:hover, .chap-link.active { color:var(--gold-champagne); border-color:rgba(26,107,222,.35); background:rgba(26,107,222,.04); }
   .chap-link.active::before, .chap-link:hover::before { width:28px; background:var(--gold); }
   .hud { position:fixed; z-index:20; font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.3em; opacity:.6; text-decoration:none; }
-  .hud.tl { top:1.2rem; left:1.8rem; color:var(--gold-champagne); }
-  .hud.tr { top:1.2rem; right:15rem; color:var(--text-mute); }
-  .hud.bl { bottom:1.2rem; left:1.8rem; color:var(--text-mute); }
-  .hud.br { bottom:1.2rem; right:1.8rem; color:var(--gold); }
+  /* head() asks for viewport-fit=cover, so the four fixed corners keep clear of the notch, the Dynamic Island and the home indicator. */
+  .hud.tl { top:calc(1.2rem + env(safe-area-inset-top,0px)); left:calc(1.8rem + env(safe-area-inset-left,0px)); color:var(--gold-champagne); }
+  .hud.tr { top:calc(1.2rem + env(safe-area-inset-top,0px)); right:15rem; color:var(--text-mute); }
+  .hud.bl { bottom:calc(1.2rem + env(safe-area-inset-bottom,0px)); left:calc(1.8rem + env(safe-area-inset-left,0px)); color:var(--text-mute); }
+  .hud.br { bottom:calc(1.2rem + env(safe-area-inset-bottom,0px)); right:calc(1.8rem + env(safe-area-inset-right,0px)); color:var(--gold); }
   .progress { position:fixed; top:0; left:0; height:2px; width:0; background:linear-gradient(90deg, var(--gold-antique), var(--gold-bright), var(--copper)); z-index:100; box-shadow:0 0 14px rgba(26,107,222,.7); transition:width .1s linear; }
   .content { position:relative; z-index:5; }
-  section.panel { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:6rem 2rem; text-align:center; position:relative; }
+  section.panel { min-height:100vh; min-height:100svh; display:flex; align-items:center; justify-content:center; padding:6rem 2rem; text-align:center; position:relative; }
   section.panel > div { width:100%; max-width:1200px; }
   .eyebrow { font-family:'Share Tech Mono',monospace; color:var(--gold-champagne); letter-spacing:.45em; font-size:.75rem; text-transform:uppercase; margin-bottom:1.6rem; opacity:0; transform:translateY(20px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
   .eyebrow.in { opacity:1; transform:translateY(0); }
@@ -259,6 +261,27 @@
 .gear-card .cta-button { display: inline-block; margin-top: .9rem; padding: .55rem 1rem; font-size: .68rem; letter-spacing: .18em; }
 .gear-card.device { border-color: rgba(201,168,76,.28); }
 .gear-card.device .gear-sku { color: #C9A84C; }
+.gear-card .gear-oos { display: inline-block; margin-top: .55rem; padding: .22rem .55rem; border: 1px solid rgba(139,152,173,.45); font-family: 'Share Tech Mono', monospace; font-size: .55rem; letter-spacing: .22em; color: #8B98AD; }
+.gear-card .gear-oos.in { color: #7BC67E; border-color: rgba(123,198,126,.45); }
+.gear-card .gear-link { display: block; margin-top: .55rem; font-family: 'Share Tech Mono', monospace; font-size: .58rem; letter-spacing: .1em; color: #C9A84C; text-decoration: none; }
+.gear-card .gear-link:hover, .gear-card .gear-link:focus-visible { color: #fff; }
+.gear-card { cursor: pointer; }
+.gear-card:focus-visible { outline: 2px solid #C9A84C; outline-offset: 2px; }
+.gear-card .gear-more { margin-top: .7rem; font-family: 'Share Tech Mono', monospace; font-size: .58rem; letter-spacing: .18em; text-transform: uppercase; color: #8B98AD; }
+.gear-card:hover .gear-more, .gear-card:focus-visible .gear-more { color: #C9A84C; }
+.gear-card .cta-button { position: relative; z-index: 1; }
+.modal.prod .prod-gal { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .6rem; margin: 1rem 0; }
+.modal.prod .prod-gal img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: #0B1221; border: 1px solid rgba(201,168,76,.25); }
+.modal.prod .prod-copy { color: #d8dce6; line-height: 1.6; font-size: 1rem; }
+.modal.prod .prod-copy p { margin: .65rem 0; }
+.modal.prod .prod-copy strong { color: #fff; }
+.modal.prod .prod-specs { list-style: none; margin: 1.1rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1.4rem; }
+.modal.prod .prod-specs li { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: .45rem 0; border-top: 1px solid rgba(201,168,76,.16); color: #d8dce6; font-size: .95rem; }
+.modal.prod .prod-specs b { flex: 0 0 auto; max-width: 55%; font-family: 'Share Tech Mono', monospace; font-weight: 400; font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; color: #8B98AD; }
+.modal.prod .prod-stock { margin-top: .6rem; }
+.modal.prod .prod-actions { margin-top: 1.3rem; }
+.modal.prod .prod-src { margin-top: 1rem; font-family: 'Share Tech Mono', monospace; font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: #777; }
+@media (max-width: 768px) { .modal.prod .prod-specs { grid-template-columns: 1fr; } }
 .modal.req [hidden] { display: none !important; }
 @media (max-width: 900px) { .gear-panel { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 600px) { .gear-panel { grid-template-columns: 1fr; } }
@@ -290,7 +313,7 @@
 .modal.gate .gate-actions .cta-button { margin: 0; }
 .modal.gate .gate-fine { margin-top: 1rem; font-size: .8rem; color: #888; line-height: 1.5; }
 .course-row.flash { box-shadow: inset 0 0 0 2px #C9A84C; }
-.modal h3 { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; font-weight: 700; padding-right: 2rem; margin: .35rem 0 .2rem; }
+.modal h3 { font-family: 'Orbitron', sans-serif; font-size: var(--head-modal, 1.3rem); font-weight: 700; padding-right: 2rem; margin: .35rem 0 .2rem; }
 .modal-meta { font-family: 'Share Tech Mono', monospace; font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: #888; }
 .modal-price { font-family: 'Orbitron', sans-serif; font-weight: 900; color: #C9A84C; font-size: 1.1rem; margin-top: .4rem; }
 .cal-nav { display: flex; align-items: center; justify-content: space-between; margin: 1.4rem 0 .8rem; }
@@ -375,6 +398,7 @@
 .secure { text-align: center; font-family: 'Share Tech Mono', monospace; font-size: .68rem; letter-spacing: .1em; color: #888; margin-top: .8rem; }
 .err { display: none; font-size: .95rem; color: #FF6B5A; margin-top: .8rem; line-height: 1.5; }
 .err.show { display: block; }
+.modal.req .err:not([hidden]), .acct .err:not([hidden]) { display: block; }
 .cr-lvl { display: inline-block; padding: .05rem .45rem; border-radius: 3px; background: rgba(255,255,255,.08); color: #d8dce6; letter-spacing: .1em; }
 .cr-lvl.lvl-1 { background: rgba(201,168,76,.22); color: #fff; }
 .cr-img { width: 72px; height: 72px; object-fit: cover; border-radius: 4px; border: 1px solid rgba(201,168,76,.3); flex: 0 0 72px; margin-right: 14px; }
@@ -441,12 +465,18 @@
   #s6 .gold, #s7 .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
   /* The live atlasglinn.com hero, verbatim (owner, 2026-09-04: "Grab the code from Atlas Glinn. Apply same font size and same code"):
      .hero-headline metrics, the .gold-shimmer rule on "Details", flat #1A6BDE on "Matter", no entrance effect. */
-  h1.mega { font-family:'Orbitron',sans-serif; font-size:3.2rem; font-weight:900; margin-bottom:1rem; letter-spacing:.02em; line-height:1.1; opacity:1; filter:none; transform:none; transition:none; }
+  /* ONE heading size for the whole page (owner, 2026-09-08: "make all headers the same. font size"). MAST-only, and it
+     stays that way: cinematic_shell.py is the Atlas generator's input too, so the token lives here, in the block this
+     assembler splices after the shell's stylesheet. --head-chapter is the only place a heading size is written; the hero
+     wordmark, every chapter h2 and the dialog h3 read this one :root. It is spliced last, so it wins the cascade over the
+     shell's own h1.mega / h2.section-h literals without a second :root competing with it at the same specificity. */
+  :root { --head-chapter:3.2rem; --head-modal:1.3rem; }
+  @media (max-width:768px) { :root { --head-chapter:2rem; } }
+  @media (max-width:480px) { :root { --head-chapter:1.8rem; } }
+  h1.mega, h2.section-h { font-size:var(--head-chapter); }
+  h1.mega { font-family:'Orbitron',sans-serif; font-weight:900; margin-bottom:1rem; letter-spacing:.02em; line-height:1.1; opacity:1; filter:none; transform:none; transition:none; }
   h1.mega .gold { background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; animation:shimmer 6s linear infinite; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; text-shadow:none; }
   h1.mega .white { color:#1A6BDE; }
-  h2.section-h { font-size:3.2rem; }   /* every chapter heading at the hero's size (owner: "same font size for every section below") */
-  @media (max-width:768px) { h1.mega, h2.section-h { font-size:2rem; } }
-  @media (max-width:480px) { h1.mega, h2.section-h { font-size:1.8rem; } }
   @media (prefers-reduced-motion: reduce) { h1.mega .gold { animation:none; } }
   #s6 .cta-button, #s6 .cta, #s7 .cta-button, .sheet .cta-button, .modal .cta-button { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border-color:#E8D27D; }
   #s6 .cta-button:hover, #s6 .cta:hover, #s7 .cta-button:hover, .sheet .cta-button:hover, .modal .cta-button:hover { box-shadow:0 14px 44px rgba(201,168,76,.5); }
@@ -499,14 +529,28 @@
   /* The account link in the HUD's top-right corner (the section counter sits left of the chapter menu). */
   .hud.acct { top:1.2rem; right:1.8rem; color:var(--gold-champagne); opacity:.9; pointer-events:auto; cursor:pointer; text-decoration:none; padding:.3rem .6rem; border:1px solid rgba(26,107,222,.35); }
   .hud.acct:hover { opacity:1; background:rgba(26,107,222,.06); }
-  @media (max-width:768px) { .hud.acct { display:block; top:.9rem; right:1rem; font-size:.55rem; } }
   /* Folded photo grids: closed until the button opens them, then they unfold downward. The padding keeps the tiles' hover lift clear of the clip. */
   .fold { max-height:0; overflow:hidden; opacity:0; padding:10px 10px 0; margin:-10px -10px 0; transition:max-height .8s cubic-bezier(.2,.7,.2,1), opacity .45s; }
   .fold.open { max-height:6000px; opacity:1; padding-bottom:12px; transition:max-height 1.2s cubic-bezier(.2,.7,.2,1), opacity .5s .1s; }
   /* The contact chapter's line over the water backdrop (owner, 2026-09-05: "Fix the visibility of the contact"); the contact lines themselves are handled in the shell for both sites. */
   #s13 .sub { text-shadow:0 1px 6px rgba(0,0,0,.9), 0 0 18px rgba(0,0,0,.6); }   /* the Contact chapter (13 since the Gear chapter, 2026-09-05) */
+  /* The catalog in its dialog: the dialog is the scroller, so the panel's own 78vh window would nest a second one. */
+  .modal.catalog .catalog-panel { max-height:none; overflow:visible; padding-right:0; }
+  .modal.catalog .catalog-note { margin-top:1.4rem; }
   .modal.lightbox { width:min(1200px, calc(100vw - 32px)); padding:.6rem; background:#050810; }
   .modal.lightbox img { display:block; max-width:100%; max-height:84vh; margin:0 auto; }
+
+  /* The site footer, as the Atlas Glinn pages print it: four link groups, the contact line, the socials, the badges and the
+     rights line. Same rules, this page's palette. */
+  .foot.site { margin:3.2rem auto 0; line-height:2.4; text-align:center; letter-spacing:.22em; max-width:900px; }
+  .foot.site .fg { color:var(--gold-champagne); margin-right:.9rem; }
+  .foot.site .badges { margin:1.2rem auto .8rem; }
+  .foot.site .to-top { color:var(--gold-champagne); }
+  .badges { display:flex; gap:1.4rem; justify-content:center; align-items:center; flex-wrap:wrap; margin-top:2rem; }
+  .badges img { height:84px; width:auto; border:0; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); }
+  .badges .badge-item { text-align:center; }
+  .badges .badge-item p { margin-top:.8rem; font-family:'Orbitron',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-champagne); }
+  @media (max-width:768px) { .badges img { height:64px; } }
 
   .quotes { display:grid; grid-template-columns:repeat(3,1fr); gap:1.1rem; max-width:1200px; margin:0 auto; text-align:left; }
   .quotes .q { border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.7) 100%); padding:1.4rem 1.5rem; }
@@ -550,6 +594,39 @@
     section.panel > div { padding:1.4rem .6rem; background:radial-gradient(ellipse at center, rgba(5,8,16,.62) 0%, rgba(5,8,16,.38) 55%, rgba(5,8,16,0) 80%); }
   }
   @media (prefers-reduced-motion: reduce) { .eyebrow, h1.mega, h2.section-h, .sub, .rise { transition:none; opacity:1; filter:none; transform:none; } }
+
+  .menu-btn { position:fixed; top:.95rem; right:1.8rem; z-index:9500; font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.35em; color:var(--gold-champagne); background:rgba(5,8,16,.55); border:1px solid rgba(201,168,76,.4); padding:.5rem .9rem .5rem 1.1rem; cursor:none; backdrop-filter:blur(8px); text-transform:uppercase; }
+  .menu-btn:hover { background:rgba(201,168,76,.12); border-color:var(--gold); }
+  .sitenav { position:fixed; inset:0; z-index:9400; background:rgba(5,8,16,.94); backdrop-filter:blur(14px); display:flex; align-items:center; justify-content:center; opacity:0; visibility:hidden; transition:opacity .35s, visibility .35s; }
+  .sitenav.open { opacity:1; visibility:visible; }
+  .sitenav-in { width:min(920px, 100%); padding:5rem 1.5rem 3rem; text-align:left; }
+  .sitenav .eyebrow { opacity:1; transform:none; margin-bottom:1.2rem; }
+  .sitenav ul { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:1fr 1fr; gap:.4rem 2rem; }
+  .sitenav a { display:block; padding:.75rem 0; font-family:'Orbitron',sans-serif; font-weight:700; font-size:clamp(1rem,1.6vw,1.25rem); letter-spacing:.06em; color:var(--text); text-decoration:none; border-bottom:1px solid rgba(201,168,76,.15); cursor:none; transition:color .25s, padding-left .25s; }
+  .sitenav a small { display:block; font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.6rem; letter-spacing:.3em; color:var(--text-mute); text-transform:uppercase; margin-top:.2rem; }
+  .sitenav a:hover, .sitenav a.here { color:var(--gold-champagne); padding-left:.4rem; }
+  .sitenav .foot { margin-top:2rem; text-align:left; }
+  .hud.tr { right:8.5rem; }
+  @media (max-width:768px) { .menu-btn { top:.8rem; right:1rem; cursor:pointer; } .sitenav a { cursor:pointer; padding:.85rem 0; } .sitenav ul { grid-template-columns:1fr; gap:0; } .sitenav-in { padding:4.5rem 1.2rem 2rem; max-height:100vh; overflow-y:auto; } .hud.tr { display:none; } }
+
+  .menu-btn, .sitenav, .mast-topbar { --gold:#C9A84C; --gold-antique:#D4AF37; --gold-champagne:#E8D27D; --gold-bright:#FCF6BA; --copper:#B87333; }
+  .hud.tr { right:15rem; }   /* the shell's rule pulls the counter left for a permanent MENU; MAST's shows on phones only */
+  .mast-topbar { display:none; position:fixed; top:0; left:0; right:0; z-index:2200; height:calc(3.4rem + env(safe-area-inset-top,0px)); background:linear-gradient(180deg, rgba(5,8,16,.94) 0%, rgba(5,8,16,.74) 100%); border-bottom:1px solid rgba(201,168,76,.28); backdrop-filter:blur(10px); pointer-events:none; }
+  .menu-btn { display:none; z-index:2400; }
+  .sitenav { z-index:2300; }   /* over the chapters, under the banner (2500) and the booking modals (3000) */
+  .sitenav .nav-book { color:var(--gold-bright); }
+  @media (max-width:899px) {
+    .chapter-nav { display:none; }   /* one navigation at a time: the rail hands over to MENU here */
+    .hud.tl, .hud.acct { z-index:2400; }   /* the bar is a backdrop, not a lid: the brand line and Sign in ride on it */
+    .mast-topbar { display:block; }
+    .menu-btn { display:inline-flex; align-items:center; min-height:44px; top:calc(.32rem + env(safe-area-inset-top,0px)); right:.8rem; font-size:.62rem; cursor:pointer; }
+    .hud.tl { display:inline-flex; align-items:center; min-height:44px; top:calc(.32rem + env(safe-area-inset-top,0px)); left:calc(1rem + env(safe-area-inset-left,0px)); font-size:.6rem; opacity:.95; }
+    .hud-x { display:none; }   /* the MAST.SYS line would push the bar past a phone's width */
+    .hud.acct { display:inline-flex; align-items:center; min-height:44px; top:calc(.32rem + env(safe-area-inset-top,0px)); right:7.2rem; font-size:.62rem; padding:.3rem .55rem; }
+    .sitenav-in { max-height:100svh; }
+    #s13 .foot { font-size:.72rem; }
+    #s13 .foot a, .contact-lines a { display:inline-flex; align-items:center; min-height:44px; }
+  }
 </style>
 </head>
 <body>
@@ -561,6 +638,7 @@
   <div class="intro-credit">Since 2005</div>
   <canvas class="intro-ring" id="intro-ring" aria-hidden="true"></canvas>
 </div>
+<script>(function(){var i=document.getElementById("intro-seq");if(!i)return;var done=false;function skip(e){if(done)return;done=true;if(e&&e.type==="touchend"&&e.cancelable)e.preventDefault();window.__introSkip=1;i.classList.add("done");setTimeout(function(){i.classList.add("gone")},450);i.dispatchEvent(new CustomEvent("introskip"))}i.addEventListener("click",skip);i.addEventListener("touchend",skip);function onKey(e){if(done||!i.isConnected||i.classList.contains("done")){document.removeEventListener("keydown",onKey);return}if(e.key==="Enter"||e.key===" "||e.key==="Escape"){e.preventDefault();skip(e);document.removeEventListener("keydown",onKey)}}document.addEventListener("keydown",onKey)})();</script>
 
 <canvas id="three-canvas"></canvas>
 <div id="photos">
@@ -569,7 +647,7 @@
   <div class="ph" data-for="03" style="background-image:url('images/mast/ship-deck-operators.jpg');background-position:center top"></div>
   <div class="ph" data-for="04" style="background-image:url('images/mast/disc-cqb.jpg')"></div>
   <div class="ph" data-for="05" style="background-image:url('images/mast/range/a08.jpg');background-position:center 45%"></div>
-  <div class="ph" data-for="06" style="background-image:url('images/mast/courses-low-light.jpg')"></div>
+  <div class="ph" data-for="06" style="background-image:url('images/mast/courses-instructor.jpg');background-position:50% 15%"></div>
   <div class="ph" data-for="07" style="background-image:url('images/mast/courses-low-light.jpg');background-position:center 60%"></div>
   <div class="ph" data-for="08" style="background-image:url('images/mast/gallery/g06.jpg');background-position:center 45%"></div>
   <div class="ph" data-for="09" style="background-image:url('images/mast/vehicular.jpg')"></div>
@@ -585,7 +663,7 @@
 <div class="progress" id="progress"></div>
 <div class="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>
 
-<a class="hud tl" href="/">&#9679; ATLAS GLINN &middot; MAST.SYS LIVE</a>
+<a class="hud tl" href="https://atlasglinn.com/">&#9679; ATLAS GLINN<span class="hud-x"> &middot; MAST.SYS LIVE</span></a>
 <a class="hud acct acct-link" href="#" onclick="openAcct();return false;" aria-haspopup="dialog">Sign in</a>
 <div class="hud tr" id="hud-section">SECTION 01 / 13</div>
 <div class="hud bl">HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W</div>
@@ -604,10 +682,35 @@
   <a href="articles/index.html" class="chap-extra preview-only">&middot; Blogs</a>
   <a href="#s10" class="chap-link">10 &middot; Testimonials</a>
   <a href="#s11" class="chap-link">11 &middot; Privacy</a>
-  <a href="#s12" class="chap-link">12 &middot; Gear</a>
+  <a href="#s12" class="chap-link">12 &middot; Store</a>
   <a href="#s13" class="chap-link">13 &middot; Contact</a>
   <a href="#" class="chap-extra chap-always acct-link" onclick="openAcct();return false;">&middot; Sign in</a>
 </nav>
+<div class="mast-topbar" aria-hidden="true"></div>
+<button class="menu-btn" id="menu-btn" type="button" aria-controls="sitenav" aria-expanded="false">MENU &#8801;</button>
+<div class="sitenav" id="sitenav" role="dialog" aria-label="Site menu">
+  <div class="sitenav-in">
+    <div class="eyebrow">Atlas Glinn, LLC &middot; Houston</div>
+    <ul>
+      <li><a href="#s1">Opening<small>Chapter 01</small></a></li>
+      <li><a href="#s2">Standard<small>Chapter 02</small></a></li>
+      <li><a href="#s3">Who<small>Chapter 03</small></a></li>
+      <li><a href="#s4">Disciplines<small>Chapter 04</small></a></li>
+      <li><a href="#s5">The Range<small>Chapter 05</small></a></li>
+      <li><a href="#s6">Classes<small>Chapter 06</small></a></li>
+      <li><a href="#s7">Team Memberships<small>Chapter 07</small></a></li>
+      <li><a href="#s8">Instructors<small>Chapter 08</small></a></li>
+      <li><a href="#s9">In Action<small>Chapter 09</small></a></li>
+      <li><a href="#s10">Testimonials<small>Chapter 10</small></a></li>
+      <li><a href="#s11">Privacy<small>Chapter 11</small></a></li>
+      <li><a href="#s12">Store<small>Chapter 12</small></a></li>
+      <li><a href="#s13">Contact<small>Chapter 13</small></a></li>
+      <li><a href="#s6" class="nav-book" onclick="setTimeout(openDCal,0);return false;">Book a Class<small>Weekend calendar</small></a></li>
+      <li><a href="#" class="acct-link" onclick="setTimeout(openAcct,0);return false;">Sign in</a></li>
+    </ul>
+    <div class="foot">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a>&middot;<a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a><br>&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions</div>
+  </div>
+</div>
 
 <div id="banner" class="banner" role="status"></div>
 
@@ -633,6 +736,7 @@
         <div class="stat"><div class="stat-num" data-count="22">0</div><div class="stat-label">Classes</div></div>
         <div class="stat"><div class="stat-num" data-count="20" data-suffix="+">0</div><div class="stat-label">Years &middot; Over Two Decades</div></div>
       </div>
+      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a></div>
     </div>
   </section>
 
@@ -650,6 +754,7 @@
         <div class="tile rise"><div class="bg" style="background-image:url('images/mast/who-law-enforcement.jpg');background-position:center"></div><div class="txt"><div class="num">02</div><h3>Law Enforcement.</h3><p>SWAT, warrant teams and federal agencies. Small-unit tactics under time pressure.</p></div></div>
         <div class="tile rise"><div class="bg" style="background-image:url('images/mast/who-civilian.jpg');background-position:left 40%"></div><div class="txt"><div class="num">03</div><h3>Civilian.</h3><p>Private citizens who take the preservation of life seriously. Same standard, scaled.</p></div></div>
       </div>
+      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a></div>
     </div>
   </section>
 
@@ -667,6 +772,7 @@
         <div class="tile rise"><video class="bg" autoplay muted loop playsinline preload="metadata" poster="images/mast/mast-medical-poster.jpg" style="object-position:center 35%" aria-hidden="true"><source src="images/mast/mast-medical-teaser.mp4" type="video/mp4"></video><div class="txt"><div class="num">06</div><h3>Medical.</h3><p>Emergency and trauma care.</p></div></div>
         <div class="tile rise"><div class="bg" style="background-image:url('images/mast/disc-leadership.jpg');background-position:center 40%"></div><div class="txt"><div class="num">07</div><h3>Leadership.</h3><p>Command and decision-making.</p></div></div>
       </div>
+      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a></div>
     </div>
   </section>
 
@@ -674,29 +780,28 @@
   <section class="panel" id="s5" data-section="05">
     <div>
       <div class="eyebrow">Enter the Range</div>
-      <h2 class="section-h">The <span class="gold">Range.</span></h2>
       <p class="sub">A private range. Flat range and berms, vehicle lanes, low light, and the shoothouse &mdash; the ground every class is run on.</p>
       <div class="ctas rise"><button class="secondary-cta" type="button" id="range-fold-btn" aria-expanded="false" aria-controls="range-fold" onclick="toggleFold('range-fold', 'Click to View', 'Click to Close')">Click to View</button></div>
       <div class="fold" id="range-fold"><div class="tiles four rise photo-tiles" id="range-tiles"><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 01" onclick="openLb('images/mast/range/a08.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a08.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a08.jpg')"></div><div class="txt"><div class="num">01</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 02" onclick="openLb('images/mast/range/a13.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a13.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a13.jpg')"></div><div class="txt"><div class="num">02</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 03" onclick="openLb('images/mast/range/a01.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a01.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a01.jpg')"></div><div class="txt"><div class="num">03</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 04" onclick="openLb('images/mast/range/a02.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a02.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a02.jpg')"></div><div class="txt"><div class="num">04</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 05" onclick="openLb('images/mast/range/a03.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a03.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a03.jpg')"></div><div class="txt"><div class="num">05</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 06" onclick="openLb('images/mast/range/a04.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a04.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a04.jpg')"></div><div class="txt"><div class="num">06</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 07" onclick="openLb('images/mast/range/a05.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a05.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a05.jpg')"></div><div class="txt"><div class="num">07</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 08" onclick="openLb('images/mast/range/a09.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a09.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a09.jpg')"></div><div class="txt"><div class="num">08</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 09" onclick="openLb('images/mast/range/a10.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a10.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a10.jpg')"></div><div class="txt"><div class="num">09</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 10" onclick="openLb('images/mast/range/a11.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a11.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a11.jpg')"></div><div class="txt"><div class="num">10</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 11" onclick="openLb('images/mast/range/a12.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a12.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a12.jpg')"></div><div class="txt"><div class="num">11</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 12" onclick="openLb('images/mast/range/r002.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/r002.jpg');}"><div class="bg" style="background-image:url('images/mast/range/r002.jpg')"></div><div class="txt"><div class="num">12</div></div></div></div>
       </div>
+      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a></div>
     </div>
   </section>
+
 
   <section class="panel" id="s6" data-section="06">
     <div>
       <div class="eyebrow">Course Catalog</div>
-      <h2 class="section-h">The <span class="gold">Classes.</span></h2>
-      <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Fundamentals first, unless you have taken it before. Each discipline&rsquo;s Fundamentals course opens its other courses, and Select Date asks before the calendar opens.</b> P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
-      <div class="catalog-wrap rise"><div class="glass"><div class="catalog-panel" id="catalog"></div></div>
-      <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p></div>
+      <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Fundamentals first, unless you have taken it before. Each discipline&rsquo;s Fundamentals course opens its other courses, and the waiting list asks before you join it.</b> P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
+      <div class="ctas rise"><button class="secondary-cta" type="button" aria-haspopup="dialog" onclick="openCatalog()">Click to View</button><a href="#s6" class="cta" onclick="openDCal();return false;">Book Course</a></div>
     </div>
   </section>
+
 
 
   <section class="panel" id="s7" data-section="07">
     <div>
       <div class="eyebrow">Team Memberships &middot; Six Teams &middot; Limited Slots</div>
-      <h2 class="section-h">Team <span class="gold">Memberships.</span></h2>
       <p class="sub">MAST offers membership in six teams: four open teams, plus Law Enforcement and Verified Teachers. Each team holds a set number of slots, so the benefits and the class seats are always there for the members who hold them. When a team is full there is a waiting list. New memberships are vetted by the established team.</p>
       <div class="tiles four rise">
         <div class="tile team-tile t-red" role="button" tabindex="0" onclick="joinTeam('red_team', 'Red Team', '$250', 'One class, plus 25% off any one class for you or one friend.')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();joinTeam('red_team', 'Red Team', '$250', 'One class, plus 25% off any one class for you or one friend.');}"><div class="bg"></div><div class="txt"><div class="num">$250 &middot; per month &middot; 10 memberships</div><h3>Red Team.</h3><p>One class, plus 25% off any one class for you or one friend.</p></div></div>
@@ -706,6 +811,7 @@
         <div class="tile team-tile t-le" role="button" tabindex="0" onclick="joinTeam('le_team', 'Law Enforcement', '$195', 'Two classes, plus 35% off any two classes for you or two friends. Verified status required.')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();joinTeam('le_team', 'Law Enforcement', '$195', 'Two classes, plus 35% off any two classes for you or two friends. Verified status required.');}"><div class="bg"></div><div class="txt"><div class="num">$195 &middot; per month &middot; 10 memberships</div><h3>Law Enforcement.</h3><p>Two classes, plus 35% off any two classes for you or two friends. Verified status required.</p></div></div>
         <div class="tile team-tile t-teachers" role="button" tabindex="0" onclick="joinTeam('teachers_team', 'Verified Teachers', '$195', 'Two classes, plus 35% off any two classes for you or two friends. Verified status required.')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();joinTeam('teachers_team', 'Verified Teachers', '$195', 'Two classes, plus 35% off any two classes for you or two friends. Verified status required.');}"><div class="bg"></div><div class="txt"><div class="num">$195 &middot; per month &middot; 10 memberships</div><h3>Verified Teachers.</h3><p>Two classes, plus 35% off any two classes for you or two friends. Verified status required.</p></div></div>
       </div>
+      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a></div>
       <p class="teams-note">Hover a team for what it includes; tap it to join. A slot is held while the monthly fee is paid; a lapsed slot goes to the waiting list. Membership is billed monthly by card; new memberships are vetted by the established team.</p>
     </div>
   </section>
@@ -727,7 +833,7 @@
             <li>Featured on <b>Modern Shooter TV</b>, in <b>The Washington Post</b> and <b>The Houstonian</b></li>
           </ul>
           <p class="cadre">Courses run with a lead instructor, assistant instructors, and RSOs (Range Safety Officers) on the line. Your instructors are named on the course confirmation.</p>
-          <div class="ctas"><button class="cta-button ghost-button" type="button" onclick="openQuals()">Qualifications &amp; Certifications</button><a href="#s6" class="cta-button">Classes</a></div>
+          <div class="ctas"><button class="cta-button ghost-button" type="button" onclick="openQuals()">Qualifications &amp; Certifications</button><a href="#s6" class="cta-button" onclick="openDCal();return false;">Classes</a></div>
         </div>
       </div>
       <!-- Instructors = the founder only (owner, 2026-09-05: "Just me right now = instructor + correct pic"). The Michael Cline and
@@ -744,15 +850,15 @@
   <section class="panel" id="s9" data-section="09">
     <div>
       <div class="eyebrow">MAST Solutions In Action</div>
-      <h2 class="section-h">In <span class="gold">Action.</span></h2>
       <p class="sub">Training, operations, and the people behind the mission. Tap to play. Nothing loads until you do.</p>
       <a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener" class="post rise"><small>As featured in</small>The Washington Post &middot; Arming American Teachers &rarr;</a>
       <!-- The Washington Post feature sits above the films (owner, 2026-09-05: "the videos will draw attention, so put it right above the videos") -->
       <div class="media-strip rise" id="media-strip"></div>
       <div class="eyebrow gallery-eyebrow rise">Photographs</div>
       <div class="ctas rise"><button class="secondary-cta" type="button" id="gallery-fold-btn" aria-expanded="false" aria-controls="gallery-fold" onclick="toggleFold('gallery-fold', 'Click to View', 'Click to Close')">Click to View</button></div>
-      <div class="fold" id="gallery-fold"><div class="tiles four rise photo-tiles" id="gallery-tiles"><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 01" onclick="openLb('images/mast/gallery/g12.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g12.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g12.jpg')"></div><div class="txt"><div class="num">01</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 02" onclick="openLb('images/mast/gallery/g01.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g01.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g01.jpg')"></div><div class="txt"><div class="num">02</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 03" onclick="openLb('images/mast/gallery/g03.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g03.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g03.jpg')"></div><div class="txt"><div class="num">03</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 04" onclick="openLb('images/mast/gallery/g07.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g07.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g07.jpg')"></div><div class="txt"><div class="num">04</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 05" onclick="openLb('images/mast/gallery/g06.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g06.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g06.jpg')"></div><div class="txt"><div class="num">05</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 06" onclick="openLb('images/mast/gallery/g04.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g04.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g04.jpg')"></div><div class="txt"><div class="num">06</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 07" onclick="openLb('images/mast/gallery/g05.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g05.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g05.jpg')"></div><div class="txt"><div class="num">07</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 08" onclick="openLb('images/mast/gallery/g13.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g13.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g13.jpg')"></div><div class="txt"><div class="num">08</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 09" onclick="openLb('images/mast/gallery/g11.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g11.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g11.jpg')"></div><div class="txt"><div class="num">09</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 10" onclick="openLb('images/mast/gallery/g10.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g10.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g10.jpg')"></div><div class="txt"><div class="num">10</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 11" onclick="openLb('images/mast/gallery/g08.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g08.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g08.jpg')"></div><div class="txt"><div class="num">11</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 12" onclick="openLb('images/mast/gallery/g09.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g09.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g09.jpg')"></div><div class="txt"><div class="num">12</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 13" onclick="openLb('images/mast/gallery/g02.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g02.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g02.jpg')"></div><div class="txt"><div class="num">13</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 14" onclick="openLb('images/mast/range/a06.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a06.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a06.jpg')"></div><div class="txt"><div class="num">14</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 15" onclick="openLb('images/mast/range/a07.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a07.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a07.jpg')"></div><div class="txt"><div class="num">15</div></div></div><div class="tile photo clip" role="button" tabindex="0" aria-label="Open clip 16" onclick="openLb('images/mast/gallery/g14.mp4')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g14.mp4');}"><div class="bg" style="background-image:url('images/mast/gallery/g14-poster.png')"></div><div class="txt"><div class="num">16 &#9654;</div></div></div></div>
+      <div class="fold" id="gallery-fold"><div class="tiles four rise photo-tiles" id="gallery-tiles"><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 01" onclick="openLb('images/mast/gallery/g12.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g12.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g12.jpg')"></div><div class="txt"><div class="num">01</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 02" onclick="openLb('images/mast/gallery/g01.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g01.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g01.jpg')"></div><div class="txt"><div class="num">02</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 03" onclick="openLb('images/mast/gallery/g03.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g03.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g03.jpg')"></div><div class="txt"><div class="num">03</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 04" onclick="openLb('images/mast/gallery/g07.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g07.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g07.jpg')"></div><div class="txt"><div class="num">04</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 05" onclick="openLb('images/mast/gallery/g06.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g06.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g06.jpg')"></div><div class="txt"><div class="num">05</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 06" onclick="openLb('images/mast/gallery/g04.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g04.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g04.jpg')"></div><div class="txt"><div class="num">06</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 07" onclick="openLb('images/mast/gallery/g05.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g05.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g05.jpg')"></div><div class="txt"><div class="num">07</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 08" onclick="openLb('images/mast/gallery/g13.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g13.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g13.jpg')"></div><div class="txt"><div class="num">08</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 09" onclick="openLb('images/mast/gallery/g11.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g11.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g11.jpg')"></div><div class="txt"><div class="num">09</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 10" onclick="openLb('images/mast/gallery/g10.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g10.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g10.jpg')"></div><div class="txt"><div class="num">10</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 11" onclick="openLb('images/mast/gallery/g08.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g08.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g08.jpg')"></div><div class="txt"><div class="num">11</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 12" onclick="openLb('images/mast/gallery/g09.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g09.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g09.jpg')"></div><div class="txt"><div class="num">12</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 13" onclick="openLb('images/mast/gallery/g02.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g02.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g02.jpg')"></div><div class="txt"><div class="num">13</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 14" onclick="openLb('images/mast/range/a06.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a06.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a06.jpg')"></div><div class="txt"><div class="num">14</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 15" onclick="openLb('images/mast/range/a07.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/range/a07.jpg');}"><div class="bg" style="background-image:url('images/mast/range/a07.jpg')"></div><div class="txt"><div class="num">15</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 16" onclick="openLb('images/mast/gallery/g15.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g15.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g15.jpg')"></div><div class="txt"><div class="num">16</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 17" onclick="openLb('images/mast/gallery/g16.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g16.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g16.jpg')"></div><div class="txt"><div class="num">17</div></div></div><div class="tile photo" role="button" tabindex="0" aria-label="Open photograph 18" onclick="openLb('images/mast/gallery/g17.jpg')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLb('images/mast/gallery/g17.jpg');}"><div class="bg" style="background-image:url('images/mast/gallery/g17.jpg')"></div><div class="txt"><div class="num">18</div></div></div></div>
       </div>
+      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a></div>
     </div>
   </section>
 
@@ -761,7 +867,7 @@
       <div class="eyebrow">Testimonials</div>
       <h2 class="section-h">In Their <span class="gold">Words.</span></h2>
       <div class="media-strip rise" id="testimonial-strip"></div>
-      <div class="ctas rise"><a class="cta" href="https://www.google.com/search?q=Atlas+Glinn&amp;ludocid=4511758973651106295#lrd=0x8640c3cb2d0755df:0x3e9cfce1d8a7b9f7,3" target="_blank" rel="noopener" data-track="review">Review us on Google</a><a class="secondary-cta" href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener" data-track="follow">Follow on Instagram</a></div>
+      <div class="ctas rise"><a class="cta" href="https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063" target="_blank" rel="noopener" data-track="review">Review us on Google</a><a class="secondary-cta" href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener" data-track="follow">Follow on Instagram</a></div>
       <div class="quotes rise">
         <div class="q"><p>&ldquo;Matthew is an expert in his field. He is highly motivated, knowledgeable and I highly recommend him for top-tier performance.&rdquo;</p><div class="by">Kenny Upton &middot; Deputy, Harris County Sheriff</div></div>
         <div class="q"><p>&ldquo;His leadership, dedication, drive, and passion is second to none. A master at teamwork, problem-solving, leadership, and communication.&rdquo;</p><div class="by">Ray Cash Care &middot; Navy SEAL / Former CIA</div></div>
@@ -770,6 +876,7 @@
         <div class="q"><p>&ldquo;Extremely professional. In an extremely competitive industry Matt has never failed to provide exceptional guidance. I recommend him without hesitation.&rdquo;</p><div class="by">Craig Etkin &middot; President &amp; CEO, intelligence360</div></div>
         <div class="q"><p>&ldquo;I&rsquo;ve trained with some big-name national and global self-defense trainers. I&rsquo;ve always felt safe training with Matt, the #1 criterion for choosing a trainer.&rdquo;</p><div class="by">Wayne Sadin &middot; CxO / Investor</div></div>
       </div>
+      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a></div>
     </div>
   </section>
 
@@ -783,21 +890,22 @@
         <p>Pictured: Senators Hawley and Schmitt.</p>
       </div>
       <div class="eyebrow" style="margin-top:2.5rem;">For agencies, units and procurement officers</div>
-      <div class="ctas rise"><a href="mailto:matthew@atlasglinn.com?subject=MAST%20Solutions%20Capability%20Statement%20Request" class="cta">Email for the Capability Statement</a><a href="https://atlasglinn.com/mast-capability-statement.html" class="secondary-cta">View One-Pager</a></div>
+      <div class="ctas rise"><button class="cta-button" type="button" onclick="requestCapability()">Request the Capability Statement</button><a href="mast-capability-statement.html" class="secondary-cta">View One-Pager</a></div>
+      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a></div>
     </div>
   </section>
 
   <section class="panel" id="s12" data-section="12">
     <div id="gear">  <!-- named anchor: the Atlas site menu's Training link (IWA Training Products) opens mastsolutions.html#gear -->
       <!-- Aimpoint hidden 2026-09-07 (owner: "hide Aimpoint for now"): GEAR_HIDDEN in mastsolutions-tesla.html keeps the cards off;
-           when it comes back, the eyebrow reads "Gear · Aimpoint and IWA" and the sub gets its Aimpoint sentence again
+           when it comes back, the eyebrow reads "Store · Aimpoint and IWA" and the sub gets its Aimpoint sentence again
            ("Atlas Glinn is an authorized dealer for Aimpoint optics and IWA International training devices. Aimpoint prices are
            MAP, with dealer and volume pricing on request and free shipping over $500."). -->
-      <div class="eyebrow">Gear &middot; IWA</div>
-      <h2 class="section-h">Equipment. <span class="gold">By Quote.</span></h2>
-      <p class="sub">Atlas Glinn is an authorized dealer for IWA International training devices. IWA devices are priced each, three-unit minimum, hazmat shipping included; a PPC certification is required and every order is verified before fulfillment. Every item is quoted, not sold from a cart. Nothing is charged online.</p>
+      <div class="eyebrow">Store &middot; IWA</div>
+      <p class="sub">Atlas Glinn is an authorized dealer for IWA International training devices. IWA devices are priced each, three-unit minimum, hazmat shipping included; a PPC certification is required and every order is verified before fulfillment. Email us about any item for availability and lead time. Nothing is charged online.</p>
       <div class="gear-panel rise" id="gear-panel"></div>
       <p class="gate-fine" style="max-width:820px;margin:1.6rem auto 0;">Tell us the item and quantity; we confirm availability and shipping by email within one business day.</p>
+      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a></div>
     </div>
   </section>
 
@@ -807,13 +915,26 @@
       <h2 class="section-h"><span class="gold">Train</span> with MAST.</h2>
       <p class="sub">Individual seats, team blocks, and agency instruction.</p>
       <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div>
-      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a><a href="/" class="secondary-cta">Atlas Glinn &rarr;</a></div>
-      <div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions <br><a href="https://atlasglinn.com/privacy.html">Privacy Policy</a>&middot;<a href="https://atlasglinn.com/terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.youtube.com/@mastsolutions" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.google.com/search?q=Atlas+Glinn&amp;ludocid=4511758973651106295#lrd=0x8640c3cb2d0755df:0x3e9cfce1d8a7b9f7,3" target="_blank" rel="noopener" data-track="review">Google Reviews</a></div>
+      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a><a href="https://atlasglinn.com/" class="secondary-cta">Atlas Glinn &rarr;</a></div>
+      <div class="foot site rise"><span class="fg">Atlas Glinn</span><a href="https://atlasglinn.com/">Home</a> &middot; <a href="https://atlasglinn.com/executive-protection/">Executive Protection</a> &middot; <a href="https://atlasglinn.com/residential-protection/">Residential Protection</a> &middot; <a href="https://atlasglinn.com/disaster-recovery/">Disaster Recovery</a> &middot; <a href="https://atlasglinn.com/technology/">Technology</a> &middot; <a href="https://atlasglinn.com/ep-app/">Atlas EP App</a><br><span class="fg">MAST Solutions</span><a href="https://atlasglinn.com/training/">Training Programs</a> &middot; <a href="https://atlasglinn.com/ep-app/">Atlas EP Platform</a> &middot; <a href="https://atlasglinn.com/cuas-aerodefense/">Counter-Drone Solutions</a> &middot; <a href="#s1">MAST Solutions</a><br><span class="fg">Company</span><a href="https://atlasglinn.com/about/">About Us</a> &middot; <a href="https://atlasglinn.com/careers/">Careers</a> &middot; <a href="https://atlasglinn.com/about/#s5">Resources</a> &middot; <a href="#s13">Contact</a><br><span class="fg">Connect</span>2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063 &middot; <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a><br><a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@mastsolutions" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a>&middot;<a href="https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063" target="_blank" rel="noopener" data-track="review">Google Reviews</a><div class="badges"><div class="badge-item"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div><div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div><a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br><a href="https://atlasglinn.com/privacy/">Privacy Policy</a>&middot;<a href="https://atlasglinn.com/terms/">Terms of Service</a>&middot;<a href="#s1" class="to-top">Back to top &uarr;</a></div>
     </div>
   </section>
 
 </div>
 
+
+<!-- COURSE CATALOG: the same #catalog panel the booking script fills, the same accordions, course rows and prerequisite
+     gate, in a dialog of the modal family instead of in the chapter. Nothing about the catalog itself changes; what changes
+     is that it no longer makes the chapter scroll. It sits before the calendar, gate and request dialogs so those still
+     paint over it. -->
+<div id="catalog-bd" class="modal-bd" onclick="closeCatalog()"></div>
+<div id="catalog-modal" class="modal wide catalog" role="dialog" aria-modal="true" aria-labelledby="catalog-modal-title">
+    <button class="modal-x" aria-label="Close the course catalog" onclick="closeCatalog()">&times;</button>
+    <div class="eyebrow">Course Catalog</div>
+    <h3 id="catalog-modal-title">Open a discipline, pick a course</h3>
+    <div class="catalog-panel" id="catalog"></div>
+    <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p>
+</div>
 <!-- CALENDAR -->
 <div id="cal-bd" class="modal-bd" onclick="closeCal()"></div>
 <div id="cal" class="modal" role="dialog" aria-modal="true" aria-labelledby="cal-title">
@@ -831,7 +952,7 @@
     <div class="cal-foot"><div class="cal-sel" id="cal-sel">Tap a highlighted date.</div><button class="cta-button" id="cal-go" disabled onclick="calContinue()">Continue &rarr;</button></div>
 </div>
 
-<!-- PREREQUISITE GATE: asked at Select Date for every course with a prerequisite (owner, 2026-09-04) -->
+<!-- PREREQUISITE GATE: asked before a date is chosen, for every course with a prerequisite (owner, 2026-09-04) -->
 <div id="gate-bd" class="modal-bd" onclick="closeGate()"></div>
 <div id="gate" class="modal gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
     <button class="modal-x" aria-label="Close" onclick="closeGate()">&times;</button>
@@ -899,10 +1020,14 @@
         <label class="acct-field" id="acct-phone-wrap" hidden>Phone <span class="opt">(optional)</span><input id="acct-phone" type="tel" autocomplete="tel"></label>
         <div class="gate-actions"><button class="cta-button" id="acct-go" type="button" onclick="acctSubmit()">Sign in</button><button type="button" class="acct-forgot" id="acct-forgot" onclick="acctForgot()">Forgot your password?</button></div>
         </div>
-        <!-- One-time code: finishes a sign-up (email ownership) or a password reset. The Worker emails a 6-digit code, 15 minutes, 5 tries. -->
+        <!-- One-time code: finishes a sign-up (email ownership) or a password reset. The Worker emails a 6-digit code, 15 minutes, 5 tries.
+             Finishing a SIGN-UP posts the code AND the password it was made with (backend security review round 7, 2026-09-09): a code alone
+             used to be enough, and an address may now have more than one sign-up waiting, so the password is what says which one is yours —
+             and what stops a code that arrived before you asked for one from creating your account under somebody else's password. -->
         <div id="acct-code-wrap" hidden>
             <p class="acct-line" id="acct-code-msg">We emailed a 6-digit code to <b id="acct-code-email"></b>. Enter it to finish.</p>
             <label class="acct-field">Code<input id="acct-code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code"></label>
+            <label class="acct-field" id="acct-codepass-wrap" hidden>Your password<input id="acct-codepass" type="password" autocomplete="current-password"><span class="acct-note">The one you chose when you started this sign-up.</span></label>
             <label class="acct-field" id="acct-newpass-wrap" hidden>New password<input id="acct-newpass" type="password" autocomplete="new-password"><span class="acct-note">At least 10 characters.</span></label>
             <div class="gate-actions"><button class="cta-button" id="acct-code-go" type="button" onclick="acctCodeSubmit()">Verify</button><button type="button" class="chip" onclick="acctResend()">Resend code</button><button type="button" class="chip" onclick="acctMode(acctModeNow)">Back</button></div>
             <p class="acct-note" id="acct-code-note" hidden></p>
@@ -981,7 +1106,7 @@
     </div>
 
     <div class="reg-step" id="reg-2" hidden>
-        <p class="reg-lead">Two questions before you sign. These are live-fire courses. Your answers are seen by MAST staff only, never emailed, and deleted on a schedule (see the <a href="https://atlasglinn.com/privacy.html#eligibility" target="_blank" rel="noopener" style="color:#5B9BFF;text-decoration:none;">Privacy Policy</a>).</p>
+        <p class="reg-lead">Two questions before you sign. These are live-fire courses. Your answers are seen by MAST staff only, never emailed, and deleted on a schedule (see the <a href="https://atlasglinn.com/privacy/#eligibility" target="_blank" rel="noopener" style="color:#5B9BFF;text-decoration:none;">Privacy Policy</a>).</p>
         <fieldset class="reg-q"><legend>1. Are you a citizen of the United States?</legend><div class="reg-yn"><label><input type="radio" name="q1" value="yes">Yes</label><label><input type="radio" name="q1" value="no">No</label></div></fieldset>
         <fieldset class="reg-q"><legend>2. Do you have a felony conviction that prevents you from using or handling a firearm?</legend><div class="reg-yn"><label><input type="radio" name="q2" value="yes">Yes</label><label><input type="radio" name="q2" value="no">No</label></div></fieldset>
         <label class="reg-check"><input type="checkbox" id="q-attest"><span>I confirm these answers are true. I understand MAST Solutions relies on them to admit me to a live-fire course.</span></label>
@@ -1014,7 +1139,7 @@
         <div class="total"><span>Total</span><span class="amt" id="co-total">&mdash;</span></div>
         <div class="reg-nav"><button type="button" class="reg-back" onclick="regBack(4)">&larr; Back</button><button class="cta-button" id="co-pay" onclick="startCheckout()">Continue to Secure Checkout</button></div>
         <div class="secure">&#128274; PAYMENTS PROCESSED BY STRIPE</div>
-        <div class="secure" style="letter-spacing:.04em;text-transform:none;font-family:'Rajdhani',sans-serif;font-size:.85rem;">By continuing you agree to our <a href="https://atlasglinn.com/privacy.html" target="_blank" rel="noopener" style="color:#5B9BFF;text-decoration:none;">Privacy Policy</a>. Your range address and gear list follow by email.</div>
+        <div class="secure" style="letter-spacing:.04em;text-transform:none;font-family:'Rajdhani',sans-serif;font-size:.85rem;">By continuing you agree to our <a href="https://atlasglinn.com/privacy/" target="_blank" rel="noopener" style="color:#5B9BFF;text-decoration:none;">Privacy Policy</a>. Your range address and gear list follow by email.</div>
     </div>
     <div class="err" id="co-err"></div>
     <div class="reg-review" id="reg-review" hidden></div>
@@ -1048,6 +1173,26 @@
         <p class="policy-version">Policy version 2026-09-01 &middot; your acceptance is recorded with this version, the time and your IP address.</p>
     </div>
     <button class="cta-button" onclick="closePolicy()" style="margin-top:1rem">Close</button>
+</div>
+
+<!-- PRODUCT VIEW (owner, 2026-09-09: "What we want is the actual marketing and verbiage so that you can click on it and
+     see -- take request quiote off- they can click product if out of stock _ email + inventory available"). The
+     manufacturer's own words, specs and photographs, read at build time from the captured IWA pages
+     (scripts/store-intake.py -> scripts/store-products.json). The price is OUR list price and the stock line is OUR
+     constant; the one control emails us. Nothing in here links to IWA. -->
+<div id="prod-bd" class="modal-bd" onclick="closeProduct()"></div>
+<div id="prod" class="modal wide prod" role="dialog" aria-modal="true" aria-labelledby="prod-title">
+    <button class="modal-x" aria-label="Close" onclick="closeProduct()">&times;</button>
+    <div class="eyebrow" id="prod-eyebrow"></div>
+    <h3 id="prod-title"></h3>
+    <div class="modal-meta" id="prod-meta"></div>
+    <div class="modal-price" id="prod-price"></div>
+    <div class="gear-oos prod-stock" id="prod-stock"></div>
+    <div class="prod-gal" id="prod-gal"></div>
+    <div class="prod-copy" id="prod-copy"></div>
+    <ul class="prod-specs" id="prod-specs"></ul>
+    <div class="gate-actions prod-actions"><button class="cta-button" type="button" onclick="productEmail()">Email about availability</button></div>
+    <p class="prod-src">Manufacturer information: IWA International</p>
 </div>
 
 <!-- QUALIFICATIONS -->
@@ -1115,13 +1260,15 @@
 <script type="module">
 import * as THREE from './vendor/three.module.js';
 
-const SECTIONS = 12;
+const SECTIONS = 13;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mobile = matchMedia('(max-width: 768px)').matches;
 
 // ── Trailer intro ──
 const intro = document.getElementById('intro-seq');
+let heroOpen = false;
 const openHero = () => {
+  if (heroOpen) return; heroOpen = true;
   intro.remove();
   document.body.classList.add('cinema');
   setTimeout(() => document.body.classList.remove('cinema'), 2200);
@@ -1133,6 +1280,10 @@ const openHero = () => {
 };
 if (reduce) { openHero(); } else {
   setTimeout(() => { intro.classList.add('done'); setTimeout(openHero, 1000); }, 4800);
+  // The splash script in the markup owns the dismissing gesture and has already started the fade; it holds the overlay
+  // hit-testable until the tap's click can no longer arrive, so the hero opens no sooner than that.
+  if (window.__introSkip) setTimeout(openHero, 450);
+  else intro.addEventListener('introskip', () => setTimeout(openHero, 450), { once: true });
 }
 // Gold ring (Brockmann, 2026-09-04: "the gold around the Atlas Glinn is what I was talking about ... take some of the gold shimmer
 // and fade it in and fade it out"): the sparkle ring of the current atlasglinn.com intro — a tilted, slowly turning, pulsing ring
@@ -1285,6 +1436,7 @@ const kf = [
   { x: 3, y: 1, z: 11, lx: 0, ly: 0, lz: 0 },
   { x: -3, y: 2, z: 13, lx: 0, ly: -1, lz: 0 },
   { x: 4, y: 3, z: 14, lx: 0, ly: -.5, lz: 0 },
+  { x: -4, y: 1, z: 12, lx: 0, ly: 0, lz: 0 },
   { x: 0, y: -4, z: 18, lx: 0, ly: 2, lz: 0 },
 ];
 let activeIdx = 0;
@@ -1354,7 +1506,17 @@ document.querySelectorAll('section.panel:not([data-section="01"]) .rise, section
 <script>
 'use strict';
 const API = 'https://mast-booking-backend.matthew-221.workers.dev';
-const BOOKING_ENDPOINT = API + '/create-booking', CATALOG_ENDPOINT = API + '/catalog', WEEKENDS_ENDPOINT = API + '/weekends';
+const CATALOG_ENDPOINT = API + '/catalog', WEEKENDS_ENDPOINT = API + '/weekends';
+/* Every date is a waiting list (owner, 2026-09-08: "ALL DATES for now ... until i get the info to you", where his first
+   wording was a filled-class notice and his correction minutes later was "Join waiting list" — the words he settled on are
+   quoted whole in CLAUDE.md; the superseded ones are not on this page, and the assembler's guard is a byte search that a
+   comment would satisfy falsely). While this is true, every path into checkout reads Join waiting list and hands
+   the course — and the weekend, when one was chosen in the Book a Class calendar — to the request dialog as request_type
+   'waitlist'; the prerequisite gate still runs first. Set it to false and the calendar → checkout path is what it was.
+   A Worker-side BOOKINGS_PAUSED flag replaces this constant when the schedule is real, so the pause is one deploy, not a
+   rebuild of both pages. */
+const WAITLIST_ALL_DATES = true;
+const DATE_ACTION = 'Join waiting list';
 
 const COURSES = [
   /* Private instruction — listed first (owner, 2026-09-04). No price and no dates on the page; the sheet PDF is linked when supplied — by arrangement, not on the weekend calendar. Priced per the owner's 2026-09 progression sheet. */
@@ -1398,7 +1560,7 @@ const money = c => '$' + (c/100).toLocaleString('en-US', { minimumFractionDigits
    course in a discipline that has a Fundamentals course requires that Fundamentals first — Handgun Operator ← Handgun Fundamentals (or its
    ladies-only class), Carbine Operator ← Carbine Fundamentals, Sub-Gun P1 ← Sub-Gun Fundamentals, Low-Light / NVG ← Low-Light Fundamentals.
    Of the disciplines without their own Fundamentals, only Team Tactics requires one — Handgun Fundamentals (owner, 2026-09-05: "Only Team
-   Tactics = Handgun Fun 1st"); Select-Fire, Protective (Home, Vehicular, Motorcade) and Gear carry no prerequisite. A P2 course also needs the P1 before it. The gate is asked at Select Date (selectCourse) and again as the attestation in the
+   Tactics = Handgun Fun 1st"); Select-Fire, Protective (Home, Vehicular, Motorcade) and Gear carry no prerequisite. A P2 course also needs the P1 before it. The gate is asked where a date is chosen (selectCourse) and again as the attestation in the
    sheet; by-arrangement private instruction carries no badge. The Worker applies the same rule (prerequisiteFor). */
 const FUND_SKU = { 'Handgun': 'MAST-HG-FUND', 'Carbine': 'MAST-CAR-FUND', 'Shotgun': 'MAST-SG-FUND', 'Sub-Gun': 'MAST-SUB-FUND', 'Low-Light / NVG': 'MAST-LL-FUND' };
 const PREREQ_CAT = { 'Team Tactics': 'MAST-HG-FUND' };   // the only discipline without its own Fundamentals that requires one
@@ -1416,13 +1578,17 @@ const CATS = [...new Set(COURSES.map(c => c.cat))];
 /* Accordion headers read 'All <category>' unless named here (owner, 2026-09-04: "all gear" = Kit and Load Out Considerations; "all protective" = Home, Vehicular, Motorcade). */
 const CAT_LABELS = { 'Gear': 'Kit and Load Out Considerations', 'Protective': 'Home, Vehicular, Motorcade' };
 const CAT_NOTES = { 'Private Instruction': 'The path: Handgun Fundamentals &rarr; Medical &rarr; Concealment &rarr; Environmental Considerations &rarr; Kit &harr; Vehicle Bag &rarr; Carbine &harr; Shoot-house &rarr; Shotgun &harr; Vehicular &rarr; Low-Light + No-Light, the capstone. Paired phases run in either order. Sessions are scheduled by arrangement, not on the weekend calendar. Instruction only; ammunition, range fees and gear are separate.' };
+/* The panel that opens on arrival is the first BOOKABLE category, not index 0: Private Instruction is listed first (owner,
+   2026-09-04) and every one of its rows is `request:true`, so index 0 landed each visitor on BY ARRANGEMENT with no Select
+   Date anywhere. Private Instruction keeps its place at the top of the list and stays one tap away. */
+const DEFAULT_CAT = Math.max(0, CATS.findIndex(cat => COURSES.some(c => c.cat === cat && !c.request && c.price_cents > 0)));
 $('catalog').innerHTML = CATS.map((cat, ci) => {
   const items = COURSES.map((c, i) => ({ c, i })).filter(x => x.c.cat === cat);
-  return `<div class="cat${ci === 0 ? ' open' : ''}" id="cat-${ci}"><button class="cat-btn" aria-expanded="${ci === 0}" onclick="toggleCat(${ci})"><span class="cat-name">${esc(CAT_LABELS[cat] || 'All ' + cat)}</span><span class="cat-count">${items.length} ${cat === 'Private Instruction' ? 'option' : 'course'}${items.length > 1 ? 's' : ''}</span><span class="cat-chev" aria-hidden="true">&#9662;</span></button><div class="cat-panel">` + (CAT_NOTES[cat] ? `<p class="cat-note">${CAT_NOTES[cat]}</p>` : '') +
+  return `<div class="cat${ci === DEFAULT_CAT ? ' open' : ''}" id="cat-${ci}"><button class="cat-btn" aria-expanded="${ci === DEFAULT_CAT}" onclick="toggleCat(${ci})"><span class="cat-name">${esc(CAT_LABELS[cat] || 'All ' + cat)}</span><span class="cat-count">${items.length} ${cat === 'Private Instruction' ? 'option' : 'course'}${items.length > 1 ? 's' : ''}</span><span class="cat-chev" aria-hidden="true">&#9662;</span></button><div class="cat-panel">` + (CAT_NOTES[cat] ? `<p class="cat-note">${CAT_NOTES[cat]}</p>` : '') +
     items.map(({ c, i }) => c.request
       ? `<div class="course-row call">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div>${c.pdf ? `<a class="cr-pdf" href="${esc(c.pdf)}" target="_blank" rel="noopener">Private instruction sheet (PDF) &rarr;</a>` : ''}</div><div class="cr-side"><div class="cr-price">BY<small>ARRANGEMENT</small></div><button class="cta-button cr-btn" type="button" onclick="requestPrivate(${i})">Request</button></div></div>`
       : c.price_cents
-      ? `<div class="course-row" role="button" tabindex="0" onclick="selectCourse(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectCourse(${i});}">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price" data-sku="${c.sku}">${money(c.price_cents)}<small>PER SEAT</small></div><span class="cta-button cr-btn">Select Date</span></div></div>`
+      ? `<div class="course-row" role="button" tabindex="0" onclick="selectCourse(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectCourse(${i});}">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price" data-sku="${c.sku}">${money(c.price_cents)}<small>PER SEAT</small></div><span class="cta-button cr-btn">${DATE_ACTION}</span></div></div>`
       : `<div class="course-row call">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price">CALL<small>FOR PRICING</small></div><a class="cta-button ghost-button cr-btn" href="tel:+12816548100">Call</a></div></div>`).join('') + `</div></div>`;
 }).join('');
 function toggleCat(ci){ const el = $('cat-' + ci); const open = el.classList.toggle('open'); el.querySelector('.cat-btn').setAttribute('aria-expanded', open); }
@@ -1444,11 +1610,14 @@ function bookable(w){ return (w.status === 'available' || w.status === 'schedule
    Nothing is checked against a roster: students from before this system are not in it ("UNLESS they have taken it prior"). */
 const attested = {};   // sku → true once the student has answered yes on this visit
 let gateIdx = null;
-function selectCourse(i){ const c = COURSES[i], lv = levelOf(c); if (window.mastTrack) mastTrack('open_class', c.name, c.sku); if (!lv || lv.n < 2 || attested[c.sku]) return openCal(i); gateIdx = i; const f = lv.fund; $('gate-title').textContent = c.name; $('gate-text').innerHTML = `<b>${esc(fundLabel(f))}</b>${lv.n === 3 ? ' and a MAST P1 course' : ''} comes first. Have you completed it with MAST, or an instructor-approved equivalent?`; $('gate-no').textContent = 'No — book ' + f.name + ' first'; lastFocus = document.activeElement; $('gate-bd').classList.add('open'); $('gate').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('gate-yes').focus(), 150); }
+function selectCourse(i){ const c = COURSES[i], lv = levelOf(c); if (window.mastTrack) mastTrack('open_class', c.name, c.sku); if (!lv || lv.n < 2 || attested[c.sku]) return bookCourse(i); gateIdx = i; const f = lv.fund; $('gate-title').textContent = c.name; $('gate-text').innerHTML = `<b>${esc(fundLabel(f))}</b>${lv.n === 3 ? ' and a MAST P1 course' : ''} comes first. Have you completed it with MAST, or an instructor-approved equivalent?`; $('gate-no').textContent = 'No — book ' + f.name + ' first'; lastFocus = document.activeElement; $('gate-bd').classList.add('open'); $('gate').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('gate-yes').focus(), 150); }
 function closeGate(){ $('gate-bd').classList.remove('open'); $('gate').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
-function gateYes(){ const c = COURSES[gateIdx]; attested[c.sku] = true; closeGate(); openCal(gateIdx); }
-function gateNo(){ const f = levelOf(COURSES[gateIdx]).fund, fi = COURSES.indexOf(f), ci = CATS.indexOf(f.cat); closeGate(); const cat = $('cat-' + ci); if (cat && !cat.classList.contains('open')) toggleCat(ci); const row = document.querySelector(`.cr-price[data-sku="${f.sku}"]`); const rowEl = row && row.closest('.course-row'); if (rowEl) { rowEl.scrollIntoView({ block: 'center' }); rowEl.classList.add('flash'); setTimeout(() => rowEl.classList.remove('flash'), 2400); } openCal(fi); }
+function gateYes(){ const c = COURSES[gateIdx]; attested[c.sku] = true; closeGate(); bookCourse(gateIdx); }
+function gateNo(){ const f = levelOf(COURSES[gateIdx]).fund, fi = COURSES.indexOf(f), ci = CATS.indexOf(f.cat); closeGate(); const cat = $('cat-' + ci); if (cat && !cat.classList.contains('open')) toggleCat(ci); const row = document.querySelector(`.cr-price[data-sku="${f.sku}"]`); const rowEl = row && row.closest('.course-row'); if (rowEl) { rowEl.scrollIntoView({ block: 'center' }); rowEl.classList.add('flash'); setTimeout(() => rowEl.classList.remove('flash'), 2400); } bookCourse(fi); }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('gate').classList.contains('open')) closeGate(); });
+/* The one door to a booking, so the waiting list and the calendar cannot drift apart: with WAITLIST_ALL_DATES off this is
+   openCal and nothing else about the checkout changes. The gate has already been answered by the time either runs. */
+function bookCourse(i){ return WAITLIST_ALL_DATES ? waitlistCourse(i) : openCal(i); }
 function openCal(i){ calCourse = COURSES[i]; chosen = (preChosen !== null && bookable(WEEKENDS[preChosen])) ? preChosen : null; preChosen = null; lastFocus = document.activeElement; $('cal-title').textContent = calCourse.name; $('cal-meta').textContent = metaFor(calCourse); $('cal-price').textContent = money(calCourse.price_cents) + ' per seat'; const first = chosen !== null ? WEEKENDS[chosen] : (WEEKENDS.find(bookable) || WEEKENDS[0]); const fd = parseISO(first.saturday); calMonth = new Date(fd.getFullYear(), fd.getMonth(), 1); renderCal(); $('cal-bd').classList.add('open'); $('cal').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeCal(){ $('cal-bd').classList.remove('open'); $('cal').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
 function calBounds(){ const a = parseISO(WEEKENDS[0].saturday), b = parseISO(WEEKENDS[WEEKENDS.length - 1].saturday); return { min: new Date(a.getFullYear(), a.getMonth(), 1), max: new Date(b.getFullYear(), b.getMonth(), 1) }; }
@@ -1471,7 +1640,7 @@ function calContinue(){ if (chosen === null) return; $('cal-bd').classList.remov
 //    class from tabs by discipline ("All" opens every tab); Select hands the class to the normal gate → calendar (the weekend already
 //    chosen) → registration. Until the course→weekend map exists every bookable course runs every weekend (his accepted hole).
 let dcalMonth = null, dcalPick = null, dcalTab = 'All', preChosen = null;
-function offeredOn(wi){ return COURSES.map((c, i) => ({ c, i })).filter(({ c }) => !c.request && c.price_cents > 0 && c.days > 0); }
+function offeredOn(){ return COURSES.map((c, i) => ({ c, i })).filter(({ c }) => !c.request && c.price_cents > 0 && c.days > 0); }
 function openDCal(){ dcalPick = null; dcalTab = 'All'; lastFocus = document.activeElement; const first = WEEKENDS.find(bookable) || WEEKENDS[0]; const fd = parseISO(first.saturday); dcalMonth = new Date(fd.getFullYear(), fd.getMonth(), 1); renderDCal(); $('dcal-bd').classList.add('open'); $('dcal').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeDCal(){ $('dcal-bd').classList.remove('open'); $('dcal').classList.remove('open'); document.body.style.overflow = ''; }
 function dcalShift(n){ const { min, max } = calBounds(); const next = new Date(dcalMonth.getFullYear(), dcalMonth.getMonth() + n, 1); if (next < min || next > max) return; dcalMonth = next; renderDCal(); }
@@ -1480,15 +1649,15 @@ function renderDCal(){
   const dayMap = {}; WEEKENDS.forEach((w, wi) => weekendDates(w, 2).forEach(d => { dayMap[keyOf(d)] = wi; }));
   const y = dcalMonth.getFullYear(), m = dcalMonth.getMonth(); const gridStart = new Date(y, m, 1 - new Date(y, m, 1).getDay()); let html = '';
   for (let k = 0; k < 42; k++) { const d = new Date(gridStart); d.setDate(gridStart.getDate() + k); const wi = dayMap[keyOf(d)]; const other = d.getMonth() !== m; let cls = 'day' + (other ? ' other' : ''), attrs = '';
-    if (wi !== undefined && !other) { const w = WEEKENDS[wi]; if (bookable(w)) { cls += ' wk' + (dcalPick === wi ? ' sel' : ''); attrs = ` onclick="dcalPickDay(${wi})" title="${esc(w.label)} · ${offeredOn(wi).length} classes offered · tap to choose"`; } else { cls += ' blk' + (isPast(w) ? ' past' : ''); attrs = ' title="Unavailable"'; } }
+    if (wi !== undefined && !other) { const w = WEEKENDS[wi]; if (bookable(w)) { cls += ' wk' + (dcalPick === wi ? ' sel' : ''); attrs = ` onclick="dcalPickDay(${wi})" title="${esc(w.label)} · ${offeredOn().length} classes run on training weekends · tap to choose"`; } else { cls += ' blk' + (isPast(w) ? ' past' : ''); attrs = ' title="Unavailable"'; } }
     html += `<div class="${cls}"${attrs}>${d.getDate()}</div>`; }
   $('dcal-grid').innerHTML = html;
   $('dcal-quick').innerHTML = WEEKENDS.map((w, wi) => bookable(w) ? `<button type="button" class="chip${dcalPick === wi ? ' sel' : ''}" onclick="dcalPickDay(${wi})">${labelFor(w, 2).replace(/, \d{4}$/, '')}</button>` : '').join('');
   const box = $('dcal-classes'); box.hidden = dcalPick === null; if (dcalPick === null) return;
-  const items = offeredOn(dcalPick); $('dcal-sel').innerHTML = `<b>${labelFor(WEEKENDS[dcalPick], 2)}</b> &middot; ${items.length} classes &middot; choose one`;
+  const items = offeredOn(); $('dcal-sel').innerHTML = `<b>${labelFor(WEEKENDS[dcalPick], 2)}</b> &middot; the same ${items.length} classes run on every training weekend &middot; choose one`;
   const cats = ['All', ...CATS.filter(cat => items.some(({ c }) => c.cat === cat))];
   $('dcal-tabs').innerHTML = cats.map(cat => `<button type="button" class="chip${dcalTab === cat ? ' sel' : ''}" onclick="dcalTabSet(this.dataset.cat)" data-cat="${esc(cat)}">${esc(cat === 'All' ? 'All classes' : (CAT_LABELS[cat] || cat))}</button>`).join('');
-  $('dcal-list').innerHTML = items.filter(({ c }) => dcalTab === 'All' || c.cat === dcalTab).map(({ c, i }) => `<div class="cal-item"><div><b class="cal-name">${esc(c.name)}</b><small>${metaHtml(c)}</small></div><div class="cal-item-price">${money(c.price_cents)}</div><button type="button" class="cta-button small" onclick="dcalChoose(${i})">Select</button></div>`).join('');
+  $('dcal-list').innerHTML = items.filter(({ c }) => dcalTab === 'All' || c.cat === dcalTab).map(({ c, i }) => `<div class="cal-item"><div><b class="cal-name">${esc(c.name)}</b><small>${metaHtml(c)}</small></div><div class="cal-item-price">${money(c.price_cents)}</div><button type="button" class="cta-button small" onclick="dcalChoose(${i})">${WAITLIST_ALL_DATES ? DATE_ACTION : 'Select'}</button></div>`).join('');
 }
 function dcalPickDay(wi){ dcalPick = wi; const d = parseISO(WEEKENDS[wi].saturday); dcalMonth = new Date(d.getFullYear(), d.getMonth(), 1); renderDCal(); setTimeout(() => { const b = $('dcal-classes'); if (b && !b.hidden) b.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 60); }
 function dcalTabSet(cat){ dcalTab = cat; renderDCal(); }
@@ -1496,7 +1665,13 @@ function dcalChoose(i){ preChosen = dcalPick; closeDCal(); selectCourse(i); }
 
 // ── Private instruction request (owner, 2026-09-05: "Request = doesn't go to email"): a short dialog that posts to the Worker's /contact,
 //    which emails the office; the mailto stays only as the fallback when the Worker cannot be reached.
-let reqIdx = null;
+let reqIdx = null, waitWeekend = '';
+/* Join waiting list: the course, and the weekend if one was chosen in the Book a Class calendar, go to the office through
+   the same dialog and the same POST /contact as private instruction, gear and Experiences — request_type 'waitlist'. */
+function waitlistCourse(i){ reqIdx = i; const c = COURSES[i], w = preChosen !== null ? WEEKENDS[preChosen] : null; preChosen = null; waitWeekend = w ? labelFor(w, c.days) : '';
+  if (window.mastTrack) mastTrack('waitlist_request', c.name, c.sku);
+  openReqDialog('waitlist', c.name, metaFor(c) + (waitWeekend ? ' · ' + waitWeekend : ''), 'Waiting list',
+    'We reply within one business day. Dates are not open for booking yet; you are on the list for this class and we email you as soon as the schedule is set.'); }
 /* ── Gear: Aimpoint optics and IWA International devices, quoted by email through the same Request dialog (owner, 2026-09-05:
    "Atlasglinn.com has this product = add to mastsolutions so we can sell there"). The list is the IWA inventory report of
    2026-09-05; costs in that report are dealer costs, not prices, so no price is shown. Nothing here goes to Stripe: card
@@ -1520,7 +1695,7 @@ const GEAR = [
 // Prices (owner, 2026-09-06: "brain = has pricing + add to mastsolutions too"). Aimpoint: the MAP prices the live
 // atlasglinn.com/aimpoint-shop/ page shows for the same 31 SKUs (Minimum Advertised Price; dealer and volume pricing on
 // request). IWA: the shop prices recorded in the brain vault (agent-memory/project_iwa_product_specs.md), each, 3-unit
-// minimum, hazmat shipping included as a dealer. Still quote requests, never a cart (see CLAUDE.md, Gear chapter).
+// minimum, hazmat shipping included as a dealer. Still quote requests, never a cart (see CLAUDE.md, Store chapter).
 function GEAR_PRICE_TABLE(){ return {
   'AP-200691': '$617', 'AP-201006': '$627', 'AP-200777': '$669', 'AP-200871': '$669', 'AP-200907': '$778',
   'AP-200500': '$1,218', 'AP-200660': '$1,009', 'AP-200386': '$1,218', 'AP-200350': '$1,080', 'AP-200320': '$1,009',
@@ -1532,52 +1707,115 @@ function GEAR_PRICE_TABLE(){ return {
   'IWA-M11-4B': '$49.99', 'IWA-M11-7B': '$59.99', 'IWA-M12': '$42.99', 'IWA-M13': '$48.99', 'IWA-M14': '$38.99',
   'IWA-M15': '$55.50', 'IWA-PA85': '$69.99', 'IWA-TH14': '$89.99', 'IWA-IDC': '$46.99' }; }
 const GEAR_BRANDS = { Aimpoint: 'Optics · MAP pricing · free shipping over $500 · authorized dealer', IWA: 'IWA International · authorized dealer · PPC certification required · 3-unit minimum, 27 per box · hazmat shipping included' };
+const GEAR_BRAND_NAMES = { IWA: 'IWA Training Devices' };   // the heading over the cards; the GEAR rows keep the short key
 // Brands kept off the page for now (owner, 2026-09-07: "hide Aimpoint for now"). The items and prices stay in GEAR so the
 // chapter comes back with one edit here; the assembler's chapter text and the Atlas Training submenu follow this list.
 const GEAR_HIDDEN = ['Aimpoint'];
+// Out of stock (owner, 2026-09-08, on the Store chapter: "OUT OF STOCK"). One build-time constant beside GEAR_HIDDEN: while it
+// holds, every device card carries the badge and the quote dialog says so in its fine print. A per-item g.stock ('in' or 'out')
+// on a GEAR row wins over it, so one device can come back before the line does; flip it to false when the line is stocked.
+const GEAR_OUT_OF_STOCK = true;
+function gearOut(g){ return g.stock ? g.stock === 'out' : (GEAR_OUT_OF_STOCK && g.device); }
+// The maker's product URLs are NOT in this page (owner, 2026-09-08: "the link to IWA sends them to their store. We need
+// them to buy from our store, not theirs"). Two constants and a helper held them here until 2026-09-09 — nothing called
+// the helper, but a JS-built href is one edit away and produces no literal for a guard to match. They live in
+// scripts/store-intake.py now, which is the only thing that uses them: it reads the captured product pages. Each
+// product's own URL is kept in the "source" field of scripts/store-products.json, and scripts/assemble-cinematic.py
+// strips source and capture before STORE_PRODUCTS reaches the browser. The assembler asserts the names are absent, so
+// this comment does not name them either.
 function renderGear(){ const p = $('gear-panel'); if (!p) return; let html = '', brand = '';
-  GEAR.forEach((g, i) => { if (GEAR_HIDDEN.includes(g.brand)) return; if (g.brand !== brand) { brand = g.brand; html += '<div class="gear-brand"><h3>' + esc(brand) + '</h3><span>' + esc(GEAR_BRANDS[brand] || '') + '</span></div>'; }
-    html += '<div class="gear-card' + (g.device ? ' device' : '') + '"><div class="gear-sku">' + esc(g.sku) + '</div><h4>' + esc(g.name) + '</h4><div class="gear-fam">' + esc(g.brand + ' · ' + g.fam) + '</div>'
-         + (g.price ? '<div class="gear-price">' + esc(g.price) + '<small>' + (g.device ? 'each · 3-unit minimum' : 'MAP · dealer pricing on request') + '</small></div>' : '')
-         + '<button class="cta-button" type="button" onclick="requestGear(' + i + ')">Request a quote</button></div>'; });
+  GEAR.forEach((g, i) => { if (GEAR_HIDDEN.includes(g.brand)) return; if (g.brand !== brand) { brand = g.brand; html += '<div class="gear-brand"><h3>' + esc(GEAR_BRAND_NAMES[brand] || brand) + '</h3><span>' + esc(GEAR_BRANDS[brand] || '') + '</span></div>'; }
+    html += '<div class="gear-card' + (g.device ? ' device' : '') + '" role="button" tabindex="0" aria-haspopup="dialog" aria-label="' + esc(g.name) + ' \u2014 open product details"'
+         + ' onclick="openProduct(' + i + ')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openProduct(' + i + ');}">'
+         + '<div class="gear-sku">' + esc(g.sku) + '</div><h4>' + esc(g.name) + '</h4><div class="gear-fam">' + esc(g.brand + ' · ' + g.fam) + '</div>'
+         + (gearOut(g) ? '<div class="gear-oos">OUT OF STOCK</div>' : (g.device ? '<div class="gear-oos in">IN STOCK</div>' : ''))
+         + (g.price ? '<div class="gear-price">' + esc(g.price) + '<small>' + (g.device ? 'list price · each · 3-unit minimum' : 'MAP · dealer pricing on request') + '</small></div>' : '')
+         /* no outbound link: owner 2026-09-08 "the link to IWA sends them to their store. We need them to buy from our store, not theirs." — the buy path stays on MAST (Email about availability; MAST is the dealer); IWA's pages are only the SOURCE of the product information shown here */
+         /* owner 2026-09-09: "take request quiote off ... they can click product if out of stock _ email + inventory available" — the card's one control emails us about availability and files to the CRM; the click-to-see product view with IWA's own verbiage lands with the captured product pages */
+         + '<div class="gear-more">View product &rarr;</div>'
+         + '<button class="cta-button" type="button" onclick="event.stopPropagation();requestGear(' + i + ')">Email about availability</button></div>'; });
   p.innerHTML = html; }
+/* ── Product view (owner, 2026-09-09: "What we want is the actual marketing and verbiage so that you can click on it and
+   see -- take request quiote off- they can click product if out of stock _ email + inventory available"). A card click
+   opens IWA's own product copy ON THIS PAGE: their title, their description, the spec lines they publish and their
+   photographs, with OUR list price (GEAR_PRICE_TABLE) and OUR stock line (gearOut). scripts/assemble-cinematic.py
+   replaces the hook below with scripts/store-products.json at build time; a SKU with no capture yet still opens, showing
+   the name, the price, the stock and the email control rather than invented copy. No outbound IWA link, ever. ── */
+const STORE_PRODUCTS = {"IWA-M11-4B":{"html":"\u003cp>Has a military style fly off lever assembly with a straight pin pull and safety clip release system.\u003c/p>\u003cp> The M11 is a multiple bang device that gives the operator an advantage when entering a situation where a target needs to be distracted into believing the assault has started from multiple entry points. \u003cstrong>There are four rapid consecutive bangs with bright flashes.\u003c/strong> \u003c/p>\u003cp>It is designed with a 2 second delay incorporated within the base ejecting sound unit which is constructed from tough recyclable plastic. The delay/sound unit within the device is full waterproofed as an addition benefit for the end user. The body is constructed from an HDPE plastic which is both a strong and durable. The overall design and shape of the M11 ensures that it will fit modern assault vests and webbing equipment currently on today&rsquo;s market.\u003c/p>\u003cp>It&rsquo;s always recommended to remain behind cover when deploying and using our products during any type of training, simulation and CQB environment.\u003c/p>\u003cp>The use of this product is intended for military / law enforcement / private security training and simulation / Milsim.\u003c/p>\u003cp>The use of this product requires eye protection, ear protection and gloves.\u003c/p>\u003cp>Please refer to terms and conditions for product SDS and Performance sheet.\u003c/p>","images":["https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/115/1771/TLSFX_2-1921-Edit__67442.1778185578.jpg?c=2","https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/115/1786/new_m11__26155.1778185574.jpg?c=2","https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/115/1787/new_m11_r_side__17486.1778185572.jpg?c=2","https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/115/839/IMG_3354__09425.1777324665.jpg?c=2"],"name":"M11 Multibang Device - 4 Bang","specs":[["M11 Multibang Device","4 Bang"],["Safety Distance","5 Meters"],["Fuse Burn Time","2 Second (+/-0.5 sec)"],["Smoke Emission Time","N/A"],["Sound Level (db)","4 bangs at 15 feet - Maximum 128db (+/- 2 %)"],["Output","Light smoke"],["Product motion from test point","See Fragment Zone"],["Fragment Zone","Maximum 5 meters"],["Destruction","Cardboard disc maybe blown from tube"],["Safety Equipment","Please refer to Product SDS & User instruction"],["Product Dimensions","Height 121mm x Width 44mm"]]},"IWA-M11-7B":{"html":"\u003cp>Has a military style fly off lever assembly with a straight pin pull and safety clip release system.\u003c/p>\u003cp>It is designed with a 2 second delay incorporated within the base ejecting sound unit which is constructed from tough recyclable plastic. The delay/sound unit within the device is full waterproofed as an addition benefit for the end user. The body is constructed from an HDPE plastic which is both a strong and durable. The overall design and shape of the M11 ensures that it will fit modern assault vests and webbing equipment currently on today&rsquo;s market.\u003c/p>\u003cp> The M11 is a multiple bang device that gives the operator an advantage when entering a situation where a target needs to be distracted into believing the assault has started from multiple entry points. \u003cstrong>There are seven rapid consecutive bangs with bright flashes.\u003c/strong> \u003c/p>\u003cp>It&rsquo;s always recommended to remain behind cover when deploying and using our products during any type of training, simulation and CQB environment.\u003c/p>\u003cp>The use of this product is intended for military / law enforcement / private security training and simulation / Milsim.\u003c/p>\u003cp>The use of this product requires eye protection, ear protection and gloves.\u003c/p>\u003cp>Please refer to terms and conditions for product SDS and Performance sheet.\u003c/p>","images":["https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/253/1770/TLSFX_2-1926-Edit__03998.1778183231.jpg?c=2","https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/253/1760/TLSFX_-1452-Edit__39433.1778183247.jpg?c=2","https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/253/1769/mew_m11_7__85863.1778183251.jpg?c=2","https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/253/1758/TLSFX_-1450-Edit__45012.1777324846.jpg?c=2"],"name":"M11 Multibang Device - 7 Bang","specs":[["M11 Multibang Device","7 Bang"],["Safety Distance","5 Meters"],["Fuse Burn Time","2 Second (+/-0.5 sec)"],["Smoke Emission Time","N/A"],["Sound Level (db)","7 bangs at 15 feet - Maximum 128db (+/- 2%)"],["Output","Light smoke"],["Product motion from test point","See Fragment Zone"],["Fragment Zone","Maximum 5 meters"],["Destruction","Cardboard disc maybe blown from tube"],["Safety Equipment","Please refer to Product SDS & User instruction"],["Product Dimensions","Height 121mm x Width 44mm"]]},"IWA-M12":{"html":"\u003cp> \u003cstrong>New Gen 5 M12 Distraction Device\u003c/strong>\u003c/p>\u003cp>\u003cbr>Has a military style fly off lever assembly with a straight pin pull and safety clip release system.\u003c/p>\u003cp> It is designed with a 2 second delay incorporated within the base ejecting sound unit which is constructed from tough recyclable plastic. The delay/sound unit within the device is full waterproofed as an addition benefit for the end user. The body is constructed from an HDPE plastic which is both a strong and durable. The overall design and shape of the M12 ensures that it will fit modern assault vests and webbing equipment currently on today&rsquo;s market. \u003c/p>\u003cp>It&rsquo;s always recommended to remain behind cover when deploying and using our products during any type of training, simulation and CQB environment. \u003c/p>\u003cp>The use of this product is intended for military / law enforcement / private security training and simulation / Milsim.\u003c/p>\u003cp>The use of this product requires eye protection, ear protection and gloves.\u003c/p>\u003cp>Please refer to terms and conditions for product SDS and Performance sheet.\u003c/p>","images":["https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/116/1788/TLSFX_2-1934-Edit_1__67203.1778188712.jpg?c=2","https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/116/1790/TLSFX_2-1935-Edit__20880.1778188711.jpg?c=2","https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/116/838/IMG_3354__94667.1777328081.jpg?c=2"],"name":"M12 Distraction Device","specs":[["Safety Distance","5 Meters"],["Fuse burn Time","2 Second (+/-0.5 sec)"],["Smoke Emission Time","N/A"],["Sound Level (db)","Single bang at 15 feet - 130db (+/- 2%)"],["Output","Light smoke"],["Product motion from test point","See Fragment Zone"],["Fragment Zone","Maximum 5 meters"],["Destruction","Cardboard disc maybe blown from tube"],["Safety Equipment","Please refer to Product SDS & User instruction"],["Product Dimensions","Height 121mm x Width 44mm"]]},"IWA-M13":{"html":"\u003cp>\u003cstrong>New Gen 5 M13 Thermobaric Device\u003c/strong> \u003c/p>\u003cp>Has a military style fly off lever assembly with a straight pin pull and safety clip release system.\u003c/p>\u003cp>The M13 performs extremely well in indoor and outdoor settings. It's a single thermobaric bang designed to a give a loud report with a very bright flash.  \u003c/p>\u003cp>Designed with a 2 second delay incorporated within the base ejecting sound unit which is constructed from tough recyclable plastic. The delay/sound unit within the device is full waterproofed as an addition benefit for the end user. The body is constructed from an HDPE plastic which is both a strong and durable. The overall design and shape of the M13 ensures that it will fit modern assault vests and webbing equipment currently on today&rsquo;s market.\u003c/p>\u003cp>It&rsquo;s always recommended to remain behind cover when deploying and using our products during any type of training, simulation and CQB environment.\u003c/p>\u003cp>The use of this product is intended for military / law enforcement / private security training and simulation / Milsim.\u003c/p>\u003cp>The use of this product requires eye protection, ear protection and gloves.\u003c/p>\u003cp>Please refer to terms and conditions for product SDS and Performance sheet.\u003c/p>","images":["https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/144/1784/TLSFX_2-1915-Edit__75489.1778184954.jpg?c=2","https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/144/1782/new_m13_r_center__29918.1778185089.jpg?c=2","https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/144/1785/new_m13_r_side__92298.1778185063.jpg?c=2","https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/144/1761/TLSFX_-1458-Edit__31726.1777325748.jpg?c=2"],"name":"M13 Thermobaric Device","specs":[["Safety Distance","5 Meters"],["Fuse burn Time","2 Second (+/-0.5 sec)"],["Smoke Emission Time","N/A"],["Sound level (db)","Single Thermobaric bang at 15 feet - 140db (+/- 2%)"],["Output","Light smoke & Brighter Flash"],["Product motion from test point","See Fragment Zone"],["Fragment Zone","Maximum 5 meters"],["Destruction","Cardboard disc may be blown from tube"],["Safety Equipment","Please refer to Product SDS & User Instruction"],["Product Dimensions","Height 121mm x Width 44mm"]]},"IWA-M14":{"html":"\u003cp>\u003cstrong>M14 Smoke Deployment Device \u003c/strong>\u003c/p>\u003cp>The M14 has a new metal military style fly off lever and straight pin pull mechanism and a safety clip release system, producing a high-density output of rich bright color smoke for approximately 45 seconds and is available in all the colors listed below.\u003c/p>\u003cp>The M14 is designed as a dual vented device for quick output cover/screening smoke replicating a military composition. The M14 body is constructed from an HDPE plastic which is both a strong, durable and making it fully waterproof. \u003c/p>\u003cp>The overall design and shape of the M14 was to ensure it fits in modern assault vests and webbing equipment currently on the market.  Images may vary from actual product. \u003c/p>\u003cp>Safety Distance: 5 Meters\u003c/p>\u003cp>Fuse Burn Time: 2.5 Seconds (+/-0.5 sec)\u003c/p>\u003cp>Smoke Emission Time: Average 45-55 sec (Not including fuse burn)\u003c/p>\u003cp>Sound Level (db): Negligible\u003c/p>\u003cp>Output: Dense smoke coverage \u003c/p>\u003cp>Product motion from test point: 1 meter from firing point\u003c/p>\u003cp>Fragment Zone: N/A\u003c/p>\u003cp>Destruction: N/A\u003c/p>\u003cp>Safety Equipment: Please refer to Product SDS &amp; User Instructions\u003c/p>\u003cp>Product Dimensions: Height 121mm x Width 44mm\u003c/p>\u003cp>The use of this product is intended for military / law enforcement / private security training and simulation / Milsim.\u003c/p>\u003cp>The use of this product requires eye protection, ear protection and gloves.\u003c/p>\u003cp>Please refer to terms and conditions for product MSDS and Performance sheet.\u003c/p>","images":["https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/118/1774/TLSFX_2-1938-Edit__06721.1784861495.jpg?c=2","https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/118/1773/TLSFX_2-1943-Edit__66066.1784861490.jpg?c=2","https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/118/1778/TLSFX_2-1940-Edit__08745.1778184339.jpg?c=2","https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/118/1780/TLSFX_2-1944-Edit__50225.1778184334.jpg?c=2"],"name":"M14 Smoke Deployment Device","specs":[["WHITE","Screening"],["BLACK","Film/Special Effects"],["YELLOW","CBRN/Poisonous Gas Zone"],["GREEN","Safe Zone"],["RED","Danger Zone"],["BLUE","Medical Zone"],["ORANGE","Distress Zone/Maritime"],["PURPLE","Landing Zone"]]},"IWA-M15":{"html":"\u003cp>\u003cstrong>M15 LARGE Smoke Grenade\u003c/strong> &amp;\u003cstrong> \u003c/strong>\u003cstrong>M15 \u003cstrong>LARGE \u003c/strong>Rapid Smoke Grenade\u003c/strong>\u003c/p>\u003cp>Available ONLY in: WHITE - Screening\u003c/p>\u003cp>The M15 is designed for quick smoke output cover/screening replicating a military composition. It has a military style fly off lever assembly with a straight pin pull release system, producing a high density output of rich bright white color smoke. The body is constructed from both a strong and durable recyclable cardboard.\u003c/p>\u003cp>The overall design and shape of the M15 ensures that it will fit modern assault vests and webbing equipment currently on today&rsquo;s market. \u003c/p>\u003cp>Please refer to Product SDS &amp; User Instructions\u003c/p>\u003cp>The use of this product is intended for military / law enforcement / private security training and simulation / Milsim.\u003c/p>","images":["https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/173/1573/DD7A4044__52088.1776869081.jpg?c=2","https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/173/1574/DD7A4045__29272.1758822054.jpg?c=2","https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/173/1572/DD7A4043__62787.1758821977.jpg?c=2","https://cdn11.bigcommerce.com/s-tm8t0q4wau/images/stencil/1280x1280/products/173/835/m15_ex_number__37489.1759510600.png?c=2"],"name":"M15 LARGE Smoke Grenade","specs":[["Safety Distance","16.4 Feet (5 Meters)"],["Fuse Burn Time","2.5 Seconds (+/-0.5 sec)"],["Smoke Emission Time (Not including fuse burn)","Average: 75-85 seconds (regular)"],["Smoke Emission Time (Not including fuse burn)","Average: 45 seconds (Rapid) Same amount of smoke in half the time!"],["Output","Dense smoke coverage"],["Product motion from test point","1 meter from firing point"],["Sound Level (db.)","Negligible"],["Fragment Zone","N/A"],["Destruction","N/A"],["Safety Equipment","Use of this product requires Eye protection, Ear protection and Gloves."],["Product Dimensions","6 in. Height  x 2 in. Width  (Height 152mm x Width 50mm)"]]}};
+let prodIdx = null;
+function openProduct(i){
+  const g = GEAR[i]; if (!g || !$('prod')) return; prodIdx = i;
+  const p = STORE_PRODUCTS[g.sku] || {}, out = gearOut(g);
+  if (window.mastTrack) mastTrack('product_view', g.name, g.sku);
+  lastFocus = document.activeElement;
+  $('prod-eyebrow').textContent = g.sku + ' · ' + (GEAR_BRAND_NAMES[g.brand] || g.brand);
+  $('prod-title').textContent = p.name || g.name;
+  $('prod-meta').textContent = g.brand + ' · ' + g.fam;
+  $('prod-price').textContent = g.price ? g.price + (g.device ? ' each · list price · 3-unit minimum' : ' MAP') : '';
+  const st = $('prod-stock'); st.textContent = out ? 'OUT OF STOCK' : 'IN STOCK'; st.className = 'gear-oos prod-stock' + (out ? '' : ' in');
+  $('prod-gal').innerHTML = (p.images || []).map(u => '<img src="' + esc(u) + '" alt="' + esc(p.name || g.name) + '" loading="lazy">').join('');
+  $('prod-copy').innerHTML = p.html || '<p>Availability, lead time and shipping for this device come by email; the manufacturer\u2019s description is not on file here yet.</p>';
+  $('prod-specs').innerHTML = (p.specs || []).map(([k, v]) => '<li><b>' + esc(k) + '</b><span>' + esc(v) + '</span></li>').join('');
+  $('prod-bd').classList.add('open'); $('prod').classList.add('open'); document.body.style.overflow = 'hidden';
+  $('prod').scrollTop = 0; setTimeout(() => $('prod').querySelector('.modal-x').focus(), 60);
+}
+function closeProduct(){ $('prod-bd').classList.remove('open'); $('prod').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+/* One dialog at a time: they share z-index 3001, so the request sheet opens after this one has closed. */
+function productEmail(){ const i = prodIdx; closeProduct(); if (i !== null) requestGear(i); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('prod') && $('prod').classList.contains('open')) closeProduct(); });
 let reqKind = 'private';
 function openReqDialog(kind, title, meta, eyebrow, fine){ reqKind = kind; lastFocus = document.activeElement; $('req-eyebrow').textContent = eyebrow; $('req-title').textContent = title; $('req-meta').textContent = meta; $('req-fine').textContent = fine;
   $('req-org-wrap').hidden = kind !== 'gear'; $('req-qty-wrap').hidden = kind !== 'gear'; if ($('req-qty')) $('req-qty').value = 1; $('req-msg').value = ''; $('req-err').hidden = true;
-  const b = $('req-go'); b.disabled = false; b.textContent = kind === 'gear' ? 'Request Quote' : 'Send Request'; $('req-bd').classList.add('open'); $('req').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('req-name').focus(), 60); }
-function requestGear(i){ reqIdx = i; const g = GEAR[i]; if (window.mastTrack) mastTrack('gear_request', g.name, g.sku); openReqDialog('gear', g.name, g.sku + ' · ' + g.brand + ' · ' + g.fam + (g.price ? ' · ' + g.price + (g.device ? ' each' : ' MAP') : ''), 'Gear quote',
-  g.device ? 'IWA training devices need a PPC certification; orders are verified before fulfillment. 3-unit minimum, 27 per box; hazmat shipping is included. We confirm availability and shipping by email within one business day. Nothing is charged online.'
-           : 'MAP price shown; dealer and volume pricing on request. We confirm availability and shipping by email within one business day. Nothing is charged online.'); }
+  const b = $('req-go'); b.disabled = false; b.textContent = kind === 'gear' ? 'Email Us' : 'Send Request'; $('req-bd').classList.add('open'); $('req').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('req-name').focus(), 60); }
+function requestGear(i){ reqIdx = i; const g = GEAR[i]; if (window.mastTrack) mastTrack('gear_request', g.name, g.sku); openReqDialog('gear', g.name, g.sku + ' · ' + g.brand + ' · ' + g.fam + (g.price ? ' · ' + g.price + (g.device ? ' each' : ' MAP') : ''),
+  'Availability',
+  (gearOut(g) ? 'This device is currently out of stock. Tell us the quantity you need and we email you when it is available, with lead time. ' : 'In stock. Tell us the quantity you need and we email you availability and shipping. ')
+  + (g.device ? 'IWA training devices need a PPC certification; orders are verified before fulfillment. 3-unit minimum, 27 per box; hazmat shipping is included. Nothing is charged online.'
+              : 'MAP price shown; dealer and volume pricing on request. Nothing is charged online.')); }
 function requestPrivate(i){ reqIdx = i; const c = COURSES[i]; openReqDialog('private', c.name, c.meta ? c.meta.replace(/ · /g, ' · ') : '', 'Private instruction',
   'We reply within one business day. Private sessions are by arrangement, not on the weekend calendar. The fee is instruction only: ammunition, range fees and gear are not included.'); }
+/* Capability statement (2026-09-08): the agencies-and-procurement request goes through the same dialog and the same
+   POST /contact as gear, private instruction and Experiences, so it lands in the CRM with its attribution. It carries no
+   catalog row — reqGo branches on the kind rather than indexing an array. */
+function requestCapability(){ reqIdx = null; if (window.mastTrack) mastTrack('capability_request', 'Capability Statement'); openReqDialog('capability', 'Capability Statement', 'Agencies, units and procurement officers', 'Capability',
+  'We reply within one business day with the capability statement. Tell us your agency or unit and what you are sourcing.'); }
 renderGear();   // here, not at the foot of the script: the MAST assembler keeps the script only up to its reveal observer
 
 /* ── Experiences (owner, 2026-09-08: "add in Courses = 'EXPERIENCES' Couples + groups = Pics and Content coming"). A chapter of
    the course catalog, not a course: no SKU, no D1 catalog row, no price, nothing bookable. The card asks for a coordinator
    through the same Request dialog the private-instruction rows use, carrying the experience name.
-   Hidden until he has the pictures and the copy — "Pics and Content coming" — so EXPERIENCES_HIDDEN keeps the accordion off
-   the page entirely, the way GEAR_HIDDEN keeps the Aimpoint cards off. Flip it to false and the chapter appears; the JS gate
-   is what the MAST assembler carries over, so one edit here covers both pages. ── */
-const EXPERIENCES_HIDDEN = true;
+   Shown from 2026-09-08 as four placeholders, on his email: "couples range experience + Date night at the range + Bachelor
+   Party at the range + Corporate Team Training - $pricing and write-ups can be done later - Placeholder for calendar + how to
+   book + package details = can be emailed for details for right now." So each card is the name, that one line, a calendar
+   placeholder and How to book — no price, no duration, no date and no package contents until he supplies them. ── */
+const EXPERIENCES_HIDDEN = false;
 const EXPERIENCES = [
-  { key: 'couples', name: 'Couples', desc: 'Details, photos and dates coming soon.' },
-  { key: 'groups', name: 'Groups', desc: 'Details, photos and dates coming soon.' },
+  { key: 'couples-range', name: 'Couples Range Experience' },
+  { key: 'date-night', name: 'Date Night at the Range' },
+  { key: 'bachelor-party', name: 'Bachelor Party at the Range' },
+  { key: 'corporate-team', name: 'Corporate Team Training' },
 ];
+const EXPERIENCES_DETAIL = 'Package details and pricing are being finalized. Email us for details.';
+const EXPERIENCES_DATES = 'Dates announced soon';
 const EXPERIENCES_NOTE = 'Range days built around the people you bring, not a curriculum. Tell us who is coming and a coordinator answers within one business day.';
 function renderExperiences(){ const p = $('catalog'); if (!p || EXPERIENCES_HIDDEN) return; const ci = CATS.length;
   p.insertAdjacentHTML('beforeend', '<div class="cat" id="cat-' + ci + '"><button class="cat-btn" aria-expanded="false" onclick="toggleCat(' + ci + ')"><span class="cat-name">Experiences</span><span class="cat-count">' + EXPERIENCES.length + ' experiences</span><span class="cat-chev" aria-hidden="true">&#9662;</span></button><div class="cat-panel"><p class="cat-note">' + esc(EXPERIENCES_NOTE) + '</p>'
-    + EXPERIENCES.map((x, i) => '<div class="course-row call"><div><div class="cr-name">' + esc(x.name) + '</div><div class="cr-soon">' + esc(x.desc) + '</div></div><div class="cr-side"><div class="cr-price">SOON<small>BY ARRANGEMENT</small></div><button class="cta-button cr-btn" type="button" onclick="requestExperience(' + i + ')">Talk To A Coordinator</button></div></div>').join('') + '</div></div>'); }
-function requestExperience(i){ reqIdx = i; const x = EXPERIENCES[i]; if (window.mastTrack) mastTrack('experience_request', x.name, x.key); openReqDialog('experience', x.name + ' Experience', x.desc, 'Experiences',
+    + EXPERIENCES.map((x, i) => '<div class="course-row call"><div><div class="cr-name">' + esc(x.name) + '</div><div class="cr-soon">' + esc(EXPERIENCES_DETAIL) + '</div><div class="cr-meta">' + esc(EXPERIENCES_DATES) + '</div></div><div class="cr-side"><button class="cta-button cr-btn" type="button" onclick="requestExperience(' + i + ')">How to book</button></div></div>').join('') + '</div></div>'); }
+function requestExperience(i){ reqIdx = i; const x = EXPERIENCES[i]; if (window.mastTrack) mastTrack('experience_request', x.name, x.key); openReqDialog('experience', x.name, EXPERIENCES_DETAIL, 'Experiences',
   'We reply within one business day. Experiences are arranged around your group, not on the weekend calendar; dates, pricing and what is included come back in that reply.'); }
 renderExperiences();
 function closeReq(){ $('req-bd').classList.remove('open'); $('req').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
-async function reqGo(){ const gear = reqKind === 'gear', exp = reqKind === 'experience'; const c = gear ? GEAR[reqIdx] : exp ? EXPERIENCES[reqIdx] : COURSES[reqIdx]; const name = $('req-name').value.trim(), email = $('req-email').value.trim(), phone = $('req-phone').value.trim(), note = $('req-msg').value.trim(); const err = $('req-err'), b = $('req-go');
+async function reqGo(){ const gear = reqKind === 'gear', exp = reqKind === 'experience', cap = reqKind === 'capability', wait = reqKind === 'waitlist'; const c = cap ? null : gear ? GEAR[reqIdx] : exp ? EXPERIENCES[reqIdx] : COURSES[reqIdx]; const name = $('req-name').value.trim(), email = $('req-email').value.trim(), phone = $('req-phone').value.trim(), note = $('req-msg').value.trim(); const err = $('req-err'), b = $('req-go');
   const org = gear ? $('req-org').value.trim() : '', qty = gear ? Math.max(1, Math.min(999, parseInt($('req-qty').value, 10) || 1)) : 0;
   if (name.length < 2) { err.textContent = 'Enter your name.'; err.hidden = false; $('req-name').focus(); return; }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Enter a valid email address.'; err.hidden = false; $('req-email').focus(); return; }
   if (gear && c.device && org.length < 2) { err.textContent = 'IWA devices need your agency, organization or PPC certificate number.'; err.hidden = false; $('req-org').focus(); return; }
   err.hidden = true; b.disabled = true; b.textContent = 'Sending…';
-  const message = exp
+  const message = cap
+    ? 'Capability statement request — agencies, units and procurement officers' + (note ? '\n\n' + note : '')
+    : wait
+    ? 'Waiting list — ' + c.name + (waitWeekend ? '\nWeekend requested: ' + waitWeekend : '') + (note ? '\n\n' + note : '')
+    : exp
     ? 'Experience enquiry — ' + c.name + ' (no dates or pricing published yet)' + (note ? '\n\n' + note : '')
     : gear
     ? 'Gear quote request — ' + c.sku + ' ' + c.name + ' (' + c.brand + ' · ' + c.fam + ') × ' + qty + (c.price ? ' @ ' + c.price + (c.device ? ' each' : ' MAP') : '') + (org ? '\nAgency / organization / PPC: ' + org : '') + (note ? '\n\n' + note : '')
@@ -1585,7 +1823,7 @@ async function reqGo(){ const gear = reqKind === 'gear', exp = reqKind === 'expe
   try { const r = await fetch(API + '/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'contact', request_type: reqKind, company: org, name, email, phone, message, website: $('req-web').value, page: location.href.split('#')[0], attribution: window.mastAttribution ? mastAttribution() : undefined }) });
     const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'Could not send the request.');
     b.textContent = 'Request sent ✓'; $('req-meta').textContent = 'Thank you, ' + name.split(' ')[0] + '. We reply within one business day.'; setTimeout(closeReq, 2400); }
-  catch (e) { b.disabled = false; b.textContent = 'Send Request'; err.innerHTML = esc(e.message || 'Could not send the request.') + ' You can also email <a href="mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent((gear ? 'Gear quote — ' + c.sku + ' ' : exp ? 'Experience — ' : 'Private instruction — ') + c.name) + '">atlasglinn.hq@atlasglinn.com</a>.'; err.hidden = false; }
+  catch (e) { b.disabled = false; b.textContent = 'Send Request'; err.innerHTML = esc(e.message || 'Could not send the request.') + ' You can also email <a href="mailto:atlasglinn.hq@atlasglinn.com?subject=' + encodeURIComponent(cap ? 'MAST Solutions Capability Statement Request' : (gear ? 'Gear quote — ' + c.sku + ' ' : exp ? 'Experience — ' : wait ? 'Waiting list — ' : 'Private instruction — ') + c.name) + '">atlasglinn.hq@atlasglinn.com</a>.'; err.hidden = false; }
 }
 document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if ($('dcal').classList.contains('open')) closeDCal(); if ($('req').classList.contains('open')) closeReq(); if ($('acct').classList.contains('open')) closeAcct(); });
 
@@ -1598,13 +1836,13 @@ function acctHeaders(){ return acctToken ? { 'Content-Type': 'application/json',
 function acctLinkText(){ document.querySelectorAll('.acct-link').forEach(a => { a.textContent = acctData ? (acctData.name ? acctData.name.split(' ')[0] : 'Account') : 'Sign in'; }); }
 function openAcct(){ lastFocus = document.activeElement; $('acct-bd').classList.add('open'); $('acct').classList.add('open'); document.body.style.overflow = 'hidden'; if (acctToken) { $('acct-auth').hidden = true; $('acct-panel').hidden = false; acctLoad(); } else acctMode(acctModeNow); }
 function closeAcct(){ $('acct-bd').classList.remove('open'); $('acct').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
-function acctMode(m){ acctModeNow = m; const up = m === 'up'; $('acct-tab-in').classList.toggle('sel', !up); $('acct-tab-up').classList.toggle('sel', up); $('acct-name-wrap').hidden = !up; $('acct-phone-wrap').hidden = !up; $('acct-pass-note').hidden = !up; $('acct-forgot').hidden = up; $('acct-pass').setAttribute('autocomplete', up ? 'new-password' : 'current-password'); $('acct-go').textContent = up ? 'Create account' : 'Sign in'; $('acct-title').textContent = up ? 'Create your account' : 'Sign in'; $('acct-auth').hidden = false; $('acct-form').hidden = false; $('acct-code-wrap').hidden = true; $('acct-panel').hidden = true; $('acct-err').hidden = true; }
+function acctMode(m){ acctModeNow = m; const up = m === 'up'; $('acct-tab-in').classList.toggle('sel', !up); $('acct-tab-up').classList.toggle('sel', up); $('acct-name-wrap').hidden = !up; $('acct-phone-wrap').hidden = !up; $('acct-pass-note').hidden = !up; $('acct-forgot').hidden = up; $('acct-pass').setAttribute('autocomplete', up ? 'new-password' : 'current-password'); $('acct-go').textContent = up ? 'Create account' : 'Sign in'; $('acct-title').textContent = up ? 'Create your account' : 'Sign in'; $('acct-auth').hidden = false; $('acct-form').hidden = false; $('acct-code-wrap').hidden = true; $('acct-panel').hidden = true; $('acct-err').hidden = true; acctCodePass = ''; }
 const ACCT_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-let acctCodeKind = 'verify', acctCodeEmail = '';
+let acctCodeKind = 'verify', acctCodeEmail = '', acctCodePass = '';   // the sign-up's password, kept for the code box and never stored
 function acctErr(msg){ const err = $('acct-err'); err.textContent = msg; err.hidden = !msg; }
-function acctSignedIn(d){ acctToken = d.token; try { localStorage.setItem(ACCT_KEY, acctToken); } catch (e) {} acctData = d.account; $('acct-pass').value = ''; $('acct-code').value = ''; $('acct-newpass').value = ''; acctLinkText(); $('acct-auth').hidden = true; $('acct-panel').hidden = false; return acctLoad(); }
+function acctSignedIn(d){ acctToken = d.token; try { localStorage.setItem(ACCT_KEY, acctToken); } catch (e) {} acctData = d.account; acctCodePass = ''; $('acct-pass').value = ''; $('acct-code').value = ''; $('acct-newpass').value = ''; $('acct-codepass').value = ''; acctLinkText(); $('acct-auth').hidden = true; $('acct-panel').hidden = false; return acctLoad(); }
 /* The code box: 'verify' finishes a sign-up (the Worker only issues a token once the emailed code comes back), 'reset' sets a new password. */
-function acctShowCode(kind, email, note){ acctCodeKind = kind; acctCodeEmail = email; const reset = kind === 'reset'; $('acct-form').hidden = true; $('acct-code-wrap').hidden = false; $('acct-newpass-wrap').hidden = !reset; $('acct-code-go').textContent = reset ? 'Set password' : 'Verify'; $('acct-title').textContent = reset ? 'Reset your password' : 'Check your email'; $('acct-code-email').textContent = email; $('acct-code').value = ''; const n = $('acct-code-note'); n.textContent = note || ''; n.hidden = !note; acctErr(''); setTimeout(() => $('acct-code').focus(), 50); }
+function acctShowCode(kind, email, note, password){ acctCodeKind = kind; acctCodeEmail = email; acctCodePass = password || ''; const reset = kind === 'reset'; $('acct-form').hidden = true; $('acct-code-wrap').hidden = false; $('acct-newpass-wrap').hidden = !reset; $('acct-codepass-wrap').hidden = reset || !!acctCodePass; $('acct-codepass').value = ''; $('acct-code-go').textContent = reset ? 'Set password' : 'Verify'; $('acct-title').textContent = reset ? 'Reset your password' : 'Check your email'; $('acct-code-email').textContent = email; $('acct-code').value = ''; const n = $('acct-code-note'); n.textContent = note || ''; n.hidden = !note; acctErr(''); setTimeout(() => $('acct-code').focus(), 50); }
 async function acctPost(path, body){ const r = await fetch(API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const d = await r.json().catch(() => ({})); return { r, d }; }
 async function acctSubmit(){
   const b = $('acct-go'); const email = $('acct-email').value.trim(), password = $('acct-pass').value;
@@ -1614,9 +1852,12 @@ async function acctSubmit(){
   const body = acctModeNow === 'up' ? { email, password, name: $('acct-name').value.trim(), phone: $('acct-phone').value.trim() } : { email, password };
   try {
     const { r, d } = await acctPost(acctModeNow === 'up' ? '/account/register' : '/account/login', body);
-    if (r.status === 202 && d.pending) { $('acct-pass').value = ''; acctShowCode('verify', d.email || email); }
-    else if (r.status === 403 && d.code === 'unverified') { $('acct-pass').value = ''; acctShowCode('verify', d.email || email, 'This email was never verified. We sent a fresh code.'); }
-    else if (!r.ok || !d.token) throw new Error(d.error || 'Could not sign in.');
+    // The code box opens on the sign-up's 202, which is the one answer /account/register ever gives. It used to open on
+    // a 403 'unverified' from sign-in as well, and that answer is gone (backend security review round 5, 2026-09-09): it
+    // came back only for an address that had started a sign-up, so it told anyone who asked which addresses those were.
+    // A refused sign-in now says both things it could mean and neither of them about a particular address.
+    if (r.status === 202 && d.pending) { acctShowCode('verify', d.email || email, '', password); $('acct-pass').value = ''; }
+    else if (!r.ok || !d.token) throw new Error(r.status === 401 ? 'That email and password do not match — or you never finished creating the account. Use Create account to get a fresh code.' : (d.error || 'Could not sign in.'));
     else await acctSignedIn(d);
   } catch (e) { acctErr(e.message); }
   b.disabled = false;
@@ -1626,9 +1867,13 @@ async function acctCodeSubmit(){
   if (code.length !== 6) { acctErr('Enter the 6-digit code from the email.'); $('acct-code').focus(); return; }
   const password = $('acct-newpass').value;
   if (reset && password.length < 10) { acctErr('Use a password of at least 10 characters.'); $('acct-newpass').focus(); return; }
+  // Finishing a sign-up posts the password too. Held from the Create-account form when the code box opened; typed here
+  // when the visitor came back to it later, which is why the field exists rather than being assumed to be in memory.
+  const signupPass = reset ? '' : (acctCodePass || $('acct-codepass').value);
+  if (!reset && signupPass.length < 10) { acctErr('Enter the password you chose when you started this sign-up.'); $('acct-codepass-wrap').hidden = false; $('acct-codepass').focus(); return; }
   acctErr(''); b.disabled = true;
   try {
-    const { r, d } = await acctPost(reset ? '/account/reset' : '/account/verify', reset ? { email: acctCodeEmail, code, password } : { email: acctCodeEmail, code });
+    const { r, d } = await acctPost(reset ? '/account/reset' : '/account/verify', reset ? { email: acctCodeEmail, code, password } : { email: acctCodeEmail, code, password: signupPass });
     if (!r.ok || !d.token) throw new Error(d.error || 'That code did not work.');
     await acctSignedIn(d);
   } catch (e) { acctErr(e.message); }
@@ -1636,7 +1881,7 @@ async function acctCodeSubmit(){
 }
 async function acctResend(){
   acctErr('');
-  try { const { r, d } = await acctPost(acctCodeKind === 'reset' ? '/account/forgot' : '/account/resend', { email: acctCodeEmail }); if (!r.ok) throw new Error(d.error || 'Could not resend the code.'); const n = $('acct-code-note'); n.textContent = 'If your last code is more than a minute old, a new one is on its way to ' + acctCodeEmail + '.'; n.hidden = false; }
+  try { const { r, d } = await acctPost(acctCodeKind === 'reset' ? '/account/forgot' : '/account/resend', { email: acctCodeEmail }); if (!r.ok) throw new Error(d.error || 'Could not resend the code.'); const n = $('acct-code-note'); n.textContent = 'If we can match this to the sign-up you started on this connection, a new code is on its way to ' + acctCodeEmail + '. If nothing arrives, go Back and use Create account again — that always sends one.'; n.hidden = false; }
   catch (e) { acctErr(e.message); }
 }
 async function acctForgot(){
@@ -1704,7 +1949,7 @@ const REGISTER_ENDPOINT = API + '/register';
 const QUESTIONS_VERSION = '2q-2026-09-03', AGREEMENT_VERSION = '81961f2a07675eff', REFUND_POLICY_VERSION = '2026-09-01'; // must match the Worker
 let qty = 1, regStep = 1, docScrolled = false;
 function openSheet(){ qty = 1; docScrolled = false; acctPrefill(); if (window.mastTrack && calCourse) mastTrack('start_registration', calCourse.name, calCourse.sku);
-  // The attestation (owner, 2026-09-04): the discipline's Fundamentals gates every other course in it; P2 also needs the P1. Pre-ticked when the student answered yes at Select Date.
+  // The attestation (owner, 2026-09-04): the discipline's Fundamentals gates every other course in it; P2 also needs the P1. Pre-ticked when the student answered yes at the gate.
   const lv = levelOf(calCourse), gate = !!(lv && lv.n >= 2); $('co-prereq-wrap').hidden = !gate; $('co-prereq').checked = gate && !!attested[calCourse.sku];
   if (gate) $('co-prereq-text').textContent = 'I have completed MAST ' + fundLabel(lv.fund) + (lv.n === 3 ? ' and a MAST P1 course' : '') + ', or an instructor-approved equivalent, before this course.';
   $('sheet-title').textContent = calCourse.name; $('sheet-meta').textContent = metaFor(calCourse); $('sheet-date-label').innerHTML = '&#128197; ' + labelFor(WEEKENDS[chosen], calCourse.days); $('co-qty').textContent = '1'; $('reg-review').hidden = true; $('reg-sign').hidden = true; $('reg-3-go').disabled = true; const h = $('reg-doc-hint'); h.textContent = 'Scroll to the end of page 3 to continue.'; h.classList.remove('ok'); $('reg-doc').scrollTop = 0; showStep(1); updateTotal(); $('sheet-bd').classList.add('open'); $('sheet').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('co-name').focus(), 250); }
@@ -1851,12 +2096,25 @@ async function joinGo(){
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('join').classList.contains('open')) closeJoin(); });
 (function(){ const p = new URLSearchParams(location.search); const s = p.get('membership'); if (!s) return; const b = $('banner'); b.textContent = s === 'success' ? 'Welcome to the team — your membership is set up. The team will be in touch.' : 'Membership checkout cancelled — your card was not charged.'; b.classList.add('show'); setTimeout(() => b.classList.remove('show'), 9000); history.replaceState(null, '', location.pathname); })();
 
+function openCatalog(){ lastFocus = document.activeElement; $('catalog-bd').classList.add('open'); $('catalog-modal').classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeCatalog(){ $('catalog-bd').classList.remove('open'); $('catalog-modal').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('catalog-modal').classList.contains('open')) closeCatalog(); });
+
 function showAll(id){ document.getElementById(id).classList.add('all'); const b = document.getElementById(id + '-more'); if (b) b.remove(); }
 if (/[?&#]preview(?=[=&#]|$)/.test(location.search + location.hash)) document.body.classList.add('preview');   // owner's preview of unpublished pieces (the Blogs link)
 function toggleFold(id, openText, closeText){ const f = $(id), b = $(id + '-btn'); const open = !f.classList.contains('open'); f.classList.toggle('open', open); b.textContent = open ? closeText : openText; b.setAttribute('aria-expanded', open ? 'true' : 'false'); if (!open) b.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 function openLb(src){ const vid = /\.(mp4|webm|mov)(\?|$)/i.test(src); const img = $('lb-img'), v = $('lb-vid'); img.hidden = vid; v.hidden = !vid; if (vid) { img.removeAttribute('src'); v.src = src; v.play().catch(() => {}); } else { v.pause(); v.removeAttribute('src'); img.src = src; } $('lb-bd').classList.add('open'); $('lb').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeLb(){ const v = $('lb-vid'); v.pause(); v.removeAttribute('src'); $('lb-bd').classList.remove('open'); $('lb').classList.remove('open'); document.body.style.overflow = ''; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('lb').classList.contains('open')) closeLb(); });
+
+(function(){
+  const nav = document.getElementById('sitenav'), btn = document.getElementById('menu-btn');
+  if (!nav || !btn) return;
+  const set = open => { nav.classList.toggle('open', open); btn.textContent = open ? 'CLOSE ×' : 'MENU ≡'; btn.setAttribute('aria-expanded', open); document.body.style.overflow = open ? 'hidden' : ''; };
+  btn.addEventListener('click', () => set(!nav.classList.contains('open')));
+  nav.addEventListener('click', e => { if (e.target === nav || e.target.closest('a')) set(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && nav.classList.contains('open')) set(false); });
+})();
 </script>
 <script>
 (function () {

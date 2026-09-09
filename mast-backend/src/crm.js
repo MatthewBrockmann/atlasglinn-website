@@ -427,8 +427,9 @@ export function weeklyDigestText({ contacts = [], orders = [], registrations = [
   // A membership is a subscription, not a seat: it counts in Paid orders and Revenue and nowhere else.
   const classNow = paidNow.filter((o) => o.kind !== 'membership'), classPrev = paidPrev.filter((o) => o.kind !== 'membership');
   const memberNow = paidNow.filter((o) => o.kind === 'membership'), memberPrev = paidPrev.filter((o) => o.kind === 'membership');
-  // Windowed on verified_at, not created_at: a sign-up that verifies days later belongs to the week it verified in
-  // (an unverified sign-up is deleted by the next day's purge, so it never reaches this row).
+  // Windowed on verified_at, not created_at: a sign-up that verifies days later belongs to the week it verified in.
+  // Since round 5 (2026-09-09) a sign-up that never verifies is not an accounts row at all — it lives in
+  // pending_signups until the daily purge — so every row read here carries a verified_at and the two stamps agree.
   const verified = accounts.filter((a) => a.verified_at);
   const verifiedNow = verified.filter((a) => a.verified_at >= startThis);
   const verifiedPrev = verified.filter((a) => a.verified_at >= startPrev && a.verified_at < startThis);

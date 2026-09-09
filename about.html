@@ -3,420 +3,297 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="90908c69a4dd">
-<title>About Atlas Glinn | Elite Security Leadership — Houston, TX</title>
-<meta name="description" content="Meet the Atlas Glinn leadership team. Decades of elite security, dignitary protection, and tactical training expertise led by Matthew Brockmann and Michael Cline.">
-<link rel="canonical" href="https://atlasglinn.com/about.html">
-<link rel="icon" href="images/atlas/Atlas-Glinn-Logo-Rev1-2-e1744918824251.png" type="image/png">
+<meta name="build" content="c9ed3bb1431a">
+<title>Atlas Glinn - About Us | Elite Security Leadership</title>
+<meta name="description" content="Meet the Atlas Glinn leadership team. 34+ years of elite security, dignitary protection, and tactical training expertise led by Matthew Brockmann and Michael Cline.">
+<meta name="keywords" content="about Atlas Glinn, Matthew Brockmann, Michael Cline, security leadership Houston, Navy SEAL, U.S. Senator protection, MAST Solutions">
 <meta property="og:title" content="About Atlas Glinn | Elite Security Leadership — Houston, TX">
-<meta property="og:description" content="Meet the Atlas Glinn leadership team. Decades of elite security, dignitary protection, and tactical training expertise led by Matthew Brockmann and Michael Cline.">
-<meta property="og:image" content="https://atlasglinn.com/images/team/brockmann.jpg">
+<meta property="og:description" content="Meet the Atlas Glinn leadership team. 34+ years of elite security, dignitary protection, and tactical training expertise led by Matthew Brockmann and Michael Cline.">
+<meta property="og:image" content="https://atlasglinn.com/wp-content/uploads/2025/02/Atlas-Glinn-Logo-Rev1-1.png">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://atlasglinn.com/about.html">
-<meta name="twitter:card" content="summary_large_image">
 <meta name="robots" content="index, follow">
 <meta name="author" content="Atlas Glinn, LLC">
-<meta name="theme-color" content="#050810">
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  "name": "Atlas Glinn, LLC",
-  "alternateName": "Atlas Glinn",
-  "url": "https://atlasglinn.com/",
-  "logo": "https://atlasglinn.com/images/atlas/Atlas-Glinn-Logo-Rev1-1.png",
-  "description": "Executive protection, residential protection, disaster recovery and asset protection, AI surveillance, counter-drone and autonomous UAS solutions, and tactical training through MAST Solutions. Houston, Texas.",
-  "founder": { "@type": "Person", "name": "Matthew Brockmann", "jobTitle": "Founder & CEO" },
-  "address": { "@type": "PostalAddress", "streetAddress": "2450 Fondren Rd, Suite 255", "addressLocality": "Houston", "addressRegion": "TX", "postalCode": "77063", "addressCountry": "US" },
-  "telephone": "+1-281-654-8100",
-  "email": "atlasglinn.hq@atlasglinn.com",
-  "sameAs": ["https://www.instagram.com/atlasglinn_mastsolutions/", "https://www.linkedin.com/in/mastsolutions1/", "https://www.youtube.com/@atlasglinn", "https://www.facebook.com/mastsolutions", "https://www.yelp.com/biz/atlas-glinn-houston", "https://maps.google.com/?cid=4511758973651106295"]
-}
-</script>
+<link rel="canonical" href="https://atlasglinn.com/about/">
+<link rel="stylesheet" href="vendor/atlasglinn-shared-styles.css">
+<link rel="icon" href="https://atlasglinn.com/images/atlas/Atlas-Glinn-Logo-Rev1-2-e1744918824251.png" type="image/png">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&family=Cinzel:wght@600;900&display=swap');
-  :root {
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;700&family=Inconsolata:wght@400;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            color: #ffffff;
+            background: #080C14;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* ANIMATIONS */
+        @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
+        }
+        @keyframes goldShimmer {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .gold-shimmer {
+            background: linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%);
+            background-size: 1000px 100%;
+            animation: shimmer 6s linear infinite;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* NAVIGATION */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            background: rgba(8, 12, 20, 0.95); backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(26, 107, 222, 0.2); padding: 1rem 2rem;
+            transform: translateY(-100%); transition: transform .6s ease; transition: transform .6s ease;
+        }
+        nav.visible { transform: translateY(0); }
+        .nav-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .nav-logo { display: flex; align-items: center; gap: 1rem; text-decoration: none; color: #1A6BDE; }
+        .nav-logo img { height: 40px; width: auto; }
+        .nav-logo-text { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.2rem; color: #1A6BDE; }
+        .nav-links { display: flex; gap: 2rem; align-items: center; list-style: none; }
+        .nav-links a { color: #ffffff; text-decoration: none; font-size: 0.9rem; transition: color 0.3s ease; text-transform: uppercase; letter-spacing: 0.05em; }
+        .nav-links a:hover { color: #1A6BDE; }
+        .mobile-menu-btn { display: none; background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; }
+
+        .cta-button {
+            background: #1A6BDE; color: white; padding: 0.75rem 1.5rem; border: none;
+            border-radius: 4px; cursor: pointer; font-family: 'Rajdhani', sans-serif;
+            font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+            transition: all 0.3s ease; text-decoration: none; display: inline-block;
+        }
+        .cta-button:hover { background: #155ac8; box-shadow: 0 0 20px rgba(26, 107, 222, 0.5); }
+        .secondary-button { background: transparent; border: 2px solid #1A6BDE; color: #1A6BDE; }
+        .secondary-button:hover { background: #1A6BDE; color: white; }
+
+        /* HERO */
+        .hero { position: relative; width: 100%; height: 100vh; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
+        .hero-bg-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        .hero-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(8, 12, 20, 0.25); z-index: 2; }
+        .hero video { object-position: center 60%; }
+        .hero-content { position: relative; z-index: 3; text-align: center; max-width: 800px; padding: 0 2rem 4rem; }
+        .hero-headline { font-family: 'Orbitron', sans-serif; font-size: 3.2rem; font-weight: 900; margin-bottom: 1rem; letter-spacing: 0.02em; line-height: 1.1; }
+        .hero-headline .gold-text {
+            background: linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%);
+            background-size: 1000px 100%; animation: shimmer 6s linear infinite;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+
+        /* SECTIONS */
+        .section { max-width: 1400px; margin: 0 auto; padding: 4rem 2rem; }
+        .section-title { font-family: 'Orbitron', sans-serif; font-size: 2.5rem; font-weight: 900; margin-bottom: 1rem; letter-spacing: 0.02em; }
+        .section-subtitle { font-size: 1.1rem; color: #b0b0b0; margin-bottom: 3rem; }
+        .section-divider { background: #0f1622; padding: 1.5rem 2rem; border-top: 2px solid rgba(201,168,76,.5); border-bottom: 2px solid rgba(201,168,76,.5); text-align: center; margin: 0; max-width: 100%; }
+        .section-divider h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; font-weight: 900; letter-spacing: 0.02em; margin: 0; }
+        .section-divider p { font-size: 0.95rem; color: #b0b0b0; margin: 0.5rem 0 0; }
+
+        /* MISSION */
+        .mission-text { font-size: 1.2rem; color: #d0d0d0; line-height: 2; max-width: 900px; margin: 0 auto; text-align: center; }
+
+        /* TEAM */
+        .team-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2.5rem; max-width: 1500px; margin: 0 auto; }
+        .team-card { text-align: center; background: rgba(10,14,23,0.6); border: 1px solid rgba(201,168,76,.2); border-radius: 12px; padding: 2rem 1.5rem; transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s; }
+        .team-card:hover { border-color: rgba(201,168,76,.6); box-shadow: 0 15px 40px rgba(0,0,0,0.4), 0 0 20px rgba(201,168,76,0.1); }
+        .team-card img { width: 240px; height: 300px; border-radius: 10px; object-fit: cover; object-position: top; margin: 0 auto 20px; border: 2px solid rgba(201,168,76,.3); transition: border-color .3s, box-shadow .3s; display: block; }
+        .team-card:hover img { border-color: #C9A84C; box-shadow: 0 8px 25px rgba(201,168,76,0.15); }
+        .team-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1.2rem; margin-bottom: 4px; }
+        .team-role { font-size: 0.8rem; color: #C9A84C; letter-spacing: .15em; text-transform: uppercase; margin-bottom: 16px; }
+        .team-card p { font-size: 0.9rem; color: #b0b0b0; line-height: 1.7; max-width: 480px; margin: 0 auto; text-align: left; }
+
+        /* TESTIMONIALS */
+        .testimonials-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+        .testimonial { background: rgba(26,107,222,.05); border: 1px solid rgba(26,107,222,.2); padding: 2rem; border-radius: 4px; position: relative; transform-style: preserve-3d; transition: all 0.3s ease; }
+        .testimonial:hover { background: rgba(26,107,222,.1); border-color: rgba(26,107,222,.5); transform: translateY(-4px); }
+        .testimonial::before { content: '\201C'; position: absolute; top: 12px; left: 20px; font-size: 48px; color: rgba(201,168,76,.2); font-family: serif; line-height: 1; }
+        .testimonial::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: linear-gradient(90deg, #1A6BDE, #C9A84C); transform: scaleX(0); transform-origin: left; transition: transform .4s; }
+        .testimonial:hover::after { transform: scaleX(1); }
+        .testimonial p { font-size: 0.9rem; color: rgba(255,255,255,.6); line-height: 1.7; font-style: italic; margin-bottom: 16px; padding-top: 24px; }
+        .testimonial-author { font-size: 0.8rem; font-weight: 700; color: #C9A84C; letter-spacing: .06em; }
+
+        /* CTA SECTION */
+        .cta-section { background: linear-gradient(135deg, rgba(26, 107, 222, 0.1) 0%, rgba(26, 107, 222, 0.05) 100%); border: 1px solid rgba(26, 107, 222, 0.3); padding: 4rem 2rem; border-radius: 4px; text-align: center; }
+        .cta-section h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; margin-bottom: 1rem; }
+        .cta-section p { font-size: 1.1rem; color: #b0b0b0; margin-bottom: 0.5rem; }
+        .cta-section a.cta-button { margin-top: 1.5rem; }
+
+        /* FOOTER */
+        footer { background: #0a0e17; border-top: 1px solid rgba(201,168,76,.1); padding: 3rem 2rem 1rem; }
+        .footer-container { max-width: 1400px; margin: 0 auto; }
+        .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+        .footer-section h4 { font-family: 'Orbitron', sans-serif; color: #C9A84C; margin-bottom: 1rem; font-size: 0.9rem; }
+        .footer-section ul { list-style: none; }
+        .footer-section ul li { margin-bottom: 0.5rem; }
+        .footer-section a { color: #b0b0b0; text-decoration: none; transition: color 0.3s ease; font-size: 0.9rem; }
+        .footer-section a:hover { color: #1A6BDE; }
+        .footer-bottom { border-top: 1px solid rgba(201,168,76,.1); padding-top: 2rem; text-align: center; color: #888; font-size: 0.85rem; }
+        .social-links { display: flex; gap: 1rem; margin-top: 1rem; }
+        .social-links a { color: #1A6BDE; text-decoration: none; transition: color 0.3s ease; }
+        .social-links a:hover { color: #C9A84C; }
+
+        /* REVEAL */
+        .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+        .reveal.active { opacity: 1; transform: translateY(0); }
+
+        /* MOBILE NAV OVERLAY */
+        .mobile-nav { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; background: rgba(0,0,0,.95); backdrop-filter: blur(20px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; opacity: 0; visibility: hidden; transition: all .3s; }
+        .mobile-nav.open { opacity: 1; visibility: visible; }
+        .mobile-nav a { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: #fff; text-decoration: none; }
+        .mobile-nav-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: #fff; font-size: 32px; cursor: pointer; }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .mobile-menu-btn { display: block; }
+            .hero-headline { font-size: 2rem; }
+            .team-grid { grid-template-columns: 1fr; gap: 2rem; }
+            .testimonials-row { grid-template-columns: 1fr; }
+            .section { padding: 3rem 1rem; }
+            .section-title { font-size: 1.8rem; }
+            .hero { height: 60vh; }
+        }
+        @media (max-width: 480px) {
+            nav { padding: 0.75rem 1rem; }
+            .hero-headline { font-size: 1.8rem; }
+            .section-title { font-size: 1.4rem; }
+        }
+    
+        /* ═══ CINEMATIC IMAGE SYSTEM ═══ */
+        .photo-item img, .full-bleed-divider img {
+            animation: kenburns 20s ease-in-out infinite alternate;
+            transition: transform 0.8s cubic-bezier(0.23,1,0.32,1), filter 0.5s ease;
+            filter: contrast(1.1) saturate(1.1);
+        }
+        .photo-item:nth-child(odd) img { animation-name: kenburns-alt; }
+        .photo-item:nth-child(3n) img { animation-name: kenburns-pan; animation-duration: 25s; }
+        .photo-item img:hover, .full-bleed-divider img:hover {
+            transform: scale(1.08) !important;
+            filter: contrast(1.2) saturate(1.2) brightness(1.05);
+        }
+        .photo-item { overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.5), 0 0 30px rgba(201,168,76,0.08); transition: box-shadow 0.5s ease, transform 0.5s ease; }
+        .photo-item:hover { box-shadow: 0 25px 70px rgba(0,0,0,0.7), 0 0 50px rgba(201,168,76,0.15); transform: translateY(-4px); }
+        .full-bleed-divider { overflow: hidden; position: relative; }
+        .full-bleed-divider img { animation: kenburns-slow 30s ease-in-out infinite alternate; }
+        @keyframes kenburns { 0% { transform: scale(1) translate(0, 0); } 100% { transform: scale(1.12) translate(-2%, -1%); } }
+        @keyframes kenburns-alt { 0% { transform: scale(1.08) translate(-1%, 0); } 100% { transform: scale(1) translate(1%, -1%); } }
+        @keyframes kenburns-pan { 0% { transform: scale(1) translate(0, 0); } 50% { transform: scale(1.06) translate(-1.5%, -1%); } 100% { transform: scale(1.1) translate(1%, -0.5%); } }
+        @keyframes kenburns-slow { 0% { transform: scale(1) translate(0, 0); } 100% { transform: scale(1.08) translate(-1%, -0.5%); } }
+        /* ═══ 3D PARALLAX PHOTO EFFECT ═══ */
+        .photo-item .parallax-3d-container { width: 100%; height: 100%; }
+        .photo-item .parallax-3d-inner { height: 100%; }
+        .photo-item .parallax-3d-inner img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+        .full-bleed-divider .parallax-3d-container { width: 100%; }
+        .parallax-3d-container { perspective: 1000px; width: 100%; }
+        .parallax-3d-inner { position: relative; overflow: hidden; border-radius: 4px; box-shadow: 0 25px 60px rgba(0,0,0,0.6), 0 0 40px rgba(201,168,76,0.12); transition: transform 0.15s ease-out, box-shadow 0.3s ease; transform-style: preserve-3d; will-change: transform; }
+        .parallax-3d-img { width: 100%; display: block; transition: transform 0.3s ease-out; filter: contrast(1.1) saturate(1.1); }
+        .parallax-3d-shine { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%, transparent 100%); opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
+        .parallax-3d-container:hover .parallax-3d-shine { opacity: 1; }
+        .parallax-3d-container:hover .parallax-3d-inner { box-shadow: 0 35px 80px rgba(0,0,0,0.7), 0 0 60px rgba(201,168,76,0.2); }
+
+    </style>
+<style id="global-styles-inline-css">
+:root{--wp--preset--aspect-ratio--square: 1;--wp--preset--aspect-ratio--4-3: 4/3;--wp--preset--aspect-ratio--3-4: 3/4;--wp--preset--aspect-ratio--3-2: 3/2;--wp--preset--aspect-ratio--2-3: 2/3;--wp--preset--aspect-ratio--16-9: 16/9;--wp--preset--aspect-ratio--9-16: 9/16;--wp--preset--color--black: #000000;--wp--preset--color--cyan-bluish-gray: #abb8c3;--wp--preset--color--white: #ffffff;--wp--preset--color--pale-pink: #f78da7;--wp--preset--color--vivid-red: #cf2e2e;--wp--preset--color--luminous-vivid-orange: #ff6900;--wp--preset--color--luminous-vivid-amber: #fcb900;--wp--preset--color--light-green-cyan: #7bdcb5;--wp--preset--color--vivid-green-cyan: #00d084;--wp--preset--color--pale-cyan-blue: #8ed1fc;--wp--preset--color--vivid-cyan-blue: #0693e3;--wp--preset--color--vivid-purple: #9b51e0;--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple: linear-gradient(135deg,rgb(6,147,227) 0%,rgb(155,81,224) 100%);--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan: linear-gradient(135deg,rgb(122,220,180) 0%,rgb(0,208,130) 100%);--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange: linear-gradient(135deg,rgb(252,185,0) 0%,rgb(255,105,0) 100%);--wp--preset--gradient--luminous-vivid-orange-to-vivid-red: linear-gradient(135deg,rgb(255,105,0) 0%,rgb(207,46,46) 100%);--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray: linear-gradient(135deg,rgb(238,238,238) 0%,rgb(169,184,195) 100%);--wp--preset--gradient--cool-to-warm-spectrum: linear-gradient(135deg,rgb(74,234,220) 0%,rgb(151,120,209) 20%,rgb(207,42,186) 40%,rgb(238,44,130) 60%,rgb(251,105,98) 80%,rgb(254,248,76) 100%);--wp--preset--gradient--blush-light-purple: linear-gradient(135deg,rgb(255,206,236) 0%,rgb(152,150,240) 100%);--wp--preset--gradient--blush-bordeaux: linear-gradient(135deg,rgb(254,205,165) 0%,rgb(254,45,45) 50%,rgb(107,0,62) 100%);--wp--preset--gradient--luminous-dusk: linear-gradient(135deg,rgb(255,203,112) 0%,rgb(199,81,192) 50%,rgb(65,88,208) 100%);--wp--preset--gradient--pale-ocean: linear-gradient(135deg,rgb(255,245,203) 0%,rgb(182,227,212) 50%,rgb(51,167,181) 100%);--wp--preset--gradient--electric-grass: linear-gradient(135deg,rgb(202,248,128) 0%,rgb(113,206,126) 100%);--wp--preset--gradient--midnight: linear-gradient(135deg,rgb(2,3,129) 0%,rgb(40,116,252) 100%);--wp--preset--font-size--small: 13px;--wp--preset--font-size--medium: 20px;--wp--preset--font-size--large: 36px;--wp--preset--font-size--x-large: 42px;--wp--preset--spacing--20: 0.44rem;--wp--preset--spacing--30: 0.67rem;--wp--preset--spacing--40: 1rem;--wp--preset--spacing--50: 1.5rem;--wp--preset--spacing--60: 2.25rem;--wp--preset--spacing--70: 3.38rem;--wp--preset--spacing--80: 5.06rem;--wp--preset--shadow--natural: 6px 6px 9px rgba(0, 0, 0, 0.2);--wp--preset--shadow--deep: 12px 12px 50px rgba(0, 0, 0, 0.4);--wp--preset--shadow--sharp: 6px 6px 0px rgba(0, 0, 0, 0.2);--wp--preset--shadow--outlined: 6px 6px 0px -3px rgb(255, 255, 255), 6px 6px rgb(0, 0, 0);--wp--preset--shadow--crisp: 6px 6px 0px rgb(0, 0, 0);}:where(body) { margin: 0; }:where(.is-layout-flex){gap: 0.5em;}:where(.is-layout-grid){gap: 0.5em;}body .is-layout-flex{display: flex;}.is-layout-flex{flex-wrap: wrap;align-items: center;}.is-layout-flex > :is(*, div){margin: 0;}body .is-layout-grid{display: grid;}.is-layout-grid > :is(*, div){margin: 0;}body{padding-top: 0px;padding-right: 0px;padding-bottom: 0px;padding-left: 0px;}:root :where(.wp-element-button, .wp-block-button__link){background-color: #32373c;border-width: 0;color: #fff;font-family: inherit;font-size: inherit;font-style: inherit;font-weight: inherit;letter-spacing: inherit;line-height: inherit;padding-top: calc(0.667em + 2px);padding-right: calc(1.333em + 2px);padding-bottom: calc(0.667em + 2px);padding-left: calc(1.333em + 2px);text-decoration: none;text-transform: inherit;}.has-black-color{color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-color{color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-color{color: var(--wp--preset--color--white) !important;}.has-pale-pink-color{color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-color{color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-color{color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-color{color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-color{color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-color{color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-color{color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-color{color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-color{color: var(--wp--preset--color--vivid-purple) !important;}.has-black-background-color{background-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-background-color{background-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-background-color{background-color: var(--wp--preset--color--white) !important;}.has-pale-pink-background-color{background-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-background-color{background-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-background-color{background-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-background-color{background-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-background-color{background-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-background-color{background-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-background-color{background-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-background-color{background-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-background-color{background-color: var(--wp--preset--color--vivid-purple) !important;}.has-black-border-color{border-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-border-color{border-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-border-color{border-color: var(--wp--preset--color--white) !important;}.has-pale-pink-border-color{border-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-border-color{border-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-border-color{border-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-border-color{border-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-border-color{border-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-border-color{border-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-border-color{border-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-border-color{border-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-border-color{border-color: var(--wp--preset--color--vivid-purple) !important;}.has-vivid-cyan-blue-to-vivid-purple-gradient-background{background: var(--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple) !important;}.has-light-green-cyan-to-vivid-green-cyan-gradient-background{background: var(--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan) !important;}.has-luminous-vivid-amber-to-luminous-vivid-orange-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange) !important;}.has-luminous-vivid-orange-to-vivid-red-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-orange-to-vivid-red) !important;}.has-very-light-gray-to-cyan-bluish-gray-gradient-background{background: var(--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray) !important;}.has-cool-to-warm-spectrum-gradient-background{background: var(--wp--preset--gradient--cool-to-warm-spectrum) !important;}.has-blush-light-purple-gradient-background{background: var(--wp--preset--gradient--blush-light-purple) !important;}.has-blush-bordeaux-gradient-background{background: var(--wp--preset--gradient--blush-bordeaux) !important;}.has-luminous-dusk-gradient-background{background: var(--wp--preset--gradient--luminous-dusk) !important;}.has-pale-ocean-gradient-background{background: var(--wp--preset--gradient--pale-ocean) !important;}.has-electric-grass-gradient-background{background: var(--wp--preset--gradient--electric-grass) !important;}.has-midnight-gradient-background{background: var(--wp--preset--gradient--midnight) !important;}.has-small-font-size{font-size: var(--wp--preset--font-size--small) !important;}.has-medium-font-size{font-size: var(--wp--preset--font-size--medium) !important;}.has-large-font-size{font-size: var(--wp--preset--font-size--large) !important;}.has-x-large-font-size{font-size: var(--wp--preset--font-size--x-large) !important;}
+/*# sourceURL=global-styles-inline-css */
+</style>
+<style>#intro-overlay, #main-nav, #mobile-nav, footer.site-footer, #back-to-top {
     --midnight:#050810; --deep-navy:#0B1221; --gunmetal:#1E2A3A; --gunmetal-lt:#2C3845; --steel:#3A4A5C;
     --gold:#1A6BDE; --gold-antique:#2F7BEF; --gold-champagne:#5B9BFF; --gold-bright:#DCEBFF; --copper:#0E3F8C;
     --text:#F0F4FF; --text-dim:#8B95A8; --text-mute:#5B6474;
   }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  html { scroll-behavior:smooth; }
-  html, body { background:var(--midnight); color:var(--text); font-family:'Rajdhani',sans-serif; overflow-x:hidden; cursor:none; }
-  a { color:inherit; }
-  .reticle { position:fixed; top:0; left:0; width:44px; height:44px; pointer-events:none; z-index:10000; transform:translate(-50%,-50%); mix-blend-mode:difference; }
-  .reticle::before, .reticle::after { content:''; position:absolute; background:var(--gold-champagne); }
-  .reticle::before { top:50%; left:0; width:100%; height:1px; transform:translateY(-50%); }
-  .reticle::after { left:50%; top:0; width:1px; height:100%; transform:translateX(-50%); }
-  .reticle-ring { position:absolute; inset:10px; border:1px solid var(--gold); border-radius:50%; opacity:.7; }
-  .reticle-dot { position:absolute; top:50%; left:50%; width:3px; height:3px; background:var(--gold-bright); border-radius:50%; transform:translate(-50%,-50%); }
-  #three-canvas { position:fixed; inset:0; width:100vw; height:100vh; z-index:1; pointer-events:none; }
-  /* Photography layer: one still per chapter, ghosted behind the 3D emblem and the grain */
-  #photos { position:fixed; inset:0; z-index:2; pointer-events:none; }
-  /* Backdrop crossfade: the outgoing photograph leaves faster than the incoming one arrives, so the two never stack to a brighter
-     frame mid-switch (Brockmann, 2026-09-04: "the background pulled forward"). */
-  #photos .ph { position:absolute; inset:0; background:center/cover no-repeat; opacity:0; transition:opacity .6s ease; filter:saturate(.72) contrast(1.06); }
-  #photos .ph.on { transition:opacity 1.6s ease .3s; }
-  #photos .ph::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.42) 0%, rgba(5,8,16,.08) 45%, rgba(5,8,16,.72) 100%); }
-  /* A chapter backdrop can be a film snippet instead of a still (Brockmann, 2026-09-05: "the video should be in the background,
-     just a snippet playing, like the current website"). The still stays underneath as the poster; the clip fades in once it
-     plays, loops, muted, and only while its chapter is on screen. */
-  #photos .ph video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:inherit; opacity:0; transition:opacity 1.2s ease; }
-  #photos .ph video.playing { opacity:1; }
-  #photos .ph.film.on { opacity:.58; }
-  /* A YouTube film as the backdrop, the way the current Atlas pages embed their hero films (autoplay, muted, loop,
-     no controls): the frame is oversized to cover the viewport at 16:9 and cannot be clicked. */
-  #photos .ph.yt iframe { position:absolute; top:50%; left:50%; width:100vw; height:56.25vw; min-height:100%; min-width:177.78vh; transform:translate(-50%,-50%); border:0; pointer-events:none; opacity:0; transition:opacity 1.2s ease; }
-  #photos .ph.yt iframe.playing { opacity:1; }
-  /* Backdrop presence (Brockmann, 2026-09-05: pull the background forward, keep the layers; then "Reduce background brightness by
-     20%"): the photograph sits at .42 (.52 less a fifth), the scene and the text layers stay above it. */
-  #photos .ph.on { opacity:.42; }
-  .grain { position:fixed; inset:0; z-index:3; pointer-events:none; opacity:.035; background-image:repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(255,255,255,.3) 2px, rgba(255,255,255,.3) 3px); mix-blend-mode:overlay; }
-  .vignette { position:fixed; inset:0; z-index:4; pointer-events:none; background:radial-gradient(ellipse at center, transparent 0%, transparent 55%, rgba(5,8,16,.75) 100%); }
-  /* The gold sparkle ring from the atlasglinn.com intro, drawn around the wordmark; the script fades it in after the wordmark and out before the splash ends. */
-  .intro-ring { position:absolute; inset:0; width:100%; height:100%; z-index:0; opacity:0; pointer-events:none; }
-  @keyframes shimmer { 0% { background-position:-1000px 0; } 100% { background-position:1000px 0; } }
-  .hud { position:fixed; z-index:20; font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.3em; opacity:.6; text-decoration:none; }
-  .hud.tl { top:1.2rem; left:1.8rem; color:var(--gold-champagne); }
-  .hud.tr { top:1.2rem; right:15rem; color:var(--text-mute); }
-  .hud.bl { bottom:1.2rem; left:1.8rem; color:var(--text-mute); }
-  .hud.br { bottom:1.2rem; right:1.8rem; color:var(--gold); }
-  .progress { position:fixed; top:0; left:0; height:2px; width:0; background:linear-gradient(90deg, var(--gold-antique), var(--gold-bright), var(--copper)); z-index:100; box-shadow:0 0 14px rgba(26,107,222,.7); transition:width .1s linear; }
-  .content { position:relative; z-index:5; }
-  section.panel { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:6rem 2rem; text-align:center; position:relative; }
-  section.panel > div { width:100%; max-width:1200px; }
-  .eyebrow { font-family:'Share Tech Mono',monospace; color:var(--gold-champagne); letter-spacing:.45em; font-size:.75rem; text-transform:uppercase; margin-bottom:1.6rem; opacity:0; transform:translateY(20px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
-  .eyebrow.in { opacity:1; transform:translateY(0); }
-  h1.mega { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2.6rem,7.2vw,6.6rem); letter-spacing:.02em; line-height:.95; margin-bottom:2rem; opacity:0; filter:blur(20px); transform:scale(1.15); transition:opacity 1.2s cubic-bezier(.2,.7,.2,1), filter 1.2s cubic-bezier(.2,.7,.2,1), transform 1.4s cubic-bezier(.2,.7,.2,1); }
-  h1.mega.in { opacity:1; filter:blur(0); transform:scale(1); }
-  .gold { background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
-  h1.mega .gold { text-shadow:0 0 80px rgba(26,107,222,.3); }
-  h1.mega .white { color:var(--text); }
-  h2.section-h { font-family:'Orbitron',sans-serif; font-weight:700; font-size:clamp(2rem,5vw,4.5rem); letter-spacing:.03em; margin-bottom:1.4rem; opacity:0; filter:blur(12px); transform:translateY(24px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), filter 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
-  h2.section-h.in { opacity:1; filter:blur(0); transform:translateY(0); }
-  .sub { font-size:clamp(1rem,1.3vw,1.25rem); color:var(--text-dim); max-width:720px; margin:0 auto 2.5rem; line-height:1.55; font-weight:300; opacity:0; transform:translateY(16px); transition:opacity 1s ease-out .3s, transform 1s ease-out .3s; }
-  .sub.in { opacity:1; transform:translateY(0); }
-  .sub, .eyebrow { text-shadow:0 1px 2px rgba(5,8,16,.7); }   /* over a photograph the descriptors need an edge at every size */
-  .rise { opacity:0; transform:translateY(22px); transition:opacity 1s ease-out .35s, transform 1s ease-out .35s; }
-  .rise.in { opacity:1; transform:translateY(0); }
-  .cta, .cta-button { display:inline-block; padding:1.1rem 2.5rem; font-family:'Orbitron',sans-serif; font-weight:700; letter-spacing:.2em; font-size:.85rem; text-transform:uppercase; text-decoration:none; color:#000; background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); border:1px solid var(--gold-champagne); cursor:none; transition:transform .35s, box-shadow .35s; position:relative; overflow:hidden; border-radius:0; }
-  .cta::before, .cta-button::before { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent); transition:left .7s; }
-  .cta:hover, .cta-button:hover { transform:translateY(-3px); box-shadow:0 14px 44px rgba(26,107,222,.5); }
-  .cta:hover::before, .cta-button:hover::before { left:100%; }
-  .cta-button[disabled] { opacity:.35; transform:none; box-shadow:none; }
-  .secondary-cta, .cta-button.ghost-button { display:inline-block; padding:1.1rem 2.5rem; font-family:'Orbitron',sans-serif; font-weight:700; letter-spacing:.2em; font-size:.85rem; text-transform:uppercase; text-decoration:none; color:var(--gold-champagne); background:transparent; border:1px solid var(--gold); cursor:none; transition:all .35s; margin-left:1rem; }
-  .secondary-cta:hover, .cta-button.ghost-button:hover { background:rgba(26,107,222,.08); border-color:var(--gold-bright); color:var(--gold-bright); transform:none; box-shadow:none; }
-  .ctas { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; }
-  .ctas .secondary-cta, .ctas .ghost-button { margin-left:0; }
-  .badge { display:inline-block; padding:.45rem 1rem; border:1px solid var(--gold); font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.4em; color:var(--gold-champagne); margin-bottom:1.5rem; background:rgba(26,107,222,.06); backdrop-filter:blur(8px); }
-  .chips { display:flex; flex-wrap:wrap; gap:.65rem; justify-content:center; max-width:1000px; margin:0 auto 2.5rem; }
-  .chip { padding:.55rem 1rem; border:1px solid rgba(26,107,222,.35); background:rgba(30,42,58,.55); backdrop-filter:blur(6px); font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.25em; color:var(--gold-champagne); text-transform:uppercase; }
-  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:1.8rem; max-width:980px; margin:3rem auto 0; }
-  .stat { text-align:center; padding:2rem 1.5rem; border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.7) 100%); backdrop-filter:blur(12px); position:relative; overflow:hidden; transition:transform .4s, border-color .4s; }
-  .stat::before { content:''; position:absolute; top:0; left:0; width:100%; height:1px; background:linear-gradient(90deg, transparent, var(--gold), transparent); }
-  .stat:hover { transform:translateY(-6px); border-color:var(--gold); }
-  .stat-num { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2.8rem,5.5vw,4.5rem); background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; line-height:1; }
-  .stat-label { font-family:'Share Tech Mono',monospace; font-size:.7rem; letter-spacing:.35em; color:var(--text-dim); margin-top:1rem; text-transform:uppercase; }
-  /* Photo tiles: the trailer's glass pillars carrying the Federico and range photography */
-  .tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:1.2rem; max-width:1200px; margin:0 auto; }
-  .tiles.four { grid-template-columns:repeat(4,1fr); }
-  .tile { position:relative; min-height:300px; display:flex; align-items:flex-end; text-align:left; overflow:hidden; border:1px solid rgba(26,107,222,.22); background:var(--deep-navy); transition:transform .45s, border-color .45s; }
-  .tile .bg { position:absolute; inset:0; background:center/cover no-repeat; transform:scale(1.04); transition:transform 5s ease; filter:saturate(.8); }
-  .tile video.bg { width:100%; height:100%; object-fit:cover; }
-  .tile:hover .bg { transform:scale(1.12); }
-  .tile::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.05) 0%, rgba(5,8,16,.35) 50%, rgba(5,8,16,.92) 100%); }
-  .tile:hover { transform:translateY(-6px); border-color:var(--gold); }
-  /* Shared card hover (Brockmann, 2026-09-04: "make sure that for any card or any function on the site ... we don't lose the
-     consistency"): every card on either site lifts the same way on mouse-over. Add each new card class to these two selectors;
-     the card's own rules only set its border colour. */
-  .tile, .tier, .gear-card { transition:transform .45s, border-color .45s, box-shadow .45s; }   /* every card on either site takes this one hover (Brockmann, 2026-09-04) */
-  .tile:hover, .tier:hover, .gear-card:hover { transform:translateY(-6px); }
-  .tile .txt { position:relative; z-index:2; padding:1.4rem 1.3rem; width:100%; }
-  .tile .num { font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.4em; color:var(--gold); margin-bottom:.5rem; }
-  .tile h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.15rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.35rem; }
-  .tile p { font-size:.92rem; color:var(--text-dim); line-height:1.5; font-weight:300; }
-  .tiles.four .tile { min-height:260px; }
-  /* Glass panel that carries the catalog */
-  .glass { border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.45) 0%, rgba(11,18,33,.78) 100%); backdrop-filter:blur(14px); padding:1.4rem; text-align:left; position:relative; }
-  .glass::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg, transparent, var(--gold), transparent); }
-  .catalog-wrap { max-width:960px; margin:0 auto; }
-  .catalog-panel { max-height:none; }
-  .cat { background:rgba(5,8,16,.35); }
-  .course-row { color:var(--text); }
-  .cr-btn { padding:.55rem 1rem; font-size:.72rem; }
-  .cat-count { color:var(--text-dim); }
-  .catalog-note { text-align:center; color:var(--text-dim); font-size:.92rem; margin-top:1.4rem; font-weight:300; }
-  .catalog-note a { color:var(--gold-champagne); text-decoration:none; }
-  /* Instructor */
-  /* Portraits: one size for every person on the page, founder and team alike — the same column and a 4:5 frame that does not
-     stretch with the bio beside it (Brockmann, 2026-09-05: "They're not all the same size … size them for consistency"). */
-  .founder { display:grid; grid-template-columns:minmax(240px,380px) 1fr; gap:2.2rem; max-width:1150px; margin:0 auto; text-align:left; align-items:start; }
-  .founder .portrait { position:relative; aspect-ratio:4/5; min-height:0; border:1px solid rgba(26,107,222,.3); background:center 20%/cover no-repeat; }
-  .founder .portrait::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, transparent 55%, rgba(5,8,16,.9) 100%); }
-  .founder .portrait .cap { position:absolute; left:1.2rem; bottom:1.1rem; z-index:2; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.35em; color:var(--gold-champagne); text-transform:uppercase; }
-  .founder .bio { border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.75) 100%); backdrop-filter:blur(14px); padding:2rem 1.9rem; position:relative; }
-  .founder .bio::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:linear-gradient(180deg, var(--gold), var(--copper)); }
-  .founder .bio p { color:var(--text-dim); line-height:1.6; font-weight:300; font-size:1.05rem; margin-bottom:1.2rem; }
-  .founder .creds { list-style:none; margin:0 0 1.4rem; padding:0; }
-  .founder .creds li { padding:.45rem 0 .45rem 1.4rem; position:relative; color:var(--text); font-size:.98rem; line-height:1.5; border-top:1px solid rgba(26,107,222,.12); }
-  .founder .creds li::before { content:'◆'; position:absolute; left:0; top:.55rem; color:var(--gold); font-size:.6rem; }
-  .founder .creds b { color:var(--gold-champagne); font-weight:600; }
-  .founder .cadre { font-family:'Share Tech Mono',monospace; font-size:.72rem; letter-spacing:.08em; color:var(--text-dim); line-height:1.7; margin-bottom:1.4rem; }
-  .founder .ctas { justify-content:flex-start; }
-  .cert { max-width:1150px; margin:1.4rem auto 0; display:grid; grid-template-columns:minmax(220px,360px) 1fr; gap:1.4rem; align-items:center; text-align:left; }
-  .cert img { width:100%; border:1px solid rgba(26,107,222,.3); display:block; }
-  .cert p { color:var(--text-dim); font-weight:300; line-height:1.55; font-size:.98rem; }
-  /* Team blocks: the Atlas Glinn "Meet the Team" format (portrait + name, role, bio), shared by the MAST Instructors chapter. */
-  .team { display:grid; grid-template-columns:minmax(240px,380px) 1fr; gap:2.2rem; max-width:1150px; margin:0 auto 1.6rem; text-align:left; align-items:start; }
-  .team .portrait { aspect-ratio:4/5; min-height:0; border:1px solid rgba(26,107,222,.3); background:center 20%/cover no-repeat; position:relative; }
-  .team .portrait::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, transparent 60%, rgba(5,8,16,.9) 100%); }
-  .team .portrait .cap { position:absolute; left:1.1rem; bottom:1rem; z-index:2; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; color:var(--gold-champagne); text-transform:uppercase; }
-  .team .bio { border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.75) 100%); backdrop-filter:blur(14px); padding:1.8rem; position:relative; }
-  .team .bio::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:linear-gradient(180deg, var(--gold), var(--copper)); }
-  .team .bio h3, .founder .bio h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.25rem; color:var(--gold-champagne); margin-bottom:.2rem; }
-  .team .bio .role, .founder .bio .role { font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.3em; text-transform:uppercase; color:var(--text-dim); margin-bottom:1rem; }
-  .team .bio p { color:var(--text-dim); line-height:1.6; font-weight:300; font-size:1.02rem; }
-  /* Media strip */
-  .media-strip { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:1rem; padding:.5rem 0 1rem; scrollbar-width:thin; scrollbar-color:var(--gold) var(--deep-navy); max-width:1200px; margin:0 auto; }
-  .video-card { flex:0 0 min(82vw,480px); scroll-snap-align:start; background:rgba(11,18,33,.8); border:1px solid rgba(26,107,222,.22); overflow:hidden; text-align:left; }
-  .yt .play { border-color:var(--gold); background:rgba(5,8,16,.8); }
-  .yt:hover .play { background:var(--gold); border-color:var(--gold); }
-  .yt.mp4 { background:linear-gradient(135deg, var(--gunmetal), var(--midnight)); }
-  .yt.mp4 .lbl { color:var(--gold-champagne); font-family:'Share Tech Mono',monospace; }
-  .video-card-info h4 { color:var(--gold-champagne); }
-  .post { display:inline-block; margin-top:2rem; padding:1rem 1.8rem; border:1px solid var(--gold); background:rgba(26,107,222,.07); backdrop-filter:blur(8px); font-family:'Orbitron',sans-serif; font-weight:700; font-size:clamp(.85rem,1.2vw,1.05rem); letter-spacing:.14em; color:var(--gold-champagne); text-decoration:none; text-transform:uppercase; transition:all .35s; cursor:none; }
-  .post:hover { background:rgba(26,107,222,.16); border-color:var(--gold-bright); color:var(--gold-bright); transform:translateY(-3px); }
-  .post small { display:block; font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.62rem; letter-spacing:.35em; color:var(--text-dim); margin-bottom:.35rem; }
-  .quote { font-style:italic; color:var(--gold-champagne); max-width:700px; margin:.5rem auto 2rem; font-size:clamp(1.05rem,1.5vw,1.3rem); line-height:1.5; }
-  .quote.lead { max-width:820px; font-size:clamp(1.2rem,1.9vw,1.55rem); margin-top:.8rem; }
-  /* Contact lines sit over a backdrop photograph on both sites: full text colour and a shadow (Brockmann, 2026-09-05: "Fix the visibility of the contact"). */
-  .contact-lines { font-family:'Share Tech Mono',monospace; font-size:.75rem; letter-spacing:.2em; color:var(--text); text-shadow:0 1px 6px rgba(0,0,0,.9), 0 0 22px rgba(0,0,0,.7); line-height:2.1; margin-bottom:2.2rem; }
-  .contact-lines a { color:var(--gold-champagne); text-decoration:none; }
-  .foot { margin-top:4rem; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; color:var(--text-mute); text-transform:uppercase; line-height:2.2; }
-  .foot a { color:var(--text-mute); text-decoration:none; margin:0 .6rem; }
-  .foot a:hover { color:var(--gold-champagne); }
-  .scroll-cue { position:absolute; bottom:3rem; left:50%; transform:translateX(-50%); font-family:'Share Tech Mono',monospace; font-size:.65rem; color:var(--gold-champagne); letter-spacing:.4em; opacity:.55; animation:pulseY 2.4s ease-in-out infinite; }
-  @keyframes pulseY { 50% { opacity:1; transform:translateX(-50%) translateY(-10px); } }
-  /* Booking stack (lifted from the Atlas-frame pages, recolored to the trailer palette) */
-
-  .modal { background:var(--deep-navy); border-color:rgba(26,107,222,.4); }
-  .modal .eyebrow { opacity:1; transform:none; margin-bottom:.6rem; }
-  .modal h3 { color:var(--text); }
-  .day.sel { background:var(--gold); border-color:var(--gold); color:#000; }
-  .day.wk:hover { background:rgba(26,107,222,.25); border-color:var(--gold); }
-  .cal-nav button:hover:not([disabled]) { background:var(--gold); color:#000; }
-  .cal-quick button.on, .cal-quick .on { background:var(--gold); color:#000; border-color:var(--gold); }
-  .qty button { cursor:none; }
-  .sheet-date button { color:var(--gold-champagne); }
-  input:focus { border-color:var(--gold) !important; }
-  .banner { background:var(--gold); color:#000; }
-  .quals-list li::marker, .quals-list li b { color:var(--gold-champagne); }
-  @media (max-width:900px) { .founder, .cert, .team { grid-template-columns:1fr; } .founder .portrait, .team .portrait { max-width:380px; width:100%; margin:0 auto; } .tiles, .tiles.four { grid-template-columns:1fr 1fr; } }
-  /* The fixed chapter nav on the right needs its own lane: at laptop widths keep the labels and give the panels a right
-     margin; on tablets collapse the nav to its tick marks so the content keeps most of the width. */
-  @media (min-width:1025px) and (max-width:1600px) { section.panel { padding-right:16.5rem; } }
-  @media (max-width:768px) {
-    .hud { font-size:.55rem; } .hud.tr, .hud.bl, .hud.br { display:none; }   /* phones keep only the top-left line; the section counter collided with it */
-    .stats { grid-template-columns:1fr; gap:1rem; }
-    .tiles, .tiles.four { grid-template-columns:1fr; } .tile, .tiles.four .tile { min-height:220px; }
-    section.panel { padding:5rem 1rem; }
-    .glass { padding:.8rem; }
-    .secondary-cta, .cta-button.ghost-button { margin-left:0; }
-    #photos .ph.on { opacity:.35; }
-    #photos .ph.film.on { opacity:.5; }
-    /* Phone legibility (Brockmann, 2026-09-05, iPhone screenshot of the MAST opening: "Text descriptors need to be fixed…
-       hard to read"): full-strength text with a shadow, and a soft scrim behind each chapter's text block. */
-    .sub { color:var(--text); font-weight:400; text-shadow:0 1px 3px rgba(5,8,16,.95), 0 0 18px rgba(5,8,16,.8); }
-    h1.mega, h2.section-h, .eyebrow { text-shadow:0 2px 14px rgba(5,8,16,.9); }
-    section.panel > div { padding:1.4rem .6rem; background:radial-gradient(ellipse at center, rgba(5,8,16,.62) 0%, rgba(5,8,16,.38) 55%, rgba(5,8,16,0) 80%); }
-  }
-  @media (prefers-reduced-motion: reduce) { .eyebrow, h1.mega, h2.section-h, .sub, .rise { transition:none; opacity:1; filter:none; transform:none; } }
-
-  /* ── Sticky top bar ── */
-  #main-nav { position:fixed; top:0; left:0; right:0; z-index:1000; background:rgba(5,8,16,.94); backdrop-filter:blur(12px); border-bottom:1px solid rgba(26,107,222,.25); padding:.6rem 1rem; transform:translateY(-100%); transition:transform .5s ease; }
-  #main-nav.visible { transform:translateY(0); }
-  .nav-container { max-width:1400px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:1rem; }
-  .nav-logo { display:flex; align-items:center; gap:.6rem; text-decoration:none; cursor:none; }
-  .nav-logo img { height:32px; width:auto; filter:drop-shadow(0 0 12px rgba(26,107,222,.55)); }
-  .nav-logo-text { font-family:'Orbitron',sans-serif; font-weight:700; font-size:.95rem; letter-spacing:.09em; color:var(--gold); }
-  .nav-links { display:none; }
-  .nav-toggle { display:block; background:rgba(5,8,16,.5); border:1px solid rgba(26,107,222,.35); color:var(--text); font-family:'Share Tech Mono',monospace; font-size:1.3rem; line-height:1; padding:.35rem .65rem; cursor:pointer; }
-  @media (min-width:1025px) {
-    #main-nav { padding:.85rem 1.5rem; }
-    .nav-container { flex-wrap:nowrap; }
-    .nav-toggle { display:none; }
-    .nav-links { display:flex; flex:1 1 auto; align-items:center; justify-content:flex-end; gap:1rem; list-style:none; margin:0; padding:0; }
-    .nav-links > li { position:relative; }
-    .nav-links a { font-family:'Rajdhani',sans-serif; font-weight:600; font-size:.78rem; letter-spacing:.07em; text-transform:uppercase; color:var(--text); text-decoration:none; white-space:nowrap; cursor:none; transition:color .3s; }
-    .nav-links a:hover, .nav-links > li > a.here { color:var(--gold); }
-    .nav-dropdown > a::after { content:' \25BE'; font-size:.7em; }
-    .nav-dropdown-menu { position:absolute; top:100%; left:50%; margin-top:1rem; transform:translateX(-50%) translateY(6px); min-width:330px; background:rgba(5,8,16,.97); border:1px solid rgba(26,107,222,.3); backdrop-filter:blur(14px); padding:.45rem; opacity:0; visibility:hidden; transition:opacity .25s, visibility .25s, transform .25s; }
-    .nav-dropdown-menu::before { content:''; position:absolute; left:0; right:0; top:-1rem; height:1rem; }
-    .nav-dropdown:hover .nav-dropdown-menu, .nav-dropdown:focus-within .nav-dropdown-menu { opacity:1; visibility:visible; transform:translateX(-50%) translateY(0); }
-  }
-  .nav-dropdown-banner { display:flex; align-items:flex-start; gap:.7rem; padding:.7rem .8rem; text-decoration:none; transition:background .25s; }
-  .nav-dropdown-banner:hover { background:rgba(26,107,222,.1); }
-  .ndb-icon { font-size:1.15rem; line-height:1.15; }
-  .ndb-title { display:block; font-family:'Orbitron',sans-serif; font-weight:700; font-size:.76rem; letter-spacing:.06em; text-transform:uppercase; color:var(--gold-champagne); }
-  .ndb-desc { display:block; font-family:'Share Tech Mono',monospace; font-size:.58rem; letter-spacing:.16em; text-transform:uppercase; color:var(--text-dim); margin-top:.25rem; }
-  @media (min-width:1025px) and (max-width:1180px) { .nav-links { gap:.8rem; } .nav-links a { font-size:.72rem; } .nav-logo img { height:28px; } .nav-logo-text { font-size:.85rem; } }
-  @media (min-width:1441px) { #main-nav { padding:.85rem 2rem; } .nav-links { gap:1.5rem; } .nav-links a { font-size:.85rem; } }
-  .nav-cta { font-family:'Orbitron',sans-serif !important; font-weight:700 !important; font-size:.7rem !important; letter-spacing:.14em !important; color:#fff !important; background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); border:1px solid var(--gold-champagne); padding:.55rem 1.2rem; text-shadow:0 1px 2px rgba(0,0,0,.35); transition:box-shadow .3s, transform .3s; }
-  .nav-cta:hover { color:#fff !important; transform:translateY(-2px); box-shadow:0 8px 24px rgba(26,107,222,.45); }
-  /* ── Mobile menu: the live site's full-screen list, one large target per line ── */
-  #mobile-nav { position:fixed; inset:0; z-index:2000; background:rgba(5,8,16,.97); backdrop-filter:blur(18px); display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:1rem; padding:4.8rem 1.2rem 2.5rem; overflow-y:auto; opacity:0; visibility:hidden; transition:opacity .3s, visibility .3s; }
-  #mobile-nav.open { opacity:1; visibility:visible; }
-  #mobile-nav a { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.05rem; letter-spacing:.12em; text-transform:uppercase; color:var(--text); text-decoration:none; text-align:center; }
-  #mobile-nav a.subitem { font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.68rem; letter-spacing:.2em; color:var(--gold-champagne); opacity:1; transform:none; margin:0; }
-  #mobile-nav a small { display:block; font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.6rem; letter-spacing:.3em; color:var(--text-mute); text-transform:uppercase; margin-top:.2rem; }
-  #mobile-nav a.here { color:var(--gold); }
-  .mobile-nav-close { position:absolute; top:1rem; right:1rem; background:none; border:1px solid rgba(26,107,222,.35); color:var(--text); font-size:1.5rem; line-height:1; padding:.1rem .55rem; cursor:pointer; }
-  /* ── Hero: the film full-bleed under the headline, with the live sound toggle ── */
-  section.hero { overflow:hidden; padding:7rem 1rem 5rem; }
-  .hero-media { position:absolute; inset:0; z-index:0; margin:0; overflow:hidden; }
-  .hero-media video, .hero-media .still { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-  .hero-media .still { background:center/cover no-repeat; }
-  .hero-media iframe { position:absolute; top:50%; left:50%; width:100vw; height:56.25vw; min-height:100%; min-width:177.78vh; transform:translate(-50%,-50%); border:0; pointer-events:none; }
-  .hero-scrim { display:block; position:absolute; inset:0; z-index:1; background:linear-gradient(135deg, rgba(5,8,16,.66) 0%, rgba(5,8,16,.36) 50%, rgba(5,8,16,.7) 100%); }
-  section.hero > div { position:relative; z-index:2; }
-  #sound-toggle { position:absolute; right:1rem; bottom:1rem; z-index:3; width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.6); border:1px solid rgba(26,107,222,.5); color:var(--text); font-size:1.2rem; cursor:pointer; backdrop-filter:blur(10px); transition:border-color .3s, box-shadow .3s, background .3s; }
-  #sound-toggle:hover { background:rgba(26,107,222,.18); }
-  #sound-toggle.on { border-color:rgba(26,107,222,.9); box-shadow:0 0 15px rgba(26,107,222,.35); }
-  @media (min-width:769px) { #sound-toggle { right:2rem; bottom:2rem; } }
-  /* ── One continuous scroll: the rail's lane is gone, so the panels take the full width again ── */
-  section.panel { scroll-margin-top:72px; }
-  .progress { z-index:1001; }   /* the read-position line draws on the bar's top edge, not behind it */
-  @media (min-width:769px) { section.panel { padding-left:2rem; padding-right:2rem; } }
-  /* ── Back to top ── */
-  #back-to-top { position:fixed; right:1rem; bottom:1rem; z-index:900; width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(5,8,16,.72); border:1px solid rgba(26,107,222,.45); color:var(--gold-champagne); font-size:1.05rem; cursor:pointer; backdrop-filter:blur(8px); opacity:0; visibility:hidden; transform:translateY(10px); transition:opacity .3s, visibility .3s, transform .3s, background .3s; }
-  #back-to-top.show { opacity:1; visibility:visible; transform:translateY(0); }
-  #back-to-top:hover { border-color:var(--gold); background:rgba(26,107,222,.2); }
-  /* ── Intro overlay: the live Enter / Skip Intro splash ── */
-  #intro-overlay { position:fixed; inset:0; z-index:9999; background:#000; display:flex; align-items:center; justify-content:center; transition:opacity 1s ease, visibility 1s ease; }
-  #intro-overlay.hidden { opacity:0; visibility:hidden; pointer-events:none; }
-  #intro-content { position:relative; z-index:10; text-align:center; padding:0 1.2rem; opacity:0; transform:translateY(30px); transition:opacity 1s ease .4s, transform 1s ease .4s; }
-  #intro-overlay.ready #intro-content { opacity:1; transform:translateY(0); }
-  #intro-eyebrow, #intro-tagline { font-family:'Share Tech Mono',monospace; font-size:.68rem; letter-spacing:.45em; text-transform:uppercase; color:var(--text-mute); }
-  #intro-tagline { margin-top:1.1rem; }
-  #intro-enter { position:absolute; left:50%; bottom:22%; transform:translateX(-50%); z-index:20; padding:.9rem 3rem; font-family:'Orbitron',sans-serif; font-weight:700; font-size:.76rem; letter-spacing:.2em; text-transform:uppercase; border:2px solid var(--gold); color:var(--gold-champagne); background:transparent; border-radius:4px; cursor:pointer; opacity:0; transition:opacity .6s ease, background .35s, color .35s; }
-  #intro-overlay.ready #intro-enter { opacity:1; transition-delay:1.2s; }
-  #intro-enter:hover { background:var(--gold); color:#000; }
-  #skip-intro { position:absolute; right:1.2rem; bottom:1.6rem; z-index:20; padding:.6rem 1.4rem; font-family:'Rajdhani',sans-serif; font-size:.78rem; letter-spacing:.15em; text-transform:uppercase; color:var(--text-mute); background:transparent; border:1px solid rgba(255,255,255,.12); border-radius:4px; cursor:pointer; transition:color .3s, border-color .3s; }
-  #skip-intro:hover { color:var(--text); border-color:var(--gold); }
-  @media (min-width:1025px) { #intro-enter { left:auto; right:60px; bottom:auto; top:50%; transform:translateY(-50%); } #skip-intro { right:40px; bottom:40px; } }
-  body.intro-open { overflow:hidden; }
-  /* ── Site footer: the live footer's badge row, four link groups and rights line ── */
-  .site-footer { position:relative; z-index:5; background:linear-gradient(180deg, rgba(5,8,16,.72) 0%, rgba(5,8,16,.96) 100%); border-top:1px solid rgba(26,107,222,.2); backdrop-filter:blur(10px); padding:3rem 1.2rem 2rem; }
-  .footer-container { max-width:1400px; margin:0 auto; }
-  .footer-awards { display:flex; align-items:center; justify-content:center; gap:2.5rem; flex-wrap:wrap; padding-bottom:2.2rem; border-bottom:1px solid rgba(26,107,222,.15); margin-bottom:2.4rem; }
-  .footer-awards .badge-item { text-align:center; }
-  .footer-awards img { height:96px; width:auto; border:0; filter:drop-shadow(0 0 15px rgba(26,107,222,.3)); }
-  .footer-awards .badge-item p { margin-top:.8rem; font-family:'Orbitron',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-champagne); }
-  .footer-grid { display:grid; grid-template-columns:1fr; gap:1.9rem; margin-bottom:2.2rem; text-align:left; }
-  @media (min-width:700px) { .footer-grid { grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:2rem; } }
-  .footer-section h4 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:.82rem; letter-spacing:.09em; text-transform:uppercase; color:var(--gold-champagne); margin-bottom:.9rem; }
-  .footer-section ul { list-style:none; margin:0; padding:0; }
-  .footer-section li { margin-bottom:.45rem; }
-  .footer-section a, .footer-section p { font-family:'Rajdhani',sans-serif; font-size:.94rem; font-weight:300; color:var(--text-dim); text-decoration:none; line-height:1.75; }
-  .footer-section a:hover { color:var(--gold); }
-  .footer-social { display:flex; gap:1.1rem; flex-wrap:wrap; margin-top:1rem; }
-  .footer-social a { color:var(--gold); }
-  .footer-bottom { border-top:1px solid rgba(26,107,222,.12); padding-top:1.7rem; text-align:center; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.22em; line-height:2.2; text-transform:uppercase; color:var(--text-mute); }
-  .footer-bottom a { color:var(--text-mute); text-decoration:none; margin:0 .5rem; }
-  .footer-bottom a:hover { color:var(--gold-champagne); }
-  /* ── The three lines the de-railed sheet took with it ── */
-  @media (max-width:768px) {
-    html, body { cursor:auto; }
-    .cta, .cta-button, .secondary-cta, .qty button, .nav-logo, .nav-links a { cursor:pointer; }
-    .reticle { display:none; }
-    section.hero { padding:5.5rem 1rem 4rem; }
-    .scroll-cue { bottom:1.2rem; }
-    .footer-awards { gap:1.6rem; } .footer-awards img { height:72px; }
-  }
-
-  .cta, .cta-button { color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.35); }
-  .tile a.cover { position:absolute; inset:0; z-index:3; }
-  .tile .txt .more { display:inline-block; margin-top:.6rem; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; color:var(--gold-champagne); text-transform:uppercase; }
-  .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:1.1rem; max-width:1200px; margin:0 auto; text-align:left; }
-  .cards.two { grid-template-columns:repeat(2,1fr); max-width:1000px; }
-  .cards.four { grid-template-columns:repeat(4,1fr); }
-  .card { position:relative; padding:1.5rem 1.4rem 1.4rem; border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.72) 100%); backdrop-filter:blur(12px); transition:transform .4s, border-color .4s; }
-  .card::before { content:''; position:absolute; top:0; left:0; width:100%; height:1px; background:linear-gradient(90deg, transparent, var(--gold), transparent); }
-  .card:hover { transform:translateY(-5px); border-color:var(--gold); }
-  .card .num { font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.4em; color:var(--gold); margin-bottom:.6rem; }
-  /* The current site's emoji icon on a card or tile, in the number's place (Brockmann, 2026-09-05: same content, same way). */
-  .card .ico, .tile .txt .num.ico { font-size:1.5rem; line-height:1; letter-spacing:0; margin-bottom:.6rem; }
-  /* A section photograph in the flow of the page, where the current page shows it. */
-  img.figure { display:block; width:100%; max-width:900px; margin:2rem auto 0; border:1px solid rgba(26,107,222,.22); }
-  .quotes .card .meta { margin-bottom:.4rem; }
-  .team.nopic { grid-template-columns:1fr; }   /* a team member without a photograph: the bio takes the row */
-  /* Atlas EP page: the live page's capability tags and tier prices. */
-  .tags { margin-top:.8rem; display:flex; flex-wrap:wrap; gap:.35rem; }
-  .tags span { font-family:'Share Tech Mono',monospace; font-size:.56rem; letter-spacing:.2em; text-transform:uppercase; color:var(--gold-champagne); border:1px solid rgba(26,107,222,.3); padding:.15rem .45rem; }
-  .card .price { margin:.6rem 0 .9rem; color:var(--text); } .card .price b { font-family:'Orbitron',sans-serif; font-size:1.5rem; color:var(--gold-champagne); }
-  .card .cta-button { display:inline-block; margin-top:.4rem; }
-  .card h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.55rem; line-height:1.35; }
-  .card p { font-size:.95rem; color:var(--text-dim); line-height:1.55; font-weight:300; }
-  .card ul { margin:.4rem 0 0 1rem; color:var(--text-dim); font-size:.92rem; line-height:1.6; }
-  .card .meta { font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.25em; color:var(--text-dim); text-transform:uppercase; margin-bottom:.8rem; }
-  .card .cta-button, .card .secondary-cta { margin:1rem 0 0; padding:.8rem 1.4rem; font-size:.72rem; }
-  .steps { counter-reset:st; display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; max-width:1100px; margin:0 auto; text-align:left; }
-  .steps .card::after { counter-increment:st; content:counter(st, decimal-leading-zero); position:absolute; top:.9rem; right:1rem; font-family:'Orbitron',sans-serif; font-weight:900; font-size:1.6rem; color:rgba(26,107,222,.22); }
-  .spec { max-width:760px; margin:0 auto; text-align:left; border:1px solid rgba(26,107,222,.22); background:rgba(11,18,33,.7); backdrop-filter:blur(12px); }
-  .spec div { display:flex; justify-content:space-between; gap:1rem; padding:.85rem 1.2rem; border-top:1px solid rgba(26,107,222,.12); font-size:.98rem; }
-  .spec div:first-child { border-top:0; }
-  .spec b { font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.7rem; letter-spacing:.25em; text-transform:uppercase; color:var(--text-dim); }
-  .spec span { color:var(--gold-champagne); font-weight:600; text-align:right; }
-  .quotes { display:grid; grid-template-columns:repeat(3,1fr); gap:1.1rem; max-width:1200px; margin:0 auto; text-align:left; }
-  .quotes .card p { font-style:italic; color:var(--text); }
-  .quotes .card .by { margin-top:.8rem; font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.25em; color:var(--gold-champagne); text-transform:uppercase; }
-  .stars { color:var(--gold); letter-spacing:.15em; font-size:.85rem; margin-bottom:.5rem; }
-  .form { max-width:640px; margin:0 auto; text-align:left; border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.78) 100%); backdrop-filter:blur(14px); padding:1.6rem; }
-  .form label { display:block; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; text-transform:uppercase; color:var(--gold-champagne); margin:1rem 0 .4rem; }
-  .form label:first-child { margin-top:0; }
-  .form input, .form select, .form textarea { width:100%; padding:.85rem 1rem; background:rgba(5,8,16,.7); border:1px solid rgba(255,255,255,.14); color:var(--text); font-family:'Rajdhani',sans-serif; font-size:1.05rem; border-radius:3px; outline:none; -webkit-appearance:none; appearance:none; }
-  .form select { background-image:linear-gradient(45deg, transparent 50%, var(--gold-champagne) 50%), linear-gradient(135deg, var(--gold-champagne) 50%, transparent 50%); background-position:calc(100% - 20px) 50%, calc(100% - 14px) 50%; background-size:6px 6px; background-repeat:no-repeat; }
-  .form select option { background:#0B1221; color:#fff; }
-  .form input:focus, .form select:focus, .form textarea:focus { border-color:var(--gold); }
-  .form textarea { min-height:140px; resize:vertical; }
-  .form .row { display:grid; grid-template-columns:1fr 1fr; gap:.8rem; }
-  .form .hp { position:absolute; left:-9999px; width:1px; height:1px; opacity:0; }
-  .form .cta-button { width:100%; margin-top:1.3rem; border-radius:0; }
-  .form .cta-button[disabled] { opacity:.5; }
-  .form-msg { margin-top:.9rem; font-size:.95rem; line-height:1.5; min-height:1.2em; }
-  .form-msg.ok { color:#7fd4a1; } .form-msg.err { color:#ff8a80; }
-  .form .fine { font-size:.82rem; color:var(--text-dim); margin-top:.9rem; line-height:1.5; }
-  .form .fine a { color:var(--gold-champagne); text-decoration:none; }
-  /* .team blocks (portrait + name, role, bio) live in the shell, shared with the MAST Instructors chapter. */
-  .yt-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.1rem; max-width:1100px; margin:0 auto 1.6rem; text-align:left; }
-  .yt-card { border:1px solid rgba(26,107,222,.22); background:rgba(11,18,33,.8); overflow:hidden; }
-  .yt-card .frame { position:relative; aspect-ratio:16/9; background:#000; }
-  .yt-card iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
-  .yt-card .info { padding:.9rem 1rem; }
-  .yt-card h4 { font-family:'Orbitron',sans-serif; font-size:.9rem; color:var(--gold-champagne); margin-bottom:.2rem; }
-  .yt-card p { font-size:.88rem; color:var(--text-dim); }
-  .yt-card video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#000; }
-  .yt-grid.one { grid-template-columns:1fr; max-width:860px; }
-  .stats.four { grid-template-columns:repeat(4,1fr); max-width:1100px; }
-  .badges { display:flex; gap:1.4rem; justify-content:center; align-items:center; flex-wrap:wrap; margin-top:2rem; }
-  .badges img { height:84px; width:auto; border:0; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); }
-  .badges .badge-item { text-align:center; }
-  .badges .badge-item p { margin-top:.8rem; font-family:'Orbitron',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-champagne); }
-  .lede { font-size:clamp(1.05rem,1.4vw,1.3rem); color:var(--text); max-width:820px; margin:0 auto 2rem; line-height:1.6; font-weight:300; }
-  .lede b { color:var(--gold-champagne); font-weight:600; }
-  .partner { display:grid; grid-template-columns:1fr minmax(240px,420px); gap:1.6rem; max-width:1150px; margin:0 auto; text-align:left; align-items:center; }
-  .partner img { width:100%; border:1px solid rgba(26,107,222,.3); display:block; }
-  .partner p { color:var(--text-dim); line-height:1.6; font-weight:300; font-size:1.02rem; margin-bottom:1rem; }
-  .partner .ctas { justify-content:flex-start; }
-  @media (max-width:900px) { .cards, .cards.four, .steps, .quotes { grid-template-columns:1fr 1fr; } .partner { grid-template-columns:1fr; } }
-  @media (max-width:768px) { .cards, .cards.two, .cards.four, .steps, .quotes, .yt-grid { grid-template-columns:1fr; } .stats.four { grid-template-columns:1fr 1fr; gap:.8rem; } .form { padding:1.1rem; } .form .row { grid-template-columns:1fr; } .badges img { height:64px; } .spec div { flex-direction:column; gap:.2rem; } .spec span { text-align:left; } }
-
+.intro-ring { position:absolute; inset:0; width:100%; height:100%; z-index:0; opacity:0; pointer-events:none; }
+@keyframes shimmer { 0% { background-position:-1000px 0; } 100% { background-position:1000px 0; } }
+#main-nav { position:fixed; top:0; left:0; right:0; z-index:1000; background:rgba(5,8,16,.94); backdrop-filter:blur(12px); border-bottom:1px solid rgba(26,107,222,.25); padding:.6rem 1rem; transform:translateY(-100%); transition:transform .5s ease; }
+#main-nav.visible { transform:translateY(0); }
+.nav-container { max-width:1400px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+.nav-logo { display:flex; align-items:center; gap:.6rem; text-decoration:none; cursor:pointer; }
+.nav-logo img { height:32px; width:auto; filter:drop-shadow(0 0 12px rgba(26,107,222,.55)); }
+.nav-logo-text { font-family:'Orbitron',sans-serif; font-weight:700; font-size:.95rem; letter-spacing:.09em; color:var(--gold); }
+.nav-links { display:none; }
+.nav-toggle { display:block; background:rgba(5,8,16,.5); border:1px solid rgba(26,107,222,.35); color:var(--text); font-family:'Inconsolata',monospace; font-size:1.3rem; line-height:1; padding:.35rem .65rem; cursor:pointer; }
+@media (min-width:1025px) {#main-nav { padding:.85rem 1.5rem; }
+.nav-container { flex-wrap:nowrap; }
+.nav-toggle { display:none; }
+.nav-links { display:flex; flex:1 1 auto; align-items:center; justify-content:flex-end; gap:1rem; list-style:none; margin:0; padding:0; }
+.nav-links > li { position:relative; }
+.nav-links a { font-family:'Rajdhani',sans-serif; font-weight:600; font-size:.78rem; letter-spacing:.07em; text-transform:uppercase; color:var(--text); text-decoration:none; white-space:nowrap; cursor:pointer; transition:color .3s; }
+.nav-links a:hover, .nav-links > li > a.here { color:var(--gold); }
+.nav-dropdown > a::after { content:' \25BE'; font-size:.7em; }
+.nav-dropdown-menu { position:absolute; top:100%; left:50%; margin-top:1rem; transform:translateX(-50%) translateY(6px); min-width:330px; background:rgba(5,8,16,.97); border:1px solid rgba(26,107,222,.3); backdrop-filter:blur(14px); padding:.45rem; opacity:0; visibility:hidden; transition:opacity .25s, visibility .25s, transform .25s; }
+.nav-dropdown-menu::before { content:''; position:absolute; left:0; right:0; top:-1rem; height:1rem; }
+.nav-dropdown:hover .nav-dropdown-menu, .nav-dropdown:focus-within .nav-dropdown-menu { opacity:1; visibility:visible; transform:translateX(-50%) translateY(0); }}
+.nav-dropdown-banner { display:flex; align-items:flex-start; gap:.7rem; padding:.7rem .8rem; text-decoration:none; transition:background .25s; }
+.nav-dropdown-banner:hover { background:rgba(26,107,222,.1); }
+.ndb-icon { font-size:1.15rem; line-height:1.15; }
+.ndb-title { display:block; font-family:'Orbitron',sans-serif; font-weight:700; font-size:.76rem; letter-spacing:.06em; text-transform:uppercase; color:var(--gold-champagne); }
+.ndb-desc { display:block; font-family:'Inconsolata',monospace; font-size:.58rem; letter-spacing:.16em; text-transform:uppercase; color:var(--text-dim); margin-top:.25rem; }
+@media (min-width:1025px) and (max-width:1180px) {.nav-links { gap:.8rem; }
+.nav-links a { font-size:.72rem; }
+.nav-logo img { height:28px; }
+.nav-logo-text { font-size:.85rem; }}
+@media (min-width:1441px) {#main-nav { padding:.85rem 2rem; }
+.nav-links { gap:1.5rem; }
+.nav-links a { font-size:.85rem; }}
+.nav-cta { font-family:'Orbitron',sans-serif !important; font-weight:700 !important; font-size:.7rem !important; letter-spacing:.14em !important; color:#fff !important; background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); border:1px solid var(--gold-champagne); padding:.55rem 1.2rem; text-shadow:0 1px 2px rgba(0,0,0,.35); transition:box-shadow .3s, transform .3s; }
+.nav-cta:hover { color:#fff !important; transform:translateY(-2px); box-shadow:0 8px 24px rgba(26,107,222,.45); }
+#mobile-nav { position:fixed; inset:0; z-index:2000; background:rgba(5,8,16,.97); backdrop-filter:blur(18px); display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:1rem; padding:4.8rem 1.2rem 2.5rem; overflow-y:auto; opacity:0; visibility:hidden; transition:opacity .3s, visibility .3s; }
+#mobile-nav.open { opacity:1; visibility:visible; }
+#mobile-nav a { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.05rem; letter-spacing:.12em; text-transform:uppercase; color:var(--text); text-decoration:none; text-align:center; }
+#mobile-nav a.subitem { font-family:'Inconsolata',monospace; font-weight:400; font-size:.68rem; letter-spacing:.2em; color:var(--gold-champagne); opacity:1; transform:none; margin:0; }
+#mobile-nav a small { display:block; font-family:'Inconsolata',monospace; font-weight:400; font-size:.6rem; letter-spacing:.3em; color:var(--text-mute); text-transform:uppercase; margin-top:.2rem; }
+#mobile-nav a.here { color:var(--gold); }
+.mobile-nav-close { position:absolute; top:1rem; right:1rem; background:none; border:1px solid rgba(26,107,222,.35); color:var(--text); font-size:1.5rem; line-height:1; padding:.1rem .55rem; cursor:pointer; }
+#back-to-top { position:fixed; right:1rem; bottom:1rem; z-index:900; width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(5,8,16,.72); border:1px solid rgba(26,107,222,.45); color:var(--gold-champagne); font-size:1.05rem; cursor:pointer; backdrop-filter:blur(8px); opacity:0; visibility:hidden; transform:translateY(10px); transition:opacity .3s, visibility .3s, transform .3s, background .3s; }
+#back-to-top.show { opacity:1; visibility:visible; transform:translateY(0); }
+#back-to-top:hover { border-color:var(--gold); background:rgba(26,107,222,.2); }
+#intro-overlay { position:fixed; inset:0; z-index:9999; background:#000; display:flex; align-items:center; justify-content:center; transition:opacity 1s ease, visibility 1s ease; }
+#intro-overlay.hidden { opacity:0; visibility:hidden; pointer-events:none; }
+#intro-content { position:relative; z-index:10; text-align:center; padding:0 1.2rem; opacity:0; transform:translateY(30px); transition:opacity 1s ease .4s, transform 1s ease .4s; }
+#intro-overlay.ready #intro-content { opacity:1; transform:translateY(0); }
+#intro-eyebrow, #intro-tagline { font-family:'Inconsolata',monospace; font-size:.68rem; letter-spacing:.45em; text-transform:uppercase; color:var(--text-mute); }
+#intro-tagline { margin-top:1.1rem; }
+#intro-enter { position:absolute; left:50%; bottom:22%; transform:translateX(-50%); z-index:20; padding:.9rem 3rem; font-family:'Orbitron',sans-serif; font-weight:700; font-size:.76rem; letter-spacing:.2em; text-transform:uppercase; border:2px solid var(--gold); color:var(--gold-champagne); background:transparent; border-radius:4px; cursor:pointer; opacity:0; transition:opacity .6s ease, background .35s, color .35s; }
+#intro-overlay.ready #intro-enter { opacity:1; transition-delay:1.2s; }
+#intro-enter:hover { background:var(--gold); color:#000; }
+#skip-intro { position:absolute; right:1.2rem; bottom:1.6rem; z-index:20; padding:.6rem 1.4rem; font-family:'Rajdhani',sans-serif; font-size:.78rem; letter-spacing:.15em; text-transform:uppercase; color:var(--text-mute); background:transparent; border:1px solid rgba(255,255,255,.12); border-radius:4px; cursor:pointer; transition:color .3s, border-color .3s; }
+#skip-intro:hover { color:var(--text); border-color:var(--gold); }
+@media (min-width:1025px) {#intro-enter { left:auto; right:60px; bottom:auto; top:50%; transform:translateY(-50%); }
+#skip-intro { right:40px; bottom:40px; }}
+body.intro-open { overflow:hidden; }
+.site-footer { position:relative; z-index:5; background:linear-gradient(180deg, rgba(5,8,16,.72) 0%, rgba(5,8,16,.96) 100%); border-top:1px solid rgba(26,107,222,.2); backdrop-filter:blur(10px); padding:3rem 1.2rem 2rem; }
+.footer-container { max-width:1400px; margin:0 auto; }
+.footer-awards { display:flex; align-items:center; justify-content:center; gap:2.5rem; flex-wrap:wrap; padding-bottom:2.2rem; border-bottom:1px solid rgba(26,107,222,.15); margin-bottom:2.4rem; }
+.footer-awards .badge-item { text-align:center; }
+.footer-awards img { height:96px; width:auto; border:0; filter:drop-shadow(0 0 15px rgba(26,107,222,.3)); }
+.footer-awards .badge-item p { margin-top:.8rem; font-family:'Orbitron',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-champagne); }
+.footer-grid { display:grid; grid-template-columns:1fr; gap:1.9rem; margin-bottom:2.2rem; text-align:left; }
+@media (min-width:700px) {.footer-grid { grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:2rem; }}
+.footer-section h4 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:.82rem; letter-spacing:.09em; text-transform:uppercase; color:var(--gold-champagne); margin-bottom:.9rem; }
+.footer-section ul { list-style:none; margin:0; padding:0; }
+.footer-section li { margin-bottom:.45rem; }
+.footer-section a, .footer-section p { font-family:'Rajdhani',sans-serif; font-size:.94rem; font-weight:300; color:var(--text-dim); text-decoration:none; line-height:1.75; }
+.footer-section a:hover { color:var(--gold); }
+.footer-social { display:flex; gap:1.1rem; flex-wrap:wrap; margin-top:1rem; }
+.footer-social a { color:var(--gold); }
+.footer-bottom { border-top:1px solid rgba(26,107,222,.12); padding-top:1.7rem; text-align:center; font-family:'Inconsolata',monospace; font-size:.62rem; letter-spacing:.22em; line-height:2.2; text-transform:uppercase; color:var(--text-mute); }
+.footer-bottom a { color:var(--text-mute); text-decoration:none; margin:0 .5rem; }
+.footer-bottom a:hover { color:var(--gold-champagne); }
+@media (max-width:768px) {.footer-awards { gap:1.6rem; }
+.footer-awards img { height:72px; }}
   #intro-title { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(1.9rem,6.2vw,3.6rem); letter-spacing:.14em; line-height:1.1; text-transform:uppercase; background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; text-shadow:0 0 60px rgba(201,168,76,.35); animation:shimmer 3s linear infinite; }
   @media (prefers-reduced-motion: reduce) { #intro-title { animation:none; } }
-
-  h1.mega .gold-shimmer { background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; animation:shimmer 6s linear infinite; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; text-shadow:0 0 80px rgba(201,168,76,.3); }
-  h1.mega .white { color:#1A6BDE; }
-  @media (prefers-reduced-motion: reduce) { h1.mega .gold-shimmer { animation:none; } }
 </style>
 </head>
 <body>
@@ -433,20 +310,6 @@
   <button id="skip-intro" type="button">Skip Intro &rarr;</button>
 </div>
 
-<canvas id="three-canvas"></canvas>
-<div id="photos">
-  <div class="ph" data-for="01" style="background-image:url('images/film/about-atlas-glinn-poster.jpg')"></div>
-  <div class="ph" data-for="02" style="background-image:url('images/atlas/Matthew-Brockmann-Atlas-glenn-security-ceo-protection1-scaled-e1741887403903.jpeg');background-position:center 20%"></div>
-  <div class="ph" data-for="03" style="background-image:url('images/film/about-atlas-glinn-poster.jpg')"></div>
-  <div class="ph" data-for="04" style="background-image:url('images/atlas/Executive-Protection.jpg')"></div>
-  <div class="ph" data-for="05" style="background-image:url('images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg')"></div>
-  <div class="ph" data-for="06" style="background-image:url('images/atlas/Atlas-Glinn-Protection.png')"></div>
-  <div class="ph" data-for="07" style="background-image:url('images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg')"></div>
-</div>
-<div class="grain"></div>
-<div class="vignette"></div>
-<div class="progress" id="progress"></div>
-<div class="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>
 <nav id="main-nav" aria-label="Main">
   <div class="nav-container">
     <a href="index.html" class="nav-logo"><img src="images/atlas/Atlas-Glinn-Logo-Rev1-2-e1744918824251.png" alt="ATLAS GLINN" width="40" height="40"><span class="nav-logo-text">ATLAS GLINN</span></a>
@@ -456,7 +319,7 @@
         <li><a href="residential-protection.html">Residential Protection</a></li>
         <li><a href="disaster-recovery.html">Disaster Recovery</a></li>
         <li class="nav-dropdown"><a href="training.html">Training</a>
-          <div class="nav-dropdown-menu"><a href="training.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#9881;</span><span class="ndb-text"><span class="ndb-title">Training Programs</span><span class="ndb-desc">EP, firearms, tactical &amp; security courses</span></span></a><a href="mastsolutions.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#127919;</span><span class="ndb-text"><span class="ndb-title">MAST Solutions</span><span class="ndb-desc">Book a course</span></span></a><a href="mastsolutions.html#gear" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128163;</span><span class="ndb-text"><span class="ndb-title">IWA Training Products</span><span class="ndb-desc">Flashbangs, smoke &amp; diversionary devices</span></span></a></div>
+          <div class="nav-dropdown-menu"><a href="training.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#9881;</span><span class="ndb-text"><span class="ndb-title">Training Programs</span><span class="ndb-desc">EP, firearms, tactical &amp; security courses</span></span></a><a href="https://www.mastsolutions.com/" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#127919;</span><span class="ndb-text"><span class="ndb-title">MAST Solutions</span><span class="ndb-desc">Book a course</span></span></a><a href="https://www.mastsolutions.com/#gear" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128163;</span><span class="ndb-text"><span class="ndb-title">IWA Training Products</span><span class="ndb-desc">Flashbangs, smoke &amp; diversionary devices</span></span></a></div>
         </li>
         <li class="nav-dropdown"><a href="technology.html">Technology</a>
           <div class="nav-dropdown-menu"><a href="technology.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128225;</span><span class="ndb-text"><span class="ndb-title">Technology</span><span class="ndb-desc">Atlas EP, AI surveillance, drones</span></span></a><a href="cuas-aerodefense.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128737;</span><span class="ndb-text"><span class="ndb-title">Counter-Drone</span><span class="ndb-desc">AirWarden by AeroDefense</span></span></a><a href="uas.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128641;</span><span class="ndb-text"><span class="ndb-title">Autonomous UAS</span><span class="ndb-desc">Sunflower Labs</span></span></a><a href="ep-app.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128241;</span><span class="ndb-text"><span class="ndb-title">Atlas EP App</span><span class="ndb-desc">Now in Early Access</span></span></a></div>
@@ -476,8 +339,8 @@
   <a href="residential-protection.html">Residential Protection<small>Estates, guard force, AI surveillance</small></a>
   <a href="disaster-recovery.html">Disaster Recovery<small>Asset protection when it counts</small></a>
   <a href="training.html">Training<small>EP, firearms, tactical &amp; security courses</small></a>
-  <a href="mastsolutions.html" class="subitem">MAST Solutions<small>Book a course</small></a>
-  <a href="mastsolutions.html#gear" class="subitem">IWA Training Products<small>Flashbangs, smoke &amp; diversionary devices</small></a>
+  <a href="https://www.mastsolutions.com/" class="subitem">MAST Solutions<small>Book a course</small></a>
+  <a href="https://www.mastsolutions.com/#gear" class="subitem">IWA Training Products<small>Flashbangs, smoke &amp; diversionary devices</small></a>
   <a href="technology.html">Technology<small>Atlas EP, AI surveillance, drones</small></a>
   <a href="cuas-aerodefense.html" class="subitem">Counter-Drone<small>AirWarden by AeroDefense</small></a>
   <a href="uas.html" class="subitem">Autonomous UAS<small>Sunflower Labs</small></a>
@@ -488,84 +351,304 @@
   <a href="privacy.html">Privacy Policy<small>What we keep, and for how long</small></a>
 </div>
 
-<div class="content">
-
-  <section class="panel hero" id="s1" data-section="01">
-    <figure class="hero-media"><span class="still" style="background-image:url('images/film/about-atlas-glinn-poster.jpg')"></span><video id="hero-video" autoplay muted loop playsinline preload="metadata" poster="images/film/about-atlas-glinn-poster.jpg" aria-hidden="true"><source src="images/film/about-atlas-glinn-teaser.mp4" type="video/mp4"></video></figure><span class="hero-scrim"></span><button id="sound-toggle" type="button" title="Toggle Sound" aria-label="Toggle sound">&#128263;</button>
-    <div>
-      <div class="eyebrow">About Atlas Glinn &middot; Our Mission</div>
-      <h1 class="mega"><span class="gold-shimmer">Details</span> <span class="white">Matter.</span></h1>
-      <p class="sub">Our mission is to provide you with unparalleled peace of mind, safeguarding what matters most &mdash; your safety, your assets, and your way of life. With a foundation built on elite expertise and a relentless pursuit of excellence, we deliver tailored protection solutions that blend seamlessly into your world.</p>
-      <div class="ctas rise"><a href="#s2" class="cta">Meet the Team</a><a href="contact.html" class="secondary-cta">Contact Us</a></div>
+<!-- HERO -->
+<section class="hero">
+    <video autoplay muted loop playsinline class="hero-bg-img" style="object-fit:cover;"><source src="https://atlasglinn.com/wp-content/themes/atlasglinn/images/about-hero-new.mp4" type="video/mp4"></video>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+        <h1 class="hero-headline"><span class="gold-text">Details</span> Matter</h1>
     </div>
-    <div class="scroll-cue">SCROLL &darr;</div>
-  </section>
+</section>
 
-  <section class="panel" id="s2" data-section="02">
-    <div>
-      <div class="eyebrow">Meet the Team</div>
-      <h2 class="section-h">Precision. Discretion. <span class="gold">Commitment.</span></h2>
-      <p class="sub">We redefine security with precision, discretion, and unwavering commitment.</p>
-      <div class="team rise"><div class="portrait" style="background-image:url('images/team/brockmann.jpg');background-size:auto 118%;background-position:64% 22%"><div class="cap">Founder &amp; CEO</div></div><div class="bio"><h3>Matthew Brockmann</h3><div class="role">Founder &amp; CEO</div><p>When a principal&rsquo;s safety is non-negotiable, the margin for error is exactly zero. That&rsquo;s the standard Matthew Brockmann built his work around &mdash; running protection details where intent, baseline cues, and seconds decide outcomes. He founded MAST Solutions in 2005. Atlas Glinn followed in 2019. Atlas EP &mdash; the intelligence platform &mdash; came after, because the right tech didn&rsquo;t exist yet.</p></div></div><div class="team rise"><div class="portrait" style="background-image:url('images/atlas/Cline-Bio-Pic-1024x819.jpg');background-position:center 15%"><div class="cap">Chief Operating Officer</div></div><div class="bio"><h3>Michael Cline</h3><div class="role">Chief Operating Officer</div><p>As the Chief Operating Officer at Atlas Glinn, Michael Cline brings a wealth of experience and a strategic vision to the company. With a distinguished 12-year career as a Navy SEAL, Michael has honed exceptional leadership, discipline, and problem-solving skills that are now pivotal in driving Atlas Glinn&rsquo;s operational excellence.</p></div></div><div class="team rise"><div class="portrait" style="background-image:url('images/atlas/anthony-glover.png');background-position:center 12%"><div class="cap">Houston Region Operations Manager</div></div><div class="bio"><h3>Anthony Glover</h3><div class="role">Level 3 &amp; PPO &mdash; Houston Region Operations Manager</div><p>Anthony Glover serves as the Houston Region Operations Manager and Level 3 Private Protection Officer at Atlas Glinn, a role he assumed in January 2026. A seasoned security leader with over a decade of experience in the private sector, Glover directs multi-site protective operations, oversees agent deployment and performance, and drives operational strategy across the Houston region. He leads a team of security professionals delivering 24/7 protection. Prior to his promotion, Glover served as Site Supervisor at Atlas Glinn, managing a six-agent detail providing round-the-clock protection. Before joining Atlas Glinn, he spent seven years in Chicago&rsquo;s high-risk environment protecting families and children, developing deep expertise in conflict resolution, de-escalation, and discreet protective operations.</p></div></div><div class="team rise nopic"><div class="bio"><h3>J. Rene&eacute; Renobato</h3><div class="role">MBA, CAM, CAPS &mdash; Office Manager &amp; Executive Assistant to the CEO</div><p>J. Rene&eacute; Renobato serves as Office Manager and Executive Assistant to CEO Matthew Brockmann. A seasoned operations professional with over 25 years of management experience, she oversees daily administrative operations, manages executive scheduling, and ensures seamless coordination across security, training, and consulting divisions. Renobato holds a Bachelor of Arts in Communication from the University of Houston and a Master of Business Administration from Marylhurst University. Prior to joining the team, she built a distinguished career in operations management across firms including AvalonBay/Archstone Communities, Windsor Communities, and EQS Construction &mdash; managing portfolios of up to 794 units with teams of 20+. A recipient of the Houston Apartment Association&rsquo;s On-Site Manager of the Year award and a Property of the Year finalist, she brings proven expertise in budget planning, vendor relations, financial reporting, and process optimization to every aspect of her role.</p></div></div>
-    </div>
-  </section>
-
-  <section class="panel" id="s3" data-section="03">
-    <div>
-      <div class="eyebrow">Atlas Glinn In Action</div>
-      <h2 class="section-h">Behind the <span class="gold">Mission.</span></h2>
-      <p class="sub">Training, operations, and the people behind the mission.</p>
-      <div class="yt-grid rise"><div class="yt-card"><div class="frame"><video controls preload="none" playsinline poster="images/atlas/IMG_0398.jpg" src="images/film/careers-gallery.mp4" title="Atlas Glinn Team"></video></div><div class="info"><h4>Atlas Glinn Team</h4><p>Behind the scenes with our executive protection team</p></div></div><div class="yt-card"><div class="frame"><video controls preload="none" playsinline poster="images/atlas/Atlas-Glinn-Training-1024x951.jpeg" src="images/film/forge-legend-mast.mp4" title="MAST Solutions &mdash; Forge &amp; Legend"></video></div><div class="info"><h4>MAST Solutions &mdash; Forge &amp; Legend</h4><p>Training excellence through MAST Solutions</p></div></div></div>
-    </div>
-  </section>
-
-  <section class="panel" id="s4" data-section="04">
-    <div>
-      <div class="eyebrow">What Clients Say</div>
-      <h2 class="section-h">In Their <span class="gold">Words.</span></h2>
-      
-      <div class="quotes"><div class="card rise"><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;I&rsquo;ve worked with Matt &amp; his team for several years. They are extremely professional, and their training &amp; expertise is second to none.&rdquo;</p><div class="by">Craig E. &middot; President &amp; CEO</div></div><div class="card rise"><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;I trained with Matt &amp; the team at MAST Solutions for over a year. The techniques, skills &amp; mentality I learned in the first class were well more advanced.&rdquo;</p><div class="by">Brian S. &middot; IRC &amp; MBA</div></div><div class="card rise"><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Simply THE BEST hands on tactical training you can find local to Houston, TX.&rdquo;</p><div class="by">Guadalupe A. &middot; Power Testing Specialist</div></div><div class="card rise"><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Matthew is an expert in his field, I have had the privilege to train with &amp; work alongside him on numerous occasions.&rdquo;</p><div class="by">Kenny U. &middot; Deputy</div></div><div class="card rise"><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;I highly recommend Matthew &amp; his team for your security &amp; training needs.&rdquo;</p><div class="by">Charles W. &middot; Business Operations Manager</div></div><div class="card rise"><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Matthew is a highly skilled individual with ample knowledge of firearm operations, safety &amp; security.&rdquo;</p><div class="by">Alf T. &middot; Senior Operations Advisor</div></div></div>
-    </div>
-  </section>
-
-  <section class="panel" id="s5" data-section="05">
-    <div>
-      <div class="eyebrow">Insights &amp; Resources</div>
-      <h2 class="section-h">From the <span class="gold">Field.</span></h2>
-      <p class="sub">Expert perspectives on security, protection, and preparedness</p>
-      <div class="cards"><div class="card rise"><div class="meta">Training &amp; Certification</div><h3>Raising the Bar: Why the Security Industry Needs Higher Standards</h3><p>Discover why Atlas Glinn is leading the charge to elevate training standards across the security industry.</p><a class="secondary-cta" href="training.html">Read More &rarr;</a></div><div class="card rise"><div class="meta">Case Studies</div><h3>Why Real-World Experience Matters in Executive Protection</h3><p>A lesson from the front lines on why field-tested expertise outperforms theory every time.</p><a class="secondary-cta" href="executive-protection.html">Read More &rarr;</a></div><div class="card rise"><div class="meta">Case Studies</div><h3>How We Secured a CEO&rsquo;s Global Tour</h3><p>An inside look at the coordination and planning behind protecting a Fortune 500 executive across multiple countries.</p><a class="secondary-cta" href="executive-protection.html">Read More &rarr;</a></div><div class="card rise"><div class="meta">Training &amp; Certification</div><h3>Why Atlas Glinn&rsquo;s Security Training Sets the Standard</h3><p>Our training programs are built on decades of real-world experience with elite military and law enforcement units.</p><a class="secondary-cta" href="training.html">Read More &rarr;</a></div><div class="card rise"><div class="meta">Disaster Recovery</div><h3>Preparing for Natural Disasters: A Security Must</h3><p>Why disaster preparedness is a critical component of any comprehensive security strategy.</p><a class="secondary-cta" href="disaster-recovery.html">Read More &rarr;</a></div><div class="card rise"><div class="meta">Executive Protection</div><h3>5 Essential Tips for VIP Security in 2025</h3><p>Key strategies every VIP protection detail should implement to stay ahead of evolving threats.</p><a class="secondary-cta" href="executive-protection.html">Read More &rarr;</a></div></div>
-    </div>
-  </section>
-
-  <section class="panel" id="s6" data-section="06">
-    <div>
-      <div class="eyebrow">Ready to Work With Us?</div>
-      <h2 class="section-h">Let&rsquo;s <span class="gold">Talk.</span></h2>
-      
-      <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div><div class="ctas rise"><a href="contact.html" class="cta">Contact Us</a><a href="tel:+12816548100" class="secondary-cta">Phone: (281) 654-8100</a><a href="mailto:atlasglinn.hq@atlasglinn.com" class="secondary-cta">Email: atlasglinn.hq@atlasglinn.com</a></div>
-    </div>
-  </section>
-
-  <section class="panel" id="s7" data-section="07">
-    <div>
-      <div class="eyebrow">Reviews</div>
-      <h2 class="section-h">Google Reviews &amp; LinkedIn <span class="gold">Recommendations.</span></h2>
-      <p class="sub"><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span> 5.0 &middot; Google Reviews</p>
-      <div class="quotes"><div class="card rise"><div class="meta">Law Enforcement</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Matthew is an expert in his field. He is highly motivated, knowledgeable and I highly recommend him for top-tier performance.&rdquo;</p><div class="by">Kenny Upton &mdash; Deputy, Harris County Sheriff</div></div><div class="card rise"><div class="meta">Navy SEAL / Former CIA</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;His leadership, dedication, drive, and passion is second to none. A master at teamwork, problem-solving, leadership, and communication.&rdquo;</p><div class="by">Ray Cash Care &mdash; Navy SEAL / Former CIA</div></div><div class="card rise"><div class="meta">Reconnaissance Marine</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;As a former Reconnaissance Marine, Matthew&rsquo;s teaching has not only made me a better shooter, he has made me a better team player.&rdquo;</p><div class="by">Arthur Metcalfe &mdash; Recon Marine, 18yr O&amp;G</div></div><div class="card rise"><div class="meta">Flight Paramedic</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Brockmann had hosted and taught some of the best classes I have been a part of. I can&rsquo;t recommend him enough.&rdquo;</p><div class="by">William H. Miller BS, TP-C, FP-C, CPM &mdash; Flight Paramedic</div></div><div class="card rise"><div class="meta">President &amp; CEO</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Extremely professional. In an extremely competitive industry Matt has never failed to provide exceptional guidance. I recommend him without hesitation.&rdquo;</p><div class="by">Craig Etkin &mdash; President &amp; CEO, intelligence360</div></div><div class="card rise"><div class="meta">CxO / Investor</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;I&rsquo;ve trained with some big-name national &amp; global self-defense trainers. I&rsquo;ve always felt safe training with Matt &mdash; the #1 criterion for choosing a trainer.&rdquo;</p><div class="by">Wayne Sadin &mdash; CxO/VP Investor</div></div></div><div class="ctas rise" style="margin-top:2rem"><a href="https://www.google.com/search?q=Atlas+Glinn+Houston+reviews" class="secondary-cta">Google Reviews &rarr;</a><a href="https://www.linkedin.com/in/mastsolutions1/" class="secondary-cta">LinkedIn &rarr;</a></div><div class="badges rise"><div class="badge-item"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div><div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div>
-    </div>
-  </section>
-
+<!-- MISSION -->
+<div class="section-divider">
+    <h2>Our <span class="gold-shimmer">Mission</span></h2>
 </div>
+<section class="section" style="padding-top: 2rem; text-align:center;">
+    <p class="mission-text reveal">Our mission is to provide you with unparalleled peace of mind, safeguarding what matters most &mdash; your safety, your assets, and your way of life. With a foundation built on elite expertise and a relentless pursuit of excellence, we deliver tailored protection solutions that blend seamlessly into your world.</p>
+</section>
+
+<!-- TEAM -->
+<div class="section-divider">
+    <h2>Meet The <span class="gold-shimmer">Team</span></h2>
+    <p>We redefine security with precision, discretion, and unwavering commitment</p>
+</div>
+<section class="section" style="padding-top: 2rem; text-align:center;">
+    <div class="team-grid">
+        <div class="team-card reveal">
+            <img src="https://atlasglinn.com/wp-content/themes/atlasglinn/images/matt-ceo-2026.jpg" alt="Matthew Brockmann" loading="lazy">
+            <h3>Matthew Brockmann</h3>
+            <div class="team-role">Founder &amp; CEO</div>
+            <p>When a principal&rsquo;s safety is non-negotiable, the margin for error is exactly zero. That&rsquo;s the standard Matthew Brockmann built his work around &mdash; running protection details where intent, baseline cues, and seconds decide outcomes. He founded MAST Solutions in 2005. Atlas Glinn followed. Atlas EP &mdash; the intelligence platform &mdash; came after, because the right tech didn&rsquo;t exist yet.</p>
+        </div>
+        <div class="team-card reveal">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/03/Cline-Bio-Pic-1024x819.jpg" alt="Michael Cline" loading="lazy">
+            <h3>Michael Cline</h3>
+            <div class="team-role">Chief Operating Officer</div>
+            <p>As the Chief Operating Officer at Atlas Glinn, Michael Cline brings a wealth of experience and a strategic vision to the company. With a distinguished 12-year career as a Navy SEAL, Michael has honed exceptional leadership, discipline, and problem-solving skills that are now pivotal in driving Atlas Glinn's operational excellence.</p>
+        </div>
+        <div class="team-card reveal">
+            <img src="https://atlasglinn.com/wp-content/themes/atlasglinn/images/anthony-glover.png" alt="Anthony Glover" loading="lazy">
+            <h3>Anthony Glover</h3>
+            <div class="team-role">Level 3 &amp; PPO &mdash; Houston Region Operations Manager</div>
+            <p>Anthony Glover serves as the Houston Region Operations Manager and Level 3 Private Protection Officer at Atlas Glinn, a role he assumed in January 2026. A seasoned security leader with over a decade of experience in the private sector, Glover directs multi-site protective operations, oversees agent deployment and performance, and drives operational strategy across the Houston region. He leads a team of security professionals delivering 24/7 protection. Prior to his promotion, Glover served as Site Supervisor at Atlas Glinn, managing a six-agent detail providing round-the-clock protection. Before joining Atlas Glinn, he spent seven years in Chicago&rsquo;s high-risk environment protecting families and children, developing deep expertise in conflict resolution, de-escalation, and discreet protective operations.</p>
+        </div>
+        <div class="team-card reveal">
+            <div style="width:240px;height:300px;border-radius:10px;border:2px solid rgba(201,168,76,.3);display:flex;align-items:center;justify-content:center;background:rgba(201,168,76,0.03);margin:0 auto 20px;">
+                <span style="font-size:3rem;opacity:0.3;">&#x1F6E1;</span>
+            </div>
+            <h3>J. Rene&eacute; Renobato</h3>
+            <div class="team-role">MBA, CAM, CAPS &mdash; Office Manager &amp; Executive Assistant to the CEO</div>
+            <p>J. Rene&eacute; Renobato serves as Office Manager and Executive Assistant to CEO Matthew Brockmann. A seasoned operations professional with over 25 years of management experience, she oversees daily administrative operations, manages executive scheduling, and ensures seamless coordination across security, training, and consulting divisions. Renobato holds a Bachelor of Arts in Communication from the University of Houston and a Master of Business Administration from Marylhurst University. Prior to joining the team, she built a distinguished career in operations management across firms including AvalonBay/Archstone Communities, Windsor Communities, and EQS Construction &mdash; managing portfolios of up to 794 units with teams of 20+. A recipient of the Houston Apartment Association&rsquo;s On-Site Manager of the Year award and a Property of the Year finalist, she brings proven expertise in budget planning, vendor relations, financial reporting, and process optimization to every aspect of her role.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ══════════ VIDEO GALLERY ══════════ -->
+<div class="section-divider">
+    <h2>Atlas Glinn <span class="gold-shimmer">In Action</span></h2>
+    <p>Training, operations, and the people behind the mission</p>
+</div>
+<section class="section" style="padding-top: 2rem; text-align:center;">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:2rem; max-width:1100px; margin:0 auto;">
+        <div class="reveal" style="border-radius:8px; overflow:hidden; border:1px solid rgba(26,107,222,.2); background:#0a0e17;">
+            <video autoplay muted loop playsinline style="width:100%; aspect-ratio:16/9; object-fit:cover; display:block;">
+                <source src="https://atlasglinn.com/wp-content/themes/atlasglinn/images/careers-gallery.mp4" type="video/mp4">
+            </video>
+            <div style="padding:1rem; text-align:left;">
+                <h4 style="font-family:'Orbitron',sans-serif; font-size:0.9rem; margin-bottom:4px;">Atlas Glinn Team</h4>
+                <p style="font-size:0.85rem; color:#b0b0b0;">Behind the scenes with our executive protection team</p>
+            </div>
+        </div>
+        <div class="reveal" style="border-radius:8px; overflow:hidden; border:1px solid rgba(26,107,222,.2); background:#0a0e17;">
+            <video autoplay muted loop playsinline style="width:100%; aspect-ratio:16/9; object-fit:cover; display:block;">
+                <source src="https://atlasglinn.com/wp-content/themes/atlasglinn/images/forge-legend-mast.mp4" type="video/mp4">
+            </video>
+            <div style="padding:1rem; text-align:left;">
+                <h4 style="font-family:'Orbitron',sans-serif; font-size:0.9rem; margin-bottom:4px;">MAST Solutions — Forge & Legend</h4>
+                <p style="font-size:0.85rem; color:#b0b0b0;">Training excellence through MAST Solutions</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<div class="section-divider">
+    <h2>What Clients <span class="gold-shimmer">Say</span></h2>
+</div>
+<section class="section" style="padding-top: 2rem; text-align:center;">
+    <div style="height:2rem;"></div>
+    <div class="testimonials-row">
+        <div class="testimonial reveal">
+            <p>I've worked with Matt &amp; his team for several years. They are extremely professional, and their training &amp; expertise is second to none.</p>
+            <div class="testimonial-author">Craig E. &mdash; President &amp; CEO</div>
+        </div>
+        <div class="testimonial reveal">
+            <p>I trained with Matt &amp; the team at MAST Solutions for over a year. The techniques, skills &amp; mentality I learned in the first class were well more advanced.</p>
+            <div class="testimonial-author">Brian S. &mdash; IRC &amp; MBA</div>
+        </div>
+        <div class="testimonial reveal">
+            <p>Simply THE BEST hands on tactical training you can find local to Houston, TX.</p>
+            <div class="testimonial-author">Guadalupe A. &mdash; Power Testing Specialist</div>
+        </div>
+    </div>
+    <div style="height:2rem;"></div>
+    <div class="testimonials-row">
+        <div class="testimonial reveal">
+            <p>Matthew is an expert in his field, I have had the privilege to train with &amp; work alongside him on numerous occasions.</p>
+            <div class="testimonial-author">Kenny U. &mdash; Deputy</div>
+        </div>
+        <div class="testimonial reveal">
+            <p>I highly recommend Matthew &amp; his team for your security &amp; training needs.</p>
+            <div class="testimonial-author">Charles W. &mdash; Business Operations Manager</div>
+        </div>
+        <div class="testimonial reveal">
+            <p>Matthew is a highly skilled individual with ample knowledge of firearm operations, safety &amp; security.</p>
+            <div class="testimonial-author">Alf T. &mdash; Senior Operations Advisor</div>
+        </div>
+    </div>
+</section>
+
+<!-- INSIGHTS & RESOURCES -->
+<div class="section-divider">
+    <h2>Insights & <span class="gold-shimmer">Resources</span></h2>
+    <p>Expert perspectives on security, protection, and preparedness</p>
+</div>
+<section class="section" style="padding-top: 2rem; text-align:center;">
+    <div class="testimonials-row reveal">
+        <a href="training.html" style="text-decoration:none;color:inherit;" class="testimonial" style="text-align:left;cursor:pointer;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#C9A84C;margin-bottom:0.75rem;padding-top:0;">TRAINING & CERTIFICATION</div>
+            <h3 style="font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700;margin-bottom:0.5rem;color:#fff;line-height:1.3;">Raising the Bar: Why the Security Industry Needs Higher Standards</h3>
+            <p style="font-style:normal;padding-top:0;margin-bottom:1rem;">Discover why Atlas Glinn is leading the charge to elevate training standards across the security industry.</p>
+            <span style="color:#1A6BDE;font-size:0.85rem;font-weight:600;">Read More &rarr;</span>
+        </a>
+        <a href="executive-protection.html" style="text-decoration:none;color:inherit;" class="testimonial" style="text-align:left;cursor:pointer;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#C9A84C;margin-bottom:0.75rem;padding-top:0;">CASE STUDIES</div>
+            <h3 style="font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700;margin-bottom:0.5rem;color:#fff;line-height:1.3;">Why Real-World Experience Matters in Executive Protection</h3>
+            <p style="font-style:normal;padding-top:0;margin-bottom:1rem;">A lesson from the front lines on why field-tested expertise outperforms theory every time.</p>
+            <span style="color:#1A6BDE;font-size:0.85rem;font-weight:600;">Read More &rarr;</span>
+        </a>
+        <a href="executive-protection.html" style="text-decoration:none;color:inherit;" class="testimonial" style="text-align:left;cursor:pointer;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#C9A84C;margin-bottom:0.75rem;padding-top:0;">CASE STUDIES</div>
+            <h3 style="font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700;margin-bottom:0.5rem;color:#fff;line-height:1.3;">How We Secured a CEO's Global Tour</h3>
+            <p style="font-style:normal;padding-top:0;margin-bottom:1rem;">An inside look at the coordination and planning behind protecting a Fortune 500 executive across multiple countries.</p>
+            <span style="color:#1A6BDE;font-size:0.85rem;font-weight:600;">Read More &rarr;</span>
+        </a>
+    </div>
+    <div style="height:2rem;"></div>
+    <div class="testimonials-row reveal">
+        <a href="training.html" style="text-decoration:none;color:inherit;" class="testimonial" style="text-align:left;cursor:pointer;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#C9A84C;margin-bottom:0.75rem;padding-top:0;">TRAINING & CERTIFICATION</div>
+            <h3 style="font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700;margin-bottom:0.5rem;color:#fff;line-height:1.3;">Why Atlas Glinn's Security Training Sets the Standard</h3>
+            <p style="font-style:normal;padding-top:0;margin-bottom:1rem;">Our training programs are built on decades of real-world experience with elite military and law enforcement units.</p>
+            <span style="color:#1A6BDE;font-size:0.85rem;font-weight:600;">Read More &rarr;</span>
+        </a>
+        <a href="disaster-recovery.html" style="text-decoration:none;color:inherit;" class="testimonial" style="text-align:left;cursor:pointer;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#C9A84C;margin-bottom:0.75rem;padding-top:0;">DISASTER RECOVERY</div>
+            <h3 style="font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700;margin-bottom:0.5rem;color:#fff;line-height:1.3;">Preparing for Natural Disasters: A Security Must</h3>
+            <p style="font-style:normal;padding-top:0;margin-bottom:1rem;">Why disaster preparedness is a critical component of any comprehensive security strategy.</p>
+            <span style="color:#1A6BDE;font-size:0.85rem;font-weight:600;">Read More &rarr;</span>
+        </a>
+        <a href="executive-protection.html" style="text-decoration:none;color:inherit;" class="testimonial" style="text-align:left;cursor:pointer;">
+            <div style="font-size:0.7rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#C9A84C;margin-bottom:0.75rem;padding-top:0;">EXECUTIVE PROTECTION</div>
+            <h3 style="font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700;margin-bottom:0.5rem;color:#fff;line-height:1.3;">5 Essential Tips for VIP Security in 2025</h3>
+            <p style="font-style:normal;padding-top:0;margin-bottom:1rem;">Key strategies every VIP protection detail should implement to stay ahead of evolving threats.</p>
+            <span style="color:#1A6BDE;font-size:0.85rem;font-weight:600;">Read More &rarr;</span>
+        </a>
+    </div>
+</section>
+
+<!-- CTA -->
+<div class="section-divider">
+    <h2>Ready to Work With <span class="gold-shimmer">Us</span>?</h2>
+</div>
+<section class="section" style="padding-top: 2rem;">
+    <div class="cta-section reveal">
+        <p>Phone: <a href="tel:+12816548100" style="color:#1A6BDE;text-decoration:none;">(281) 654-8100</a></p>
+        <p>Email: <a href="mailto:atlasglinn.hq@atlasglinn.com" style="color:#1A6BDE;text-decoration:none;">atlasglinn.hq@atlasglinn.com</a></p>
+        <a href="contact.html" class="cta-button">Contact Us</a>
+    </div>
+</section>
+
+<!-- ══════════ REVIEWS ══════════ -->
+<div class="section-divider">
+    <h2><span class="gold-shimmer">Reviews</span></h2>
+    <p>Google Reviews & LinkedIn Recommendations</p>
+</div>
+<section class="section" style="text-align:center; padding-top:2rem;">
+    <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:2rem;">
+        <span style="color:#FFD700; font-size:1.5rem;">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+        <span style="font-size:1.8rem; font-weight:900;">5.0</span>
+        <span style="color:rgba(255,255,255,0.5); font-size:0.9rem;">Google Reviews</span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1.5rem; max-width:1200px; margin:0 auto; text-align:left;">
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:2px solid rgba(201,168,76,0.6); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Law Enforcement</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"Matthew is an expert in his field. He is highly motivated, knowledgeable and I highly recommend him for top-tier performance."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Kenny Upton — Deputy, Harris County Sheriff</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:2px solid rgba(201,168,76,0.6); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Navy SEAL / Former CIA</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"His leadership, dedication, drive, and passion is second to none. A master at teamwork, problem-solving, leadership, and communication."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Ray Cash Care — Navy SEAL / Former CIA</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:2px solid rgba(201,168,76,0.6); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Reconnaissance Marine</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"As a former Reconnaissance Marine, Matthew's teaching has not only made me a better shooter, he has made me a better team player."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Arthur Metcalfe — Recon Marine, 18yr O&G</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:2px solid rgba(201,168,76,0.6); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Flight Paramedic</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"Brockmann had hosted and taught some of the best classes I have been a part of. I can't recommend him enough."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">William H. Miller BS, TP-C, FP-C, CPM — Flight Paramedic</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:2px solid rgba(201,168,76,0.6); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">President & CEO</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"Extremely professional. In an extremely competitive industry Matt has never failed to provide exceptional guidance. I recommend him without hesitation."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Craig Etkin — President & CEO, intelligence360</div>
+        </div>
+        <div class="testimonial" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:2px solid rgba(201,168,76,0.6); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">CxO / Investor</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"I've trained with some big-name national & global self-defense trainers. I've always felt safe training with Matt — the #1 criterion for choosing a trainer."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Wayne Sadin — CxO/VP Investor</div>
+        </div>
+    </div>
+    <div style="display:flex; gap:1.5rem; justify-content:center; margin-top:2rem;">
+        <a href="https://www.google.com/search?q=Atlas+Glinn+Houston+reviews" target="_blank" style="font-size:0.85rem; color:#1A6BDE; text-decoration:none;">Google Reviews &rarr;</a>
+        <a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" style="font-size:0.85rem; color:#1A6BDE; text-decoration:none;">LinkedIn &rarr;</a>
+    </div>
+</section>
+
+<!-- FOOTER -->
+
 <footer class="site-footer">
-  <div class="footer-container"><div class="footer-awards"><div class="badge-item"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div><div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div><div class="footer-grid"><div class="footer-section"><h4>Atlas Glinn</h4><ul><li><a href="index.html">Home</a></li><li><a href="executive-protection.html">Executive Protection</a></li><li><a href="residential-protection.html">Residential Protection</a></li><li><a href="disaster-recovery.html">Disaster Recovery</a></li><li><a href="technology.html">Technology</a></li><li><a href="ep-app.html">Atlas EP App</a></li></ul></div><div class="footer-section"><h4>MAST Solutions</h4><ul><li><a href="training.html">Training Programs</a></li><li><a href="ep-app.html">Atlas EP Platform</a></li><li><a href="cuas-aerodefense.html">Counter-Drone Solutions</a></li><li><a href="uas.html">Autonomous UAS</a></li><li><a href="mastsolutions.html">MAST Solutions</a></li></ul></div><div class="footer-section"><h4>Company</h4><ul><li><a href="about.html">About Us</a></li><li><a href="careers.html">Careers</a></li><li><a href="about.html#s5">Resources</a></li><li><a href="contact.html">Contact</a></li></ul></div><div class="footer-section"><h4>Connect</h4><p>2450 Fondren Rd, Suite 255<br>Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a><br><a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p><div class="footer-social"><a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a><a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a><a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a><a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a><a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a><a href="https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063" target="_blank" rel="noopener" data-track="review">Google Reviews</a></div></div></div><div class="footer-bottom"><a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a></div></div>
+  <div class="footer-container"><div class="footer-awards"><div class="badge-item"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div><div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div><div class="footer-grid"><div class="footer-section"><h4>Atlas Glinn</h4><ul><li><a href="index.html">Home</a></li><li><a href="executive-protection.html">Executive Protection</a></li><li><a href="residential-protection.html">Residential Protection</a></li><li><a href="disaster-recovery.html">Disaster Recovery</a></li><li><a href="technology.html">Technology</a></li><li><a href="ep-app.html">Atlas EP App</a></li></ul></div><div class="footer-section"><h4>MAST Solutions</h4><ul><li><a href="training.html">Training Programs</a></li><li><a href="ep-app.html">Atlas EP Platform</a></li><li><a href="cuas-aerodefense.html">Counter-Drone Solutions</a></li><li><a href="uas.html">Autonomous UAS</a></li><li><a href="https://www.mastsolutions.com/">MAST Solutions</a></li></ul></div><div class="footer-section"><h4>Company</h4><ul><li><a href="about.html">About Us</a></li><li><a href="careers.html">Careers</a></li><li><a href="contact.html">Contact</a></li></ul></div><div class="footer-section"><h4>Connect</h4><p>2450 Fondren Rd, Suite 255<br>Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a><br><a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p><div class="footer-social"><a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a><a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a><a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a><a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a><a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a><a href="https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063" target="_blank" rel="noopener" data-track="review">Google Reviews</a></div></div></div><div class="footer-bottom"><a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a></div></div>
 </footer>
+<div style="text-align:right;padding:12px 60px 12px 0;"><form action="https://atlasglinn-site.matthew-221.workers.dev/portal" method="GET" style="display:inline;"><button type="submit" style="background:none;border:none;color:rgba(201,168,76,0.45);font-size:14px;font-family:monospace;cursor:pointer;transition:color 0.3s;padding:0;" onmouseover="this.style.color='rgba(201,168,76,1)'" onmouseout="this.style.color='rgba(201,168,76,0.45)'">>_&#x1F6E1;</button></form></div>
 <button id="back-to-top" type="button" title="Back to top" aria-label="Back to top">&#8593;</button>
 
-<script type="module">import * as THREE from './vendor/three.module.js';
+<script>
+// Scroll Reveal
+const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+        if (e.isIntersecting) { e.target.classList.add('active'); revealObserver.unobserve(e.target); }
+    });
+}, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
 
-const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const mobile = matchMedia('(max-width: 768px)').matches;
-
+// 3D Tilt on testimonial cards
+document.querySelectorAll('.testimonial').forEach(card => {
+    card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const rotateX = (y - rect.height / 2) / rect.height * -6;
+        const rotateY = (x - rect.width / 2) / rect.width * 6;
+        card.style.transform = `perspective(600px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-4px)`;
+    });
+    card.addEventListener('mouseleave', () => { card.style.transform = ''; });
+});
+</script>
+<script>
+function parallax3D(e, container) {
+    const inner = container.querySelector('.parallax-3d-inner');
+    const img = container.querySelector('.parallax-3d-img') || container.querySelector('img');
+    const shine = container.querySelector('.parallax-3d-shine');
+    const rect = container.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    inner.style.transform = 'rotateY(' + (x * 12) + 'deg) rotateX(' + (-y * 8) + 'deg) scale(1.02)';
+    if (img) img.style.transform = 'translateX(' + (-x * 15) + 'px) translateY(' + (-y * 10) + 'px) scale(1.05)';
+    if (shine) shine.style.background = 'radial-gradient(circle at ' + ((x+0.5)*100) + '% ' + ((y+0.5)*100) + '%, rgba(255,255,255,0.2) 0%, transparent 60%)';
+}
+function resetParallax(container) {
+    const inner = container.querySelector('.parallax-3d-inner');
+    const img = container.querySelector('.parallax-3d-img') || container.querySelector('img');
+    if (inner) inner.style.transform = 'rotateY(0) rotateX(0) scale(1)';
+    if (img) img.style.transform = 'translateX(0) translateY(0) scale(1)';
+}
+</script>
+<script>
+// ── UNIVERSAL 3D TILT ON ALL CARDS ──
+document.querySelectorAll('.service-card, .testimonial, .benefit-card, .tech-partner, .discipline-card, .app-tier, .position-card, .job-card, .pillar-card, .scenario-card, .team-card, .capability-card, .cap-card, .feature-card, .price-card, .problem-card, .thermal-card, .threat-card, .video-card, .blog-link-card').forEach(card => {
+    card.style.transition = 'transform 0.2s ease-out, box-shadow 0.3s ease';
+    card.style.transformStyle = 'preserve-3d';
+    card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width - 0.5;
+        const y = (e.clientY - rect.top) / rect.height - 0.5;
+        card.style.transform = `perspective(800px) rotateY(${x * 12}deg) rotateX(${-y * 8}deg) translateY(-4px) scale(1.02)`;
+        card.style.boxShadow = '0 25px 60px rgba(0,0,0,0.5), 0 0 30px rgba(201,168,76,0.1)';
+    });
+    card.addEventListener('mouseleave', () => {
+        card.style.transform = 'perspective(800px) rotateY(0) rotateX(0) translateY(0) scale(1)';
+        card.style.boxShadow = '';
+    });
+});
+</script>
+<script>(function(){
+var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+var mobile = matchMedia('(max-width: 768px)').matches;
 // Gold ring (Brockmann, 2026-09-04: "the gold around the Atlas Glinn is what I was talking about ... take some of the gold shimmer
 // and fade it in and fade it out"): the sparkle ring of the current atlasglinn.com intro — a tilted, slowly turning, pulsing ring
 // of gold points — drawn in 2D around the wordmark. It fades in after the wordmark appears and out before the splash ends; the
@@ -591,188 +674,7 @@ if (ring && !reduce) {
   requestAnimationFrame(draw);
 }
 
-// ── Reticle ──
-const reticle = document.querySelector('.reticle');
-let cx = innerWidth / 2, cy = innerHeight / 2, rx = cx, ry = cy;
-addEventListener('mousemove', e => { cx = e.clientX; cy = e.clientY; });
-
-// ── Photography layer ──
-const phs = [...document.querySelectorAll('#photos .ph')];
-let photoIdx = -1;
-function setPhoto(i) {
-  if (i === photoIdx) return; photoIdx = i;
-  phs.forEach((p, k) => {
-    const on = k === i; p.classList.toggle('on', on);
-    const v = p.querySelector('video');                            // film backdrops play only while their chapter is on screen
-    if (v) { if (on && !reduce) v.play().catch(() => {}); else v.pause(); }
-    const f = p.querySelector('iframe[data-src]');                 // YouTube backdrops load when their chapter arrives, unload when it leaves
-    if (f) {
-      if (on && !reduce) { if (!f.getAttribute('src')) { f.addEventListener('load', () => f.classList.add('playing'), { once: true }); f.src = f.dataset.src; } }
-      else if (f.getAttribute('src')) { f.classList.remove('playing'); f.removeAttribute('src'); }
-    }
-  });
-}
-document.querySelectorAll('#photos video').forEach(v => {
-  v.addEventListener('playing', () => v.classList.add('playing'));
-  const end = parseFloat(v.dataset.end || '0');                    // data-end: loop the first N seconds of a longer file as the snippet
-  if (end > 0) v.addEventListener('timeupdate', () => { if (v.currentTime >= end) v.currentTime = 0; });
-});
-
-// ── Three: the Tier 3 emblem scene ──
-const canvas = document.getElementById('three-canvas');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, alpha: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.5 : 2));
-renderer.setSize(innerWidth, innerHeight);
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
-
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x050810);
-scene.fog = new THREE.FogExp2(0x0B1221, 0.03);
-const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 1000);
-camera.position.set(0, 0, 9);
-
-// Lights — all warm
-scene.add(new THREE.AmbientLight(0x0a1020, 0.5));
-const keyL = new THREE.DirectionalLight(0x1A6BDE, 3.0); keyL.position.set(6, 10, 7); scene.add(keyL);
-const rimL = new THREE.DirectionalLight(0x0E3F8C, 1.6); rimL.position.set(-7, -4, -5); scene.add(rimL);
-const fillL = new THREE.DirectionalLight(0x5B9BFF, 0.9); fillL.position.set(0, -8, 3); scene.add(fillL);
-const pt = new THREE.PointLight(0xDCEBFF, 3.5, 18); pt.position.set(0, 0, 4); scene.add(pt);
-
-// Reflective floor
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(140, 140, 40, 40),
-  new THREE.MeshStandardMaterial({ color: 0x0B1221, metalness: .95, roughness: .28, emissive: 0x080808, emissiveIntensity: .15 }));
-floor.rotation.x = -Math.PI / 2; floor.position.y = -4.5; scene.add(floor);
-
-// Distant peaks
-const peaks = new THREE.Group();
-for (let i = 0; i < 11; i++) {
-  const m = new THREE.Mesh(new THREE.ConeGeometry(2 + Math.random() * 2.2, 4.5 + Math.random() * 4, 5),
-    new THREE.MeshStandardMaterial({ color: 0x0B1221, roughness: 1, metalness: 0 }));
-  m.position.set(-34 + i * 7 + Math.random() * 3, -3.5, -23 - Math.random() * 7);
-  m.rotation.y = Math.random() * Math.PI; peaks.add(m);
-}
-scene.add(peaks);
-
-// Hero emblem: hexagonal shield, rings, bars, gem, shards
-const emblem = new THREE.Group();
-const gold = new THREE.MeshStandardMaterial({ color: 0x1A6BDE, metalness: 1, roughness: .12, emissive: 0x081a3a, emissiveIntensity: .4 });
-const copper = new THREE.MeshStandardMaterial({ color: 0x0E3F8C, metalness: 1, roughness: .18, emissive: 0x071535, emissiveIntensity: .5 });
-const champagne = new THREE.MeshStandardMaterial({ color: 0x5B9BFF, metalness: 1, roughness: .1, emissive: 0x112a55, emissiveIntensity: .8 });
-const shield = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.3, 0.4, 6), gold); shield.rotation.x = Math.PI / 2; emblem.add(shield);
-const innerHex = new THREE.Mesh(new THREE.CylinderGeometry(1.75, 1.75, 0.45, 6), new THREE.MeshStandardMaterial({ color: 0x050810, metalness: .6, roughness: .4 }));
-innerHex.rotation.x = Math.PI / 2; emblem.add(innerHex);
-for (let i = 0; i < 3; i++) { const ring = new THREE.Mesh(new THREE.TorusGeometry(1.85 + i * .18, .028, 16, 128), i === 1 ? champagne : gold); ring.rotation.x = i * .08; ring.rotation.z = i * .08; emblem.add(ring); }
-for (let i = 0; i < 3; i++) { const bar = new THREE.Mesh(new THREE.BoxGeometry(.12, 2.8, .12), gold); bar.rotation.z = (Math.PI / 3) * i; emblem.add(bar); }
-emblem.add(new THREE.Mesh(new THREE.IcosahedronGeometry(.4, 1), copper));
-const shards = [];
-for (let i = 0; i < 10; i++) {
-  const s = new THREE.Mesh(new THREE.OctahedronGeometry(.08, 0), i % 2 ? champagne : gold);
-  s.userData = { a: (Math.PI * 2 * i) / 10, r: 2.6 + Math.random() * .5, sp: .4 + Math.random() * .3 };
-  emblem.add(s); shards.push(s);
-}
-scene.add(emblem);
-
-// God rays
-const rays = new THREE.Group();
-for (let i = 0; i < 14; i++) {
-  const r = new THREE.Mesh(new THREE.ConeGeometry(.08, 16, 8, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0x1A6BDE, transparent: true, opacity: .04, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
-  r.rotation.z = (Math.PI * 2 * i) / 14; r.position.z = -2; rays.add(r);
-}
-scene.add(rays);
-
-// Particles: gold dust + champagne sparks
-function pts(count, color, size, range) {
-  const g = new THREE.BufferGeometry(); const p = new Float32Array(count * 3), v = new Float32Array(count * 3);
-  for (let i = 0; i < count; i++) { p[i*3] = (Math.random() - .5) * range; p[i*3+1] = (Math.random() - .5) * range * .7; p[i*3+2] = (Math.random() - .5) * range; v[i*3] = (Math.random() - .5) * .002; v[i*3+1] = (Math.random() - .5) * .002; v[i*3+2] = (Math.random() - .5) * .002; }
-  g.setAttribute('position', new THREE.BufferAttribute(p, 3));
-  const o = new THREE.Points(g, new THREE.PointsMaterial({ color, size, transparent: true, opacity: .65, blending: THREE.AdditiveBlending, depthWrite: false }));
-  o.userData = { v }; return o;
-}
-const gd = pts(mobile ? 220 : 600, 0x1A6BDE, .035, 40), ch = pts(mobile ? 60 : 150, 0x5B9BFF, .028, 30);
-scene.add(gd); scene.add(ch);
-
-// Stars
-const sg = new THREE.BufferGeometry(); const sp = new Float32Array(2200 * 3);
-for (let i = 0; i < 2200; i++) { const r = 80 + Math.random() * 40, th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1); sp[i*3] = r * Math.sin(ph) * Math.cos(th); sp[i*3+1] = r * Math.cos(ph); sp[i*3+2] = r * Math.sin(ph) * Math.sin(th); }
-sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
-const stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xF0F4FF, size: .15, transparent: true, opacity: .5 }));
-scene.add(stars);
-
-// ── One continuous camera path ──
-// The camera reads the page's scroll fraction and nothing else: no chapter index, no lock, no counter. The section
-// index is used for one thing only — which backdrop photograph is showing.
-const secs = [...document.querySelectorAll('section.panel')];
-const progressEl = document.getElementById('progress');
-const lerp = (a, b, t) => a + (b - a) * t;
-const kf = [
-  { x: 0, y: 0, z: 9, lx: 0, ly: 0, lz: 0 },
-  { x: 3, y: 1, z: 11, lx: 0, ly: 0, lz: 0 },
-  { x: -3, y: 2, z: 13, lx: 0, ly: -1, lz: 0 },
-  { x: 4, y: 3, z: 14, lx: 0, ly: -.5, lz: 0 },
-  { x: -4, y: 1, z: 12, lx: 0, ly: 0, lz: 0 },
-  { x: 0, y: -2, z: 10, lx: 0, ly: .5, lz: 0 },
-  { x: 0, y: -4, z: 18, lx: 0, ly: 2, lz: 0 },
-];
-function sectionIndex() {
-  const mid = innerHeight * .45; let idx = 0;
-  secs.forEach((s, i) => { if (s.getBoundingClientRect().top <= mid) idx = i; });
-  return idx;
-}
-function update() {
-  const total = document.documentElement.scrollHeight - innerHeight;
-  const t = Math.max(0, Math.min(1, scrollY / Math.max(1, total)));
-  const sc = t * (kf.length - 1), i = Math.floor(sc), f = sc - i;
-  const a = kf[i], b = kf[Math.min(i + 1, kf.length - 1)];
-  camera.position.set(lerp(a.x, b.x, f), lerp(a.y, b.y, f), lerp(a.z, b.z, f));
-  camera.lookAt(lerp(a.lx, b.lx, f), lerp(a.ly, b.ly, f), lerp(a.lz, b.lz, f));
-  const now = performance.now();
-  emblem.rotation.y += 0.004; emblem.rotation.x = Math.sin(now * .0004) * .14;
-  shards.forEach(s => { const ang = s.userData.a + now * .0002 * s.userData.sp; s.position.set(Math.cos(ang) * s.userData.r, Math.sin(ang * 1.3) * .6, Math.sin(ang) * s.userData.r); s.rotation.x += .02; s.rotation.y += .015; });
-  rays.rotation.z += .001;
-  emblem.position.y = -t * 2; emblem.scale.setScalar(1 - t * .25);
-  [gd, ch].forEach(p => { const pos = p.geometry.attributes.position.array, v = p.userData.v; for (let k = 0; k < pos.length; k++) pos[k] += v[k]; p.geometry.attributes.position.needsUpdate = true; });
-  gd.rotation.y = t * .3; ch.rotation.y = -t * .2; stars.rotation.y += .0002;
-  scene.fog.density = 0.03 + t * .025;
-  if (progressEl) progressEl.style.width = (t * 100) + '%';
-  setPhoto(sectionIndex());
-}
-addEventListener('scroll', update, { passive: true });
-addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
-let mx = 0;
-addEventListener('mousemove', e => { mx = (e.clientX / innerWidth - .5) * 2; });
-let paused = false;
-document.addEventListener('visibilitychange', () => { paused = document.hidden; if (!paused) animate(); });
-function animate() {
-  if (paused) return;
-  requestAnimationFrame(animate);
-  emblem.position.x += (mx * .4 - emblem.position.x) * .04;
-  rx = lerp(rx, cx, .22); ry = lerp(ry, cy, .22);
-  reticle.style.transform = `translate(${rx}px,${ry}px) translate(-50%,-50%)`;
-  update(); renderer.render(scene, camera);
-}
-animate();
-
-// ── Reveals ── every block turns on as it arrives. Nothing cuts to black between sections: the page is one scroll now.
-const io = new IntersectionObserver(entries => {
-  entries.forEach(e => {
-    if (!e.isIntersecting) return;
-    e.target.querySelectorAll('.eyebrow, h2.section-h, .sub, h1.mega, .rise').forEach(el => el.classList.add('in'));
-    e.target.querySelectorAll('.stat-num[data-count]').forEach(el => {
-      if (el.dataset.done) return; el.dataset.done = '1';
-      const target = +el.dataset.count, duration = 1600, start = performance.now(), suffix = el.dataset.suffix || '';
-      const tick = now => { const p = Math.min(1, (now - start) / duration); const eased = 1 - Math.pow(1 - p, 3); el.textContent = Math.floor(target * eased).toLocaleString('en-US') + suffix; if (p < 1) requestAnimationFrame(tick); };
-      requestAnimationFrame(tick);
-    });
-  });
-}, { threshold: .25 });
-secs.filter(s => !s.classList.contains('hero')).forEach(s => io.observe(s));
-// A tall section in a short window never reaches 25% visible, so every reveal element is observed on its own too.
-const ioEl = new IntersectionObserver(entries => {
-  entries.forEach(e => { if (!e.isIntersecting) return; e.target.classList.add('in'); ioEl.unobserve(e.target); });
-}, { threshold: 0, rootMargin: '0px 0px -12% 0px' });
-document.querySelectorAll('section.panel:not(.hero) .rise, section.panel:not(.hero) .eyebrow, section.panel:not(.hero) h2.section-h, section.panel:not(.hero) .sub').forEach(el => ioEl.observe(el));
+})();
 </script>
 <script>
 (function () {
@@ -827,55 +729,15 @@ document.querySelectorAll('section.panel:not(.hero) .rise, section.panel:not(.he
     });
   });
 
-  // ── Hero sound toggle — the live #sound-toggle, for a file or for the YouTube player ──
-  var vid = document.getElementById('hero-video'), snd = document.getElementById('sound-toggle');
-  if (vid && snd) {
-    var muted = true;
-    var yt = function (fn) { try { vid.contentWindow.postMessage(JSON.stringify({ event: 'command', func: fn, args: [] }), '*'); } catch (e) {} };
-    snd.addEventListener('click', function (e) {
-      e.stopPropagation();
-      muted = !muted;
-      if (vid.tagName === 'IFRAME') yt(muted ? 'mute' : 'unMute'); else { vid.muted = muted; if (!muted) vid.play().catch(function () {}); }
-      snd.innerHTML = muted ? '&#128263;' : '&#128266;';
-      snd.classList.toggle('on', !muted);
-      snd.setAttribute('aria-pressed', !muted);
-    });
-  }
-
   // ── Back to top ──
   var top = document.getElementById('back-to-top');
   if (top) {
     top.addEventListener('click', function () { scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' }); });
     addEventListener('scroll', function () { top.classList.toggle('show', scrollY > innerHeight * .8); }, { passive: true });
   }
-})();
 
-(function(){
-  document.querySelectorAll('form[data-endpoint]').forEach(f => {
-    f.addEventListener('submit', async e => {
-      e.preventDefault();
-      const btn = f.querySelector('button[type=submit]'), msg = f.querySelector('.form-msg');
-      const data = Object.fromEntries(new FormData(f).entries()); data.page = location.pathname.split('/').pop() || 'index.html';
-      // The contact page asks for first and last name and a confirming email, as the live page does; the Worker takes one name.
-      if (data.first_name !== undefined || data.last_name !== undefined) {
-        data.name = [data.first_name, data.last_name].map(s => (s || '').trim()).filter(Boolean).join(' '); delete data.first_name; delete data.last_name;
-      }
-      if (data.role !== undefined && !data.message) { data.message = 'Atlas EP access request · Role: ' + (data.role || '(not chosen)'); }   // the Atlas EP access form has no message field
-      if (data.confirm_email !== undefined) {
-        if (data.confirm_email.trim().toLowerCase() !== (data.email || '').trim().toLowerCase()) { msg.textContent = 'The two email addresses do not match.'; msg.className = 'form-msg err'; return; }
-        delete data.confirm_email;
-      }
-      btn.disabled = true; const label = btn.textContent; btn.textContent = 'Sending…'; msg.textContent = ''; msg.className = 'form-msg';
-      if (window.mastAttribution) data.attribution = mastAttribution();   // first touch, UTM, referrer, landing page, visitor id → the CRM lead
-      try {
-        const r = await fetch(f.dataset.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok || !j.ok) throw new Error(j.error || 'Could not send');
-        f.reset(); msg.textContent = f.dataset.success || 'Sent. We will respond as soon as possible.'; msg.classList.add('ok');
-      } catch (err) { msg.textContent = err.message + ' You can also call (281) 654-8100.'; msg.classList.add('err'); }
-      btn.disabled = false; btn.textContent = label;
-    });
-  });
+  // The live site enters by itself after 3.5s (atlasglinn.com index.html); Enter and Skip Intro still work first.
+  if (intro && !seen && !reduce) setTimeout(function () { if (!intro.classList.contains('hidden')) enterSite(); }, 3500);
 })();
 </script>
 <script>

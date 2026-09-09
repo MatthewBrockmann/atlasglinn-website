@@ -44,6 +44,7 @@ rep = {'#1A6BDE': '#C9A84C', 'rgba(26,107,222,': 'rgba(201,168,76,', '#0f1622': 
        "'Inconsolata', monospace": "'Share Tech Mono', monospace", 'rgba(8,12,20,': 'rgba(5,8,16,'}
 for k, v in rep.items(): booking_css = booking_css.replace(k, v)
 assert '.modal-bd {' in booking_css and '.day.wk {' in booking_css and '.cat-btn {' in booking_css, 'booking css missing pieces'
+assert '.modal.req .err:not([hidden])' in booking_css, 'the request dialog error text is invisible again'
 
 # ── 2. Modal + banner markup from the Tesla page ──
 banner = between(tesla, '<div id="banner"', '</div>', True)
@@ -90,6 +91,30 @@ instructor_films = """const INSTRUCTOR_FILMS = [
 ];"""
 assert js.count('const INSTRUCTOR_FILMS = [];') == 1, 'tesla page lost its INSTRUCTOR_FILMS hook'
 js = js.replace('const INSTRUCTOR_FILMS = [];', instructor_films, 1)
+# Store product view (owner, 2026-09-09: "What we want is the actual marketing and verbiage so that you can click on it
+# and see"). scripts/store-intake.py parses the captured IWA product pages into scripts/store-products.json — their
+# title, their description, the spec lines they publish and their photographs — and it is spliced here so the page needs
+# no request to show it. Our price and our stock line come from GEAR_PRICE_TABLE / gearOut, never from IWA; no card and
+# no dialog carries a link to their shop. Re-run store-intake.py after a new capture; the JSON is committed.
+import json as _sj
+_store_file = f'{REPO}/scripts/store-products.json'
+STORE_PRODUCTS = _sj.load(open(_store_file, encoding='utf-8'))['products'] if os.path.exists(_store_file) else {}
+# Only what the view renders crosses into the page: the source URL and the capture path stay in the committed JSON as
+# provenance and never reach a visitor's browser (owner 2026-09-08: buyers stay on our store).
+_store_page = {k: {f: v[f] for f in ('name', 'html', 'specs', 'images')} for k, v in STORE_PRODUCTS.items()}
+_store_js = _sj.dumps(_store_page, sort_keys=True, ensure_ascii=False, separators=(',', ':')).replace('<', '\\u003c')
+assert js.count('const STORE_PRODUCTS = {};') == 1, 'tesla page lost its STORE_PRODUCTS hook'
+js = js.replace('const STORE_PRODUCTS = {};', 'const STORE_PRODUCTS = ' + _store_js + ';', 1)
+# Waiting list (owner, 2026-09-08: "Not class filled-. Join waiting list"). The state lives in mastsolutions-tesla.html;
+# this reads it so the chapter text and the guards below follow the one constant.
+_wl = re.search(r"^const WAITLIST_ALL_DATES = (true|false);$", tesla, re.M)
+assert _wl, 'WAITLIST_ALL_DATES not found in mastsolutions-tesla.html'
+WAITLIST_ALL_DATES = _wl.group(1) == 'true'
+# The action is folded here rather than left a ternary: while the waiting list is on, the words "Select Date" must not
+# survive anywhere in the page, and the guard for that is a string search a dead branch would satisfy falsely.
+_action = "WAITLIST_ALL_DATES ? 'Join waiting list' : 'Select Date'"
+assert js.count(_action) == 1, 'the date-action constant moved in the booking source'
+js = js.replace(_action, "'Join waiting list'" if WAITLIST_ALL_DATES else "'Select Date'", 1)
 assert 'function openCal' in js and 'function startCheckout' in js and "['testimonial-strip', TESTIMONIALS]" in js, 'booking js missing pieces'
 assert 'hero-yt' not in js and 'REVIEWS' not in js, 'hero/reviews code leaked into booking js'
 
@@ -97,22 +122,31 @@ assert 'hero-yt' not in js and 'REVIEWS' not in js, 'hero/reviews code leaked in
 def tile(num, title, body, img, pos='center', clip=''):
     return shell.tile(num, title, body, 'images/mast/' + img, pos, ('images/mast/' + clip) if clip else '')
 
+CHAPTERS = [('s1', 'Opening'), ('s2', 'Standard'), ('s3', 'Who'), ('s4', 'Disciplines'), ('s5', 'The Range'),
+            ('s6', 'Classes'), ('s7', 'Team Memberships'), ('s8', 'Instructors'), ('s9', 'In Action'),
+            ('s10', 'Testimonials'), ('s11', 'Privacy'), ('s12', 'Store'), ('s13', 'Contact')]
+
 CHROME = shell.chrome(
     credits=('A Houston Operation', 'Since 2005'), wordmark='MAST Solutions',
     photos=[('01', 'images/mast/hero-casualty-carry.jpg', 'center 40%'), ('02', 'images/mast/disc-firearms.jpg', 'center top'),   # the picture is near-square: from the top so the two faces show (owner, 2026-09-05: "bring this pic down so we can see the people")
             ('03', 'images/mast/ship-deck-operators.jpg', 'center top'),   # the deck photograph cut to its lower half, so the four operators sit in the upper band behind the heading, not behind the tiles (owner, 2026-09-05: "Bring the ship up and the operators visible", then "SHOW THE OPERATORS on deck in background")
             ('04', 'images/mast/disc-cqb.jpg', None),
             ('05', 'images/mast/range/a08.jpg', 'center 45%'),   # the aerial (r01.jpg never existed: the old-site set is r001–r024)
-            ('06', 'images/mast/courses-low-light.jpg', None), ('07', 'images/mast/courses-low-light.jpg', 'center 60%'),
+            # 06: his photograph (owner, 2026-09-08, with it attached: "For Cources - THIS BACKGROUND PIC NOT THE SS").
+            # The file is 1024x950 and his head sits in its top fifth, so a 16:9 cover from the centre would crop it away.
+            ('06', 'images/mast/courses-instructor.jpg', '50% 15%'), ('07', 'images/mast/courses-low-light.jpg', 'center 60%'),
             ('08', 'images/mast/gallery/g06.jpg', 'center 45%'),   # the carbine from behind the car (owner, 2026-09-05: "Replace this background with the attached JPG", on the Instructors chapter)
             ('09', 'images/mast/vehicular.jpg', None), ('10', 'images/mast/instructing-le.jpg', 'center 30%'),
             ('11', 'images/mast/privacy-aircraft.jpg', None), ('12', 'images/mast/disc-firearms.jpg', 'center 30%'), ('13', 'images/mast/contact-zodiac.jpg', None)],
-    hud_tl='&#9679; ATLAS GLINN &middot; MAST.SYS LIVE', hud_tl_href='/',   # root, so it resolves on WordPress and on Pages alike
+    hud_tl='&#9679; ATLAS GLINN<span class="hud-x"> &middot; MAST.SYS LIVE</span>', hud_tl_href='https://atlasglinn.com/',   # absolute: on www.mastsolutions.com "/" is this page, not Atlas Glinn
     hud_bl='HOU &middot; 29.7604&deg;N &middot; 95.3698&deg;W', hud_br='DETAILS MATTER',
-    chapters=[('s1', '01 &middot; Opening'), ('s2', '02 &middot; Standard'), ('s3', '03 &middot; Who'), ('s4', '04 &middot; Disciplines'), ('s5', '05 &middot; The Range'),
-              ('s6', '06 &middot; Classes'), ('s7', '07 &middot; Team Memberships'), ('s8', '08 &middot; Instructors'), ('s9', '09 &middot; In Action'),
-              ('s10', '10 &middot; Testimonials'), ('s11', '11 &middot; Privacy'), ('s12', '12 &middot; Gear'), ('s13', '13 &middot; Contact')])
+    chapters=[(cid, '%02d &middot; %s' % (k, label)) for k, (cid, label) in enumerate(CHAPTERS, 1)])
 
+
+# ── Book a Class on every chapter (owner: "BOOK A CLASS should be on every page esp Classes"). One constant, interpolated into
+#    every chapter, so a chapter cannot be added without it. The href keeps the catalog reachable before the script runs;
+#    the click opens the weekend calendar, the same call the hero and Contact rows already make.
+BOOK_CTA = '<div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a></div>'
 
 # ── Membership: the four teams of the old site's Membership sheet (2014) plus Law Enforcement and Verified Teachers (owner,
 #    2026-09-04: "Add the 4 Subscriptions"; fees Red 250, Blue 450, Gold 575, Black 600, LE 195, Teachers 195). Join opens a short
@@ -130,7 +164,6 @@ MEMBERSHIP = f"""
   <section class="panel" id="s7" data-section="07">
     <div>
       <div class="eyebrow">Team Memberships &middot; Six Teams &middot; Limited Slots</div>
-      <h2 class="section-h">Team <span class="gold">Memberships.</span></h2>
       <p class="sub">MAST offers membership in six teams: four open teams, plus Law Enforcement and Verified Teachers. Each team holds a set number of slots, so the benefits and the class seats are always there for the members who hold them. When a team is full there is a waiting list. New memberships are vetted by the established team.</p>
       <div class="tiles four rise">
         {tier('Red Team', 't-red', 'red_team', '$250', 'One class, plus 25% off any one class for you or one friend.', '10 memberships')}
@@ -140,6 +173,7 @@ MEMBERSHIP = f"""
         {tier('Law Enforcement', 't-le', 'le_team', '$195', 'Two classes, plus 35% off any two classes for you or two friends. Verified status required.', '10 memberships')}
         {tier('Verified Teachers', 't-teachers', 'teachers_team', '$195', 'Two classes, plus 35% off any two classes for you or two friends. Verified status required.', '10 memberships')}
       </div>
+      {BOOK_CTA}
       <p class="teams-note">Hover a team for what it includes; tap it to join. A slot is held while the monthly fee is paid; a lapsed slot goes to the waiting list. Membership is billed monthly by card; new memberships are vetted by the established team.</p>
     </div>
   </section>
@@ -151,6 +185,8 @@ MEMBERSHIP = f"""
 #    chapters by index.
 _in_action = '  <a href="#s9" class="chap-link">09 &middot; In Action</a>'
 assert CHROME.count(_in_action) == 1, 'In Action nav entry not found'
+# Relative, not atlasglinn.com/articles/index.html: articles/ is MAST's own folder in this repo and the Atlas static
+# builds are not an approved destination. The entry is preview-only (display:none) either way.
 CHROME = CHROME.replace(_in_action, _in_action + '\n  <a href="articles/index.html" class="chap-extra preview-only">&middot; Blogs</a>')
 
 # ── Account (owner, 2026-09-05: "ADD ACCOUNT"): a Sign in link in the HUD's top-right corner and an entry at the foot of the chapter
@@ -161,6 +197,23 @@ CHROME = CHROME.replace(_contact_nav, _contact_nav + '\n  <a href="#" class="cha
 _hud_tr = '<div class="hud tr" id="hud-section">'
 assert CHROME.count(_hud_tr) == 1, 'HUD section marker not found'
 CHROME = CHROME.replace(_hud_tr, '<a class="hud acct acct-link" href="#" onclick="openAcct();return false;" aria-haspopup="dialog">Sign in</a>\n' + _hud_tr)
+
+# ── Mobile navigation (2026-09-08). Below 900px the fixed chapter rail is display:none and nothing replaced it: thirteen
+#    chapters over 20,000px with no route but a blind scroll, and the fifteen links still in the DOM unreachable. The shell
+#    already ships the component the Atlas Glinn pages use — sitenav() / SITENAV_CSS / SITENAV_JS — so this wires it rather
+#    than inventing a second menu: the same MENU vocabulary and the same full-screen list of large targets, behind a compact
+#    sticky bar, carrying the thirteen chapters plus Book a Class and Sign in. Desktop is untouched; the rail stays.
+MENU_FOOT = ('2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br>'
+             '<a href="tel:+12816548100">(281) 654-8100</a>&middot;<a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a><br>'
+             '&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions')
+MOBILE_NAV = '<div class="mast-topbar" aria-hidden="true"></div>\n' + shell.sitenav(
+    [('#' + cid, label, 'Chapter %02d' % k) for k, (cid, label) in enumerate(CHAPTERS, 1)], '', MENU_FOOT)
+# Book a Class and Sign in call the page's dialogs, which sitenav()'s plain links cannot carry. setTimeout defers the open
+# until after the overlay's own click handler has closed the menu and released the body scroll lock.
+_menu_extra = ('      <li><a href="#s6" class="nav-book" onclick="setTimeout(openDCal,0);return false;">Book a Class<small>Weekend calendar</small></a></li>\n'
+               '      <li><a href="#" class="acct-link" onclick="setTimeout(openAcct,0);return false;">Sign in</a></li>')
+assert MOBILE_NAV.count('\n    </ul>') == 1, 'sitenav list end not found'
+MOBILE_NAV = MOBILE_NAV.replace('\n    </ul>', '\n' + _menu_extra + '\n    </ul>', 1)
 
 # ── The Range: the owner's photographs first (2026-09-05: a08 and a13 the aerials, a01–a04 the berm, the berm at dusk, the
 #    canopies and the classroom, a05 the briefing, a09 the pistol line, a10 the range at night under lights, a11 the low-light
@@ -206,8 +259,11 @@ def fold_button(fold_id, open_text, close_text):
     return (f'<div class="ctas rise"><button class="secondary-cta" type="button" id="{fold_id}-btn" aria-expanded="false" aria-controls="{fold_id}" '
             f'onclick="toggleFold(\'{fold_id}\', \'{open_text}\', \'{close_text}\')">{open_text}</button></div>')
 def photo_grid(gid, photos):
-    """Skills-tile grid of photographs. Up to four rows show outright; a longer set shows twelve and puts the rest behind "Show all"."""
-    shown = len(photos) if len(photos) <= 16 else 12
+    """Skills-tile grid of photographs. Up to five rows show outright; a longer set shows twelve and puts the rest behind
+    "Show all". The whole grid already sits behind this chapter's Click to View fold, which is what limits the scrolling he
+    asked about (2026-09-05); a second button in front of the photographs he has just dropped would hide exactly the new
+    ones, since photo-intake.py appends. Raised from 16 to 20 on 2026-09-09 when his three landed and made the set 18."""
+    shown = len(photos) if len(photos) <= 20 else 12
     tiles = ''.join(photo_tile(i, src, shown) for i, src in enumerate(photos, 1))
     more = '' if len(photos) <= shown else f'<div class="ctas rise"><button class="secondary-cta" type="button" id="{gid}-more" onclick="showAll(\'{gid}\')">Show all {len(photos)} photographs</button></div>'
     return f'<div class="tiles four rise photo-tiles" id="{gid}">{tiles}</div>\n      {more}'
@@ -215,13 +271,52 @@ RANGE_SECTION = f"""
   <section class="panel" id="s5" data-section="05">
     <div>
       <div class="eyebrow">Enter the Range</div>
-      <h2 class="section-h">The <span class="gold">Range.</span></h2>
       <p class="sub">A private range. Flat range and berms, vehicle lanes, low light, and the shoothouse &mdash; the ground every class is run on.</p>
       {fold_button('range-fold', 'Click to View', 'Click to Close')}
       <div class="fold" id="range-fold">{photo_grid('range-tiles', RANGE_PHOTOS)}</div>
+      {BOOK_CTA}
     </div>
   </section>
 """
+# ── The Classes, in the Range chapter's shape (owner, 2026-09-08, over a screenshot of this chapter's heading and one of
+#    the Range chapter's CLICK TO VIEW button: "Delete this + add like the range + CLICK TO VIEW = gets rid of scrolling +
+#    Book Course = cal+ courses show", and on the heading: "Delete SS 2 + Course Catalog enough"). So the chapter is the
+#    eyebrow, its one line and two controls; the twenty-one courses open over it in CATALOG_MODAL instead of standing in the
+#    page flow. BOOK COURSE is this chapter's Book-a-Class control — the same openDCal() the other twelve call.
+CLASSES_LINE = ('Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Fundamentals first, unless you have taken it before. '
+                + ('Each discipline&rsquo;s Fundamentals course opens its other courses, and the waiting list asks before you join it.'
+                   if WAITLIST_ALL_DATES else
+                   'Each discipline&rsquo;s Fundamentals course opens its other courses, and Select Date asks before the calendar opens.')
+                + '</b> P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.')
+CLASSES_SECTION = f"""
+  <section class="panel" id="s6" data-section="06">
+    <div>
+      <div class="eyebrow">Course Catalog</div>
+      <p class="sub">{CLASSES_LINE}</p>
+      <div class="ctas rise"><button class="secondary-cta" type="button" aria-haspopup="dialog" onclick="openCatalog()">Click to View</button><a href="#s6" class="cta" onclick="openDCal();return false;">Book Course</a></div>
+    </div>
+  </section>
+"""
+CATALOG_MODAL = """
+<!-- COURSE CATALOG: the same #catalog panel the booking script fills, the same accordions, course rows and prerequisite
+     gate, in a dialog of the modal family instead of in the chapter. Nothing about the catalog itself changes; what changes
+     is that it no longer makes the chapter scroll. It sits before the calendar, gate and request dialogs so those still
+     paint over it. -->
+<div id="catalog-bd" class="modal-bd" onclick="closeCatalog()"></div>
+<div id="catalog-modal" class="modal wide catalog" role="dialog" aria-modal="true" aria-labelledby="catalog-modal-title">
+    <button class="modal-x" aria-label="Close the course catalog" onclick="closeCatalog()">&times;</button>
+    <div class="eyebrow">Course Catalog</div>
+    <h3 id="catalog-modal-title">Open a discipline, pick a course</h3>
+    <div class="catalog-panel" id="catalog"></div>
+    <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p>
+</div>
+"""
+CATALOG_JS = """
+function openCatalog(){ lastFocus = document.activeElement; $('catalog-bd').classList.add('open'); $('catalog-modal').classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeCatalog(){ $('catalog-bd').classList.remove('open'); $('catalog-modal').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('catalog-modal').classList.contains('open')) closeCatalog(); });
+"""
+
 LIGHTBOX = """
 <!-- LIGHTBOX for the Range photographs -->
 <div id="lb-bd" class="modal-bd" onclick="closeLb()"></div>
@@ -235,6 +330,44 @@ function openLb(src){ const vid = /\.(mp4|webm|mov)(\?|$)/i.test(src); const img
 function closeLb(){ const v = $('lb-vid'); v.pause(); v.removeAttribute('src'); $('lb-bd').classList.remove('open'); $('lb').classList.remove('open'); document.body.style.overflow = ''; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('lb').classList.contains('open')) closeLb(); });
 """
+
+# ── Footer (2026-09-08): the structure and order the Atlas Glinn pages close with — four link groups, the address and
+#    contact lines, the socials, the two badges, the rights line and the legal links — carried onto MAST so a visitor who
+#    lands on www.mastsolutions.com can reach the rest of the firm. Atlas destinations are absolute: the mastsolutions.com
+#    rewrite turns a relative link to this page into "/" and would otherwise make them self-links. YouTube stays
+#    @mastsolutions (the training channel), which is where the MAST footer already pointed.
+AG = 'https://atlasglinn.com/'
+# The approved public Atlas Glinn URLs are the WordPress slugs the live site's own navigation uses
+# (reference/desktop/live/index.html: /training/, /executive-protection/, /residential-protection/, /disaster-recovery/,
+# /about/, /careers/, /contact/, /technology/, /ep-app/, /cuas-aerodefense/; /uas/ on the UAS capture). The
+# atlasglinn.com/<slug>.html copies this footer used to point at are the static preview builds, publicly reachable but
+# NOT approved (00-rules/website-go-live-gate.md), and MAST's public footer is what sent visitors into them.
+# privacy/ and terms/ join them 2026-09-09: MAST's footer and its two registration dialogs pointed at privacy.html /
+# terms.html, which the mastsolutions.com copy promoted to atlasglinn.com/privacy.html — a static preview build. The
+# live WordPress site links to https://atlasglinn.com/privacy/ and https://atlasglinn.com/terms/ from its own ep-app
+# page (reference/desktop/live/ep-app.html on claude/desktop-assets, read 2026-09-09), so those are the approved URLs
+# and both copies now carry them. mast-capability-statement.html and articles/index.html have no such equivalent
+# anywhere in the live captures (grepped, 0 hits): they are MAST's own pages and stay relative in both copies.
+AG_SLUG = {s: AG + s + '/' for s in ('executive-protection', 'residential-protection', 'disaster-recovery', 'training',
+                                     'technology', 'cuas-aerodefense', 'uas', 'about', 'careers', 'contact', 'ep-app',
+                                     'privacy', 'terms')}
+def _fl(pairs): return ' &middot; '.join(f'<a href="{h}">{t}</a>' for h, t in pairs)
+FOOT_SITE = ('<span class="fg">Atlas Glinn</span>' + _fl([(AG, 'Home'), (AG_SLUG['executive-protection'], 'Executive Protection'),
+                                                          (AG_SLUG['residential-protection'], 'Residential Protection'), (AG_SLUG['disaster-recovery'], 'Disaster Recovery'),
+                                                          (AG_SLUG['technology'], 'Technology'), (AG_SLUG['ep-app'], 'Atlas EP App')])
+             + '<br><span class="fg">MAST Solutions</span>' + _fl([(AG_SLUG['training'], 'Training Programs'), (AG_SLUG['ep-app'], 'Atlas EP Platform'),
+                                                                   (AG_SLUG['cuas-aerodefense'], 'Counter-Drone Solutions'), ('#s1', 'MAST Solutions')])
+             + '<br><span class="fg">Company</span>' + _fl([(AG_SLUG['about'], 'About Us'), (AG_SLUG['careers'], 'Careers'), (AG_SLUG['about'] + '#s5', 'Resources'), ('#s13', 'Contact')])
+             + '<br><span class="fg">Connect</span>2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063 &middot; <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a><br>'
+             + '<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;'
+               '<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;'
+               '<a href="https://www.youtube.com/@mastsolutions" target="_blank" rel="noopener">YouTube</a>&middot;'
+               '<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;'
+               '<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a>&middot;' + shell.REVIEW_LINK
+             + '<div class="badges"><div class="badge-item"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div>'
+               '<div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div>'
+             + '<a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br>'
+             + f'<a href="{AG_SLUG["privacy"]}">Privacy Policy</a>&middot;<a href="{AG_SLUG["terms"]}">Terms of Service</a>&middot;<a href="#s1" class="to-top">Back to top &uarr;</a>')
 
 SECTIONS = f"""
   <section class="panel" id="s1" data-section="01">
@@ -257,6 +390,7 @@ SECTIONS = f"""
         <div class="stat"><div class="stat-num" data-count="22">0</div><div class="stat-label">Classes</div></div>
         <div class="stat"><div class="stat-num" data-count="20" data-suffix="+">0</div><div class="stat-label">Years &middot; Over Two Decades</div></div>
       </div>
+      {BOOK_CTA}
     </div>
   </section>
 
@@ -274,6 +408,7 @@ SECTIONS = f"""
         {tile('02', 'Law Enforcement.', 'SWAT, warrant teams and federal agencies. Small-unit tactics under time pressure.', 'who-law-enforcement.jpg')}
         {tile('03', 'Civilian.', 'Private citizens who take the preservation of life seriously. Same standard, scaled.', 'who-civilian.jpg', 'left 40%')}
       </div>
+      {BOOK_CTA}
     </div>
   </section>
 
@@ -291,19 +426,12 @@ SECTIONS = f"""
         {tile('06', 'Medical.', 'Emergency and trauma care.', 'mast-medical-poster.jpg', 'center 35%', clip='mast-medical-teaser.mp4')}
         {tile('07', 'Leadership.', 'Command and decision-making.', 'disc-leadership.jpg', 'center 40%')}
       </div>
+      {BOOK_CTA}
     </div>
   </section>
 
 {RANGE_SECTION}
-  <section class="panel" id="s6" data-section="06">
-    <div>
-      <div class="eyebrow">Course Catalog</div>
-      <h2 class="section-h">The <span class="gold">Classes.</span></h2>
-      <p class="sub">Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Fundamentals first, unless you have taken it before. Each discipline&rsquo;s Fundamentals course opens its other courses, and Select Date asks before the calendar opens.</b> P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.</p>
-      <div class="catalog-wrap rise"><div class="glass"><div class="catalog-panel" id="catalog"></div></div>
-      <p class="catalog-note">Team blocks and agency instruction: <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p></div>
-    </div>
-  </section>
+{CLASSES_SECTION}
 
 {MEMBERSHIP}
   <section class="panel" id="s8" data-section="08">
@@ -323,7 +451,7 @@ SECTIONS = f"""
             <li>Featured on <b>Modern Shooter TV</b>, in <b>The Washington Post</b> and <b>The Houstonian</b></li>
           </ul>
           <p class="cadre">Courses run with a lead instructor, assistant instructors, and RSOs (Range Safety Officers) on the line. Your instructors are named on the course confirmation.</p>
-          <div class="ctas"><button class="cta-button ghost-button" type="button" onclick="openQuals()">Qualifications &amp; Certifications</button><a href="#s6" class="cta-button">Classes</a></div>
+          <div class="ctas"><button class="cta-button ghost-button" type="button" onclick="openQuals()">Qualifications &amp; Certifications</button><a href="#s6" class="cta-button" onclick="openDCal();return false;">Classes</a></div>
         </div>
       </div>
       <!-- Instructors = the founder only (owner, 2026-09-05: "Just me right now = instructor + correct pic"). The Michael Cline and
@@ -340,7 +468,6 @@ SECTIONS = f"""
   <section class="panel" id="s9" data-section="09">
     <div>
       <div class="eyebrow">MAST Solutions In Action</div>
-      <h2 class="section-h">In <span class="gold">Action.</span></h2>
       <p class="sub">Training, operations, and the people behind the mission. Tap to play. Nothing loads until you do.</p>
       <a href="https://www.washingtonpost.com/graphics/2018/national/amp-stories/arming-american-teachers/" target="_blank" rel="noopener" class="post rise"><small>As featured in</small>The Washington Post &middot; Arming American Teachers &rarr;</a>
       <!-- The Washington Post feature sits above the films (owner, 2026-09-05: "the videos will draw attention, so put it right above the videos") -->
@@ -348,6 +475,7 @@ SECTIONS = f"""
       <div class="eyebrow gallery-eyebrow rise">Photographs</div>
       {fold_button('gallery-fold', 'Click to View', 'Click to Close')}
       <div class="fold" id="gallery-fold">{photo_grid('gallery-tiles', GALLERY_PHOTOS)}</div>
+      {BOOK_CTA}
     </div>
   </section>
 
@@ -356,7 +484,7 @@ SECTIONS = f"""
       <div class="eyebrow">Testimonials</div>
       <h2 class="section-h">In Their <span class="gold">Words.</span></h2>
       <div class="media-strip rise" id="testimonial-strip"></div>
-      <div class="ctas rise"><a class="cta" href="https://www.google.com/search?q=Atlas+Glinn&amp;ludocid=4511758973651106295#lrd=0x8640c3cb2d0755df:0x3e9cfce1d8a7b9f7,3" target="_blank" rel="noopener" data-track="review">Review us on Google</a><a class="secondary-cta" href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener" data-track="follow">Follow on Instagram</a></div>
+      <div class="ctas rise"><a class="cta" href="{shell.GOOGLE_REVIEW_URL}" target="_blank" rel="noopener" data-track="review">Review us on Google</a><a class="secondary-cta" href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener" data-track="follow">Follow on Instagram</a></div>
       <div class="quotes rise">
         <div class="q"><p>&ldquo;Matthew is an expert in his field. He is highly motivated, knowledgeable and I highly recommend him for top-tier performance.&rdquo;</p><div class="by">Kenny Upton &middot; Deputy, Harris County Sheriff</div></div>
         <div class="q"><p>&ldquo;His leadership, dedication, drive, and passion is second to none. A master at teamwork, problem-solving, leadership, and communication.&rdquo;</p><div class="by">Ray Cash Care &middot; Navy SEAL / Former CIA</div></div>
@@ -365,6 +493,7 @@ SECTIONS = f"""
         <div class="q"><p>&ldquo;Extremely professional. In an extremely competitive industry Matt has never failed to provide exceptional guidance. I recommend him without hesitation.&rdquo;</p><div class="by">Craig Etkin &middot; President &amp; CEO, intelligence360</div></div>
         <div class="q"><p>&ldquo;I&rsquo;ve trained with some big-name national and global self-defense trainers. I&rsquo;ve always felt safe training with Matt, the #1 criterion for choosing a trainer.&rdquo;</p><div class="by">Wayne Sadin &middot; CxO / Investor</div></div>
       </div>
+      {BOOK_CTA}
     </div>
   </section>
 
@@ -378,21 +507,22 @@ SECTIONS = f"""
         <p>Pictured: Senators Hawley and Schmitt.</p>
       </div>
       <div class="eyebrow" style="margin-top:2.5rem;">For agencies, units and procurement officers</div>
-      <div class="ctas rise"><a href="mailto:matthew@atlasglinn.com?subject=MAST%20Solutions%20Capability%20Statement%20Request" class="cta">Email for the Capability Statement</a><a href="mast-capability-statement.html" class="secondary-cta">View One-Pager</a></div>
+      <div class="ctas rise"><button class="cta-button" type="button" onclick="requestCapability()">Request the Capability Statement</button><a href="mast-capability-statement.html" class="secondary-cta">View One-Pager</a></div>
+      {BOOK_CTA}
     </div>
   </section>
 
   <section class="panel" id="s12" data-section="12">
     <div id="gear">  <!-- named anchor: the Atlas site menu's Training link (IWA Training Products) opens mastsolutions.html#gear -->
       <!-- Aimpoint hidden 2026-09-07 (owner: "hide Aimpoint for now"): GEAR_HIDDEN in mastsolutions-tesla.html keeps the cards off;
-           when it comes back, the eyebrow reads "Gear · Aimpoint and IWA" and the sub gets its Aimpoint sentence again
+           when it comes back, the eyebrow reads "Store · Aimpoint and IWA" and the sub gets its Aimpoint sentence again
            ("Atlas Glinn is an authorized dealer for Aimpoint optics and IWA International training devices. Aimpoint prices are
            MAP, with dealer and volume pricing on request and free shipping over $500."). -->
-      <div class="eyebrow">Gear &middot; IWA</div>
-      <h2 class="section-h">Equipment. <span class="gold">By Quote.</span></h2>
-      <p class="sub">Atlas Glinn is an authorized dealer for IWA International training devices. IWA devices are priced each, three-unit minimum, hazmat shipping included; a PPC certification is required and every order is verified before fulfillment. Every item is quoted, not sold from a cart. Nothing is charged online.</p>
+      <div class="eyebrow">Store &middot; IWA</div>
+      <p class="sub">Atlas Glinn is an authorized dealer for IWA International training devices. IWA devices are priced each, three-unit minimum, hazmat shipping included; a PPC certification is required and every order is verified before fulfillment. Email us about any item for availability and lead time. Nothing is charged online.</p>
       <div class="gear-panel rise" id="gear-panel"></div>
       <p class="gate-fine" style="max-width:820px;margin:1.6rem auto 0;">Tell us the item and quantity; we confirm availability and shipping by email within one business day.</p>
+      {BOOK_CTA}
     </div>
   </section>
 
@@ -402,8 +532,8 @@ SECTIONS = f"""
       <h2 class="section-h"><span class="gold">Train</span> with MAST.</h2>
       <p class="sub">Individual seats, team blocks, and agency instruction.</p>
       <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div>
-      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a><a href="/" class="secondary-cta">Atlas Glinn &rarr;</a></div>
-      <div class="foot">&copy; 2026 Atlas Glinn, LLC &middot; MAST Solutions <br><a href="privacy.html">Privacy Policy</a>&middot;<a href="terms.html">Terms of Service</a>&middot;<a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.youtube.com/@mastsolutions" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.google.com/search?q=Atlas+Glinn&amp;ludocid=4511758973651106295#lrd=0x8640c3cb2d0755df:0x3e9cfce1d8a7b9f7,3" target="_blank" rel="noopener" data-track="review">Google Reviews</a></div>
+      <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a><a href="https://atlasglinn.com/" class="secondary-cta">Atlas Glinn &rarr;</a></div>
+      <div class="foot site rise">{FOOT_SITE}</div>
     </div>
   </section>
 
@@ -461,8 +591,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('join').
 (function(){ const p = new URLSearchParams(location.search); const s = p.get('membership'); if (!s) return; const b = $('banner'); b.textContent = s === 'success' ? 'Welcome to the team \u2014 your membership is set up. The team will be in touch.' : 'Membership checkout cancelled \u2014 your card was not charged.'; b.classList.add('show'); setTimeout(() => b.classList.remove('show'), 9000); history.replaceState(null, '', location.pathname); })();
 """
 
-BODY = '\n' + CHROME + '\n' + banner + '\n\n<div class="content">\n' + SECTIONS + '</div>\n\n' + modals + JOIN_MODAL + LIGHTBOX + '\n'
-js = js + JOIN_JS + LIGHTBOX_JS
+BODY = '\n' + CHROME + MOBILE_NAV + '\n' + banner + '\n\n<div class="content">\n' + SECTIONS + '</div>\n\n' + CATALOG_MODAL + modals + JOIN_MODAL + LIGHTBOX + '\n'
+js = js + JOIN_JS + CATALOG_JS + LIGHTBOX_JS + shell.SITENAV_JS
 
 META = """<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
@@ -485,7 +615,7 @@ META = """<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><l
   "name": "MAST Solutions",
   "description": "Tactical training division of Atlas Glinn, LLC. Firearms, CQB, combatives, medical, leadership, low-light and protective courses for military, law enforcement and private citizens. Houston, Texas since 2005.",
   "parentOrganization": { "@type": "Organization", "name": "Atlas Glinn, LLC", "url": "https://atlasglinn.com/" },
-  "founder": { "@type": "Person", "name": "Matthew Brockmann", "jobTitle": "Founder", "url": "https://atlasglinn.com/about.html" },
+  "founder": { "@type": "Person", "name": "Matthew Brockmann", "jobTitle": "Founder", "url": "https://atlasglinn.com/about/" },
   "foundingDate": "2005",
   "image": "https://atlasglinn.com/images/mast/hero-casualty-carry.jpg",
   "address": { "@type": "PostalAddress", "streetAddress": "2450 Fondren Rd, Suite 255", "addressLocality": "Houston", "addressRegion": "TX", "postalCode": "77063", "addressCountry": "US" },
@@ -519,14 +649,28 @@ QUOTES_CSS = """
   /* The account link in the HUD's top-right corner (the section counter sits left of the chapter menu). */
   .hud.acct { top:1.2rem; right:1.8rem; color:var(--gold-champagne); opacity:.9; pointer-events:auto; cursor:pointer; text-decoration:none; padding:.3rem .6rem; border:1px solid rgba(201,168,76,.35); }
   .hud.acct:hover { opacity:1; background:rgba(201,168,76,.06); }
-  @media (max-width:768px) { .hud.acct { display:block; top:.9rem; right:1rem; font-size:.55rem; } }
   /* Folded photo grids: closed until the button opens them, then they unfold downward. The padding keeps the tiles' hover lift clear of the clip. */
   .fold { max-height:0; overflow:hidden; opacity:0; padding:10px 10px 0; margin:-10px -10px 0; transition:max-height .8s cubic-bezier(.2,.7,.2,1), opacity .45s; }
   .fold.open { max-height:6000px; opacity:1; padding-bottom:12px; transition:max-height 1.2s cubic-bezier(.2,.7,.2,1), opacity .5s .1s; }
   /* The contact chapter's line over the water backdrop (owner, 2026-09-05: "Fix the visibility of the contact"); the contact lines themselves are handled in the shell for both sites. */
   #s13 .sub { text-shadow:0 1px 6px rgba(0,0,0,.9), 0 0 18px rgba(0,0,0,.6); }   /* the Contact chapter (13 since the Gear chapter, 2026-09-05) */
+  /* The catalog in its dialog: the dialog is the scroller, so the panel's own 78vh window would nest a second one. */
+  .modal.catalog .catalog-panel { max-height:none; overflow:visible; padding-right:0; }
+  .modal.catalog .catalog-note { margin-top:1.4rem; }
   .modal.lightbox { width:min(1200px, calc(100vw - 32px)); padding:.6rem; background:#050810; }
   .modal.lightbox img { display:block; max-width:100%; max-height:84vh; margin:0 auto; }
+
+  /* The site footer, as the Atlas Glinn pages print it: four link groups, the contact line, the socials, the badges and the
+     rights line. Same rules, this page's palette. */
+  .foot.site { margin:3.2rem auto 0; line-height:2.4; text-align:center; letter-spacing:.22em; max-width:900px; }
+  .foot.site .fg { color:var(--gold-champagne); margin-right:.9rem; }
+  .foot.site .badges { margin:1.2rem auto .8rem; }
+  .foot.site .to-top { color:var(--gold-champagne); }
+  .badges { display:flex; gap:1.4rem; justify-content:center; align-items:center; flex-wrap:wrap; margin-top:2rem; }
+  .badges img { height:84px; width:auto; border:0; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); }
+  .badges .badge-item { text-align:center; }
+  .badges .badge-item p { margin-top:.8rem; font-family:'Orbitron',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-champagne); }
+  @media (max-width:768px) { .badges img { height:64px; } }
 
   .quotes { display:grid; grid-template-columns:repeat(3,1fr); gap:1.1rem; max-width:1200px; margin:0 auto; text-align:left; }
   .quotes .q { border:1px solid rgba(201,168,76,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.7) 100%); padding:1.4rem 1.5rem; }
@@ -551,12 +695,18 @@ GOLD_KEEP = """
   #s6 .gold, #s7 .gold { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
   /* The live atlasglinn.com hero, verbatim (owner, 2026-09-04: "Grab the code from Atlas Glinn. Apply same font size and same code"):
      .hero-headline metrics, the .gold-shimmer rule on "Details", flat #1A6BDE on "Matter", no entrance effect. */
-  h1.mega { font-family:'Orbitron',sans-serif; font-size:3.2rem; font-weight:900; margin-bottom:1rem; letter-spacing:.02em; line-height:1.1; opacity:1; filter:none; transform:none; transition:none; }
+  /* ONE heading size for the whole page (owner, 2026-09-08: "make all headers the same. font size"). MAST-only, and it
+     stays that way: cinematic_shell.py is the Atlas generator's input too, so the token lives here, in the block this
+     assembler splices after the shell's stylesheet. --head-chapter is the only place a heading size is written; the hero
+     wordmark, every chapter h2 and the dialog h3 read this one :root. It is spliced last, so it wins the cascade over the
+     shell's own h1.mega / h2.section-h literals without a second :root competing with it at the same specificity. */
+  :root { --head-chapter:3.2rem; --head-modal:1.3rem; }
+  @media (max-width:768px) { :root { --head-chapter:2rem; } }
+  @media (max-width:480px) { :root { --head-chapter:1.8rem; } }
+  h1.mega, h2.section-h { font-size:var(--head-chapter); }
+  h1.mega { font-family:'Orbitron',sans-serif; font-weight:900; margin-bottom:1rem; letter-spacing:.02em; line-height:1.1; opacity:1; filter:none; transform:none; transition:none; }
   h1.mega .gold { background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; animation:shimmer 6s linear infinite; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; text-shadow:none; }
   h1.mega .white { color:#1A6BDE; }
-  h2.section-h { font-size:3.2rem; }   /* every chapter heading at the hero's size (owner: "same font size for every section below") */
-  @media (max-width:768px) { h1.mega, h2.section-h { font-size:2rem; } }
-  @media (max-width:480px) { h1.mega, h2.section-h { font-size:1.8rem; } }
   @media (prefers-reduced-motion: reduce) { h1.mega .gold { animation:none; } }
   #s6 .cta-button, #s6 .cta, #s7 .cta-button, .sheet .cta-button, .modal .cta-button { background:linear-gradient(135deg, #BF953F 0%, #FCF6BA 50%, #B38728 100%); border-color:#E8D27D; }
   #s6 .cta-button:hover, #s6 .cta:hover, #s7 .cta-button:hover, .sheet .cta-button:hover, .modal .cta-button:hover { box-shadow:0 14px 44px rgba(201,168,76,.5); }
@@ -594,11 +744,130 @@ GOLD_KEEP = """
   @media (max-width:900px) { .teams { grid-template-columns:1fr 1fr; } }
   @media (max-width:600px) { .teams { grid-template-columns:1fr; } .tier-fee { font-size:2.2rem; } }
 """
-html = shell.head(META, shell.css(PALETTE, '/*__BOOKING_CSS__*/' + QUOTES_CSS)) + BODY + shell.tail(shell.three(12, PALETTE), js)
+
+# The mobile menu stands in for the gold chapter rail, so it is spliced after the recolor with the rest of the gold the
+# owner named: the shell's component verbatim, then MAST's breakpoint (the rail hands over at 900px, not 768px), the sticky
+# bar and the touch sizes the audit measured (Sign in was a 76.8 x 21.6 px target).
+MOBILE_NAV_CSS = shell.SITENAV_CSS + """
+  .menu-btn, .sitenav, .mast-topbar { --gold:#C9A84C; --gold-antique:#D4AF37; --gold-champagne:#E8D27D; --gold-bright:#FCF6BA; --copper:#B87333; }
+  .hud.tr { right:15rem; }   /* the shell's rule pulls the counter left for a permanent MENU; MAST's shows on phones only */
+  .mast-topbar { display:none; position:fixed; top:0; left:0; right:0; z-index:2200; height:calc(3.4rem + env(safe-area-inset-top,0px)); background:linear-gradient(180deg, rgba(5,8,16,.94) 0%, rgba(5,8,16,.74) 100%); border-bottom:1px solid rgba(201,168,76,.28); backdrop-filter:blur(10px); pointer-events:none; }
+  .menu-btn { display:none; z-index:2400; }
+  .sitenav { z-index:2300; }   /* over the chapters, under the banner (2500) and the booking modals (3000) */
+  .sitenav .nav-book { color:var(--gold-bright); }
+  @media (max-width:899px) {
+    .chapter-nav { display:none; }   /* one navigation at a time: the rail hands over to MENU here */
+    .hud.tl, .hud.acct { z-index:2400; }   /* the bar is a backdrop, not a lid: the brand line and Sign in ride on it */
+    .mast-topbar { display:block; }
+    .menu-btn { display:inline-flex; align-items:center; min-height:44px; top:calc(.32rem + env(safe-area-inset-top,0px)); right:.8rem; font-size:.62rem; cursor:pointer; }
+    .hud.tl { display:inline-flex; align-items:center; min-height:44px; top:calc(.32rem + env(safe-area-inset-top,0px)); left:calc(1rem + env(safe-area-inset-left,0px)); font-size:.6rem; opacity:.95; }
+    .hud-x { display:none; }   /* the MAST.SYS line would push the bar past a phone's width */
+    .hud.acct { display:inline-flex; align-items:center; min-height:44px; top:calc(.32rem + env(safe-area-inset-top,0px)); right:7.2rem; font-size:.62rem; padding:.3rem .55rem; }
+    .sitenav-in { max-height:100svh; }
+    #s13 .foot { font-size:.72rem; }
+    #s13 .foot a, .contact-lines a { display:inline-flex; align-items:center; min-height:44px; }
+  }
+"""
+html = shell.head(META, shell.css(PALETTE, '/*__BOOKING_CSS__*/' + QUOTES_CSS, '/*__MOBILE_NAV_CSS__*/')) + BODY + shell.tail(shell.three(len(CHAPTERS), PALETTE), js)
 # The video cards and the media strip are shared UI in the blue chapters, so those lifted rules recolor with the page.
 booking_css_kept = '\n'.join(shell._recolor(l, PALETTE) if l.lstrip().startswith(('.video-card', '.yt', '.media-strip')) else l for l in booking_css.splitlines())
 html = shell._recolor(html, PALETTE).replace('/*__BOOKING_CSS__*/', booking_css_kept + GOLD_KEEP, 1)
+# The mobile menu is spliced last and past the recolor, for the same two reasons the booking stack is: it has to win
+# over the desktop .hud rules in QUOTES_CSS, and it stands in for the gold chapter rail, so it keeps the rail's gold.
+html = html.replace('/*__MOBILE_NAV_CSS__*/', MOBILE_NAV_CSS, 1)
+assert '__MOBILE_NAV_CSS__' not in html, 'the mobile menu stylesheet was not spliced'
 assert html.count('__BOOKING_CSS__') == 0 and '.cat-btn {' in html and 'h1.mega .gold { text-shadow' in html, 'booking css / gold keep not spliced'
+
+# The two legal pages, in both copies, in one place. The registration dialog and the sign-in fine print in
+# mastsolutions-tesla.html link to privacy.html / privacy.html#eligibility / terms.html; on the mastsolutions.com copy the
+# old blanket rewrite turned those into atlasglinn.com/privacy.html — a static preview build, not the approved page. They
+# resolve to AG_SLUG here, before either copy is written, so neither can carry a .html form of them again.
+for _legal in ('privacy', 'terms'):
+    html = re.sub(r'href="%s\.html(#[^"]*)?"' % _legal,
+                  lambda m, _s=_legal: 'href="%s%s"' % (AG_SLUG[_s], m.group(1) or ''), html)
+# Second-pass guards (2026-09-08). Each one is a regression that shipped once.
+assert 'ludocid' not in html, 'the rejected Google review URL is back'
+assert html.count('openDCal();return false;') >= len(CHAPTERS), 'a chapter lost its Book a Class CTA'
+assert 'requestCapability()' in html and 'Capability%20Statement%20Request' not in html, 'the capability request went back to a mailto'
+assert 'id="menu-btn"' in html and 'class="sitenav"' in html and 'const nav = document.getElementById(\'sitenav\')' in html, 'the mobile menu is not wired'
+assert 'BOOKING_ENDPOINT' not in html and 'offeredOn(wi)' not in html, 'dead booking code is back'
+assert ('const SECTIONS = %d;' % len(CHAPTERS)) in html and html.count('SECTION 01 / %02d' % len(CHAPTERS)) == 1, \
+    'the HUD counter and the camera path must both count the chapters in CHAPTERS'
+assert 'classes run on every training weekend' in html, 'the calendar reads a class count against one date again'
+assert 'The <span class="gold">Classes.</span>' not in html and "images/mast/courses-instructor.jpg');background-position:50% 15%" in html, \
+    'the Classes chapter title is back or the Courses backdrop is not his photo (owner, 2026-09-08)'
+assert '#intro-seq.gone' in html and 'i.classList.add("gone")' in html, \
+    'the splash releases the pointer on dismissal again: its tap lands on the CTA underneath'
+assert 'if(done||!i.isConnected||i.classList.contains("done")){document.removeEventListener("keydown",onKey);return}' in html, \
+    'the splash key listener outlives the splash again: the first Enter/Space/Escape typed into a form would be swallowed'
+
+# Store chapter guards (2026-09-08). Owner, on the screenshot of chapter 12: '"GEAR" = wrong - STORE = header + IWA + Training
+# Devices + List price + OUT OF STOCK + link to add acutal product info https://iwainternationalinc.com/shop/' — read 23:57 UTC as: IWA's
+# shop is the SOURCE of product information for OUR cards, never a destination for buyers. One assert per
+# thing he named, so the chapter cannot quietly go back to being Gear.
+assert 'class="chap-link">12 &middot; Store</a>' in html and 'class="chap-link">12 &middot; Gear</a>' not in html, \
+    'chapter 12 reads Gear again: the rail, the HUD counter and the mobile menu all take their label from CHAPTERS'
+assert '<div class="eyebrow">Store &middot; IWA</div>' in html and 'Equipment. <span' not in html, \
+    'the Store chapter lost its eyebrow, or the heading is back to "Equipment. By Quote."'
+assert 'IWA Training Devices' in html, 'the brand header over the cards lost its "IWA Training Devices" name'
+assert 'list price' in html.lower(), 'the device price lost its LIST PRICE label'
+assert ('const GEAR_OUT_OF_STOCK = true;' not in html) or '<div class="gear-oos">OUT OF STOCK</div>' in html, \
+    'GEAR_OUT_OF_STOCK holds but no card renders the OUT OF STOCK badge'   # the badge markup, not the phrase: the constant's own comment quotes him
+# Owner 2026-09-08: "the link to IWA sends them to their store. We need them to buy from our store, not theirs." — no card
+# may carry an outbound IWA link; the IWA URLs stay in the page only as the SOURCE map for product information.
+assert 'class="gear-link"' not in html and 'IWA International ↗' not in html, 'a Store card links out to IWA again'
+assert 'href="https://iwainternationalinc.com' not in html and "href='https://iwainternationalinc.com" not in html, \
+    'an outbound iwainternationalinc.com href is rendered somewhere on the page'
+# ...and the URL map is not in the browser at all any more (2026-09-09). The two asserts above match rendered literals,
+# which is the ONE form this codebase never used: the links he killed were built in JS —
+# `'<a class="gear-link" href="' + esc(gearUrl(g)) + '"...'` (mastsolutions-tesla.html at fe1c43e^1) — and produced zero
+# literal href= strings. Re-wiring gearUrl() would have passed every guard. So the map is gone from the page (it lives
+# in scripts/store-intake.py, where it is used) and these asserts check for its absence instead of its presence: with no
+# URL in the payload there is nothing for a JS-built href to point at.
+for _dead in ('gearUrl(', 'GEAR_SHOP', 'GEAR_PRODUCT_URL'):
+    assert _dead not in html, \
+        'the IWA URL map is back in the browser payload (%s): a JS-built href needs no literal to reach their store' % _dead
+assert 'id="gear"' in html and 'id="gear-panel"' in html, \
+    'the Store chapter lost the #gear anchor the Atlas pages link to (mastsolutions.html#gear) or its panel'
+
+# Third-pass guards (2026-09-08). The four Experiences, the waiting list, and the Classes chapter over his photograph.
+# Scoped to the EXPERIENCES array: a whole-document search was satisfied by the owner's quoted email elsewhere in the
+# page, so deleting the Corporate Team Training card still built (function verifier, 2026-09-08).
+_exp = html[html.find('const EXPERIENCES = ['):]
+_exp = _exp[:_exp.find('];') + 2]
+for _x in ('Couples Range Experience', 'Date Night at the Range', 'Bachelor Party at the Range', 'Corporate Team Training'):
+    assert _exp.count("name: '" + _x + "'") == 1, 'the Experiences accordion lost a card: ' + _x
+assert 'const EXPERIENCES_HIDDEN = false;' in html, 'the Experiences cards are hidden again'
+assert 'Package details and pricing are being finalized.' in html and 'Dates announced soon' in html, \
+    'an Experiences card lost its placeholder line or its calendar placeholder'
+assert '>How to book<' in html, 'the Experiences cards lost their How to book button'
+_action_now = 'Join waiting list' if WAITLIST_ALL_DATES else 'Select Date'
+assert ("const DATE_ACTION = '%s';" % _action_now) in html, 'the date action did not fold to: ' + _action_now
+assert "WAITLIST_ALL_DATES ? DATE_ACTION : 'Select'" in html, 'the weekend calendar per-class action stopped following the constant'
+assert 'function bookCourse(i){ return WAITLIST_ALL_DATES ? waitlistCourse(i) : openCal(i); }' in html, \
+    'the one door into a booking stopped following the constant: a row could read Join waiting list and open the calendar'
+if WAITLIST_ALL_DATES:
+    assert html.count('Select Date') == 0, 'a date still reads Select Date while every date is a waiting list'
+    assert 'class filled' not in html.lower(), 'a date carries the notice the owner corrected to Join waiting list'
+    assert "openReqDialog('waitlist'" in html and "wait = reqKind === 'waitlist'" in html and 'waitWeekend' in html, \
+        'Join waiting list no longer opens the request dialog as request_type waitlist with the weekend'
+else:
+    assert html.count('Select Date') >= 1 and "openReqDialog('waitlist'" in html, \
+        'WAITLIST_ALL_DATES is off: the rows read Select Date again and the waiting-list path stays there to switch back on'
+_s6 = between(html, '<section class="panel" id="s6"', '</section>', True)
+assert '<div class="eyebrow">Course Catalog</div>' in _s6, 'the Classes chapter lost its COURSE CATALOG eyebrow'
+assert 'The <span class="gold">Classes.</span>' not in html, "the Classes chapter's deleted heading is back"
+assert 'id="catalog"' not in _s6 and '<div class="catalog-panel" id="catalog"></div>' in html, \
+    'the catalog is back in the chapter flow instead of the CLICK TO VIEW overlay'
+assert 'id="catalog-modal"' in html and 'onclick="openCatalog()"' in _s6 and 'function openCatalog()' in html, \
+    'the catalog overlay is not wired to the chapter'
+assert '>Book Course</a>' in _s6 and _s6.count('openDCal();return false;') == 1, \
+    'the Classes chapter needs exactly one booking control and it is BOOK COURSE'
+assert html.index('id="catalog-modal"') < html.index('id="gate"'), \
+    'the catalog overlay must sit before the gate and request dialogs or it paints over them'
+assert 'background-image:url(\'images/mast/courses-instructor.jpg\');background-position:50% 15%' in html, \
+    "the Classes chapter lost his photograph or its position (his head sits in the top fifth of the frame)"
+assert 'courses-low-light' not in between(html, 'data-for="06"', '>', True), 'the Classes backdrop is the dark shooter again'
 
 # Brockmann picked this design as the page that ships (2026-09-03), so the assembler writes the production
 # mastsolutions.html. The Atlas-frame build lives on as mastsolutions-atlas.html; the old cinematic URL is a stub redirect.
@@ -617,7 +886,16 @@ print('wrote', out, len(html.encode('utf-8')), 'bytes')
 import json as _json
 ms = html.replace('https://atlasglinn.com/mastsolutions.html', 'https://www.mastsolutions.com/')
 ms = re.sub(r'href="mastsolutions\.html(#[^"]*)?"', lambda m: 'href="/%s"' % (m.group(1) or ''), ms)
-ms = re.sub(r'href="([a-z0-9-]+\.html(?:#[^"]*)?)"', r'href="https://atlasglinn.com/\1"', ms)
+# No blanket promotion of relative .html links to atlasglinn.com any more (2026-09-09). It was written for the Atlas
+# destinations, but those are absolute WordPress slugs now (AG_SLUG), and all it still caught were MAST's OWN pages —
+# privacy.html, terms.html, mast-capability-statement.html — which it sent to atlasglinn.com/<name>.html, the static
+# preview builds that are publicly reachable but not approved (00-rules/website-go-live-gate.md). Privacy and Terms are
+# AG_SLUG now; mast-capability-statement.html stays relative, because it is MAST's own one-pager and has no WordPress
+# equivalent in any live capture. KNOWN GAP, named rather than hidden: .github/workflows/pages-mastsolutions.yml stages
+# index.html, the manifest, robots.txt, sitemap.xml and the assets its resolver finds, and that resolver skips .html
+# (line 82: `or u.endswith('.html')`), so mast-capability-statement.html is not on the Pages host yet — the "View
+# One-Pager" link 404s there until that workflow stages it. It is the assembler's link to get right; the staging is that
+# workflow's, and this pass does not own it.
 # Search Console ownership for www.mastsolutions.com (2026-09-08). Verification by DNS TXT failed: the zone carries
 # google-site-verification=u-Y9Tw… (another Google account's token). The 8ndz0nAQ… token in atlasglinn.com's DNS was
 # tried first and Google rejected it too ("meta tag for a different user account") — so atlasglinn.com was verified by
@@ -632,6 +910,7 @@ open(ms_out, 'w', encoding='utf-8').write(ms)
 build_manifest.stamp(ms_out)
 open(f'{REPO}/dist/mastsolutions/build-manifest.json', 'w', encoding='utf-8').write(_json.dumps({'index.html': build_manifest.digest(open(ms_out, encoding='utf-8').read())}) + '\n')
 assert 'href="index.html"' not in ms and 'https://www.mastsolutions.com/' in ms and 'atlasglinn.com/mastsolutions.html' not in ms, 'mastsolutions.com copy not rewritten'
+assert 'href="/"' not in ms, 'a self-link survived the mastsolutions.com rewrite: on this host "/" is this page'
 print('wrote', ms_out, 'for mastsolutions.com')
 
 # robots.txt + sitemap.xml for www.mastsolutions.com (2026-09-08). The root robots.txt / sitemap.xml are atlasglinn.com's
@@ -657,3 +936,82 @@ _ms_sitemap = ('<?xml version="1.0" encoding="UTF-8"?>\n'
 open(f'{REPO}/dist/mastsolutions/robots.txt', 'w', encoding='utf-8').write(_ms_robots)
 open(f'{REPO}/dist/mastsolutions/sitemap.xml', 'w', encoding='utf-8').write(_ms_sitemap)
 print('wrote dist/mastsolutions/robots.txt + sitemap.xml')
+
+# In Action is photographs only (owner, 2026-09-08/09: "This is a video and does not belong" / "NOT VIDEOS"): no clip may
+# be a gallery tile. The tiles.txt list is what the assembler reads, so the check is on the list and on the built page.
+_gallery_tiles = [l.strip() for l in open(os.path.join(REPO, 'images', 'mast', 'gallery', 'tiles.txt'), encoding='utf-8') if l.strip() and not l.startswith('#')]
+assert not [t for t in _gallery_tiles if t.lower().endswith(('.mp4', '.mov', '.webm', '.m4v'))], 'a clip is listed as an In Action tile: ' + str([t for t in _gallery_tiles if t.lower().endswith(('.mp4', '.mov', '.webm', '.m4v'))])
+assert 'gallery/g14.mp4' not in html, 'the shoot-house clip is back in the In Action grid'
+
+# ── Fourth-pass guards (2026-09-09). One per thing he named; each has been fired against a broken copy of this file.
+
+# H-1, owner 2026-09-08: "make all headers the same. font size." The shell's own h1.mega / h2.section-h keep their
+# literals (cinematic_shell.py is the Atlas generator's input and is not MAST's to edit), so the check is on the LAST
+# font-size each heading gets: that is what the browser computes, and it has to be the one MAST token. One :root declares
+# it — a second one at the same specificity would make the size depend on splice order, which is the defect this guards.
+_css = between(html, '<style>', '</style>')
+_rules = re.findall(r'([^{}]*)\{([^{}]*)\}', _css)
+for _mark in ('h1.mega', 'h2.section-h'):
+    _sizes = [v.strip() for sel, body in _rules if _mark in sel for v in re.findall(r'font-size:\s*([^;]+);', body)]
+    assert _sizes[-1:] == ['var(--head-chapter)'], \
+        '%s does not end on the one heading token, so its size depends on cascade order: %s' % (_mark, _sizes)
+_top_roots = [b for sel, b in re.findall(r'([^{}]*)\{([^{}]*)\}', re.sub(r'@media[^{]*\{(?:[^{}]|\{[^{}]*\})*\}', '', _css))
+              if sel.strip().endswith(':root')]
+assert sum('--head-chapter' in b for b in _top_roots) == 1, \
+    'the heading size is declared in %d top-level :root blocks; at equal specificity the last one wins' % sum('--head-chapter' in b for b in _top_roots)
+assert 'font-size: var(--head-modal' in _css, 'the dialog heading stopped following the shared token'
+
+# H-2, owner 2026-09-08: "we don't need team memberships and then team memberships in a gigantic header." A chapter's h2
+# may not repeat its eyebrow. s8 (Instructors / Meet The Team) and s10 (Testimonials / In Their Words) say the same thing
+# in different words and stay until he says otherwise (ledger 2026-09-08 section I, item 5).
+_stop = {'the', 'a', 'an', 'and', 'in', 'at', 'of', 'to', 'with', 'for', 'on', 'our', 'their', 'we', 'us', 'by'}
+def _words(t): return {w for w in re.findall(r"[a-z0-9']+", re.sub(r'<[^>]+>', ' ', t).lower())} - _stop
+for _cid, _label in CHAPTERS:
+    _sec = between(html, '<section class="panel" id="%s"' % _cid, '</section>', True)
+    _eb = re.search(r'<div class="eyebrow"[^>]*>(.*?)</div>', _sec)
+    _h2 = re.search(r'<h2 class="section-h">(.*?)</h2>', _sec, re.S)
+    if not (_eb and _h2):
+        continue
+    _hw = _words(_h2.group(1))
+    assert not (_hw and _hw <= _words(_eb.group(1))), \
+        '%s repeats its eyebrow in a heading: "%s" under "%s"' % (_cid, _h2.group(1), _eb.group(1))
+for _cid in ('s5', 's7', 's9', 's12'):
+    assert '<h2 class="section-h">' not in between(html, '<section class="panel" id="%s"' % _cid, '</section>', True), \
+        _cid + ' has a chapter heading again; its eyebrow already says it'
+
+# H-12, ledger section D: MAST's footer sent visitors to atlasglinn.com/<slug>.html — the static preview builds, not the
+# approved public site. The first version of this guard walked AG_SLUG, so it could only see the eleven targets already
+# fixed; the five that were left (privacy, terms, the capability one-pager, the eligibility anchor, the hidden Blogs
+# entry) were invisible to it and shipped in the copy www.mastsolutions.com serves. It is a shape check now: NO
+# atlasglinn.com target ending in .html, in either copy, whatever its name.
+for _copy, _doc in (('mastsolutions.html', html), ('dist/mastsolutions/index.html', ms)):
+    _static = sorted(set(re.findall(r'atlasglinn\.com/[^"\'\s<>)]*\.html', _doc)))
+    assert not _static, \
+        '%s points at the unapproved static builds: %s' % (_copy, ', '.join(_static))
+
+# MS-32, the other half of the same class: with the URL map out of the payload, the maker's domain has nothing left to
+# do on the page except inside a product photograph's src. Their photographs are on a BigCommerce CDN, so the count is
+# zero today; if they ever move to their own host this counts the image URLs and allows exactly those.
+_iwa_imgs = sum(u.count('iwainternationalinc.com') for _p in STORE_PRODUCTS.values() for u in _p['images'])
+for _copy, _doc in (('mastsolutions.html', html), ('dist/mastsolutions/index.html', ms)):
+    for _dead in ('gearUrl(', 'GEAR_SHOP', 'GEAR_PRODUCT_URL'):
+        assert _dead not in _doc, '%s carries %s again: the IWA URL map is back in the browser' % (_copy, _dead)
+    assert _doc.count('iwainternationalinc.com') == _iwa_imgs, \
+        '%s mentions iwainternationalinc.com %d time(s); only the %d product image URL(s) on that host may' \
+        % (_copy, _doc.count('iwainternationalinc.com'), _iwa_imgs)
+
+# MS-33: every device card opens a product view on this page, keyboard included, and the six captured devices carry IWA's
+# own copy. MS-32: nothing links out to IWA.
+assert 'function openProduct(i)' in html and 'id="prod"' in html and 'aria-haspopup="dialog"' in html, \
+    'the Store cards no longer open a product view on our page'
+assert 'onkeydown="if(event.key===' in html and 'openProduct(' in html, 'the product view is not keyboard-reachable'
+assert 'Manufacturer information: IWA International' in html, "the product view lost IWA's attribution line"
+assert 'Request Quote' not in html and 'Request a quote' not in html, 'the Request Quote control is back (owner: "take request quiote off")'
+assert 'Email about availability' in html, 'the one Store control is no longer Email about availability'
+_missing = [k for k in ('IWA-M12', 'IWA-M11-4B', 'IWA-M11-7B', 'IWA-M13', 'IWA-M14', 'IWA-M15') if k not in STORE_PRODUCTS]
+assert not _missing, 'the captured product copy is missing for: ' + ', '.join(_missing)
+for _sku, _p in STORE_PRODUCTS.items():
+    assert _sj.dumps(_p['name'])[1:-1] in html, 'the product view lost the copy for ' + _sku
+    assert len(_p['html']) > 120, 'the captured copy for %s came through empty' % _sku
+assert 'iwainternationalinc.com' not in _store_js, 'an IWA URL rode into the page inside the product data'
+

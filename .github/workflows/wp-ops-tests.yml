@@ -1,0 +1,61 @@
+# The two wp-ops harnesses, on the runner. Both stub everything they touch — a stub WordPress and a stub WPaaS\Cache_V2
+# for the plugin, stub sftp/curl/security/shasum/sleep for the deploy script — so this job reaches no host, needs no
+# secret and changes nothing. It exists because the harnesses only ran when someone remembered to run them on the Mac,
+# and the plugin they cover is what purges a production cache.
+name: wp-ops tests
+
+on:
+  push:
+    paths:
+      - 'wp-ops/**'
+      - 'scripts/wp-*.sh'
+      - 'scripts/tests/**'
+      - '.github/workflows/wp-ops-tests.yml'
+  pull_request:
+    paths:
+      - 'wp-ops/**'
+      - 'scripts/wp-*.sh'
+      - 'scripts/tests/**'
+      - '.github/workflows/wp-ops-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# NOT a required status check while the paths filters above are here: a pull request that touches nothing under them
+# never starts this job, so a required context would sit pending forever and block the merge. Making it required means
+# dropping the filters (or adding a paths-ignore twin that reports success) first.
+jobs:
+  harnesses:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versions
+        run: php -v | head -1; bash --version | head -1
+
+      # `|| exit 1`, never `&& echo ok`: the job's shell is `bash -e`, and -e is EXEMPT from the left-hand side of an
+      # && list, so `bash -n "$s" && echo ok` swallowed every syntax error in the loop and the step still went green.
+      - name: Syntax
+        run: |
+          for f in wp-ops/atlas-cache-watch.php wp-ops/tests/atlas-cache-watch-test.php wp-ops/atlas-static-root.php wp-ops/tests/atlas-static-root-test.php; do
+            php -l "$f" || exit 1
+          done
+          for s in scripts/wp-cache-watch-deploy.sh scripts/wp-flush.sh scripts/tests/wp-cache-watch-deploy-test.sh; do
+            bash -n "$s" || exit 1
+            echo "bash -n ok: $s"
+          done
+
+      - name: Plugin harness (stub WordPress, 6 scenarios)
+        run: php wp-ops/tests/atlas-cache-watch-test.php
+
+      - name: Deploy-script harness (stub sftp/curl, no host)
+        run: bash scripts/tests/wp-cache-watch-deploy-test.sh
+
+      # The root-switch harness was fired-observed but wired to nothing until 2026-09-08 (round-3 verifier): a commit could
+      # change wp-ops/atlas-static-root.php and CI went green without running one of its 282 cases. Every child PHP it
+      # spawns writes error_log into its own run directory under a file-size ulimit, because a mutant once wrote 3.47 GB.
+      - name: Static-root harness (fake docroot, 282 pinned cases)
+        run: |
+          ulimit -f 200000
+          php -d error_log="$RUNNER_TEMP/atlas-static-root-parent.log" -d log_errors_max_len=1024 wp-ops/tests/atlas-static-root-test.php

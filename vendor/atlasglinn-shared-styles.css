@@ -1,0 +1,273 @@
+/* ══════════ ATLAS GLINN SHARED STYLES ══════════ */
+/* Source: careers page (reference design) */
+/* Applied to all pages for consistency */
+
+/* ── ANIMATIONS ── */
+@keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
+@keyframes goldShimmer { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes sparkle { 0%,100% { opacity: 0; transform: scale(0); } 50% { opacity: 1; transform: scale(1); } }
+@keyframes kenburns { 0% { transform: scale(1) translate(0, 0); } 100% { transform: scale(1.12) translate(-2%, -1%); } }
+@keyframes kenburns-alt { 0% { transform: scale(1.08) translate(-1%, 0); } 100% { transform: scale(1) translate(1%, -1%); } }
+@keyframes kenburns-pan { 0% { transform: scale(1) translate(0, 0); } 50% { transform: scale(1.06) translate(-1.5%, -1%); } 100% { transform: scale(1.1) translate(1%, -0.5%); } }
+@keyframes kenburns-slow { 0% { transform: scale(1) translate(0, 0); } 100% { transform: scale(1.08) translate(-1%, -0.5%); } }
+
+.gold-shimmer { background: linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size: 1000px 100%; animation: shimmer 6s linear infinite; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+/* ── NAV (slide-in) ── */
+nav { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: rgba(8, 12, 20, 0.95); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(26, 107, 222, 0.2); padding: 1rem 2rem; transform: translateY(-100%); transition: transform .6s ease; }
+nav.visible { transform: translateY(0); }
+.nav-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+.nav-logo { display: flex; align-items: center; gap: 1rem; text-decoration: none; color: #1A6BDE; }
+.nav-logo img { height: 40px; width: auto; }
+.nav-logo-text { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.2rem; color: #1A6BDE; }
+.nav-links { display: flex; gap: 2rem; align-items: center; list-style: none; }
+.nav-links a { color: #ffffff; text-decoration: none; font-size: 0.9rem; transition: color 0.3s ease; text-transform: uppercase; letter-spacing: 0.05em; }
+.nav-links a:hover { color: #1A6BDE; }
+.mobile-menu-btn { display: none; background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; }
+
+/* ── NAV DROPDOWN (banner-style) ── */
+.nav-dropdown { position: relative; }
+.nav-dropdown > a { cursor: pointer; }
+.nav-dropdown > a::after { content: ' \25BE'; font-size: 0.6rem; opacity: 0.5; vertical-align: 1px; }
+.nav-dropdown-menu { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); min-width: 320px; background: rgba(8,12,20,0.98); border: 1px solid rgba(201,168,76,0.3); border-radius: 6px; padding: 0.75rem; opacity: 0; visibility: hidden; transition: all 0.25s ease; z-index: 1001; margin-top: 0.75rem; backdrop-filter: blur(16px); box-shadow: 0 12px 40px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 0.5rem; }
+.nav-dropdown:hover .nav-dropdown-menu { opacity: 1; visibility: visible; }
+.nav-dropdown-banner { display: flex; align-items: center; gap: 1rem; padding: 0.85rem 1rem; border: 1px solid rgba(201,168,76,0.15); border-radius: 4px; background: rgba(255,255,255,0.02); transition: all 0.25s ease; text-decoration: none !important; }
+.nav-dropdown-banner:hover { border-color: rgba(201,168,76,0.5); background: rgba(201,168,76,0.06); transform: translateX(2px); }
+.nav-dropdown-banner .ndb-icon { font-size: 1.6rem; width: 40px; text-align: center; flex-shrink: 0; }
+.nav-dropdown-banner .ndb-text { display: flex; flex-direction: column; }
+.nav-dropdown-banner .ndb-title { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; font-weight: 700; color: #fff !important; letter-spacing: 0.06em; text-transform: uppercase; }
+.nav-dropdown-banner .ndb-desc { font-size: 0.75rem; color: #888 !important; text-transform: none; letter-spacing: 0; margin-top: 2px; line-height: 1.3; }
+.nav-dropdown-sep { height: 1px; background: rgba(201,168,76,0.12); margin: 0.15rem 0; }
+.nav-dropdown-link { display: block; padding: 0.5rem 1rem; font-size: 0.8rem !important; color: #999 !important; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; text-decoration: none !important; }
+.nav-dropdown-link:hover { color: #C9A84C !important; padding-left: 1.3rem; }
+@media (max-width: 768px) { .nav-dropdown-menu { display: none !important; } }
+
+/* ── BUTTONS ── */
+.cta-button { background: #1A6BDE; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 4px; cursor: pointer; font-family: 'Rajdhani', sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.3s ease; text-decoration: none; display: inline-block; }
+.cta-button:hover { background: #155ac8; box-shadow: 0 0 20px rgba(26, 107, 222, 0.5); }
+.secondary-button { background: transparent; border: 2px solid #1A6BDE; color: #1A6BDE; }
+.secondary-button:hover { background: #1A6BDE; color: white; }
+
+/* ── SECTIONS ── */
+.section { max-width: 1400px; margin: 0 auto; padding: 4rem 2rem; }
+.section-title { font-family: 'Orbitron', sans-serif; font-size: 2.5rem; font-weight: 900; margin-bottom: 1rem; letter-spacing: 0.02em; }
+.section-subtitle { font-size: 1.1rem; color: #b0b0b0; margin-bottom: 3rem; }
+.section-divider { background: #0f1622; padding: 1.5rem 2rem; border-top: 2px solid rgba(201,168,76,.5); border-bottom: 2px solid rgba(201,168,76,.5); text-align: center; margin: 0; max-width: 100%; }
+.section-divider h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; font-weight: 900; letter-spacing: 0.02em; margin: 0; }
+.section-divider p { font-size: 0.95rem; color: #b0b0b0; margin: 0.5rem 0 0; }
+
+/* ── CARDS (3D tilt base) ── */
+.service-card, .job-card, .benefit-card, .tech-partner, .discipline-card, .testimonial {
+    background: rgba(26, 107, 222, 0.05); border: 2px solid rgba(201, 168, 76, 0.6);
+    padding: 2rem; border-radius: 4px; transition: all 0.4s ease; position: relative;
+    transform-style: preserve-3d; box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 20px rgba(201,168,76,0.15);
+}
+.service-card:hover, .job-card:hover, .benefit-card:hover, .tech-partner:hover, .discipline-card:hover, .testimonial:hover {
+    background: rgba(26, 107, 222, 0.1); border-color: rgba(201, 168, 76, 0.85);
+    box-shadow: 0 15px 50px rgba(0,0,0,0.5), 0 0 40px rgba(201,168,76,0.3); transform: translateY(-4px);
+}
+.service-card::before, .job-card::before, .benefit-card::before, .tech-partner::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px;
+    background: linear-gradient(90deg, #1A6BDE, #C9A84C); transform: scaleX(0); transform-origin: left; transition: transform .4s;
+}
+.service-card:hover::before, .job-card:hover::before, .benefit-card:hover::before, .tech-partner:hover::before { transform: scaleX(1); }
+
+/* ── FOOTER ── */
+footer { background: #0a0e17; border-top: 1px solid rgba(201,168,76,.5); padding: 3rem 2rem 1rem; }
+.footer-container { max-width: 1400px; margin: 0 auto; }
+.footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+.footer-section h4 { font-family: 'Orbitron', sans-serif; color: #C9A84C; margin-bottom: 1rem; font-size: 0.9rem; }
+.footer-section ul { list-style: none; }
+.footer-section ul li { margin-bottom: 0.5rem; }
+.footer-section a { color: #b0b0b0; text-decoration: none; transition: color 0.3s ease; font-size: 0.9rem; }
+.footer-section a:hover { color: #1A6BDE; }
+.footer-bottom { border-top: 1px solid rgba(201,168,76,.5); padding-top: 2rem; text-align: center; color: #888; font-size: 0.85rem; }
+
+/* ── REVEAL ── */
+.reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+.reveal.active { opacity: 1; transform: translateY(0); }
+
+/* ── MOBILE NAV ── */
+.mobile-nav { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; background: rgba(0,0,0,.95); backdrop-filter: blur(20px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; opacity: 0; visibility: hidden; transition: all .3s; }
+.mobile-nav.open { opacity: 1; visibility: visible; }
+.mobile-nav a { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: #fff; text-decoration: none; }
+.mobile-nav-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: #fff; font-size: 32px; cursor: pointer; }
+
+/* ── CINEMATIC IMAGES ── */
+.photo-item img, .full-bleed-divider img { animation: kenburns 20s ease-in-out infinite alternate; transition: transform 0.8s cubic-bezier(0.23,1,0.32,1), filter 0.5s ease; filter: contrast(1.1) saturate(1.1); }
+.photo-item:nth-child(odd) img { animation-name: kenburns-alt; }
+.photo-item:nth-child(3n) img { animation-name: kenburns-pan; animation-duration: 25s; }
+.photo-item img:hover, .full-bleed-divider img:hover { transform: scale(1.08) !important; filter: contrast(1.2) saturate(1.2) brightness(1.05); }
+.photo-item { overflow: hidden; box-shadow: 0 15px 50px rgba(0,0,0,0.5), 0 0 30px rgba(201,168,76,0.08); transition: box-shadow 0.5s ease, transform 0.5s ease; }
+.photo-item:hover { box-shadow: 0 25px 70px rgba(0,0,0,0.7), 0 0 50px rgba(201,168,76,0.15); transform: translateY(-4px); }
+
+/* ── 3D PARALLAX ── */
+.parallax-3d-container { perspective: 1000px; width: 100%; }
+.parallax-3d-inner { position: relative; overflow: hidden; border-radius: 4px; box-shadow: 0 25px 60px rgba(0,0,0,0.6), 0 0 40px rgba(201,168,76,0.12); transition: transform 0.15s ease-out, box-shadow 0.3s ease; transform-style: preserve-3d; will-change: transform; }
+.parallax-3d-shine { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%, transparent 100%); opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
+.parallax-3d-container:hover .parallax-3d-shine { opacity: 1; }
+.parallax-3d-container:hover .parallax-3d-inner { box-shadow: 0 35px 80px rgba(0,0,0,0.7), 0 0 60px rgba(201,168,76,0.2); }
+
+/* ══════════ RESPONSIVE / MOBILE LAYER (v2) ══════════ */
+/* Global overrides — applies to ALL Atlas Glinn page templates.     */
+/* Uses !important to beat inline per-page <style> blocks.           */
+
+/* Safety: prevent horizontal scrollbars on phones */
+html, body { max-width: 100vw; overflow-x: hidden; }
+img, video, iframe { max-width: 100%; height: auto; }
+
+/* ── TABLET & PHONE (≤ 1024px) ── */
+@media (max-width: 1024px) {
+    .section { padding: 3rem 1.25rem !important; max-width: 100% !important; }
+    .nav-container { padding: 0 1rem; }
+}
+
+/* ── PHONE (≤ 768px) ── */
+@media (max-width: 768px) {
+    /* Nav → hamburger */
+    nav { padding: 0.75rem 1rem !important; }
+    .nav-links { display: none !important; }
+    .mobile-menu-btn { display: block !important; }
+    .nav-logo-text { font-size: 1rem !important; }
+    .nav-logo img { height: 32px !important; }
+
+    /* Hero — full bleed, reduce height, center text, shrink type */
+    .hero, section.hero {
+        height: auto !important;
+        min-height: 90vh !important;
+        padding: 6rem 1rem 4rem !important;
+        align-items: center !important;
+    }
+    .hero-content, .hero-inner {
+        padding: 0 1rem !important;
+        max-width: 100% !important;
+        text-align: center !important;
+    }
+    .hero-headline, .hero-title, .header-title, h1.hero-headline {
+        font-size: clamp(1.8rem, 8vw, 2.4rem) !important;
+        line-height: 1.15 !important;
+        letter-spacing: 0.01em !important;
+    }
+    .hero-subheading, .hero-sub, .hero-tagline, .subtitle {
+        font-size: 1rem !important;
+        line-height: 1.5 !important;
+    }
+    .hero-ctas, .hero-btns, .hero-cta-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.75rem !important;
+        width: 100% !important;
+        max-width: 320px !important;
+        margin: 1.5rem auto 0 !important;
+    }
+    .hero-ctas .cta-button, .hero-btns .cta-button, .cta-button {
+        width: 100% !important;
+        padding: 0.9rem 1.25rem !important;
+        font-size: 0.95rem !important;
+        text-align: center !important;
+    }
+    .hero-badges, .hero-stats {
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+        gap: 0.5rem !important;
+    }
+
+    /* Section titles & copy */
+    .section-title, .cap-title, .cred-title, .doc-title {
+        font-size: 1.6rem !important;
+        line-height: 1.2 !important;
+    }
+    .section-subtitle, .section-desc, .section-p { font-size: 1rem !important; }
+
+    /* Dividers */
+    .section-divider { padding: 1.25rem 1rem !important; }
+    .section-divider h2 { font-size: 1.35rem !important; }
+    .section-divider p { font-size: 0.85rem !important; }
+
+    /* ALL grids collapse to single column on phones */
+    .services-grid,
+    .audience-grid,
+    .benefits-grid,
+    .cap-grid,
+    .capabilities-grid,
+    .contact-grid,
+    .credential-grid,
+    .disciplines-grid,
+    .features-grid,
+    .footer-grid,
+    .form-grid,
+    .how-grid,
+    .hw-grid,
+    .jobs-grid,
+    .legal-grid,
+    .media-grid,
+    .pillars-grid,
+    .pricing-grid,
+    .scenarios-grid,
+    .sources-grid,
+    .specs-grid,
+    .team-grid,
+    .thermal-grid,
+    .threats-grid,
+    .vpn-grid {
+        grid-template-columns: 1fr !important;
+        gap: 1rem !important;
+    }
+
+    /* Split containers stack */
+    .split-container {
+        grid-template-columns: 1fr !important;
+        flex-direction: column !important;
+    }
+
+    /* Cards — less padding, no hover lift (touch devices) */
+    .service-card, .job-card, .benefit-card, .tech-partner,
+    .discipline-card, .testimonial {
+        padding: 1.25rem !important;
+    }
+
+    /* Footer */
+    footer { padding: 2rem 1rem 1rem !important; }
+    .footer-section h4 { font-size: 0.85rem !important; }
+
+    /* Kill heavy parallax / 3D effects on touch */
+    .parallax-3d-container { perspective: none !important; }
+    .parallax-3d-inner { transform: none !important; }
+
+    /* Disable scroll-snap on mobile — feels broken on phones */
+    html { scroll-snap-type: none !important; }
+    body { scroll-snap-type: none !important; }
+    section { scroll-snap-align: none !important; }
+}
+
+/* ── SMALL PHONE (≤ 480px) ── */
+@media (max-width: 480px) {
+    nav { padding: 0.5rem 0.75rem !important; }
+    .nav-logo-text { display: none !important; }
+
+    .hero, section.hero {
+        min-height: 85vh !important;
+        padding: 5rem 0.75rem 3rem !important;
+    }
+    .hero-headline, .hero-title, .header-title {
+        font-size: clamp(1.5rem, 9vw, 2rem) !important;
+    }
+    .hero-subheading, .hero-sub { font-size: 0.95rem !important; }
+
+    .section { padding: 2.5rem 0.75rem !important; }
+    .section-title { font-size: 1.35rem !important; }
+    .section-divider h2 { font-size: 1.15rem !important; }
+
+    .service-card, .job-card, .benefit-card, .tech-partner,
+    .discipline-card, .testimonial { padding: 1rem !important; }
+}
+
+/* ── TOUCH DEVICES (any size) ── */
+@media (hover: none) and (pointer: coarse) {
+    /* Disable hover-based ken burns / tilt on touch */
+    .service-card:hover, .job-card:hover, .benefit-card:hover,
+    .tech-partner:hover, .discipline-card:hover, .testimonial:hover {
+        transform: none !important;
+    }
+}

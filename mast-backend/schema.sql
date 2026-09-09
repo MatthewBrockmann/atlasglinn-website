@@ -316,15 +316,53 @@ CREATE TABLE IF NOT EXISTS accounts (
 );
 CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email);
 
+-- ── Sign-ups nobody has proved yet (migrations/012-pending-signup-per-row.sql on a live database) ──
+-- A sign-up is NOT an account. POST /account/register writes a row here and nothing else; POST /account/verify, given
+-- the address, the code emailed to it AND the password that sign-up was made with, INSERTs the accounts row and drops
+-- every pending row for the address — in one batch, and only when no account for the address exists yet.
+--
+-- ONE ROW PER SIGN-UP, keyed on a random signup_id (security review round 7, 2026-09-09). Rounds 5 and 6 keyed it on
+-- address_digest, one row per address, and that single row was a slot: whoever held it held whatever the mailbox typed
+-- back. Round 5 let the last writer take it, round 6 let the first writer hold it for fifteen minutes — and
+-- /account/resend renewed that hold every sixty seconds, so a stranger could squat an address indefinitely. There is no
+-- slot now. A sign-up only ever inserts its own row, the code selects the row, and the password proves the row is the
+-- caller's; a stranger's rows are inert to the owner and the owner's is unreachable to the stranger.
+--
+-- address_digest is a SHA-256 of the normalised address and is NOT unique, so this table is neither a readable list of
+-- half-finished sign-ups nor a place anyone can be kept out of. How many rows an address may hold is bounded by the
+-- mail budgets alone (3 an hour per connection). The daily cron drops anything a day old.
+CREATE TABLE IF NOT EXISTS pending_signups (
+  signup_id         TEXT PRIMARY KEY,              -- random 128-bit hex. One sign-up, one row, one code, one password.
+  address_digest    TEXT NOT NULL,                 -- SHA-256 of the normalised address, hex. Never the address itself, never unique.
+  password_hash     TEXT NOT NULL,                 -- pbkdf2-sha256$<iterations>$<salt b64>$<hash b64>. /account/verify must match it.
+  name              TEXT,
+  phone             TEXT,
+  organization      TEXT,
+  code_hash         TEXT,                          -- HMAC(ACCOUNT_SECRET, digest:verify:code)
+  verify_expires_at TEXT,                          -- 15 minutes
+  verify_attempts   INTEGER NOT NULL DEFAULT 0,    -- twenty wrong tries at the address burn every row waiting there
+  created_at        TEXT NOT NULL,                 -- what the daily purge measures, and what orders 'the newest sign-up'
+  created_ip        TEXT                           -- the connection that made it: /account/resend re-mails its own only
+);
+CREATE INDEX IF NOT EXISTS idx_pending_signups_code ON pending_signups (address_digest, code_hash);
+CREATE INDEX IF NOT EXISTS idx_pending_signups_created ON pending_signups (created_at);
+
 -- ── Per-IP request counters (migrations/008-rate-limits.sql on a live database) ──
 -- One row per (bucket, CF-Connecting-IP): login, signup, code (forgot + resend + reset), verify, seat, contact,
 -- subscribe, admin. Fixed windows that roll — the first request after a window has run out starts a new one. Every
 -- increment is a single conditional UPDATE, so concurrent requests can neither share nor skip a count. /event is NOT
 -- counted here: it is a page-view beacon and limiting it would turn every page view into a D1 write.
 --
--- The same table also carries 'loginfail:<ip>:<address>' rows — consecutive failed sign-ins for one pair, count in
--- count and the lock expiry in window_start — so an address with no account locks on the same attempt as one that has
--- an account. The daily cron drops rows older than a day, which is also how a partial failure count resets.
+-- The same table also carries counters keyed on a DIGEST of an address, never the address (round 5, 2026-09-09 — every
+-- one of these held the address in clear until then, which made rate_limits a list of what strangers had typed):
+--   'loginfail:<ip>:<digest>'      consecutive failed sign-ins for one pair; count in count, lock expiry in window_start,
+--                                  so an address with no account locks on the same attempt as one that has an account
+--   'codeguess:<ip>:<id>'          wrong verification/reset codes from one connection against one account or address
+--   'codemail:<ip>:<digest>'       unauthenticated code mails from one connection to one address, three an hour
+--   'codemailtotal:<ip>'           unauthenticated code mails from one connection to any address, thirty an hour
+-- The two mail budgets are per CONNECTION on purpose: a counter keyed on the address alone is one a stranger can spend
+-- on the owner's behalf, which is how three requests closed a customer's password reset for an hour in round 4.
+-- The daily cron drops rows older than a day, which is also how a partial failure count resets.
 CREATE TABLE IF NOT EXISTS rate_limits (
   key          TEXT PRIMARY KEY,
   window_start TEXT NOT NULL,

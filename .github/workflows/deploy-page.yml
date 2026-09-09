@@ -84,6 +84,11 @@ jobs:
           U: ${{ secrets.WP_SFTP_USER }}
           P: ${{ secrets.WP_SFTP_PASSWORD }}
         run: |
+          # Trim what the browser paste may have added around the value. On 2026-09-08 every run since #31 failed
+          # "Permission denied" while the masked log showed the password as ' ***' — a leading space in the stored
+          # secret — so both values are trimmed of surrounding whitespace and CR/LF before they are tested or used.
+          U="$(printf '%s' "$U" | tr -d '\r\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          P="$(printf '%s' "$P" | tr -d '\r\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
           if [ -z "$U" ] || [ -z "$P" ]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
             echo "::notice::WP_SFTP_USER / WP_SFTP_PASSWORD not set — files listed, upload skipped. Add both repository secrets to turn on auto-upload."
@@ -98,6 +103,8 @@ jobs:
           HOST: 1127220.us12.ssh.myftpupload.com
           DOCROOT: html
         run: |
+          SFTP_USER="$(printf '%s' "$SFTP_USER" | tr -d '\r\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          SSHPASS="$(printf '%s' "$SSHPASS" | tr -d '\r\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"; export SSHPASS
           sudo apt-get install -y -qq sshpass >/dev/null
           {
             echo "cd $DOCROOT"
@@ -109,7 +116,7 @@ jobs:
           if ! sshpass -e sftp -oBatchMode=no -o StrictHostKeyChecking=accept-new -b batch.txt "$SFTP_USER@$HOST" > sftp.log 2>&1; then
             tail -20 sftp.log
             if grep -q 'Permission denied' sftp.log; then
-              echo "::error::The host refused the SFTP login: WP_SFTP_USER / WP_SFTP_PASSWORD do not match what the Mac keeps in the Keychain item mast-wp-sftp (Account = username; Show Password = password). Re-enter both repository secrets. Nothing was uploaded; the Mac's hourly job still carries the site."
+              echo "::error::The host refused the SFTP login: WP_SFTP_USER / WP_SFTP_PASSWORD do not match what the Mac keeps in the Keychain item mast-wp-sftp (Account = username; Show Password = password). Both values are trimmed of surrounding whitespace before use (since 2026-09-08), so a failure here means the stored value itself is wrong: re-enter both repository secrets. Nothing was uploaded; the Mac's hourly job still carries the site."
             fi
             exit 1
           fi

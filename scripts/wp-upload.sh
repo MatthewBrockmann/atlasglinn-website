@@ -93,25 +93,96 @@ git -C "$R" fetch -q $FILTER origin "+refs/heads/$REFB:refs/remotes/origin/$REFB
 HEADSHA="$(git -C "$R" rev-parse "refs/remotes/origin/$REFB")"; STAMP="$HOME/.cache/wp-upload/last-uploaded"
 # The Worker rides along (owner, 2026-09-05, leaving without a Terminal: "Do it yourself or figure out an easier way"): when
 # mast-backend/ moved since the last deploy this Mac made, `wrangler deploy` runs from the clone (it holds node_modules and
-# the wrangler login) before the page logic, so the hourly LaunchAgent turns a merge into a running Worker with no paste.
+# the wrangler login), so the hourly LaunchAgent turns a merge into a running Worker with no paste.
 # Secrets and D1 migrations are untouched. WORKER_DEPLOY=0 skips it. Stamp: ~/.cache/wp-upload/last-worker-deploy.
+#
+# IT RUNS AFTER THE PAGE IS LIVE, NOT BEFORE (round 8, 2026-09-09). It used to fire here, before the upload — and since
+# round 7 /account/verify takes {email, code, password} where it used to take {email, code}. A new page against an old
+# Worker is harmless (the old contract ignores the extra field); a new Worker against the page still in the CDN is not,
+# because the cached page posts {email, code} and had no way forward. So the deploy is a function now, called at the two
+# points where this Mac KNOWS the host is serving this commit's page: after the live check below passes, and on the
+# --if-changed path where the page was already uploaded and checked on an earlier run. That second call is what keeps a
+# failed Worker deploy retrying every hour instead of waiting for the next commit.
+#
+# AND "THIS COMMIT'S PAGE" IS NOW MEASURED RATHER THAN INFERRED (round 9, 2026-09-09). Round 8 asked the live page for the
+# string `reg-steps`, which every page carrying a registration flow answers — the page this one replaces answers it eight
+# times — so the gate was already true before the upload and could not tell one build from another. The page's own content
+# hash is the identity: scripts/build_manifest.py writes it into <meta name="build"> and into build-manifest.json, and the
+# two are compared here. Same primitive deploy-worker.yml uses on dist/mastsolutions/index.html, different manifest key —
+# "mastsolutions.html" is the atlasglinn.com copy in the ROOT manifest, "index.html" is the mastsolutions.com copy.
+#
+# THE URL THAT DECIDES IS THE PLAIN ONE, because that is what a visitor loads. A cache-busting query reaches the origin,
+# so it proves the upload landed and nothing more; GoDaddy's CDN keeps these pages 31 days at the plain address (probe
+# 2026-09-06: plain served a day-old build, age 77357 s, HIT, while ?x= fetched the new one). The cached old page IS the
+# client this order exists to protect, so a plain URL that still serves the old build HOLDS the Worker.
 WSTAMP="$HOME/.cache/wp-upload/last-worker-deploy"; mkdir -p "$HOME/.cache/wp-upload"
-if [ "${WORKER_DEPLOY:-1}" = 1 ] && [ -d "$R/mast-backend" ]; then
+want_build() {   # this commit's hash for mastsolutions.html, read from the ROOT build-manifest.json as committed
+  git -C "$R" show "$HEADSHA:build-manifest.json" 2>/dev/null | python3 -c 'import json, sys
+try: print(json.load(sys.stdin).get("mastsolutions.html") or "")
+except Exception: print("")' 2>/dev/null || true
+}
+page_build() {   # the build stamp the host serves at $1; empty when it is unreachable or carries no stamp
+  local f; f="$(mktemp /tmp/wp-upload-live.XXXXXX)"
+  # -o a file, and awk reads that file: a `curl | sed | head` pipeline under `set -o pipefail` fails the script on a 404
+  # or on the SIGPIPE an early-exiting reader sends, and this runs on the path that must never exit non-zero.
+  curl -sfL -m 25 -A "wp-upload-check" -o "$f" "$1" 2>/dev/null || true
+  awk 'match($0, /<meta name="build" content="[0-9a-f]*">/) { s = substr($0, RSTART, RLENGTH); sub(/.*content="/, "", s); sub(/">$/, "", s); print s; exit }' "$f"
+  rm -f "$f"
+}
+worker_gate() {   # 0 = the plain URL serves this commit's page, so the Worker may ship. 1 = held.
+  local want live
+  want="$(want_build)"
+  if [ -z "$want" ]; then
+    # Fail closed: an unidentifiable page is exactly the state this gate exists to refuse, and saying which commit could
+    # not be read is what makes it fixable rather than mysterious.
+    echo "WORKER HELD: build-manifest.json in ${HEADSHA:0:7} carries no hash for mastsolutions.html, so this Mac cannot tell which build the host serves; the hourly --if-changed path retries"
+    return 1
+  fi
+  live="$(page_build "https://atlasglinn.com/mastsolutions.html")"
+  if [ "$live" != "$want" ]; then
+    # One flush, one re-check. scripts/wp-flush.sh is the automated Flush Cache (REST with the application password, then
+    # WP-CLI over SSH); it exits non-zero when it could not clear the edge, which is a held Worker and not a failed upload.
+    echo "   the plain address serves build ${live:-none}, not $want; flushing the host's cache once and re-checking in 30 s"
+    # Round 9 verifier: this runs on the hourly --if-changed path too, so it honours WP_FLUSH like the post-upload flush
+    # and fires at most once per 6 h (wp-flush.sh's own heartbeat ~/.cache/wp-upload/last-flush is the clock) — a stale
+    # CDN must not turn into 24 flushes a day against production WordPress.
+    if [ "${WP_FLUSH:-1}" = 1 ] && [ -f "$R/scripts/wp-flush.sh" ] && ! find "$HOME/.cache/wp-upload/last-flush" -mmin -360 2>/dev/null | grep -q .; then
+      bash "$R/scripts/wp-flush.sh" 2>&1 | sed 's/^/   /' || true
+    else
+      echo "   flush skipped (WP_FLUSH=0, or flushed within the last 6 h); re-checking anyway"
+    fi
+    sleep 30
+    live="$(page_build "https://atlasglinn.com/mastsolutions.html")"
+  fi
+  if [ "$live" = "$want" ]; then
+    echo "   the plain address https://atlasglinn.com/mastsolutions.html serves this commit's page (build $want)"
+    return 0
+  fi
+  echo "WORKER HELD: atlasglinn.com/mastsolutions.html serves build ${live:-none} not $want; the hourly --if-changed path retries"
+  return 1
+}
+worker_deploy() {
+  [ "${WORKER_DEPLOY:-1}" = 1 ] && [ -d "$R/mast-backend" ] || return 0
   LASTW="$(cat "$WSTAMP" 2>/dev/null || true)"
   if [ -z "$LASTW" ] || ! git -C "$R" diff --quiet "$LASTW" "$HEADSHA" -- mast-backend/ 2>/dev/null; then
-    say "Worker: mast-backend/ moved since ${LASTW:0:7}; deploying ${HEADSHA:0:7}"
+    say "Worker: mast-backend/ moved since ${LASTW:0:7}; deploying ${HEADSHA:0:7} (the page above is live, so the new contract has a page that speaks it)"
     # --var BUILD:<sha>: /health reports the commit it runs, so a runner (smoke-worker.yml) can confirm this deploy landed.
     if (cd "$R/mast-backend" && { [ -d node_modules ] || npm install --no-audit --no-fund >/dev/null 2>&1; } && CI=1 npx wrangler deploy --var "BUILD:${HEADSHA:0:7}"); then
       echo "$HEADSHA" > "$WSTAMP"; say "Worker deployed from ${HEADSHA:0:7}"
     else
-      echo "   Worker deploy failed (is wrangler logged in on this Mac? run: cd \"$R/mast-backend\" && npx wrangler whoami). The page upload continues."
+      echo "   Worker deploy failed (is wrangler logged in on this Mac? run: cd \"$R/mast-backend\" && npx wrangler whoami). It is retried on the next hourly run."
     fi
   else
     say "Worker: up to date (${LASTW:0:7})"
   fi
-fi
+}
 if [ "${1:-}" = "--if-changed" ] && [ -f "$STAMP" ] && [ "$(cat "$STAMP")" = "$HEADSHA" ]; then
-  say "up to date: ${HEADSHA:0:7} is already the uploaded page"; exit 0
+  say "up to date: ${HEADSHA:0:7} is already the uploaded page"
+  # The stamp says the upload landed and the origin served it. It does NOT say the CDN caught up, so the retry runs the
+  # same gate the upload path runs (round 9): a retry that skipped the check would ship the Worker onto the stale plain
+  # page the check exists to catch, hourly, until the cache expired. A deploy held here is retried on the next run.
+  if worker_gate; then worker_deploy; fi
+  exit 0
 fi
 git -C "$R" worktree add -q --detach "$W" "$HEADSHA"
 cd "$W"
@@ -242,6 +313,12 @@ rm -f "$BATCH"
 # never assumed: it prints before/after and writes ~/.cache/wp-upload/last-flush. WP_FLUSH=0 skips it.
 if [ "${WP_FLUSH:-1}" = 1 ] && [ -f "$R/scripts/wp-flush.sh" ]; then
   say "Flushing the host's cache"; bash "$R/scripts/wp-flush.sh" 2>&1 | sed 's/^/   /' || true
+  # The host's own watcher (wp-ops/atlas-cache-watch.php) answers with a header on a URL the CDN has not cached; when it
+  # is there, this upload is purged by WP-Cron whatever the flush above managed.
+  WATCH_HDR="$(curl -sI -m 20 -A "wp-upload-check" "${WP_BASE:-https://www.atlasglinn.com}/?atlas-watch=$(date +%s)" 2>/dev/null | tr -d '\r' | awk 'tolower($1)=="x-atlas-cache-watch:" {sub(/^[^:]*: */, ""); v=$0} END{print v}' || true)"
+  if [ -n "$WATCH_HDR" ]; then
+    echo "   the atlas-cache-watch mu-plugin is on the host ($WATCH_HDR); it purges GoDaddy's CDN within 15 minutes of this upload"
+  fi
 fi
 
 say "Checking the live site"
@@ -249,11 +326,16 @@ sleep 2
 # -L: the site answers on www.atlasglinn.com and redirects the bare domain; the checks follow that. The page itself is the
 # check that matters; a cache-busting query gets past the host's page cache (2026-09-05: the page was live in the browser
 # while a stale 404 for the ping file made this step report failure).
+# WHAT THIS ONE ESTABLISHES, exactly: the ORIGIN holds this commit's page — its <meta name="build"> is the hash
+# build-manifest.json gives mastsolutions.html at ${HEADSHA:0:7}. It says nothing about the plain address; that is a
+# separate question, asked by worker_gate below, and it is the one that decides whether the Worker ships.
 TS="$(date +%s)"
-if curl -sfL "https://atlasglinn.com/mastsolutions.html?x=$TS" | grep -q 'reg-steps'; then
-  echo "   https://atlasglinn.com/mastsolutions.html is the new page (registration flow present)"
+WANT_B="$(want_build)"
+BUSTED_B="$(page_build "https://atlasglinn.com/mastsolutions.html?x=$TS")"
+if [ -n "$WANT_B" ] && [ "$BUSTED_B" = "$WANT_B" ]; then
+  echo "   https://atlasglinn.com/mastsolutions.html is this commit's page at the origin (build $WANT_B)"
 else
-  echo "   mastsolutions.html is NOT the new page yet (HTTP $(curl -sL -o /dev/null -w '%{http_code}' "https://atlasglinn.com/mastsolutions.html?x=$TS")). The files went to $DOCROOT/ under the SFTP home; if that is not the web root, re-run with WP_DOCROOT=<folder>. Tell Claude."; exit 3
+  echo "   mastsolutions.html is NOT this commit's page yet (HTTP $(curl -sL -o /dev/null -w '%{http_code}' "https://atlasglinn.com/mastsolutions.html?x=$TS"); the host serves build '${BUSTED_B:-none}', this commit is '${WANT_B:-unknown}'). The files went to $DOCROOT/ under the SFTP home; if that is not the web root, re-run with WP_DOCROOT=<folder>. Tell Claude."; exit 3
 fi
 if curl -sfL "https://atlasglinn.com/mast-ping.txt?x=$TS" | grep -q "served by upload"; then
   echo "   the ping file from this upload is served (no stale cache in the way)"
@@ -278,4 +360,13 @@ for a in images/mast/mast-cqb-poster.jpg vendor/three.module.js; do
   code=$(curl -sL -o /dev/null -w '%{http_code}' "https://atlasglinn.com/$a"); echo "   $a → $code"
 done
 mkdir -p "$(dirname "$STAMP")" && printf '%s\n' "$HEADSHA" > "$STAMP"
-say "Done. Open https://atlasglinn.com/mastsolutions.html on your phone."
+# THE WORKER SHIPS HERE, and only when the PLAIN address serves this commit's page. The check above established that the
+# origin has it; a visitor never asks the origin. The stamp is already written, so a hold costs nothing but the hour: the
+# --if-changed run above re-runs this same gate and deploys as soon as the cache catches up.
+if worker_gate; then
+  worker_deploy
+  say "Done. Open https://atlasglinn.com/mastsolutions.html on your phone."
+else
+  # The upload succeeded and the page is on the host; only the deploy is held, so this is not a failure to report.
+  exit 0
+fi
