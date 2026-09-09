@@ -3160,7 +3160,12 @@ async function holdTaxWindow(env) {
  * AND NO NORMALISATION, ANYWHERE. Nothing is lowercased or trimmed on the way in. ' active ' and 'Active' are not the
  * enum Stripe documents; a drifted value is a SHAPE failure by doctrine, not a value to be repaired into a decision.
  */
-const TAX_TEXT_MAX = 500;                       // Stripe's own ceiling on an address line; the head office line1 is 15
+// 500 is CHOSEN, not read off Stripe's documentation — this session had no route to Stripe and did not verify a
+// documented ceiling, so it is not claimed as one. What is measured: the head office line1 this Worker writes is 15
+// characters, and the fail direction is safe — over it, the settings body is unparseable, the grace holds and nothing
+// is written to the account. If a real address line ever exceeds it, the symptom is `settings_head_office_address_line1_invalid`
+// in the heartbeat, which names the field.
+const TAX_TEXT_MAX = 500;
 /** U+200B ZWSP, U+200C ZWNJ, U+200D ZWJ and U+FEFF are NOT in JavaScript's `\s`, which is the whole of R9-5: a line1 of
  *  one zero-width space satisfied `^\S(?:[\s\S]*\S)?$` and read as "the head office is set", so the settings write was
  *  skipped on an account that has no address. U+00A0 and U+FEFF ARE in `\s` and were already refused outright by that

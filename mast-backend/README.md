@@ -246,7 +246,10 @@ destroyed and the next order sold untaxed, on a body no Stripe account produces.
 PRINTED — it never touched what is DECIDED. Every enum-shaped rule now carries its
 ceiling in the regex itself (`/^[a-z][a-z_]{0,59}$/`, 60 = `TAX_ENUM_MAX`), the two
 country/state fields are `{2}`, `id` is `{1,64}` and the one non-enum string,
-`head_office.address.line1`, is bounded at 500. The boundary is asserted as a **pair**:
+`head_office.address.line1`, is bounded at 500 — a number **chosen, not read off
+Stripe's documentation**, because this session had no route to Stripe and did not
+verify one; the line this Worker writes is 15 characters and the fail direction is
+safe (over it the body is unparseable, the grace holds, nothing is written). The boundary is asserted as a **pair**:
 60 characters is a measured answer, 61 is `settings_unparseable`.
 
 **A row that contradicts itself is not a decidable answer.** `country_options` was
