@@ -1028,6 +1028,92 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   never the GoDaddy "Domain Connect" authorization, its Gmail Setup rewrites MX) → Sitemaps → add
   `https://www.mastsolutions.com/sitemap.xml` → URL inspection → Request indexing for `https://www.mastsolutions.com/`.
 
+## atlasglinn.com → his own Cloudflare account (R3′, workflow `cf-zone-atlasglinn.yml`)
+
+- **Why there is a workflow at all.** R3 in the vault — "a Cloudflare WAF rate-limit rule on `/wp-login.php`, ~2 min in
+  the dashboard" — was re-listed for 107 days and was never executable: the Cloudflare edge in front of atlasglinn.com is
+  GoDaddy's (nameservers `ns15/ns16.domaincontrol.com`), so the zone is not in his account and the rule had nowhere to
+  land. R3′ is the prerequisite — create the zone in HIS account, prove the record import, then move the nameservers.
+- **NOT DISPATCHABLE UNTIL IT IS ON `main`.** GitHub does not register a `workflow_dispatch` workflow that is absent
+  from the default branch — measured 2026-09-09: `GET /repos/MatthewBrockmann/atlasglinn-website/actions/workflows/
+  cf-zone-atlasglinn.yml` answers **404**, and the workflows list returns 12 without it. So it cannot be run from the
+  Actions UI or the API while it sits on a branch. Merging is the step that makes it exist; nothing before that is a
+  "dispatch it and see."
+- **`.github/workflows/cf-zone-atlasglinn.yml`, Actions → Run workflow. Two modes:**
+  - **plan** (default, and it never writes) — verifies the token, probes whether it can see zones at all, and either
+    reports what a create would do or, if the zone already exists, runs the full assertion set against it.
+  - **create** — `POST /zones` with `jump_start: true` (Cloudflare scans GoDaddy's DNS and imports what it finds),
+    polls the imported set until the count settles, then ASSERTS. An existing zone is reused, never duplicated.
+  - Inputs: `domain` (default `atlasglinn.com`, regex-validated before it is echoed anywhere), `add_missing` (default
+    false — the only record it will ever create is `A tak → 142.93.177.0`, unproxied, **and only when no A record
+    exists at that name**), and `allow_other_mx` (default false — see the mail gate below).
+- **The gate, and it is the whole point of the run.** The run FAILS with "do NOT switch nameservers" unless ALL of
+  these hold: **every** apex MX row targeting Microsoft 365, `tak.atlasglinn.com` present at the expected address, an
+  **A/AAAA/CNAME** on the apex, an **A/AAAA/CNAME** on `www`, the import settled before the deadline, and the record
+  page not truncated. Company mail (matthew@atlasglinn.com, M365) does not migrate with the site, and a switch made
+  before the MX is confirmed takes email down — a stale GoDaddy scan importing a wrong-but-present MX is the realistic
+  way that happens, which is why "MX present" is no longer enough on its own. If the mail route genuinely is not M365,
+  that is a business fact only he holds: re-dispatch with `allow_other_mx = true` and the run says so in the closing
+  text instead of claiming mail is safe.
+- **ANY is not ALL, and A/AAAA/CNAME is not "a record" — both gates were one measurement short.** The mail gate asked
+  whether ANY apex MX was M365 and then printed "the apex MX records were confirmed present AND targeting Microsoft
+  365" — plural, and false for the other row, on the realistic GoDaddy-to-M365 leftover of one M365 MX beside one stale
+  registrar MX. It now fails on **any** non-M365 row unless `allow_other_mx` is ticked, and when it is ticked the
+  closing sentence names the count: "1 of the 2 apex MX records target Microsoft 365 and 1 do NOT". Separately the
+  `www` check asked only whether a record with that NAME existed — a **TXT at www satisfied it**, the run printed the
+  nameservers, and www would have stopped resolving on the switch. Both names are now typed. Scenarios `mx_mixed`,
+  `mx_mixed_allowed`, `www_txt_only` and `apex_txt_only` hold all of it down.
+- **NO WARNING SURVIVES IN THAT FILE — every risk is fatal.** The first draft printed a caution and then printed
+  "Import verified" plus the nameservers to paste, in the same log, on two paths (an import still moving at the 90 s
+  deadline, and a missing `www`). The last step is now gated on a `verified` output that only the assertion step can
+  set, only after every check passed, and only in create mode — so **the nameservers print only after a green create
+  run**, and a red run has nothing to paste. That sentence is now true of the code, not just of this file.
+- **The log is PUBLIC, so no DNS record value is ever printed.** MatthewBrockmann/atlasglinn-website is a public repo
+  (measured 2026-09-09: the API answers `"private": false`) and Actions logs on a public repo are world-readable with
+  no account. The run prints a record's **name, type, proxied and ttl** and a **pass/fail per assertion** — never
+  content. `tak` reads "matches the expected address" / "exists with a DIFFERENT address — stop" / "missing"; MX reads
+  "MX present (N) — targeting Microsoft 365: M of N". A record's content is the WordPress origin address once the site
+  is proxied, i.e. exactly what the WAF rule this unlocks exists to hide. Deleting a run afterwards is not a fix —
+  treat a run on a public repo as a publication. Accepted with eyes open: record NAMES are printed (a subdomain list),
+  because a bare count cannot tell him which record failed; and `tak.atlasglinn.com → 142.93.177.0` is **public DNS
+  today**, resolvable by anyone who asks, so the expected address is a constant in the file — it is an expectation,
+  never a value read back from the API.
+- **The error channel prints Cloudflare's numeric codes and never its message text.** "No record value is printed, not
+  even in an error" was an absolute claim over text this workflow does not control: Cloudflare's own
+  `errors[].message` was echoed verbatim at three places, and "an identical record already exists: A tak.<dom> →
+  <address>" is a real shape for it. Every failure path now builds its sentence from names, types, counts and the
+  numeric error code — the message string is dropped, with the code and a pointer to read the full text in the
+  Cloudflare dashboard instead. The canary sweep was blind to this whole channel because every error body the emulator
+  served carried fixed text; it now serves a canary **inside** `errors[].message` on three FAILING scenarios
+  (`err_leak_token`, `err_leak_create`, `err_leak_tak`), so the sweep covers the error limb and not only the table.
+- **Token — mint it for the run, delete it at Cloudflare after the switch.** The create needs an **account-scoped**
+  `Zone:Zone:Edit + Zone:DNS:Edit` token (Cloudflare cannot scope a token to a zone that does not exist yet), stored as
+  `CF_ZONE_TOKEN`; the workflow falls back to the Workers token `deploy-worker.yml` uses only so it can measure the
+  scope and fail with one sentence saying it is the wrong shape. That token can edit DNS for **every zone in the
+  account**, and it would sit in a public repo alongside an active agent-PR flow — so it is **never left as a standing
+  repository secret**. After the nameservers are switched: Cloudflare → My Profile → API Tokens → Delete. **Removing
+  the GitHub secret does not revoke it.** Follow-up work (the WAF rule) uses a token scoped to the one zone, which is
+  possible once the zone exists. The token value is never printed or written to a step output; the account id is masked.
+- **DNSSEC stays OFF at GoDaddy** (measured `unsigned` 2026-09-02). Signing there and then moving nameservers takes the
+  domain dark until the DS record expires out of the registry, and it is not the attack vector — brute force is.
+- **It is tested, and the false-success paths are the tests.** `scripts/tests/cf-zone-test.sh` extracts that
+  workflow's own `run:` blocks with PyYAML and executes those exact bytes against `scripts/tests/cf-zone-emu.py`, a
+  canned Cloudflare on localhost, because every call in the file goes through `$CF_API_BASE`. **118 assertions across
+  26 cases** — workers-scoped token, dead token, account-owned token, zone exists, create success, a create refused
+  with Cloudflare 1061 (reuse, never a second POST), import growing at the deadline, missing www, a TXT-only www, a
+  TXT-only apex, MX not M365 with and without `allow_other_mx`, a mixed M365-plus-other MX set with and without it,
+  tak mismatch, tak missing with and without `add_missing`, a 500 on the by-name lookup, a truncated page, no
+  nameservers assigned, one nameserver where GoDaddy's form needs two, three canary-in-error-body cases, and a domain
+  input carrying a `::stop-commands::` injection. The canary sweep runs over the log, the step summary **and** the step
+  outputs of **every case that ran** — failing ones included — and it fails if a case ran that the sweep did not reach.
+  The case count is pinned to the exact number (it was a floor with 18 assertions of slack), and the source-level
+  invariants — no `::warning::`, no hardcoded API host, no AND-list under `set -e`, no `errors[].message` echo, the tak
+  classifier on non-default exit codes, the `www` gate typed — each always emit a verdict rather than being skippable.
+  CI job `cf-zone` in `wp-ops-tests.yml` runs it on every PR touching the workflow or the harness.
+- **Nothing here has run against Cloudflare yet** — the container that wrote it has no route to `api.cloudflare.com`
+  (egress 000). Every branch is proved against the emulator, which is not Cloudflare; the first green dispatch after
+  the merge is the proof.
+
 ## Drop folders → gallery (Brockmann, 2026-09-05: "anytime I drop new items into the folder on my desktop, it should update in and add photos to the gallery")
 
 - **Mac:** `~/Desktop/MAST NEW WEB 2026/gallery/` and `…/range/` are the drop folders — and since 2026-09-09
