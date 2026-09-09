@@ -218,6 +218,94 @@ def _label(markup):
     return re.sub(r'\s+', ' ', H.unescape(re.sub(r'<[^>]+>', ' ', m.group(2)))).strip()
 
 
+# ── The live chrome's own units ───────────────────────────────────────────────────────────────────────────────────
+# The shell replaces the live bar, the live mobile menu and the live footer with its own, and r1 shipped one hand
+# written set of items for all twelve pages. That is where the parity broke: ep-app's bar carries a "Talk To A
+# Coordinator" button and its own four-column footer, the other eleven carry a "Resources" link, and the shell's set
+# carried neither while adding descriptors and links no live page prints. So the chrome's CONTENT is read off the
+# capture, page by page, exactly like the content between it — the shell supplies the markup and the stylesheet, the
+# live page supplies every label, every href and every descriptor.
+_LI = re.compile(r'<li\b[^>]*>.*?</li>', re.S | re.I)
+_A = re.compile(r'<a\b([^>]*)>(.*?)</a>', re.S | re.I)
+_HREF = re.compile(r'\bhref=["\']([^"\']*)["\']', re.I)
+def _span(markup, cls):
+    """The text of the first <span> carrying `cls` — the banners nest spans, so a class-to-text map does not
+    survive the outer .ndb-text wrapper."""
+    m = re.search(r'<span[^>]*class=["\'][^"\']*\b%s\b[^"\']*["\'][^>]*>(.*?)</span>' % cls, markup, re.S | re.I)
+    return _text(m.group(1)) if m else ''
+
+
+_CTA_CLS = re.compile(r'class=["\'][^"\']*(?:cta-button|cta-nav-btn)', re.I)
+
+
+def _text(markup):
+    return re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', '', markup)).strip()
+
+
+def _nav_span(html):
+    """(bar markup, mobile menu markup) — the live page's two menus, cut at their own tags."""
+    a = html.index('<nav id="main-nav"')
+    bar = html[a:html.index('</nav>', a) + len('</nav>')]
+    m = html.index('<div id="mobile-nav"')
+    depth, end = 0, None
+    for t in re.finditer(r'<(/?)div\b', html[m:]):
+        depth += 1 if t.group(1) == '' else -1
+        if depth == 0:
+            end = m + t.end()
+            break
+    assert end is not None, 'the mobile menu never closes'
+    return bar, html[m:html.index('>', end) + 1]
+
+
+def nav_items(slug):
+    """The live page's bar and mobile menu, in the shape atlas_shell.nav() takes.
+
+    bar:    [(href, label, kind, dropdown)] with kind None or 'cta', dropdown [(href, icon, title, desc)] or None
+    mobile: [(href, label, sub)] with sub True for the entries the live menu prints indented and smaller
+    Every href is relinked to the sibling file; every label, icon and descriptor is the live string, word for word.
+    """
+    bar_html, mob_html = _nav_span(_read(slug))
+    ul = bar_html[bar_html.index('<ul class="nav-links"'):bar_html.index('</ul>')]
+    bar = []
+    for li in _LI.finditer(ul):
+        block = _relink(li.group(0))
+        drop = None
+        if 'nav-dropdown-menu' in block:
+            cut = block.index('<div class="nav-dropdown-menu"')
+            drop = [(_HREF.search(a.group(1)).group(1), _span(a.group(2), 'ndb-icon'),
+                     _span(a.group(2), 'ndb-title'), _span(a.group(2), 'ndb-desc'))
+                    for a in _A.finditer(block[cut:])]
+            block = block[:cut]
+        top = _A.search(block)
+        bar.append((_HREF.search(top.group(1)).group(1), _text(top.group(2)),
+                    'cta' if _CTA_CLS.search(top.group(1)) else None, drop))
+    mobile = [(_HREF.search(a.group(1)).group(1), _text(a.group(2)), 'font-size:14px' in a.group(1))
+              for a in _A.finditer(_relink(mob_html))]
+    assert bar and mobile, '%s: the live bar or mobile menu came back empty' % slug
+    return bar, mobile
+
+
+def footer_inner(slug):
+    """Everything inside the live page's <footer>, verbatim, with internal links pointed at the sibling file.
+
+    Eleven pages share one footer — two award badges, four link groups, the address block with the socials and the
+    rights line. ep-app carries a different one: a brand column, Platform / Company / Connect links, its own copyright
+    and the AES-256 / iOS 17+ / MADE IN USA badges, and no award badges at all. Both come across as they are written.
+    """
+    html = _read(slug)
+    a = html.index('<footer')
+    return _relink(html[html.index('>', a) + 1:html.index('</footer>', a)].strip())
+
+
+def intro_title(slug='index'):
+    """The wordmark the live splash prints. Only index.html carries a splash; the shell puts the same one on all
+    twelve, so the string has to be the live one rather than a re-typed version of it."""
+    html = _read(slug)
+    m = re.search(r'<h1 id="intro-title"[^>]*>(.*?)</h1>', html, re.S | re.I)
+    assert m, '%s: the live splash no longer carries an intro title' % slug
+    return _text(m.group(1))
+
+
 def after_footer(slug):
     """The markup the live page prints after its footer — on eleven of the twelve that is the `>_` portal button,
     which is site content, not chrome, and would otherwise be the one text unit the new page dropped."""

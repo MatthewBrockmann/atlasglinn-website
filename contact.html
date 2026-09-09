@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="d39eee2076a5">
+<meta name="build" content="b8d2b1acd64a">
 <title>Contact - Atlas Glinn | Get In Touch</title>
 <meta name="description" content="Contact Atlas Glinn for a personalized security assessment. Executive protection, training, and risk management services in Houston, TX.">
 <meta name="keywords" content="contact Atlas Glinn, security consultation Houston, executive protection quote, security assessment Houston TX">
@@ -256,7 +256,6 @@
 #mobile-nav.open { opacity:1; visibility:visible; }
 #mobile-nav a { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.05rem; letter-spacing:.12em; text-transform:uppercase; color:var(--text); text-decoration:none; text-align:center; }
 #mobile-nav a.subitem { font-family:'Inconsolata',monospace; font-weight:400; font-size:.68rem; letter-spacing:.2em; color:var(--gold-champagne); opacity:1; transform:none; margin:0; }
-#mobile-nav a small { display:block; font-family:'Inconsolata',monospace; font-weight:400; font-size:.6rem; letter-spacing:.3em; color:var(--text-mute); text-transform:uppercase; margin-top:.2rem; }
 #mobile-nav a.here { color:var(--gold); }
 .mobile-nav-close { position:absolute; top:1rem; right:1rem; background:none; border:1px solid rgba(26,107,222,.35); color:var(--text); font-size:1.5rem; line-height:1; padding:.1rem .55rem; cursor:pointer; }
 #back-to-top { position:fixed; right:1rem; bottom:1rem; z-index:900; width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(5,8,16,.72); border:1px solid rgba(26,107,222,.45); color:var(--gold-champagne); font-size:1.05rem; cursor:pointer; backdrop-filter:blur(8px); opacity:0; visibility:hidden; transform:translateY(10px); transition:opacity .3s, visibility .3s, transform .3s, background .3s; }
@@ -325,7 +324,11 @@ body.intro-open { overflow:hidden; }
      which is the shape of the render P0 that pinned a hero column to the left of the viewport. A definite width keeps
      the auto margins splitting the remainder, so the live layout is exactly what it was. */
   .agx-content { position:relative; z-index:5; }
-  .agx-ch { position:relative; min-height:100vh; min-height:100svh; display:grid; grid-template-columns:100%; align-content:center; }
+  /* The bar is fixed and 60px tall, so a rail link that lands a chapter at scroll-position 0 puts its heading
+     under the bar. Measured before this rule: index ch2/ch3/ch4 headings landed 26/26/49px from the top,
+     executive-protection ch3 and technology ch3 the same. The shell's `section.panel` scroll-margin never
+     applied here — a live-content page has no section.panel; the chapter wrapper is `.agx-ch`. */
+  .agx-ch { position:relative; min-height:100vh; min-height:100svh; display:grid; grid-template-columns:100%; align-content:center; scroll-margin-top:72px; }
   .agx-ch > * { width:100%; }
   .agx-ch::before { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(180deg, rgba(8,12,20,.58) 0%, rgba(8,12,20,.3) 42%, rgba(8,12,20,.72) 100%); }
   .agx-ch.agx-hero::before { background:none; }
@@ -345,7 +348,14 @@ body.intro-open { overflow:hidden; }
   .agx-rail-link:hover span { max-width:13rem; opacity:1; }
   .agx-rail-link.agx-active { color:var(--gold-champagne); }
   .agx-rail-link:hover::after, .agx-rail-link.agx-active::after { width:30px; background:var(--gold); box-shadow:0 0 10px rgba(26,107,222,.6); }
-  @media (min-width:1025px) { .agx-rail { display:flex; } }
+  /* MAST shows its rail from 769px up (cinematic_shell.py:220-223: hidden at <=768px, ticks only 769-1024px,
+     labels from 1025px with `section.panel { padding-right:16.5rem }` making the room). The Atlas rail now
+     appears at the same 769px and in the same tick form; from 1025px MAST's always-on label needs a right
+     gutter this build cannot cut, because the live sections are the live page's own 1400px centred blocks
+     and widening their padding is a content change. So above 1025px the label comes on hover, and on the
+     reading position from 1700px, where the centred column finally leaves the margin for it. */
+  @media (min-width:769px) { .agx-rail { display:flex; } }
+  @media (min-width:769px) and (max-width:1024px) { .agx-rail { right:.8rem; gap:.35rem; } .agx-rail-link { padding:.3rem .4rem; gap:0; } .agx-rail-link::after { width:16px; } .agx-rail-link:hover::after, .agx-rail-link.agx-active::after { width:22px; } }
   /* The live sections are 1400px wide and centred, so below 1700px there is no margin to print a chapter's line in
      without covering its own text: the rail stays a column of ticks and gives the line on hover. Above it, the
      reading position carries its label the way the trailer's rail does. */
@@ -372,9 +382,9 @@ body.intro-open { overflow:hidden; }
 <div id="intro-overlay">
   <canvas class="intro-ring" id="intro-ring" aria-hidden="true"></canvas>
   <div id="intro-content">
-    <div id="intro-eyebrow">Houston &middot; Texas</div>
-    <h1 id="intro-title">ATLAS GLINN</h1>
-    <div id="intro-tagline">Executive Protection &middot; Intelligence &middot; Training</div>
+    <div id="intro-eyebrow"></div>
+    <h1 id="intro-title">Atlas Glinn</h1>
+    <div id="intro-tagline"></div>
   </div>
   <button id="intro-enter" type="button">Enter</button>
   <button id="skip-intro" type="button">Skip Intro &rarr;</button>
@@ -389,11 +399,9 @@ body.intro-open { overflow:hidden; }
         <li><a href="residential-protection.html">Residential Protection</a></li>
         <li><a href="disaster-recovery.html">Disaster Recovery</a></li>
         <li class="nav-dropdown"><a href="training.html">Training</a>
-          <div class="nav-dropdown-menu"><a href="training.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#9881;</span><span class="ndb-text"><span class="ndb-title">Training Programs</span><span class="ndb-desc">EP, firearms, tactical &amp; security courses</span></span></a><a href="https://www.mastsolutions.com/" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#127919;</span><span class="ndb-text"><span class="ndb-title">MAST Solutions</span><span class="ndb-desc">Book a course</span></span></a><a href="https://www.mastsolutions.com/#gear" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128163;</span><span class="ndb-text"><span class="ndb-title">IWA Training Products</span><span class="ndb-desc">Flashbangs, smoke &amp; diversionary devices</span></span></a></div>
+          <div class="nav-dropdown-menu"><a href="training.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#9881;</span><span class="ndb-text"><span class="ndb-title">Training Programs</span><span class="ndb-desc">EP, firearms, tactical &amp; security courses</span></span></a><a href="https://www.mastsolutions.com/#gear" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128163;</span><span class="ndb-text"><span class="ndb-title">IWA Training Products</span><span class="ndb-desc">Flashbangs, smoke &amp; diversionary devices</span></span></a><a href="https://atlasglinn.com/aimpoint-shop/" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#127919;</span><span class="ndb-text"><span class="ndb-title">Aimpoint Optics</span><span class="ndb-desc">Red dot sights &amp; magnifiers</span></span></a></div>
         </li>
-        <li class="nav-dropdown"><a href="technology.html">Technology</a>
-          <div class="nav-dropdown-menu"><a href="technology.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128225;</span><span class="ndb-text"><span class="ndb-title">Technology</span><span class="ndb-desc">Atlas EP, AI surveillance, drones</span></span></a><a href="cuas-aerodefense.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128737;</span><span class="ndb-text"><span class="ndb-title">Counter-Drone</span><span class="ndb-desc">AirWarden by AeroDefense</span></span></a><a href="uas.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128641;</span><span class="ndb-text"><span class="ndb-title">Autonomous UAS</span><span class="ndb-desc">Sunflower Labs</span></span></a><a href="ep-app.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128241;</span><span class="ndb-text"><span class="ndb-title">Atlas EP App</span><span class="ndb-desc">Now in Early Access</span></span></a></div>
-        </li>
+        <li><a href="technology.html">Technology</a></li>
         <li><a href="about.html">About</a></li>
         <li><a href="careers.html">Careers</a></li>
         <li><a href="contact.html" class="nav-cta">Contact Us</a></li>
@@ -404,21 +412,17 @@ body.intro-open { overflow:hidden; }
 
 <div id="mobile-nav" role="dialog" aria-label="Site menu">
   <button class="mobile-nav-close" id="mobile-nav-close" type="button" aria-label="Close menu">&times;</button>
-  <a href="index.html">Home<small>Atlas Glinn, LLC</small></a>
-  <a href="executive-protection.html">Executive Protection<small>Dignitary and close protection</small></a>
-  <a href="residential-protection.html">Residential Protection<small>Estates, guard force, AI surveillance</small></a>
-  <a href="disaster-recovery.html">Disaster Recovery<small>Asset protection when it counts</small></a>
-  <a href="training.html">Training<small>EP, firearms, tactical &amp; security courses</small></a>
-  <a href="https://www.mastsolutions.com/" class="subitem">MAST Solutions<small>Book a course</small></a>
-  <a href="https://www.mastsolutions.com/#gear" class="subitem">IWA Training Products<small>Flashbangs, smoke &amp; diversionary devices</small></a>
-  <a href="technology.html">Technology<small>Atlas EP, AI surveillance, drones</small></a>
-  <a href="cuas-aerodefense.html" class="subitem">Counter-Drone<small>AirWarden by AeroDefense</small></a>
-  <a href="uas.html" class="subitem">Autonomous UAS<small>Sunflower Labs</small></a>
-  <a href="ep-app.html" class="subitem">Atlas EP App<small>Now in Early Access</small></a>
-  <a href="about.html">About<small>Mission and team</small></a>
-  <a href="careers.html">Careers<small>Open positions</small></a>
-  <a href="contact.html" class="here">Contact Us<small>(281) 654-8100</small></a>
-  <a href="privacy.html">Privacy Policy<small>What we keep, and for how long</small></a>
+  <a href="index.html">Home</a>
+  <a href="executive-protection.html">Executive Protection</a>
+  <a href="residential-protection.html">Residential</a>
+  <a href="disaster-recovery.html">Disaster Recovery</a>
+  <a href="training.html">Training</a>
+  <a href="https://www.mastsolutions.com/#gear" class="subitem">IWA Training Products</a>
+  <a href="https://atlasglinn.com/aimpoint-shop/" class="subitem">Aimpoint Optics</a>
+  <a href="technology.html">Technology</a>
+  <a href="about.html">About</a>
+  <a href="careers.html">Careers</a>
+  <a href="contact.html" class="here">Contact</a>
 </div>
 
 <div class="agx-content">
@@ -478,7 +482,71 @@ body.intro-open { overflow:hidden; }
 </div>
 
 <footer class="site-footer">
-  <div class="footer-container"><div class="footer-awards"><div class="badge-item"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div><div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div><div class="footer-grid"><div class="footer-section"><h4>Atlas Glinn</h4><ul><li><a href="index.html">Home</a></li><li><a href="executive-protection.html">Executive Protection</a></li><li><a href="residential-protection.html">Residential Protection</a></li><li><a href="disaster-recovery.html">Disaster Recovery</a></li><li><a href="technology.html">Technology</a></li><li><a href="ep-app.html">Atlas EP App</a></li></ul></div><div class="footer-section"><h4>MAST Solutions</h4><ul><li><a href="training.html">Training Programs</a></li><li><a href="ep-app.html">Atlas EP Platform</a></li><li><a href="cuas-aerodefense.html">Counter-Drone Solutions</a></li><li><a href="uas.html">Autonomous UAS</a></li><li><a href="https://www.mastsolutions.com/">MAST Solutions</a></li></ul></div><div class="footer-section"><h4>Company</h4><ul><li><a href="about.html">About Us</a></li><li><a href="careers.html">Careers</a></li><li><a href="contact.html">Contact</a></li></ul></div><div class="footer-section"><h4>Connect</h4><p>2450 Fondren Rd, Suite 255<br>Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a><br><a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p><div class="footer-social"><a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a><a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a><a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a><a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a><a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a><a href="https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063" target="_blank" rel="noopener" data-track="review">Google Reviews</a></div></div></div><div class="footer-bottom"><a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a></div></div>
+<div class="footer-container">
+        <!-- AWARDS & CREDENTIALS -->
+        <div style="display:flex; align-items:center; justify-content:center; gap:4rem; padding-bottom:2.5rem; border-bottom:1px solid rgba(201,168,76,.15); margin-bottom:2.5rem; flex-wrap:wrap;">
+            <div style="text-align:center;">
+                <img src="https://atlasglinn.com/wp-content/uploads/2025/02/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" style="height:120px; filter:drop-shadow(0 0 15px rgba(201,168,76,.3));" loading="lazy">
+                <p style="font-family:'Orbitron',sans-serif; font-size:0.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#C9A84C; margin-top:0.8rem;">Best of Business 2025</p>
+            </div>
+            <div style="text-align:center;">
+                <img src="https://atlasglinn.com/wp-content/themes/atlasglinn/images/chamber-badge.png" alt="Chamber of Commerce Verified Member" style="height:120px; filter:drop-shadow(0 0 15px rgba(201,168,76,.3));" loading="lazy">
+                <p style="font-family:'Orbitron',sans-serif; font-size:0.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#C9A84C; margin-top:0.8rem;">Chamber of Commerce</p>
+            </div>
+        </div>
+
+        <div class="footer-grid">
+            <div class="footer-section">
+                <h4>Atlas Glinn</h4>
+                <ul>
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="executive-protection.html">Executive Protection</a></li>
+                    <li><a href="residential-protection.html">Residential Protection</a></li>
+                    <li><a href="disaster-recovery.html">Disaster Recovery</a></li>
+                    <li><a href="technology.html">Technology</a></li>
+                    <li><a href="ep-app.html">Atlas EP App</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>MAST Solutions</h4>
+                <ul>
+                    <li><a href="training.html">Training Programs</a></li>
+                    <li><a href="ep-app.html">Atlas EP Platform</a></li>
+                    <li><a href="cuas-aerodefense.html">Counter-Drone Solutions</a></li>
+                    <li><a href="https://www.mastsolutions.com/">MAST Solutions</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Company</h4>
+                <ul>
+                    <li><a href="about.html">About Us</a></li>
+                    <li><a href="careers.html">Careers</a></li>
+                    <li><a href="about.html">Resources</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Connect</h4>
+                <p style="color: #b0b0b0; margin-bottom: 1rem;">
+                    2450 Fondren Rd, Suite 255<br>Houston, TX 77063<br>
+                    <a href="tel:+12816548100" style="color: #1A6BDE;">(281) 654-8100</a><br>
+                    <a href="mailto:atlasglinn.hq@atlasglinn.com" style="color: #1A6BDE;">atlasglinn.hq@atlasglinn.com</a>
+                </p>
+                <div class="social-links" style="display:flex; gap:1.2rem; flex-wrap:wrap;">
+                    <a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" style="color:#1A6BDE; text-decoration:none;">Instagram</a>
+                    <a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" style="color:#1A6BDE; text-decoration:none;">LinkedIn</a>
+                    <a href="https://www.youtube.com/@atlasglinn" target="_blank" style="color:#1A6BDE; text-decoration:none;">YouTube</a>
+                    <a href="https://www.facebook.com/mastsolutions" target="_blank" style="color:#1A6BDE; text-decoration:none;">Facebook</a>
+                    <a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" style="color:#1A6BDE; text-decoration:none;">Yelp</a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p><a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none;">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved.</p>
+            <p>Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management</p>
+            <p style="margin-top:12px;"><a href="https://atlasglinn.com/wp-admin/post-new.php" style="color:rgba(136,136,136,0.4);font-size:10px;text-decoration:none;letter-spacing:0.1em;transition:color 0.3s;" onmouseover="this.style.color='#C9A84C'" onmouseout="this.style.color='rgba(136,136,136,0.4)'">&#x270D;</a></p>
+        </div>
+    </div>
 </footer>
 <div style="text-align:right;padding:12px 60px 12px 0;"><form action="https://atlasglinn-site.matthew-221.workers.dev/portal" method="GET" style="display:inline;"><button type="submit" style="background:none;border:none;color:rgba(201,168,76,0.45);font-size:14px;font-family:monospace;cursor:pointer;transition:color 0.3s;padding:0;" onmouseover="this.style.color='rgba(201,168,76,1)'" onmouseout="this.style.color='rgba(201,168,76,0.45)'">>_&#x1F6E1;</button></form></div>
 <button id="back-to-top" type="button" title="Back to top" aria-label="Back to top">&#8593;</button>

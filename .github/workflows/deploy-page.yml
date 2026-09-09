@@ -49,8 +49,25 @@ jobs:
           lfs: true
       - name: List the page and its assets (the lister from scripts/wp-upload.sh)
         id: list
+        env:
+          ATLAS_PAGES_UPLOAD: ${{ vars.ATLAS_PAGES_UPLOAD }}
         run: |
           eval "$(grep -m1 '^PAGES=' scripts/wp-upload.sh)"
+          # ── GO GATE (00-rules/website-go-live-gate.md) ────────────────────────────────────────────────────────
+          # This job writes to the PUBLIC atlasglinn.com docroot. The five MAST files below have the owner's word and
+          # upload as they always have. The twelve Atlas Glinn pages do not: they are the cinematic rebuild, and until
+          # he has seen the preview and said go they must not appear at atlasglinn.com/<slug>.html. They ride only
+          # when the repository VARIABLE ATLAS_PAGES_UPLOAD is exactly 'true' (Settings → Secrets and variables →
+          # Actions → Variables). ATLAS flips it over the GitHub API on his go — `gh api -X POST
+          # repos/:owner/:repo/actions/variables -f name=ATLAS_PAGES_UPLOAD -f value=true` — never by portal clicks.
+          # The paths trigger above is deliberately left alone: a held run is cheap, and it is the visible record that
+          # the pages changed and were not published. Filtering here, before the resolver, also keeps the Atlas pages'
+          # assets (images/atlas/**) out of the list, so nothing of theirs reaches the host either.
+          ATLAS_PAGES="index.html executive-protection.html residential-protection.html disaster-recovery.html training.html technology.html cuas-aerodefense.html uas.html about.html careers.html contact.html ep-app.html"
+          if [ "$ATLAS_PAGES_UPLOAD" != "true" ]; then
+            for a in $ATLAS_PAGES; do PAGES="$(printf '%s\n' $PAGES | grep -vxF "$a" | tr '\n' ' ')"; done
+            echo "::notice::Atlas pages held: ATLAS_PAGES_UPLOAD is not true (go gate)"
+          fi
           python3 - "$PAGES" > files.txt <<'PY'
           import os, re, sys
           pages = sys.argv[1].split(); seen = []; queue = list(pages)

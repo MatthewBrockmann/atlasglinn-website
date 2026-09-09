@@ -79,7 +79,6 @@ CLASSIC_CSS = r"""
   #mobile-nav.open { opacity:1; visibility:visible; }
   #mobile-nav a { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.05rem; letter-spacing:.12em; text-transform:uppercase; color:var(--text); text-decoration:none; text-align:center; }
   #mobile-nav a.subitem { font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.68rem; letter-spacing:.2em; color:var(--gold-champagne); opacity:1; transform:none; margin:0; }
-  #mobile-nav a small { display:block; font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.6rem; letter-spacing:.3em; color:var(--text-mute); text-transform:uppercase; margin-top:.2rem; }
   #mobile-nav a.here { color:var(--gold); }
   .mobile-nav-close { position:absolute; top:1rem; right:1rem; background:none; border:1px solid rgba(201,168,76,.35); color:var(--text); font-size:1.5rem; line-height:1; padding:.1rem .55rem; cursor:pointer; }
   /* ── Hero: the film full-bleed under the headline, with the live sound toggle ── */
@@ -274,26 +273,32 @@ def chrome(intro_eyebrow, wordmark, intro_tagline, photos):
             % (intro_eyebrow, wordmark, intro_tagline, ph))
 
 
-def nav(items, here, logo, brand='ATLAS GLINN', home='index.html'):
-    """items: [(href, label, kind, desc)] where kind is None, 'cta', 'mobile' (the full-screen list only), or
-    [(href, icon, title, desc)] for a dropdown. `desc` is the live menu's descriptor line under the label."""
+def nav(bar_items, mobile_items, here, logo, brand='ATLAS GLINN', home='index.html'):
+    """The sticky bar and the full-screen menu, both filled from the live page's own two menus.
+
+    bar_items:    [(href, label, kind, dropdown)] — kind None or 'cta', dropdown [(href, icon, title, desc)] or None
+    mobile_items: [(href, label, sub)] — sub True for the entries the live menu prints indented
+
+    The descriptor line under a bar item is gone: the live bar prints none, and the eleven the shell invented for it
+    ("Dignitary and close protection", "Book a course", "Mission and team", …) were copy no page has ever carried.
+    The three descriptors that stay are the live Training menu's own, read off the capture (reference/live/index.html
+    <span class="ndb-desc">), and they are printed only where the live banner carries one.
+    """
     bar, mob = [], []
-    for href, label, kind, desc in items:
+    for href, label, kind, drop in bar_items:
         cur = ' class="here"' if href == here else ''
-        line = '  <a href="%s"%s>%s<small>%s</small></a>' % (href, cur, label, desc)
-        if isinstance(kind, list):
+        if drop:
             menu = ''.join('<a href="%s" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">%s</span>'
-                           '<span class="ndb-text"><span class="ndb-title">%s</span><span class="ndb-desc">%s</span></span></a>'
-                           % (h, ic, t, d) for h, ic, t, d in kind)
+                           '<span class="ndb-text"><span class="ndb-title">%s</span>%s</span></a>'
+                           % (h, ic, t, '<span class="ndb-desc">%s</span>' % d if d else '')
+                           for h, ic, t, d in drop)
             bar.append('        <li class="nav-dropdown"><a href="%s"%s>%s</a>\n          <div class="nav-dropdown-menu">%s</div>\n        </li>' % (href, cur, label, menu))
-            mob.append(line)
-            mob += ['  <a href="%s" class="subitem%s">%s<small>%s</small></a>' % (h, ' here' if h == here else '', t, d)
-                    for h, _, t, d in kind if h != href]
         else:
-            if kind != 'mobile':
-                cls = ' class="nav-cta"' if kind == 'cta' else cur
-                bar.append('        <li><a href="%s"%s>%s</a></li>' % (href, cls, label))
-            mob.append(line)
+            cls = ' class="nav-cta"' if kind == 'cta' else cur
+            bar.append('        <li><a href="%s"%s>%s</a></li>' % (href, cls, label))
+    for href, label, sub in mobile_items:
+        cls = ' class="subitem%s"' % (' here' if href == here else '') if sub else (' class="here"' if href == here else '')
+        mob.append('  <a href="%s"%s>%s</a>' % (href, cls, label))
     return ('<nav id="main-nav" aria-label="Main">\n  <div class="nav-container">\n'
             '    <a href="%s" class="nav-logo"><img src="%s" alt="%s" width="40" height="40"><span class="nav-logo-text">%s</span></a>\n'
             '      <ul class="nav-links">\n%s\n      </ul>\n'
@@ -321,8 +326,11 @@ def hero_media(img, pos=None, film=None):
     return '<figure class="hero-media">%s%s</figure><span class="hero-scrim"></span>%s' % (still, video, toggle)
 
 
-def footer(inner):
-    return '<footer class="site-footer">\n  <div class="footer-container">%s</div>\n</footer>\n' % inner
+def footer(inner, container=True):
+    """The site footer. A live page brings its own `.footer-container` (ep-app brings `.footer-inner` instead), so the
+    live build passes container=False and the shell contributes the element and the stylesheet, nothing else."""
+    body = '\n  <div class="footer-container">%s</div>\n' % inner if container else '\n%s\n' % inner
+    return '<footer class="site-footer">%s</footer>\n' % body
 
 
 BACK_TO_TOP = '<button id="back-to-top" type="button" title="Back to top" aria-label="Back to top">&#8593;</button>\n'
@@ -450,7 +458,11 @@ CINEMA_CSS = r"""
      which is the shape of the render P0 that pinned a hero column to the left of the viewport. A definite width keeps
      the auto margins splitting the remainder, so the live layout is exactly what it was. */
   .agx-content { position:relative; z-index:5; }
-  .agx-ch { position:relative; min-height:100vh; min-height:100svh; display:grid; grid-template-columns:100%; align-content:center; }
+  /* The bar is fixed and 60px tall, so a rail link that lands a chapter at scroll-position 0 puts its heading
+     under the bar. Measured before this rule: index ch2/ch3/ch4 headings landed 26/26/49px from the top,
+     executive-protection ch3 and technology ch3 the same. The shell's `section.panel` scroll-margin never
+     applied here — a live-content page has no section.panel; the chapter wrapper is `.agx-ch`. */
+  .agx-ch { position:relative; min-height:100vh; min-height:100svh; display:grid; grid-template-columns:100%; align-content:center; scroll-margin-top:72px; }
   .agx-ch > * { width:100%; }
   .agx-ch::before { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(180deg, rgba(8,12,20,.58) 0%, rgba(8,12,20,.3) 42%, rgba(8,12,20,.72) 100%); }
   .agx-ch.agx-hero::before { background:none; }
@@ -470,7 +482,14 @@ CINEMA_CSS = r"""
   .agx-rail-link:hover span { max-width:13rem; opacity:1; }
   .agx-rail-link.agx-active { color:var(--gold-champagne); }
   .agx-rail-link:hover::after, .agx-rail-link.agx-active::after { width:30px; background:var(--gold); box-shadow:0 0 10px rgba(201,168,76,.6); }
-  @media (min-width:1025px) { .agx-rail { display:flex; } }
+  /* MAST shows its rail from 769px up (cinematic_shell.py:220-223: hidden at <=768px, ticks only 769-1024px,
+     labels from 1025px with `section.panel { padding-right:16.5rem }` making the room). The Atlas rail now
+     appears at the same 769px and in the same tick form; from 1025px MAST's always-on label needs a right
+     gutter this build cannot cut, because the live sections are the live page's own 1400px centred blocks
+     and widening their padding is a content change. So above 1025px the label comes on hover, and on the
+     reading position from 1700px, where the centred column finally leaves the margin for it. */
+  @media (min-width:769px) { .agx-rail { display:flex; } }
+  @media (min-width:769px) and (max-width:1024px) { .agx-rail { right:.8rem; gap:.35rem; } .agx-rail-link { padding:.3rem .4rem; gap:0; } .agx-rail-link::after { width:16px; } .agx-rail-link:hover::after, .agx-rail-link.agx-active::after { width:22px; } }
   /* The live sections are 1400px wide and centred, so below 1700px there is no margin to print a chapter's line in
      without covering its own text: the rail stays a column of ticks and gives the line on hover. Above it, the
      reading position carries its label the way the trailer's rail does. */

@@ -140,6 +140,20 @@ TOPNAV = [
     ('privacy.html', 'Privacy Policy', 'mobile', 'What we keep, and for how long'),
 ]
 
+def _topnav_lists():
+    """TOPNAV in the two-list shape nav() takes. Only the deprecated --authored path reads it; the twelve pages that
+    ship take their bar and their menu off the capture (atlas_live.nav_items)."""
+    bar, mobile = [], []
+    for href, label, kind, _desc in TOPNAV:
+        drop = kind if isinstance(kind, list) else None
+        if kind != 'mobile':
+            bar.append((href, label, None if drop else kind, drop))
+        mobile.append((href, label, False))
+        if drop:
+            mobile += [(h, t, True) for h, _ic, t, _d in drop if h != href]
+    return bar, mobile
+
+
 SOCIAL_LINKS = [('https://www.instagram.com/atlasglinn_mastsolutions/', 'Instagram'),
                 ('https://www.linkedin.com/in/mastsolutions1/', 'LinkedIn'),
                 ('https://www.youtube.com/@atlasglinn', 'YouTube'),
@@ -419,7 +433,7 @@ def build(path, title, desc, og_image, credits, chapters, photos, jsonld=''):
     assert '<!--HERO-MEDIA-->' in first_html, f'{path}: the opening section is not a hero'
     chapters = [(first_label, first_html.replace('<!--HERO-MEDIA-->', atlas.hero_media(*photos[0])))] + chapters[1:]
     chrome = atlas.chrome(credits[0], 'ATLAS GLINN', credits[1], [(img, pos) for img, pos, *_ in photos])
-    body = ('\n' + chrome + atlas.nav(TOPNAV, path, LOGO_MARK) + '\n<div class="content">\n'
+    body = ('\n' + chrome + atlas.nav(*_topnav_lists(), here=path, logo=LOGO_MARK) + '\n<div class="content">\n'
             + ''.join(h for _, h in chapters) + '\n</div>\n' + atlas.footer(site_footer()) + atlas.BACK_TO_TOP)
     css = atlas.css(shell.ATLAS, EXTRA_CSS) + HERO_CSS
     html = shell.head(meta(title, desc, path, og_image, jsonld), css) + body + shell.tail(atlas.three(n, shell.ATLAS), atlas.CLASSIC_JS + FORM_JS)
@@ -997,7 +1011,39 @@ build('ep-app.html',
 # reason the live type wins: the theme stylesheet, then the page's own <style> blocks, then the shell's chrome sheet —
 # which atlas_live.chrome_css() has already cut down to the bar, the menu, the splash, the footer and the back-to-top
 # button, so there is nothing left in it that could reach the content.
-INTRO_TAGLINE = 'Executive Protection &middot; Intelligence &middot; Training'
+# ── The live chrome, page by page ─────────────────────────────────────────────────────────────────────────────────
+# r1 gave all twelve pages one hand-written bar, one hand-written menu and one hand-written footer. Measured against
+# the capture that cost ep-app its "Talk To A Coordinator" button and its whole four-column footer (8 units), cost
+# every page the live footer's "Resources" link, and added units no live page carries — "Autonomous UAS" and a Google
+# Reviews link in the footer, eleven descriptor lines under the menu items, two award badges on ep-app. So the bar,
+# the menu and the footer are now read off the capture per page, exactly like the content between them.
+#
+# Two hrefs are redirected on top of that, and only two. Both are AG-5 / §G-6 ("every Atlas page →
+# https://www.mastsolutions.com/ absolute, and /#gear for the IWA entry") applied to a link the live page already
+# prints, under its own label: the menu's IWA entry and the footer's "MAST Solutions" entry, which the live site
+# points at its own /training/ page. No label changes, no unit is added or removed by this.
+MAST_HREFS = {'https://atlasglinn.com/training/shop/': 'https://www.mastsolutions.com/#gear',
+              'https://atlasglinn.com/aimpoint-shop/': 'https://atlasglinn.com/aimpoint-shop/'}
+MAST_FOOTER_LINK = ('<a href="training.html">MAST Solutions</a>', '<a href="https://www.mastsolutions.com/">MAST Solutions</a>')
+
+
+def live_nav(slug, page):
+    bar, mobile = live.nav_items(slug)
+    bar = [(MAST_HREFS.get(h, h), l, k,
+            [(MAST_HREFS.get(dh, dh), ic, t, d) for dh, ic, t, d in drop] if drop else None)
+           for h, l, k, drop in bar]
+    mobile = [(MAST_HREFS.get(h, h), l, sub) for h, l, sub in mobile]
+    return atlas.nav(bar, mobile, page, LOGO_MARK)
+
+
+def live_footer(slug):
+    inner = live.footer_inner(slug)
+    old, new = MAST_FOOTER_LINK
+    if old in inner:
+        inner = inner.replace(old, new, 1)
+    return atlas.footer(inner, container=False)
+
+
 
 
 def build_live(slug):
@@ -1022,10 +1068,10 @@ def build_live(slug):
             + '<style>' + sheet + cinema + '</style>\n'
             + '</head>\n<body>\n<script>' + shell.REFRESH_JS + '</script>\n\n'
             + atlas.cinema_chrome(marks)
-            + live.intro_overlay('Houston &middot; Texas', 'ATLAS GLINN', INTRO_TAGLINE) + '\n'
-            + atlas.nav(TOPNAV, page, LOGO_MARK) + '\n'
+            + live.intro_overlay('', live.intro_title(), '') + '\n'
+            + live_nav(slug, page) + '\n'
             + body + '\n\n'
-            + atlas.footer(site_footer()) + live.after_footer(slug) + '\n' + atlas.BACK_TO_TOP + '\n'
+            + live_footer(slug) + live.after_footer(slug) + '\n' + atlas.BACK_TO_TOP + '\n'
             + chrome
             + '<script>' + live.intro_ring_js() + '</script>\n'
             + '<script>' + live.chrome_js() + '</script>\n'

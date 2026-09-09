@@ -1,16 +1,38 @@
 #!/usr/bin/env python3
-"""Side by side: the current atlasglinn.com page against the new one, section for section.
+"""Side by side: the current atlasglinn.com page against the new one, section for section — and the gate that fails.
 
 Brockmann, 2026-09-08: "side bar = take the current site and drop into new design and see". So this is the seeing.
 Left is the live page as captured in reference/live/<slug>.html — the real thing. Right is the page this repo now
-serves. Both columns are read out of the same content region by the same extractor, so a row that reads identically
-IS identical; the only difference that should ever appear is an internal link, which points at the sibling .html file
-instead of the WordPress permalink.
+serves. Both columns are read out of the same page by the same extractor, so a row that reads identically IS identical.
 
-Above each pair sits the count that matters: how many of the live page's visible text units and media URLs the new
-page carries. Anything short of every one of them is named, item by item, right there in the sheet.
+WHAT CHANGED IN r2, AND WHY. The r1 sheet measured live-minus-build only, over the CONTENT REGION only. Two whole
+classes of defect were invisible to it: a unit the build INVENTED (nothing was ever subtracted from the build side),
+and anything in the chrome (the extractor cut the page at the mobile menu and at <footer>, so the bar and the footer
+were never read at all). It reported "12 pages / 0 deltas" while ep-app was missing its entire live footer and its
+"Talk To A Coordinator" button, every page had lost the footer's "Resources" link, and eleven invented descriptor
+lines rode the menu. A one-way test over two thirds of the page cannot see any of that.
 
-Writes atlas-compare.html at the repo root (tracked, noindex). Run after scripts/assemble-atlas.py:
+So the sheet now reads the WHOLE VISIBLE PAGE — content, bar, mobile menu and footer — and compares it BOTH WAYS:
+
+  live -> build   every visible unit the live page prints must be on the new page, counting repeats. No exceptions.
+  build -> live   every visible unit the new page prints must be on the live page, counting repeats, EXCEPT the
+                  chrome the cinematic shell contributes, which is the allowlist below and nothing else.
+
+ALLOWLIST — the only build-only units permitted, per page, printed in the sheet and on stdout so a reader sees exactly
+what was excused and can object to it:
+  * the splash controls "Enter" and "Skip Intro →"
+  * the splash wordmark, matched against the live splash's own <h1 id="intro-title"> string and nothing else
+  * the back-to-top control "↑"
+  * the menu controls "☰" and "×", and the sound toggle "🔇"
+  * a chapter-rail label that repeats a heading inside the chapter it links to, or, where that chapter carries no
+    heading at all, the chapter's own two-digit number
+  * progress text of the form "NN / NN"
+Media is compared the same way: every live image, film, poster and YouTube id must be carried, and the only build-only
+media permitted is the logo mark the bar and the splash print, and the backdrop form of a YouTube id the live page
+already embeds. An invented photograph or badge is a delta.
+
+Writes atlas-compare.html at the repo root (tracked, noindex) and EXITS NON-ZERO on any delta. Run after
+scripts/assemble-atlas.py:
     python3 scripts/compare-atlas.py
 """
 import html as H
@@ -23,10 +45,19 @@ import atlas_live as live
 
 REPO = live.REPO
 OUT = os.path.join(REPO, 'atlas-compare.html')
-SKIP = ('Atlas-Glinn-Logo', 'chamber-badge', 'BEST_OF')   # the marks the bar and the footer carry on every page
+LOGO_MARKS = ('Atlas-Glinn-Logo',)          # the bar's and the splash's mark, on every page of both sides
+SKIP = ('Atlas-Glinn-Logo', 'chamber-badge', 'BEST_OF')   # the marks the block view does not draw thumbnails for
 _TOK = re.compile(r'<(h[1-4])[^>]*>(.*?)</\1>|(?:src|poster)=["\']([^"\']+)["\']'
                   r'|background(?:-image)?:\s*url\((["\']?)([^)"\']+)\4\)', re.S | re.I)
 _STRIP = re.compile(r'<(script|style)\b[^>]*>.*?</\1>|<!--.*?-->', re.S | re.I)
+_RAIL = re.compile(r'<a class="agx-rail-link" href="#(agx-c\d+)"><span>(.*?)</span></a>', re.S)
+_CH = re.compile(r'<div class="agx-ch[^"]*" id="(agx-c\d+)"[^>]*>', re.I)
+_HEAD = re.compile(r'<(h[1-6])\b[^>]*>(.*?)</\1>', re.S | re.I)
+_PROGRESS = re.compile(r'^\d{2} / \d{2}$')
+_TWO = re.compile(r'^\d{2}$')
+_YT_EMBED = re.compile(r'youtube(?:-nocookie)?\.com/embed/([\w-]+)')
+
+SPLASH = ('Enter', 'Skip Intro →', '↑', '☰', '×', '\U0001f507')
 
 
 def clean(t):
@@ -92,16 +123,33 @@ def render(bs):
     return ''.join(parts) or '<div class="block"><h4>(no headings)</h4></div>'
 
 
-def new_content(page):
-    """The generated page's content region — the same boundaries the live page has, because the shell keeps them."""
+def seen_media(markup):
+    """Every image, film, poster and YouTube id a reader meets. Scripts and stylesheets are cut first — the live pages
+    end in a GoDaddy tracker whose <script src> the media regex would otherwise read as a photograph — and so is the
+    logo mark, which is chrome on both sides and is the one asset the new pages serve from the repo (images/atlas/…)
+    rather than from wp-content. It is the same file; comparing the two URLs would report a delta that is not one.
+
+    YouTube ids are the exception to the script cut, and cuas-aerodefense is why: the live page does not write an
+    <iframe src> for fO8_EOUrSfg at all — it hands the id to the IFrame API in a script (capture :305/:310/:311), so
+    an id read only outside scripts would report the live page as carrying no film and the build as inventing one."""
+    seen = live.media(None, _STRIP.sub(' ', markup)) | {u for u in live.media(None, markup) if u.startswith('yt:')}
+    return {u for u in seen if not any(k in u for k in LOGO_MARKS)}
+
+
+def visible(html):
+    """The whole visible page: everything inside <body>, chrome included. The r1 sheet cut this down to the content
+    region, which is precisely why it could not see the footer it had replaced."""
+    a = html.index('>', html.index('<body')) + 1
+    return html[a:html.index('</body>')]
+
+
+def read(page):
     with open(os.path.join(REPO, page), encoding='utf-8') as fh:
-        html = fh.read()
-    a, b = live._content_span(html)
-    return html[a:b]
+        return fh.read()
 
 
 def missing(want, got):
-    """What the live page has that the new page does not, counting repeats."""
+    """What `want` has that `got` does not, counting repeats."""
     pool, out = list(got), []
     for x in want:
         if x in pool:
@@ -109,6 +157,58 @@ def missing(want, got):
         else:
             out.append(x)
     return out
+
+
+def rail_labels(markup):
+    """{label: reason} for every chapter-rail label that is allowed to be build-only, checked against the chapter it
+    actually links to — a label naming a heading no chapter carries is NOT excused. The heading is read the way the
+    rail generator reads it (atlas_live._label: tags become a space), so a heading that wraps its question mark in a
+    span matches its own rail label and nothing else does."""
+    chapters, spans = {}, [m for m in _CH.finditer(markup)]
+    for k, m in enumerate(spans):
+        end = spans[k + 1].start() if k + 1 < len(spans) else len(markup)
+        chapters[m.group(1)] = [re.sub(r'\s+', ' ', H.unescape(re.sub(r'<[^>]+>', ' ', h.group(2)))).strip()
+                                for h in _HEAD.finditer(markup[m.end():end])]
+    out = {}
+    for anchor, lab in _RAIL.findall(markup):
+        lab = clean(lab)
+        heads = chapters.get(anchor, [])
+        if lab in heads:
+            out[lab] = 'rail label, repeats the chapter %s heading' % anchor[-2:].lstrip('c')
+        elif not heads and _TWO.match(lab):
+            out[lab] = 'rail tick, chapter %s carries no heading' % lab
+    return out
+
+
+def excuse(slug, added, markup):
+    """(excused as [(unit, reason)], unexplained as [unit]) — the allowlist, applied unit by unit."""
+    rails = rail_labels(markup)
+    word = live.intro_title()
+    ok, bad = [], []
+    for u in added:
+        if u in SPLASH:
+            ok.append((u, 'splash / chrome control'))
+        elif u == word:
+            ok.append((u, 'splash wordmark, the live splash’s own <h1 id="intro-title">'))
+        elif u in rails:
+            ok.append((u, rails[u]))
+        elif _PROGRESS.match(u):
+            ok.append((u, 'progress text'))
+        else:
+            bad.append(u)
+    return ok, bad
+
+
+def excuse_media(added, live_media):
+    ids = {u[3:] for u in live_media if u.startswith('yt:')}
+    ok, bad = [], []
+    for u in added:
+        m = _YT_EMBED.search(u)
+        if m and m.group(1) in ids:
+            ok.append((u, 'backdrop form of the live page’s own YouTube %s' % m.group(1)))
+        else:
+            bad.append(u)
+    return ok, bad
 
 
 CSS = """
@@ -120,8 +220,10 @@ section.page{border-bottom:1px solid #223;padding:1rem}
 section.page h2{font-size:1.05rem;margin:0 0 .5rem}
 section.page h2 a{color:#7fb0ff;font-weight:400;font-size:.85rem;margin-left:.6rem;text-decoration:none}
 .verdict{font-size:.82rem;margin:0 0 .7rem;padding:.4rem .6rem;border-left:3px solid #2f6b3f;background:#0d1320;color:#9fe0b4}
-.verdict.off{border-left-color:#8a5a1f;color:#f0c98a}
+.verdict.off{border-left-color:#a33;color:#f0a0a0}
 .verdict ul{margin:.35rem 0 0 1rem;padding:0}
+.excused{font-size:.75rem;margin:0 0 .7rem;padding:.4rem .6rem;border-left:3px solid #3a4a6b;background:#0b1020;color:#93a4c4}
+.excused ul{margin:.3rem 0 0 1rem;padding:0}
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
 .col h3{font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#9aa3b2;margin:0 0 .5rem}
 .block{border:1px solid #1e2738;padding:.55rem;margin-bottom:.55rem;background:#0d1320}
@@ -142,32 +244,60 @@ def main():
     secs, menu, off = [], [], 0
     for slug in live.PAGES:
         page = 'index.html' if slug == 'index' else slug + '.html'
-        old, new = live.content(slug), new_content(page)
+        old, new = visible(live._read(slug)), visible(read(page))
         to, tn = text_units(old), text_units(new)
-        mo, mn = sorted(live.media(slug, old)), sorted(live.media(slug, new))
-        lost_t, lost_m = missing(to, tn), missing(mo, mn)
-        ok = not lost_t and not lost_m
+        mo, mn = seen_media(old), seen_media(new)
+        lost_t, added_t = missing(to, tn), missing(tn, to)
+        lost_m, added_m = sorted(mo - mn), sorted(mn - mo)
+        ok_t, bad_t = excuse(slug, added_t, new)
+        ok_m, bad_m = excuse_media(added_m, mo)
+        ok = not (lost_t or lost_m or bad_t or bad_m)
         off += 0 if ok else 1
-        detail = ''.join('<li>%s</li>' % H.escape(x[:160]) for x in lost_t[:20] + [label(u) for u in lost_m])
+        print('%-24s text %3d/%3d live-carried  %2d build-only (%d excused, %d NOT)   media %2d/%2d  %2d build-only '
+              '(%d excused, %d NOT)   %s'
+              % (slug, len(to) - len(lost_t), len(to), len(added_t), len(ok_t), len(bad_t),
+                 len(mo) - len(lost_m), len(mo), len(added_m), len(ok_m), len(bad_m), 'OK' if ok else 'DELTA'))
+        print('    excused: %-52s  %s' % (repr('Atlas-Glinn-Logo…png'), 'logo mark, chrome on both sides (repo copy of the live file)'))
+        for u, why in ok_t + ok_m:
+            print('    excused: %-52s  %s' % (repr(u[:50]), why))
+        for u in lost_t:
+            print('    MISSING FROM BUILD: %s' % repr(u[:110]))
+        for u in lost_m:
+            print('    MEDIA MISSING FROM BUILD: %s' % u)
+        for u in bad_t:
+            print('    NOT ON THE LIVE PAGE: %s' % repr(u[:110]))
+        for u in bad_m:
+            print('    MEDIA NOT ON THE LIVE PAGE: %s' % u)
+        detail = ''.join('<li>live only: %s</li>' % H.escape(x[:160]) for x in lost_t) \
+            + ''.join('<li>live only, media: %s</li>' % H.escape(label(u)) for u in lost_m) \
+            + ''.join('<li>build only: %s</li>' % H.escape(x[:160]) for x in bad_t) \
+            + ''.join('<li>build only, media: %s</li>' % H.escape(u) for u in bad_m)
+        excused = ''.join('<li>%s &mdash; %s</li>' % (H.escape(u[:80]), H.escape(w)) for u, w in ok_t + ok_m)
         menu.append('<a href="#%s">%s</a>' % (slug, slug))
         secs.append(
             '<section class="page" id="%s"><h2>%s'
             '<a href="https://atlasglinn.com/%s" target="_blank" rel="noopener">current site &#8599;</a>'
             '<a href="%s" target="_blank">new page &#8599;</a></h2>'
-            '<p class="verdict%s">text %d/%d &middot; media %d/%d carried across%s</p>'
+            '<p class="verdict%s">text %d/%d &middot; media %d/%d carried across &middot; %d build-only unit(s), '
+            '%d excused by the allowlist%s</p>'
+            '<p class="excused">Allowed build-only chrome on this page:<ul>%s</ul></p>'
             '<div class="cols"><div class="col"><h3>Current atlasglinn.com</h3>%s</div>'
-            '<div class="col"><h3>New &mdash; same content, classic shell</h3>%s</div></div></section>'
+            '<div class="col"><h3>New &mdash; same content, cinematic shell</h3>%s</div></div></section>'
             % (slug, page, '' if slug == 'index' else slug + '/', page,
                '' if ok else ' off', len(to) - len(lost_t), len(to), len(mo) - len(lost_m), len(mo),
-               '' if ok else '<ul>%s</ul>' % detail, render(blocks(old)), render(blocks(new))))
+               len(added_t) + len(added_m), len(ok_t) + len(ok_m),
+               '' if ok else '<ul>%s</ul>' % detail, excused or '<li>none</li>',
+               render(blocks(old)), render(blocks(new))))
     doc = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
            '<meta name="viewport" content="width=device-width,initial-scale=1">'
            '<meta name="robots" content="noindex, nofollow">'
            '<title>Atlas Glinn &mdash; current site vs new design</title><style>%s</style></head><body>'
            '<header><h1>Atlas Glinn: the current site, side by side with the new design</h1>'
            '<p>Left is atlasglinn.com as captured. Right is the page this repo serves &mdash; the same content, the '
-           'same stylesheet and the same films, inside the classic shell. A row that reads the same is the same: both '
-           'columns come out of the page through one extractor.</p>'
+           'same stylesheet and the same films, inside the cinematic shell. Every visible unit is compared BOTH ways '
+           'over the whole page, chrome included: nothing the live page prints may be missing, and nothing the new '
+           'page prints may be absent from the live page unless it is one of the shell controls listed under each '
+           'section.</p>'
            '<p><code>%s</code></p><nav>%s</nav></header>%s</body></html>'
            % (CSS, H.escape(stamp), ''.join(menu), ''.join(secs)))
     open(OUT, 'w', encoding='utf-8').write(doc)

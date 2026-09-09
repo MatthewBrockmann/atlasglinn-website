@@ -125,6 +125,19 @@ stylesheet it links is served from the repo as `vendor/atlasglinn-shared-styles.
   chrome boundaries, the tail scripts the content owns, the media list. Internal links become the sibling `.html`;
   **media URLs are left absolute on purpose** — a repo copy is a different encode (the disaster hero is 44.6 MB live
   against 3.7 MB here) and a teaser is a different film, and both are the "re-cut" he ruled out.
+- **The chrome's CONTENT is the live page's too** (2026-09-09). `atlas_live.nav_items(slug)` reads the live bar and
+  the live mobile menu — every label, href, icon and descriptor — and `atlas_live.footer_inner(slug)` reads the live
+  footer whole; `atlas_shell.nav()` and `footer()` supply only the markup and the stylesheet. Before this the twelve
+  pages shared one hand-written bar and one hand-written footer, and the cost was measurable: **ep-app lost its
+  "Talk To A Coordinator" button and its entire four-column footer (8 units) and gained two award badges its live
+  page does not carry; all twelve lost the footer's "Resources" link; eleven invented descriptor lines
+  ("Dignitary and close protection", "Book a course", "Mission and team", …), an invented "Autonomous UAS" footer
+  entry and a Google Reviews link rode every page.** Eleven live footers are the same; ep-app's is a different
+  footer entirely and now ships as its own. **Two hrefs and only two are redirected on top of the capture**
+  (AG-5 / ledger §G-6, "every Atlas page → https://www.mastsolutions.com/ absolute, and /#gear for the IWA entry"):
+  the menu's IWA entry and the footer's "MAST Solutions" entry, both under their own live labels. No unit is added
+  or removed by that. The dropdown keeps the three descriptor lines the LIVE menu prints
+  (`reference/live/index.html:14-16`) and none of the shell's.
 - `chrome_css()` cuts the shell stylesheet down to the five chrome roots (`#intro-overlay`, `#main-nav`,
   `#mobile-nav`, `footer.site-footer`, `#back-to-top`) and drops every global and content rule by name —
   `DROP_SELECTORS` fails the build if one of them is ever renamed away. The palette is declared **on those roots, not
@@ -136,7 +149,15 @@ stylesheet it links is served from the repo as `vendor/atlasglinn-shared-styles.
   for a click and that is a black screen on a phone.
 - `scripts/compare-atlas.py` writes **`atlas-compare.html` at the repo root** (tracked, noindex, staged at
   `/preview/atlasglinn/atlas-compare.html`): the live page and the new page side by side, both read out by one
-  extractor, with the carried text-unit and media counts above each pair. It **exits 1** if any page is short.
+  extractor. **It compares the WHOLE VISIBLE PAGE — content, bar, mobile menu and footer — BOTH WAYS**, and
+  **exits 1** on any delta in either direction. Until 2026-09-09 it measured live-minus-build only, over the content
+  region only, so it could see neither an invented unit nor anything in the chrome: it reported "12 pages / 0 deltas"
+  while ep-app was missing its whole live footer and its "Talk To A Coordinator" button, every page had lost the
+  footer's "Resources" link, and eleven invented descriptor lines rode the menu. The only build-only units permitted
+  are one printed allowlist — the splash controls Enter / Skip Intro, the splash wordmark (matched against the
+  live splash's own `<h1 id="intro-title">`), back-to-top, the menu and sound controls, a chapter-rail label that
+  repeats a heading **inside the chapter it links to**, and progress text `NN / NN`. Every excused unit is printed
+  per page, on stdout and in the sheet, so the excuse itself is reviewable.
 - Re-run after a capture: `python3 scripts/assemble-atlas.py --publish && python3 scripts/compare-atlas.py &&
   python3 scripts/check-links.py`. Refresh the snapshots from `origin/claude/desktop-assets:reference/desktop/live/`
   and update `reference/live/_captured.txt` when the live site changes.
@@ -160,12 +181,15 @@ the presentation half, and it changes **nothing** inside a chapter.
   built from top-level `…-wrap` divs and cuts there). A `section-divider` band carries the next section's title, so it
   **opens** that chapter instead of closing the last one; a `<script>` between two sections rides with whatever follows.
   The wrapper `<div class="agx-ch" id="agx-cN">` is the only markup the split adds — `assemble-atlas._chapters_html()`
-  asserts that concatenating the chapters returns `content(slug)` byte for byte. 5–11 chapters a page, 79 in all.
+  asserts that concatenating the chapters returns `content(slug)` byte for byte. 2–11 chapters a page — contact 2, careers 4, cuas-aerodefense 11 — 79 in all.
 - **Backdrops.** Each chapter takes the photograph it carries itself, or the next unused one on the page, or the one
   before it. The four pages with **no photograph at all** — training, cuas-aerodefense, contact (film heroes) and
   ep-app (drawn in CSS) — fall back to the page's **own** opening film as the backdrop behind chapters 2..n
   (`yt:<id>` where the live hero is a YouTube embed). No new asset, no new URL, nothing invented; ep-app has no media
-  of any kind and runs on the 3D scene alone.
+  of any kind and runs on the 3D scene alone. Stated exactly: **twelve pages point at live backdrop URLs, all served
+  by the live page; ep-app has no live media and runs on the 3D scene alone; no backdrop has been seen rendering with
+  live bytes** (no egress from here — the photographs and films 404 in this sandbox, which is the sandbox, not a
+  finding).
 - **The scene.** `atlas_shell.cinema_three()` lifts MAST's emblem scene out of `cinematic_shell.THREE_JS` verbatim —
   shield, rings, shards, god rays, gold dust, stars, peaks — recolored to the Atlas blue, on a camera path with one
   keyframe per chapter. **`vendor/three.module.js`, not the live index's CDN r128**: that copy drove the live intro
@@ -174,7 +198,7 @@ the presentation half, and it changes **nothing** inside a chapter.
 - **`agx-` IS THE NAMESPACE AND IT IS NOT OPTIONAL.** MAST paints on `#three-canvas`, `#photos .ph`, `.grain`,
   `.vignette`, `.progress`, `.chap-link`. On an Atlas page those names are unsafe: the live index ships its own
   `#three-canvas { position:absolute }` in the `<style>` block this build carries verbatim, the live stylesheet styles
-  a **bare `nav`** (26 rules, `transform:translateY(-100%)`) — which is why the chapter rail is a `<div>`, never a
+  a **bare `nav`** (11 declarations, `transform:translateY(-100%)`, `vendor/atlasglinn-shared-styles.css:18`) — which is why the chapter rail is a `<div>`, never a
   `<nav>` — and contact.html already has an `ag-contact-form`. `\.agx` measures 0 hits across `shared-styles.css` and
   all twelve pages' `<style>` blocks. `atlas_shell.assert_cinema_scope()` fails the build if a cinema selector is not
   anchored to `agx-`, the same way `assert_chrome_scope()` does for the chrome sheet.
@@ -183,28 +207,72 @@ the presentation half, and it changes **nothing** inside a chapter.
   margin:0 auto`, and an auto cross-axis margin in a flex column shrinks the item to fit-content, which is exactly the
   shape of the P0 that pinned a hero column to the left. Measured after the change: the hero headline is centred to the
   pixel on all five audited pages at both widths (`left == right`, e.g. 533/533 at 1440, 35/35 at 390).
+- **Chapter heading sizes: SEVEN, and they stay.** Measured 2026-09-09 at 1440×900 across the twelve pages, `h1`/`h2`
+  inside `.agx-ch`: **32px ×57, 35.2px ×2, 40px ×2, 48px ×6, 51.2px ×12, 56px ×1, 80px ×1 — seven distinct sizes.**
+  MAST renders **one** (51.2px ×11). **"Chapter headers one size" is FALSE of these pages and must not be claimed.**
+  The decision (ledger §K-3, not to be re-decided): the live type scale STAYS. F-1 — *"same font and sizes … no
+  changes to anything"* — is his explicit direction for the Atlas content, and ledger §E resolution 1 says content
+  wins where it collides with the MAST-shell rule; §G-7 was a MAST row (MS-29) extrapolated onto Atlas. One line in
+  the go packet names it so he can reverse it with one word.
 - **Nothing may be left invisible.** The entrance motion's `opacity:0` is gated on `html.agx-motion`, a class the
   script adds at boot, so a page whose JS never runs shows every chapter at full strength. On top of that, `CINEMA_JS`
   turns on the live page's own reveals (`.reveal` → `.active`, ep-app `.fade-in` → `.visible`) for the chapter being
-  read, the one behind it and the one arriving — because **measured on main at 1440×900, after a full scroll pass, 11
-  blocks on index, 11 on training and 15 on ep-app were still at opacity 0** (service cards, testimonials, discipline
-  cards, hardware cards). After: a reader-paced walk of all five audited pages at both widths leaves **zero** in-view
-  elements at opacity 0 on 9 of 10, and the tenth is one chapter caught mid-fade with `agx-in` already on it.
+  read, the one behind it and the one arriving — because the reveals on main can strand — and the honest version of
+  that measurement, taken 2026-09-09 at 1440×900 on `origin/main` and stated with its method, is that **it depends on
+  the walk cadence**: stepping 55% of a viewport every 90 ms leaves 13 unique blocks at opacity 0 on index, 11 on
+  training and 19 on ep-app; stepping the same distances every 300 ms leaves **0 on all three**. The r1 note's
+  "11 / 11 / 15" was one cadence reported as the property. The cinema layer removes the cadence dependence rather
+  than the defect class: `CINEMA_JS` turns the live page's own reveals on for the chapter being read, the one behind
+  it and the one arriving.
 - **Audio is the live site's, unchanged.** `#sound-toggle` on index, residential, disaster, training and cuas because
   those five live pages ship one; none on the other seven, because their live pages ship none. The shell's own toggle
-  stays cut. **No bed track, and no toggle added to a film whose audio cannot be measured from here.**
-- **The rail.** A tick column at the right edge, labels on hover, the chapter's line printed for the reading position
-  only above 1700px — below that the 1400px-wide live sections leave no margin to print it in without covering their
-  own text. Hidden under 1025px, where the sticky bar and the mobile menu are the navigation.
+  stays cut. **No bed track, and no toggle added to a film whose audio cannot be measured from here.** For the record,
+  because r1 said the opposite: **MAST ships no sound toggle at all** — `sound-toggle` measures 0 in
+  `mastsolutions.html`, and 0 elements with an id or class containing "sound" render at either width. There is nothing
+  of MAST's to add or to have declined to add; the build reproduces the LIVE site's toggle footprint, 5 of 12 pages,
+  and **whether any of those five films carries audio is UNVERIFIABLE FROM HERE** (no egress).
+- **The rail — measured against MAST's at each width, 2026-09-09.** MAST (`mastsolutions.html`): `display:none` at
+  390; `display:flex`, ticks, **0 labelled** at 900 and 1024; `display:flex`, **13/13 labelled** at 1440 and 1800.
+  Atlas now: `display:none` at 390 (same as MAST), ticks at 900 and 1024 (**same as MAST** — it used to be hidden
+  below 1025), ticks with labels on hover at 1440, and the reading position's label from 1700. **Where it differs
+  from MAST it is because MAST cuts itself a right gutter its own content owns** (`section.panel
+  { padding-right:16.5rem }` at 1025–1600) and an Atlas page cannot: the sections are the live page's own centred
+  1400px blocks and widening their padding is a content change. Overlap measured the same way on both: the Atlas
+  rail's box intersects 1–10 live text boxes per page per width (their right edges, not necessarily their glyphs);
+  MAST's own intersects **443 at 900 and 284 at 1024** on its own page. Written as a behaviour, never as
+  "chapter rail": **rail: hidden ≤768 · ticks 769–1699 · reading-position label ≥1700, hover label throughout.**
 
-Measured 2026-09-09 in Chromium at 1440×900 and 390×844 on index, executive-protection, training, ep-app and contact
-(no egress — the live photographs and films 404 here; the 3D scene, the chrome and the motion do not): three.js canvas
-present with a live WebGL context and a **frame counter that grows** on 10/10; every chapter revealed on 10/10; one
-backdrop layer per chapter and exactly one active; the progress line, the rail, the sticky bar with 16 links, both
-dropdowns and the mobile menu (opens and closes) on 10/10; intro **Enter and Skip each dismiss the splash, 14/14** of
-the runs where the splash was still up (the other 6 hit the live site's own 3.5-second auto-enter first); **zero page
-errors and zero failed local requests**. Parity unchanged and unrelaxed: `compare-atlas.py` 12 pages / 0 deltas,
-`check-links.py` 368 references / 0 dead, `assemble-atlas.py --publish` byte-identical on a second run.
+Measured 2026-09-09 in Chromium at 1440×900 and 390×844 on **all twelve pages** (24 runs; no egress — the live
+photographs and films 404 in this sandbox, which is the sandbox and not a finding; the 3D scene, the chrome, the type
+and the motion do not need it): three.js canvas present with a live WebGL context and a **frame counter that grows on
+24/24**; sticky bar `position:fixed`, `top:0`, `.visible` on **24/24** (60px at 1440, 51px at 390); the Training
+dropdown opens on a real pointer hover on **12/12** and carries the live menu's three items and its three descriptors,
+nothing else; the mobile menu opens and closes on **12/12** at 390; the hero headline centred **to the pixel on 24/24**
+(`left == right`, e.g. 533/533 at 1440, 35/35 at 390); the splash's Enter or Skip dismissed it on **every run where it
+was still up**, the rest having hit the live site's own 3.5-second auto-enter; with the 1s fade allowed to finish,
+**zero chapters below full opacity and zero in-view stranded reveals**; **zero JS errors and zero failed local requests
+on 24/24** (every failed request is an external atlasglinn.com / YouTube / Google URL, i.e. the no-egress sandbox).
+**R2-10, the rail-landing defect r1 introduced: fixed and verified — all 79 rail links on all twelve pages, both
+widths, land their chapter heading at or below 72px, minimum measured 72, and 0/158 land under the 60px bar.** Before
+`.agx-ch { scroll-margin-top:72px }` the same landings put index ch2/ch3/ch4 at 26/26/49px, under the bar.
+Parity: `compare-atlas.py` **12 pages / 0 deltas in BOTH directions over the whole page**, `check-links.py` 309
+references / 0 dead, `assemble-atlas.py --publish` byte-identical on a second run (13/13 files).
+
+### The public upload is fenced (2026-09-09, R2-7)
+
+`.github/workflows/deploy-page.yml` uploads to the **public atlasglinn.com docroot** on any push to `main` that
+touches one of the listed paths, and its file list comes from `PAGES` in `scripts/wp-upload.sh` — which carries all
+twelve Atlas pages. Merging this branch would therefore publish the cinematic pages to `atlasglinn.com/<slug>.html`
+outside the owner's go gate (`00-rules/website-go-live-gate.md`). The lister step now filters them out unless the
+repository **variable** `ATLAS_PAGES_UPLOAD` is exactly `true`, and prints
+`::notice::Atlas pages held: ATLAS_PAGES_UPLOAD is not true (go gate)`. The five MAST files
+(`mastsolutions.html`, `mast-capability-statement.html`, `privacy.html`, `terms.html`, `signup.html`) upload as they
+always have. Filtering before the resolver keeps the Atlas pages' assets off the host as well. Fire-observed on the
+step extracted verbatim: **unset → 116 files, 0 Atlas pages, notice printed; `true` → 130 files, all 12 present, no
+notice; `false` → held.** ATLAS flips the variable over the GitHub API on his go —
+`gh api -X POST repos/:owner/:repo/actions/variables -f name=ATLAS_PAGES_UPLOAD -f value=true` — never portal clicks.
+`scripts/wp-upload.sh` (the Mac's hourly path) and `pages-mastsolutions.yml` (the preview stage, the intended publish
+surface) are deliberately untouched.
 
 ### History — the hand-authored build (superseded by the block above)
 
