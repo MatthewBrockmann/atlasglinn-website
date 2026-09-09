@@ -4518,8 +4518,8 @@ console.log('\n── Round 6: the numbers in the comments are the numbers this 
   // describes a different design from the one it ships.
   ok('… and it says REJECTED rather than capped, because a truncated Checkout URL is the failure round 7 named',
      !readme.includes('The Checkout URL is capped too') && readme.includes('refused whole'), 'reject wording');
-  ok('… and it states the webhook log ceiling as a CEILING — the notes cap — rather than as a probe\'s longest line',
-     readme.includes('longest line the webhook path can emit is ~2,000 characters')
+  ok('… and it states the webhook log ceiling as the SUM of the capped fields it prints (measured), not as a probe\'s longest line',
+     readme.includes('longest line the webhook path can emit is the sum of the capped')
      && readme.includes('capText(meta.notes, 2000)'), 'log ceiling stated');
   ok('… and it says a readiness write IS reachable from a checkout, and states the property that actually holds',
      readme.includes('No customer-influenced string can determine the readiness row')

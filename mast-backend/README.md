@@ -604,10 +604,11 @@ check would be asking about the size of something that was never a URL. Measured
 **`metadata.registration_id` is capped at 64, at the webhook call site and again inside
 `completeRegistration`.** It was the one Stripe string on that path still echoed whole
 into a log: a 200,000-character metadata value produced a 200,000-character log line.
-With it bounded, **the longest line the webhook path can emit is ~2,000 characters**, and
-that ceiling is the `notes` cap (`capText(meta.notes, 2000)`) rather than an observation —
-the probe's own longest line is under a hundred, which is a fact about the probe and not
-about the bound. State the ceiling.
+With it bounded, **the longest line the webhook path can emit is the sum of the capped
+fields it prints** — measured with 100,000-character values in every Stripe-controlled
+metadata field of a properly signed `checkout.session.completed`: ~3.6 k on the `[Notify]`
+path and ~4.5 k on the `JSON.stringify(record)` failure path (round 9 verifier). The
+`notes` cap (`capText(meta.notes, 2000)`) is the largest single term, not the ceiling.
 The sweep behind that fix is an **enumeration**, not an allow-list grep — every property
 read off a Stripe response in `worker.js` printed beside the bound that stands between
 it and a sink (129 distinct properties, 670 read sites, **0 unbounded**). An allow-list

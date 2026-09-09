@@ -145,7 +145,12 @@ export default {
     // to drive never ran. It still gets the cheap tick; it does not get to write the liveness row.
     const tick = (trigger, fromCron) => {
       if (String(env.STRIPE_TAX) === '1') ctx.waitUntil(taxTick(env, trigger, fromCron).catch((e) => console.error('[Tax] tick failed:', e.message)));
-      else console.log(JSON.stringify({ tax_tick: 'skipped', reason: 'stripe_tax_off' }));
+      else {
+        // The scheduler's liveness is a fact about Cloudflare, not about the STRIPE_TAX switch: stamp the cron row so a
+        // Worker with the switch off reports a LIVE loop that is skipping, not a dead one (round 9 verifier).
+        if (fromCron) ctx.waitUntil(taxCronStamp(env, trigger).catch((e) => console.error('[Tax] cron stamp failed:', e.message)));
+        console.log(JSON.stringify({ tax_tick: 'skipped', reason: 'stripe_tax_off' }));
+      }
     };
     if (cron === TAX_TICK_CRON) {
       tick('tax-cron', true);
@@ -3464,9 +3469,10 @@ async function taxTick(env, trigger, fromCron) {
  * healthy account. ensureTaxSetup's background branch measures first and RETURNS on `seen.ready`, so every ordinary
  * five-minute tick against a collecting account ran the one code path that could see Texas and could not drop a
  * witness. A witness left standing has a 24-hour life (TAX_WITNESS_MAX_MS) and only two things end it: a create, or
- * being seen off. So a false absence on Tuesday and a second false absence on Friday — with a week of ticks in
- * between, every one of them MEASURING the registration present — still met as two witnesses and authorised a
- * duplicate registration, which is the one act in this module that cannot be undone. The clear belongs to the
+ * being seen off. So a false absence, then healthy ticks every one of them MEASURING the registration present, then a
+ * second false absence WITHIN 24 HOURS (the witness's own lifetime is the outer bound — a later one replaces rather
+ * than pairs) still met as two witnesses and authorised a duplicate registration, which is the one act in this module
+ * that cannot be undone. Measured with the clear reverted: two observed absences 11 h apart, one POST. The clear belongs to the
  * MEASUREMENT, which every path makes, not to the run, which the healthy path skips.
  */
 async function taxMeasure(env) {
@@ -3820,7 +3826,7 @@ async function handleTaxSetup(request, env, cors, url) {
   const alarm = streak >= TAX_FALLBACK_LOUD && readiness !== 'measured';
   const notes = [...(res.notes || [])];
   if (alarm) {
-    notes.push('tax_fallback_streak is ' + streak + ': ' + streak + ' consecutive tax-carrying Checkout Sessions were refused by Stripe; readiness is UNMEASURED (' + readiness + '), so the row every checkout gates on is held by the grace rather than confirmed. That is the double fault. This counter does NOT say those orders completed — each refusal starts one tax-off retry, which has its own outcome — and it does not say an endpoint is down. Read last_run for what the measurement is failing on.');
+    notes.push('tax_fallback_streak is ' + streak + ': ' + streak + ' consecutive tax-carrying Checkout Sessions were refused by Stripe; readiness is not confirmed (' + readiness + '), so the row every checkout gates on is held by the grace rather than confirmed. That is the double fault. This counter does NOT say those orders completed — each refusal starts one tax-off retry, which has its own outcome — and it does not say an endpoint is down. Read last_run for what the measurement is failing on.');
   }
   return json({
     dry,
