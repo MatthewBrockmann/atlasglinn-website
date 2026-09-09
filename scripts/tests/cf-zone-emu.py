@@ -83,12 +83,25 @@ CANARY_V6_EXPANDED = '2001:0db8:beef:0000:0000:0000:0000:0001'
 # a name answering with a CNAME AND another type — illegal at any owner, and Cloudflare rejects the file part-way
 CANARY_CNAME_CLASH = 'clash-canary.example.net'
 CANARY_CNAME_CLASH_TXT = 'clash-txt-canary-verification-string'
+# a wildcard RECORD carrying a type the probe cannot see. RFC 4592: a wildcard makes the matched name exist for
+# every type, so a conforming parent answers NOERROR/NODATA for a name that does not exist and the probe refuses the
+# run (scenario `wildcard`). This table models the other half — a parent that answers NXDOMAIN for names it has no
+# record for while still serving a literal `*` owner, which is the only shape where the `*` candidate label is the
+# thing that puts the wildcard record into the zone file rather than belt and braces on top of the probe.
+CANARY_WILDCARD_TXT = 'wildcard-txt-canary-verification-string'
+# served with a 1-week TTL — what GoDaddy's DNS UI offers and what Cloudflare's documented non-Enterprise 86400
+# ceiling refuses. A row copied verbatim is the likeliest way the importer answers 200 and silently skips a record.
+CANARY_TTL_A = '203.0.113.44'
+# a record the zone already holds at a name NO candidate label and no repository grep ever asks about. It is the
+# only way the swept row count and the LANDED row count can differ on a run that still goes green, which is what
+# makes the operator's row-count note falsifiable at all.
+CANARY_LEGACY = '203.0.113.22'
 CANARIES = [CANARY_APEX, CANARY_WWW, CANARY_MX_M365, CANARY_MX_OTHER, CANARY_SPF, CANARY_AUTO, CANARY_TAK_WRONG,
             CANARY_WWW_TXT, CANARY_APEX_TXT, CANARY_IN_ERROR, CANARY_NS1, CANARY_NS2, CANARY_MAIL, CANARY_DKIM,
             CANARY_SRV_HOST, CANARY_CAA_HOST, CANARY_DELEG, CANARY_DMARC, CANARY_DS, CANARY_TXT_TAIL,
             CANARY_OUT_OF_ZONE, CANARY_OUT_OF_ZONE_OWNER, CANARY_APEX_CONFLICT, CANARY_BIGRDATA,
             CANARY_WILDCARD, CANARY_PAGEFILL, CANARY_V6, CANARY_V6_EXPANDED, CANARY_CNAME_CLASH,
-            CANARY_CNAME_CLASH_TXT]
+            CANARY_CNAME_CLASH_TXT, CANARY_WILDCARD_TXT, CANARY_TTL_A, CANARY_LEGACY]
 ERR_CANARY_MSG = ('An identical record already exists: A tak.atlasglinn.com pointing at %s — delete it first'
                   % CANARY_IN_ERROR)
 
@@ -168,6 +181,15 @@ CNAME_CLASH_ANSWERS = dict(FULL_ANSWERS, **{'blog': [('CNAME', 3600, CANARY_CNAM
                                                      ('TXT', 3600, '"%s"' % CANARY_CNAME_CLASH_TXT)]})
 # one AAAA, on a label no other table uses so the record counts every other import case pins stay put
 V6_ANSWERS = dict(FULL_ANSWERS, **{'app': [('AAAA', 3600, CANARY_V6)]})
+# a wildcard RECORD at the literal `*` owner, carrying a type the A probe cannot see, at a parent that still
+# answers NXDOMAIN for names it holds nothing for. The probe passes, the sweep proceeds — and the ONLY query that
+# can copy this record is the one for the literal owner, which is why `*` is in the candidate list. The reason it is
+# belt and braces rather than the detector is in the workflow header: under RFC 4592 a conforming parent would have
+# answered the probe NOERROR/NODATA and the run would have refused before reaching here (scenario `wildcard`).
+WILDCARD_TYPED_ANSWERS = dict(FULL_ANSWERS, **{'*': [('TXT', 3600, '"%s"' % CANARY_WILDCARD_TXT)]})
+# a TTL of one week, which GoDaddy's UI offers and Cloudflare's non-Enterprise maximum of 86400 does not take. The
+# sweep clamps at both ends, so this row must reach the zone file at 86400 and not at 604800.
+TTL_ANSWERS = dict(FULL_ANSWERS, **{'app': [('A', 604800, CANARY_TTL_A)]})
 
 
 TXT_STRINGS = re.compile(r'"((?:[^"\\]|\\.)*)"')
@@ -404,6 +426,52 @@ SCENARIOS = {
     'dig_bad_rdata':      {'exists': True, 'empty': True, 'dig': BAD_RDATA_ANSWERS},
     # import dispatched at a domain that is NOT in the account: import never creates a zone
     'import_no_zone':     {},
+    # ── round 4. A 200 IS NOT AN IMPORT. Cloudflare's importer parses a file, creates what it CAN and answers 200
+    # with two counts that are allowed to differ; the step printed both and compared them to nothing, while the
+    # sweep's own count was written to disk and read by no one. Two shapes, because they fail differently:
+    #   partial_import        — the importer reports only what it created (added == parsed == 11) and the SWEPT
+    #                           count is the only witness that two rows are gone.
+    #   partial_import_parsed — it reports honestly (parsed 13, added 11) and the two numbers already disagree.
+    'partial_import':        {'exists': True, 'empty': True, 'dig': FULL_ANSWERS, 'partial_import': 2},
+    'partial_import_parsed': {'exists': True, 'empty': True, 'dig': FULL_ANSWERS, 'partial_import': 2,
+                              'honest_parsed': True},
+    # the counts agree and the ZONE still settles short — a row lost between the parse and the zone. Nothing the
+    # import step reads can see this: it trusts Cloudflare's own recs_added, and Cloudflare's own recs_added is
+    # what is wrong. It is the only case that arms the SECOND count check, after the wait, against what the zone
+    # actually serves.
+    'partial_import_settled': {'exists': True, 'empty': True, 'dig': FULL_ANSWERS, 'partial_import': 2,
+                               'lie_counts': True},
+    # a wildcard record the probe cannot see, at a parent that answers NXDOMAIN normally: the `*` candidate label
+    # is the only query that copies it
+    'wildcard_typed':     {'exists': True, 'empty': True, 'dig': WILDCARD_TYPED_ANSWERS},
+    # a 604800 TTL at the parent: it must reach the zone file clamped to 86400
+    'ttl_ceiling':        {'exists': True, 'empty': True, 'dig': TTL_ANSWERS},
+    # ONE LOST UDP PACKET IS NOT A DEAD SERVER. ns1 drops its first two queries (two strikes: rested), then ns2
+    # drops its fifth — at which point NO server is in the rotation and the sweep must ask the rested one again.
+    # The two-strikes limb and the rested-nameserver retry were source-only until this scenario existed: reverting
+    # them wholesale left the suite green.
+    'ns_flaky':           {'exists': True, 'empty': True, 'dig': FULL_ANSWERS,
+                           'flaky': {CANARY_NS1: [1, 2], CANARY_NS2: [5]}},
+    # a records response with NO result_info at all. Both truncated-read guards read total_count as None and fell
+    # through to "carry on" — "I could not measure the zone" treated as "the zone is small enough", once on the
+    # step that writes and once on the step every assertion below reads from.
+    'no_result_info_import': {'exists': True, 'empty': True, 'dig': FULL_ANSWERS, 'omit_result_info': True},
+    'no_result_info_wait':   {'omit_result_info': True},
+    # the zone already holds a record the sweep can never see — `legacy` is in no candidate label and in no file
+    # the repository grep reads — plus the same two missing rows as zone_prefilled. The run goes green and the
+    # zone SETTLES at 14 name/type rows while the sweep found 13, which is the only shape where the number above
+    # the paste block is falsifiable: quoting the swept count tells him to expect 13 over a zone serving 14.
+    'zone_extra':         {'exists': True, 'dig': FULL_ANSWERS,
+                           'prefill': answers_to_records(FULL_ANSWERS, skip=(('www', 'CNAME'), ('tak', 'A')))
+                                      + [rec('A', 'legacy.' + DOM, CANARY_LEGACY, ttl=300)]},
+    # the one missing record is the apex MX. Every prefilled scenario before this one was missing an address
+    # record or a TXT, so the reconcile's MX body — the branch that carries a priority — had no case at all, and
+    # `proxied: false` rode in it unasserted.
+    'zone_prefilled_mx':  {'exists': True, 'dig': FULL_ANSWERS,
+                           'prefill': answers_to_records(FULL_ANSWERS, skip=(('@', 'MX'),))},
+    # DNSSEC already on, dispatched in CREATE mode. The DS gate was import-only while the paste block was reachable
+    # from create, so a create run against a signed domain printed two nameservers with the DS never measured.
+    'ds_present_create':  {'ds': [CANARY_DS]},
 }
 
 _LOCK = threading.Lock()
@@ -417,6 +485,7 @@ def state(scn):
                                        'import_calls': 0, 'deletes': 0, 'puts': 0, 'parse_errors': 0,
                                        'dig_queries': 0, 'dig_dead_queries': 0, 'dig_recursor_data_queries': 0,
                                        'dig_recursive_auth_queries': 0,
+                                       'dig_per_server': {}, 'dig_dropped': 0,
                                        'dig_names': [], 'imported': []})
 
 
@@ -511,6 +580,9 @@ class Handler(BaseHTTPRequestHandler):
             if cap is not None and len(recs) > cap:
                 # what Cloudflare does at per_page=100: serve one page, report the zone's real size beside it
                 recs = recs[:cap]
+            if cfg.get('omit_result_info'):
+                # no result_info key at all — the shape both truncated-read guards fell open on
+                return self._ok(recs)
             return self._ok(recs, result_info={'total_count': total, 'page': 1, 'per_page': cap or 100})
 
         return self._send(404, {'success': False, 'errors': [{'message': 'no route ' + path}]})
@@ -563,9 +635,24 @@ class Handler(BaseHTTPRequestHandler):
                 with _LOCK:
                     st['parse_errors'] += 1
                 return self._err(400, 1004, 'the zone file did not parse')
+            # A 200 IS NOT AN IMPORT. Cloudflare's importer creates what it can and reports two counts that are
+            # allowed to differ — a row past the 86400 TTL ceiling, a type it will not take. Nothing about the HTTP
+            # code says a row was skipped, and until this knob existed every scenario answered
+            # recs_added == total_records_parsed == len(recs), so no case could tell a checked count from an
+            # unchecked one.
+            drop = cfg.get('partial_import') or 0
+            parsed = added = len(recs)
+            if drop:
+                recs = recs[:-drop]
+                if cfg.get('lie_counts'):
+                    pass                                  # both counts still report the whole file
+                elif cfg.get('honest_parsed'):
+                    added = len(recs)                     # parsed 13, created 11 — the two disagree on their own
+                else:
+                    parsed = added = len(recs)            # only what it created; the swept count is the witness
             with _LOCK:
                 st['imported'].extend(recs)
-            return self._ok({'recs_added': len(recs), 'total_records_parsed': len(recs)})
+            return self._ok({'recs_added': added, 'total_records_parsed': parsed})
 
         if re.match(r'^/zones/([^/]+)/dns_records$', path):
             with _LOCK:
@@ -654,6 +741,20 @@ class Handler(BaseHTTPRequestHandler):
             with _LOCK:
                 st['dig_recursor_data_queries'] += 1
             return answer('REFUSED')
+        # ONE LOST UDP PACKET, aimed. `flaky` names, per server, the 1-based indexes of that server's own queries
+        # that go unanswered — which is what a dropped datagram looks like and is NOT what `dead` models (a server
+        # that never answers again). It is the only way to reach the sweep's two-strikes counter and its
+        # rested-nameserver retry, both of which were source-only.
+        flaky = {k.rstrip('.').lower(): list(v) for k, v in (cfg.get('flaky') or {}).items()}
+        if server in flaky:
+            with _LOCK:
+                nth = st['dig_per_server'].get(server, 0) + 1
+                st['dig_per_server'][server] = nth
+                drop_it = nth in flaky[server]
+                if drop_it:
+                    st['dig_dropped'] += 1
+            if drop_it:
+                return answer('TIMEOUT')
         if server in dead:
             with _LOCK:
                 st['dig_dead_queries'] += 1

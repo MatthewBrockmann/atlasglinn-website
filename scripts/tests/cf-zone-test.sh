@@ -207,6 +207,47 @@ if [ -n "$DSF" ] && grep -qF 'sys.exit(1)' "$DSF"; then
 else
   bad "source/ds-fatal: the DNSSEC verdict is missing or no longer exits — a signed domain would be handed nameservers"
 fi
+# the DS gate guards every mode that can PRINT a nameserver, not only import. Read out of the manifest rather than
+# by grepping the file, so a condition reworded anywhere else cannot satisfy it.
+DSN="${DSF##*/step}"; DSN="${DSN%.sh}"
+DSCOND="$(awk -F'\t' -v n="$DSN" '$1==n{print $3}' "$STEPS/manifest.tsv")"
+if [ "$DSCOND" = "steps.zone.outputs.proceed == 'true' && inputs.mode != 'plan'" ]; then
+  ok "source/ds-gate-modes: the DS measurement runs before every mode that can print nameservers"
+else
+  bad "source/ds-gate-modes: the DS step is gated on [$DSCOND] — create can reach the paste block, so an import-only DS gate hands nameservers for a signed domain"
+fi
+# THE THREE COUNTS. recs_added and total_records_parsed exist because they can differ, and sweep_count was written
+# by the sweep and read by nobody. All three have to be equal before the run continues.
+if grep -qF 'if not (added == parsed == swept):' "$WF" && grep -qF "swept = int(open(S + '/sweep_count').read().strip())" "$WF"; then
+  ok "source/import-counts: the import step compares swept, parsed and added, and they must all agree"
+else
+  bad "source/import-counts: the zone-file import no longer compares its three counts — a 200 that skipped rows would pass"
+fi
+# the TTL is clamped at BOTH ends. Cloudflare's non-Enterprise maximum is 86400 and GoDaddy's UI offers 604800, so
+# an unclamped TTL is the likeliest way the importer answers 200 and drops the row.
+if grep -qF 'keep[(o, ty, rd)] = min(86400, max(300, ttl))' "$WF"; then
+  ok "source/ttl-clamp: swept TTLs are clamped to 300..86400 before the zone file is written"
+else
+  bad "source/ttl-clamp: the TTL ceiling is gone — a 604800 TTL from GoDaddy's UI would be written verbatim"
+fi
+# both truncated-read guards fail CLOSED on a size they cannot measure. `isinstance(total, int) and total > ...`
+# fell through to "carry on" when result_info was absent — once on the step that writes, once on the step every
+# assertion reads from.
+NOTINT=$(grep -c 'if not isinstance(total, int):' "$WF" || true)
+if [ "$NOTINT" = "2" ]; then
+  ok "source/total-count-fatal: both record reads treat an unmeasurable zone size as fatal"
+else
+  bad "source/total-count-fatal: $NOTINT of the 2 record reads fail closed on a missing total_count — the others read 'could not measure' as 'small enough'"
+fi
+# the operator's row count is the LANDED one. Quoting the swept count told him to expect 13 rows over a zone
+# holding 11, so his own check confirmed the wrong number.
+NSF="$(grep -lF 'Paste these two nameservers at GoDaddy' "$STEPS"/step*.sh 2>/dev/null | head -1)"
+if [ -n "$NSF" ] && grep -qF "landed = json.load(open(S + '/records.json'))" "$NSF" \
+   && grep -qF 'that LANDED in Cloudflare' "$NSF" && ! grep -qF "int(open(S + '/sweep_rows').read()" "$NSF"; then
+  ok "source/landed-rows: the row count above the paste block is read back out of the settled zone, and the swept count is not read there at all"
+else
+  bad "source/landed-rows: the operator note is back on the swept count — it would tell him to expect rows a partial import never landed"
+fi
 
 # ── the emulator ────────────────────────────────────────────────────────────────────────────────────────────────────
 python3 "$EMU" 0 > "$WORK/emu.out" 2>"$WORK/emu.err" &
@@ -234,6 +275,8 @@ cond_ok() {   # $1 = the step's `if:` expression, verbatim out of the YAML
         [ "$MODE" = "import" ] ;;
     "steps.zone.outputs.proceed == 'true' && inputs.mode == 'import'")
         [ "$(last_out proceed)" = "true" ] && [ "$MODE" = "import" ] ;;
+    "steps.zone.outputs.proceed == 'true' && inputs.mode != 'plan'")
+        [ "$(last_out proceed)" = "true" ] && [ "$MODE" != "plan" ] ;;
     *)  echo "FAIL harness: unknown step condition in the workflow: [$1] — teach cond_ok about it before trusting this run"; exit 1 ;;
   esac
 }
@@ -525,8 +568,14 @@ must   full_import "$NS_BLOCK"
 must   full_import "amber.ns.cloudflare.com"
 must   full_import "authoritative nameservers at the parent: 2"
 must   full_import "recs added: 13"
-# the one check only he can make, printed ABOVE the irreversible paste rather than under it
-must   full_import "compare its row count against the 13 name/type row(s) this run listed above"
+# THREE COUNTS ON ONE LINE, and the run continues only when all three agree: what the sweep read at the parent,
+# what Cloudflare says it parsed, and what Cloudflare says it created. Two of them used to be printed beside each
+# other and compared to nothing, and the third was written to disk and read by nobody.
+must   full_import "recs added: 13   total records parsed: 13   swept from the parent: 13"
+# the one check only he can make, printed ABOVE the irreversible paste rather than under it — and quoting the count
+# that LANDED, not the count the sweep found. Over a partial import those differ, and the swept one told him to
+# expect rows the zone does not hold, so his own row count confirmed the wrong number.
+must   full_import "compare its row count against the 13 name/type row(s) that LANDED in Cloudflare"
 # ONE row carrying both halves of the promise: unproxied, and the TTL floored to 300 from the 60 the parent served.
 # It is read back out of the existing assert table, so it also proves import reaches that table at all.
 must   full_import "| A | tak.atlasglinn.com | False | 300 |"
@@ -817,6 +866,175 @@ expect import_no_zone fail
 must   import_no_zone "import mode will not create a zone"
 eqn    "import_no_zone: no zone was created" "$(statn import_no_zone post_zones)" 0
 
+# ── 40. A 200 IS NOT AN IMPORT. Cloudflare's importer parses the file, creates what it CAN, and answers 200 —
+# recs_added and total_records_parsed exist precisely because they can differ. The step printed both and compared
+# them to NOTHING, and the sweep's own count sat on disk with zero readers. Eleven of thirteen rows landing takes
+# `_dmarc` and the M365 DKIM selector dark on the switch while all four gates pass, because the gates ask about the
+# apex, www, MX and tak and are structurally blind to every other name. Two shapes, and they fail differently.
+# 40a: the importer reports only what it CREATED (added == parsed == 11) — the swept count is the only witness.
+reset_inputs; MODE=import
+run_job partial_import partial_import
+expect partial_import fail
+must   partial_import "the sweep read 13 record(s) at the parent, Cloudflare parsed 11 and created 11"
+mustnot partial_import "$VERIFIED"
+mustnot partial_import "$NS_BLOCK"
+eqn    "partial_import: the import was attempted exactly once" "$(statn partial_import import_calls)" 1
+eqn    "partial_import: no record was posted after the refusal" "$(statn partial_import post_records)" 0
+eqn    "partial_import: nothing was deleted" "$(statn partial_import deletes)" 0
+
+# 40b: the importer reports HONESTLY (parsed 13, added 11) — the two numbers already disagree before the swept
+# count is consulted, and that limb needs its own case or it is only ever reached through the other one.
+reset_inputs; MODE=import
+run_job partial_import_parsed partial_import_parsed
+expect partial_import_parsed fail
+must   partial_import_parsed "the sweep read 13 record(s) at the parent, Cloudflare parsed 13 and created 11"
+mustnot partial_import_parsed "$VERIFIED"
+mustnot partial_import_parsed "$NS_BLOCK"
+eqn    "partial_import_parsed: the import was attempted exactly once" "$(statn partial_import_parsed import_calls)" 1
+# THE SENTENCE ITSELF names three counts and not one record. Scoped to the error line on purpose: the sweep step
+# above it prints a name/type inventory, which the workflow header accepts by name ("there is no other way to tell
+# him which record failed"). What must not happen is this error naming the rows that did not land — it cannot know
+# which they were, and a guess here is a subdomain list attached to a failure.
+if grep -F 'Cloudflare parsed 13 and created 11' "$WORK/partial_import_parsed/out" \
+   | grep -qE '_dmarc|selector[12]|autodiscover|_sip|www\.|tak\.'; then
+  bad "partial_import_parsed: a record NAME reached the partial-import error sentence — this log is public"
+else
+  ok "partial_import_parsed: the partial-import error names three counts and not one record"
+fi
+
+# 40c: the two counts AGREE, and the zone still settles short — a row lost between Cloudflare's parse and the
+# zone it serves. The import step cannot see this: it trusts recs_added, and recs_added is what is wrong. This is
+# the only case that arms the SECOND count check, the one after the wait that counts the rows the zone actually
+# serves rather than the ones Cloudflare said it made.
+reset_inputs; MODE=import
+run_job partial_import_settled partial_import_settled
+expect partial_import_settled fail
+must   partial_import_settled "recs added: 13   total records parsed: 13   swept from the parent: 13"
+must   partial_import_settled "the zone has settled at 11, so at least 2 did not land"
+mustnot partial_import_settled "$VERIFIED"
+mustnot partial_import_settled "$NS_BLOCK"
+eqn    "partial_import_settled: the import was attempted exactly once" "$(statn partial_import_settled import_calls)" 1
+eqn    "partial_import_settled: nothing was deleted" "$(statn partial_import_settled deletes)" 0
+
+# ── 41. THE `*` CANDIDATE LABEL, on the one case it was added for. A wildcard is synthesised into an answer owned
+# by the name that was ASKED for, so no query but one for the literal `*` owner can ever copy the record itself.
+# This parent answers NXDOMAIN normally — so the probe passes, the sweep proceeds, and the `*` label is the only
+# thing standing between that record and a name that goes dark on the switch. The emulator branch written for `*`
+# in round 3 was dead code: no dig table had a `*` entry.
+reset_inputs; MODE=import
+run_job wildcard_typed wildcard_typed
+expect wildcard_typed pass
+must   wildcard_typed "no wildcard in the way of the sweep"
+must   wildcard_typed "recs added: 14   total records parsed: 14   swept from the parent: 14"
+must   wildcard_typed "| TXT | *.atlasglinn.com | False | 3600 |"
+must   wildcard_typed "$NS_BLOCK"
+if grep -q '^\*\.atlasglinn\.com\.' "$WORK/wildcard_typed/state/zone.txt"; then
+  ok "wildcard_typed: the wildcard row reached the zone file at its literal owner"
+else
+  bad "wildcard_typed: the '*' owner never reached the zone file — the label is listed and the record is not copied"
+fi
+if stats wildcard_typed | grep -Fq '*.atlasglinn.com'; then
+  ok "wildcard_typed: the wildcard row was imported into the zone"
+else
+  bad "wildcard_typed: the wildcard row never reached the import"
+fi
+
+# ── 42. A 1-WEEK TTL AT THE PARENT. GoDaddy's DNS UI offers 604800 and Cloudflare's documented non-Enterprise
+# maximum is 86400, so a row copied verbatim is the likeliest single cause of an importer that answers 200 and
+# silently skips a record. The sweep clamps at both ends; the floor has been asserted since round 1 by tak's 60.
+reset_inputs; MODE=import
+run_job ttl_ceiling ttl_ceiling
+expect ttl_ceiling pass
+must   ttl_ceiling "| A | app.atlasglinn.com | False | 86400 |"
+must   ttl_ceiling "$NS_BLOCK"
+TTLROW="$(python3 -c "
+import sys
+for l in open('$WORK/ttl_ceiling/state/zone.txt'):
+    p = l.rstrip('\n').split('\t')
+    if len(p) == 5 and p[0] == 'app.atlasglinn.com.' and p[3] == 'A':
+        print(p[1])
+" 2>/dev/null)"
+eqn "ttl_ceiling: the 604800 TTL the parent served was written at the 86400 ceiling" "${TTLROW:-none}" 86400
+
+# ── 43. ONE LOST UDP PACKET IS NOT A DEAD SERVER, and until this case the two-strikes counter and the rested-
+# nameserver retry were source-only: reverting both wholesale left the suite green. ns1 drops its first two
+# queries (two strikes, rested), then ns2 drops its fifth — at which point NOTHING is in the rotation and the only
+# way the sweep completes is by asking the rested server again.
+reset_inputs; MODE=import
+run_job ns_flaky ns_flaky
+expect ns_flaky pass
+must   ns_flaky "did not answer — the sweep used another"
+must   ns_flaky "a rested authoritative nameserver answered again"
+must   ns_flaky "recs added: 13   total records parsed: 13   swept from the parent: 13"
+must   ns_flaky "$NS_BLOCK"
+eqn    "ns_flaky: three datagrams were dropped" "$(statn ns_flaky dig_dropped)" 3
+eqn    "ns_flaky: the import still ran exactly once" "$(statn ns_flaky import_calls)" 1
+
+# ── 44. THE ZONE'S SIZE CANNOT BE MEASURED. Both truncated-read guards were `isinstance(total, int) and total >
+# len(rows)`, which falls through to "carry on" when result_info is absent or total_count is not a number — "I
+# could not measure the zone" read as "the zone is small enough". Once on the only step that WRITES:
+reset_inputs; MODE=import
+run_job no_result_info_import no_result_info_import
+expect no_result_info_import fail
+must   no_result_info_import "did not report this zone's size"
+eqn    "no_result_info_import: nothing was imported" "$(statn no_result_info_import import_calls)" 0
+eqn    "no_result_info_import: no record was posted" "$(statn no_result_info_import post_records)" 0
+mustnot no_result_info_import "$NS_BLOCK"
+
+# and once on the step every assertion below reads its record set from:
+reset_inputs; MODE=create
+run_job no_result_info_wait no_result_info_wait
+expect no_result_info_wait fail
+must   no_result_info_wait "did not report this zone's size"
+mustnot no_result_info_wait "$VERIFIED"
+mustnot no_result_info_wait "$NS_BLOCK"
+
+# ── 45. DNSSEC IS ALREADY ON, AND THE DISPATCH IS create. The DS gate was import-only while the paste block is
+# reachable from create as well, so this exact run printed two nameservers for a signed domain — the same
+# domain-dark outcome the import gate exists to prevent, one dispatch choice away.
+reset_inputs; MODE=create
+run_job ds_present_create ds_present_create
+expect ds_present_create fail
+must   ds_present_create "DNSSEC is ON at GoDaddy"
+mustnot ds_present_create "$VERIFIED"
+mustnot ds_present_create "$NS_BLOCK"
+
+# ── 45b. THE NUMBER ABOVE THE PASTE BLOCK IS THE ONE THAT LANDED. Every case up to here has swept == landed, so
+# reverting the note to the swept count left the suite green — the guard was unarmed. This zone already holds a
+# record at `legacy`, a name no candidate label and no repository grep will ever ask about, so the sweep finds 13
+# rows and the settled zone serves 14. The one manual check in R3' is a row count he makes by hand against
+# GoDaddy's DNS page; quoting 13 over a zone of 14 inverts it, which is precisely how a partial import got
+# CONFIRMED by his own check.
+reset_inputs; MODE=import
+run_job zone_extra zone_extra
+expect zone_extra pass
+must   zone_extra "compare its row count against the 14 name/type row(s) that LANDED in Cloudflare"
+mustnot zone_extra "against the 13 name/type row(s)"
+must   zone_extra "$NS_BLOCK"
+eqn    "zone_extra: exactly the two missing records were posted" "$(statn zone_extra post_records)" 2
+eqn    "zone_extra: nothing was deleted" "$(statn zone_extra deletes)" 0
+
+# ── 46. `proxied` IS AN ADDRESS-RECORD FIELD. It was sent in the reconcile body for TXT, MX, SRV and CAA — a shape
+# never read from a live Cloudflare response, and the same caution already applied to SRV and CAA one branch up.
+# Every body this run POSTs must carry it for A/AAAA/CNAME and for nothing else.
+proxied_shape() { stats "$1" | python3 -c "
+import json, sys
+rows = [json.loads(x) for x in json.load(sys.stdin).get('added', [])]
+ADDR = ('A', 'AAAA', 'CNAME')
+bad = [(r.get('type'), 'proxied' in r) for r in rows if ('proxied' in r) != (r.get('type') in ADDR)]
+print('no-bodies' if not rows else ('ok' if not bad else 'wrong:%s' % bad))
+"; }
+eqn "zone_prefilled: the CNAME and A bodies carry proxied and nothing else does" "$(proxied_shape zone_prefilled)" ok
+eqn "zone_prefilled_txt: the TXT body carries no proxied key" "$(proxied_shape zone_prefilled_txt)" ok
+
+# the MX reconcile body had no case at all: every prefilled scenario was missing an address record or a TXT.
+reset_inputs; MODE=import
+run_job zone_prefilled_mx zone_prefilled_mx
+expect zone_prefilled_mx pass
+eqn    "zone_prefilled_mx: exactly the one missing MX was posted" "$(statn zone_prefilled_mx post_records)" 1
+eqn    "zone_prefilled_mx: the MX body carries no proxied key" "$(proxied_shape zone_prefilled_mx)" ok
+must   zone_prefilled_mx "$NS_BLOCK"
+
 # ── 39. THE PRIVACY GATE: no record content in any byte this run produced ───────────────────────────────────────────
 # Every value the emulator serves is a canary. This log is public on this repo, and a record's content is the origin
 # address the WAF rule exists to hide.
@@ -844,7 +1062,8 @@ for canary in 203.0.113.77 origin-canary.example.net atlas-canary.mail.protectio
               dkim-second-string-canary.example.net 203.0.113.99 elsewhere.example.net 203.0.113.55 \
               bigrdata-canary.example.net 203.0.113.66 pagefill-canary.example.net 2001:db8:beef::1 \
               2001:0db8:beef:0000:0000:0000:0000:0001 clash-canary.example.net \
-              clash-txt-canary-verification-string; do
+              clash-txt-canary-verification-string wildcard-txt-canary-verification-string 203.0.113.44 \
+              203.0.113.22; do
   hits="$(grep -lF -- "$canary" $SWEPT 2>/dev/null | tr '\n' ' ')"
   if [ -n "$hits" ]; then bad "privacy: record content \"$canary\" reached the log in: $hits"; LEAK=1; fi
 done
@@ -865,8 +1084,9 @@ echo "cases: $CASES   passed: $PASS   failed: $FAIL"
 # edit now. At MIN=60 against 78 actual assertions, eighteen could be deleted or stop running and the harness still
 # printed "all green". Measured, never lowered: 118 before import mode, 200 with it, 217 with round 2's
 # conflict, out-of-zone, multi-string-TXT and +norecurse coverage, and 244 with round 3's paged-read, wildcard,
-# one-at-a-time-TXT-body, IPv6-spelling and CNAME-clash coverage.
-MIN=244
+# one-at-a-time-TXT-body, IPv6-spelling and CNAME-clash coverage, and 313 with round 4's partial-import,
+# TTL-ceiling, typed-wildcard, flaky-nameserver, unmeasurable-size, create-mode-DS and proxied-shape coverage.
+MIN=313
 if [ "$CASES" != "$MIN" ]; then
   echo "FAIL harness: $CASES cases ran, not the $MIN pinned here — a block was dropped, the run stopped early, or a case was added without updating MIN"
   DONE=1; exit 1

@@ -71,15 +71,30 @@
 # duplicate posted beside it, on the only step here that writes. Measured: a zone of 122 with a conflicting apex A
 # at row 101 took a second apex A, and the run then failed one step later with a sentence about a truncated read
 # that never mentioned the record it had just created. The count is compared BEFORE the reconcile now, and a zone
-# too big for one page stops the run rather than being reconciled against a slice of itself.
+# too big for one page stops the run rather than being reconciled against a slice of itself. And a total_count
+# that is MISSING or not an integer is fatal at both reads: a zone whose size cannot be measured cannot be shown to
+# have been read whole, and both guards used to fall through to "carry on" on exactly that shape.
+# AND A PARTIAL IMPORT IS A FAILED IMPORT (round 4). Everything above guards the SWEEP being partial and nothing
+# guarded the IMPORT being partial. Cloudflare's importer can accept a file, answer 200 and SKIP rows — a TTL past
+# its 86400 non-Enterprise ceiling is one documented way, and GoDaddy's DNS UI offers a 1-week (604800) TTL — and
+# this step printed recs_added beside total_records_parsed and compared them to nothing, while sweep_count was
+# written by the sweep and read by no one. Eleven of thirteen rows landing takes `_dmarc` and the M365 DKIM
+# selector dark on the switch, through four green gates, under an operator note quoting the thirteen the SWEEP
+# found. So: three counts must agree before the run continues — swept, parsed, added — the settled zone is measured
+# against the swept count a SECOND time after the wait, the operator note quotes what LANDED rather than what was
+# swept, and the TTL is clamped at both ends so the likeliest cause of a silent skip cannot occur.
 # AND A CANDIDATE LIST CANNOT ENUMERATE A WILDCARD ZONE (round 3). A server under `*.<zone>` SYNTHESISES an answer
 # owned by whatever name was asked, so it answers for every name, reveals the wildcard for none of them, and never
 # returns NXDOMAIN. The sweep came back long and complete-looking, all four gates passed and the nameservers
 # printed, while every name the wildcard covered went dark on the switch — and the operator note above the paste
 # block inverted, telling him to compare row counts when the run listed 77 rows against GoDaddy's handful. So the
 # sweep asks for one name that cannot exist before it asks for anything else, and refuses the whole run on any
-# answer but NXDOMAIN. `*` is also in the candidate list, for the wildcard the probe cannot see: one carrying a
-# type other than A leaves the probe reading NXDOMAIN while the record itself is still there to be copied.
+# answer but NXDOMAIN. THE RULE IS RFC 4592, and the earlier wording here got it wrong: a wildcard makes the
+# matched name EXIST for every type, so a query for a type the wildcard does not carry answers NOERROR with no
+# data — NODATA, not NXDOMAIN. That is why the probe catches a wildcard of ANY type and why anything but NXDOMAIN
+# is refused. `*` is in the candidate list as belt and braces, not as the detector: asking for the literal owner is
+# the only query that can put the wildcard RECORD ITSELF into the zone file, for a parent whose answers do not
+# follow RFC 4592 synthesis.
 #
 # NOT RUN AGAINST CLOUDFLARE: the cloud sandbox has no route to api.cloudflare.com (egress 000). The first green
 # dispatch is the proof — and a workflow_dispatch workflow is not registered until it is on the default branch
@@ -382,7 +397,7 @@ jobs:
           printf '%s' "$zid" > "$STATE/zone_id"
           echo "proceed=true" >> "$GITHUB_OUTPUT"
 
-      # IMPORT MODE, 1 OF 3, AND THE ONE THAT SAVES THE DOMAIN. The GoDaddy block below already tells him not to
+      # THE ONE THAT SAVES THE DOMAIN, and it guards every mode that can print a nameserver. The GoDaddy block below already tells him not to
       # ENABLE DNSSEC at GoDaddy. It never measured whether it is already on. A DS record in the registry plus a
       # nameserver move to Cloudflare = every validating resolver rejects the answers, and the domain is dark until
       # the DS expires out — not minutes, and not fixable from Cloudflare's side. So this measures, and an
@@ -391,8 +406,11 @@ jobs:
       # IT RUNS FIRST, BEFORE THE SWEEP AND BEFORE THE IMPORT. It only needs the domain, which the zone step above
       # already wrote, and a signed domain is a domain this run must not proceed on at all — so it costs one dig and
       # ZERO writes into the live zone rather than a dozen records that then have to be reasoned about.
+      # AND IT IS NOT IMPORT-ONLY. The paste block is reachable from create as well, so a create run against a
+      # signed domain used to print two nameservers with the DS never measured — the same domain-dark outcome the
+      # import gate was written to prevent, one dispatch choice away. plan prints no nameservers and needs no dig.
       - name: Measure DS at the parent
-        if: steps.zone.outputs.proceed == 'true' && inputs.mode == 'import'
+        if: steps.zone.outputs.proceed == 'true' && inputs.mode != 'plan'
         run: |
           set -eu
           # THIS IS THE FIRST STEP IN IMPORT MODE THAT RUNS dig, so this is where dig has to be. The install lived in
@@ -649,7 +667,11 @@ jobs:
               if len(rd) > 2048 or any(ord(c) < 32 for c in rd):
                   print('::error::A record answered for %s %s carries a value this run will not put in a zone file (control characters or over 2048 bytes). The value is not printed — this log is public. NOTHING was imported.' % (o, ty))
                   sys.exit(1)
-              keep[(o, ty, rd)] = max(300, ttl)          # TTLs as served, floored at 300
+              # TTLs as served, CLAMPED AT BOTH ENDS. The floor was here from round 1; the ceiling is round 4's.
+              # Cloudflare's documented non-Enterprise maximum is 86400 and GoDaddy's DNS UI offers a 1-week
+              # (604800) TTL, so a row copied verbatim is the likeliest way the importer answers 200 and silently
+              # skips a record — which is the exact shape the three-count check below exists to catch.
+              keep[(o, ty, rd)] = min(86400, max(300, ttl))
           if not keep:
               print('::error::The authoritative nameservers answered nothing for any candidate name — %d name(s) probed, %d dig queries, zero records. NOTHING was imported and nothing at GoDaddy has changed. That is not a normal answer for a live domain: check that the domain still resolves before dispatching again.' % (len(LABELS), calls[0]))
               sys.exit(1)
@@ -724,7 +746,13 @@ jobs:
           d = json.load(open(S + '/existing.json', encoding='utf-8', errors='replace'))
           rows = [r for r in (d.get('result') or []) if isinstance(r, dict)]
           total = (d.get('result_info') or {}).get('total_count')
-          if isinstance(total, int) and total > len(rows):
+          # FAIL CLOSED ON AN UNMEASURABLE SIZE. `isinstance(total, int) and ...` fell through to "carry on" when
+          # result_info was absent or total_count was not an integer — i.e. it treated "I could not measure the
+          # zone" as "the zone is small enough", on the one step in this file that writes.
+          if not isinstance(total, int):
+              print('::error::Cloudflare did not report this zone\'s size (result_info.total_count is missing or is not a number), so this run cannot tell whether the page it read is the whole zone. Every comparison this step makes reads absence out of that page, and absence read out of a slice is how a duplicate gets posted beside a record nobody saw. NOTHING was imported, no record was posted and nothing was deleted. Re-dispatch; if it repeats, reconcile the zone in the Cloudflare dashboard.')
+              sys.exit(1)
+          if total > len(rows):
               print('::error::The zone holds %d record(s) and this run read the first %d, so it cannot tell what the zone already holds. Every comparison this step makes reads absence out of that one page: a record on the page it never read would be treated as MISSING and a duplicate posted beside it — two addresses on one name round-robin, and a second MX splits the mail. NOTHING was imported, no record was posted and nothing was deleted. This needs a paged read before import can run against a zone this size; until then, reconcile it in the Cloudflare dashboard. The record names are not printed — this log is public.' % (total, len(rows)))
               sys.exit(1)
           open(S + '/have', 'w').write(str(len(rows)))
@@ -737,7 +765,30 @@ jobs:
               python3 -c "import json,os,sys;d=json.load(open(os.environ.get('CF_STATE_DIR','/tmp/cf')+'/import_out.json'));c=[str(e.get('code')) if isinstance(e,dict) and isinstance(e.get('code'),int) else 'no code' for e in (d.get('errors') or [])];print('::error::Cloudflare refused the zone-file import (HTTP %s): %s. The message text is not echoed — this log is public and Cloudflare error strings quote the record they are about. Nothing at GoDaddy has changed and the nameservers are untouched. Read the full message in the Cloudflare dashboard.' % (sys.argv[1], ('%d error(s), code(s) %s' % (len(c), ', '.join(c))) if c else 'no error code in the response body'))" "$code"
               exit 1
             fi
-            python3 -c "import json,os;d=json.load(open(os.environ.get('CF_STATE_DIR','/tmp/cf')+'/import_out.json'));r=d.get('result') or {};print('recs added: %s   total records parsed: %s' % (r.get('recs_added'), r.get('total_records_parsed')))"
+            # A 200 IS NOT AN IMPORT. Cloudflare's importer parses the file, creates what it can, and answers 200
+            # with recs_added and total_records_parsed — two numbers that exist precisely because they can differ.
+            # A row it declines (a TTL past its ceiling, a type it will not take) is skipped silently, the zone
+            # settles, the four gates ask only about the apex, www, MX and tak, and every OTHER name goes dark on
+            # the switch. Three counts, and all three must agree: what the sweep found at the parent, what
+            # Cloudflare says it parsed, and what Cloudflare says it created. No record name is printed.
+            python3 - <<'PY'
+          import json, os, sys
+          S = os.environ.get('CF_STATE_DIR', '/tmp/cf')
+          try:
+              d = json.load(open(S + '/import_out.json', encoding='utf-8', errors='replace'))
+          except Exception:
+              d = {}
+          r = d.get('result') if isinstance(d.get('result'), dict) else {}
+          added, parsed = r.get('recs_added'), r.get('total_records_parsed')
+          swept = int(open(S + '/sweep_count').read().strip())
+          print('recs added: %s   total records parsed: %s   swept from the parent: %d' % (added, parsed, swept))
+          if not isinstance(added, int) or not isinstance(parsed, int):
+              print('::error::Cloudflare answered 200 to the zone-file import but did not report how many records it parsed and created, so this run cannot tell whether the %d record(s) the sweep read at the parent actually landed. It will not assert on an unmeasured import and it will not print nameservers. Nothing was deleted and nothing at GoDaddy has changed. Check the zone in the Cloudflare dashboard, then dispatch import again — it re-reads what the zone holds and only adds what is still missing.' % swept)
+              sys.exit(1)
+          if not (added == parsed == swept):
+              print('::error::The zone-file import was accepted (HTTP 200) and it is INCOMPLETE: the sweep read %d record(s) at the parent, Cloudflare parsed %d and created %d. Those three numbers have to be equal. A row the importer declines is skipped silently — the zone settles, the apex, www, MX and tak checks below all pass, and every other name that did not land goes dark on the switch, which for a mail-policy or DKIM row is a failure nobody sees for days. NOTHING will be asserted on this import and no nameservers are printed. Nothing was deleted and nothing at GoDaddy has changed. Delete the record set in the Cloudflare dashboard (DNS -> Records) and dispatch import again, or import GoDaddy\'s own zone export by hand (GoDaddy -> Domains -> DNS -> Export, then Cloudflare DNS -> Records -> Import and Export). The record names are not printed — this log is public.' % (swept, parsed, added))
+              sys.exit(1)
+          PY
           else
             echo "the zone already holds $have record(s) — adding only what is missing, deleting nothing"
             rm -rf "$STATE/missing"
@@ -812,14 +863,19 @@ jobs:
                       blocked.append((owner, ty))
                       continue
                   pri, tgt = rd.split(None, 1)
-                  body = {'type': ty, 'name': owner, 'content': tgt.rstrip('.'), 'priority': int(pri), 'ttl': ttl, 'proxied': False}
+                  body = {'type': ty, 'name': owner, 'content': tgt.rstrip('.'), 'priority': int(pri), 'ttl': ttl}
               else:
                   if (owner, ty, norm(ty, rd)) in have_exact:
                       continue
                   if ty in ADDR_LEVEL and (owner, ty) in have_nt:
                       conflict.append((owner, ty))
                       continue
-                  body = {'type': ty, 'name': owner, 'content': txt_value(rd) if ty == 'TXT' else rd.rstrip('.'), 'ttl': ttl, 'proxied': False}
+                  # `proxied` IS AN ADDRESS-RECORD FIELD. A TXT, NS or MX row in a live Cloudflare response has no
+                  # such key, and this shape was never read from one — the same caution already applied to SRV and
+                  # CAA. It is sent for A, AAAA and CNAME, where unproxied is the promise this whole run makes, and
+                  # for nothing else.
+                  addr = {'proxied': False} if ty in ADDR_LEVEL else {}
+                  body = dict({'type': ty, 'name': owner, 'content': txt_value(rd) if ty == 'TXT' else rd.rstrip('.'), 'ttl': ttl}, **addr)
               want.append((owner, ty, body))
           if conflict:
               print('::error::%d name(s) already hold a record of this type with a different value: %s. This run will NOT post a second one beside it — two address records on one name round-robin, and roughly half the traffic goes to whichever host is stale, intermittently. Resolve it in the Cloudflare dashboard: decide which value is right, delete the other, then dispatch import again — it re-reads what the zone holds and only adds what is still missing. Nothing was added by this run and nothing was deleted. The values are not printed — this log is public. One legitimate shape lands here too: a name GoDaddy deliberately serves TWO addresses for (a round-robin) reaches this limb on the second one, because this run cannot tell a deliberate pair from a stale leftover and will not guess with the website or the mail. The answer is the same — settle it in the dashboard, or delete the partial set and import into an empty zone, where the BIND file carries both rows at once.' % (len(conflict), ', '.join('%s %s' % (o, t) for o, t in conflict)))
@@ -889,15 +945,31 @@ jobs:
             exit 1
           fi
           # One page of 100 is more than this zone has ever held, but a truncated read would make the checks below a
-          # partial view of the import — so it fails rather than cautioning underneath a green verdict.
+          # partial view of the import — so it fails rather than cautioning underneath a green verdict. A size that
+          # cannot be MEASURED is the same failure wearing a better face and used to fall straight through.
           python3 - <<'PY'
           import json, os, sys
           S = os.environ.get('CF_STATE_DIR', '/tmp/cf')
           d = json.load(open(S + '/records_raw.json'))
           recs = [r for r in (d.get('result') or []) if isinstance(r, dict)]
           total = (d.get('result_info') or {}).get('total_count')
-          if isinstance(total, int) and total > len(recs):
+          if not isinstance(total, int):
+              print('::error::Cloudflare did not report this zone\'s size (result_info.total_count is missing or is not a number), so this run cannot tell whether the records it read are the whole import or the first page of it. Every check below would be speaking for a set it cannot bound. Nothing at GoDaddy has changed — do not switch nameservers on this run. Re-dispatch; if it repeats, read the record count in the Cloudflare dashboard by hand.')
+              sys.exit(1)
+          if total > len(recs):
               print('::error::The zone holds %d records and this run read the first %d, so every check below would be running against a slice of the import. Nothing at GoDaddy has changed. This needs a paged read before the switch — do not switch nameservers on this run.' % (total, len(recs)))
+              sys.exit(1)
+          # THE SECOND, INDEPENDENT COUNT CHECK, and it is deliberately not the same measurement as the import
+          # step's. That one trusts Cloudflare's own recs_added; this one counts the rows the zone actually SERVES
+          # after it settled. An importer that answers 200 with an honest count and then loses a row between the
+          # parse and the zone is caught here and nowhere else. Only import mode sweeps, so only import mode has a
+          # swept count to compare against; create has nothing to compare and this limb does not run for it.
+          try:
+              swept = int(open(S + '/sweep_count').read().strip())
+          except Exception:
+              swept = None
+          if swept is not None and len(recs) < swept:
+              print('::error::The sweep read %d record(s) at the parent and the zone has settled at %d, so at least %d did not land. A record the importer declined is skipped silently and every name that did not land goes dark on the switch — for a mail-policy or DKIM row that is a failure nobody sees for days. No nameservers are printed by this run and nothing at GoDaddy has changed. Delete the record set in the Cloudflare dashboard (DNS -> Records) and dispatch import again, or import GoDaddy\'s own zone export by hand. The record names are not printed — this log is public.' % (swept, len(recs), swept - len(recs)))
               sys.exit(1)
           json.dump(recs, open(S + '/records.json', 'w'))
           PY
@@ -1144,10 +1216,18 @@ jobs:
           # 74-label list and outside the repository grep is never probed at all, so no gate in this file can see it.
           # The sweep enumerates a candidate list; it cannot transfer a zone, and only GoDaddy's own DNS page holds
           # the authoritative row count to compare against.
-          try:
-              swept_rows = int(open(S + '/sweep_rows').read().strip())
-          except Exception:
-              swept_rows = None
+          # AND THE NUMBER HE COUNTS AGAINST IS THE ONE THAT LANDED, not the one the sweep found. Quoting the swept
+          # count told him to expect 13 rows over a zone holding 11, so his own row count CONFIRMED the wrong
+          # number — the one manual check in R3′, inverted. It is read out of the settled record set the gates just
+          # passed. Whether the run swept at all is what decides if this note applies; what it prints is the
+          # landed set.
+          swept_rows = None
+          if os.path.exists(S + '/sweep_rows'):
+              try:
+                  landed = json.load(open(S + '/records.json'))
+                  swept_rows = len({(r.get('name'), r.get('type')) for r in landed if isinstance(r, dict)})
+              except Exception:
+                  swept_rows = None
           out = []
 
           def w(line=''):
@@ -1167,10 +1247,11 @@ jobs:
           w()
           if swept_rows is not None:
               w('**Before you paste — count the rows.** Open GoDaddy → Domains → %s → DNS and compare its row count '
-                'against the %d name/type row(s) this run listed above. Any name GoDaddy serves that is not in that '
-                'table will stop resolving on the switch: this run enumerates a CANDIDATE list of names and asks the '
-                'parent about each one, it cannot transfer the zone, and a name nobody thought to ask about is a name '
-                'it never saw. This is the one check that is yours, and it is above the paste block on purpose.' % (dom, swept_rows))
+                'against the %d name/type row(s) that LANDED in Cloudflare — the table above is that set, read back '
+                'out of the zone after the import settled. Any name GoDaddy serves that is not in that table will '
+                'stop resolving on the switch: this run enumerates a CANDIDATE list of names and asks the parent '
+                'about each one, it cannot transfer the zone, and a name nobody thought to ask about is a name it '
+                'never saw. This is the one check that is yours, and it is above the paste block on purpose.' % (dom, swept_rows))
               w()
           w('Paste these two nameservers at GoDaddy:')
           w()
