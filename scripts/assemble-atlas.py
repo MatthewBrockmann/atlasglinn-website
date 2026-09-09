@@ -1033,7 +1033,7 @@ def live_nav(slug, page):
             [(MAST_HREFS.get(dh, dh), ic, t, d) for dh, ic, t, d in drop] if drop else None)
            for h, l, k, drop in bar]
     mobile = [(MAST_HREFS.get(h, h), l, sub) for h, l, sub in mobile]
-    return atlas.nav(bar, mobile, page, LOGO_MARK)
+    return atlas.nav(bar, mobile, page, LOGO_MARK, logo_alt=live.logo_alt(slug))
 
 
 def live_footer(slug):

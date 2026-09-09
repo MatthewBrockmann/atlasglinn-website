@@ -273,11 +273,13 @@ def chrome(intro_eyebrow, wordmark, intro_tagline, photos):
             % (intro_eyebrow, wordmark, intro_tagline, ph))
 
 
-def nav(bar_items, mobile_items, here, logo, brand='ATLAS GLINN', home='index.html'):
+def nav(bar_items, mobile_items, here, logo, brand='ATLAS GLINN', home='index.html', logo_alt=None):
     """The sticky bar and the full-screen menu, both filled from the live page's own two menus.
 
     bar_items:    [(href, label, kind, dropdown)] — kind None or 'cta', dropdown [(href, icon, title, desc)] or None
     mobile_items: [(href, label, sub)] — sub True for the entries the live menu prints indented
+    logo_alt:     the alt the live bar's logo carries, passed in from the capture; the brand constant is only the
+                  fallback for the deprecated --authored path, which has no capture to read.
 
     The descriptor line under a bar item is gone: the live bar prints none, and the eleven the shell invented for it
     ("Dignitary and close protection", "Book a course", "Mission and team", …) were copy no page has ever carried.
@@ -306,7 +308,7 @@ def nav(bar_items, mobile_items, here, logo, brand='ATLAS GLINN', home='index.ht
             '  </div>\n</nav>\n\n'
             '<div id="mobile-nav" role="dialog" aria-label="Site menu">\n'
             '  <button class="mobile-nav-close" id="mobile-nav-close" type="button" aria-label="Close menu">&times;</button>\n%s\n</div>\n'
-            % (home, logo, brand, brand, '\n'.join(bar), '\n'.join(mob)))
+            % (home, logo, logo_alt or brand, brand, '\n'.join(bar), '\n'.join(mob)))
 
 
 def hero_media(img, pos=None, film=None):
@@ -541,9 +543,12 @@ def cinema_chrome(chapters):
                           'aria-hidden="true"><source src="%s" type="video/mp4"></video></div>' % (k, back))
         else:
             layers.append('  <div class="agx-ph" data-for="%02d" style="background-image:url(\'%s\')"></div>' % (k, back))
-    # A chapter that opens on a lede paragraph has no heading of its own; its tick carries the chapter number, which is
-    # rail furniture (the trailer prints "SECTION 02 / 09" in its HUD), never page copy.
-    rail = ''.join('  <a class="agx-rail-link" href="#%s"><span>%s</span></a>\n' % (anchor, label or '%02d' % k)
+    # A chapter that opens on a lede paragraph has no heading of its own. Its tick used to carry the chapter number as
+    # its hover label, and that printed a text unit — "02" — that no live page carries. The tick itself is drawn by the
+    # link's ::after rule and needs no text, so a heading-less chapter gets an empty label and an aria-label: the reader
+    # sees the tick, a screen reader hears the chapter number, and the page prints no label at all.
+    rail = ''.join('  <a class="agx-rail-link" href="#%s"%s><span>%s</span></a>\n'
+                   % (anchor, '' if label else ' aria-label="Chapter %02d"' % k, label or '')
                    for k, (anchor, label, _) in enumerate(chapters, 1))
     return ('<canvas id="agx-canvas" aria-hidden="true"></canvas>\n'
             '<div id="agx-photos" aria-hidden="true">\n%s\n</div>\n'

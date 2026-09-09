@@ -306,6 +306,17 @@ def intro_title(slug='index'):
     return _text(m.group(1))
 
 
+def logo_alt(slug='index'):
+    """The alt text the live bar's logo carries. All twelve captures print `Atlas Glinn`; the shell used to write the
+    brand constant `ATLAS GLINN` there instead, which is a unit the live page does not carry and which the attribute
+    pass of compare-atlas.py reads as a delta. Read it rather than re-type it."""
+    html = _read(slug)
+    a = html.index('class="nav-logo"')
+    m = re.search(r'<img[^>]*\balt="([^"]*)"', html[a:html.index('</a>', a)])
+    assert m, '%s: the live bar logo no longer carries an alt' % slug
+    return _text(m.group(1))
+
+
 def after_footer(slug):
     """The markup the live page prints after its footer — on eleven of the twelve that is the `>_` portal button,
     which is site content, not chrome, and would otherwise be the one text unit the new page dropped."""

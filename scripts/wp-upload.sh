@@ -21,9 +21,49 @@ HOST="${WP_SFTP_HOST:-1127220.us12.ssh.myftpupload.com}"   # GoDaddy moved the s
 DOCROOT="${WP_DOCROOT:-html}"   # the SFTP login lands in the account home; WordPress (the web root) is its html/ folder.
                                 # 2026-09-05: the first upload put 113 files into the home directory and nothing was served.
 REF="${REF:-origin/main}"
+# >>> atlas-pages-gate — .github/workflows/deploy-page.yml lifts everything between these two markers verbatim and
+# evals it, so the page list, the go gate and the partition assertion have ONE implementation for both writers.
+# Nothing between them may call anything defined outside them, or the workflow will not have it.
 # The MAST page and, since the Atlas Glinn publish (owner, 2026-09-05: "Publish AG preview"), the eleven rebuilt Atlas pages
 # with the hand-authored pages they link to. The lister follows the links between these and gathers every asset.
 PAGES="${PAGES:-mastsolutions.html privacy.html terms.html mast-capability-statement.html index.html executive-protection.html residential-protection.html disaster-recovery.html training.html technology.html cuas-aerodefense.html uas.html about.html careers.html contact.html ep-app.html signup.html}"
+# ── The upload switch, and the only copy of it. ────────────────────────────────────────────────────────────────────
+# deploy/atlas-pages-upload is the owner's go gate for the twelve rebuilt Atlas Glinn pages
+# (00-rules/website-go-live-gate.md). Its whole content is one word: `held` or `true`. Unless the trimmed content is
+# exactly `true` — a missing file counts as held — the twelve are dropped from the upload list BEFORE the asset
+# resolver runs, so the pages' OWN assets never reach the host either. It is a tracked file rather than an Actions
+# variable because git records who flipped it and when, and because this script and .github/workflows/deploy-page.yml
+# then read ONE switch instead of two. ATLAS flips it over the GitHub contents API on the owner's word go; no portal
+# click. The five MAST files have his word already and upload as they always have.
+#
+# The partition assertion is the other half. PAGES must be exactly the twelve Atlas pages plus those five MAST files
+# and nothing else: a thirteenth page added to PAGES would otherwise be neither held nor declared, and would ride to
+# the public docroot unnoticed. Both writers die on that rather than upload.
+#
+ATLAS_PAGES="index.html executive-protection.html residential-protection.html disaster-recovery.html training.html technology.html cuas-aerodefense.html uas.html about.html careers.html contact.html ep-app.html"
+MAST_PAGES="mastsolutions.html mast-capability-statement.html privacy.html terms.html signup.html"
+ATLAS_SWITCH="deploy/atlas-pages-upload"
+gate_say() {   # one line; an annotation when it runs in Actions, a plain sentence on the Mac
+  if [ -n "${GITHUB_ACTIONS:-}" ]; then printf '::%s::%s\n' "$1" "$2" >&2; else printf '%s\n' "$2" >&2; fi
+}
+atlas_pages_gate() {   # prints the pages that may be uploaded; returns 1 when PAGES is not the declared partition
+  gate_rest=""; gate_keep=""; gate_go=""; gate_p=""
+  for gate_p in $PAGES; do
+    case " $ATLAS_PAGES " in *" $gate_p "*) ;; *) gate_rest="$gate_rest $gate_p" ;; esac
+  done
+  if [ "$(printf '%s\n' $gate_rest | sort | tr '\n' ' ')" != "$(printf '%s\n' $MAST_PAGES | sort | tr '\n' ' ')" ]; then
+    gate_say error "PAGES is not the declared partition: outside the twelve Atlas pages it must be exactly [$MAST_PAGES], it is [${gate_rest# }]"
+    return 1
+  fi
+  # cat, not a redirect: a missing switch is the held case, and `< missing` makes the SHELL print the error before
+  # the 2>/dev/null on the command can swallow it.
+  gate_go="$(cat "$ATLAS_SWITCH" 2>/dev/null | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | head -1)"
+  if [ "$gate_go" = "true" ]; then printf '%s' "$PAGES"; return 0; fi
+  gate_say notice "Atlas pages held: $ATLAS_SWITCH is not true (go gate)"
+  gate_keep="$gate_rest"
+  printf '%s' "${gate_keep# }"
+}
+# <<< atlas-pages-gate
 say() { printf '\033[1;36m%s\033[0m\n' "$*"; }
 KC_SERVICE="mast-wp-sftp"   # macOS Keychain item: account = SFTP username, password = SFTP password
 kc_user() { security find-generic-password -s "$KC_SERVICE" 2>/dev/null | sed -n 's/^ *"acct"<blob>="\(.*\)"$/\1/p'; }
@@ -188,6 +228,10 @@ git -C "$R" worktree add -q --detach "$W" "$HEADSHA"
 cd "$W"
 
 say "Listing files"
+# The go gate runs here, from inside the checked-out worktree, so the switch that decides is the one in the commit
+# being uploaded — not whatever the Mac's clone happens to have. It runs before the lister, so a held page never
+# reaches the resolver and none of its assets are gathered.
+PAGES="$(atlas_pages_gate)" || { say "nothing uploaded"; exit 1; }
 # The lister is written to a file first: macOS ships bash 3.2, whose $(...) parser trips over the parentheses of a regex
 # inside a heredoc ("syntax error near unexpected token `('", owner's terminal 2026-09-05).
 PYLIST="$(mktemp /tmp/wp-upload-list.XXXXXX)"

@@ -33,6 +33,9 @@ on:
       - 'images/**'
       - 'vendor/**'
       - 'scripts/wp-upload.sh'
+      # The go gate itself: flipping deploy/atlas-pages-upload to 'true' has to be what starts the run that publishes
+      # the twelve, otherwise the switch would sit flipped until some unrelated page changed.
+      - 'deploy/atlas-pages-upload'
       - '.github/workflows/deploy-page.yml'
   workflow_dispatch:
 
@@ -54,25 +57,20 @@ jobs:
           lfs: true
       - name: List the page and its assets (the lister from scripts/wp-upload.sh)
         id: list
-        env:
-          ATLAS_PAGES_UPLOAD: ${{ vars.ATLAS_PAGES_UPLOAD }}
         run: |
-          eval "$(grep -m1 '^PAGES=' scripts/wp-upload.sh)"
           # ── GO GATE (00-rules/website-go-live-gate.md) ────────────────────────────────────────────────────────
-          # This job writes to the PUBLIC atlasglinn.com docroot. The five MAST files below have the owner's word and
-          # upload as they always have. The twelve Atlas Glinn pages do not: they are the cinematic rebuild, and until
-          # he has seen the preview and said go they must not appear at atlasglinn.com/<slug>.html. They ride only
-          # when the repository VARIABLE ATLAS_PAGES_UPLOAD is exactly 'true' (Settings → Secrets and variables →
-          # Actions → Variables). ATLAS flips it over the GitHub API on his go — `gh api -X POST
-          # repos/:owner/:repo/actions/variables -f name=ATLAS_PAGES_UPLOAD -f value=true` — never by portal clicks.
+          # This job writes to the PUBLIC atlasglinn.com docroot. The switch that decides is the tracked file
+          # deploy/atlas-pages-upload, and it is the SAME switch the Mac's hourly scripts/wp-upload.sh reads: unless
+          # its trimmed content is exactly 'true', the twelve Atlas Glinn pages are dropped here, before the resolver,
+          # so the pages' OWN assets never reach the host either. ATLAS flips the file over the GitHub contents API on
+          # the owner's word go; no portal click, and git records who flipped it and when.
+          # PAGES, the two page lists and the gate itself are lifted out of scripts/wp-upload.sh verbatim, so the two
+          # writers cannot drift apart. The partition assertion lives there too: it fails this job if PAGES ever
+          # carries a page that is neither one of the twelve nor one of the five MAST files.
           # The paths trigger above is deliberately left alone: a held run is cheap, and it is the visible record that
-          # the pages changed and were not published. Filtering here, before the resolver, also keeps the Atlas pages'
-          # assets (images/atlas/**) out of the list, so nothing of theirs reaches the host either.
-          ATLAS_PAGES="index.html executive-protection.html residential-protection.html disaster-recovery.html training.html technology.html cuas-aerodefense.html uas.html about.html careers.html contact.html ep-app.html"
-          if [ "$ATLAS_PAGES_UPLOAD" != "true" ]; then
-            for a in $ATLAS_PAGES; do PAGES="$(printf '%s\n' $PAGES | grep -vxF "$a" | tr '\n' ' ')"; done
-            echo "::notice::Atlas pages held: ATLAS_PAGES_UPLOAD is not true (go gate)"
-          fi
+          # the pages changed and were not published.
+          eval "$(sed -n '/^# >>> atlas-pages-gate/,/^# <<< atlas-pages-gate/p' scripts/wp-upload.sh)"
+          PAGES="$(atlas_pages_gate)" || exit 1
           python3 - "$PAGES" > files.txt <<'PY'
           import os, re, sys
           pages = sys.argv[1].split(); seen = []; queue = list(pages)
