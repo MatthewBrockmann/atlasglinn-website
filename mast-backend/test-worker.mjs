@@ -2375,9 +2375,13 @@ console.log('\n── Round 8: a failed sign-up write is a refusal, the schema p
     const HERE8 = path.dirname(fileURLToPath(import.meta.url));
     const suite = readFileSync(path.join(HERE8, 'test-worker.mjs'), 'utf8');
     const docs = ['README.md', 'LAUNCH-LEDGER.md'].map((f) => [f, readFileSync(path.join(HERE8, f), 'utf8')]);
-    const CITE = /test-(?:worker|account-sqlite)\.mjs:\d+/g;
+    // WIDENED IN ROUND 9 to every source file this repo has, not just this suite. Round 8 pinned the two citations that
+    // had gone stale and left the rest of the tree citable by line — src/worker.js, scripts/wp-upload.sh, the workflows,
+    // the migrations. A line number is stale the moment anything is inserted above it, and that is true whichever file it
+    // points into; round 8's own fix would have missed round 7's bug had it been written about worker.js instead.
+    const CITE = /[\w./-]+\.(?:js|mjs|sh|yml|py|sql):\d+/g;
     const strays = docs.flatMap(([f, text]) => (text.match(CITE) || []).map((m) => f + ' → ' + m));
-    ok('R8-1: no doc in mast-backend/ cites this suite by LINE NUMBER — they were wrong twice in one round, and the quoted assertion is what a reader can actually grep',
+    ok('R9-4: no doc in mast-backend/ cites ANY source file by LINE NUMBER — they were wrong twice in one round, and the quoted assertion is what a reader can actually grep',
        strays.length === 0, strays.join('  |  ') || 'README.md + LAUNCH-LEDGER.md clean');
     const quoted = [
       '2b: 21 samples per class — an absent address, an address with only a sign-up, and a LOCKED verified account all answer one 401 bad_login, byte for byte',

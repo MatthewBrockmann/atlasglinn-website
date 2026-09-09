@@ -103,7 +103,57 @@ HEADSHA="$(git -C "$R" rev-parse "refs/remotes/origin/$REFB")"; STAMP="$HOME/.ca
 # points where this Mac KNOWS the host is serving this commit's page: after the live check below passes, and on the
 # --if-changed path where the page was already uploaded and checked on an earlier run. That second call is what keeps a
 # failed Worker deploy retrying every hour instead of waiting for the next commit.
+#
+# AND "THIS COMMIT'S PAGE" IS NOW MEASURED RATHER THAN INFERRED (round 9, 2026-09-09). Round 8 asked the live page for the
+# string `reg-steps`, which every page carrying a registration flow answers — the page this one replaces answers it eight
+# times — so the gate was already true before the upload and could not tell one build from another. The page's own content
+# hash is the identity: scripts/build_manifest.py writes it into <meta name="build"> and into build-manifest.json, and the
+# two are compared here. Same primitive deploy-worker.yml uses on dist/mastsolutions/index.html, different manifest key —
+# "mastsolutions.html" is the atlasglinn.com copy in the ROOT manifest, "index.html" is the mastsolutions.com copy.
+#
+# THE URL THAT DECIDES IS THE PLAIN ONE, because that is what a visitor loads. A cache-busting query reaches the origin,
+# so it proves the upload landed and nothing more; GoDaddy's CDN keeps these pages 31 days at the plain address (probe
+# 2026-09-06: plain served a day-old build, age 77357 s, HIT, while ?x= fetched the new one). The cached old page IS the
+# client this order exists to protect, so a plain URL that still serves the old build HOLDS the Worker.
 WSTAMP="$HOME/.cache/wp-upload/last-worker-deploy"; mkdir -p "$HOME/.cache/wp-upload"
+want_build() {   # this commit's hash for mastsolutions.html, read from the ROOT build-manifest.json as committed
+  git -C "$R" show "$HEADSHA:build-manifest.json" 2>/dev/null | python3 -c 'import json, sys
+try: print(json.load(sys.stdin).get("mastsolutions.html") or "")
+except Exception: print("")' 2>/dev/null || true
+}
+page_build() {   # the build stamp the host serves at $1; empty when it is unreachable or carries no stamp
+  local f; f="$(mktemp /tmp/wp-upload-live.XXXXXX)"
+  # -o a file, and awk reads that file: a `curl | sed | head` pipeline under `set -o pipefail` fails the script on a 404
+  # or on the SIGPIPE an early-exiting reader sends, and this runs on the path that must never exit non-zero.
+  curl -sfL -m 25 -A "wp-upload-check" -o "$f" "$1" 2>/dev/null || true
+  awk 'match($0, /<meta name="build" content="[0-9a-f]*">/) { s = substr($0, RSTART, RLENGTH); sub(/.*content="/, "", s); sub(/">$/, "", s); print s; exit }' "$f"
+  rm -f "$f"
+}
+worker_gate() {   # 0 = the plain URL serves this commit's page, so the Worker may ship. 1 = held.
+  local want live
+  want="$(want_build)"
+  if [ -z "$want" ]; then
+    # Fail closed: an unidentifiable page is exactly the state this gate exists to refuse, and saying which commit could
+    # not be read is what makes it fixable rather than mysterious.
+    echo "WORKER HELD: build-manifest.json in ${HEADSHA:0:7} carries no hash for mastsolutions.html, so this Mac cannot tell which build the host serves; the hourly --if-changed path retries"
+    return 1
+  fi
+  live="$(page_build "https://atlasglinn.com/mastsolutions.html")"
+  if [ "$live" != "$want" ]; then
+    # One flush, one re-check. scripts/wp-flush.sh is the automated Flush Cache (REST with the application password, then
+    # WP-CLI over SSH); it exits non-zero when it could not clear the edge, which is a held Worker and not a failed upload.
+    echo "   the plain address serves build ${live:-none}, not $want; flushing the host's cache once and re-checking in 30 s"
+    [ -f "$R/scripts/wp-flush.sh" ] && bash "$R/scripts/wp-flush.sh" 2>&1 | sed 's/^/   /' || true
+    sleep 30
+    live="$(page_build "https://atlasglinn.com/mastsolutions.html")"
+  fi
+  if [ "$live" = "$want" ]; then
+    echo "   the plain address https://atlasglinn.com/mastsolutions.html serves this commit's page (build $want)"
+    return 0
+  fi
+  echo "WORKER HELD: atlasglinn.com/mastsolutions.html serves build ${live:-none} not $want; the hourly --if-changed path retries"
+  return 1
+}
 worker_deploy() {
   [ "${WORKER_DEPLOY:-1}" = 1 ] && [ -d "$R/mast-backend" ] || return 0
   LASTW="$(cat "$WSTAMP" 2>/dev/null || true)"
@@ -121,9 +171,10 @@ worker_deploy() {
 }
 if [ "${1:-}" = "--if-changed" ] && [ -f "$STAMP" ] && [ "$(cat "$STAMP")" = "$HEADSHA" ]; then
   say "up to date: ${HEADSHA:0:7} is already the uploaded page"
-  # The stamp is only written after the live check passed, so the page on the host IS this commit's — the one condition
-  # the Worker deploy waits for. A deploy that failed on an earlier run gets its retry here.
-  worker_deploy
+  # The stamp says the upload landed and the origin served it. It does NOT say the CDN caught up, so the retry runs the
+  # same gate the upload path runs (round 9): a retry that skipped the check would ship the Worker onto the stale plain
+  # page the check exists to catch, hourly, until the cache expired. A deploy held here is retried on the next run.
+  if worker_gate; then worker_deploy; fi
   exit 0
 fi
 git -C "$R" worktree add -q --detach "$W" "$HEADSHA"
@@ -268,11 +319,16 @@ sleep 2
 # -L: the site answers on www.atlasglinn.com and redirects the bare domain; the checks follow that. The page itself is the
 # check that matters; a cache-busting query gets past the host's page cache (2026-09-05: the page was live in the browser
 # while a stale 404 for the ping file made this step report failure).
+# WHAT THIS ONE ESTABLISHES, exactly: the ORIGIN holds this commit's page — its <meta name="build"> is the hash
+# build-manifest.json gives mastsolutions.html at ${HEADSHA:0:7}. It says nothing about the plain address; that is a
+# separate question, asked by worker_gate below, and it is the one that decides whether the Worker ships.
 TS="$(date +%s)"
-if curl -sfL "https://atlasglinn.com/mastsolutions.html?x=$TS" | grep -q 'reg-steps'; then
-  echo "   https://atlasglinn.com/mastsolutions.html is the new page (registration flow present)"
+WANT_B="$(want_build)"
+BUSTED_B="$(page_build "https://atlasglinn.com/mastsolutions.html?x=$TS")"
+if [ -n "$WANT_B" ] && [ "$BUSTED_B" = "$WANT_B" ]; then
+  echo "   https://atlasglinn.com/mastsolutions.html is this commit's page at the origin (build $WANT_B)"
 else
-  echo "   mastsolutions.html is NOT the new page yet (HTTP $(curl -sL -o /dev/null -w '%{http_code}' "https://atlasglinn.com/mastsolutions.html?x=$TS")). The files went to $DOCROOT/ under the SFTP home; if that is not the web root, re-run with WP_DOCROOT=<folder>. Tell Claude."; exit 3
+  echo "   mastsolutions.html is NOT this commit's page yet (HTTP $(curl -sL -o /dev/null -w '%{http_code}' "https://atlasglinn.com/mastsolutions.html?x=$TS"); the host serves build '${BUSTED_B:-none}', this commit is '${WANT_B:-unknown}'). The files went to $DOCROOT/ under the SFTP home; if that is not the web root, re-run with WP_DOCROOT=<folder>. Tell Claude."; exit 3
 fi
 if curl -sfL "https://atlasglinn.com/mast-ping.txt?x=$TS" | grep -q "served by upload"; then
   echo "   the ping file from this upload is served (no stale cache in the way)"
@@ -297,6 +353,13 @@ for a in images/mast/mast-cqb-poster.jpg vendor/three.module.js; do
   code=$(curl -sL -o /dev/null -w '%{http_code}' "https://atlasglinn.com/$a"); echo "   $a → $code"
 done
 mkdir -p "$(dirname "$STAMP")" && printf '%s\n' "$HEADSHA" > "$STAMP"
-# THE WORKER SHIPS HERE, and only here: everything above has confirmed the host is serving this commit's page.
-worker_deploy
-say "Done. Open https://atlasglinn.com/mastsolutions.html on your phone."
+# THE WORKER SHIPS HERE, and only when the PLAIN address serves this commit's page. The check above established that the
+# origin has it; a visitor never asks the origin. The stamp is already written, so a hold costs nothing but the hour: the
+# --if-changed run above re-runs this same gate and deploys as soon as the cache catches up.
+if worker_gate; then
+  worker_deploy
+  say "Done. Open https://atlasglinn.com/mastsolutions.html on your phone."
+else
+  # The upload succeeded and the page is on the host; only the deploy is held, so this is not a failure to report.
+  exit 0
+fi

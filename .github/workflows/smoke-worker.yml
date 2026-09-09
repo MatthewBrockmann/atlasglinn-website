@@ -21,7 +21,7 @@ on:
         type: boolean
         default: false
       account:
-        description: "Exercise sign-up: POST /account/register for matthew+smoke<run>@atlasglinn.com (the Worker emails a code), then a wrong-code /account/verify and a wrong-password /account/login"
+        description: "Exercise sign-up: POST /account/register for matthew+smoke<run>@atlasglinn.com (the Worker emails a code), then a wrong-code /account/verify and a wrong-password /account/login. The verify probes ASSERT — 401 bad_code for a wrong code, 400 password_required for the old page's {email, code} — and FAIL THE RUN on a contract regression."
         type: boolean
         default: false
 # contents: write, not read — the last step commits the report to the claude/desktop-assets branch, which is the whole
@@ -45,8 +45,18 @@ jobs:
           ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
         run: |
           mkdir -p out
-          req() {   # method path [json]: prints "HTTP <code> <ms>ms" and the body (Stripe checkout URLs cut to their host)
-            local m="$1" p="$2" body="${3:-}" t0 t1 code
+          # IT ASSERTS NOW, IT DOES NOT ONLY PRINT (round 9, 2026-09-09). req took a status and never checked it, so every
+          # contract this file claims to prove was a line somebody had to read — and the whole point of the R8-9 probe is
+          # that nobody reads a green run. A fourth argument is the status the contract REQUIRES and a fifth a substring
+          # its body must carry; either one missing prints ::error:: and records the reason.
+          #
+          # WHY IT RECORDS RATHER THAN EXITS: every probe below runs inside `{ … } | tee`, and a pipeline's exit status is
+          # its LAST command's — tee's, always 0. An `exit 1` in this function would leave the step green and the
+          # regression unreported, which is the same class of defect as the check it replaces. The failures land in a file
+          # and the step fails on it AFTER the report is written and the summary published, so the evidence survives.
+          FAILED=/tmp/contract-failures; : > "$FAILED"
+          req() {   # method path [json] [required status] [required substring of the body]
+            local m="$1" p="$2" body="${3:-}" want="${4:-}" wantbody="${5:-}" t0 t1 code
             t0=$(date +%s%N)
             if [ -n "$body" ]; then
               code=$(curl -sS -m 40 -o /tmp/b -w '%{http_code}' -X "$m" -H "Content-Type: application/json" -H "Origin: $ORIGIN" --data "$body" "$WORKER$p" || echo ERR)
@@ -56,6 +66,17 @@ jobs:
             t1=$(date +%s%N)
             echo "HTTP $code $(( (t1 - t0) / 1000000 ))ms  $m $p"
             sed -E 's#(https://checkout\.stripe\.com/)[^" ]*#\1…#g' /tmp/b | head -c 1500; echo
+            [ -n "$want" ] || return 0
+            if [ "$code" != "$want" ]; then
+              echo "::error::CONTRACT REGRESSION: $m $p answered HTTP $code where the contract is $want."
+              echo "$m $p: HTTP $code, want $want" >> "$FAILED"
+            elif [ -n "$wantbody" ] && ! grep -q "$wantbody" /tmp/b; then
+              # The RAW body, not the 1500-byte printed excerpt: a right status for the wrong reason is still a regression.
+              echo "::error::CONTRACT REGRESSION: $m $p answered $want as required, but its body does not carry '$wantbody'."
+              echo "$m $p: HTTP $code without '$wantbody'" >> "$FAILED"
+            else
+              echo "   contract holds: HTTP $want${wantbody:+ carrying $wantbody}"
+            fi
           }
           {
             echo "smoke $(date -u +%FT%TZ) from $GITHUB_REF_NAME ${GITHUB_SHA::7} run $GITHUB_RUN_ID (contact=$DO_CONTACT checkout=$DO_CHECKOUT account=$DO_ACCOUNT)"
@@ -122,14 +143,14 @@ jobs:
               echo "--- account sign-up (POST /account/register for $em)"
               req POST /account/register "{\"email\":\"$em\",\"password\":\"$pw\",\"name\":\"Smoke test (GitHub Actions)\"}"
               echo "--- account verify, wrong code with the right password (expect 401 bad_code — the route takes email + code + password)"
-              req POST /account/verify "{\"email\":\"$em\",\"code\":\"000000\",\"password\":\"$pw\"}"
+              req POST /account/verify "{\"email\":\"$em\",\"code\":\"000000\",\"password\":\"$pw\"}" 401 bad_code
               # The OLD page's request, which is what a copy of mastsolutions.html cached before the round-7 deploy sends
               # (round 8, 2026-09-09). Expect 400 password_required, NEVER 401 bad_code: a missing field is a request the
               # Worker cannot act on, and answering it as a wrong guess sent the visitor back to retype the six digits
               # from their mailbox until the twenty-try burn took the sign-up. A 401 here means the page and the Worker
               # are out of step in the direction that hurts — the Worker landed ahead of the page.
               echo "--- account verify, the OLD page's {email, code} with no password (expect 400 password_required — never 401 bad_code)"
-              req POST /account/verify "{\"email\":\"$em\",\"code\":\"000000\"}"
+              req POST /account/verify "{\"email\":\"$em\",\"code\":\"000000\"}" 400 password_required
               echo "--- account sign-in, wrong password (expect 401 bad_login, never 5xx — a sign-up in progress answers what an unknown address answers)"
               req POST /account/login "{\"email\":\"$em\",\"password\":\"not-the-password-1\"}"
             else echo "--- account: skipped (input account=false)"; fi
@@ -214,7 +235,17 @@ jobs:
               echo '```'; } >> "$GITHUB_STEP_SUMMARY"
             rm -f /tmp/crm.json
           fi
+          # The assertions decide the run, here at the end: the report above is written and the summary published either
+          # way, so a regression leaves the evidence behind instead of only a red X.
+          if [ -s "$FAILED" ]; then
+            echo "::error::the smoke run FAILS: $(wc -l < "$FAILED" | tr -d ' ') contract assertion(s) did not hold — the page and the Worker are out of step, or a route changed its answer."
+            sed 's/^/   /' "$FAILED"
+            exit 1
+          fi
+          echo "every asserted contract held"
       - name: Commit the report to the handoff branch (sparse, blobless checkout)
+        # always(): a run that failed an assertion is the run whose report is worth keeping.
+        if: always()
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

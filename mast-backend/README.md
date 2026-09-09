@@ -720,10 +720,12 @@ attacker: each of them is what a bad afternoon does on its own.
   went into a `.catch` that logged and carried on, so a D1 that could not take the row still sent six digits — and every
   attempt to use them met the one `401 bad_code` a wrong guess gets, which reads as *"your code is wrong"*. The result is
   read now: a rejection **or** a write reporting `meta.changes` of 0 answers
-  `503 {code:'signup_unavailable'}` **before** the send, so nobody is handed a code that cannot be verified. It costs no
-  extra statement and no branch a caller can see — the write already ran on every branch, and the four classes still
-  measure one count and one `202` (printed by the suite). Reverting the one line: the test answers `202` with one mail
-  and no row.
+  `503 {code:'signup_unavailable'}` **before** the send, so nobody is handed a code that cannot be verified. On a
+  healthy D1 it costs no extra statement and no branch a caller can see: the four classes measure one count and one
+  `202` (printed by the suite). **On the broken path it does introduce a branch a caller can see, and round 9 measured
+  it rather than assuming it away** — an address that already has an account still answers `202`, because that answer is
+  returned before the failing write is reached. Residual 7 below has the table. Reverting the one line: the test answers
+  `202` with one mail and no row.
 - **The schema probe was a call D1 has never been asked to make.** `healPendingSignups()` asked
   `SELECT name FROM pragma_table_info('pending_signups')` — a table-valued function, driven only against a stand-in that
   answered it in JavaScript. If D1 rejects that form the probe throws, and what followed was worse than the failure:
@@ -742,16 +744,23 @@ attacker: each of them is what a bad afternoon does on its own.
   alone, so it is the same answer at the same cost at every address and classifies none of them. A password that is
   present and wrong is still the one `401 bad_code`.
 
-**And the deploy order is now enforced rather than hoped for, in both paths.** The page and the Worker ship on two
-independent workflows. One order is harmless and the other is not: a new page against an **old** Worker works, because
-the old contract ignores the extra field; a new Worker against a **cached old page** is the failure above. So
-`deploy-worker.yml` waits, before `wrangler deploy`, for `https://www.mastsolutions.com/build-manifest.json` to carry
-this commit's `index.html` build hash — ten minutes at twenty-second intervals — and **fails the run** if it never does,
-which leaves the old Worker serving the new page. It only waits when the pushed range actually moved
-`mastsolutions.html` or `dist/mastsolutions/index.html`. On the Mac, `scripts/wp-upload.sh` no longer deploys the Worker
-first: the deploy is a function called after the live-page check passes, and on the `--if-changed` path where the page
-was uploaded and checked on an earlier run — which is what keeps a failed Worker deploy retrying hourly rather than
-waiting for the next commit. `smoke-worker.yml` sends the old client's `{email, code}` and expects the `400`.
+**And the deploy order is now enforced rather than hoped for, in both paths — though only the Actions half was actually
+enforced when round 8 said so.** The page and the Worker ship on two independent workflows. One order is harmless and
+the other is not: a new page against an **old** Worker works, because the old contract ignores the extra field; a new
+Worker against a **cached old page** is the failure above. So `deploy-worker.yml` waits for
+`https://www.mastsolutions.com/build-manifest.json` to carry this commit's `index.html` build hash — ten minutes at
+twenty-second intervals — and **fails the run** if it never does, which leaves the old Worker serving the new page. On
+the Mac, `scripts/wp-upload.sh` no longer deploys the Worker first: the deploy is a function called after the live-page
+check passes, and on the `--if-changed` path where the page was uploaded and checked on an earlier run, which is what
+keeps a failed Worker deploy retrying hourly rather than waiting for the next commit. `smoke-worker.yml` sends the old
+client's `{email, code}` and expects the `400`.
+
+**What round 8 did not do, and round 9 does:** the Mac's "live-page check" was `grep -q reg-steps`, which is true of any
+page with a registration flow — so the Worker could ship onto a page the CDN had not replaced, on the very path that
+check existed to gate, and the `--if-changed` retry deployed on the upload stamp without checking anything at all. Both
+now compare this commit's build hash against what the host serves, and the Mac decides on the **plain** URL rather than
+a cache-busted one. The Actions wait also moved **above** the migrations, so a page that never arrives no longer leaves
+`012` applied under an undeployed Worker. Residual 6 has what each path checks, exactly.
 
 **One gate had no assertion behind it, and now has one.** `handleAccountVerify` discards whatever the code found when
 the address already has an account — `const row = blocked ? null : found` — and mutating that line to `const row = found`
@@ -998,45 +1007,73 @@ with their measured numbers so the next round can pick them up with the measurem
 **And round 7's own cost, measured rather than asserted:** taking the password on `/account/verify` adds **one
 unauthenticated PBKDF2 per request** — the hash runs against `DUMMY_PASSWORD_HASH` when no row matched, which is what
 makes a wrong code and a wrong password cost the same. At the shipped iteration count (`PBKDF2_ITER = 100000`) that is
-**tens of milliseconds of CPU per request, spent by anyone who can reach the route**. The number is runner-dependent and
-both figures in this file were taken in Node, not on Cloudflare: the suite's own login probe medians read **45.7 ms**,
-and a direct 21-sample measurement of the shipped parameters on the round-8 runner read a **58.1 ms median (43.3 ms
-minimum)**. What bounds it is the route limit already in the table — `POST /account/verify` is **20 requests per 10
-minutes per IP** (bucket `verify`) — so one connection can buy at most **~0.9–1.2 s of CPU per window** at those
-medians. **Not measured on the Worker itself**, which is where the figure that matters would come from; the bound is a
-control that already exists either way. Written here so the next round does not rediscover it as a finding.
+**tens of milliseconds of CPU per request, spent by anyone who can reach the route**.
+
+**EVERY FIGURE BELOW WAS TAKEN IN NODE, NOT ON THE WORKER, and the spread between runners is wider than the quantity
+being measured — so this is a range, and no single number in it is "the" bound.** Four independent measurements of the
+shipped parameters, none of them on Cloudflare:
+
+| where | min | median | max |
+|---|---|---|---|
+| the suite's own login probe | — | 45.7 ms | — |
+| round-8 runner, direct | 43.3 ms | 58.1 ms | — |
+| round-9 re-measure, direct | — | 43.9 ms | — |
+| round-9 shared container, four runs of 21 | 43.6 ms | 52.1–81.5 ms | 139.8–328.0 ms |
+
+**The floor is the stable part**: every direct measurement puts the minimum at 43–45 ms, and the medians move with
+whatever else the runner is doing — the 328 ms maximum is a container losing its CPU, not a property of PBKDF2. What
+bounds the total is the route limit already in the table — `POST /account/verify` is **20 requests per 10 minutes per
+IP** (bucket `verify`) — so one connection buys about **0.9 s of CPU per window at the floor**, and several times that
+on a loaded runner. **Not measured on the Worker itself**, which is where the figure that matters would come from; the
+bound is a control that already exists either way. Written here so the next round does not rediscover it as a finding.
 
 **6. Nothing here is deployed, and there are TWO live deploy paths — only one of them applies migrations. Round 7 raises
 the stakes on that.** `migrations/012` is merged, not applied.
 
-- **`.github/workflows/deploy-worker.yml`** — applies migrations in the step *before* the deploy, guarded per file by a
-  `PRAGMA table_info` column check, and `set -e` stops the job on a half-applied schema. A normal merge to `main` does
-  both in the right order.
+- **`.github/workflows/deploy-worker.yml`** — applies migrations in a step *before* the deploy (and, since round 9,
+  *after* the page wait), guarded per file by a `PRAGMA table_info` column check, with `set -e` stopping the job on a
+  half-applied schema. A normal merge to `main` does all three in the right order.
 - **`scripts/wp-upload.sh`**, run hourly by the LaunchAgent in `scripts/mac-autopilot.sh` — runs `wrangler deploy` from
   the owner's Mac whenever `mast-backend/` has moved, and its own comment says *"Secrets and D1 migrations are
   untouched."* **It deploys code without applying a single migration.**
 
-**THE ORDER BETWEEN THE PAGE AND THE WORKER IS ENFORCED SINCE ROUND 8, in both paths.** They are separate workflows, so
-on a merge that moves both, whichever runner finishes first is what visitors meet — and only one of the two orders is
-harmless:
+**THE ORDER BETWEEN THE PAGE AND THE WORKER IS ENFORCED IN BOTH PATHS — and only since round 9 is that sentence true of
+the Mac.** They are separate workflows, so on a merge that moves both, whichever runner finishes first is what visitors
+meet — and only one of the two orders is harmless:
 
 | Order | What a visitor gets |
 |---|---|
 | page first, Worker second | the new page posts `{email, code, password}`; the **old** Worker ignores the extra field and verifies on the code. Nobody notices. |
 | Worker first, page second | the cached old page posts `{email, code}` — the `400 password_required` answer above exists for exactly this, and before round 8 it was a `401 bad_code` with no way forward. |
 
-- **Actions:** `deploy-worker.yml` polls `https://www.mastsolutions.com/build-manifest.json` for this commit's
-  `index.html` build hash before `wrangler deploy` — ten minutes at twenty-second intervals — and **fails the run** with
-  a `::error::` if it never matches, which leaves the old Worker serving the new page (the harmless half). It only waits
-  when the pushed range actually moved `mastsolutions.html` or `dist/mastsolutions/index.html`, so a mast-backend-only
-  merge is not held up by a page nobody changed. The field is `index.html` because
+Round 8 wrote the claim for both paths and it held for one. **The Mac path asked the live page for the string
+`reg-steps`** — which any page carrying a registration flow answers, and both this commit's page and the one it replaces
+contain it **eight times** — so the check was already true before the upload ran and could not tell one build from
+another. What each path checks now, stated exactly, because "enforced" is worth no more than the measurement under it:
+
+- **Actions (`deploy-worker.yml`), against `www.mastsolutions.com`.** Reads `index.html` from
+  `dist/mastsolutions/build-manifest.json` at this commit, **refuses to run on an empty hash**, and polls the host's
+  live `/build-manifest.json` for that exact value — ten minutes at twenty-second intervals — failing the run with an
+  `::error::` if it never matches, which leaves the old Worker serving the new page (the harmless half). It **always**
+  compares: round 9 dropped the pushed-range test, because a re-run and a `workflow_dispatch` have no range to read at
+  all, and the page can be behind for reasons this push did not cause. When the host already serves the build, that
+  costs one request. **It runs BEFORE the migrations now**, not between them and the deploy — with the wait in the
+  middle, a page that never arrived failed the run with `012` applied and the Worker undeployed, a database ahead of the
+  code that reads it. Failing first changes nothing at all. The field is `index.html` because
   `dist/mastsolutions/build-manifest.json` is what that host serves as its `/build-manifest.json`; the `mastsolutions.html`
   key belongs to the atlasglinn.com copy in the **root** manifest.
-- **Mac:** the `WORKER_DEPLOY` block in `scripts/wp-upload.sh` used to run *before* the upload. It is a function now,
-  called after the live-page check passes — and on the `--if-changed` path where the page was uploaded and checked on an
-  earlier run, which is what keeps a failed Worker deploy retrying hourly instead of waiting for the next commit.
-- **Proof it is not just wiring:** `smoke-worker.yml`'s account probe sends the old client's `{email, code}` and expects
-  `400 password_required`. A `401` there means the two halves are out of step in the direction that hurts.
+- **Mac (`scripts/wp-upload.sh`), against `atlasglinn.com`.** Reads `mastsolutions.html` from the **root**
+  `build-manifest.json` at this commit and compares it to the `<meta name="build">` the host actually serves, at **two**
+  URLs. The cache-busted URL reaches the origin and answers only whether the upload landed. **The plain URL is what
+  decides the deploy**, because it is what a visitor loads and GoDaddy's CDN holds these pages for 31 days at that
+  address: if it serves any other build, the script runs `scripts/wp-flush.sh` once, re-checks after 30 s, and if it is
+  still stale prints `WORKER HELD: …` and **does not deploy** — exiting 0, because the upload succeeded and only the
+  deploy is held. The upload stamp is written either way, so the hourly `--if-changed` run retries. **That retry runs
+  the same gate**, which it did not until round 9: it deployed on the stamp alone, so a held Worker would have shipped
+  onto the stale page an hour later anyway.
+- **Proof it is not just wiring:** `smoke-worker.yml`'s account probe sends the old client's `{email, code}` and
+  **asserts** `400` carrying `password_required`, failing the run with an `::error::` on anything else. Through round 8
+  it printed the answer and asserted nothing, so a `401` there was a line in a report nobody reads.
 
 **What this does NOT fix, said plainly:** the migration gap in the two bullets above is unchanged. The order enforced
 here is page-before-Worker, not migration-before-Worker on the Mac path.
@@ -1050,6 +1087,42 @@ before the `CREATE`, on the first request of an isolate. The Mac path therefore 
 because for a file that CREATEs a table the columns are not evidence the file ran. Bounded, not zero: `runRetention`
 deletes the same set daily on the 09:17 UTC cron. Fixing that properly means a marker the running Worker cannot create
 (a `schema_migrations` row); until then this paragraph is the record.
+
+**7. A `pending_signups` that cannot take a write turns `/account/register` into an account-existence oracle — on
+STATUS, and only while that write is failing.** Round 8 read the write result and answered `503 signup_unavailable`
+instead of mailing a code that could never be verified, which is right and stays. What it did not change is the ORDER of
+the route: an address that **already has an account** returns its `202` from the sign-up-notice branch *before*
+`PENDING_INSERT` is ever reached, so when that write is broken, one class answers `202` and every other class answers
+`503`. Measured on the round-9 runner against a `pending_signups` rejecting every write, four classes, one connection
+budget each:
+
+| class | answer | statements issued |
+|---|---|---|
+| brand-new address | `503 signup_unavailable` | 11 |
+| address with a sign-up in progress | `503 signup_unavailable` | 11 |
+| **address that has an account** | **`202` pending** | 11 |
+| address carrying a stranger's rows | `503 signup_unavailable` | 11 |
+
+**The statement count is NOT the tell — it is 11 in every class**, so the uniformity round 8 measured is real and it is
+simply not the property under test here. The tell is the status alone. Two things bound it: it needs D1 to be failing
+that one write, which is an outage rather than a condition an attacker selects, and the answer it leaks is the same one
+`/account/login` and `/account/forgot` are written to withhold — so during such an outage the address-privacy property
+those routes hold is not held by `register`. **Not fixed:** deciding the answer before the write is a route rewrite, not
+a line, and doing it badly reintroduces the branch this round is trying to remove.
+
+**And that same `503` spends the caller's code-mail slot before it discovers the failure.** `noteCodeMail()` runs first
+and takes the budget through `spendMailBudget`; `PENDING_INSERT` is attempted only after it. So a refusal costs
+the caller one of the three code mails an hour residual 1 prices, and **no refund is made**: nothing on the `503` path
+gives the slot back. During a D1 outage a person retrying in good faith spends their hourly budget on answers that mail
+nothing, and then meets the throttle once the database recovers. Cheap to fix and deliberately not fixed here, because
+moving the budget after the write changes what an attacker pays on the healthy path too, which needs its own probe.
+
+**A note on the heal, for completeness rather than alarm:** `healPendingSignups()` decides on `ddl.includes('signup_id')`
+— a substring test against the whole `CREATE TABLE` text — so a table whose DDL merely MENTIONS that string without
+being the per-sign-up shape would be kept rather than dropped. **No DDL this repo has ever produced can reach that
+state**: rounds 5 and 6 keyed on `address_digest` and name no such column. It would not pass silently either —
+`CREATE INDEX … ON pending_signups (address_digest, code_hash)` fails loudly against a table without those columns.
+Written down so the next round does not rediscover it and mistake it for a finding.
 
 ## Configuration reference
 
