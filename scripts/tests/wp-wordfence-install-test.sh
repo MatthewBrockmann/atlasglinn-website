@@ -20,6 +20,22 @@
 #     exited 0. No case here had ever given any page a 000 baseline, which is why the harness could not see it. Three
 #     cases now do the round-2 verifier's own scenarios: before 000 (the install must stop before it uploads), before
 #     200 after 500 (fails), and before 200 after 200 (passes, and prints both codes in the verdict).
+#   · AND THE OTHER TWO PAGES ARE ON THE SAME RULE — the round-3 blocker, which was round 2's finding one page over.
+#     The front page and the WordPress-rendered page kept `[ "$X_BEFORE" = 200 ] && [ "$X_AFTER" != 200 ]`, so the
+#     verifier drove the front page 000 → 503 and got FIRED-OBSERVED and exit 0 again; the harness could not see it
+#     because reset_case pinned both of them to 200 at both ends and no case ever overrode either. Seven cases now
+#     move them: 200 → 500, 200 → 404, 000 → 503, 000 → 000 (no baseline), 403 → 403 (not a regression), 403 → 500
+#     (invisible to the old limb, since neither end is 200) and 403 → 500 in --status.
+#   · --status REPORTS, IT DOES NOT STEER. It changes nothing on the host, so a difference between its two reads is an
+#     observation, not a verdict — and never a reason to print --disable-wordfence, which renames a production plugin
+#     directory. Cases require both destructive commands to be absent from the whole output of that mode.
+#   · NO ENVIRONMENT VARIABLE WAIVES THE LOGIN PRECONDITION, and one nearly did by redefining the page: WP_LOGIN_URL
+#     was read unchecked, so pointing it elsewhere made the precondition unreachable while the real wp-login.php went
+#     unmeasured. All three measured URLs are shape-checked, and ATLAS_WF_FORCE is pinned to waive the rendered page's
+#     baseline and NOT the login page's.
+#   · A REFUSAL WITH NO SUMMARY LINE IS A RUN THAT FAILED FOR NO STATED REASON. On a runner the job summary is the
+#     deliverable, and it publishes an allowlist; a case extracts every refusal the script can print and requires a row
+#     for it in .github/workflows/wordfence-deploy.yml.
 #   · THE ls CLASSIFIER IS STRICT ON PURPOSE. "no such file" without sftp's own prefix, and sftp's prefix naming a
 #     DIFFERENT path, are both `unknown` — a login banner and a shell's "command not found" contain those words too.
 #     Both were surviving mutants: the classifier could be relaxed to a bare word-match and the harness stayed green.
@@ -196,7 +212,10 @@ reset_case() {
   C_HDR=""; C_HDR2=""; C_PROBE_CODE=200; C_PROBE_RC=0; C_FP="$FP"
   C_HOME_B=200; C_HOME_A=200; C_WP_B=200; C_WP_A=200; C_LOGIN_B=200; C_LOGIN_A=200
   C_LS_PRESENT_RE=""; C_LS_MODE=echo; C_LS_RC=0; C_SFTP_RC=0; C_SFTP_OUT=""
-  C_DOCROOT="html"; C_ENV_SRC=0
+  C_DOCROOT="html"; C_ENV_SRC=0; C_FORCE=0
+  # The three measured URLs and the one force flag, empty/0 by default: each is an override the script now shape-checks
+  # or refuses to honour, and a case has to be able to set exactly one of them.
+  C_LOGIN_URL=""; C_WP_BASE=""; C_SITE_ROOT=""
   # Passed on EVERY case, empty by default: an ambient WP_SFTP_USER in the runner's environment would otherwise
   # switch the credential path under cases that mean to exercise the Keychain one.
   C_ENV_USER=""; C_ENV_PASS=""; C_KC="mast-wp-sftp"
@@ -217,6 +236,7 @@ run_case() {
     STUB_SFTP_RC="$C_SFTP_RC" STUB_SFTP_OUT="$C_SFTP_OUT" \
     WP_SFTP_USER="$C_ENV_USER" WP_SFTP_PASSWORD="$C_ENV_PASS" KC_SFTP="$C_KC" \
     WP_DOCROOT="$C_DOCROOT" ATLAS_WF_POLL_SLEEP=0 ATLAS_WF_POLL_TRIES=2 ATLAS_WF_TRIGGER_TRIES=1 \
+    ATLAS_WF_FORCE="$C_FORCE" WP_LOGIN_URL="$C_LOGIN_URL" WP_BASE="$C_WP_BASE" WP_SITE_ROOT="$C_SITE_ROOT" \
     "${ENVSRC[@]}" "$BASH" "$SCRIPT" "$@" > "$OUT" 2>&1
   RC=$?
   STAMPF="$CHOME/.cache/wp-upload/last-wordfence-install"
@@ -387,10 +407,21 @@ t "login-200-200/verdict-has-both-codes" "$(b grep -q 'verdict inputs: .*wp-logi
 # (d) and the SAME baseline in --status, where the die above does not apply because --status changes nothing. This is
 # what pins the removal of the `[ "$LOGIN_BEFORE" != 000 ]` exemption itself: with the exemption back in place the
 # install cases still stop at the die, so only a mode that runs the verdict on a 000 baseline can see it.
+# It is also where --status stops attributing: this mode uploaded nothing and opened no sftp session, so the difference
+# is a measurement it reports, not a fault it caused — and round 3's verifier drove exactly this shape (a login read
+# that glitched between two curls) into a summary that printed "FAILED on the site itself" and then the
+# --disable-wordfence recovery, which renames a production plugin directory. The exit code stays non-zero, both codes
+# are still printed, and the two destructive commands appear NOWHERE in the output of a mode that changed nothing.
 reset_case; C_HDR="$HDR_ACTIVE"; C_LOGIN_B=000; C_LOGIN_A=503; run_case login-000-status --status
 t "login-000-status/exit-non-zero"       "$(b test "$RC" -ne 0)" "exit $RC"
-t "login-000-status/site-changed"        "$(b grep -q 'FAILED on the site itself' "$OUT")" "$(grep -n '^verify' "$OUT" | head -1)"
+t "login-000-status/observation"         "$(b grep -q '^observation: ' "$OUT")" "$(grep -n '^verify\|^observation' "$OUT" | head -1)"
+t "login-000-status/not-a-verdict"       "$(nb grep -q 'FAILED on the site itself' "$OUT")" "$(grep -n 'FAILED on the site' "$OUT" | head -1)"
 t "login-000-status/names-both-codes"    "$(b grep -q 'wp-login.php went from http 000 to http 503' "$OUT")" "$(grep -n 'went from' "$OUT" | head -1)"
+t "login-000-status/no-disable-steering" "$(nb grep -q -- '--disable-wordfence' "$OUT")" "$(grep -n -- '--disable-wordfence' "$OUT" | head -1)"
+t "login-000-status/no-remove-steering"  "$(nb grep -q -- '--remove' "$OUT")" "$(grep -n -- '--remove' "$OUT" | head -1)"
+t "login-000-status/says-it-changed-nothing" "$(b grep -q 'changed nothing on the host' "$OUT")"
+t "login-000-status/ran-no-sftp"         "$(eq "$(calls sftp)" 0)" "sftp calls $(calls sftp)"
+t "login-000-status/heartbeat-observed"  "$(b grep -q 'site-changed-observed' "$STAMPF")" "$STAMPV"
 
 # ── 17. the ls classifier: the words alone are not sftp saying a file is gone ───────────────────────────────────────
 reset_case; C_HDR="$HDR_ACTIVE"; C_LS_MODE=banner; run_case ls-banner --remove-status
@@ -433,9 +464,140 @@ t "kc-injection/refused"                 "$(b grep -q 'refusing to run: KC_SFTP'
 t "kc-injection/nothing-sent"            "$(eq "$(calls sftp)" 0)" "sftp calls $(calls sftp)"
 t "kc-injection/no-curl-either"          "$(b test ! -s "$STATE/curl.args")"
 
+# ── 20. THE ROUND-3 BLOCKER, and it is round 2's one page over. The front page and the WordPress-rendered page were
+# on a different rule from the login page — `[ "$X_BEFORE" = 200 ] && [ "$X_AFTER" != 200 ]` — so a baseline that was
+# not 200 dropped them out of the verdict, and no case in this file had ever given either of them anything but 200 at
+# both ends. The verifier's own scenario is (c): the front page 000 → 503 printed FIRED-OBSERVED and exited 0.
+# (a) the front page moves: it fails, and it names both codes.
+reset_case; C_HDR="$HDR_ACTIVE"; C_HOME_B=200; C_HOME_A=500; run_case home-200-500
+t "home-200-500/exit-non-zero"           "$(b test "$RC" -ne 0)" "exit $RC"
+t "home-200-500/site-changed"            "$(b grep -q 'FAILED on the site itself' "$OUT")" "$(grep -n '^verify' "$OUT" | head -1)"
+t "home-200-500/names-both-codes"        "$(b grep -q 'the front page went from http 200 to http 500' "$OUT")" "$(grep -n 'went from' "$OUT" | head -1)"
+t "home-200-500/no-FIRED-OBSERVED"       "$(nb grep -q 'FIRED-OBSERVED' "$OUT")" "$(grep -n 'FIRED-OBSERVED' "$OUT" | head -1)"
+t "home-200-500/heartbeat-site-changed"  "$(b grep -q ' site-changed ' "$STAMPF")" "$STAMPV"
+# (b) the WordPress-rendered page moves: same rule, same failure. It is the page the two plugins actually run on.
+reset_case; C_HDR="$HDR_ACTIVE"; C_WP_B=200; C_WP_A=404; run_case rendered-200-404
+t "rendered-200-404/exit-non-zero"       "$(b test "$RC" -ne 0)" "exit $RC"
+t "rendered-200-404/names-both-codes"    "$(b grep -q 'the WordPress-rendered page went from http 200 to http 404' "$OUT")" "$(grep -n 'went from' "$OUT" | head -1)"
+t "rendered-200-404/no-FIRED-OBSERVED"   "$(nb grep -q 'FIRED-OBSERVED' "$OUT")" "$(grep -n 'FIRED-OBSERVED' "$OUT" | head -1)"
+# (c) THE VERIFIER'S RUN: front page 000 before, 503 after. Nothing dies on the front page (it has no precondition), so
+# this reaches the verdict, and the verdict is where a 000 baseline must fail rather than exempt.
+reset_case; C_HDR="$HDR_ACTIVE"; C_HOME_B=000; C_HOME_A=503; run_case home-000-503
+t "home-000-503/exit-non-zero"           "$(b test "$RC" -ne 0)" "exit $RC"
+t "home-000-503/site-changed"            "$(b grep -q 'FAILED on the site itself' "$OUT")" "$(grep -n '^verify' "$OUT" | head -1)"
+t "home-000-503/names-both-codes"        "$(b grep -q 'the front page went from http 000 to http 503' "$OUT")" "$(grep -n 'went from' "$OUT" | head -1)"
+t "home-000-503/no-FIRED-OBSERVED"       "$(nb grep -q 'FIRED-OBSERVED' "$OUT")" "$(grep -n 'FIRED-OBSERVED' "$OUT" | head -1)"
+t "home-000-503/heartbeat-site-changed"  "$(b grep -q ' site-changed ' "$STAMPF")" "$STAMPV"
+# (d) 000 at BOTH ends is not "unchanged": it is a page that was never measured, and an after-code equal to nothing is
+# not a page proved unchanged. Without this the fix could be written as a plain != and 000/000 would pass.
+reset_case; C_HDR="$HDR_ACTIVE"; C_HOME_B=000; C_HOME_A=000; run_case home-000-000
+t "home-000-000/exit-non-zero"           "$(b test "$RC" -ne 0)" "exit $RC"
+t "home-000-000/says-no-baseline"        "$(b grep -q 'the front page has no baseline' "$OUT")" "$(grep -n '^verify' "$OUT" | head -1)"
+t "home-000-000/no-FIRED-OBSERVED"       "$(nb grep -q 'FIRED-OBSERVED' "$OUT")" "$(grep -n 'FIRED-OBSERVED' "$OUT" | head -1)"
+# (e) and a page that answers the same non-200 at both ends is NOT a regression — the rule is "equal to its baseline",
+# not "200". A 403 front page that was already 403 is the site as this run found it.
+reset_case; C_HDR="$HDR_ACTIVE"; C_HOME_B=403; C_HOME_A=403; run_case home-403-steady
+t "home-403-steady/exit-0"               "$(eq "$RC" 0)" "exit $RC"
+t "home-403-steady/no-site-changed"      "$(nb grep -q 'FAILED on the site itself' "$OUT")" "$(grep -n '^verify' "$OUT" | head -1)"
+t "home-403-steady/FIRED-OBSERVED"       "$(b grep -q 'FIRED-OBSERVED' "$OUT")"
+# (f) 403 → 500 is the case the old limb could not see at all: neither end is 200, and the page still moved.
+reset_case; C_HDR="$HDR_ACTIVE"; C_HOME_B=403; C_HOME_A=500; run_case home-403-500
+t "home-403-500/exit-non-zero"           "$(b test "$RC" -ne 0)" "exit $RC"
+t "home-403-500/names-both-codes"        "$(b grep -q 'the front page went from http 403 to http 500' "$OUT")" "$(grep -n 'went from' "$OUT" | head -1)"
+# (g) the same for the rendered page, in --status, where no precondition forces its baseline to 200 — and --status
+# reports it as an observation with no remedy attached.
+reset_case; C_HDR="$HDR_ACTIVE"; C_WP_B=403; C_WP_A=500; run_case rendered-403-500-status --status
+t "rendered-403-500/exit-non-zero"       "$(b test "$RC" -ne 0)" "exit $RC"
+t "rendered-403-500/observation"         "$(b grep -q 'the WordPress-rendered page went from http 403 to http 500' "$OUT")" "$(grep -n 'observation' "$OUT" | head -1)"
+t "rendered-403-500/no-disable-steering" "$(nb grep -q -- '--disable-wordfence' "$OUT")" "$(grep -n -- '--disable-wordfence' "$OUT" | head -1)"
+# (h) the verdict line carries all six codes, so the reader can apply the rule to the run in front of them.
+reset_case; C_HDR="$HDR_ACTIVE"; run_case verdict-inputs-all-three
+t "verdict-inputs/three-pairs"           "$(b grep -q 'verdict inputs: front page 200→200 · WordPress-rendered 200→200 · https://atlasglinn.com/wp-login.php before http 200 · after http 200' "$OUT")" "$(grep -n 'verdict inputs' "$OUT" | head -1)"
+
+# ── 21. NO ENVIRONMENT VARIABLE WAIVES THE LOGIN PRECONDITION. The commit that added it said so and nothing held it
+# down: adding `&& [ "${ATLAS_WF_FORCE:-0}" != 1 ]` to that die left this harness green, because no case had ever
+# combined the force flag with a 000 login baseline. Both halves are pinned here — the flag does waive the
+# WordPress-rendered page's baseline (that is what it is for) and does NOT waive the login page's.
+reset_case; C_HDR="$HDR_ACTIVE"; C_FORCE=1; C_WP_B=503; C_WP_A=503; C_LOGIN_B=000; C_LOGIN_A=503; run_case force-cannot-waive-login
+t "force-waive/exit-non-zero"            "$(b test "$RC" -ne 0)" "exit $RC"
+t "force-waive/stopped-on-the-login"     "$(b grep -q 'login page not measurable before install — stopping' "$OUT")" "$(tail -1 "$OUT")"
+t "force-waive/not-the-other-die"        "$(nb grep -q 'BEFORE anything was uploaded' "$OUT")" "$(grep -n 'BEFORE anything' "$OUT" | head -1)"
+t "force-waive/nothing-uploaded"         "$(eq "$(calls sftp)" 0)" "sftp calls $(calls sftp)"
+t "force-waive/aborted-stamp"            "$(b grep -q 'aborted-login-not-measurable' "$STAMPF")" "$STAMPV"
+# And the flag still does its own job, or the case above would pass for the wrong reason: a rendered page that answers
+# 503 at both ends with a measurable login baseline runs to the end under ATLAS_WF_FORCE=1.
+reset_case; C_HDR="$HDR_ACTIVE"; C_FORCE=1; C_WP_B=503; C_WP_A=503; run_case force-still-works
+t "force-works/exit-0"                   "$(eq "$RC" 0)" "exit $RC"
+t "force-works/uploaded"                 "$(b grep -q 'put ' "$STATE/sftp.stdin")" "$(tr '\n' ' ' < "$STATE/sftp.stdin")"
+
+# ── 22. AN ENVIRONMENT VARIABLE COULD STILL WAIVE IT BY REDEFINING THE PAGE. WP_LOGIN_URL was read unchecked, so
+# pointing it at any URL that answers a status made the precondition unreachable and the login limb vacuous while the
+# real wp-login.php went unmeasured — round 3's verifier ran exactly the URL below and the run exited 0. All three
+# measured URLs are shape-checked now, before a single curl is sent.
+reset_case; C_LOGIN_URL='https://atlasglinn.com/?atlas-notlogin=1'; run_case login-url-substituted
+t "login-url/exit-non-zero"              "$(b test "$RC" -ne 0)" "exit $RC"
+t "login-url/refused"                    "$(b grep -q 'refusing to run: one of the three measured URLs' "$OUT")" "$(head -1 "$OUT")"
+t "login-url/names-the-variable"         "$(b grep -q 'WP_LOGIN_URL is' "$OUT")" "$(head -1 "$OUT")"
+t "login-url/measured-nothing"           "$(b test ! -s "$STATE/curl.args")" "$(head -1 "$STATE/curl.args" 2>/dev/null)"
+t "login-url/nothing-sent"               "$(eq "$(calls sftp)" 0)" "sftp calls $(calls sftp)"
+reset_case; C_WP_BASE='https://www.atlasglinn.com.evil.example'; run_case wp-base-substituted
+t "wp-base/exit-non-zero"                "$(b test "$RC" -ne 0)" "exit $RC"
+t "wp-base/refused"                      "$(b grep -q 'WP_BASE is' "$OUT")" "$(head -1 "$OUT")"
+reset_case; C_SITE_ROOT='http://atlasglinn.com'; run_case site-root-plain-http
+t "site-root/exit-non-zero"              "$(b test "$RC" -ne 0)" "exit $RC"
+t "site-root/refused"                    "$(b grep -q 'WP_SITE_ROOT is' "$OUT")" "$(head -1 "$OUT")"
+# The default is what it always was, and the shape check does not narrow it: every case above this line runs on it.
+reset_case; C_HDR="$HDR_ACTIVE"; C_LOGIN_URL='https://www.atlasglinn.com/wp-login.php'; run_case login-url-www
+t "login-url-www/exit-0"                 "$(eq "$RC" 0)" "exit $RC"
+t "login-url-www/measured-that-page"     "$(b grep -q 'https://www.atlasglinn.com/wp-login.php before http 200' "$OUT")" "$(grep -n 'verdict inputs' "$OUT" | head -1)"
+
+# ── 23. EVERY REFUSAL THIS SCRIPT CAN PRINT HAS A ROW IN THE WORKFLOW'S JOB-SUMMARY ALLOWLIST. On a runner there is no
+# log to read and no email to send: .github/workflows/wordfence-deploy.yml IS the deliverable, and it publishes an
+# allowlist. Round 3 dispatched a run refused for a malformed login name and got a summary that said "Exit 1" and gave
+# no reason — the allowlist carried two of fourteen die messages. This extracts the literal head of every refusal in
+# the script and requires a row that matches it, so a new die message without a summary line turns this harness red.
+WF_YML="$ROOT/.github/workflows/wordfence-deploy.yml"
+# `die <reason> "…"` prints its message through say(); `refuse "…"` prints its argument behind "refusing to run: ".
+# Either way the head taken here is the literal text before the first interpolation — which is all a grep can match.
+SCRIPT_REFUSALS="$( { grep -oE 'die [a-z0-9-]+ "[^"$\\]{8,}' "$SCRIPT" | sed 's/^die [a-z0-9-]* "//'
+                      grep -oE 'refuse "[^"$\\]{8,}' "$SCRIPT" | sed 's/^refuse "/refusing to run: /'; } )"
+REFUSAL_SITES="$(grep -oE '(die [a-z0-9-]+|refuse) "' "$SCRIPT" | wc -l | tr -d ' ')"
+REFUSAL_HEADS="$(printf '%s\n' "$SCRIPT_REFUSALS" | grep -c .)"
+ALLOW_ROWS="$(sed -n "/<<'ALLOW'/,/^ *ALLOW\$/p" "$WF_YML" | sed '1d;$d' | sed 's/^[[:space:]]*//' | grep -c .)"
+covered() { # <head> — is some allowlist row a prefix of it?
+  local h="$1" r
+  while IFS= read -r r; do
+    [ -n "$r" ] || continue
+    case "$h" in "$r"*) return 0;; esac
+  done < <(sed -n "/<<'ALLOW'/,/^ *ALLOW\$/p" "$WF_YML" | sed '1d;$d' | sed 's/^[[:space:]]*//')
+  return 1
+}
+MISSING=""
+while IFS= read -r h; do
+  [ -n "$h" ] || continue
+  covered "$h" || MISSING="${MISSING:+$MISSING · }$(printf '%s' "$h" | cut -c1-48)"
+done <<EOF
+$SCRIPT_REFUSALS
+EOF
+DEAD=""
+while IFS= read -r r; do
+  [ -n "$r" ] || continue
+  printf '%s\n' "$SCRIPT_REFUSALS" | grep -qF "$r" || DEAD="${DEAD:+$DEAD · }$r"
+done < <(sed -n "/<<'ALLOW'/,/^ *ALLOW\$/p" "$WF_YML" | sed '1d;$d' | sed 's/^[[:space:]]*//')
+t "allowlist/every-refusal-has-a-row"    "$([ -z "$MISSING" ] && printf 1 || printf 0)" "no summary line for: $MISSING"
+t "allowlist/no-dead-rows"               "$([ -z "$DEAD" ] && printf 1 || printf 0)" "rows matching no refusal in the script: $DEAD"
+# The extractor is the weak point of the two checks above: a message beginning with an interpolation has no literal
+# head, and would be skipped silently rather than reported missing. So the count of heads must equal the count of call
+# sites — a refusal the extractor cannot see fails this line instead of passing the two above by being invisible.
+t "allowlist/extractor-sees-every-site"  "$(eq "$REFUSAL_HEADS" "$REFUSAL_SITES")" "$REFUSAL_HEADS heads extracted from $REFUSAL_SITES call sites"
+t "allowlist/rows-are-not-empty"         "$(b test "$ALLOW_ROWS" -ge 10)" "$ALLOW_ROWS rows"
+# The observation line is the one --status prints instead of a verdict, and it is new: a summary that dropped it would
+# publish an exit code with no measurement under it.
+t "allowlist/summary-carries-observation" "$(b grep -q "observation: " "$WF_YML")" "$(grep -n 'observation' "$WF_YML" | head -1)"
+
 # ── summary ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 TOTAL=$((PASSN + FAILN))
-PIN=116
+PIN=170
 printf '\n%s: %s assertions, %s failed\n' "$([ "$FAILN" = 0 ] && [ "$TOTAL" = "$PIN" ] && printf OK || printf FAILED)" "$TOTAL" "$FAILN"
 if [ "$TOTAL" != "$PIN" ]; then
   printf 'FAIL harness: %s assertions ran, pinned at %s — a run that stops early used to look green\n' "$TOTAL" "$PIN"

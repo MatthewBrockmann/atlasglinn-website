@@ -657,6 +657,14 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   carries **the build fingerprint just sent**, `act=1`, an sftp `ls` proving the installer **removed itself**
   (classified exactly as the sibling script classifies a removal), and the front page, the WordPress-rendered page and
   **`wp-login.php` all still answering what they answered before** — any change fails the run whatever the plugin says.
+  All three are on **one rule**, which is what round 4 had to make true in code: **a real before-code, an after-code
+  equal to it, or the run fails with both codes printed.** Rounds 2 and 3 wrote that sentence in the docblock and shipped
+  three different rules — the round-3 verifier read line 587 (`[ "$HOME_BEFORE" = 200 ] && [ "$HOME_AFTER" != 200 ]`),
+  drove the front page `000` → `503` with its own stub curl and got `FIRED-OBSERVED` and exit 0 again: round 2's
+  blocking finding **one page over**, on the limb round 2's own finding had named. A non-200 baseline dropped the page
+  out of the verdict, and `403` → `500` was invisible at both ends. The harness could not see any of it because
+  `reset_case` pinned the front page and the rendered page to 200 before and after and **no case ever overrode either**,
+  which is the same coverage hole that hid the round-2 defect, one variable over.
   The login page is IN the verdict, not merely printed beside it: a security plugin that locks the only admin out is
   the outcome this design exists to prevent, and a measurement that cannot fail the run is decoration. **And a verdict
   needs a baseline.** Round 2 shipped that limb as `[ "$LOGIN_BEFORE" != 000 ] && [ "$LOGIN_AFTER" != "$LOGIN_BEFORE" ]`,
@@ -665,8 +673,17 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   to the case where the baseline read failed (round-2 verifier, reproduced with its own stub curl). The exemption is
   **gone**: an `--install` whose before-read of `wp-login.php` is `000` stops with *"login page not measurable before
   install — stopping"* and uploads nothing, no environment variable waives it, any after-code differing from the
-  before-code fails the run, and **both codes are printed in the verdict** (`verdict inputs: … before http X · after
-  http Y`) so the reader can check the rule that was applied. `--disable-wordfence` is exempt from the stop on purpose:
+  before-code fails the run, and **all six codes are printed in the verdict** (`verdict inputs: front page X→Y ·
+  WordPress-rendered X→Y · <login> before http X · after http Y`) so the reader can check the rule that was applied.
+  A page reading `000` at BOTH ends fails as well, and is named as *"has no baseline"*: `000` is curl reporting the
+  chain never completed, so an after-code equal to it is equal to nothing that was measured.
+  **"No environment variable waives it" was true of `ATLAS_WF_FORCE` and false of `WP_LOGIN_URL`,** which was read
+  unchecked — point it at any URL that answers a status and the stop is unreachable and the login limb vacuous while the
+  real `wp-login.php` goes unmeasured (the round-3 verifier ran
+  `WP_LOGIN_URL=https://atlasglinn.com/?atlas-notlogin=1` and the run exited 0 with the real login page at `000`). All
+  three measured URLs — `WP_SITE_ROOT`, `WP_BASE`, `WP_LOGIN_URL` — are now shape-checked to this site over https
+  before a single curl is sent, the same treatment `WP_SFTP_HOST`/`WP_DOCROOT` and `KC_SFTP` already had: measuring
+  some other host is not a knob this script has, and a substitute page is not a measurement. `--disable-wordfence` is exempt from the stop on purpose:
   it is the recovery, run precisely when the site answers nothing. It refuses to
   upload at all if the WordPress-rendered page is not 200 beforehand (`ATLAS_WF_FORCE=1` overrides). Wordfence markers
   grepped out of the page body are **advisory and decide nothing**. Which files go to `mu-plugins` is **pinned in the
@@ -688,11 +705,23 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   fortnight, 2026-09-08). The password is `::add-mask::`ed in its trimmed form as well as its raw one, the username is
   masked and never printed, the job writes the **measured verdict** — before/after codes, `verify:`, `LOOP STATUS:` —
   to `$GITHUB_STEP_SUMMARY` through a line **allowlist** rather than a blocklist, and the step exits with the script's
-  own exit code, so a failed run is a failed job. The write modes refuse to start without both secrets; `status` needs
+  own exit code, so a failed run is a failed job. **The allowlist now carries every refusal the script can print.** It
+  carried two of fourteen: the round-3 verifier dispatched a run refused for a malformed login name and got a summary
+  reading *"Exit 1"* with the reason nowhere in it — and on a runner the summary IS the deliverable, since there is no
+  `atlas-email` helper there. Every refusal prints through `refuse()` (before the log exists) or `die()` (after), so the
+  set is **enumerable from the file**, and the harness extracts all seventeen and fails when a row is missing, when a
+  row matches no refusal, or when the extractor cannot see a call site at all. A new `die` message without a summary
+  line turns the harness red. The write modes refuse to start without both secrets; `status` needs
   neither, because it opens no sftp session at all.
-  **`--status` measures and never claims what it did not measure.** It opens no sftp session, so it cannot prove the
-  one-shot removed itself: it prints `self-removal: not measured in --status`, never prints `FIRED-OBSERVED`, and exits
-  0 only on `act=1` read off the wire. A header saying `self=left` still fails it — the installer's own record can
+  **`--status` measures and never claims what it did not measure — and never steers.** It opens no sftp session, so it
+  cannot prove the one-shot removed itself: it prints `self-removal: not measured in --status`, never prints
+  `FIRED-OBSERVED`, and exits 0 only on `act=1` read off the wire. **A difference between its two reads is reported as
+  an `observation:`, never as a verdict and never with a remedy attached.** Removing the `000` exemption gave the
+  read-only mode a way to attribute a transient to itself: a login read that glitched `200` → `000` between the two
+  curls printed *"FAILED on the site itself"* and then the `--disable-wordfence` recovery block, which **renames a
+  production plugin directory** (round-3 verifier, 0 sftp calls in that run). It still exits non-zero and still prints
+  both codes — but it says the run changed nothing that could have moved the page, claims no cause, and prints neither
+  `--disable-wordfence` nor `--remove` anywhere in its output. A header saying `self=left` still fails it — the installer's own record can
   refuse the claim even where it cannot establish one. (Round 1 found the opposite: `--status` printed "the one-shot
   removed itself (sftp ls says … is gone)" and `FIRED-OBSERVED`, exit 0, having run no `ls` at all, *including* when the
   header said `self=left`.)
@@ -714,7 +743,8 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   **Tests:** `php wp-ops/tests/atlas-wordfence-install-test.php` — stub WordPress, stub `Plugin_Upgrader`/skin, fake
   docroot, **17 scenarios / 128 pinned assertions**, each in its own process with the plugin **copied into a run
   directory** so the file the one-shot unlinks is the copy; and `bash scripts/tests/wp-wordfence-install-test.sh` —
-  stub sftp/curl/security/sleep, no host, **116 pinned assertions**. Both in CI. Proved by mutation, not by grep: neuter
+  stub sftp/curl/security/sleep, no host, **170 pinned assertions**. Both in CI, and `wp-ops-tests.yml` now also runs on
+  a change to `wordfence-deploy.yml`, because that workflow's allowlist is an INPUT to one of the cases. Proved by mutation, not by grep: neuter
   the `is_wp_error()` check on the upgrader's return and 3 assertions fail (that mutant SURVIVED round 1 — the three
   upgrader-failure branches had zero coverage because `$GLOBALS['t_install']` was set to `true` once and never
   reassigned); drop the query gate from `send_header()` and 1 fails; publish the message instead of the code and 2 fail;
@@ -735,6 +765,18 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   that two cases present them), and the fingerprint gate can no longer be weakened to a 4-character prefix compare —
   the only refusal fixture was `deadbeef`, which differs from this build in its *first* character, so a fixture
   sharing the first four and differing in the last four was the one the gate needed (verified: that mutant fails 1).
+  **Round 4 put the other two pages on the login page's rule and killed 14 mutants**, 116 → 170 assertions. The cases
+  round 3 could not see through are now there: front page 200 → 500 (fails, names both codes), rendered 200 → 404,
+  front page 000 → 503 (**the verifier's own live false success**), 000 → 000 (*no baseline*), 403 → 403 (**not** a
+  regression — the rule is "equal to its baseline", not "200"), 403 → 500 (invisible to the old limb, since neither end
+  is 200) and 403 → 500 in `--status`. Mutants killed: delete the front-page limb (15 fail), revert it to the
+  200-baseline form (10), revert the rendered limb the same way (2), delete the rendered limb (5), restore the `000`
+  exemption on the login limb (6, up from 3), make `ATLAS_WF_FORCE=1` waive the login stop (3 — the round-3
+  **surviving** mutant, and the property its commit message claimed), remove the login stop entirely (6), remove the
+  `WP_LOGIN_URL` shape check (4), route `--status` back into the destructive verdict (7), drop the `000`-at-both-ends
+  arm (3), delete one allowlist row from the workflow (1), add a `die` message with no allowlist row (1), add an
+  allowlist row matching no refusal (1), and add a refusal whose message opens with an interpolation so the extractor
+  cannot see its head (1 — the guard's own weak point, pinned by counting call sites against extracted heads).
   **What this repo publishes, measured 2026-09-09 against `origin/main`:** the SFTP endpoint was **already** in six
   tracked files before this work (`git grep -c` on `origin/main`: `.github/workflows/deploy-page.yml`, `CLAUDE.md` ×2,
   `mast-backend/LAUNCH-LEDGER.md`, `scripts/wp-cache-watch-deploy.sh`, `scripts/wp-flush.sh`, `scripts/wp-upload.sh`),

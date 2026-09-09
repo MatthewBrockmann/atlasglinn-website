@@ -106,14 +106,39 @@ jobs:
           rc=$?
           set -e
           cat run.log
-          # An ALLOWLIST of line shapes, not a blocklist: the summary carries the measured verdict and nothing this run
-          # was not designed to publish. The script prints no credential and no account name (its harness greps every
-          # artefact for both), and this keeps that true of the summary even if a future line changes.
+          # TWO ALLOWLISTS, never a blocklist: line SHAPES for the measured report, and one literal row per REFUSAL the
+          # script can print. The summary is this workflow's deliverable — there is no atlas-email helper on a runner —
+          # and round 3's verifier dispatched a run with a malformed WP_SFTP_USER and got a summary that said "Exit 1"
+          # with no reason in it: the old shape list carried two of the script's fourteen die messages. The script
+          # prints every refusal through refuse() or die(), so the set is enumerable from the file, and
+          # scripts/tests/wp-wordfence-install-test.sh extracts all seventeen and fails when a row below is missing —
+          # a new refusal cannot ship without its summary line. Leading whitespace is stripped because these rows are
+          # indented inside a YAML block scalar and a row starting with a space matches no log line.
+          sed 's/^[[:space:]]*//' > refusals.txt <<'ALLOW'
+          refusing to run:
+          this script takes at most one argument and was given
+          unknown argument
+          no reporter at
+          no plugin at
+          no shasum/sha1sum/openssl on this
+          php -l failed on
+          no sftp on this machine
+          no Keychain on this machine and no WP_SFTP_USER/WP_SFTP_PASSWORD
+          no Keychain item
+          the SFTP login name starts with
+          the WordPress-rendered page answers http
+          login page not measurable before install
+          REFUSED, and nothing was sent.
+          ALLOW
           {
             printf '### Wordfence — mode `%s`\n\n' "$MODE"
             printf 'Exit %s. `status` opens no sftp session and changes nothing; the three write modes do.\n\n' "$rc"
             printf '```\n'
-            grep -E '^(wp-wordfence-install |login: |before: |after:  |verify: |verdict inputs: |   ls classified |LOOP STATUS: |refusing to run: |login page not measurable)' run.log | head -40
+            # Both passes are numbered and merged by line number, so the summary reads in the order the run printed it
+            # and a line on both lists appears once. `|| true` on each: this step's shell is `bash -e`, and a grep that
+            # matches nothing exits 1, which would drop the other pass's lines entirely.
+            { grep -nE '^(wp-wordfence-install |login: |before: |after:  |verify: |observation: |verdict inputs: |   ls classified |LOOP STATUS: )' run.log || true
+              grep -nF -f refusals.txt run.log || true; } | sort -t: -k1,1n -u | cut -d: -f2- | head -40
             printf '```\n'
             printf '\nHeartbeat this run wrote (ephemeral on a runner):\n\n```\n%s\n```\n' "$(cat "$HOME/.cache/wp-upload/last-wordfence-install" 2>/dev/null || printf 'none')"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -50,14 +50,21 @@
 #      it: it prints "self-removal: not measured in --status" and never prints FIRED-OBSERVED, whatever the header's
 #      own self= limb claims. That limb is the installer's memory of what it did; only the `ls` is a measurement of
 #      the host, and a mode that did not measure does not get to report the result.
-#   4. The site must still answer, and THAT INCLUDES THE LOGIN PAGE, and the login page must have been MEASURABLE
-#      BEFORE the run: an install whose before-read of wp-login.php is http 000 stops there, because a verdict with no
-#      baseline is a comparison every after-code passes. The reader-facing front page
+#   4. The site must still answer, and THAT INCLUDES THE LOGIN PAGE. The reader-facing front page
 #      (https://atlasglinn.com/, served from index.html by wp-ops/atlas-static-root.php), the WordPress-rendered page
-#      and https://atlasglinn.com/wp-login.php are all measured before and after. Any of the three answering something
-#      different afterwards fails the run whatever the plugin says — a security plugin that breaks the only admin's way
-#      in is the exact outcome this whole design exists to prevent, and it is worthless to measure it and then leave it
-#      out of the verdict. The failure prints --disable-wordfence, which is the remedy that can actually undo it.
+#      and https://atlasglinn.com/wp-login.php are measured before and after, and all three are held to ONE rule: the
+#      before-code must be a real code, the after-code must equal it, and anything else fails the run with both codes
+#      printed, whatever the plugin says. A security plugin that breaks the only admin's way in is the exact outcome
+#      this whole design exists to prevent, and it is worthless to measure a page and then leave it out of the verdict
+#      — which is precisely what the two rounds before this one did, first to the login page and then to the front
+#      page, both times by exempting a baseline that was not 200. http 000 is not a baseline at all: it is curl saying
+#      the chain never completed. --install stops before it uploads when wp-login.php reads 000 (no environment
+#      variable waives that, and WP_LOGIN_URL cannot re-point it off the site's own login page), the
+#      WordPress-rendered page must read 200 unless ATLAS_WF_FORCE says otherwise, and a page that reads 000 at both
+#      ends fails the verdict rather than passing it. The failure prints --disable-wordfence, which is the remedy that
+#      can actually undo it — EXCEPT in --status, which changed nothing and therefore reports the difference as an
+#      observation and prints no remedy at all: a read-only mode that steers an operator into renaming a production
+#      plugin directory off one pair of reads is the mode that changes nothing causing the outage it warned about.
 # What is NOT proof: the sftp exit code and its text (a batch on stdin does not abort on a failed put — that needs -b,
 # which sets BatchMode and refuses the Keychain askpass), and the Wordfence markers grepped out of the page body.
 # Wordfence Free adds nothing to a front-end response as a rule, so their absence says nothing; they are printed as an
@@ -75,13 +82,19 @@
 # and every abort before the verdict stamps `aborted-<reason>` there, so a previous run's result can never be read as
 # this one's. The log is printed and emailed when ~/.claude/bin/atlas-email is present.
 set -u
+# Every refusal that fires before the log file exists prints through THIS, and every one after it through die() below,
+# so the set of messages this script can refuse with is enumerable from the file. It has to be: on a runner there is no
+# log to read, only the job summary, and .github/workflows/wordfence-deploy.yml publishes an ALLOWLIST of line shapes —
+# so a refusal with no row in that allowlist produces a summary that says a run failed and never says why. The harness
+# extracts every one of these and fails when the workflow has no row for it (scripts/tests/wp-wordfence-install-test.sh).
+refuse() { printf 'refusing to run: %s\n' "$1" >&2; exit 1; }
 HOST="${WP_SFTP_HOST:-1127220.us12.ssh.myftpupload.com}"
 DOCROOT="${WP_DOCROOT:-html}"
 # Both of these are interpolated into the sftp batch below, and a newline in either one injects an sftp command of
 # somebody else's choosing into a session pointed at a production docroot. Neither ever legitimately holds anything but
 # a host name and a path, so anything else stops the run before a session opens.
 case "$HOST$DOCROOT" in
-  *[!A-Za-z0-9._/-]*) printf 'refusing to run: WP_SFTP_HOST/WP_DOCROOT carry a character outside [A-Za-z0-9._/-], and both are written into the sftp batch. Nothing was sent.\n' >&2; exit 1;;
+  *[!A-Za-z0-9._/-]*) refuse "WP_SFTP_HOST/WP_DOCROOT carry a character outside [A-Za-z0-9._/-], and both are written into the sftp batch. Nothing was sent.";;
 esac
 WP_BASE="${WP_BASE:-https://www.atlasglinn.com}"
 SITE_ROOT="${WP_SITE_ROOT:-https://atlasglinn.com}"
@@ -91,7 +104,30 @@ KC_SERVICE="${KC_SFTP:-mast-wp-sftp}"
 # run as this user — a strictly worse primitive than the sftp-batch injection the case above refuses, three lines away
 # from it. A Keychain service name is a name; anything else stops the run before a session opens.
 case "$KC_SERVICE" in
-  *[!A-Za-z0-9._-]*) printf 'refusing to run: KC_SFTP carries a character outside [A-Za-z0-9._-], and it is written into the SSH_ASKPASS helper this run executes. Nothing was sent.\n' >&2; exit 1;;
+  *[!A-Za-z0-9._-]*) refuse "KC_SFTP carries a character outside [A-Za-z0-9._-], and it is written into the SSH_ASKPASS helper this run executes. Nothing was sent.";;
+esac
+# The three URLs above ARE the verdict — the front page, the WordPress-rendered page and the login page are measured
+# before and after and compared — and every one of them is an environment override. Point one at any URL that answers a
+# status and that page's half of the verdict goes vacuous while the real page goes unmeasured. WP_LOGIN_URL is the
+# sharpest of the three, because it also decides which page the login precondition below reads: round 3's verifier
+# pointed it at https://atlasglinn.com/?atlas-notlogin=1, and the run passed with the real wp-login.php answering 000
+# and never looked at. So "no environment variable waives the login precondition" was true of ATLAS_WF_FORCE and false
+# of this one. Each URL is now pinned to this site over https, the same treatment WP_SFTP_HOST/WP_DOCROOT and KC_SFTP
+# get above: measuring some other host is not a knob this script has, and a substitute page is not a measurement.
+bad_url() {
+  refuse "one of the three measured URLs is not this site's — $1 is \"$2\", and this script measures atlasglinn.com over https and nothing else (expected $3). An override pointing anywhere else leaves the real page unmeasured while the verdict reports the substitute. Nothing was sent."
+}
+case "$SITE_ROOT" in
+  https://atlasglinn.com|https://www.atlasglinn.com) ;;
+  *) bad_url WP_SITE_ROOT "$SITE_ROOT" "https://atlasglinn.com or https://www.atlasglinn.com, no trailing slash";;
+esac
+case "$WP_BASE" in
+  https://atlasglinn.com|https://www.atlasglinn.com) ;;
+  *) bad_url WP_BASE "$WP_BASE" "https://atlasglinn.com or https://www.atlasglinn.com, no trailing slash";;
+esac
+case "$LOGIN_URL" in
+  https://atlasglinn.com/wp-login.php|https://www.atlasglinn.com/wp-login.php) ;;
+  *) bad_url WP_LOGIN_URL "$LOGIN_URL" "https://atlasglinn.com/wp-login.php";;
 esac
 REMOTE_DIR="$DOCROOT/wp-content/mu-plugins"
 REMOTE_INSTALL="$REMOTE_DIR/atlas-wordfence-install.php"
@@ -374,8 +410,11 @@ fi
 # printed no tagged status line — there is nothing for the after-code to differ from, and round 2's verifier proved
 # what that costs: with the before-read at 000 a run that left wp-login.php answering http 503 still printed
 # FIRED-OBSERVED and exited 0, because the regression limb exempted 000 rather than refusing to run without it. An
-# install that cannot measure the only admin's way in BEFORE it starts does not start, and no environment variable
-# waives this one. --disable-wordfence is exempt on purpose: it is the recovery, run precisely when the site answers
+# install that cannot measure the only admin's way in BEFORE it starts does not start, and NO ENVIRONMENT VARIABLE
+# WAIVES THIS ONE — not ATLAS_WF_FORCE, which waives the rendered page's baseline eleven lines up and is pinned here
+# not to reach this (scripts/tests/wp-wordfence-install-test.sh case 21), and not WP_LOGIN_URL, which waived it a
+# subtler way by choosing which page $LOGIN_URL names until it was shape-checked at the top of this file.
+# --disable-wordfence is exempt on purpose: it is the recovery, run precisely when the site answers
 # nothing, and a recovery that refuses to run on a down site is not a recovery.
 if [ "$MODE" = install ] && [ "$LOGIN_BEFORE" = 000 ]; then
   die login-not-measurable "login page not measurable before install — stopping. $LOGIN_URL answered http 000, which is curl reporting that the chain never completed rather than a status the page returned. Without that baseline this run could not tell a login page it broke from one that was already down, so nothing was uploaded. Re-run when $LOGIN_URL answers a status of any kind — 200, 403 and 503 are all measurable; 000 is not."
@@ -553,8 +592,13 @@ HOME_AFTER="$(http_code "$SITE_ROOT/")"
 WP_AFTER="$(http_code "$(wp_url)")"
 LOGIN_AFTER="$(http_code "$LOGIN_URL")"
 say "after:  front page http $HOME_AFTER (was $HOME_BEFORE) · WordPress-rendered http $WP_AFTER (was $WP_BEFORE) · $LOGIN_URL http $LOGIN_AFTER (was $LOGIN_BEFORE)"
-say "        wp-login.php answering what it answered BEFORE is expected — the form is meant to load. What is not expected is a change, and a change fails this run (below)."
-say "        No lockout setting was written by this run, and that is not the same as no lockout: once Wordfence is active ITS OWN shipped defaults govern login throttling, and what those defaults are is UNVERIFIABLE FROM HERE — the vendor's code is not in this repository. If a lockout does happen, the way out with no shell is bash scripts/wp-wordfence-install.sh --disable-wordfence."
+if [ "$MODE" = status ]; then
+  say "        wp-login.php answering what it answered BEFORE is expected — the form is meant to load. A change is reported below as an OBSERVATION rather than a failure of this run: --status changed nothing that could have caused one."
+  say "        This mode wrote nothing at all — no lockout setting, no file, no sftp session. Once Wordfence is active ITS OWN shipped defaults govern login throttling, and what those defaults are is UNVERIFIABLE FROM HERE: the vendor's code is not in this repository."
+else
+  say "        wp-login.php answering what it answered BEFORE is expected — the form is meant to load. What is not expected is a change, and a change fails this run (below)."
+  say "        No lockout setting was written by this run, and that is not the same as no lockout: once Wordfence is active ITS OWN shipped defaults govern login throttling, and what those defaults are is UNVERIFIABLE FROM HERE — the vendor's code is not in this repository. If a lockout does happen, the way out with no shell is bash scripts/wp-wordfence-install.sh --disable-wordfence."
+fi
 
 # Advisory only, and deliberately so: Wordfence Free adds nothing to a front-end response as a rule, so a count of 0
 # here says nothing about whether it is running. act= above is the verdict.
@@ -575,25 +619,41 @@ if [ "$MODE" = install ]; then
 fi
 
 # ── verdict ───────────────────────────────────────────────────────────────────────────────────────────────────────────
-# The login page is IN the regression test, not merely printed beside it. It is measured before and after for one
-# reason — to catch a security plugin that locks the only admin out — and a measurement that cannot fail the run is
-# decoration. Any CHANGE fails, not just a 200 that stops being one: 200 → 503 and 200 → 302-to-somewhere-else are both
-# the login page behaving differently than it did ten seconds earlier, and neither is something this run may pass over.
-# There is NO exemption in this limb, and that is the round-2 fix. The version below it read
-# `[ "$LOGIN_BEFORE" != 000 ] && …`, so an unmeasurable baseline silently dropped the login page out of the verdict and
-# 000 → 503 passed. A baseline is now a precondition of the run (the die above), not a condition on the comparison —
-# the difference between "we could not measure it, so it cannot fail" and "we could not measure it, so we stop".
+# ALL THREE PAGES ARE IN THE REGRESSION TEST, ON ONE RULE: the before-code must be a real code, the after-code must
+# equal it, and anything else fails the run with BOTH codes printed. That is what the docblock has said since round 2
+# and what the code did not do. Round 2 fixed the login limb and left the other two reading
+# `[ "$X_BEFORE" = 200 ] && [ "$X_AFTER" != 200 ]` — two exemptions in one line. Round 3's verifier drove the front
+# page 000 → 503 through it and the run printed FIRED-OBSERVED and exited 0, the same live false success as round 2's
+# one page over; 403 → 500 was invisible for the same reason, because neither end was 200.
+# A baseline of 000 is not a baseline: it is curl reporting the chain never completed, so an after-code "equal" to it
+# is equal to nothing measured. --install refuses to start without a baseline for the login page (the die above) and
+# for the WordPress-rendered page (which must answer 200 unless ATLAS_WF_FORCE says the code is expected); the front
+# page has no precondition and --status has none at all, so 000 arrives HERE, where it fails rather than exempts.
 regressed=""
-[ "$HOME_BEFORE" = 200 ] && [ "$HOME_AFTER" != 200 ] && regressed="the front page went from http 200 to http $HOME_AFTER"
-[ "$WP_BEFORE" = 200 ] && [ "$WP_AFTER" != 200 ] && regressed="${regressed:+$regressed; }the WordPress-rendered page went from http 200 to http $WP_AFTER"
-[ "$LOGIN_AFTER" != "$LOGIN_BEFORE" ] && regressed="${regressed:+$regressed; }$LOGIN_URL went from http $LOGIN_BEFORE to http $LOGIN_AFTER"
+page_verdict() {   # <what it is> <before> <after>
+  if [ "$3" != "$2" ]; then
+    regressed="${regressed:+$regressed; }$1 went from http $2 to http $3"
+  elif [ "$2" = 000 ]; then
+    regressed="${regressed:+$regressed; }$1 has no baseline — it answered http 000 both before and after, and 000 is curl reporting that the chain never completed rather than a status the page returned, so there is nothing here that an after-code could be proved equal to"
+  fi
+}
+page_verdict "the front page" "$HOME_BEFORE" "$HOME_AFTER"
+page_verdict "the WordPress-rendered page" "$WP_BEFORE" "$WP_AFTER"
+page_verdict "$LOGIN_URL" "$LOGIN_BEFORE" "$LOGIN_AFTER"
 
 # --status never returns the install verdict, because it never ran the sftp ls that the install verdict includes.
 ACTIVE_RESULT=active
 [ "$MODE" = status ] && ACTIVE_RESULT=active-status-only
 
 if [ -n "$regressed" ]; then
+  # --status uploaded nothing, opened no sftp session and changed nothing on the host, so a difference between its two
+  # reads is a MEASUREMENT it reports — not a fault it caused, and not grounds for a remedy. The install verdict's
+  # recovery block prints --disable-wordfence, which renames a production plugin directory; steering a read-only run
+  # into that off one pair of reads (a 200 → 000 glitch is one dropped connection) would make the mode that changes
+  # nothing the cause of the outage it warned about. Same measurement, same non-zero exit, no attribution and no
+  # command to run.
   result="site-changed"
+  [ "$MODE" = status ] && result="site-changed-observed"
 elif [ "$STATUS_OK" != 1 ]; then
   result="status-absent"
 elif [ "$ACT" = 1 ]; then
@@ -617,9 +677,11 @@ if [ "$result" = "$ACTIVE_RESULT" ]; then
   elif [ "$MODE" = status ] && [ "$SELFSTATE" = left ]; then result="self-left"; fi
 fi
 
-# Both login codes, in the verdict, on every run that reaches it — pass or fail. A verdict that prints only the
-# after-code cannot be checked by the person reading it, and the before-code is half of the rule being applied.
-say "verdict inputs: $LOGIN_URL before http $LOGIN_BEFORE · after http $LOGIN_AFTER — any difference between those two fails this run (front page $HOME_BEFORE→$HOME_AFTER · WordPress-rendered $WP_BEFORE→$WP_AFTER)"
+# All six codes, in the verdict, on every run that reaches it — pass or fail. A verdict that prints only the
+# after-codes cannot be checked by the person reading it, and the before-codes are half of the rule being applied.
+VERDICT_RULE="any one of the three answering differently after than before fails this run"
+[ "$MODE" = status ] && VERDICT_RULE="any one of the three answering differently after than before is reported as an observation, because --status changed nothing that could have moved it"
+say "verdict inputs: front page $HOME_BEFORE→$HOME_AFTER · WordPress-rendered $WP_BEFORE→$WP_AFTER · $LOGIN_URL before http $LOGIN_BEFORE · after http $LOGIN_AFTER — $VERDICT_RULE, and a before-code of 000 is not a baseline"
 
 case "$result" in
   active)
@@ -646,6 +708,10 @@ case "$result" in
     say "        RECOVERY, in this order. If Wordfence is what changed it, the fix is Wordfence not loading, and --remove CANNOT do that — it deletes this script's two mu-plugins and leaves Wordfence exactly where it is:"
     say "            bash scripts/wp-wordfence-install.sh --disable-wordfence   # renames wp-content/plugins/wordfence to wordfence.off over sftp, then re-measures the front page and $LOGIN_URL"
     say "        Then, once the site answers again, take this script's own files off with: bash scripts/wp-wordfence-install.sh --remove";;
+  site-changed-observed)
+    say "observation: $regressed. That is --status reporting a measurement, not a verdict on this run: it uploaded nothing, opened no sftp session and changed nothing on the host, so whatever moved between the two reads, this run did not move it — and this mode does not claim to know what did."
+    say "        No remedy is printed here, deliberately. A mode that changes nothing does not send anyone to rename a production plugin directory off one pair of reads seconds apart, and one dropped connection reads as http 000. Re-run --status: a difference that repeats is worth acting on, and choosing that act is yours, with the site in front of you."
+    say "        What the plugin reported on this run, unchanged and outranked by nothing here: st=$ST act=$ACT wf=$WF.";;
   status-absent)
     say "verify: UNKNOWN — no usable X-Atlas-Wordfence header on the final read. $RULE. This run claims nothing.";;
   *)

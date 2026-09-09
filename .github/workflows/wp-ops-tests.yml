@@ -11,12 +11,18 @@ on:
       - 'scripts/wp-*.sh'
       - 'scripts/tests/**'
       - '.github/workflows/wp-ops-tests.yml'
+      # The deploy workflow is INPUT to a case here: the harness reads its job-summary allowlist and fails when a
+      # refusal the script can print has no row in it, so deleting a row has to run this job.
+      - '.github/workflows/wordfence-deploy.yml'
   pull_request:
     paths:
       - 'wp-ops/**'
       - 'scripts/wp-*.sh'
       - 'scripts/tests/**'
       - '.github/workflows/wp-ops-tests.yml'
+      # The deploy workflow is INPUT to a case here: the harness reads its job-summary allowlist and fails when a
+      # refusal the script can print has no row in it, so deleting a row has to run this job.
+      - '.github/workflows/wordfence-deploy.yml'
   workflow_dispatch:
 
 permissions:
@@ -61,9 +67,10 @@ jobs:
 
       # And the deploy script's own harness, added after round 1 found the shape a PHP harness cannot see: --status
       # printed "the one-shot removed itself" and FIRED-OBSERVED with exit 0 having run no sftp session at all. Stub
-      # sftp/curl/security/sleep, no host, 116 pinned assertions — and round 3 added the ones that could not see
-      # round 2's own hole: no case had ever given a page a 000 baseline, so wp-login.php dropping out of the verdict
-      # on an unmeasurable before-read stayed green through a live false success.
+      # sftp/curl/security/sleep, no host, 170 pinned assertions. Each round found the same false-success shape one
+      # page over — round 2 on wp-login.php, round 3 on the front page — because the harness pinned every page it was
+      # not looking at to 200 at both ends. The cases that move all three, and the one that reads the deploy
+      # workflow's summary allowlist back against the script's refusals, are what closed it.
       - name: Wordfence deploy-script harness (stub sftp/curl, no host)
         run: bash scripts/tests/wp-wordfence-install-test.sh
 
