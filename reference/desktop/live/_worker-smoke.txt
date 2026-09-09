@@ -1,6 +1,6 @@
-smoke 2026-09-09T09:30:58Z from main bcb186d run 34335131156 (contact=false checkout=false account=false)
+smoke 2026-09-09T15:14:50Z from main 69dce3d run 34368958988 (contact=true checkout=false account=false)
 --- health
-HTTP 200 751ms  GET /health
+HTTP 200 611ms  GET /health
 {"status":"MAST booking backend — ONLINE","version":"1.2.0","build":"bcb186d","crm":true,"directions":"sealed","daily_last_run":"2026-09-09"}
    build: bcb186d
    CRM routes live: yes (GET /admin/crm → 401 without a key)
@@ -8,7 +8,7 @@ HTTP 200 751ms  GET /health
 --- directions key (the public half of the Worker's sealing key; feeds mast-backend/seal-directions.mjs; saved beside this report as _directions-key.json)
 HTTP 200  key_id=b9104a7374d4c1d9
 --- catalog
-HTTP 200 155ms  GET /catalog
+HTTP 200 149ms  GET /catalog
    source=d1 classes=22
    MAST-HG-FUND     Handgun Fundamentals                         $225.00
    MAST-HG-LADIES   Ladies Only Handgun Fundamentals             $225.00
@@ -33,7 +33,7 @@ HTTP 200 155ms  GET /catalog
    MAST-MOTOR-P2    Motorcade P2                                 $0.00
    MAST-GEAR        Gear & Kit Considerations                    $750.00
 --- weekends
-HTTP 200 210ms  GET /weekends
+HTTP 200 218ms  GET /weekends
    weekends=15 first=2026-09-26 last=2027-04-24 statuses=['available', 'blocked']
 --- CORS preflight (Origin https://atlasglinn.com → POST /create-booking)
    HTTP/2 204 
@@ -42,10 +42,12 @@ HTTP 200 210ms  GET /weekends
    access-control-allow-methods: GET, POST, OPTIONS
    access-control-max-age: 86400
 --- accounts (GET /account/me without a token: 503 accounts_off = ACCOUNT_SECRET not set; 401 = accounts on)
-HTTP 401 149ms  GET /account/me
+HTTP 401 77ms  GET /account/me
 {"error":"Please sign in again.","code":"unauthorized"}
    [redacted by the smoke report guard]
---- contact: skipped (input contact=false)
+--- contact (one labelled test message; the Worker emails NOTIFY_EMAIL through Resend)
+HTTP 200 1563ms  POST /contact
+{"ok":true}
 --- checkout: skipped (input checkout=false)
 --- account: skipped (input account=false)
 --- sitemaps and robots (what Search Console can fetch)
@@ -79,9 +81,7 @@ HTTP 401 149ms  GET /account/me
    CNAME selector1._domainkey.atlasglinn.com [fallback]: 
    CNAME selector2._domainkey.atlasglinn.com [fallback]: 
    (wrong-domain check) TXT mastsolutionssearch.com: "v=spf1 include:spf.protection.outlook.com -all"|
---- Microsoft 365 DKIM rows for mastsolutions.com (tenant: NETORG6840646.onmicrosoft.com; http 200)
-   CNAME  selector1._domainkey  ->  selector1-mastsolutions-com._domainkey.NETORG6840646.onmicrosoft.com   [key published by Microsoft: NO - Defender > DKIM > mastsolutions.com > Create DKIM keys first]
-   CNAME  selector2._domainkey  ->  selector2-mastsolutions-com._domainkey.NETORG6840646.onmicrosoft.com   [key published by Microsoft: NO - Defender > DKIM > mastsolutions.com > Create DKIM keys first]
+--- Microsoft 365 DKIM rows for mastsolutions.com (tenant: not found via autodiscover; http 200; response: <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" xmlns:a="http://www.w3.org/2005/08/addressing"><s:Header><a:Action s:mustUnderstand="1">http://schemas.microsoft.com/exchange/2010/Autodiscover/Autodiscover/GetFederationInformationResponse</a:Action><h:ServerVersionInfo xmlns:h="http:/ )
 --- Microsoft 365 DKIM rows for atlasglinn.com (tenant: not found via autodiscover; http 200; response: <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" xmlns:a="http://www.w3.org/2005/08/addressing"><s:Header><a:Action s:mustUnderstand="1">http://schemas.microsoft.com/exchange/2010/Autodiscover/Autodiscover/GetFederationInformationResponse</a:Action><h:ServerVersionInfo xmlns:h="http:/ )
    (tenant found by guess: atlasglinncom.onmicrosoft.com)
    CNAME  selector1._domainkey  ->  selector1-atlasglinn-com._domainkey.atlasglinncom.onmicrosoft.com   [key published by Microsoft: yes]
