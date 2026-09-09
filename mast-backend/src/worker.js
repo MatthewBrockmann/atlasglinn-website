@@ -772,26 +772,58 @@ async function handleAccountPassword(request, env, cors) {
   return json({ token: await signToken(env, acct), account: publicAccount(acct) }, 200, cors);
 }
 
-function stripeHeaders(env) { return { Authorization: 'Bearer ' + env.STRIPE_SECRET_KEY, 'Content-Type': 'application/x-www-form-urlencoded' }; }
+/**
+ * THE API VERSION IS A PIN, NOT A DEFAULT. Every request this Worker makes carries Stripe-Version, so the shapes the
+ * validators in the tax module check are the shapes of ONE NAMED VERSION rather than whatever the account's default has
+ * drifted to. Without the header, Stripe moving the account default is an invisible change to every response this code
+ * reads — and API-version drift is exactly what a renamed field looks like from in here, which is the failure the row
+ * validator exists to catch. Pinned, drift becomes a deliberate edit to this line with a test run behind it.
+ *
+ * UNVERIFIABLE FROM HERE, said plainly: NO Stripe version is recorded anywhere in this repository — no `stripe` SDK
+ * dependency, nothing in package.json, README.md, wrangler.toml or any comment (grepped, not recalled) — and this
+ * container cannot reach Stripe to read the changelog. The literal below is therefore a CHOICE, not a measurement: a
+ * version that supports every parameter this Worker sends (automatic_tax, price_data, product_data[tax_code],
+ * country_options[us][type], head_office) and every field it reads back. The first live call is what confirms it.
+ *
+ * The override is clamped to the SHAPE of a version string, for the reason the timeouts are clamped: a typo here is not
+ * a slow checkout, it is Stripe refusing every call including the Checkout Session, so anything that is not
+ * version-shaped falls back to the pin instead of being sent.
+ *
+ * IT DOES NOT COVER THE WEBHOOK. A request header governs the answers to THIS Worker's requests; an event Stripe
+ * delivers carries the version configured on the endpoint. handleWebhook therefore types and bounds every field it
+ * takes off the Session at the point it reads it, rather than inheriting a guarantee this line does not give it.
+ */
+const STRIPE_API_VERSION = '2024-06-20';
+export function stripeApiVersion(env) {
+  const v = env && env.STRIPE_API_VERSION;
+  return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}(?:\.[a-z]+)?$/.test(v) ? v : STRIPE_API_VERSION;
+}
+
+function stripeHeaders(env) { return { Authorization: 'Bearer ' + env.STRIPE_SECRET_KEY, 'Content-Type': 'application/x-www-form-urlencoded', 'Stripe-Version': stripeApiVersion(env) }; }
 async function ensureStripeCustomer(env, acct) {
   if (acct.stripe_customer_id) return acct.stripe_customer_id;
   if (!env.STRIPE_SECRET_KEY) throw new Error('Payments are not configured.');
   const res = await checkoutCall(env, '/customers', { method: 'POST', headers: stripeHeaders(env),
     body: new URLSearchParams({ email: acct.email, name: acct.name || '', phone: acct.phone || '', 'metadata[account_id]': acct.id, 'metadata[source]': 'mastsolutions' }).toString() });
   const data = res.data || {};
-  if (!res.ok || !data.id) throw new Error('Stripe customer: ' + taxSafe(env, (data.error && data.error.message) || res.status, 120));
-  await env.DB.prepare('UPDATE accounts SET stripe_customer_id = ?, updated_at = ? WHERE id = ?').bind(data.id, new Date().toISOString(), acct.id).run();
-  acct.stripe_customer_id = data.id;
-  return data.id;
+  if (!res.ok || typeof data.id !== 'string' || !data.id) throw new Error('Stripe customer: ' + taxSafe(env, (data.error && data.error.message) || res.status, 120));
+  const cusId = capText(data.id, 255);
+  await env.DB.prepare('UPDATE accounts SET stripe_customer_id = ?, updated_at = ? WHERE id = ?').bind(cusId, new Date().toISOString(), acct.id).run();
+  acct.stripe_customer_id = cusId;
+  return cusId;
 }
 async function stripeDefaultCard(env, customerId) {
   if (!env.STRIPE_SECRET_KEY) return null;
-  const res = await checkoutCall(env, '/customers/' + encodeURIComponent(customerId) + '?expand[]=invoice_settings.default_payment_method', { headers: { Authorization: 'Bearer ' + env.STRIPE_SECRET_KEY } });
+  const res = await checkoutCall(env, '/customers/' + encodeURIComponent(customerId) + '?expand[]=invoice_settings.default_payment_method', { headers: { Authorization: 'Bearer ' + env.STRIPE_SECRET_KEY } });   // pinned in boundedStripe
   const data = res.data || {};
   const pm = data && data.invoice_settings && data.invoice_settings.default_payment_method;
   if (!pm || typeof pm !== 'object') return null;
   const card = pm.card || {};
-  return { brand: card.brand || pm.type || 'card', last4: card.last4 || '', exp_month: card.exp_month || null, exp_year: card.exp_year || null };
+  // Four Stripe-controlled fields on their way to a browser: two short strings and two numbers, typed and capped as
+  // such. 'visa' and '4242' are what these are; nothing here is free text and nothing here is unbounded.
+  return { brand: capText(card.brand || pm.type || 'card', 32), last4: capText(card.last4 || '', 4),
+    exp_month: Number.isFinite(Number(card.exp_month)) ? Number(card.exp_month) : null,
+    exp_year: Number.isFinite(Number(card.exp_year)) ? Number(card.exp_year) : null };
 }
 async function handleAccountSetupPayment(request, env, ctx, cors) {
   const { acct, res } = await requireAccount(request, env, cors); if (res) return res;
@@ -810,8 +842,8 @@ async function setDefaultCardFromSetup(env, session) {
   if (!env.STRIPE_SECRET_KEY || !session.setup_intent || !session.customer) return;
   const siId = typeof session.setup_intent === 'string' ? session.setup_intent : session.setup_intent.id;
   const cusId = typeof session.customer === 'string' ? session.customer : session.customer.id;
-  const si = await (await fetch('https://api.stripe.com/v1/setup_intents/' + encodeURIComponent(siId), { headers: { Authorization: 'Bearer ' + env.STRIPE_SECRET_KEY } })).json().catch(() => ({}));
-  const pm = si && (typeof si.payment_method === 'string' ? si.payment_method : si.payment_method && si.payment_method.id);
+  const si = await (await fetch('https://api.stripe.com/v1/setup_intents/' + encodeURIComponent(siId), { headers: { Authorization: 'Bearer ' + env.STRIPE_SECRET_KEY, 'Stripe-Version': stripeApiVersion(env) } })).json().catch(() => ({}));
+  const pm = capText(si && (typeof si.payment_method === 'string' ? si.payment_method : si.payment_method && si.payment_method.id), 255);
   if (!pm) return;
   await fetch('https://api.stripe.com/v1/customers/' + encodeURIComponent(cusId), { method: 'POST', headers: stripeHeaders(env), body: new URLSearchParams({ 'invoice_settings[default_payment_method]': pm }).toString() });
 }
@@ -1320,10 +1352,10 @@ async function handleRegister(request, env, ctx, cors) {
   await applyTax(payload, env, ctx);
   const result = await createStripeSession(payload, env, 'Register', ctx);
   if (!result.ok) return json({ error: result.error }, result.status, cors);
-  await updateRegistration(env, id, { stripe_session_id: result.session.id }).catch((e) =>
+  await updateRegistration(env, id, { stripe_session_id: capText(result.session.id, 255) }).catch((e) =>
     console.error('[Register] session id write failed:', e.message)
   );
-  return json({ checkoutUrl: result.session.url, sessionId: result.session.id, registration_id: id }, 200, cors);
+  return json({ checkoutUrl: result.session.url, sessionId: capText(result.session.id, 255), registration_id: id }, 200, cors);
 }
 
 /** Outcome row (kept) + answers row (purged). Returns the outcome id. Throws on a D1 failure. */
@@ -1582,7 +1614,7 @@ async function ensureMembershipPrice(env, row) {
   let priceId = null;
   const found = await stripeCall(env, '/prices?active=true&limit=1&lookup_keys[]=' + encodeURIComponent(lookupKey));
   if (!found.ok) console.error('[Plan] Stripe price lookup failed:', taxSafe(env, (found.data && found.data.error && found.data.error.message) || ('status ' + found.status), 120));
-  else if (found.data && Array.isArray(found.data.data) && found.data.data[0] && found.data.data[0].id) priceId = found.data.data[0].id;
+  else if (found.data && Array.isArray(found.data.data) && found.data.data[0] && typeof found.data.data[0].id === 'string') priceId = capText(found.data.data[0].id, 255);
   if (!priceId) {
     const body = new URLSearchParams({
       currency: 'usd',
@@ -1601,11 +1633,11 @@ async function ensureMembershipPrice(env, row) {
     if (String(env.STRIPE_TAX) === '1' && (await taxReadyCached(env)).ready) body.set('product_data[tax_code]', TAX_CODE_SERVICES);
     const res = await stripeCall(env, '/prices', body);
     const created = res.data;
-    if (!res.ok || !created || !created.id) {
+    if (!res.ok || !created || typeof created.id !== 'string' || !created.id) {
       console.error('[Plan] could not create the Stripe price for ' + row.plan_key + ':', taxSafe(env, JSON.stringify(created), 300));
       return null;
     }
-    priceId = created.id;
+    priceId = capText(created.id, 255);
   }
   if (env.DB) {
     try {
@@ -1861,14 +1893,23 @@ async function createStripeSession(payload, env, label, ctx) {
     return { ok: false, status: 502, error: 'Could not start checkout. Please try again or call us.' };
   }
 
+  // The Session is a Stripe shape like any other, and it is the one the CUSTOMER is handed: an id and a URL that are
+  // not both strings is a 200 this Worker cannot act on, and passing `undefined` to the browser as a redirect is a
+  // broken checkout with no error behind it. The URL itself is the ONE Stripe-controlled string here that is
+  // deliberately NOT capped — it is the redirect target, and truncating it would break the purchase it exists to
+  // start — so it is type- and scheme-checked instead. The id, which goes to a log and to D1, is capped.
   const session = res.data;
-  console.log('[' + label + '] Session created:', session.id);
+  if (typeof session.id !== 'string' || typeof session.url !== 'string' || !session.url.startsWith('https://')) {
+    console.error('[' + label + '] Stripe answered 200 with a Session this Worker cannot use:', taxSafe(env, JSON.stringify(res.data), 300));
+    return { ok: false, status: 502, error: 'Could not start checkout. Please try again or call us.' };
+  }
+  console.log('[' + label + '] Session created:', taxSafe(env, session.id, 60));
   return { ok: true, session };
 }
 
 async function createSession(payload, env, cors, label, ctx) {
   const r = await createStripeSession(payload, env, label, ctx);
-  return r.ok ? json({ checkoutUrl: r.session.url, sessionId: r.session.id }, 200, cors) : json({ error: r.error }, r.status, cors);
+  return r.ok ? json({ checkoutUrl: r.session.url, sessionId: capText(r.session.id, 255) }, 200, cors) : json({ error: r.error }, r.status, cors);
 }
 
 /* ────────────────────────────── Webhook ────────────────────────────── */
@@ -1884,7 +1925,7 @@ async function handleWebhook(request, env, ctx, cors) {
   }
 
   const event = JSON.parse(rawBody);
-  console.log('[Webhook] Event:', event.type, event.id);
+  console.log('[Webhook] Event:', taxSafe(env, event.type, 60), taxSafe(env, event.id, 60));
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
@@ -1894,23 +1935,29 @@ async function handleWebhook(request, env, ctx, cors) {
       ctx.waitUntil(setDefaultCardFromSetup(env, session).catch((e) => console.error('[AccountCard] failed:', e.message)));
       return json({ received: true }, 200, cors);
     }
+    // EVERY FIELD HERE IS STRIPE-CONTROLLED AND EVERY ONE OF THEM LANDS IN D1, so every one is bounded — by capText,
+    // not taxSafe. These are RECORD fields: the buyer's own email and name are the point of the row, and the redactor
+    // would corrupt them (the `re_` rule alone eats any address containing `…re_…`). A D1 TEXT column has no length of
+    // its own, so the ceiling is the only thing standing between a malformed event and an unbounded write. The
+    // numbers are typed as numbers rather than capped.
     const record = {
-      stripe_session_id: session.id,
-      stripe_event_id: event.id,
-      kind: meta.kind || (session.mode === 'subscription' ? 'membership' : 'class_booking'),
-      sku: meta.sku || meta.plan || '',
-      item_name: meta.class_name || meta.plan_name || '',
-      session_date: meta.session_date || '',
-      session_label: meta.session_label || '',
+      stripe_session_id: capText(session.id, 255),
+      stripe_event_id: capText(event.id, 255),
+      kind: capText(meta.kind || (session.mode === 'subscription' ? 'membership' : 'class_booking'), 40),
+      sku: capText(meta.sku || meta.plan || '', 100),
+      item_name: capText(meta.class_name || meta.plan_name || '', 200),
+      session_date: capText(meta.session_date || '', 40),
+      session_label: capText(meta.session_label || '', 200),
       qty: parseInt(meta.qty || meta.seats || '1', 10) || 1,
-      amount_total: session.amount_total || 0,
-      currency: session.currency || 'usd',
-      customer_email: session.customer_email || session.customer_details?.email || '',
-      customer_name: meta.customer_name || session.customer_details?.name || '',
-      customer_phone: session.customer_details?.phone || '',
-      organization: meta.organization || '',
-      notes: meta.notes || '',
-      utm_source: meta.utm_source || '', utm_medium: meta.utm_medium || '', utm_campaign: meta.utm_campaign || '', first_touch_at: meta.first_touch_at || '',
+      amount_total: Math.trunc(Number(session.amount_total)) || 0,
+      currency: capText(session.currency || 'usd', 10),
+      customer_email: capText(session.customer_email || session.customer_details?.email || '', 320),
+      customer_name: capText(meta.customer_name || session.customer_details?.name || '', 200),
+      customer_phone: capText(session.customer_details?.phone || '', 40),
+      organization: capText(meta.organization || '', 200),
+      notes: capText(meta.notes || '', 2000),
+      utm_source: capText(meta.utm_source || '', 200), utm_medium: capText(meta.utm_medium || '', 200),
+      utm_campaign: capText(meta.utm_campaign || '', 200), first_touch_at: capText(meta.first_touch_at || '', 40),
       created_at: new Date().toISOString(),
     };
 
@@ -1925,7 +1972,7 @@ async function handleWebhook(request, env, ctx, cors) {
           return null;
         })
       : null;
-    if (registration && !record.customer_phone) record.customer_phone = registration.customer_phone || '';
+    if (registration && !record.customer_phone) record.customer_phone = capText(registration.customer_phone || '', 40);
 
     // Then notify. Never let a failing email lose the order.
     ctx.waitUntil(
@@ -1950,7 +1997,7 @@ async function handleWebhook(request, env, ctx, cors) {
 
   if (event.type === 'invoice.payment_failed') {
     const inv = event.data.object;
-    console.warn('[Webhook] Payment failed for:', inv.customer_email || inv.customer);
+    console.warn('[Webhook] Payment failed for:', taxSafe(env, inv.customer_email || inv.customer, 320));
   }
 
   return json({ received: true }, 200, cors);
@@ -1999,14 +2046,14 @@ async function storeOrder(env, r) {
 
 async function markMembershipCancelled(env, sub) {
   if (!env.DB) return;
-  const email = sub.metadata?.email || '';
+  const email = capText(sub.metadata?.email || '', 320);
   if (!email) return;
   await env.DB.prepare(
     "UPDATE orders SET status = 'cancelled' WHERE customer_email = ? AND kind = 'membership'"
   )
     .bind(email)
     .run();
-  console.log('[Membership] Cancelled:', email);
+  console.log('[Membership] Cancelled:', taxSafe(env, email, 320));
 }
 
 /**
@@ -2386,7 +2433,9 @@ async function boundedStripe(env, path, init, ms) {
   const ac = new AbortController();
   let timer = null;
   const call = (async () => {
-    const r = await fetch('https://api.stripe.com/v1' + path, { ...init, signal: ac.signal });
+    // The pin goes on HERE, not in each caller: one place means no call can be built without it (the GET in stripeCall
+    // hand-rolls its Authorization header and would otherwise have gone out unpinned).
+    const r = await fetch('https://api.stripe.com/v1' + path, { ...init, headers: { ...(init && init.headers), 'Stripe-Version': stripeApiVersion(env) }, signal: ac.signal });
     let data = {}, parseError = false;
     try { data = await r.json(); } catch { parseError = true; }
     return { ok: r.ok, status: r.status, data, parse_error: parseError };
@@ -2501,10 +2550,19 @@ function taxRedact(env, value) {
     if (secret && String(secret).length >= 8) t = t.split(String(secret)).join('[redacted]');
   }
   return t
-    // No \b before the key shapes: a probe read `pending_sk_live_…` back out of settings.status verbatim, because an
-    // underscore is a word character and there is no boundary there. A redactor matches anywhere or it does not match.
+    // NOT ONE \b IN THIS FUNCTION, and that is the rule rather than an accident of these particular shapes. A word
+    // boundary asks whether the character BESIDE the token is a word character — so `param_AC…`, `settings_status_
+    // ghp_…` and every other token glued to a label went out verbatim, which is the one context a Stripe error message
+    // reliably provides. Round 6 removed \b from the prefix rules and added three more rules WITH it eleven lines
+    // under the comment saying not to; this pass removes the last of them. Where a match must not swallow a longer
+    // run, that is a NEGATIVE LOOKAHEAD ON THE TOKEN'S OWN ALPHABET (below), which asks about the token instead of
+    // about its neighbour. Over-redaction is the safe direction here; a missed key is not recoverable.
     .replace(/(sk_(?:live|test)_|rk_(?:live|test)_|pk_(?:live|test)_|whsec_|re_)[A-Za-z0-9_-]+/g, '$1[redacted]')
-    .replace(/\bBearer\s+[A-Za-z0-9._~+/-]{8,}=*/gi, 'Bearer [redacted]')
+    // Anthropic and OpenAI keys are a HYPHEN after sk, so the Stripe rule above — which requires the underscore —
+    // never touched them, and they are in the vault's canonical set. The cost is prose: `risk-` followed by twenty
+    // key-alphabet characters is redacted too, which is a scrubbed log line rather than a leaked key.
+    .replace(/sk-[A-Za-z0-9_-]{20,}/g, '[redacted]')
+    .replace(/Bearer\s+[A-Za-z0-9._~+/-]{8,}=*/gi, 'Bearer [redacted]')
     // Not Stripe's own shapes, and that is the point: whatever a Stripe error quotes back came from a request body
     // somebody else wrote. A denylist can only remove what it has been told about, so it is told about the classes the
     // vault's canonical set names — a Google key, an AWS id, a Slack token, a JWT, a GitHub or GitLab token, a
@@ -2516,12 +2574,19 @@ function taxRedact(env, value) {
     .replace(/gh[pousr]_[A-Za-z0-9]{36,}/g, '[redacted]')
     .replace(/glpat-[A-Za-z0-9_-]{20,}/g, '[redacted]')
     .replace(/appl_[A-Za-z0-9]{20,}/g, '[redacted]')
-    .replace(/\b(?:AC|SK)[a-f0-9]{32}\b/g, '[redacted]')
-    // The heuristic, and the only one here: a 32-40 character hex string is not a shape anybody owns, so it is removed
+    // The lookahead is what \b was there to do, asked correctly: a Twilio SID is AC/SK and EXACTLY 32 hex, so the match
+    // must not eat a prefix of a longer hex run — but a `_` or a letter to the LEFT is the normal case in a log line,
+    // not a reason to skip it.
+    .replace(/(?:AC|SK)[a-f0-9]{32}(?![a-f0-9])/g, '[redacted]')
+    // The heuristic, and the only one here: a 32-64 character hex string is not a shape anybody owns, so it is removed
     // only where a label BESIDE it says it is a credential. That is how the AISStream opaque hash was missed once — it
-    // belongs to no vendor and matches no prefix, and the label is the only thing that identifies it.
-    .replace(/((?:_key|_token|_secret|api_key|access_token)\W{0,4})[a-fA-F0-9]{32,40}\b/gi, '$1[redacted]')
-    .replace(/\b[a-fA-F0-9]{32,40}(\W{0,4}(?:_key|_token|_secret|api_key|access_token))/gi, '[redacted]$1');
+    // belongs to no vendor and matches no prefix, and the label is the only thing that identifies it. Anchor-free on
+    // both sides, and widened to 64 so a longer opaque token beside its label is not left standing
+    // because it was too big to match. A hex run longer than 64 characters keeps its head: the tail beside the label is
+    // removed, the leading remainder is not, and no width makes a heuristic complete — the labelled shapes above are
+    // what this is a backstop for.
+    .replace(/((?:_key|_token|_secret|api_key|access_token)\W{0,4})[a-fA-F0-9]{32,64}/gi, '$1[redacted]')
+    .replace(/[a-fA-F0-9]{32,64}(\W{0,4}(?:_key|_token|_secret|api_key|access_token))/gi, '[redacted]$1');
 }
 
 /** The ceiling on an accepted enum or id. A Stripe status is one of three words and a registration id is under thirty
@@ -2570,15 +2635,34 @@ function taxDate(env, value) {
   return '[unexpected]';
 }
 
-/** Stripe's error, reduced to the four fields worth reporting and scrubbed. The raw object is never mirrored: whoever
- *  reads this endpoint — CI, a hand-run curl, shell history, a future dashboard — gets the same redacted answer. */
+/** Stripe's error, reduced to the three fields worth reporting, scrubbed AND CAPPED. The raw object is never mirrored:
+ *  whoever reads this endpoint — CI, a hand-run curl, shell history, a future dashboard — gets the same redacted
+ *  answer.
+ *
+ *  THE CAP IS ROUND 7'S HALF. Round 6 capped taxEnum and left these three on bare taxRedact, so the one field on this
+ *  path that is genuinely unbounded free text — a Stripe message, which quotes back whatever was in the request —
+ *  went whole into the 502 body and into every CI summary that prints it. Redaction and length are two different
+ *  questions and a string needs both answered: scrubbing a 200,000-character message leaves a 200,000-character
+ *  message. type and code are enum-shaped in practice but are NOT taxEnum'd — an unrecognised error code is worth
+ *  reading verbatim when a call is failing, so they get the free-text treatment on a short leash. */
 function taxError(env, r) {
   const e = (r && r.data && r.data.error) || {};
   return {
-    type: taxRedact(env, e.type || 'api_error'),
-    code: taxRedact(env, e.code || ''),
-    message: taxRedact(env, e.message || (r && r.data ? 'Stripe refused the call and sent no message.' : 'No response body from Stripe.')),
+    type: taxSafe(env, e.type || 'api_error', 60),
+    code: taxSafe(env, e.code || '', 60),
+    message: taxSafe(env, e.message || (r && r.data ? 'Stripe refused the call and sent no message.' : 'No response body from Stripe.'), 300),
   };
+}
+
+/** LENGTH ONLY, NO REDACTION — the other half of doctrine 2, and the distinction matters more than the code does.
+ *  taxSafe is for a string on its way to a LOG, a REPORT or an operator's screen: a stranger's planted key can reach
+ *  those, so it is scrubbed. This is for a string on its way to a RECORD — an order row, a customer id — where the
+ *  value must survive verbatim to be worth storing, and where scrubbing actively corrupts it (the `re_` rule alone
+ *  mangles any address containing `…re_…`). What a record field still must not be is unbounded: a D1 TEXT column has
+ *  no length of its own, so the ceiling is here. */
+function capText(value, max) {
+  const t = value == null ? '' : String(value);
+  return t.length > max ? t.slice(0, max) : t;
 }
 
 async function taxStateGet(env, key) {
@@ -2688,8 +2772,66 @@ async function holdTaxWindow(env) {
     .bind(TAX_LOCK_KEY, until, 1).run().catch((e) => console.error('[Tax] lock hold failed:', e.message));
 }
 
+/**
+ * ONE VALIDATOR PER STRIPE SHAPE — doctrine 1, and the reason the ad-hoc checks that used to sit inline are gone.
+ *
+ * A MEASUREMENT IS MEASURED ONLY WHEN EVERY FIELD IT DECIDES ON, AT EVERY LEVEL, IS PRESENT AND WELL-TYPED. Round 5
+ * type-checked nothing and a 200 saying `{}` counted as a measured not-ready. Round 6 type-checked the CONTAINERS —
+ * `settings.status` a string, `data` an Array — and stopped there, so the ROWS inside that Array were still read on
+ * faith: a registration whose `country_options` an API-version change renamed came out of isTexasSalesTax as a
+ * confident FALSE, which is a measured "this account has no Texas registration". That is the worst answer available.
+ * It turns tax off for the full TTL, and — through taxRun, which read the same list — it is also what makes the setup
+ * branch create a SECOND, non-undoable Texas registration.
+ *
+ * So the schema is not a summary of the response; it is the exact list of fields the code DEREFERENCES, and these two
+ * functions are the only place either shape is trusted. isTexasSalesTax reads r.country, r.country_options,
+ * r.country_options.us, .us.state and .us.type; measureTaxReady reads r.status. That list IS the row schema below.
+ *
+ * Both answer { ok:true, value } or { ok:false, reason } — never a bare boolean, because the reason is what the
+ * heartbeat prints and what tells an operator which field drifted. Every failure lands on the same path: measured:false,
+ * which keeps a ready row inside its grace (R5-1) and fails closed when there is nothing to keep.
+ */
+function validateTaxSettings(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return { ok: false, reason: 'settings_not_an_object' };
+  if (typeof data.status !== 'string' || data.status === '') return { ok: false, reason: 'status_not_a_string' };
+  // Case and whitespace are SHAPE, not value. ' active ' and 'Active' are not the enum Stripe documents, and reading
+  // either as "not active" is a measured no — tax off — on the strength of a string this code does not recognise.
+  // Unmeasured is the honest answer to a field that no longer looks like the field.
+  if (!/^[a-z][a-z_]*$/.test(data.status)) return { ok: false, reason: 'status_not_enum_shaped' };
+  return { ok: true, value: { status: data.status } };
+}
+
+function validateTaxRegistrations(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return { ok: false, reason: 'list_not_an_object' };
+  if (!Array.isArray(data.data)) return { ok: false, reason: 'data_not_an_array' };
+  // ABSENT has_more is read as false, deliberately and documentedly: Stripe omits it on a non-list body and a missing
+  // field is the one case where "there is no second page" is the safe reading — nothing is turned off by it. A PRESENT
+  // has_more that is not a boolean is the opposite: `"true"` and `1` are both truthy and neither is Stripe's field, so
+  // the page's own answer about itself is unreadable and this is not a measurement.
+  if (data.has_more !== undefined && typeof data.has_more !== 'boolean') return { ok: false, reason: 'has_more_not_a_boolean' };
+  for (let i = 0; i < data.data.length; i++) {
+    const r = data.data[i], at = 'row_' + i + '_';
+    if (!r || typeof r !== 'object' || Array.isArray(r)) return { ok: false, reason: at + 'not_an_object' };
+    if (typeof r.status !== 'string' || r.status === '') return { ok: false, reason: at + 'status_not_a_string' };
+    if (r.country !== undefined && typeof r.country !== 'string') return { ok: false, reason: at + 'country_not_a_string' };
+    // The US rows are the ones this Worker decides on, so they are the ones whose nested shape must be all there.
+    // A US registration with no readable country_options.us is not a "no": it is a row in a shape this code cannot
+    // read, and answering it as a no is how a second Texas registration gets created.
+    if (r.country === 'US') {
+      const co = r.country_options;
+      if (!co || typeof co !== 'object' || Array.isArray(co)) return { ok: false, reason: at + 'country_options_missing' };
+      if (!co.us || typeof co.us !== 'object' || Array.isArray(co.us)) return { ok: false, reason: at + 'country_options_us_missing' };
+      if (typeof co.us.state !== 'string') return { ok: false, reason: at + 'state_not_a_string' };
+      if (typeof co.us.type !== 'string') return { ok: false, reason: at + 'type_not_a_string' };
+    }
+  }
+  return { ok: true, value: { rows: data.data, has_more: data.has_more === true } };
+}
+
 /** US · Texas · state sales tax. The TYPE is the half round 1 left out: a Texas registration of some other type is not a
- *  sales-tax registration, and treating it as one meant no sales-tax registration was ever created. */
+ *  sales-tax registration, and treating it as one meant no sales-tax registration was ever created. Both predicates run
+ *  ONLY on rows validateTaxRegistrations has already passed, so the optional chaining they used to need is the
+ *  validator's job now — a row that reaches here has every field they read. */
 const isTexasSalesTax = (r) => !!(r && r.country === 'US' && r.country_options && r.country_options.us
   && r.country_options.us.state === 'TX' && r.country_options.us.type === 'state_sales_tax');
 const isTexasAnyType = (r) => !!(r && r.country === 'US' && r.country_options && r.country_options.us && r.country_options.us.state === 'TX');
@@ -2713,23 +2855,34 @@ const isTexasAnyType = (r) => !!(r && r.country === 'US' && r.country_options &&
  * 24-hour grace with it, and sold the next order untaxed with no grace at all. A measurement is measured only when the
  * FIELDS IT DECIDES ON are present and well-typed; anything else is silence wearing a 200, and silence is not evidence.
  *
+ * THE FIELDS IT DECIDES ON GO ALL THE WAY DOWN, which is round 7's correction and the reason there is not one ad-hoc
+ * typeof left in this function. The checks here were per-container: status a string, `data` an Array — and then every
+ * ROW in that Array was read on faith by isTexasSalesTax, so one renamed field inside a row produced a confident,
+ * MEASURED "no Texas registration". Both shapes now go through the validators above, whose schema is the exact list of
+ * fields this module dereferences, and a failure at any level is `<shape>_unparseable` / measured:false — the same
+ * keep-the-grace path as a 5xx.
+ *
  * `has_more` is the same rule applied to the page rather than the body. The list is read one page deep, so a Texas row
  * past the first hundred registrations was reported as a measured "no Texas registration" when the honest answer is
- * that this function did not look. Unmeasured, and the grace applies — a false negative here turns tax off.
+ * that this function did not look. Unmeasured, and the grace applies — a false negative here turns tax off. A has_more
+ * that is TRUTHY BUT NOT A BOOLEAN (`"true"`, `1`) is not that answer either: it is the page failing to say, which the
+ * validator returns as a shape failure.
  */
 async function measureTaxReady(env) {
   if (!env || !env.STRIPE_SECRET_KEY) return { ready: false, reason: 'no_stripe_key', measured: false };
   const settings = await stripeCall(env, '/tax/settings');
   if (!settings.ok) return { ready: false, reason: settings.timeout ? 'timeout' : 'settings_read_failed', measured: false };
-  if (typeof (settings.data && settings.data.status) !== 'string') return { ready: false, reason: 'settings_unparseable', measured: false, parse_error: !!settings.parse_error };
-  if (settings.data.status !== 'active') return { ready: false, reason: 'settings_status:' + taxEnum(env, settings.data.status || 'unknown'), measured: true };
+  const s = validateTaxSettings(settings.data);
+  if (!s.ok) return { ready: false, reason: 'settings_unparseable', measured: false, parse_error: !!settings.parse_error, shape: s.reason };
+  if (s.value.status !== 'active') return { ready: false, reason: 'settings_status:' + taxEnum(env, s.value.status), measured: true };
   const list = await stripeCall(env, '/tax/registrations?status=active&limit=100');
   if (!list.ok) return { ready: false, reason: list.timeout ? 'timeout' : 'registrations_read_failed', measured: false };
-  if (!Array.isArray(list.data && list.data.data)) return { ready: false, reason: 'registrations_unparseable', measured: false, parse_error: !!list.parse_error };
-  const rows = list.data.data;
+  const g = validateTaxRegistrations(list.data);
+  if (!g.ok) return { ready: false, reason: 'registrations_unparseable', measured: false, parse_error: !!list.parse_error, shape: g.reason };
+  const rows = g.value.rows;
   const tx = rows.find((r) => isTexasSalesTax(r) && r.status === 'active');
   if (tx) return { ready: true, reason: 'active', measured: true };
-  if (list.data.has_more === true) return { ready: false, reason: 'registrations_paged', measured: false };
+  if (g.value.has_more) return { ready: false, reason: 'registrations_paged', measured: false };
   return { ready: false, reason: rows.some(isTexasAnyType) ? 'tx_registration_wrong_type' : 'no_active_tx_state_sales_tax', measured: true };
 }
 
@@ -2794,7 +2947,7 @@ async function taxMeasure(env) {
     const age = row ? Date.now() - row.at : 0;
     if (row && row.n === TAX_READY_YES && age < TAX_READY_GRACE_MS) {
       await taxRunStamp(env, 'measure_failed/' + taxSafe(env, m.reason, 40), false);
-      console.log(JSON.stringify({ tax_measure: 'failed', reason: taxSafe(env, m.reason, 40), parse_error: !!m.parse_error, kept: 'last_known_ready', age_seconds: Math.round(age / 1000) }));
+      console.log(JSON.stringify({ tax_measure: 'failed', reason: taxSafe(env, m.reason, 40), shape: m.shape || null, parse_error: !!m.parse_error, kept: 'last_known_ready', age_seconds: Math.round(age / 1000) }));
       return { ready: false, reason: m.reason, measured: false, kept_ready: true, cached: true, fresh: false, age_ms: age };
     }
   }
@@ -2810,8 +2963,16 @@ async function taxMeasure(env) {
  */
 async function taxRun(env, write) {
   const notes = [];
+  // Every Stripe read in this function is validated by the same two functions the measurement uses. An unparseable
+  // body is an ERROR here rather than a shrug: this path WRITES to the account, and the round-6 revert measured what a
+  // shrug costs — a registrations list this code could not read came out of the `Array.isArray ? … : []` below as ZERO
+  // rows, which is indistinguishable from "no Texas registration exists", which creates a second one. A duplicate
+  // registration is not undoable.
   let read = await stripeCall(env, '/tax/settings');
   if (!read.ok) return { ok: false, step: 'settings.read', stripe_status: read.status, error: taxError(env, read), notes };
+  let shape = validateTaxSettings(read.data);
+  if (!shape.ok) return { ok: false, step: 'settings.read', stripe_status: read.status, notes,
+    error: { type: 'unparseable_response', code: shape.reason, message: 'GET /v1/tax/settings answered ' + read.status + ' with a body this Worker cannot read (' + shape.reason + '). Nothing was written.' } };
   const hasOffice = !!(read.data.head_office && read.data.head_office.address && read.data.head_office.address.line1);
   if (hasOffice && read.data.status === 'active') {
     notes.push('settings: already active with a head office; not written.');
@@ -2824,16 +2985,29 @@ async function taxRun(env, write) {
     notes.push('settings: wrote the Houston head office and the defaults (exclusive, ' + TAX_CODE_SERVICES + ').');
     read = await stripeCall(env, '/tax/settings');
     if (!read.ok) return { ok: false, step: 'settings.readback', stripe_status: read.status, error: taxError(env, read), notes };
+    shape = validateTaxSettings(read.data);
+    if (!shape.ok) return { ok: false, step: 'settings.readback', stripe_status: read.status, notes,
+      error: { type: 'unparseable_response', code: shape.reason, message: 'The read-back of /v1/tax/settings answered ' + read.status + ' with a body this Worker cannot read (' + shape.reason + ').' } };
   }
 
   // Registration. Both statuses are read, because a registration that has not started yet is 'scheduled' and creating a
   // second one for the same state is not undoable — and because 'scheduled' is not 'collecting', which is a different
   // sentence and has to be reported as one.
+  //
+  // AND THE CREATE IS GATED ON A COMPLETE, WELL-TYPED READ. `complete` is false when Stripe says there is a page this
+  // run did not fetch; an unreadable body returns outright above. Either way the branch that POSTs a new registration
+  // is not reached, because "I did not see a Texas registration" and "there is no Texas registration" are different
+  // sentences and only the second one may create one.
   const found = [];
+  let complete = true;
   for (const status of ['active', 'scheduled']) {
     const list = await stripeCall(env, '/tax/registrations?status=' + status + '&limit=100');
     if (!list.ok) return { ok: false, step: 'registrations.read:' + status, stripe_status: list.status, error: taxError(env, list), notes };
-    for (const r of (list.data && Array.isArray(list.data.data) ? list.data.data : [])) found.push(r);
+    const page = validateTaxRegistrations(list.data);
+    if (!page.ok) return { ok: false, step: 'registrations.read:' + status, stripe_status: list.status, notes,
+      error: { type: 'unparseable_response', code: page.reason, message: 'GET /v1/tax/registrations?status=' + status + ' answered ' + list.status + ' with a body this Worker cannot read (' + page.reason + '). Nothing was written: a registration is only created on a MEASURED absence.' } };
+    if (page.value.has_more) complete = false;
+    for (const r of page.value.rows) found.push(r);
   }
   const salesTax = found.filter(isTexasSalesTax);
   const otherType = found.filter((r) => isTexasAnyType(r) && !isTexasSalesTax(r));
@@ -2846,12 +3020,19 @@ async function taxRun(env, write) {
     notes.push('registration: US/TX state_sales_tax already active (' + taxEnum(env, registration.id) + '); not created. ' + found.length + ' registration(s) read, none other touched.');
   } else if (registration) {
     notes.push('registration: US/TX state_sales_tax exists but is SCHEDULED (' + taxEnum(env, registration.id) + ', active_from ' + taxDate(env, registration.active_from) + ') — registered, NOT collecting yet. No second one is created: a duplicate registration is not undoable.');
+  } else if (!complete) {
+    notes.push('registration: NOT created, and none WOULD be. Stripe says the registration list has more pages than this run read (has_more), so "no US/TX state_sales_tax registration" is not something this run measured — it is something it did not look at. A create on an unmeasured absence is how a second, non-undoable Texas registration gets made. ' + found.length + ' registration(s) read.');
   } else if (!write) {
     notes.push('registration: WOULD create US/TX state_sales_tax active from now — report only, nothing written. ' + found.length + ' existing registration(s) read.');
   } else {
     const form = new URLSearchParams({ country: 'US', 'country_options[us][type]': 'state_sales_tax', 'country_options[us][state]': 'TX', active_from: 'now' });
     const made = await stripeCall(env, '/tax/registrations', form, TAX_IDEMPOTENCY.registration);
     if (!made.ok) return { ok: false, step: 'registrations.write', stripe_status: made.status, error: taxError(env, made), notes };
+    // The thing Stripe just created is a registration row like any other, so it is typed by the row validator rather
+    // than by the report's optional chaining — one validator per shape, including the shape a POST answers with.
+    const bornShape = validateTaxRegistrations({ object: 'list', data: [made.data], has_more: false });
+    if (!bornShape.ok) return { ok: false, step: 'registrations.write', stripe_status: made.status, notes,
+      error: { type: 'unparseable_response', code: bornShape.reason, message: 'POST /v1/tax/registrations answered ' + made.status + ' with a body this Worker cannot read (' + bornShape.reason + '). The registration may exist; the next run reads it rather than creating another (deterministic Idempotency-Key).' } };
     registration = made.data;
     createdNow = true;
     notes.push('registration: created US/TX state_sales_tax (' + taxEnum(env, registration.id) + ').');
@@ -2860,6 +3041,9 @@ async function taxRun(env, write) {
   if (write) {
     const final = await stripeCall(env, '/tax/settings');
     if (!final.ok) return { ok: false, step: 'settings.final', stripe_status: final.status, error: taxError(env, final), notes };
+    const finalShape = validateTaxSettings(final.data);
+    if (!finalShape.ok) return { ok: false, step: 'settings.final', stripe_status: final.status, notes,
+      error: { type: 'unparseable_response', code: finalShape.reason, message: 'The final read of /v1/tax/settings answered ' + final.status + ' with a body this Worker cannot read (' + finalShape.reason + ').' } };
     read = final;
   }
   notes.push('Tax is EXCLUSIVE: added on top of the listed price, never folded into it.');
@@ -2976,8 +3160,18 @@ async function ensureTaxSetup(env, opts = {}) {
  *
  * `tax_fallback_streak` is the double fault, and it is the one number here that can be nonzero while every other field
  * on this page looks healthy: tax_ready true, a fresh cache, a recent heartbeat, and every order for the last day sold
- * untaxed because Stripe refused each tax-carrying Session and the retry quietly completed the sale without tax. Three
- * in a row is already a day's worth on a slow week, so that is where the note appears.
+ * untaxed because Stripe refused each tax-carrying Session and the retry quietly completed the sale without tax.
+ *
+ * THE NUMBER IS REPORTED ALWAYS; THE ALARM NEEDS A SECOND WITNESS. Round 6 put the note behind the count alone, and
+ * the count is raised by anything that can POST a checkout — one anonymous address driving five refused Sessions on a
+ * healthy account produced a paragraph asserting that orders were completing untaxed and that the tax endpoints were
+ * not answering. Neither is carried by a counter of refusals: the streak knows that Stripe said no to a tax-carrying
+ * body, and nothing else. So the alarm now needs the OTHER half of the double fault actually measured — a readiness
+ * row that says UNMEASURED, or a ready row nothing has managed to refresh (kept alive by the grace, which is the same
+ * fault seen from the row's side). Streak alone, on a freshly measured account, is a number and no words.
+ *
+ * And the words themselves claim only what is held: N Sessions were refused, readiness is measured or it is not.
+ * Whether those orders COMPLETED is the retry's outcome, not this counter's, and saying so was an overclaim.
  */
 async function handleTaxSetup(request, env, cors, url) {
   const dry = request.method === 'GET' || url.searchParams.get('dry') === '1';
@@ -2991,9 +3185,18 @@ async function handleTaxSetup(request, env, cors, url) {
   const run = await taxStateGet(env, TAX_RUN_KEY);
   const runAge = run ? Date.now() - run.at : null;
   const streak = run && run.n > 0 ? run.n : 0;
+  // The corroboration, read from the row rather than inferred from the note: UNMEASURED is the measurement saying it
+  // could not be made, and a READY row past its TTL is the same fault seen from the other side — nothing has been able
+  // to refresh it, so the grace is what is holding tax on.
+  const readyRow = await taxStateGet(env, TAX_READY_KEY);
+  const readiness = !readyRow ? 'never_measured'
+    : readyRow.n === TAX_UNMEASURED ? 'unmeasured'
+    : cache.stale ? 'kept_ready'
+    : 'measured';
+  const alarm = streak >= TAX_FALLBACK_LOUD && readiness !== 'measured';
   const notes = [...(res.notes || [])];
-  if (streak >= TAX_FALLBACK_LOUD) {
-    notes.push('tax_fallback_streak is ' + streak + ': Stripe has refused ' + streak + ' consecutive Checkout Sessions that carried automatic_tax, and each one completed WITHOUT tax on the retry. The readiness row still says ready because the tax endpoints are not answering either — that is the double fault, and it sells untaxed for the whole 24-hour grace. Read last_run for what the measurement is failing on.');
+  if (alarm) {
+    notes.push('tax_fallback_streak is ' + streak + ': ' + streak + ' consecutive tax-carrying Checkout Sessions were refused by Stripe; readiness is UNMEASURED (' + readiness + '), so the row every checkout gates on is held by the grace rather than confirmed. That is the double fault. This counter does NOT say those orders completed — each refusal starts one tax-off retry, which has its own outcome — and it does not say an endpoint is down. Read last_run for what the measurement is failing on.');
   }
   return json({
     dry,
@@ -3005,6 +3208,8 @@ async function handleTaxSetup(request, env, cors, url) {
       ttl_seconds: Math.round((cache.ttl_ms || TAX_READY_TTL_MS) / 1000), grace_seconds: Math.round(TAX_READY_GRACE_MS / 1000), stale: !!cache.stale },
     last_run: run ? { at: new Date(run.at).toISOString(), outcome: taxSafe(env, run.note, 60), age_hours: Math.round(runAge / 36000) / 100, stale: runAge > TAX_RUN_STALE_MS } : null,
     tax_fallback_streak: streak,
+    tax_readiness: readiness,
+    tax_fallback_alarm: alarm,
     read_only: !!res.read_only,
     locked_out: !!res.locked_out,
     notes,

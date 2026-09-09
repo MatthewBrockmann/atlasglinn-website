@@ -235,13 +235,20 @@ jobs:
           else:   print('   last setup run: none recorded — no setup has run since the last D1 reset, or D1 is not bound')
           # THE DOUBLE FAULT, and the one number here that can be loud while every other field on this page looks
           # healthy: tax endpoints unreadable (so the grace holds tax_ready at true) AND Stripe refusing every
-          # tax-carrying Session. Each order completes — on the tax-off retry — so nothing 5xxs, nothing alerts, and
-          # the sales go out untaxed for the whole 24-hour grace. Reset by a tax-carrying Session Stripe accepts, or
-          # by a measurement it answers.
+          # tax-carrying Session. Reset by a tax-carrying Session Stripe accepts, or by a measurement it answers.
+          #
+          # THE NUMBER PRINTS ALWAYS; THE WARNING NEEDS THE SECOND HALF MEASURED. The streak is raised by anything that
+          # can POST a checkout, so five refusals from one anonymous address on a healthy account used to print a
+          # warning asserting that orders were being sold untaxed right now — a claim a counter of refusals does not
+          # carry. The Worker reports the corroboration as tax_fallback_alarm (streak past the threshold AND a
+          # readiness that is unmeasured or being held by the grace); this line prints what it is told rather than
+          # re-deriving it, so the two cannot disagree.
           streak = d.get('tax_fallback_streak') or 0
-          print('   tax_fallback_streak=%s' % streak)
-          if streak >= 3:
-              print('   ** WARNING: %s consecutive tax-carrying Checkout Sessions were REFUSED by Stripe and completed WITHOUT tax on the retry. Orders are being sold untaxed right now. Read last_run for what the measurement is failing on. **' % streak)
+          print('   tax_fallback_streak=%s  readiness=%s' % (streak, d.get('tax_readiness')))
+          if d.get('tax_fallback_alarm') is True:
+              print('   ** WARNING: %s consecutive tax-carrying Checkout Sessions were REFUSED by Stripe; readiness is %s, so tax is on the grace rather than on a measurement. That is the double fault. Read last_run for what the measurement is failing on. **' % (streak, d.get('tax_readiness')))
+          elif streak >= 3:
+              print('   %s consecutive tax-carrying Checkout Sessions were refused by Stripe; readiness is MEASURED, so this is not the double fault — read it as Stripe refusing these bodies, not as the loop being down.' % streak)
           for n in d.get('notes') or []: print('   ' + scrub(n))
           print('   the account itself (settings, registration) is read by POST /admin/tax/setup, which deploy-worker.yml runs after each deploy — this report reads D1 only.')
           PY

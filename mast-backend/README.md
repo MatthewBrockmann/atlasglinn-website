@@ -215,6 +215,43 @@ on 2026-09-09, asked directly whether the business holds a Texas Sales and Use T
 Permit: **"yes"**. That permit is the thing that makes collecting lawful, and it is
 his statement — this repo does not hold the permit number and does not need it.
 
+**The three rules of this module, and they are rules rather than descriptions —
+each one is swept across the whole file and each one has a test that fails when it
+is reverted.** *One:* a measurement is measured only when every field it decides on,
+**at every level**, is present and well-typed — one validator per Stripe shape
+(`validateTaxSettings`, `validateTaxRegistrations`), whose schema is the exact list
+of fields this module dereferences, and any failure is `<shape>_unparseable` /
+unmeasured rather than a measured *no*. *Two:* every Stripe-controlled string that
+leaves this Worker — into a log, a report or a D1 column — is **capped**, by
+`taxSafe` / `taxEnum` / `taxDate` where it also needs redacting and by `capText`
+where it is a record field that must survive verbatim. *Three:* the redactor
+**matches anywhere or it does not match** — not one `\b` in `taxRedact`, because a
+word boundary asks about the character beside the token and a Stripe error message
+glues tokens to labels; where a match must not swallow a longer run, that is a
+negative lookahead on the token's own alphabet.
+
+**The Stripe API version is pinned.** Every request this Worker makes carries
+`Stripe-Version: 2024-06-20` (override `STRIPE_API_VERSION`, clamped to the shape of
+a version string — a typo there is Stripe refusing every call, checkout included).
+The point is doctrine one: the shapes the validators check are the shapes of **one
+named version**, so Stripe moving the account default becomes a deliberate edit to
+that line rather than an invisible change to every response this code reads — the
+renamed-field drift the row validator exists to catch is exactly what a default
+version bump looks like from in here. **Stated plainly because it is a choice and
+not a measurement: no Stripe version was recorded anywhere in this repository** (no
+`stripe` SDK dependency, nothing in `package.json`, this file, `wrangler.toml` or
+any comment — grepped, not recalled), and the build container cannot reach Stripe
+to read the changelog. `2024-06-20` is a version that supports every parameter this
+Worker sends and every field it reads back. **The first live call is what confirms
+it**, and until then it is UNVERIFIED against the account.
+
+**What the pin does NOT cover, stated so nobody reads more into it:** a request
+header governs the responses to *this Worker's requests*. **Webhook payloads carry
+the version configured on the Stripe endpoint**, not this one, so `POST /webhook`
+is still reading whatever version that endpoint sends — which is why every field it
+takes off a Session is bounded and typed at the point it is read rather than
+trusted.
+
 **What is collected.** Texas state and local sales tax on sales sourced to the
 Houston head office, computed by Stripe Tax at checkout. Collection is
 **exclusive**: the tax is added **on top of** the listed price and shown as its own
@@ -249,26 +286,48 @@ held every checkout open behind it. Now:
   so a stale one still taxes the order while the loop catches up. **A measured
   not-ready, a measurement that could not be made, or nothing measured inside a
   day → tax off**, byte-identical body, one `tax_skipped` line naming which.
-* **A 200 is not automatically an answer.** A measurement is *measured* only when
-  the fields it decides on are **present and well-typed**: `settings.status` a
-  string, `registrations.data` an array. Round 5 defined a failed measurement as
-  `!res.ok`, so a 200 carrying `{}`, a proxy's `<html>502 Bad Gateway</html>`, or a
-  registrations list with no `data` array counted as a **measured not-ready** — it
-  overwrote the row that said ready, took the whole 24-hour grace with it, and sold
-  the next order untaxed with **no grace at all**. Those three now read
-  `settings_unparseable` / `registrations_unparseable`, take the same
-  keep-the-ready-row path as a 5xx, and the log line carries `parse_error` so an
-  empty body and an unparseable one are distinguishable rather than both printing
-  as `{}`. Reverting it against the suite sells **4 of 6** orders untaxed per shape
-  (measured, not estimated: `taxed=2 untaxed=4` for each of the three).
+* **A 200 is not automatically an answer, and the answer goes all the way down.**
+  Two validators own both shapes. `validateTaxSettings`: an object, `status` a
+  non-empty string **and enum-shaped** (`^[a-z][a-z_]*$`). `validateTaxRegistrations`:
+  an object, `data` an Array, `has_more` a boolean if present, and **every row** an
+  object with `status` a string, `country` a string when present, and — for a `US`
+  row — `country_options.us.state` and `.type` present and strings, which is the
+  exact set `isTexasSalesTax` dereferences. Round 5 defined a failed measurement as
+  `!res.ok`, so a 200 carrying `{}` or a proxy's `<html>502 Bad Gateway</html>`
+  counted as a **measured not-ready**; round 6 fixed the containers and left the
+  **rows** read on faith, so a registration whose `country_options` an API version
+  renamed came back as a confident *"this account has no Texas registration"*.
+  Everything now takes the same keep-the-ready-row path as a 5xx, and the
+  `{"tax_measure":"failed"}` line carries both `parse_error` and `shape` — which row
+  and which field — because *unparseable* alone is not something an operator can act
+  on. Measured by reverting each half against the suite: the container check sells
+  **4 of 6** orders untaxed per shape; the row check drops **5** assertions and its
+  setup run **creates a second Texas registration** (one `POST /v1/tax/registrations`,
+  which is not undoable).
+* **A drifted shape never creates a registration.** The setup path reads the same
+  list through the same validator, and its create branch is gated on a **measured**
+  absence: an unreadable page is an error that writes nothing, and a page Stripe says
+  has more after it leaves the branch untaken with a note saying so. *"I did not
+  look"* and *"there is none"* are different sentences and only the second may
+  create. That gap was real: with the row check reverted, an unreadable list came out
+  of the old `Array.isArray ? … : []` as zero rows and the run created a duplicate.
 * **`has_more` means this function did not look.** The readiness read is one page
   deep (`?status=active&limit=100`). A Texas registration past the first hundred
   read as a measured *"no Texas registration"*, which turns tax off. It is
-  `registrations_paged` and **unmeasured** now, so the grace applies. **The residual,
+  `registrations_paged` and **unmeasured** now, so the grace applies. A `has_more`
+  that is truthy but **not a boolean** (`"true"`, `1`) is not that answer either —
+  it is the page failing to say, so it is a shape failure. **The residual,
   stated: an account with more than 100 active registrations is not measured by this
   path** — it is no longer measured *wrongly*, which is the difference between a
   false negative that stops collection and an honest gap the grace covers. Paging
   the list is the fix if that account ever exists; it does not today.
+* **Case and whitespace are shape, not value.** `' active '` and `'Active'` are not
+  the enum Stripe documents, and reading either as *not active* is a measured no —
+  tax off for the full TTL — on the strength of a string this Worker does not
+  recognise. Both are unmeasured, the grace holds, and with nothing to grace they
+  fail closed. Reverting the enum-shape check drops **6** assertions, and one of
+  them is worse than a bad read: an unrecognised status sent the setup run into its
+  **write** branch against an account it had not understood.
 * **A measurement that FAILS does not drop a row that said ready.** Only a measured
   *no* — Stripe answered and said the account is not collecting — or 24 hours of
   silence turns tax off. A Stripe 5xx, a timeout or an unreachable network leaves
@@ -351,7 +410,19 @@ on the tax-off retry, nothing 5xxs, nothing alerts — and every sale for the wh
 24-hour grace goes out untaxed while the report keeps printing `tax_ready: true`.
 So the consecutive refusals are counted, in the `count` column of the `tax:last_run`
 row, and surfaced as **`tax_fallback_streak`** in the report and in the smoke
-workflow's summary, with a warning line at **three in a row**.
+workflow's summary.
+
+**The number is reported always; the ALARM needs a second witness.** The streak is
+raised by anything that can POST a checkout, so one anonymous address driving five
+refused Sessions on a healthy account used to print a paragraph asserting that
+orders were completing untaxed and that the tax endpoints were down — neither of
+which a counter of refusals carries. The note and the workflow's warning line now
+need the **other half of the fault measured**: `tax_readiness` is `unmeasured`, or a
+ready row nothing has managed to refresh (`kept_ready`), which the report exposes
+as `tax_readiness` and `tax_fallback_alarm`. The words claim only what is held —
+*N consecutive tax-carrying Sessions were refused by Stripe; readiness is
+measured / unmeasured* — and explicitly **not** that those orders completed, which
+is the retry's outcome and not this counter's.
 
 It is **only a counter**. Nothing gates on it and nothing is suppressed by it — a
 number an anonymous request can raise must never decide whether the next buyer is
@@ -432,9 +503,13 @@ It is **idempotent**. Each step reads before it writes:
 3. Re-read the settings, so the reported status is the one the account ended on.
 
 Run it twice and the second run writes nothing and says so. A Stripe error comes
-back named by the step that hit it, with a 502, as `{step, type, code, message}` —
-**redacted in the Worker**, so every consumer gets the scrubbed answer rather than
-just the two workflows that happen to print it. Nothing is retried.
+back named by the step that hit it, with a 502, as `{step, error:{type, code,
+message}, stripe_status, notes}` — **redacted AND capped in the Worker** (60 / 60 /
+300 characters), so every consumer gets the scrubbed answer rather than just the two
+workflows that happen to print it, and a 200,000-character Stripe message is 300
+characters here. A body the Worker cannot read is its own named error,
+`unparseable_response`, carrying the failing field rather than a paraphrase.
+Nothing is retried.
 
 **To just look, without changing anything:** add `?dry=1`, or use `GET`. That form
 reads **D1 and nothing else** — no Stripe call was made and no tax row was written,
@@ -452,8 +527,9 @@ under "Stripe Tax — Houston, Texas":
 | field | what it tells you |
 |---|---|
 | `tax_ready` + `tax_ready_reason` | the exact boolean every checkout gates on, and why (`active`, `last_known_ready`, `measurement_expired`, `settings_status:…`, `never_measured`…) |
-| `tax_ready_cache` | the row itself: `measured_at`, `age_seconds`, `ttl_seconds` (600, or 60 for a measurement that failed), `grace_seconds` (86400) and `stale` — a `stale: true` here means the five-minute trigger is overdue |
+| `tax_ready_cache` | the row itself: `measured_at`, `age_seconds`, `ttl_seconds` (600, or 60 for a measurement that failed), `grace_seconds` (86400) and `stale` — a `stale: true` here means a **re-measurement is overdue** and nothing more: a Stripe outage leaves it true while the trigger fires on time and correctly declines to overwrite a good row. The trigger's own liveness is `last_run` |
 | `last_run` | the heartbeat: when a setup run last held the lock, its outcome, its age, and `stale: true` past 25 hours |
+| `tax_fallback_streak` + `tax_readiness` + `tax_fallback_alarm` | consecutive tax-carrying Sessions Stripe refused; whether the last readiness was `measured` / `unmeasured` / `kept_ready` / `never_measured`; and whether both halves of the double fault are present. The **number always prints**; the warning line needs the alarm, because a counter an anonymous request can raise is not by itself evidence that anything is wrong |
 
 **What CI does, and what it does not.** `deploy-worker.yml`'s tax step is a
 **report, not a gate**. With a repository secret `ADMIN_KEY` it runs the setup

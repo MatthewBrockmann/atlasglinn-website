@@ -1,4 +1,4 @@
-import worker, { taxTimeoutMs, checkoutTimeoutMs } from './src/worker.js';
+import worker, { taxTimeoutMs, checkoutTimeoutMs, stripeApiVersion } from './src/worker.js';
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +31,7 @@ const repoFile = (rel) => readFileSync(path.join(REPO, rel), 'utf8');
 
 // ── fake env ──
 const stripeCalls = [];
+const stripeCallHeaders = [];   // the headers each Checkout Session create went out with (the Stripe-Version pin)
 const stored = [];
 const emails = [];
 let resendStatus = 200;      // flip to 500 to make the next Resend call fail (the digest retry test)
@@ -115,6 +116,7 @@ globalThis.fetch = async (url, init) => {
   }
   if (u.includes('api.stripe.com')) {
     stripeCalls.push(new URLSearchParams(init.body));
+    stripeCallHeaders.push((init && init.headers) || {});
     // A function form so a test can hold ONE attempt open and not the other: the two Session attempts share a single
     // ceiling, which can only be measured by making the first slow and the second never answer.
     if (stripeGate) await (typeof stripeGate === 'function' ? stripeGate(stripeCalls.length) : stripeGate);
@@ -2513,31 +2515,66 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
   // still reaches a response: a POST that finds the window held reports the account (taxRun read-only) and writes nothing.
   rateLimits.set('tax:lock', { key: 'tax:lock', window_start: new Date(Date.now() + 60000).toISOString(), count: 1 });
   const planted = await (await adminTax()).text();
-  // ROUND 5, R5-5. settings.status is an ENUM, so it is checked against the shapes it is allowed to be rather than
-  // scrubbed of the shapes a denylist knows: 'pending_sk_live_…' is not one of them and the whole value is replaced.
-  // That is the difference that matters — the previous behaviour reported 'pending_[redacted]', which is a leak of
-  // structure and depends on the pattern set having heard of the shape. This one does not.
-  ok('a key shape planted in a SUCCESS field (settings.status) never reaches the report: an enum that is not enum-shaped is replaced whole',
-     !planted.includes(PLANTED) && !planted.includes('pending_') && JSON.parse(planted).settings.status === '[unexpected]', planted.slice(0, 300));
-  ok('… including the copy of it that rides inside tax_ready_reason and the notes',
-     !JSON.stringify(JSON.parse(planted).notes).includes(PLANTED) && !String(JSON.parse(planted).tax_ready_reason).includes(PLANTED),
-     JSON.stringify({ reason: JSON.parse(planted).tax_ready_reason, notes: JSON.parse(planted).notes.slice(0, 2) }));
+  // ROUND 5, R5-5, RE-ROUTED BY ROUND 7 — and the change of route is the point, so it is written down rather than
+  // quietly edited. R5-5 asserted that a key planted in settings.status came back as '[unexpected]': the value reached
+  // the report and taxEnum replaced it whole. Round 7's settings validator asks the SHAPE question one step earlier —
+  // 'pending_sk_live_…' is not enum-shaped, so it is not a status this Worker can decide on — and the run now refuses
+  // before any of it is reported. The property R5-5 pinned (a Stripe-controlled string never reaches the report
+  // verbatim) is strictly stronger here: nothing Stripe said is in this response at all. taxEnum's own allow-list is
+  // pinned directly below, on the field that still reaches the report.
+  ok('a key shape planted in a SUCCESS field (settings.status) never reaches the report: it is not enum-shaped, so it is a SHAPE failure and the run refuses before reporting anything Stripe said',
+     !planted.includes(PLANTED) && !planted.includes('pending_')
+     && JSON.parse(planted).step === 'settings.read' && JSON.parse(planted).error.code === 'status_not_enum_shaped'
+     && JSON.parse(planted).error.type === 'unparseable_response', planted.slice(0, 300));
   ok('… and that report wrote nothing to Stripe: it is the locked-out form, which reads and reports', stripeTaxCalls.filter((c) => c.method === 'POST').length === 0, JSON.stringify(stripeTaxCalls.map((c) => c.method + ' ' + c.url)));
-  forgetTaxState();
 
-  // ── a Stripe answer nothing can parse: the run THROWS, and a throw is an outcome, not a missing heartbeat ──
-  // Round 2 fed it a settings body of literal null and got HTTP 500 with no tax:last_run row and no redaction.
+  // The allow-list itself, on a field that IS reported: a registration id is `taxreg_` plus alphanumerics, and a key
+  // shape is neither. Same assertion R5-5 made, on the route round 7 leaves open.
+  forgetTaxState(); stripeTaxCalls.length = 0;
+  fakeTaxSettings = { status: 'active', head_office: { address: { line1: '2450 Fondren Rd' } }, defaults: {} };
+  fakeTaxRegistrations.length = 0;
+  fakeTaxRegistrations.push({ id: 'taxreg_' + PLANTED, object: 'tax.registration', status: 'active', country: 'US', country_options: { us: { type: 'state_sales_tax', state: 'TX' } } });
+  rateLimits.set('tax:lock', { key: 'tax:lock', window_start: new Date(Date.now() + 60000).toISOString(), count: 1 });
+  const plantedId = await (await adminTax()).text();
+  ok('… and a key shape planted in a reported ENUM field (registration.id) is replaced WHOLE, not scrubbed of the shapes a denylist knows',
+     !plantedId.includes(PLANTED) && JSON.parse(plantedId).registration.id === '[unexpected]', plantedId.slice(0, 300));
+  ok('… including the copy of it that rides inside tax_ready_reason and the notes',
+     !JSON.stringify(JSON.parse(plantedId).notes).includes(PLANTED) && !String(JSON.parse(plantedId).tax_ready_reason).includes(PLANTED),
+     JSON.stringify({ reason: JSON.parse(plantedId).tax_ready_reason, notes: JSON.parse(plantedId).notes.slice(0, 2) }));
+  forgetTaxState(); fakeTaxRegistrations.length = 0;
+
+  // ── a Stripe answer nothing can parse: NAMED, not thrown — and the throw path is still there behind it ──
+  // Round 2 fed it a settings body of literal null and got HTTP 500 with no tax:last_run row and no redaction. Round 2's
+  // fix caught the TypeError; ROUND 7 stops it being a TypeError at all — a body of `null` fails validateTaxSettings,
+  // which is a named shape failure with the same 502, the same redaction and the same heartbeat. That is the whole
+  // claim of doctrine 1 stated as a test: after it, no Stripe BODY can throw in this run, because no field is read off
+  // one until a validator has said it is there.
   taxAccountBlank(); forgetTaxState(); stripeTaxCalls.length = 0;
   const settingsWas = fakeTaxSettings;
-  fakeTaxSettings = null;   // 200, body `null` — every field read off it throws
+  fakeTaxSettings = null;   // 200, body `null` — round 2 read fields off it and threw
   const threw = await adminTax();
   const threwBody = await threw.json();
-  ok('a Stripe answer that makes the run throw is a redacted 502 named exception, not a bare 500',
-     threw.status === 502 && threwBody.step === 'exception' && Object.keys(threwBody.error).join(',') === 'type,code,message', JSON.stringify(threwBody).slice(0, 240));
+  ok('a 200 whose body is literal null is a NAMED shape failure now, not a caught TypeError: same 502, and it says which shape',
+     threw.status === 502 && threwBody.step === 'settings.read' && threwBody.error.code === 'settings_not_an_object'
+     && Object.keys(threwBody.error).join(',') === 'type,code,message', JSON.stringify(threwBody).slice(0, 240));
   ok('… and it still leaves the heartbeat, so a loop dying this way is visible in the report',
-     /\|admin\/error:exception$/.test(String((taxStateRow('tax:last_run') || {}).window_start)), JSON.stringify(taxStateRow('tax:last_run')));
-  ok('… and the window is still held afterwards: a throw does not free the ceiling either',
+     /\|admin\/error:settings\.read$/.test(String((taxStateRow('tax:last_run') || {}).window_start)), JSON.stringify(taxStateRow('tax:last_run')));
+  ok('… and the window is still held afterwards: a failed run does not free the ceiling either',
      !!taxStateRow('tax:lock') && Date.parse(taxStateRow('tax:lock').window_start) > Date.now(), JSON.stringify(taxStateRow('tax:lock')));
+
+  // The exception path is no longer reachable from a Stripe body, so it is fired from the other side — a field of env
+  // that blows up mid-run — rather than declared dead. A backstop nothing can trigger is a backstop nobody can trust.
+  forgetTaxState(); stripeTaxCalls.length = 0;
+  fakeTaxSettings = settingsWas; taxAccountReady();
+  const boomEnv = new Proxy(on, { get(t, k) { if (k === 'STRIPE_TAX') throw new Error('the run blew up: ' + PLANTED); return t[k]; } });
+  const boom = await worker.fetch(new Request('https://api.test/admin/tax/setup', { method: 'POST', headers: { 'X-Admin-Key': 'super-secret-admin-key', 'CF-Connecting-IP': nextIp() } }), boomEnv, ctx);
+  const boomBody = await boom.json();
+  ok('a run that throws for any other reason is still the redacted 502 named exception, with the heartbeat and the held window',
+     boom.status === 502 && boomBody.step === 'exception' && !JSON.stringify(boomBody).includes(PLANTED)
+     && /\|admin\/error:exception$/.test(String((taxStateRow('tax:last_run') || {}).window_start))
+     && !!taxStateRow('tax:lock') && Date.parse(taxStateRow('tax:lock').window_start) > Date.now(),
+     JSON.stringify(boomBody).slice(0, 240));
+  forgetTaxState(); taxAccountBlank(); fakeTaxSettings = null;
   forgetTaxState();
   const blindReport = await adminTax('?dry=1', 'GET');
   ok('… while the read-only report answers 200 from D1 through the same outage — it never calls Stripe, so Stripe cannot break it',
@@ -2910,10 +2947,20 @@ console.log('\n── Round 5: what is validated is what is sent, an allow-list 
   fakeTaxRegistrations.push({ id: 'taxreg_ok1', object: 'tax.registration', status: 'active', country: 'US', country_options: { us: { type: 'state_sales_tax', state: 'TX' } } });
   rateLimits.set('tax:lock', { key: 'tax:lock', window_start: new Date(Date.now() + 60000).toISOString(), count: 1 });
   const enumReport = await (await adminTax5()).json();
-  ok('a settings status that is not enum-shaped is replaced WHOLE — an allow-list answers "is this one of the three", not "does this look like a secret"',
-     enumReport.settings.status === '[unexpected]', JSON.stringify(enumReport.settings));
+  // ROUND 7 MOVED THIS ONE FIELD EARLIER, and it is worth saying which half changed. R5-5 asserted that a status that
+  // is not enum-shaped is replaced WHOLE by taxEnum in the report. The settings validator now asks the same question
+  // one step before that — a status with a space and a tag in it is not a status this Worker can decide on — so the
+  // run refuses and nothing Stripe said is reported at all. taxEnum's allow-list is unchanged and is pinned directly
+  // on registration.id, above and below.
+  ok('a settings status that is not enum-shaped does not reach the report at all now: the shape question is asked in the validator, one step before taxEnum',
+     enumReport.step === 'settings.read' && enumReport.error.code === 'status_not_enum_shaped'
+     && !JSON.stringify(enumReport).includes('<script>'), JSON.stringify(enumReport).slice(0, 240));
+  forgetTaxState(); stripeTaxCalls.length = 0;
+  fakeTaxSettings = { status: 'active', head_office: { address: { line1: '2450 Fondren Rd' } }, defaults: {} };
+  rateLimits.set('tax:lock', { key: 'tax:lock', window_start: new Date(Date.now() + 60000).toISOString(), count: 1 });
+  const enumReport2 = await (await adminTax5()).json();
   ok('… while the id and type that ARE shaped as Stripe writes them come through untouched, so the report still says something',
-     enumReport.registration.id === 'taxreg_ok1' && enumReport.registration.type === 'state_sales_tax' && enumReport.registration.status === 'active', JSON.stringify(enumReport.registration));
+     enumReport2.registration.id === 'taxreg_ok1' && enumReport2.registration.type === 'state_sales_tax' && enumReport2.registration.status === 'active', JSON.stringify(enumReport2.registration));
   forgetTaxState(); taxAccountReady();
 
   /* ── R5-6: the three Stripe calls a customer waits behind are on a clock, and the two Session attempts share ONE ──
@@ -3234,6 +3281,269 @@ console.log('\n── Round 6: an unparseable 200 is not a measurement, the cap 
   }
 }
 
+console.log('\n── Round 7: a shape is checked at every level, every Stripe string is capped, and a redactor has no anchors ──');
+{
+  const on = { ...env, STRIPE_TAX: '1' };
+  const booking = { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 };
+  const bookWith = (c, e = on) => worker.fetch(new Request('https://api.test/create-booking', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() },
+    body: JSON.stringify(booking) }), e, c);
+  const bookAlone = () => bookWith({});
+  const adminTax7 = (q = '', method = 'POST') => worker.fetch(new Request('https://api.test/admin/tax/setup' + q,
+    { method, headers: { 'X-Admin-Key': 'super-secret-admin-key', 'CF-Connecting-IP': nextIp() } }), on, ctx);
+
+  stripeCalls.length = 0;
+  await bookWith({}, { ...env, STRIPE_TAX: '0' });
+  const OFF_BODY = stripeCalls[0].toString();
+  const TAXED_BODY = OFF_BODY + '&automatic_tax%5Benabled%5D=true&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Btax_code%5D=txcd_20030000';
+
+  const RealDate = Date;
+  let skew = 0;
+  class VirtualDate extends RealDate {
+    constructor(...a) { if (a.length === 0) super(RealDate.now() + skew); else super(...a); }
+    static now() { return RealDate.now() + skew; }
+  }
+  const advance = (ms) => { skew += ms; };
+  globalThis.Date = VirtualDate;
+
+  try {
+    const tick = async (cron = '*/5 * * * *') => {
+      const q = [];
+      await worker.scheduled({ cron, scheduledTime: Date.now() }, on, { waitUntil: (p) => q.push(Promise.resolve(p).catch(() => {})) });
+      await Promise.all(q);
+    };
+    const beat = () => String((taxStateRow('tax:last_run') || {}).window_start || '');
+    const readyRow = () => taxStateRow('tax:ready');
+    const settingsActive = () => { fakeTaxSettings = { status: 'active', head_office: { address: { line1: '2450 Fondren Rd' } }, defaults: { tax_behavior: 'exclusive', tax_code: 'txcd_20030000' } }; };
+    // A ready row, measured, with the re-measurement DUE — the state every "does a bad read drop the grace" probe needs.
+    const graced = () => { forgetTaxState(); cacheTaxReady(); ageTaxState('tax:ready', 11 * 60000); expireTaxWindow(); };
+
+    /* ── R7-1: the ROW is a shape too, and it is the level round 6 stopped one short of ──
+       Round 6 type-checked the containers — settings.status a string, `data` an Array — and then handed every row
+       inside that Array to isTexasSalesTax, which reads five nested fields on faith. A registration whose
+       country_options an API version renamed therefore came back as a confident FALSE: a MEASURED "this account has no
+       Texas registration", which turns tax off for the full TTL and, through taxRun, creates a second one. */
+    const DRIFTED = { id: 'taxreg_drift', object: 'tax.registration', status: 'active', country: 'US',
+      jurisdiction: { us: { type: 'state_sales_tax', state: 'TX' } } };   // country_options, renamed by a version bump
+    settingsActive(); graced();
+    fakeTaxRegistrations.length = 0; fakeTaxRegistrations.push({ ...DRIFTED });
+    const driftBefore = JSON.stringify(readyRow());
+    const driftLines = await captureLogs(() => tick());
+    ok('a registration row whose country_options an API version renamed is NOT a measured "no Texas registration": the ready row is untouched, byte for byte',
+       JSON.stringify(readyRow()) === driftBefore, JSON.stringify(readyRow()));
+    ok('… and the heartbeat says the shape failed rather than that Texas is missing', /\|tax-cron\/registrations_unparseable$/.test(beat()), beat());
+    const driftLog = JSON.parse(driftLines.find((l) => l.includes('"tax_measure":"failed"')) || '{}');
+    ok('… and the log line names WHICH row and WHICH field, because "unparseable" alone is not something an operator can act on',
+       driftLog.shape === 'row_0_country_options_missing', JSON.stringify(driftLog));
+    stripeCalls.length = 0;
+    await bookAlone();
+    ok('… so the next order is TAXED on the grace — reverting the row validator sells it untaxed instead',
+       stripeCalls[0].toString() === TAXED_BODY, stripeCalls[0].toString());
+
+    forgetTaxState(); expireTaxWindow();
+    await tick();
+    ok('… and with no ready row behind it the same row is UNMEASURED (count 2) on the short negative TTL, not a measured no',
+       (readyRow() || {}).count === 2 && /\|registrations_unparseable$/.test(String((readyRow() || {}).window_start)), JSON.stringify(readyRow()));
+
+    /* The other half of the same read, and the one that is not undoable: the SETUP path. Reverting round 6's fix was
+       measured to create a SECOND Texas registration, because an unreadable list came out of the old
+       `Array.isArray ? … : []` as zero rows, which is indistinguishable from "there is no Texas registration". */
+    settingsActive(); forgetTaxState(); stripeTaxCalls.length = 0;
+    fakeTaxRegistrations.length = 0; fakeTaxRegistrations.push({ ...DRIFTED });
+    const driftedSetup = await (await adminTax7()).json();
+    ok('an admin setup run against a drifted registration list creates NOTHING: a POST on an unmeasured absence is how a second, non-undoable Texas registration is made',
+       stripeTaxCalls.filter((c) => c.method === 'POST').length === 0 && driftedSetup.step === 'registrations.read:active'
+       && driftedSetup.error.code === 'row_0_country_options_missing' && driftedSetup.error.type === 'unparseable_response',
+       JSON.stringify({ posts: stripeTaxCalls.filter((c) => c.method === 'POST').length, step: driftedSetup.step, code: driftedSetup.error && driftedSetup.error.code }));
+
+    settingsActive(); forgetTaxState(); stripeTaxCalls.length = 0;
+    fakeTaxRegistrations.length = 0; fakeTaxHasMore = true;
+    const pagedSetup = await (await adminTax7()).json();
+    fakeTaxHasMore = false;
+    ok('… and a list with a page this run did not read creates nothing either: "I did not look" is not "there is none"',
+       stripeTaxCalls.filter((c) => c.method === 'POST').length === 0
+       && (pagedSetup.notes || []).some((n) => n.includes('registration: NOT created') && n.includes('has_more')),
+       JSON.stringify({ posts: stripeTaxCalls.filter((c) => c.method === 'POST').length, notes: pagedSetup.notes }));
+
+    /* ── R7-2: has_more is a BOOLEAN, and a truthy something-else is the page failing to say ── */
+    for (const [what, value] of [['the string "true"', 'true'], ['the number 1', 1]]) {
+      settingsActive(); graced();
+      fakeTaxRegistrations.length = 0; fakeTaxHasMore = value;
+      const before = JSON.stringify(readyRow());
+      await tick();
+      ok('has_more as ' + what + ' is not a page saying anything: unmeasured, and the ready row is untouched',
+         JSON.stringify(readyRow()) === before && /\|tax-cron\/registrations_unparseable$/.test(beat()), JSON.stringify(readyRow()) + ' ' + beat());
+    }
+    fakeTaxHasMore = false;
+
+    /* ── R7-3: case and whitespace on settings.status are SHAPE, not value ──
+       ' active ' and 'Active' are not the enum Stripe documents. Reading either as "not active" is a measured no —
+       tax off, for the full TTL — on the strength of a string this Worker does not recognise. */
+    for (const [what, value] of [["a status with whitespace (' active ')", ' active '], ["a status with a capital ('Active')", 'Active']]) {
+      graced();
+      fakeTaxSettings = { status: value, head_office: { address: { line1: '2450 Fondren Rd' } }, defaults: {} };
+      fakeTaxRegistrations.length = 0; fakeTaxRegistrations.push({ ...TX_LIVE });
+      const before = JSON.stringify(readyRow());
+      await tick();
+      ok(what + ' is a shape failure, not a measured no: the ready row is untouched and the grace holds',
+         JSON.stringify(readyRow()) === before && /\|tax-cron\/settings_unparseable$/.test(beat()), JSON.stringify(readyRow()) + ' ' + beat());
+      stripeCalls.length = 0;
+      await bookAlone();
+      ok('… so the order is still taxed: drift in how the field is WRITTEN is not evidence the account stopped collecting',
+         stripeCalls[0].toString() === TAXED_BODY, stripeCalls[0].toString());
+      forgetTaxState(); expireTaxWindow();
+      await tick();
+      ok('… while with nothing to grace it fails CLOSED as unmeasured (count 2), which is the only direction fail-closed may go',
+         (readyRow() || {}).count === 2 && /\|settings_unparseable$/.test(String((readyRow() || {}).window_start)), JSON.stringify(readyRow()));
+    }
+    settingsActive(); taxAccountReady();
+
+    /* ── R7-4: the API version is pinned on every call, including the one the customer waits behind ── */
+    forgetTaxState(); expireTaxWindow();
+    stripeTaxCalls.length = 0; stripeCallHeaders.length = 0; stripeCalls.length = 0;
+    await tick();
+    await bookAlone();
+    const pinned = (h) => (h || {})['Stripe-Version'] === stripeApiVersion({});
+    ok('every Stripe call carries the pinned Stripe-Version — the tax reads and the Checkout Session alike, so a shape this code validates is a shape of one named version',
+       stripeTaxCalls.length > 0 && stripeTaxCalls.every((c) => pinned(c.headers))
+       && stripeCallHeaders.length > 0 && stripeCallHeaders.every(pinned),
+       JSON.stringify({ tax: stripeTaxCalls.length, sessions: stripeCallHeaders.length, seen: [...new Set([...stripeTaxCalls.map((c) => (c.headers || {})['Stripe-Version']), ...stripeCallHeaders.map((h) => h['Stripe-Version'])])] }));
+    ok('… and an override that is not version-shaped falls back to the pin instead of being sent: a typo in this one is Stripe refusing every call, checkout included',
+       stripeApiVersion({}) === '2024-06-20' && stripeApiVersion({ STRIPE_API_VERSION: '2025-01-27.acacia' }) === '2025-01-27.acacia'
+       && stripeApiVersion({ STRIPE_API_VERSION: 'latest' }) === '2024-06-20' && stripeApiVersion({ STRIPE_API_VERSION: 123 }) === '2024-06-20'
+       && stripeApiVersion({ STRIPE_API_VERSION: '' }) === '2024-06-20',
+       JSON.stringify(['latest', 123, '', '2025-01-27.acacia'].map((v) => stripeApiVersion({ STRIPE_API_VERSION: v }))));
+
+    /* ── R7-5: DOCTRINE 2 — every Stripe-controlled string that leaves this Worker is capped ──
+       Round 6 capped taxEnum and left taxError on bare taxRedact, so the one genuinely unbounded field on the tax path
+       — a Stripe message, which quotes back whatever was in the request — went whole into the 502 and into every CI
+       summary that prints it. Scrubbing a 200,000-character message leaves a 200,000-character message. */
+    const HUGE = 'z'.repeat(200000);
+    forgetTaxState();
+    taxFail = { on: '/tax/settings', method: 'GET', status: 500, body: { error: { type: 'e'.repeat(500), code: 'c'.repeat(500), message: HUGE } } };
+    const hugeRep = await (await adminTax7()).json();
+    taxFail = null;
+    ok('a 200,000-character Stripe message is 300 characters in the report, and type and code are 60: redaction and length are two questions and round 6 answered one',
+       hugeRep.error.message.length === 301 && hugeRep.error.code.length === 61 && hugeRep.error.type.length === 61
+       && JSON.stringify(hugeRep).length < 1500,
+       JSON.stringify({ message: hugeRep.error.message.length, code: hugeRep.error.code.length, type: hugeRep.error.type.length, whole: JSON.stringify(hugeRep).length }));
+
+    // The other end of doctrine 2: a Stripe object on its way into D1. A TEXT column has no length of its own, so the
+    // ceiling is here — and it is capText, not taxSafe: the buyer's own name and address are the point of the row and
+    // the redactor would corrupt them.
+    const bigEvt = JSON.stringify({ id: 'evt_cap_1', type: 'checkout.session.completed', data: { object: {
+      id: 'cs_cap_1', mode: 'payment', amount_total: '69500', currency: 'usd' + 'x'.repeat(50),
+      customer_email: 'c'.repeat(400) + '@example.com',
+      customer_details: { name: 'N'.repeat(5000), phone: 'p'.repeat(500) },
+      metadata: { kind: 'class_booking', sku: 'S'.repeat(500), class_name: 'C'.repeat(5000), qty: '1', organization: 'O'.repeat(5000), notes: 'n'.repeat(9000) } } } });
+    const capTs = Math.floor(Date.now() / 1000);
+    const capHook = await hook(bigEvt, 't=' + capTs + ',v1=' + await sign(bigEvt, capTs));
+    await Promise.all(waits.splice(0));
+    const capRow = orderRows.find((o) => o.stripe_session_id === 'cs_cap_1');
+    ok('a Stripe object carrying unbounded strings lands in D1 BOUNDED, field by field, with the numbers typed as numbers',
+       capHook.status === 200 && !!capRow && capRow.customer_name.length === 200 && capRow.customer_email.length === 320
+       && capRow.item_name.length === 200 && capRow.sku.length === 100 && capRow.customer_phone.length === 40
+       && capRow.organization.length === 200 && capRow.notes.length === 2000 && capRow.currency.length === 10
+       && capRow.amount_total === 69500,
+       JSON.stringify(capRow && Object.fromEntries(Object.entries(capRow).map(([k, v]) => [k, typeof v === 'string' ? v.length : v]))));
+
+    /* ── R7-6: DOCTRINE 3 — a redactor matches ANYWHERE or it does not match ──
+       Every rule, four ways: bare, glued to a word character on the LEFT (which is what a Stripe message actually looks
+       like — `param_…`, `settings_status_…`), glued on the right, and inside a JSON string. Round 6 removed \b from the
+       prefix rules and then added three more rules WITH it, eleven lines under the comment saying not to. ENDMARK is
+       the anti-vacuity guard: if the cap truncated the line instead of the redactor removing the token, the assertion
+       fails rather than passing for the wrong reason. */
+    const redactThrough = async (msg) => {
+      forgetTaxState();
+      taxFail = { on: '/tax/settings', method: 'GET', status: 500, body: { error: { type: 'api_error', code: '', message: msg } } };
+      const r = await (await adminTax7()).json();
+      taxFail = null;
+      return String((r.error && r.error.message) || '');
+    };
+    const RULES = {
+      stripe_secret: ['sk', 'live', '51NoTaReAlKeY0123456789'].join('_'),
+      stripe_whsec: 'whsec_' + 'A'.repeat(24),
+      openai_anthropic: 'sk-' + 'A'.repeat(24),
+      bearer: 'Bearer ' + 'A'.repeat(24),
+      google: 'AIzaSy' + 'B'.repeat(33),
+      aws: 'AKIA' + 'C'.repeat(16),
+      slack: 'xoxb-' + '111111111111-abcdefABCDEF',   // split, as the round-5 block splits it: a synthetic shape must not read as a literal to the credential scanner
+      jwt: ['eyJhbGciOiJIUzI1NiJ9', 'eyJzdWIiOiIxIn0', 'abc_DEF-123'].join('.'),
+      github: 'ghp_' + 'D'.repeat(36),
+      gitlab: 'glpat-' + 'E'.repeat(20),
+      revenuecat: 'appl_' + 'F'.repeat(20),
+      twilio: 'AC' + 'a1'.repeat(16),
+      hex_after_label: 'api_key=' + 'f'.repeat(40),
+      hex_before_label: 'f'.repeat(40) + '_secret',
+    };
+    const leaked = [], truncated = [];
+    for (const [name, token] of Object.entries(RULES)) {
+      const out = await redactThrough('S0 ' + [token, 'param_' + token, token + 'Z', '{"p":"' + token + '"}'].join(' ') + ' ENDMARK');
+      if (!out.includes('ENDMARK')) truncated.push(name);
+      else if (out.includes(token)) leaked.push(name);
+    }
+    ok('all ' + Object.keys(RULES).length + ' redaction rules match ANYWHERE — bare, glued left, glued right, and inside a JSON string — and none of the four was merely truncated',
+       leaked.length === 0 && truncated.length === 0, 'leaked: [' + leaked.join(', ') + '] truncated: [' + truncated.join(', ') + ']');
+
+    // The other direction, and the reason the rules are not simply widened until everything matches: a redactor that
+    // eats the report is a redactor nobody can read. A bare sha1 owns no label, prose is prose, and a Stripe id is the
+    // thing an operator is here to look at.
+    const KEEP = ['da39a3ee5e6b4b0d3255bfef95601890afd80709', 'Your card was declined. Please contact your bank about this order.',
+      'cs_test_a1b2c3', 'cus_QabcDEF123', 'price_1PabcXYZ', 'txr_1Pabc9', 'taxreg_1Nabc7'];
+    const kept = await redactThrough('S0 ' + KEEP.join(' ') + ' ENDMARK');
+    ok('… and nothing else is: a bare 40-character sha1 with no label beside it, ordinary prose, and the Stripe ids the report exists to show all come through intact',
+       kept.includes('ENDMARK') && KEEP.every((k) => kept.includes(k)), 'missing: ' + KEEP.filter((k) => !kept.includes(k)).join(', '));
+
+    // The Session is a Stripe shape too, and it is the one handed to the customer. A 200 whose id or url is not a
+    // string is a checkout that redirects the browser to `undefined` with no error behind it.
+    for (const [what, body] of [['no url at all', { id: 'cs_x' }], ['a url that is not a string', { id: 'cs_x', url: 42 }],
+                                ['a url that is not https', { id: 'cs_x', url: 'javascript:alert(1)' }], ['no id', { url: 'https://checkout.stripe.com/pay/x' }]]) {
+      taxAccountReady(); forgetTaxState(); cacheTaxReady();
+      sessionFail = { n: 1, status: 200, body };
+      const bad = await bookAlone();
+      sessionFail = null;
+      const badBody = await bad.json();
+      ok('a 200 Checkout Session with ' + what + ' is a clean 502, not a redirect to undefined',
+         bad.status === 502 && badBody.error === 'Could not start checkout. Please try again or call us.', bad.status + ' ' + JSON.stringify(badBody));
+    }
+
+    /* ── R7-7: the streak is a counter of refusals, so the ALARM needs the other half of the fault measured ──
+       One anonymous address can drive the streak past three on a perfectly healthy account: `a+tax-1@x.com` five
+       times, zero completed orders, tax endpoints answering fine. The note round 6 printed for that asserted orders
+       were completing untaxed and the endpoints were down — neither of which a counter of refused Sessions carries. */
+    const REFUSAL7 = { type: 'invalid_request_error', code: 'tax_registration_incomplete', message: 'Stripe Tax is not active on this account (automatic_tax).' };
+    const taxCarrying7 = (params) => !!(params && params.get('automatic_tax[enabled]'));
+    taxAccountReady(); settingsActive(); forgetTaxState(); cacheTaxReady(); stripeTaxCalls.length = 0;
+    // The window is held for the whole run, so the healthy account is never re-measured and the fresh ready row stands.
+    rateLimits.set('tax:lock', { key: 'tax:lock', window_start: new Date(Date.now() + 60000).toISOString(), count: 1 });
+    const hq = [];
+    const hctx = { waitUntil: (p) => { hq.push(Promise.resolve(p).catch(() => {})); return p; } };
+    sessionFail = { n: 99, status: 400, when: taxCarrying7, body: { error: REFUSAL7 } };
+    for (let i = 0; i < 5; i++) { await bookWith(hctx); await Promise.all(hq.splice(0)); }
+    sessionFail = null;
+    const healthy = await (await adminTax7('?dry=1', 'GET')).json();
+    ok('five refused tax-carrying Sessions on a HEALTHY account: the streak is reported as the number it is — 5 — beside a readiness that was measured',
+       healthy.tax_fallback_streak === 5 && healthy.tax_readiness === 'measured' && healthy.tax_ready === true,
+       JSON.stringify({ streak: healthy.tax_fallback_streak, readiness: healthy.tax_readiness, ready: healthy.tax_ready }));
+    ok('… and NO note and NO alarm, because a counter of refusals does not carry "orders completed untaxed" or "the endpoints are down" — the second witness is missing',
+       healthy.tax_fallback_alarm === false && !(healthy.notes || []).some((n) => n.includes('tax_fallback_streak')),
+       JSON.stringify(healthy.notes));
+
+    // And the alarm still fires when the second half IS measured: same streak, a readiness nothing can refresh.
+    ageTaxState('tax:ready', 11 * 60000);
+    const doubled = await (await adminTax7('?dry=1', 'GET')).json();
+    ok('… while the same streak beside a ready row nothing has been able to refresh IS the double fault, and says so in words that claim only that',
+       doubled.tax_fallback_alarm === true && doubled.tax_readiness === 'kept_ready'
+       && (doubled.notes || []).some((n) => n.includes('tax_fallback_streak is 5') && n.includes('readiness is UNMEASURED') && !n.includes('completed WITHOUT tax')),
+       JSON.stringify({ alarm: doubled.tax_fallback_alarm, readiness: doubled.tax_readiness, notes: doubled.notes }));
+    forgetTaxState(); taxAccountReady();
+  } finally {
+    globalThis.Date = RealDate;
+    sessionFail = null; priceHang = null; taxFail = null; taxHang = null; fakeTaxHasMore = false;
+    taxAccountReady(); forgetTaxState();
+  }
+}
+
 console.log('\n── Round 6: the numbers in the comments are the numbers this suite asserts, and the names are the names in the code ──');
 {
   /* R6-6. Prose that no test reads drifts, and the round-4 reviewer's numbers had been carried in a source comment
@@ -3272,6 +3582,32 @@ console.log('\n── Round 6: the numbers in the comments are the numbers this 
   ok('the README carries the live-probe residual verbatim, with the command that answers it',
      readme.includes('Before the first live Checkout with automatic_tax, run one Session against the Stripe TEST')
      && readme.includes('node mast-backend/scripts/probe-tax-refusal.mjs'), 'residual present');
+
+  /* ROUND 7. The same guard, on the three doctrines: prose that no test reads drifts, and the README described the
+     round-6 container-only checks for as long as they were the truth and no longer. Cheapest possible assertions —
+     substrings, checked in the run that produces the behaviour. */
+  ok('the README states the three doctrines as the rules of this module, and names the validators',
+     readme.includes('The three rules of this module') && readme.includes('at every level')
+     && readme.includes('validateTaxSettings') && readme.includes('validateTaxRegistrations')
+     && readme.includes('matches anywhere or it does not match'), 'doctrines present');
+  ok('… and the API-version pin, with the UNVERIFIED said plainly rather than implied',
+     readme.includes('Stripe-Version: 2024-06-20') && readme.includes('no Stripe version was recorded anywhere in this repository')
+     && readme.includes('UNVERIFIED against the account'), 'pin present');
+  ok('… and it no longer describes the readiness check as the container pair round 6 left behind',
+     !readme.includes('`settings.status` a\n  string, `registrations.data` an array')
+     && readme.includes('and — for a `US`\n  row — `country_options.us.state` and `.type` present and strings'), 'row schema described');
+  ok('… and the cache.stale line in the report table says a re-measurement is overdue, not that the trigger is dead',
+     readme.includes('a `stale: true` here means a **re-measurement is overdue**')
+     && !readme.includes('a `stale: true` here means the five-minute trigger is overdue'), 'stale wording');
+
+  ok('worker.js carries no \\b in taxRedact: every rule matches anywhere, and the lookahead is what the boundary was for',
+     !/\\b/.test((/function taxRedact[\s\S]*?\n}/.exec(src) || [''])[0].split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n')),
+     JSON.stringify(((/function taxRedact[\s\S]*?\n}/.exec(src) || [''])[0].split('\n').filter((l) => !/^\s*\/\//.test(l) && /\\b/.test(l))).slice(0, 3)));
+
+  ok('smoke-worker.yml prints the streak always and warns only on the corroborated alarm the Worker reports',
+     smoke.includes("d.get('tax_fallback_alarm') is True") && smoke.includes('consecutive tax-carrying Checkout Sessions')
+     && !smoke.includes('Orders are being sold untaxed right now'),
+     JSON.stringify((/if d\.get\('tax_fallback_alarm'\)[^\n]*/.exec(smoke) || [''])[0]));
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
