@@ -4418,7 +4418,7 @@ console.log('\n── Round 7: a shape is checked at every level, every Stripe s
     const doubled = await (await adminTax7('?dry=1', 'GET')).json();
     ok('… while the same streak beside a ready row nothing has been able to refresh IS the double fault, and says so in words that claim only that',
        doubled.tax_fallback_alarm === true && doubled.tax_readiness === 'kept_ready'
-       && (doubled.notes || []).some((n) => n.includes('tax_fallback_streak is 5') && n.includes('readiness is UNMEASURED') && !n.includes('completed WITHOUT tax')),
+       && (doubled.notes || []).some((n) => n.includes('tax_fallback_streak is 5') && n.includes('readiness is not confirmed') && !n.includes('completed WITHOUT tax')),
        JSON.stringify({ alarm: doubled.tax_fallback_alarm, readiness: doubled.tax_readiness, notes: doubled.notes }));
     forgetTaxState(); taxAccountReady();
   } finally {

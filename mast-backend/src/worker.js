@@ -143,22 +143,24 @@ export default {
     // was entered". An event carrying a cron this Worker does not know is a wrong wrangler.toml, and treating it as
     // proof the tax loop is alive is how a renamed schedule would report a healthy loop while the tick it was supposed
     // to drive never ran. It still gets the cheap tick; it does not get to write the liveness row.
-    const tick = (trigger, fromCron) => {
+    const tick = async (trigger, fromCron) => {
       if (String(env.STRIPE_TAX) === '1') ctx.waitUntil(taxTick(env, trigger, fromCron).catch((e) => console.error('[Tax] tick failed:', e.message)));
       else {
         // The scheduler's liveness is a fact about Cloudflare, not about the STRIPE_TAX switch: stamp the cron row so a
         // Worker with the switch off reports a LIVE loop that is skipping, not a dead one (round 9 verifier).
-        if (fromCron) ctx.waitUntil(taxCronStamp(env, trigger).catch((e) => console.error('[Tax] cron stamp failed:', e.message)));
+        // Awaited in place (one D1 write) rather than queued: the stamp must not become the last promise a harness
+        // sees on the daily branch, and it must land before the log line that says the tick was skipped.
+        if (fromCron) await taxCronStamp(env, trigger);
         console.log(JSON.stringify({ tax_tick: 'skipped', reason: 'stripe_tax_off' }));
       }
     };
     if (cron === TAX_TICK_CRON) {
-      tick('tax-cron', true);
+      await tick('tax-cron', true);
       return;
     }
     if (cron !== DAILY_CRON) {
       console.log(JSON.stringify({ unknown_cron: cron }));
-      tick('unknown-cron', false);
+      await tick('unknown-cron', false);
       return;
     }
     ctx.waitUntil(runRetention(env).catch((e) => console.error('[Retention] failed:', e.message)));
@@ -183,7 +185,7 @@ export default {
     // and nobody's attention. The */5 tick above is what keeps the measurement WARM; this daily run does the same work
     // and is the backstop if that trigger ever stops firing. Both are where the Stripe calls belong: off the customer's
     // path entirely. A checkout can only ENQUEUE the same work behind its response.
-    tick('cron', true);
+    await tick('cron', true);
   },
 };
 
