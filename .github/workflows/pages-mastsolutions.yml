@@ -22,6 +22,11 @@ on:
       - 'images/**'
       - 'vendor/**'
       - 'scripts/assemble-atlas.py'
+      # the MAST page's inputs — so the drift check below fires on the change most likely to cause drift
+      - 'scripts/assemble-cinematic.py'
+      - 'scripts/cinematic_shell.py'
+      - 'scripts/build_manifest.py'
+      - 'mastsolutions-tesla.html'
 permissions:
   contents: read
   pages: write
@@ -39,6 +44,19 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: The page being published is the assembler's output
+        # PR #72 hand-edited the built page, shipped, and ran none of the assembler's asserts on the way out. Rebuilding
+        # here and diffing the result is what makes those asserts a condition of publishing. Only the two files that are
+        # pure functions of the source are compared: dist/mastsolutions/sitemap.xml carries <lastmod>today</lastmod>, so
+        # it differs on any day after the commit and would fail this every time (measured 2026-09-08 by building under a
+        # faked date: those two came out byte-identical, the sitemap did not).
+        run: |
+          set -e
+          python3 scripts/assemble-cinematic.py
+          git diff --exit-code -- mastsolutions.html dist/mastsolutions/index.html || {
+            echo "::error::the built page does not match scripts/assemble-cinematic.py — hand edits to mastsolutions.html or dist/mastsolutions/index.html are overwritten; change the assembler, re-run it and commit its output"
+            exit 1
+          }
       - name: Stage the site (index.html, manifest, the page's assets)
         run: |
           set -e
@@ -92,13 +110,16 @@ jobs:
           # The Atlas Glinn cinematic pages published here for review only, at /preview/atlasglinn/ — atlasglinn.com is
           # still WordPress and nothing here touches it. Every page is served noindex/nofollow with its canonical and
           # og:url stripped, and robots.txt disallows /preview/, so this host never competes with the live site.
-          # The twelve pages scripts/assemble-atlas.py generates, plus the three hand-authored ones it does not.
+          # The twelve pages scripts/assemble-atlas.py generates, the three hand-authored ones it does not, and
+          # atlas-compare.html — the side-by-side sheet (scripts/compare-atlas.py), which is how the current site and
+          # the new one get looked at next to each other. The resolver follows each page's <link> to
+          # vendor/atlasglinn-shared-styles.css and copies it, so the preview carries the live theme's type scale.
           RESOLVER="${RUNNER_TEMP:-/tmp}/resolve-assets.py"
           PREVIEW=stage/preview/atlasglinn
           pages=""
           for f in index.html executive-protection.html residential-protection.html disaster-recovery.html training.html \
                    technology.html cuas-aerodefense.html uas.html about.html careers.html contact.html ep-app.html \
-                   signup.html privacy.html terms.html; do
+                   signup.html privacy.html terms.html atlas-compare.html; do
             [ -f "$f" ] && pages="$pages $f"
           done
           test -n "$pages" || { echo "::error::no Atlas pages at the repo root; nothing to preview"; exit 1; }

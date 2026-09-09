@@ -31,7 +31,7 @@ CSS_A = r"""
   .reticle::after { left:50%; top:0; width:1px; height:100%; transform:translateX(-50%); }
   .reticle-ring { position:absolute; inset:10px; border:1px solid var(--gold); border-radius:50%; opacity:.7; }
   .reticle-dot { position:absolute; top:50%; left:50%; width:3px; height:3px; background:var(--gold-bright); border-radius:50%; transform:translate(-50%,-50%); }
-  #three-canvas { position:fixed; inset:0; width:100vw; height:100vh; z-index:1; pointer-events:none; }
+  #three-canvas { position:fixed; inset:0; width:100vw; height:100vh; height:100svh; z-index:1; pointer-events:none; }
   /* Photography layer: one still per chapter, ghosted behind the 3D emblem and the grain */
   #photos { position:fixed; inset:0; z-index:2; pointer-events:none; }
   /* Backdrop crossfade: the outgoing photograph leaves faster than the incoming one arrives, so the two never stack to a brighter
@@ -57,8 +57,9 @@ CSS_A = r"""
   .letterbox-top, .letterbox-bottom { position:fixed; left:0; right:0; height:0; background:#000; z-index:50; pointer-events:none; transition:height .6s cubic-bezier(.7,.15,.3,.95); }
   .letterbox-top { top:0; } .letterbox-bottom { bottom:0; }
   body.cinema .letterbox-top, body.cinema .letterbox-bottom { height:50px; }
-  #intro-seq { position:fixed; inset:0; z-index:9000; background:#000; display:flex; align-items:center; justify-content:center; flex-direction:column; font-family:'Cinzel',serif; pointer-events:none; transition:opacity 1s ease-out; }
-  #intro-seq.done { opacity:0; }
+  #intro-seq { position:fixed; inset:0; z-index:9000; background:#000; display:flex; align-items:center; justify-content:center; flex-direction:column; font-family:'Cinzel',serif; pointer-events:auto; transition:opacity 1s ease-out; }   /* a tap ends the splash; on a phone six seconds of black is where a visitor leaves */
+  #intro-seq.done { opacity:0; }   /* fades but keeps taking hits: releasing them here is what let the dismissing tap's click reach the CTA underneath */
+  #intro-seq.gone { pointer-events:none; }   /* released once that click can no longer arrive */
   .intro-credit { position:relative; z-index:1; font-size:.75rem; letter-spacing:.6em; color:var(--text-dim); opacity:0; animation:introFade 2.8s ease-in-out forwards; text-transform:uppercase; }
   /* The gold sparkle ring from the atlasglinn.com intro, drawn around the wordmark; the script fades it in after the wordmark and out before the splash ends. */
   .intro-ring { position:absolute; inset:0; width:100%; height:100%; z-index:0; opacity:0; pointer-events:none; }
@@ -75,13 +76,14 @@ CSS_A = r"""
   .chap-link:hover, .chap-link.active { color:var(--gold-champagne); border-color:rgba(201,168,76,.35); background:rgba(201,168,76,.04); }
   .chap-link.active::before, .chap-link:hover::before { width:28px; background:var(--gold); }
   .hud { position:fixed; z-index:20; font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.3em; opacity:.6; text-decoration:none; }
-  .hud.tl { top:1.2rem; left:1.8rem; color:var(--gold-champagne); }
-  .hud.tr { top:1.2rem; right:15rem; color:var(--text-mute); }
-  .hud.bl { bottom:1.2rem; left:1.8rem; color:var(--text-mute); }
-  .hud.br { bottom:1.2rem; right:1.8rem; color:var(--gold); }
+  /* head() asks for viewport-fit=cover, so the four fixed corners keep clear of the notch, the Dynamic Island and the home indicator. */
+  .hud.tl { top:calc(1.2rem + env(safe-area-inset-top,0px)); left:calc(1.8rem + env(safe-area-inset-left,0px)); color:var(--gold-champagne); }
+  .hud.tr { top:calc(1.2rem + env(safe-area-inset-top,0px)); right:15rem; color:var(--text-mute); }
+  .hud.bl { bottom:calc(1.2rem + env(safe-area-inset-bottom,0px)); left:calc(1.8rem + env(safe-area-inset-left,0px)); color:var(--text-mute); }
+  .hud.br { bottom:calc(1.2rem + env(safe-area-inset-bottom,0px)); right:calc(1.8rem + env(safe-area-inset-right,0px)); color:var(--gold); }
   .progress { position:fixed; top:0; left:0; height:2px; width:0; background:linear-gradient(90deg, var(--gold-antique), var(--gold-bright), var(--copper)); z-index:100; box-shadow:0 0 14px rgba(201,168,76,.7); transition:width .1s linear; }
   .content { position:relative; z-index:5; }
-  section.panel { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:6rem 2rem; text-align:center; position:relative; }
+  section.panel { min-height:100vh; min-height:100svh; display:flex; align-items:center; justify-content:center; padding:6rem 2rem; text-align:center; position:relative; }
   section.panel > div { width:100%; max-width:1200px; }
   .eyebrow { font-family:'Share Tech Mono',monospace; color:var(--gold-champagne); letter-spacing:.45em; font-size:.75rem; text-transform:uppercase; margin-bottom:1.6rem; opacity:0; transform:translateY(20px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
   .eyebrow.in { opacity:1; transform:translateY(0); }
@@ -245,7 +247,9 @@ const mobile = matchMedia('(max-width: 768px)').matches;
 
 // ── Trailer intro ──
 const intro = document.getElementById('intro-seq');
+let heroOpen = false;
 const openHero = () => {
+  if (heroOpen) return; heroOpen = true;
   intro.remove();
   document.body.classList.add('cinema');
   setTimeout(() => document.body.classList.remove('cinema'), 2200);
@@ -257,6 +261,10 @@ const openHero = () => {
 };
 if (reduce) { openHero(); } else {
   setTimeout(() => { intro.classList.add('done'); setTimeout(openHero, 1000); }, 4800);
+  // The splash script in the markup owns the dismissing gesture and has already started the fade; it holds the overlay
+  // hit-testable until the tap's click can no longer arrive, so the hero opens no sooner than that.
+  if (window.__introSkip) setTimeout(openHero, 450);
+  else intro.addEventListener('introskip', () => setTimeout(openHero, 450), { once: true });
 }
 // Gold ring (Brockmann, 2026-09-04: "the gold around the Atlas Glinn is what I was talking about ... take some of the gold shimmer
 // and fade it in and fade it out"): the sparkle ring of the current atlasglinn.com intro — a tilted, slowly turning, pulsing ring
@@ -565,7 +573,27 @@ def chrome(credits, wordmark, photos, hud_tl, hud_tl_href, hud_bl, hud_br, chapt
     ph = '\n'.join(layer(e) for e in photos)
     nav = '\n'.join('  <a href="#%s" class="chap-link">%s</a>' % (cid, label) for cid, label in chapters)
     return ('<div id="intro-seq">\n  <div class="intro-credit">%s</div>\n  <div class="intro-credit wordmark">%s</div>\n'
-            '  <div class="intro-credit">%s</div>\n  <canvas class="intro-ring" id="intro-ring" aria-hidden="true"></canvas>\n</div>\n\n<canvas id="three-canvas"></canvas>\n<div id="photos">\n%s\n</div>\n'
+            '  <div class="intro-credit">%s</div>\n  <canvas class="intro-ring" id="intro-ring" aria-hidden="true"></canvas>\n</div>\n'
+            # The splash dismisses itself here rather than in the module, which cannot run until three.module.js has
+            # downloaded; on a phone on cellular that is seconds of black where a tap does nothing. It listens on the
+            # overlay's own click, so the overlay is the click target and the gesture cannot reach what sits under it,
+            # and it cancels touchend so no click is synthesised at all. The overlay keeps taking hits until that window
+            # has passed. The module hears the skip through the introskip event, or through __introSkip if it was still
+            # downloading; either way the splash goes away with three.js dead.
+            '<script>(function(){var i=document.getElementById("intro-seq");if(!i)return;var done=false;'
+            'function skip(e){if(done)return;done=true;'
+            'if(e&&e.type==="touchend"&&e.cancelable)e.preventDefault();'
+            'window.__introSkip=1;i.classList.add("done");'
+            'setTimeout(function(){i.classList.add("gone")},450);'
+            'i.dispatchEvent(new CustomEvent("introskip"))}'
+            'i.addEventListener("click",skip);i.addEventListener("touchend",skip);'
+            # The key listener lives only as long as the splash does: once the splash is done by ANY path (a tap, a key, or the
+            # module's own timer) or the overlay is gone from the DOM, the next key press removes the listener and is NOT
+            # cancelled — otherwise the first Enter, Space or Escape typed into a form after the intro would be swallowed.
+            'function onKey(e){if(done||!i.isConnected||i.classList.contains("done")){document.removeEventListener("keydown",onKey);return}'
+            'if(e.key==="Enter"||e.key===" "||e.key==="Escape"){e.preventDefault();skip(e);document.removeEventListener("keydown",onKey)}}'
+            'document.addEventListener("keydown",onKey)})();</script>\n\n'
+            '<canvas id="three-canvas"></canvas>\n<div id="photos">\n%s\n</div>\n'
             '<div class="grain"></div>\n<div class="vignette"></div>\n<div class="letterbox-top"></div>\n<div class="letterbox-bottom"></div>\n'
             '<div class="progress" id="progress"></div>\n<div class="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>\n\n'
             '<a class="hud tl" href="%s">%s</a>\n<div class="hud tr" id="hud-section">SECTION 01 / %02d</div>\n'

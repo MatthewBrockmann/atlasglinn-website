@@ -3,420 +3,415 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="5176ad951249">
-<title>Atlas Glinn | Executive Protection, Risk Management & Training — Houston, TX</title>
-<meta name="description" content="Elite security services by Atlas Glinn: dignitary and executive protection, residential security, secure transport, disaster recovery, AI surveillance and counter-drone solutions, and tactical training through MAST Solutions. Houston, Texas.">
-<link rel="canonical" href="https://atlasglinn.com/">
-<link rel="icon" href="images/atlas/Atlas-Glinn-Logo-Rev1-2-e1744918824251.png" type="image/png">
-<meta property="og:title" content="Atlas Glinn | Executive Protection, Risk Management & Training — Houston, TX">
-<meta property="og:description" content="Elite security services by Atlas Glinn: dignitary and executive protection, residential security, secure transport, disaster recovery, AI surveillance and counter-drone solutions, and tactical training through MAST Solutions. Houston, Texas.">
-<meta property="og:image" content="https://atlasglinn.com/images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg">
+<meta name="build" content="19c68e493f61">
+<title>Atlas Glinn - Elite Security Solutions, Risk Management & Training</title>
+<meta name="description" content="Elite security services by Atlas Glinn: dignitary protection, residential security, armed drivers. Safeguard what matters with advanced technology and expert training.">
+<meta name="keywords" content="executive protection Houston, security company Houston TX, dignitary protection, bodyguard services, risk management, Atlas Glinn, MAST Solutions, AI surveillance, counter-drone">
+<meta property="og:title" content="Atlas Glinn | Elite Security Solutions & Executive Protection — Houston, TX">
+<meta property="og:description" content="Elite security services by Atlas Glinn: dignitary protection, residential security, armed drivers. Safeguard what matters with advanced technology and expert training.">
+<meta property="og:image" content="https://atlasglinn.com/wp-content/uploads/2025/02/Atlas-Glinn-Logo-Rev1-1.png">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://atlasglinn.com/">
-<meta name="twitter:card" content="summary_large_image">
 <meta name="robots" content="index, follow">
 <meta name="author" content="Atlas Glinn, LLC">
-<meta name="theme-color" content="#050810">
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  "name": "Atlas Glinn, LLC",
-  "alternateName": "Atlas Glinn",
-  "url": "https://atlasglinn.com/",
-  "logo": "https://atlasglinn.com/images/atlas/Atlas-Glinn-Logo-Rev1-1.png",
-  "description": "Executive protection, residential protection, disaster recovery and asset protection, AI surveillance, counter-drone and autonomous UAS solutions, and tactical training through MAST Solutions. Houston, Texas.",
-  "founder": { "@type": "Person", "name": "Matthew Brockmann", "jobTitle": "Founder & CEO" },
-  "address": { "@type": "PostalAddress", "streetAddress": "2450 Fondren Rd, Suite 255", "addressLocality": "Houston", "addressRegion": "TX", "postalCode": "77063", "addressCountry": "US" },
-  "telephone": "+1-281-654-8100",
-  "email": "atlasglinn.hq@atlasglinn.com",
-  "sameAs": ["https://www.instagram.com/atlasglinn_mastsolutions/", "https://www.linkedin.com/in/mastsolutions1/", "https://www.youtube.com/@atlasglinn", "https://www.facebook.com/mastsolutions", "https://www.yelp.com/biz/atlas-glinn-houston", "https://maps.google.com/?cid=4511758973651106295"]
-}
-</script>
+<link rel="canonical" href="https://atlasglinn.com/">
+<link rel="stylesheet" href="vendor/atlasglinn-shared-styles.css">
+<link rel="icon" href="https://atlasglinn.com/images/atlas/Atlas-Glinn-Logo-Rev1-2-e1744918824251.png" type="image/png">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&family=Cinzel:wght@600;900&display=swap');
-  :root {
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;700&family=Inconsolata:wght@400;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            color: #ffffff;
+            background: #080C14;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* ══════════ ANIMATIONS ══════════ */
+        @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
+        }
+        @keyframes goldShimmer {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes sparkle {
+            0%,100% { opacity: 0; transform: scale(0); }
+            50% { opacity: 1; transform: scale(1); }
+        }
+
+        .gold-shimmer {
+            background: linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%);
+            background-size: 1000px 100%;
+            animation: shimmer 6s linear infinite;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* ══════════ 3D INTRO OVERLAY ══════════ */
+        #intro-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999;
+            background: #000; display: flex; align-items: center; justify-content: center;
+            transition: opacity 1.2s ease, visibility 1.2s ease;
+        }
+        #intro-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+        #three-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #intro-content {
+            position: relative; z-index: 10; text-align: center;
+            opacity: 0; transform: translateY(30px);
+            transition: opacity 1s ease .5s, transform 1s ease .5s;
+        }
+        #intro-content.visible { opacity: 1; transform: translateY(0); }
+        #intro-logo {
+            width: auto; height: 180px; margin: 0 auto 30px; object-fit: contain;
+            filter: drop-shadow(0 0 40px rgba(201,168,76,.4));
+        }
+        #intro-title {
+            font-family: 'Orbitron', sans-serif; font-size: clamp(28px,5vw,56px); font-weight: 900;
+            letter-spacing: .12em; text-transform: uppercase;
+            background: linear-gradient(135deg, #BF953F 0%, #FCF6BA 30%, #B38728 50%, #FBF5B7 70%, #AA771C 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-size: 200% 200%; animation: goldShimmer 3s ease infinite;
+        }
+        #intro-tagline {
+            font-family: 'Rajdhani', sans-serif; font-size: 16px; letter-spacing: .3em;
+            color: rgba(255,255,255,.4); margin-top: 16px; text-transform: uppercase;
+        }
+        #skip-intro {
+            position: absolute; bottom: 40px; right: 40px; z-index: 20;
+            font-family: 'Rajdhani', sans-serif; font-size: 13px; letter-spacing: .15em;
+            color: rgba(255,255,255,.3); cursor: pointer; text-transform: uppercase;
+            border: 1px solid rgba(255,255,255,.1); padding: 10px 24px; border-radius: 4px;
+            background: transparent; transition: all .3s;
+        }
+        #skip-intro:hover { color: #fff; border-color: #C9A84C; }
+        #intro-enter {
+            position: absolute; right: 60px; top: 50%; transform: translateY(-50%);
+            padding: 14px 48px; z-index: 20;
+            font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700;
+            letter-spacing: .2em; text-transform: uppercase;
+            border: 2px solid #C9A84C; color: #C9A84C;
+            background: transparent; cursor: pointer; border-radius: 4px;
+            transition: all .4s; opacity: 0;
+        }
+        #intro-enter.visible { opacity: 1; transition-delay: 1.5s; }
+        #intro-enter:hover { background: #C9A84C; color: #000; }
+
+        /* ══════════ NAVIGATION ══════════ */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            background: rgba(8, 12, 20, 0.95); backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(26, 107, 222, 0.2); padding: 1rem 2rem;
+            transform: translateY(-100%); transition: transform .6s ease;
+        }
+        nav.visible { transform: translateY(0); }
+        .nav-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .nav-logo { display: flex; align-items: center; gap: 1rem; text-decoration: none; color: #1A6BDE; }
+        .nav-logo img { height: 40px; width: auto; }
+        .nav-logo-text { font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.2rem; color: #1A6BDE; }
+        .nav-links { display: flex; gap: 2rem; align-items: center; list-style: none; }
+        .nav-links a { color: #ffffff; text-decoration: none; font-size: 0.9rem; transition: color 0.3s ease; text-transform: uppercase; letter-spacing: 0.05em; }
+        .nav-links a:hover { color: #1A6BDE; }
+        .mobile-menu-btn { display: none; background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; }
+
+        .cta-button {
+            background: #1A6BDE; color: white; padding: 0.75rem 1.5rem; border: none;
+            border-radius: 4px; cursor: pointer; font-family: 'Rajdhani', sans-serif;
+            font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+            transition: all 0.3s ease; text-decoration: none; display: inline-block;
+        }
+        .cta-button:hover { background: #155ac8; box-shadow: 0 0 20px rgba(26, 107, 222, 0.5); }
+        .secondary-button { background: transparent; border: 2px solid #1A6BDE; color: #1A6BDE; }
+        .secondary-button:hover { background: #1A6BDE; color: white; }
+
+        /* ══════════ HERO ══════════ */
+        .hero { position: relative; width: 100%; height: 100vh; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
+        .hero-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        .hero-bg-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        .hero-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at 30% 50%, rgba(8,12,20,0.3) 0%, rgba(8,12,20,0.7) 70%); z-index: 2; }
+        .hero-content { position: relative; z-index: 3; text-align: center; max-width: 800px; padding: 0 2rem 4rem; }
+        .hero-headline { font-family: 'Orbitron', sans-serif; font-size: 3.2rem; font-weight: 900; margin-bottom: 1rem; letter-spacing: 0.02em; line-height: 1.1; }
+        .hero-headline .gold-text {
+            background: linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%);
+            background-size: 1000px 100%; animation: shimmer 6s linear infinite;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .hero-subheading { font-size: 1.3rem; margin-bottom: 2rem; color: #b0b0b0; font-weight: 300; }
+        .hero-ctas { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+        .hero-ctas .cta-button { padding: 1rem 2rem; font-size: 1rem; }
+        #hero-particles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+
+        /* ══════════ CREDENTIAL BAR ══════════ */
+        .credential-bar { background: #0f1622; padding: 3rem 2rem; border-top: 1px solid rgba(201,168,76,.15); border-bottom: 1px solid rgba(201,168,76,.15); }
+        .credential-grid { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; text-align: center; }
+        .credential-item h3 {
+            font-family: 'Orbitron', sans-serif; font-size: 2.5rem; margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #BF953F, #FCF6BA, #B38728, #FBF5B7, #AA771C);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-size: 200% 200%; animation: goldShimmer 4s ease infinite;
+        }
+        .credential-item p { color: #b0b0b0; font-size: 0.95rem; }
+
+        /* ══════════ SECTIONS ══════════ */
+        .section { max-width: 1400px; margin: 0 auto; padding: 4rem 2rem; }
+        .section-title { font-family: 'Orbitron', sans-serif; font-size: 2.5rem; font-weight: 900; margin-bottom: 1rem; letter-spacing: 0.02em; }
+        .section-subtitle { font-size: 1.1rem; color: #b0b0b0; margin-bottom: 3rem; }
+        .section-divider { background: #0f1622; padding: 1.5rem 2rem; border-top: 2px solid rgba(201,168,76,.5); border-bottom: 2px solid rgba(201,168,76,.5); text-align: center; margin: 0; max-width: 100%; }
+        .section-divider h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; font-weight: 900; letter-spacing: 0.02em; margin: 0; }
+        .section-divider p { font-size: 0.95rem; color: #b0b0b0; margin: 0.5rem 0 0; }
+        .section-full { padding: 6rem 2rem; }
+
+        /* ══════════ EP SECTION ══════════ */
+        .ep-container { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+        .ep-text h2 { font-family: 'Orbitron', sans-serif; font-size: 2.2rem; margin-bottom: 1.5rem; line-height: 1.2; }
+        .ep-text p { font-size: 1.05rem; color: #d0d0d0; margin-bottom: 1.5rem; line-height: 1.8; }
+        .ep-image { width: 100%; border-radius: 4px; box-shadow: 0 20px 60px rgba(26, 107, 222, 0.2); transition: transform .4s; }
+        .ep-image:hover { transform: scale(1.02); }
+
+        /* ══════════ SERVICES ══════════ */
+        .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
+        .service-card {
+            background: rgba(26, 107, 222, 0.05); border: 2px solid rgba(201, 168, 76, 0.6);
+            padding: 2rem; border-radius: 4px; transition: all 0.4s ease; position: relative;
+            transform-style: preserve-3d; box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 20px rgba(201,168,76,0.15);
+        }
+        .service-card:hover { background: rgba(26, 107, 222, 0.1); border-color: rgba(201, 168, 76, 0.85); box-shadow: 0 15px 50px rgba(0,0,0,0.5), 0 0 40px rgba(201,168,76,0.3); transform: translateY(-4px); }
+        .service-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: linear-gradient(90deg, #1A6BDE, #C9A84C); transform: scaleX(0); transform-origin: left; transition: transform .4s; }
+        .service-card:hover::before { transform: scaleX(1); }
+        .service-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; color: #1A6BDE; margin-bottom: 1rem; }
+        .service-card p { color: #b0b0b0; font-size: 0.95rem; line-height: 1.6; }
+        .card-link { display: inline-block; margin-top: 16px; font-size: 0.85rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #C9A84C; text-decoration: none; transition: color .3s; }
+        .card-link:hover { color: #FCF6BA; }
+
+        /* ══════════ PHOTO STRIP ══════════ */
+        .photo-strip { display: flex; overflow-x: auto; gap: 1rem; padding: 2rem 0; scroll-behavior: smooth; cursor: grab; }
+        .photo-strip::-webkit-scrollbar { height: 6px; }
+        .photo-strip::-webkit-scrollbar-track { background: rgba(26, 107, 222, 0.1); }
+        .photo-strip::-webkit-scrollbar-thumb { background: #1A6BDE; border-radius: 3px; }
+        .photo-item { flex: 0 0 280px; height: 280px; border-radius: 4px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
+        .photo-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
+        .photo-item:hover img { transform: scale(1.05); }
+
+        /* ══════════ TRAINING ══════════ */
+        .disciplines-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem; }
+        .discipline-card { background: rgba(26, 107, 222, 0.05); border: 2px solid rgba(201, 168, 76, 0.6); padding: 2rem; border-radius: 4px; text-align: center; transition: all 0.4s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 20px rgba(201,168,76,0.15); }
+        .discipline-card:hover { background: rgba(26, 107, 222, 0.1); border-color: rgba(201, 168, 76, 0.6); transform: translateY(-5px); box-shadow: 0 15px 50px rgba(0,0,0,0.5), 0 0 40px rgba(201,168,76,0.2); }
+        .discipline-card .disc-icon { font-size: 2.5rem; color: #1A6BDE; }
+        .discipline-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; color: #1A6BDE; margin-top: 1rem; }
+        .discipline-card p { font-size: 0.85rem; color: #b0b0b0; margin-top: .5rem; }
+
+        /* ══════════ TECHNOLOGY ══════════ */
+        .tech-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; }
+        .tech-partner { background: rgba(26, 107, 222, 0.05); border: 1px solid rgba(26, 107, 222, 0.2); padding: 2rem; border-radius: 4px; transition: all 0.3s ease; }
+        .tech-partner:hover { background: rgba(26, 107, 222, 0.1); border-color: #1A6BDE; transform: translateY(-4px); }
+        .tech-partner h3 { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; color: #1A6BDE; margin-bottom: 1rem; }
+        .tech-partner p { color: #b0b0b0; font-size: 0.9rem; line-height: 1.6; }
+
+        /* ══════════ APP PROMO ══════════ */
+        .app-promo { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+        .app-promo-content h2 { font-family: 'Orbitron', sans-serif; font-size: 2.2rem; margin-bottom: 1.5rem; }
+        .app-promo-content p { font-size: 1.05rem; color: #d0d0d0; margin-bottom: 1.5rem; line-height: 1.8; }
+        .app-features { list-style: none; margin: 2rem 0; }
+        .app-features li { padding: 0.75rem 0; padding-left: 2rem; position: relative; color: #b0b0b0; }
+        .app-features li:before { content: "▸"; position: absolute; left: 0; color: #1A6BDE; font-size: 1.5rem; }
+        .app-image { width: 100%; max-width: 100%; border-radius: 4px; box-shadow: 0 20px 60px rgba(0,0,0,.4); }
+        .app-tiers { display: flex; gap: 16px; flex-wrap: wrap; margin: 2rem 0; }
+        .app-tier { text-align: center; padding: 20px 24px; border: 1px solid rgba(255,255,255,.06); border-radius: 8px; background: rgba(255,255,255,.02); min-width: 120px; transition: border-color .3s; }
+        .app-tier:hover { border-color: #C9A84C; }
+        .app-tier-name { font-size: 10px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: #C9A84C; margin-bottom: 6px; }
+        .app-tier-price { font-family: 'Orbitron', sans-serif; font-size: 24px; font-weight: 900; }
+        .app-tier-period { font-size: 11px; color: #b0b0b0; }
+
+        /* ══════════ MEDIA / VIDEOS ══════════ */
+        .media-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2rem; margin-bottom: 2rem; }
+        .video-card { background: rgba(26, 107, 222, 0.05); border: 1px solid rgba(26, 107, 222, 0.2); border-radius: 4px; overflow: hidden; transition: all .4s; }
+        .video-card:hover { border-color: rgba(201,168,76,.4); transform: translateY(-2px); }
+        .video-card iframe { width: 100%; aspect-ratio: 16/9; border: none; }
+        .video-card-info { padding: 16px 20px; }
+        .video-card-info h4 { font-family: 'Orbitron', sans-serif; font-size: 0.9rem; margin-bottom: 4px; }
+        .video-card-info p { font-size: 0.85rem; color: #b0b0b0; }
+        .press-card { background: rgba(26, 107, 222, 0.05); border: 1px solid rgba(26, 107, 222, 0.2); border-radius: 4px; padding: 3rem 2rem; text-align: center; transition: all .4s; }
+        .press-card:hover { border-color: #C9A84C; transform: translateY(-2px); }
+        .press-logo { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; letter-spacing: .15em; text-transform: uppercase; color: #888; margin-bottom: 16px; }
+        .press-card h4 { font-family: 'Orbitron', sans-serif; font-size: 1.2rem; margin-bottom: 12px; }
+        .press-card p { font-size: 0.95rem; color: #b0b0b0; line-height: 1.6; margin-bottom: 20px; max-width: 600px; margin-left: auto; margin-right: auto; }
+
+        /* ══════════ TEAM ══════════ */
+        .team-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; max-width: 900px; margin: 0 auto; }
+        .team-card { text-align: center; }
+        .team-card img { width: 180px; height: 180px; border-radius: 50%; object-fit: cover; margin: 0 auto 20px; border: 3px solid rgba(201,168,76,.3); transition: border-color .3s; }
+        .team-card:hover img { border-color: #C9A84C; }
+        .team-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; margin-bottom: 4px; }
+        .team-role { font-size: 0.8rem; color: #C9A84C; letter-spacing: .15em; text-transform: uppercase; margin-bottom: 16px; }
+        .team-card p { font-size: 0.9rem; color: #b0b0b0; line-height: 1.7; max-width: 380px; margin: 0 auto; }
+
+        /* ══════════ TESTIMONIALS ══════════ */
+        .testimonials-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+        .testimonial { background: rgba(26,107,222,.05); border: 1px solid rgba(26,107,222,.2); padding: 2rem; border-radius: 4px; position: relative; }
+        .testimonial::before { content: '\201C'; position: absolute; top: 12px; left: 20px; font-size: 48px; color: rgba(201,168,76,.2); font-family: serif; line-height: 1; }
+        .testimonial p { font-size: 0.9rem; color: rgba(255,255,255,.6); line-height: 1.7; font-style: italic; margin-bottom: 16px; padding-top: 24px; }
+        .testimonial-author { font-size: 0.8rem; font-weight: 700; color: #C9A84C; letter-spacing: .06em; }
+
+        /* ══════════ CTA SECTION ══════════ */
+        .cta-section { background: linear-gradient(135deg, rgba(26, 107, 222, 0.1) 0%, rgba(26, 107, 222, 0.05) 100%); border: 1px solid rgba(26, 107, 222, 0.3); padding: 4rem 2rem; border-radius: 4px; text-align: center; }
+        .cta-section h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; margin-bottom: 1rem; }
+        .cta-section p { font-size: 1.1rem; color: #b0b0b0; margin-bottom: 2rem; }
+
+        /* ══════════ CONTACT ══════════ */
+        .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: start; }
+        .contact-info p { font-size: 1rem; color: #b0b0b0; line-height: 2; }
+        .contact-info a { color: #1A6BDE; text-decoration: none; transition: color .3s; }
+        .contact-info a:hover { color: #C9A84C; }
+        .contact-form input, .contact-form textarea { width: 100%; padding: 14px 18px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); border-radius: 4px; color: #fff; font-family: 'Rajdhani', sans-serif; font-size: 1rem; margin-bottom: 16px; transition: border-color .3s; }
+        .contact-form input:focus, .contact-form textarea:focus { outline: none; border-color: #1A6BDE; }
+        .contact-form textarea { height: 120px; resize: vertical; }
+
+        /* ══════════ FOOTER ══════════ */
+        footer { background: #0a0e17; border-top: 1px solid rgba(201,168,76,.1); padding: 3rem 2rem 1rem; }
+        .footer-container { max-width: 1400px; margin: 0 auto; }
+        .footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+        .footer-section h4 { font-family: 'Orbitron', sans-serif; color: #C9A84C; margin-bottom: 1rem; font-size: 0.9rem; }
+        .footer-section ul { list-style: none; }
+        .footer-section ul li { margin-bottom: 0.5rem; }
+        .footer-section a { color: #b0b0b0; text-decoration: none; transition: color 0.3s ease; font-size: 0.9rem; }
+        .footer-section a:hover { color: #1A6BDE; }
+        .footer-bottom { border-top: 1px solid rgba(201,168,76,.1); padding-top: 2rem; text-align: center; color: #888; font-size: 0.85rem; }
+        .social-links { display: flex; gap: 1rem; margin-top: 1rem; }
+        .social-links a { color: #1A6BDE; text-decoration: none; transition: color 0.3s ease; }
+        .social-links a:hover { color: #C9A84C; }
+
+        /* ══════════ REVEAL ══════════ */
+        .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+        .reveal.active { opacity: 1; transform: translateY(0); }
+
+        /* ══════════ MOBILE NAV OVERLAY ══════════ */
+        .mobile-nav { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; background: rgba(0,0,0,.95); backdrop-filter: blur(20px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; opacity: 0; visibility: hidden; transition: all .3s; }
+        .mobile-nav.open { opacity: 1; visibility: visible; }
+        .mobile-nav a { font-family: 'Orbitron', sans-serif; font-size: 20px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: #fff; text-decoration: none; }
+        .mobile-nav-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: #fff; font-size: 32px; cursor: pointer; }
+
+        /* ══════════ RESPONSIVE ══════════ */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .mobile-menu-btn { display: block; }
+            .hero-headline { font-size: 2rem; }
+            .ep-container, .app-promo, .contact-grid { grid-template-columns: 1fr; gap: 2rem; }
+            .credential-grid { grid-template-columns: repeat(2, 1fr); }
+            .section { padding: 3rem 1rem; }
+            .section-title { font-size: 1.8rem; }
+            .media-grid { grid-template-columns: 1fr; }
+            .team-grid { grid-template-columns: 1fr; }
+            .testimonials-row { grid-template-columns: 1fr; }
+            .photo-item { flex: 0 0 200px; height: 200px; }
+            .hero-ctas { flex-direction: column; align-items: center; }
+            .app-tiers { justify-content: center; }
+        }
+        @media (max-width: 480px) {
+            nav { padding: 0.75rem 1rem; }
+            .hero-headline { font-size: 1.8rem; }
+            .credential-item h3 { font-size: 1.8rem; }
+            .section-title { font-size: 1.4rem; }
+        }
+    </style>
+<style id="global-styles-inline-css">
+:root{--wp--preset--aspect-ratio--square: 1;--wp--preset--aspect-ratio--4-3: 4/3;--wp--preset--aspect-ratio--3-4: 3/4;--wp--preset--aspect-ratio--3-2: 3/2;--wp--preset--aspect-ratio--2-3: 2/3;--wp--preset--aspect-ratio--16-9: 16/9;--wp--preset--aspect-ratio--9-16: 9/16;--wp--preset--color--black: #000000;--wp--preset--color--cyan-bluish-gray: #abb8c3;--wp--preset--color--white: #ffffff;--wp--preset--color--pale-pink: #f78da7;--wp--preset--color--vivid-red: #cf2e2e;--wp--preset--color--luminous-vivid-orange: #ff6900;--wp--preset--color--luminous-vivid-amber: #fcb900;--wp--preset--color--light-green-cyan: #7bdcb5;--wp--preset--color--vivid-green-cyan: #00d084;--wp--preset--color--pale-cyan-blue: #8ed1fc;--wp--preset--color--vivid-cyan-blue: #0693e3;--wp--preset--color--vivid-purple: #9b51e0;--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple: linear-gradient(135deg,rgb(6,147,227) 0%,rgb(155,81,224) 100%);--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan: linear-gradient(135deg,rgb(122,220,180) 0%,rgb(0,208,130) 100%);--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange: linear-gradient(135deg,rgb(252,185,0) 0%,rgb(255,105,0) 100%);--wp--preset--gradient--luminous-vivid-orange-to-vivid-red: linear-gradient(135deg,rgb(255,105,0) 0%,rgb(207,46,46) 100%);--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray: linear-gradient(135deg,rgb(238,238,238) 0%,rgb(169,184,195) 100%);--wp--preset--gradient--cool-to-warm-spectrum: linear-gradient(135deg,rgb(74,234,220) 0%,rgb(151,120,209) 20%,rgb(207,42,186) 40%,rgb(238,44,130) 60%,rgb(251,105,98) 80%,rgb(254,248,76) 100%);--wp--preset--gradient--blush-light-purple: linear-gradient(135deg,rgb(255,206,236) 0%,rgb(152,150,240) 100%);--wp--preset--gradient--blush-bordeaux: linear-gradient(135deg,rgb(254,205,165) 0%,rgb(254,45,45) 50%,rgb(107,0,62) 100%);--wp--preset--gradient--luminous-dusk: linear-gradient(135deg,rgb(255,203,112) 0%,rgb(199,81,192) 50%,rgb(65,88,208) 100%);--wp--preset--gradient--pale-ocean: linear-gradient(135deg,rgb(255,245,203) 0%,rgb(182,227,212) 50%,rgb(51,167,181) 100%);--wp--preset--gradient--electric-grass: linear-gradient(135deg,rgb(202,248,128) 0%,rgb(113,206,126) 100%);--wp--preset--gradient--midnight: linear-gradient(135deg,rgb(2,3,129) 0%,rgb(40,116,252) 100%);--wp--preset--font-size--small: 13px;--wp--preset--font-size--medium: 20px;--wp--preset--font-size--large: 36px;--wp--preset--font-size--x-large: 42px;--wp--preset--spacing--20: 0.44rem;--wp--preset--spacing--30: 0.67rem;--wp--preset--spacing--40: 1rem;--wp--preset--spacing--50: 1.5rem;--wp--preset--spacing--60: 2.25rem;--wp--preset--spacing--70: 3.38rem;--wp--preset--spacing--80: 5.06rem;--wp--preset--shadow--natural: 6px 6px 9px rgba(0, 0, 0, 0.2);--wp--preset--shadow--deep: 12px 12px 50px rgba(0, 0, 0, 0.4);--wp--preset--shadow--sharp: 6px 6px 0px rgba(0, 0, 0, 0.2);--wp--preset--shadow--outlined: 6px 6px 0px -3px rgb(255, 255, 255), 6px 6px rgb(0, 0, 0);--wp--preset--shadow--crisp: 6px 6px 0px rgb(0, 0, 0);}:where(body) { margin: 0; }:where(.is-layout-flex){gap: 0.5em;}:where(.is-layout-grid){gap: 0.5em;}body .is-layout-flex{display: flex;}.is-layout-flex{flex-wrap: wrap;align-items: center;}.is-layout-flex > :is(*, div){margin: 0;}body .is-layout-grid{display: grid;}.is-layout-grid > :is(*, div){margin: 0;}body{padding-top: 0px;padding-right: 0px;padding-bottom: 0px;padding-left: 0px;}:root :where(.wp-element-button, .wp-block-button__link){background-color: #32373c;border-width: 0;color: #fff;font-family: inherit;font-size: inherit;font-style: inherit;font-weight: inherit;letter-spacing: inherit;line-height: inherit;padding-top: calc(0.667em + 2px);padding-right: calc(1.333em + 2px);padding-bottom: calc(0.667em + 2px);padding-left: calc(1.333em + 2px);text-decoration: none;text-transform: inherit;}.has-black-color{color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-color{color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-color{color: var(--wp--preset--color--white) !important;}.has-pale-pink-color{color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-color{color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-color{color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-color{color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-color{color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-color{color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-color{color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-color{color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-color{color: var(--wp--preset--color--vivid-purple) !important;}.has-black-background-color{background-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-background-color{background-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-background-color{background-color: var(--wp--preset--color--white) !important;}.has-pale-pink-background-color{background-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-background-color{background-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-background-color{background-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-background-color{background-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-background-color{background-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-background-color{background-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-background-color{background-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-background-color{background-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-background-color{background-color: var(--wp--preset--color--vivid-purple) !important;}.has-black-border-color{border-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-border-color{border-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-border-color{border-color: var(--wp--preset--color--white) !important;}.has-pale-pink-border-color{border-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-border-color{border-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-border-color{border-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-border-color{border-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-border-color{border-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-border-color{border-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-border-color{border-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-border-color{border-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-border-color{border-color: var(--wp--preset--color--vivid-purple) !important;}.has-vivid-cyan-blue-to-vivid-purple-gradient-background{background: var(--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple) !important;}.has-light-green-cyan-to-vivid-green-cyan-gradient-background{background: var(--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan) !important;}.has-luminous-vivid-amber-to-luminous-vivid-orange-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange) !important;}.has-luminous-vivid-orange-to-vivid-red-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-orange-to-vivid-red) !important;}.has-very-light-gray-to-cyan-bluish-gray-gradient-background{background: var(--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray) !important;}.has-cool-to-warm-spectrum-gradient-background{background: var(--wp--preset--gradient--cool-to-warm-spectrum) !important;}.has-blush-light-purple-gradient-background{background: var(--wp--preset--gradient--blush-light-purple) !important;}.has-blush-bordeaux-gradient-background{background: var(--wp--preset--gradient--blush-bordeaux) !important;}.has-luminous-dusk-gradient-background{background: var(--wp--preset--gradient--luminous-dusk) !important;}.has-pale-ocean-gradient-background{background: var(--wp--preset--gradient--pale-ocean) !important;}.has-electric-grass-gradient-background{background: var(--wp--preset--gradient--electric-grass) !important;}.has-midnight-gradient-background{background: var(--wp--preset--gradient--midnight) !important;}.has-small-font-size{font-size: var(--wp--preset--font-size--small) !important;}.has-medium-font-size{font-size: var(--wp--preset--font-size--medium) !important;}.has-large-font-size{font-size: var(--wp--preset--font-size--large) !important;}.has-x-large-font-size{font-size: var(--wp--preset--font-size--x-large) !important;}
+/*# sourceURL=global-styles-inline-css */
+</style>
+<style>#intro-overlay, #main-nav, #mobile-nav, footer.site-footer, #back-to-top {
     --midnight:#050810; --deep-navy:#0B1221; --gunmetal:#1E2A3A; --gunmetal-lt:#2C3845; --steel:#3A4A5C;
     --gold:#1A6BDE; --gold-antique:#2F7BEF; --gold-champagne:#5B9BFF; --gold-bright:#DCEBFF; --copper:#0E3F8C;
     --text:#F0F4FF; --text-dim:#8B95A8; --text-mute:#5B6474;
   }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  html { scroll-behavior:smooth; }
-  html, body { background:var(--midnight); color:var(--text); font-family:'Rajdhani',sans-serif; overflow-x:hidden; cursor:none; }
-  a { color:inherit; }
-  .reticle { position:fixed; top:0; left:0; width:44px; height:44px; pointer-events:none; z-index:10000; transform:translate(-50%,-50%); mix-blend-mode:difference; }
-  .reticle::before, .reticle::after { content:''; position:absolute; background:var(--gold-champagne); }
-  .reticle::before { top:50%; left:0; width:100%; height:1px; transform:translateY(-50%); }
-  .reticle::after { left:50%; top:0; width:1px; height:100%; transform:translateX(-50%); }
-  .reticle-ring { position:absolute; inset:10px; border:1px solid var(--gold); border-radius:50%; opacity:.7; }
-  .reticle-dot { position:absolute; top:50%; left:50%; width:3px; height:3px; background:var(--gold-bright); border-radius:50%; transform:translate(-50%,-50%); }
-  #three-canvas { position:fixed; inset:0; width:100vw; height:100vh; z-index:1; pointer-events:none; }
-  /* Photography layer: one still per chapter, ghosted behind the 3D emblem and the grain */
-  #photos { position:fixed; inset:0; z-index:2; pointer-events:none; }
-  /* Backdrop crossfade: the outgoing photograph leaves faster than the incoming one arrives, so the two never stack to a brighter
-     frame mid-switch (Brockmann, 2026-09-04: "the background pulled forward"). */
-  #photos .ph { position:absolute; inset:0; background:center/cover no-repeat; opacity:0; transition:opacity .6s ease; filter:saturate(.72) contrast(1.06); }
-  #photos .ph.on { transition:opacity 1.6s ease .3s; }
-  #photos .ph::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.42) 0%, rgba(5,8,16,.08) 45%, rgba(5,8,16,.72) 100%); }
-  /* A chapter backdrop can be a film snippet instead of a still (Brockmann, 2026-09-05: "the video should be in the background,
-     just a snippet playing, like the current website"). The still stays underneath as the poster; the clip fades in once it
-     plays, loops, muted, and only while its chapter is on screen. */
-  #photos .ph video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:inherit; opacity:0; transition:opacity 1.2s ease; }
-  #photos .ph video.playing { opacity:1; }
-  #photos .ph.film.on { opacity:.58; }
-  /* A YouTube film as the backdrop, the way the current Atlas pages embed their hero films (autoplay, muted, loop,
-     no controls): the frame is oversized to cover the viewport at 16:9 and cannot be clicked. */
-  #photos .ph.yt iframe { position:absolute; top:50%; left:50%; width:100vw; height:56.25vw; min-height:100%; min-width:177.78vh; transform:translate(-50%,-50%); border:0; pointer-events:none; opacity:0; transition:opacity 1.2s ease; }
-  #photos .ph.yt iframe.playing { opacity:1; }
-  /* Backdrop presence (Brockmann, 2026-09-05: pull the background forward, keep the layers; then "Reduce background brightness by
-     20%"): the photograph sits at .42 (.52 less a fifth), the scene and the text layers stay above it. */
-  #photos .ph.on { opacity:.42; }
-  .grain { position:fixed; inset:0; z-index:3; pointer-events:none; opacity:.035; background-image:repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(255,255,255,.3) 2px, rgba(255,255,255,.3) 3px); mix-blend-mode:overlay; }
-  .vignette { position:fixed; inset:0; z-index:4; pointer-events:none; background:radial-gradient(ellipse at center, transparent 0%, transparent 55%, rgba(5,8,16,.75) 100%); }
-  /* The gold sparkle ring from the atlasglinn.com intro, drawn around the wordmark; the script fades it in after the wordmark and out before the splash ends. */
-  .intro-ring { position:absolute; inset:0; width:100%; height:100%; z-index:0; opacity:0; pointer-events:none; }
-  @keyframes shimmer { 0% { background-position:-1000px 0; } 100% { background-position:1000px 0; } }
-  .hud { position:fixed; z-index:20; font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.3em; opacity:.6; text-decoration:none; }
-  .hud.tl { top:1.2rem; left:1.8rem; color:var(--gold-champagne); }
-  .hud.tr { top:1.2rem; right:15rem; color:var(--text-mute); }
-  .hud.bl { bottom:1.2rem; left:1.8rem; color:var(--text-mute); }
-  .hud.br { bottom:1.2rem; right:1.8rem; color:var(--gold); }
-  .progress { position:fixed; top:0; left:0; height:2px; width:0; background:linear-gradient(90deg, var(--gold-antique), var(--gold-bright), var(--copper)); z-index:100; box-shadow:0 0 14px rgba(26,107,222,.7); transition:width .1s linear; }
-  .content { position:relative; z-index:5; }
-  section.panel { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:6rem 2rem; text-align:center; position:relative; }
-  section.panel > div { width:100%; max-width:1200px; }
-  .eyebrow { font-family:'Share Tech Mono',monospace; color:var(--gold-champagne); letter-spacing:.45em; font-size:.75rem; text-transform:uppercase; margin-bottom:1.6rem; opacity:0; transform:translateY(20px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
-  .eyebrow.in { opacity:1; transform:translateY(0); }
-  h1.mega { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2.6rem,7.2vw,6.6rem); letter-spacing:.02em; line-height:.95; margin-bottom:2rem; opacity:0; filter:blur(20px); transform:scale(1.15); transition:opacity 1.2s cubic-bezier(.2,.7,.2,1), filter 1.2s cubic-bezier(.2,.7,.2,1), transform 1.4s cubic-bezier(.2,.7,.2,1); }
-  h1.mega.in { opacity:1; filter:blur(0); transform:scale(1); }
-  .gold { background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
-  h1.mega .gold { text-shadow:0 0 80px rgba(26,107,222,.3); }
-  h1.mega .white { color:var(--text); }
-  h2.section-h { font-family:'Orbitron',sans-serif; font-weight:700; font-size:clamp(2rem,5vw,4.5rem); letter-spacing:.03em; margin-bottom:1.4rem; opacity:0; filter:blur(12px); transform:translateY(24px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), filter 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
-  h2.section-h.in { opacity:1; filter:blur(0); transform:translateY(0); }
-  .sub { font-size:clamp(1rem,1.3vw,1.25rem); color:var(--text-dim); max-width:720px; margin:0 auto 2.5rem; line-height:1.55; font-weight:300; opacity:0; transform:translateY(16px); transition:opacity 1s ease-out .3s, transform 1s ease-out .3s; }
-  .sub.in { opacity:1; transform:translateY(0); }
-  .sub, .eyebrow { text-shadow:0 1px 2px rgba(5,8,16,.7); }   /* over a photograph the descriptors need an edge at every size */
-  .rise { opacity:0; transform:translateY(22px); transition:opacity 1s ease-out .35s, transform 1s ease-out .35s; }
-  .rise.in { opacity:1; transform:translateY(0); }
-  .cta, .cta-button { display:inline-block; padding:1.1rem 2.5rem; font-family:'Orbitron',sans-serif; font-weight:700; letter-spacing:.2em; font-size:.85rem; text-transform:uppercase; text-decoration:none; color:#000; background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); border:1px solid var(--gold-champagne); cursor:none; transition:transform .35s, box-shadow .35s; position:relative; overflow:hidden; border-radius:0; }
-  .cta::before, .cta-button::before { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent); transition:left .7s; }
-  .cta:hover, .cta-button:hover { transform:translateY(-3px); box-shadow:0 14px 44px rgba(26,107,222,.5); }
-  .cta:hover::before, .cta-button:hover::before { left:100%; }
-  .cta-button[disabled] { opacity:.35; transform:none; box-shadow:none; }
-  .secondary-cta, .cta-button.ghost-button { display:inline-block; padding:1.1rem 2.5rem; font-family:'Orbitron',sans-serif; font-weight:700; letter-spacing:.2em; font-size:.85rem; text-transform:uppercase; text-decoration:none; color:var(--gold-champagne); background:transparent; border:1px solid var(--gold); cursor:none; transition:all .35s; margin-left:1rem; }
-  .secondary-cta:hover, .cta-button.ghost-button:hover { background:rgba(26,107,222,.08); border-color:var(--gold-bright); color:var(--gold-bright); transform:none; box-shadow:none; }
-  .ctas { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; }
-  .ctas .secondary-cta, .ctas .ghost-button { margin-left:0; }
-  .badge { display:inline-block; padding:.45rem 1rem; border:1px solid var(--gold); font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.4em; color:var(--gold-champagne); margin-bottom:1.5rem; background:rgba(26,107,222,.06); backdrop-filter:blur(8px); }
-  .chips { display:flex; flex-wrap:wrap; gap:.65rem; justify-content:center; max-width:1000px; margin:0 auto 2.5rem; }
-  .chip { padding:.55rem 1rem; border:1px solid rgba(26,107,222,.35); background:rgba(30,42,58,.55); backdrop-filter:blur(6px); font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.25em; color:var(--gold-champagne); text-transform:uppercase; }
-  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:1.8rem; max-width:980px; margin:3rem auto 0; }
-  .stat { text-align:center; padding:2rem 1.5rem; border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.7) 100%); backdrop-filter:blur(12px); position:relative; overflow:hidden; transition:transform .4s, border-color .4s; }
-  .stat::before { content:''; position:absolute; top:0; left:0; width:100%; height:1px; background:linear-gradient(90deg, transparent, var(--gold), transparent); }
-  .stat:hover { transform:translateY(-6px); border-color:var(--gold); }
-  .stat-num { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2.8rem,5.5vw,4.5rem); background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; line-height:1; }
-  .stat-label { font-family:'Share Tech Mono',monospace; font-size:.7rem; letter-spacing:.35em; color:var(--text-dim); margin-top:1rem; text-transform:uppercase; }
-  /* Photo tiles: the trailer's glass pillars carrying the Federico and range photography */
-  .tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:1.2rem; max-width:1200px; margin:0 auto; }
-  .tiles.four { grid-template-columns:repeat(4,1fr); }
-  .tile { position:relative; min-height:300px; display:flex; align-items:flex-end; text-align:left; overflow:hidden; border:1px solid rgba(26,107,222,.22); background:var(--deep-navy); transition:transform .45s, border-color .45s; }
-  .tile .bg { position:absolute; inset:0; background:center/cover no-repeat; transform:scale(1.04); transition:transform 5s ease; filter:saturate(.8); }
-  .tile video.bg { width:100%; height:100%; object-fit:cover; }
-  .tile:hover .bg { transform:scale(1.12); }
-  .tile::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.05) 0%, rgba(5,8,16,.35) 50%, rgba(5,8,16,.92) 100%); }
-  .tile:hover { transform:translateY(-6px); border-color:var(--gold); }
-  /* Shared card hover (Brockmann, 2026-09-04: "make sure that for any card or any function on the site ... we don't lose the
-     consistency"): every card on either site lifts the same way on mouse-over. Add each new card class to these two selectors;
-     the card's own rules only set its border colour. */
-  .tile, .tier, .gear-card { transition:transform .45s, border-color .45s, box-shadow .45s; }   /* every card on either site takes this one hover (Brockmann, 2026-09-04) */
-  .tile:hover, .tier:hover, .gear-card:hover { transform:translateY(-6px); }
-  .tile .txt { position:relative; z-index:2; padding:1.4rem 1.3rem; width:100%; }
-  .tile .num { font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.4em; color:var(--gold); margin-bottom:.5rem; }
-  .tile h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.15rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.35rem; }
-  .tile p { font-size:.92rem; color:var(--text-dim); line-height:1.5; font-weight:300; }
-  .tiles.four .tile { min-height:260px; }
-  /* Glass panel that carries the catalog */
-  .glass { border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.45) 0%, rgba(11,18,33,.78) 100%); backdrop-filter:blur(14px); padding:1.4rem; text-align:left; position:relative; }
-  .glass::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg, transparent, var(--gold), transparent); }
-  .catalog-wrap { max-width:960px; margin:0 auto; }
-  .catalog-panel { max-height:none; }
-  .cat { background:rgba(5,8,16,.35); }
-  .course-row { color:var(--text); }
-  .cr-btn { padding:.55rem 1rem; font-size:.72rem; }
-  .cat-count { color:var(--text-dim); }
-  .catalog-note { text-align:center; color:var(--text-dim); font-size:.92rem; margin-top:1.4rem; font-weight:300; }
-  .catalog-note a { color:var(--gold-champagne); text-decoration:none; }
-  /* Instructor */
-  /* Portraits: one size for every person on the page, founder and team alike — the same column and a 4:5 frame that does not
-     stretch with the bio beside it (Brockmann, 2026-09-05: "They're not all the same size … size them for consistency"). */
-  .founder { display:grid; grid-template-columns:minmax(240px,380px) 1fr; gap:2.2rem; max-width:1150px; margin:0 auto; text-align:left; align-items:start; }
-  .founder .portrait { position:relative; aspect-ratio:4/5; min-height:0; border:1px solid rgba(26,107,222,.3); background:center 20%/cover no-repeat; }
-  .founder .portrait::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, transparent 55%, rgba(5,8,16,.9) 100%); }
-  .founder .portrait .cap { position:absolute; left:1.2rem; bottom:1.1rem; z-index:2; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.35em; color:var(--gold-champagne); text-transform:uppercase; }
-  .founder .bio { border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.75) 100%); backdrop-filter:blur(14px); padding:2rem 1.9rem; position:relative; }
-  .founder .bio::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:linear-gradient(180deg, var(--gold), var(--copper)); }
-  .founder .bio p { color:var(--text-dim); line-height:1.6; font-weight:300; font-size:1.05rem; margin-bottom:1.2rem; }
-  .founder .creds { list-style:none; margin:0 0 1.4rem; padding:0; }
-  .founder .creds li { padding:.45rem 0 .45rem 1.4rem; position:relative; color:var(--text); font-size:.98rem; line-height:1.5; border-top:1px solid rgba(26,107,222,.12); }
-  .founder .creds li::before { content:'◆'; position:absolute; left:0; top:.55rem; color:var(--gold); font-size:.6rem; }
-  .founder .creds b { color:var(--gold-champagne); font-weight:600; }
-  .founder .cadre { font-family:'Share Tech Mono',monospace; font-size:.72rem; letter-spacing:.08em; color:var(--text-dim); line-height:1.7; margin-bottom:1.4rem; }
-  .founder .ctas { justify-content:flex-start; }
-  .cert { max-width:1150px; margin:1.4rem auto 0; display:grid; grid-template-columns:minmax(220px,360px) 1fr; gap:1.4rem; align-items:center; text-align:left; }
-  .cert img { width:100%; border:1px solid rgba(26,107,222,.3); display:block; }
-  .cert p { color:var(--text-dim); font-weight:300; line-height:1.55; font-size:.98rem; }
-  /* Team blocks: the Atlas Glinn "Meet the Team" format (portrait + name, role, bio), shared by the MAST Instructors chapter. */
-  .team { display:grid; grid-template-columns:minmax(240px,380px) 1fr; gap:2.2rem; max-width:1150px; margin:0 auto 1.6rem; text-align:left; align-items:start; }
-  .team .portrait { aspect-ratio:4/5; min-height:0; border:1px solid rgba(26,107,222,.3); background:center 20%/cover no-repeat; position:relative; }
-  .team .portrait::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, transparent 60%, rgba(5,8,16,.9) 100%); }
-  .team .portrait .cap { position:absolute; left:1.1rem; bottom:1rem; z-index:2; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; color:var(--gold-champagne); text-transform:uppercase; }
-  .team .bio { border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.75) 100%); backdrop-filter:blur(14px); padding:1.8rem; position:relative; }
-  .team .bio::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:linear-gradient(180deg, var(--gold), var(--copper)); }
-  .team .bio h3, .founder .bio h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.25rem; color:var(--gold-champagne); margin-bottom:.2rem; }
-  .team .bio .role, .founder .bio .role { font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.3em; text-transform:uppercase; color:var(--text-dim); margin-bottom:1rem; }
-  .team .bio p { color:var(--text-dim); line-height:1.6; font-weight:300; font-size:1.02rem; }
-  /* Media strip */
-  .media-strip { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; gap:1rem; padding:.5rem 0 1rem; scrollbar-width:thin; scrollbar-color:var(--gold) var(--deep-navy); max-width:1200px; margin:0 auto; }
-  .video-card { flex:0 0 min(82vw,480px); scroll-snap-align:start; background:rgba(11,18,33,.8); border:1px solid rgba(26,107,222,.22); overflow:hidden; text-align:left; }
-  .yt .play { border-color:var(--gold); background:rgba(5,8,16,.8); }
-  .yt:hover .play { background:var(--gold); border-color:var(--gold); }
-  .yt.mp4 { background:linear-gradient(135deg, var(--gunmetal), var(--midnight)); }
-  .yt.mp4 .lbl { color:var(--gold-champagne); font-family:'Share Tech Mono',monospace; }
-  .video-card-info h4 { color:var(--gold-champagne); }
-  .post { display:inline-block; margin-top:2rem; padding:1rem 1.8rem; border:1px solid var(--gold); background:rgba(26,107,222,.07); backdrop-filter:blur(8px); font-family:'Orbitron',sans-serif; font-weight:700; font-size:clamp(.85rem,1.2vw,1.05rem); letter-spacing:.14em; color:var(--gold-champagne); text-decoration:none; text-transform:uppercase; transition:all .35s; cursor:none; }
-  .post:hover { background:rgba(26,107,222,.16); border-color:var(--gold-bright); color:var(--gold-bright); transform:translateY(-3px); }
-  .post small { display:block; font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.62rem; letter-spacing:.35em; color:var(--text-dim); margin-bottom:.35rem; }
-  .quote { font-style:italic; color:var(--gold-champagne); max-width:700px; margin:.5rem auto 2rem; font-size:clamp(1.05rem,1.5vw,1.3rem); line-height:1.5; }
-  .quote.lead { max-width:820px; font-size:clamp(1.2rem,1.9vw,1.55rem); margin-top:.8rem; }
-  /* Contact lines sit over a backdrop photograph on both sites: full text colour and a shadow (Brockmann, 2026-09-05: "Fix the visibility of the contact"). */
-  .contact-lines { font-family:'Share Tech Mono',monospace; font-size:.75rem; letter-spacing:.2em; color:var(--text); text-shadow:0 1px 6px rgba(0,0,0,.9), 0 0 22px rgba(0,0,0,.7); line-height:2.1; margin-bottom:2.2rem; }
-  .contact-lines a { color:var(--gold-champagne); text-decoration:none; }
-  .foot { margin-top:4rem; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; color:var(--text-mute); text-transform:uppercase; line-height:2.2; }
-  .foot a { color:var(--text-mute); text-decoration:none; margin:0 .6rem; }
-  .foot a:hover { color:var(--gold-champagne); }
-  .scroll-cue { position:absolute; bottom:3rem; left:50%; transform:translateX(-50%); font-family:'Share Tech Mono',monospace; font-size:.65rem; color:var(--gold-champagne); letter-spacing:.4em; opacity:.55; animation:pulseY 2.4s ease-in-out infinite; }
-  @keyframes pulseY { 50% { opacity:1; transform:translateX(-50%) translateY(-10px); } }
-  /* Booking stack (lifted from the Atlas-frame pages, recolored to the trailer palette) */
-
-  .modal { background:var(--deep-navy); border-color:rgba(26,107,222,.4); }
-  .modal .eyebrow { opacity:1; transform:none; margin-bottom:.6rem; }
-  .modal h3 { color:var(--text); }
-  .day.sel { background:var(--gold); border-color:var(--gold); color:#000; }
-  .day.wk:hover { background:rgba(26,107,222,.25); border-color:var(--gold); }
-  .cal-nav button:hover:not([disabled]) { background:var(--gold); color:#000; }
-  .cal-quick button.on, .cal-quick .on { background:var(--gold); color:#000; border-color:var(--gold); }
-  .qty button { cursor:none; }
-  .sheet-date button { color:var(--gold-champagne); }
-  input:focus { border-color:var(--gold) !important; }
-  .banner { background:var(--gold); color:#000; }
-  .quals-list li::marker, .quals-list li b { color:var(--gold-champagne); }
-  @media (max-width:900px) { .founder, .cert, .team { grid-template-columns:1fr; } .founder .portrait, .team .portrait { max-width:380px; width:100%; margin:0 auto; } .tiles, .tiles.four { grid-template-columns:1fr 1fr; } }
-  /* The fixed chapter nav on the right needs its own lane: at laptop widths keep the labels and give the panels a right
-     margin; on tablets collapse the nav to its tick marks so the content keeps most of the width. */
-  @media (min-width:1025px) and (max-width:1600px) { section.panel { padding-right:16.5rem; } }
-  @media (max-width:768px) {
-    .hud { font-size:.55rem; } .hud.tr, .hud.bl, .hud.br { display:none; }   /* phones keep only the top-left line; the section counter collided with it */
-    .stats { grid-template-columns:1fr; gap:1rem; }
-    .tiles, .tiles.four { grid-template-columns:1fr; } .tile, .tiles.four .tile { min-height:220px; }
-    section.panel { padding:5rem 1rem; }
-    .glass { padding:.8rem; }
-    .secondary-cta, .cta-button.ghost-button { margin-left:0; }
-    #photos .ph.on { opacity:.35; }
-    #photos .ph.film.on { opacity:.5; }
-    /* Phone legibility (Brockmann, 2026-09-05, iPhone screenshot of the MAST opening: "Text descriptors need to be fixed…
-       hard to read"): full-strength text with a shadow, and a soft scrim behind each chapter's text block. */
-    .sub { color:var(--text); font-weight:400; text-shadow:0 1px 3px rgba(5,8,16,.95), 0 0 18px rgba(5,8,16,.8); }
-    h1.mega, h2.section-h, .eyebrow { text-shadow:0 2px 14px rgba(5,8,16,.9); }
-    section.panel > div { padding:1.4rem .6rem; background:radial-gradient(ellipse at center, rgba(5,8,16,.62) 0%, rgba(5,8,16,.38) 55%, rgba(5,8,16,0) 80%); }
-  }
-  @media (prefers-reduced-motion: reduce) { .eyebrow, h1.mega, h2.section-h, .sub, .rise { transition:none; opacity:1; filter:none; transform:none; } }
-
-  /* ── Sticky top bar ── */
-  #main-nav { position:fixed; top:0; left:0; right:0; z-index:1000; background:rgba(5,8,16,.94); backdrop-filter:blur(12px); border-bottom:1px solid rgba(26,107,222,.25); padding:.6rem 1rem; transform:translateY(-100%); transition:transform .5s ease; }
-  #main-nav.visible { transform:translateY(0); }
-  .nav-container { max-width:1400px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:1rem; }
-  .nav-logo { display:flex; align-items:center; gap:.6rem; text-decoration:none; cursor:none; }
-  .nav-logo img { height:32px; width:auto; filter:drop-shadow(0 0 12px rgba(26,107,222,.55)); }
-  .nav-logo-text { font-family:'Orbitron',sans-serif; font-weight:700; font-size:.95rem; letter-spacing:.09em; color:var(--gold); }
-  .nav-links { display:none; }
-  .nav-toggle { display:block; background:rgba(5,8,16,.5); border:1px solid rgba(26,107,222,.35); color:var(--text); font-family:'Share Tech Mono',monospace; font-size:1.3rem; line-height:1; padding:.35rem .65rem; cursor:pointer; }
-  @media (min-width:1025px) {
-    #main-nav { padding:.85rem 1.5rem; }
-    .nav-container { flex-wrap:nowrap; }
-    .nav-toggle { display:none; }
-    .nav-links { display:flex; flex:1 1 auto; align-items:center; justify-content:flex-end; gap:1rem; list-style:none; margin:0; padding:0; }
-    .nav-links > li { position:relative; }
-    .nav-links a { font-family:'Rajdhani',sans-serif; font-weight:600; font-size:.78rem; letter-spacing:.07em; text-transform:uppercase; color:var(--text); text-decoration:none; white-space:nowrap; cursor:none; transition:color .3s; }
-    .nav-links a:hover, .nav-links > li > a.here { color:var(--gold); }
-    .nav-dropdown > a::after { content:' \25BE'; font-size:.7em; }
-    .nav-dropdown-menu { position:absolute; top:100%; left:50%; margin-top:1rem; transform:translateX(-50%) translateY(6px); min-width:330px; background:rgba(5,8,16,.97); border:1px solid rgba(26,107,222,.3); backdrop-filter:blur(14px); padding:.45rem; opacity:0; visibility:hidden; transition:opacity .25s, visibility .25s, transform .25s; }
-    .nav-dropdown-menu::before { content:''; position:absolute; left:0; right:0; top:-1rem; height:1rem; }
-    .nav-dropdown:hover .nav-dropdown-menu, .nav-dropdown:focus-within .nav-dropdown-menu { opacity:1; visibility:visible; transform:translateX(-50%) translateY(0); }
-  }
-  .nav-dropdown-banner { display:flex; align-items:flex-start; gap:.7rem; padding:.7rem .8rem; text-decoration:none; transition:background .25s; }
-  .nav-dropdown-banner:hover { background:rgba(26,107,222,.1); }
-  .ndb-icon { font-size:1.15rem; line-height:1.15; }
-  .ndb-title { display:block; font-family:'Orbitron',sans-serif; font-weight:700; font-size:.76rem; letter-spacing:.06em; text-transform:uppercase; color:var(--gold-champagne); }
-  .ndb-desc { display:block; font-family:'Share Tech Mono',monospace; font-size:.58rem; letter-spacing:.16em; text-transform:uppercase; color:var(--text-dim); margin-top:.25rem; }
-  @media (min-width:1025px) and (max-width:1180px) { .nav-links { gap:.8rem; } .nav-links a { font-size:.72rem; } .nav-logo img { height:28px; } .nav-logo-text { font-size:.85rem; } }
-  @media (min-width:1441px) { #main-nav { padding:.85rem 2rem; } .nav-links { gap:1.5rem; } .nav-links a { font-size:.85rem; } }
-  .nav-cta { font-family:'Orbitron',sans-serif !important; font-weight:700 !important; font-size:.7rem !important; letter-spacing:.14em !important; color:#fff !important; background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); border:1px solid var(--gold-champagne); padding:.55rem 1.2rem; text-shadow:0 1px 2px rgba(0,0,0,.35); transition:box-shadow .3s, transform .3s; }
-  .nav-cta:hover { color:#fff !important; transform:translateY(-2px); box-shadow:0 8px 24px rgba(26,107,222,.45); }
-  /* ── Mobile menu: the live site's full-screen list, one large target per line ── */
-  #mobile-nav { position:fixed; inset:0; z-index:2000; background:rgba(5,8,16,.97); backdrop-filter:blur(18px); display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:1rem; padding:4.8rem 1.2rem 2.5rem; overflow-y:auto; opacity:0; visibility:hidden; transition:opacity .3s, visibility .3s; }
-  #mobile-nav.open { opacity:1; visibility:visible; }
-  #mobile-nav a { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.05rem; letter-spacing:.12em; text-transform:uppercase; color:var(--text); text-decoration:none; text-align:center; }
-  #mobile-nav a.subitem { font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.68rem; letter-spacing:.2em; color:var(--gold-champagne); opacity:1; transform:none; margin:0; }
-  #mobile-nav a small { display:block; font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.6rem; letter-spacing:.3em; color:var(--text-mute); text-transform:uppercase; margin-top:.2rem; }
-  #mobile-nav a.here { color:var(--gold); }
-  .mobile-nav-close { position:absolute; top:1rem; right:1rem; background:none; border:1px solid rgba(26,107,222,.35); color:var(--text); font-size:1.5rem; line-height:1; padding:.1rem .55rem; cursor:pointer; }
-  /* ── Hero: the film full-bleed under the headline, with the live sound toggle ── */
-  section.hero { overflow:hidden; padding:7rem 1rem 5rem; }
-  .hero-media { position:absolute; inset:0; z-index:0; margin:0; overflow:hidden; }
-  .hero-media video, .hero-media .still { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-  .hero-media .still { background:center/cover no-repeat; }
-  .hero-media iframe { position:absolute; top:50%; left:50%; width:100vw; height:56.25vw; min-height:100%; min-width:177.78vh; transform:translate(-50%,-50%); border:0; pointer-events:none; }
-  .hero-scrim { display:block; position:absolute; inset:0; z-index:1; background:linear-gradient(135deg, rgba(5,8,16,.66) 0%, rgba(5,8,16,.36) 50%, rgba(5,8,16,.7) 100%); }
-  section.hero > div { position:relative; z-index:2; }
-  #sound-toggle { position:absolute; right:1rem; bottom:1rem; z-index:3; width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.6); border:1px solid rgba(26,107,222,.5); color:var(--text); font-size:1.2rem; cursor:pointer; backdrop-filter:blur(10px); transition:border-color .3s, box-shadow .3s, background .3s; }
-  #sound-toggle:hover { background:rgba(26,107,222,.18); }
-  #sound-toggle.on { border-color:rgba(26,107,222,.9); box-shadow:0 0 15px rgba(26,107,222,.35); }
-  @media (min-width:769px) { #sound-toggle { right:2rem; bottom:2rem; } }
-  /* ── One continuous scroll: the rail's lane is gone, so the panels take the full width again ── */
-  section.panel { scroll-margin-top:72px; }
-  .progress { z-index:1001; }   /* the read-position line draws on the bar's top edge, not behind it */
-  @media (min-width:769px) { section.panel { padding-left:2rem; padding-right:2rem; } }
-  /* ── Back to top ── */
-  #back-to-top { position:fixed; right:1rem; bottom:1rem; z-index:900; width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(5,8,16,.72); border:1px solid rgba(26,107,222,.45); color:var(--gold-champagne); font-size:1.05rem; cursor:pointer; backdrop-filter:blur(8px); opacity:0; visibility:hidden; transform:translateY(10px); transition:opacity .3s, visibility .3s, transform .3s, background .3s; }
-  #back-to-top.show { opacity:1; visibility:visible; transform:translateY(0); }
-  #back-to-top:hover { border-color:var(--gold); background:rgba(26,107,222,.2); }
-  /* ── Intro overlay: the live Enter / Skip Intro splash ── */
-  #intro-overlay { position:fixed; inset:0; z-index:9999; background:#000; display:flex; align-items:center; justify-content:center; transition:opacity 1s ease, visibility 1s ease; }
-  #intro-overlay.hidden { opacity:0; visibility:hidden; pointer-events:none; }
-  #intro-content { position:relative; z-index:10; text-align:center; padding:0 1.2rem; opacity:0; transform:translateY(30px); transition:opacity 1s ease .4s, transform 1s ease .4s; }
-  #intro-overlay.ready #intro-content { opacity:1; transform:translateY(0); }
-  #intro-eyebrow, #intro-tagline { font-family:'Share Tech Mono',monospace; font-size:.68rem; letter-spacing:.45em; text-transform:uppercase; color:var(--text-mute); }
-  #intro-tagline { margin-top:1.1rem; }
-  #intro-enter { position:absolute; left:50%; bottom:22%; transform:translateX(-50%); z-index:20; padding:.9rem 3rem; font-family:'Orbitron',sans-serif; font-weight:700; font-size:.76rem; letter-spacing:.2em; text-transform:uppercase; border:2px solid var(--gold); color:var(--gold-champagne); background:transparent; border-radius:4px; cursor:pointer; opacity:0; transition:opacity .6s ease, background .35s, color .35s; }
-  #intro-overlay.ready #intro-enter { opacity:1; transition-delay:1.2s; }
-  #intro-enter:hover { background:var(--gold); color:#000; }
-  #skip-intro { position:absolute; right:1.2rem; bottom:1.6rem; z-index:20; padding:.6rem 1.4rem; font-family:'Rajdhani',sans-serif; font-size:.78rem; letter-spacing:.15em; text-transform:uppercase; color:var(--text-mute); background:transparent; border:1px solid rgba(255,255,255,.12); border-radius:4px; cursor:pointer; transition:color .3s, border-color .3s; }
-  #skip-intro:hover { color:var(--text); border-color:var(--gold); }
-  @media (min-width:1025px) { #intro-enter { left:auto; right:60px; bottom:auto; top:50%; transform:translateY(-50%); } #skip-intro { right:40px; bottom:40px; } }
-  body.intro-open { overflow:hidden; }
-  /* ── Site footer: the live footer's badge row, four link groups and rights line ── */
-  .site-footer { position:relative; z-index:5; background:linear-gradient(180deg, rgba(5,8,16,.72) 0%, rgba(5,8,16,.96) 100%); border-top:1px solid rgba(26,107,222,.2); backdrop-filter:blur(10px); padding:3rem 1.2rem 2rem; }
-  .footer-container { max-width:1400px; margin:0 auto; }
-  .footer-awards { display:flex; align-items:center; justify-content:center; gap:2.5rem; flex-wrap:wrap; padding-bottom:2.2rem; border-bottom:1px solid rgba(26,107,222,.15); margin-bottom:2.4rem; }
-  .footer-awards .badge-item { text-align:center; }
-  .footer-awards img { height:96px; width:auto; border:0; filter:drop-shadow(0 0 15px rgba(26,107,222,.3)); }
-  .footer-awards .badge-item p { margin-top:.8rem; font-family:'Orbitron',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-champagne); }
-  .footer-grid { display:grid; grid-template-columns:1fr; gap:1.9rem; margin-bottom:2.2rem; text-align:left; }
-  @media (min-width:700px) { .footer-grid { grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:2rem; } }
-  .footer-section h4 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:.82rem; letter-spacing:.09em; text-transform:uppercase; color:var(--gold-champagne); margin-bottom:.9rem; }
-  .footer-section ul { list-style:none; margin:0; padding:0; }
-  .footer-section li { margin-bottom:.45rem; }
-  .footer-section a, .footer-section p { font-family:'Rajdhani',sans-serif; font-size:.94rem; font-weight:300; color:var(--text-dim); text-decoration:none; line-height:1.75; }
-  .footer-section a:hover { color:var(--gold); }
-  .footer-social { display:flex; gap:1.1rem; flex-wrap:wrap; margin-top:1rem; }
-  .footer-social a { color:var(--gold); }
-  .footer-bottom { border-top:1px solid rgba(26,107,222,.12); padding-top:1.7rem; text-align:center; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.22em; line-height:2.2; text-transform:uppercase; color:var(--text-mute); }
-  .footer-bottom a { color:var(--text-mute); text-decoration:none; margin:0 .5rem; }
-  .footer-bottom a:hover { color:var(--gold-champagne); }
-  /* ── The three lines the de-railed sheet took with it ── */
-  @media (max-width:768px) {
-    html, body { cursor:auto; }
-    .cta, .cta-button, .secondary-cta, .qty button, .nav-logo, .nav-links a { cursor:pointer; }
-    .reticle { display:none; }
-    section.hero { padding:5.5rem 1rem 4rem; }
-    .scroll-cue { bottom:1.2rem; }
-    .footer-awards { gap:1.6rem; } .footer-awards img { height:72px; }
-  }
-
-  .cta, .cta-button { color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.35); }
-  .tile a.cover { position:absolute; inset:0; z-index:3; }
-  .tile .txt .more { display:inline-block; margin-top:.6rem; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; color:var(--gold-champagne); text-transform:uppercase; }
-  .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:1.1rem; max-width:1200px; margin:0 auto; text-align:left; }
-  .cards.two { grid-template-columns:repeat(2,1fr); max-width:1000px; }
-  .cards.four { grid-template-columns:repeat(4,1fr); }
-  .card { position:relative; padding:1.5rem 1.4rem 1.4rem; border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.72) 100%); backdrop-filter:blur(12px); transition:transform .4s, border-color .4s; }
-  .card::before { content:''; position:absolute; top:0; left:0; width:100%; height:1px; background:linear-gradient(90deg, transparent, var(--gold), transparent); }
-  .card:hover { transform:translateY(-5px); border-color:var(--gold); }
-  .card .num { font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.4em; color:var(--gold); margin-bottom:.6rem; }
-  /* The current site's emoji icon on a card or tile, in the number's place (Brockmann, 2026-09-05: same content, same way). */
-  .card .ico, .tile .txt .num.ico { font-size:1.5rem; line-height:1; letter-spacing:0; margin-bottom:.6rem; }
-  /* A section photograph in the flow of the page, where the current page shows it. */
-  img.figure { display:block; width:100%; max-width:900px; margin:2rem auto 0; border:1px solid rgba(26,107,222,.22); }
-  .quotes .card .meta { margin-bottom:.4rem; }
-  .team.nopic { grid-template-columns:1fr; }   /* a team member without a photograph: the bio takes the row */
-  /* Atlas EP page: the live page's capability tags and tier prices. */
-  .tags { margin-top:.8rem; display:flex; flex-wrap:wrap; gap:.35rem; }
-  .tags span { font-family:'Share Tech Mono',monospace; font-size:.56rem; letter-spacing:.2em; text-transform:uppercase; color:var(--gold-champagne); border:1px solid rgba(26,107,222,.3); padding:.15rem .45rem; }
-  .card .price { margin:.6rem 0 .9rem; color:var(--text); } .card .price b { font-family:'Orbitron',sans-serif; font-size:1.5rem; color:var(--gold-champagne); }
-  .card .cta-button { display:inline-block; margin-top:.4rem; }
-  .card h3 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1rem; color:var(--gold-champagne); letter-spacing:.04em; margin-bottom:.55rem; line-height:1.35; }
-  .card p { font-size:.95rem; color:var(--text-dim); line-height:1.55; font-weight:300; }
-  .card ul { margin:.4rem 0 0 1rem; color:var(--text-dim); font-size:.92rem; line-height:1.6; }
-  .card .meta { font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.25em; color:var(--text-dim); text-transform:uppercase; margin-bottom:.8rem; }
-  .card .cta-button, .card .secondary-cta { margin:1rem 0 0; padding:.8rem 1.4rem; font-size:.72rem; }
-  .steps { counter-reset:st; display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; max-width:1100px; margin:0 auto; text-align:left; }
-  .steps .card::after { counter-increment:st; content:counter(st, decimal-leading-zero); position:absolute; top:.9rem; right:1rem; font-family:'Orbitron',sans-serif; font-weight:900; font-size:1.6rem; color:rgba(26,107,222,.22); }
-  .spec { max-width:760px; margin:0 auto; text-align:left; border:1px solid rgba(26,107,222,.22); background:rgba(11,18,33,.7); backdrop-filter:blur(12px); }
-  .spec div { display:flex; justify-content:space-between; gap:1rem; padding:.85rem 1.2rem; border-top:1px solid rgba(26,107,222,.12); font-size:.98rem; }
-  .spec div:first-child { border-top:0; }
-  .spec b { font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.7rem; letter-spacing:.25em; text-transform:uppercase; color:var(--text-dim); }
-  .spec span { color:var(--gold-champagne); font-weight:600; text-align:right; }
-  .quotes { display:grid; grid-template-columns:repeat(3,1fr); gap:1.1rem; max-width:1200px; margin:0 auto; text-align:left; }
-  .quotes .card p { font-style:italic; color:var(--text); }
-  .quotes .card .by { margin-top:.8rem; font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.25em; color:var(--gold-champagne); text-transform:uppercase; }
-  .stars { color:var(--gold); letter-spacing:.15em; font-size:.85rem; margin-bottom:.5rem; }
-  .form { max-width:640px; margin:0 auto; text-align:left; border:1px solid rgba(26,107,222,.22); background:linear-gradient(180deg, rgba(30,42,58,.5) 0%, rgba(11,18,33,.78) 100%); backdrop-filter:blur(14px); padding:1.6rem; }
-  .form label { display:block; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; text-transform:uppercase; color:var(--gold-champagne); margin:1rem 0 .4rem; }
-  .form label:first-child { margin-top:0; }
-  .form input, .form select, .form textarea { width:100%; padding:.85rem 1rem; background:rgba(5,8,16,.7); border:1px solid rgba(255,255,255,.14); color:var(--text); font-family:'Rajdhani',sans-serif; font-size:1.05rem; border-radius:3px; outline:none; -webkit-appearance:none; appearance:none; }
-  .form select { background-image:linear-gradient(45deg, transparent 50%, var(--gold-champagne) 50%), linear-gradient(135deg, var(--gold-champagne) 50%, transparent 50%); background-position:calc(100% - 20px) 50%, calc(100% - 14px) 50%; background-size:6px 6px; background-repeat:no-repeat; }
-  .form select option { background:#0B1221; color:#fff; }
-  .form input:focus, .form select:focus, .form textarea:focus { border-color:var(--gold); }
-  .form textarea { min-height:140px; resize:vertical; }
-  .form .row { display:grid; grid-template-columns:1fr 1fr; gap:.8rem; }
-  .form .hp { position:absolute; left:-9999px; width:1px; height:1px; opacity:0; }
-  .form .cta-button { width:100%; margin-top:1.3rem; border-radius:0; }
-  .form .cta-button[disabled] { opacity:.5; }
-  .form-msg { margin-top:.9rem; font-size:.95rem; line-height:1.5; min-height:1.2em; }
-  .form-msg.ok { color:#7fd4a1; } .form-msg.err { color:#ff8a80; }
-  .form .fine { font-size:.82rem; color:var(--text-dim); margin-top:.9rem; line-height:1.5; }
-  .form .fine a { color:var(--gold-champagne); text-decoration:none; }
-  /* .team blocks (portrait + name, role, bio) live in the shell, shared with the MAST Instructors chapter. */
-  .yt-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.1rem; max-width:1100px; margin:0 auto 1.6rem; text-align:left; }
-  .yt-card { border:1px solid rgba(26,107,222,.22); background:rgba(11,18,33,.8); overflow:hidden; }
-  .yt-card .frame { position:relative; aspect-ratio:16/9; background:#000; }
-  .yt-card iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
-  .yt-card .info { padding:.9rem 1rem; }
-  .yt-card h4 { font-family:'Orbitron',sans-serif; font-size:.9rem; color:var(--gold-champagne); margin-bottom:.2rem; }
-  .yt-card p { font-size:.88rem; color:var(--text-dim); }
-  .yt-card video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; background:#000; }
-  .yt-grid.one { grid-template-columns:1fr; max-width:860px; }
-  .stats.four { grid-template-columns:repeat(4,1fr); max-width:1100px; }
-  .badges { display:flex; gap:1.4rem; justify-content:center; align-items:center; flex-wrap:wrap; margin-top:2rem; }
-  .badges img { height:84px; width:auto; border:0; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); }
-  .badges .badge-item { text-align:center; }
-  .badges .badge-item p { margin-top:.8rem; font-family:'Orbitron',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-champagne); }
-  .lede { font-size:clamp(1.05rem,1.4vw,1.3rem); color:var(--text); max-width:820px; margin:0 auto 2rem; line-height:1.6; font-weight:300; }
-  .lede b { color:var(--gold-champagne); font-weight:600; }
-  .partner { display:grid; grid-template-columns:1fr minmax(240px,420px); gap:1.6rem; max-width:1150px; margin:0 auto; text-align:left; align-items:center; }
-  .partner img { width:100%; border:1px solid rgba(26,107,222,.3); display:block; }
-  .partner p { color:var(--text-dim); line-height:1.6; font-weight:300; font-size:1.02rem; margin-bottom:1rem; }
-  .partner .ctas { justify-content:flex-start; }
-  @media (max-width:900px) { .cards, .cards.four, .steps, .quotes { grid-template-columns:1fr 1fr; } .partner { grid-template-columns:1fr; } }
-  @media (max-width:768px) { .cards, .cards.two, .cards.four, .steps, .quotes, .yt-grid { grid-template-columns:1fr; } .stats.four { grid-template-columns:1fr 1fr; gap:.8rem; } .form { padding:1.1rem; } .form .row { grid-template-columns:1fr; } .badges img { height:64px; } .spec div { flex-direction:column; gap:.2rem; } .spec span { text-align:left; } }
-
+.intro-ring { position:absolute; inset:0; width:100%; height:100%; z-index:0; opacity:0; pointer-events:none; }
+@keyframes shimmer { 0% { background-position:-1000px 0; } 100% { background-position:1000px 0; } }
+#main-nav { position:fixed; top:0; left:0; right:0; z-index:1000; background:rgba(5,8,16,.94); backdrop-filter:blur(12px); border-bottom:1px solid rgba(26,107,222,.25); padding:.6rem 1rem; transform:translateY(-100%); transition:transform .5s ease; }
+#main-nav.visible { transform:translateY(0); }
+.nav-container { max-width:1400px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+.nav-logo { display:flex; align-items:center; gap:.6rem; text-decoration:none; cursor:pointer; }
+.nav-logo img { height:32px; width:auto; filter:drop-shadow(0 0 12px rgba(26,107,222,.55)); }
+.nav-logo-text { font-family:'Orbitron',sans-serif; font-weight:700; font-size:.95rem; letter-spacing:.09em; color:var(--gold); }
+.nav-links { display:none; }
+.nav-toggle { display:block; background:rgba(5,8,16,.5); border:1px solid rgba(26,107,222,.35); color:var(--text); font-family:'Inconsolata',monospace; font-size:1.3rem; line-height:1; padding:.35rem .65rem; cursor:pointer; }
+@media (min-width:1025px) {#main-nav { padding:.85rem 1.5rem; }
+.nav-container { flex-wrap:nowrap; }
+.nav-toggle { display:none; }
+.nav-links { display:flex; flex:1 1 auto; align-items:center; justify-content:flex-end; gap:1rem; list-style:none; margin:0; padding:0; }
+.nav-links > li { position:relative; }
+.nav-links a { font-family:'Rajdhani',sans-serif; font-weight:600; font-size:.78rem; letter-spacing:.07em; text-transform:uppercase; color:var(--text); text-decoration:none; white-space:nowrap; cursor:pointer; transition:color .3s; }
+.nav-links a:hover, .nav-links > li > a.here { color:var(--gold); }
+.nav-dropdown > a::after { content:' \25BE'; font-size:.7em; }
+.nav-dropdown-menu { position:absolute; top:100%; left:50%; margin-top:1rem; transform:translateX(-50%) translateY(6px); min-width:330px; background:rgba(5,8,16,.97); border:1px solid rgba(26,107,222,.3); backdrop-filter:blur(14px); padding:.45rem; opacity:0; visibility:hidden; transition:opacity .25s, visibility .25s, transform .25s; }
+.nav-dropdown-menu::before { content:''; position:absolute; left:0; right:0; top:-1rem; height:1rem; }
+.nav-dropdown:hover .nav-dropdown-menu, .nav-dropdown:focus-within .nav-dropdown-menu { opacity:1; visibility:visible; transform:translateX(-50%) translateY(0); }}
+.nav-dropdown-banner { display:flex; align-items:flex-start; gap:.7rem; padding:.7rem .8rem; text-decoration:none; transition:background .25s; }
+.nav-dropdown-banner:hover { background:rgba(26,107,222,.1); }
+.ndb-icon { font-size:1.15rem; line-height:1.15; }
+.ndb-title { display:block; font-family:'Orbitron',sans-serif; font-weight:700; font-size:.76rem; letter-spacing:.06em; text-transform:uppercase; color:var(--gold-champagne); }
+.ndb-desc { display:block; font-family:'Inconsolata',monospace; font-size:.58rem; letter-spacing:.16em; text-transform:uppercase; color:var(--text-dim); margin-top:.25rem; }
+@media (min-width:1025px) and (max-width:1180px) {.nav-links { gap:.8rem; }
+.nav-links a { font-size:.72rem; }
+.nav-logo img { height:28px; }
+.nav-logo-text { font-size:.85rem; }}
+@media (min-width:1441px) {#main-nav { padding:.85rem 2rem; }
+.nav-links { gap:1.5rem; }
+.nav-links a { font-size:.85rem; }}
+.nav-cta { font-family:'Orbitron',sans-serif !important; font-weight:700 !important; font-size:.7rem !important; letter-spacing:.14em !important; color:#fff !important; background:linear-gradient(135deg, #1558B8 0%, #DCEBFF 50%, #0F4AA8 100%); border:1px solid var(--gold-champagne); padding:.55rem 1.2rem; text-shadow:0 1px 2px rgba(0,0,0,.35); transition:box-shadow .3s, transform .3s; }
+.nav-cta:hover { color:#fff !important; transform:translateY(-2px); box-shadow:0 8px 24px rgba(26,107,222,.45); }
+#mobile-nav { position:fixed; inset:0; z-index:2000; background:rgba(5,8,16,.97); backdrop-filter:blur(18px); display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:1rem; padding:4.8rem 1.2rem 2.5rem; overflow-y:auto; opacity:0; visibility:hidden; transition:opacity .3s, visibility .3s; }
+#mobile-nav.open { opacity:1; visibility:visible; }
+#mobile-nav a { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.05rem; letter-spacing:.12em; text-transform:uppercase; color:var(--text); text-decoration:none; text-align:center; }
+#mobile-nav a.subitem { font-family:'Inconsolata',monospace; font-weight:400; font-size:.68rem; letter-spacing:.2em; color:var(--gold-champagne); opacity:1; transform:none; margin:0; }
+#mobile-nav a small { display:block; font-family:'Inconsolata',monospace; font-weight:400; font-size:.6rem; letter-spacing:.3em; color:var(--text-mute); text-transform:uppercase; margin-top:.2rem; }
+#mobile-nav a.here { color:var(--gold); }
+.mobile-nav-close { position:absolute; top:1rem; right:1rem; background:none; border:1px solid rgba(26,107,222,.35); color:var(--text); font-size:1.5rem; line-height:1; padding:.1rem .55rem; cursor:pointer; }
+#back-to-top { position:fixed; right:1rem; bottom:1rem; z-index:900; width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(5,8,16,.72); border:1px solid rgba(26,107,222,.45); color:var(--gold-champagne); font-size:1.05rem; cursor:pointer; backdrop-filter:blur(8px); opacity:0; visibility:hidden; transform:translateY(10px); transition:opacity .3s, visibility .3s, transform .3s, background .3s; }
+#back-to-top.show { opacity:1; visibility:visible; transform:translateY(0); }
+#back-to-top:hover { border-color:var(--gold); background:rgba(26,107,222,.2); }
+#intro-overlay { position:fixed; inset:0; z-index:9999; background:#000; display:flex; align-items:center; justify-content:center; transition:opacity 1s ease, visibility 1s ease; }
+#intro-overlay.hidden { opacity:0; visibility:hidden; pointer-events:none; }
+#intro-content { position:relative; z-index:10; text-align:center; padding:0 1.2rem; opacity:0; transform:translateY(30px); transition:opacity 1s ease .4s, transform 1s ease .4s; }
+#intro-overlay.ready #intro-content { opacity:1; transform:translateY(0); }
+#intro-eyebrow, #intro-tagline { font-family:'Inconsolata',monospace; font-size:.68rem; letter-spacing:.45em; text-transform:uppercase; color:var(--text-mute); }
+#intro-tagline { margin-top:1.1rem; }
+#intro-enter { position:absolute; left:50%; bottom:22%; transform:translateX(-50%); z-index:20; padding:.9rem 3rem; font-family:'Orbitron',sans-serif; font-weight:700; font-size:.76rem; letter-spacing:.2em; text-transform:uppercase; border:2px solid var(--gold); color:var(--gold-champagne); background:transparent; border-radius:4px; cursor:pointer; opacity:0; transition:opacity .6s ease, background .35s, color .35s; }
+#intro-overlay.ready #intro-enter { opacity:1; transition-delay:1.2s; }
+#intro-enter:hover { background:var(--gold); color:#000; }
+#skip-intro { position:absolute; right:1.2rem; bottom:1.6rem; z-index:20; padding:.6rem 1.4rem; font-family:'Rajdhani',sans-serif; font-size:.78rem; letter-spacing:.15em; text-transform:uppercase; color:var(--text-mute); background:transparent; border:1px solid rgba(255,255,255,.12); border-radius:4px; cursor:pointer; transition:color .3s, border-color .3s; }
+#skip-intro:hover { color:var(--text); border-color:var(--gold); }
+@media (min-width:1025px) {#intro-enter { left:auto; right:60px; bottom:auto; top:50%; transform:translateY(-50%); }
+#skip-intro { right:40px; bottom:40px; }}
+body.intro-open { overflow:hidden; }
+.site-footer { position:relative; z-index:5; background:linear-gradient(180deg, rgba(5,8,16,.72) 0%, rgba(5,8,16,.96) 100%); border-top:1px solid rgba(26,107,222,.2); backdrop-filter:blur(10px); padding:3rem 1.2rem 2rem; }
+.footer-container { max-width:1400px; margin:0 auto; }
+.footer-awards { display:flex; align-items:center; justify-content:center; gap:2.5rem; flex-wrap:wrap; padding-bottom:2.2rem; border-bottom:1px solid rgba(26,107,222,.15); margin-bottom:2.4rem; }
+.footer-awards .badge-item { text-align:center; }
+.footer-awards img { height:96px; width:auto; border:0; filter:drop-shadow(0 0 15px rgba(26,107,222,.3)); }
+.footer-awards .badge-item p { margin-top:.8rem; font-family:'Orbitron',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-champagne); }
+.footer-grid { display:grid; grid-template-columns:1fr; gap:1.9rem; margin-bottom:2.2rem; text-align:left; }
+@media (min-width:700px) {.footer-grid { grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:2rem; }}
+.footer-section h4 { font-family:'Orbitron',sans-serif; font-weight:700; font-size:.82rem; letter-spacing:.09em; text-transform:uppercase; color:var(--gold-champagne); margin-bottom:.9rem; }
+.footer-section ul { list-style:none; margin:0; padding:0; }
+.footer-section li { margin-bottom:.45rem; }
+.footer-section a, .footer-section p { font-family:'Rajdhani',sans-serif; font-size:.94rem; font-weight:300; color:var(--text-dim); text-decoration:none; line-height:1.75; }
+.footer-section a:hover { color:var(--gold); }
+.footer-social { display:flex; gap:1.1rem; flex-wrap:wrap; margin-top:1rem; }
+.footer-social a { color:var(--gold); }
+.footer-bottom { border-top:1px solid rgba(26,107,222,.12); padding-top:1.7rem; text-align:center; font-family:'Inconsolata',monospace; font-size:.62rem; letter-spacing:.22em; line-height:2.2; text-transform:uppercase; color:var(--text-mute); }
+.footer-bottom a { color:var(--text-mute); text-decoration:none; margin:0 .5rem; }
+.footer-bottom a:hover { color:var(--gold-champagne); }
+@media (max-width:768px) {.footer-awards { gap:1.6rem; }
+.footer-awards img { height:72px; }}
   #intro-title { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(1.9rem,6.2vw,3.6rem); letter-spacing:.14em; line-height:1.1; text-transform:uppercase; background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; text-shadow:0 0 60px rgba(201,168,76,.35); animation:shimmer 3s linear infinite; }
   @media (prefers-reduced-motion: reduce) { #intro-title { animation:none; } }
-
-  h1.mega .gold-shimmer { background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; animation:shimmer 6s linear infinite; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; text-shadow:0 0 80px rgba(201,168,76,.3); }
-  h1.mega .white { color:#1A6BDE; }
-  @media (prefers-reduced-motion: reduce) { h1.mega .gold-shimmer { animation:none; } }
 </style>
 </head>
 <body>
@@ -433,20 +428,6 @@
   <button id="skip-intro" type="button">Skip Intro &rarr;</button>
 </div>
 
-<canvas id="three-canvas"></canvas>
-<div id="photos">
-  <div class="ph" data-for="01" style="background-image:url('images/film/atlas-glinn-and-mast-solutions-poster.jpg')"></div>
-  <div class="ph" data-for="02" style="background-image:url('images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg')"></div>
-  <div class="ph" data-for="03" style="background-image:url('images/film/atlas-glinn-and-mast-solutions-poster.jpg')"></div>
-  <div class="ph" data-for="04" style="background-image:url('images/atlas/closeup-cctv-camera-wall-min-1024x683.jpg')"></div>
-  <div class="ph" data-for="05" style="background-image:url('images/atlas/Executive-Protection.jpg')"></div>
-  <div class="ph" data-for="06" style="background-image:url('images/atlas/Atlas-Glinn-3.jpg')"></div>
-  <div class="ph" data-for="07" style="background-image:url('images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg')"></div>
-</div>
-<div class="grain"></div>
-<div class="vignette"></div>
-<div class="progress" id="progress"></div>
-<div class="reticle"><div class="reticle-ring"></div><div class="reticle-dot"></div></div>
 <nav id="main-nav" aria-label="Main">
   <div class="nav-container">
     <a href="index.html" class="nav-logo"><img src="images/atlas/Atlas-Glinn-Logo-Rev1-2-e1744918824251.png" alt="ATLAS GLINN" width="40" height="40"><span class="nav-logo-text">ATLAS GLINN</span></a>
@@ -456,7 +437,7 @@
         <li><a href="residential-protection.html">Residential Protection</a></li>
         <li><a href="disaster-recovery.html">Disaster Recovery</a></li>
         <li class="nav-dropdown"><a href="training.html">Training</a>
-          <div class="nav-dropdown-menu"><a href="training.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#9881;</span><span class="ndb-text"><span class="ndb-title">Training Programs</span><span class="ndb-desc">EP, firearms, tactical &amp; security courses</span></span></a><a href="mastsolutions.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#127919;</span><span class="ndb-text"><span class="ndb-title">MAST Solutions</span><span class="ndb-desc">Book a course</span></span></a><a href="mastsolutions.html#gear" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128163;</span><span class="ndb-text"><span class="ndb-title">IWA Training Products</span><span class="ndb-desc">Flashbangs, smoke &amp; diversionary devices</span></span></a></div>
+          <div class="nav-dropdown-menu"><a href="training.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#9881;</span><span class="ndb-text"><span class="ndb-title">Training Programs</span><span class="ndb-desc">EP, firearms, tactical &amp; security courses</span></span></a><a href="https://www.mastsolutions.com/" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#127919;</span><span class="ndb-text"><span class="ndb-title">MAST Solutions</span><span class="ndb-desc">Book a course</span></span></a><a href="https://www.mastsolutions.com/#gear" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128163;</span><span class="ndb-text"><span class="ndb-title">IWA Training Products</span><span class="ndb-desc">Flashbangs, smoke &amp; diversionary devices</span></span></a></div>
         </li>
         <li class="nav-dropdown"><a href="technology.html">Technology</a>
           <div class="nav-dropdown-menu"><a href="technology.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128225;</span><span class="ndb-text"><span class="ndb-title">Technology</span><span class="ndb-desc">Atlas EP, AI surveillance, drones</span></span></a><a href="cuas-aerodefense.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128737;</span><span class="ndb-text"><span class="ndb-title">Counter-Drone</span><span class="ndb-desc">AirWarden by AeroDefense</span></span></a><a href="uas.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128641;</span><span class="ndb-text"><span class="ndb-title">Autonomous UAS</span><span class="ndb-desc">Sunflower Labs</span></span></a><a href="ep-app.html" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">&#128241;</span><span class="ndb-text"><span class="ndb-title">Atlas EP App</span><span class="ndb-desc">Now in Early Access</span></span></a></div>
@@ -476,8 +457,8 @@
   <a href="residential-protection.html">Residential Protection<small>Estates, guard force, AI surveillance</small></a>
   <a href="disaster-recovery.html">Disaster Recovery<small>Asset protection when it counts</small></a>
   <a href="training.html">Training<small>EP, firearms, tactical &amp; security courses</small></a>
-  <a href="mastsolutions.html" class="subitem">MAST Solutions<small>Book a course</small></a>
-  <a href="mastsolutions.html#gear" class="subitem">IWA Training Products<small>Flashbangs, smoke &amp; diversionary devices</small></a>
+  <a href="https://www.mastsolutions.com/" class="subitem">MAST Solutions<small>Book a course</small></a>
+  <a href="https://www.mastsolutions.com/#gear" class="subitem">IWA Training Products<small>Flashbangs, smoke &amp; diversionary devices</small></a>
   <a href="technology.html">Technology<small>Atlas EP, AI surveillance, drones</small></a>
   <a href="cuas-aerodefense.html" class="subitem">Counter-Drone<small>AirWarden by AeroDefense</small></a>
   <a href="uas.html" class="subitem">Autonomous UAS<small>Sunflower Labs</small></a>
@@ -488,84 +469,322 @@
   <a href="privacy.html">Privacy Policy<small>What we keep, and for how long</small></a>
 </div>
 
-<div class="content">
-
-  <section class="panel hero" id="s1" data-section="01">
-    <figure class="hero-media"><span class="still" style="background-image:url('images/film/atlas-glinn-and-mast-solutions-poster.jpg')"></span><video id="hero-video" autoplay muted loop playsinline preload="metadata" poster="images/film/atlas-glinn-and-mast-solutions-poster.jpg" aria-hidden="true"><source src="images/film/atlas-glinn-and-mast-solutions-teaser.mp4" type="video/mp4"></video></figure><span class="hero-scrim"></span><button id="sound-toggle" type="button" title="Toggle Sound" aria-label="Toggle sound">&#128263;</button>
-    <div>
-      <div class="eyebrow">Security, Training, Dignitary Protection</div>
-      <h1 class="mega"><span class="gold-shimmer">Details</span> <span class="white">Matter.</span></h1>
-      <p class="sub"></p>
-      <div class="ctas rise"><a href="contact.html" class="cta">Request a posture assessment</a><a href="#s2" class="secondary-cta">Our Services</a></div>
+<!-- ══════════ HERO WITH VIDEO ══════════ -->
+<section class="hero" style="height:100vh; position:relative;">
+    <video id="hero-video" autoplay muted loop playsinline style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; object-position:center center; z-index:1;">
+        <source src="https://atlasglinn.com/wp-content/uploads/2025/04/Atlas-Glinn-and-MAST-Solutions.mp4" type="video/mp4">
+    </video>
+    <div class="hero-overlay" style="background:linear-gradient(135deg, rgba(8,12,20,0.6) 0%, rgba(8,12,20,0.3) 50%, rgba(8,12,20,0.6) 100%);"></div>
+    <div class="hero-content">
+        <h1 class="hero-headline"><span class="gold-shimmer">Details</span> <span style="color:#1A6BDE;">Matter</span></h1>
+        <div class="hero-ctas"><a href="contact.html" class="cta-button">Request a posture assessment</a></div>
     </div>
-    <div class="scroll-cue">SCROLL &darr;</div>
-  </section>
+    <button id="sound-toggle" style="position:absolute; bottom:2rem; right:2rem; z-index:10; background:rgba(0,0,0,0.6); border:1px solid rgba(201,168,76,0.5); color:#fff; width:48px; height:48px; border-radius:50%; cursor:pointer; font-size:1.2rem; backdrop-filter:blur(10px); transition:all 0.3s ease; display:flex; align-items:center; justify-content:center;" title="Toggle Sound">&#128263;</button>
+</section>
+<script>
+(function(){
+    var vid = document.getElementById('hero-video');
+    var btn = document.getElementById('sound-toggle');
+    var muted = true;
+    btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (muted) { vid.muted = false; muted = false; btn.innerHTML = '&#128266;'; btn.style.borderColor = 'rgba(201,168,76,0.8)'; btn.style.boxShadow = '0 0 15px rgba(201,168,76,0.3)'; }
+        else { vid.muted = true; muted = true; btn.innerHTML = '&#128263;'; btn.style.borderColor = 'rgba(201,168,76,0.5)'; btn.style.boxShadow = 'none'; }
+    });
+})();
+</script>
 
-  <section class="panel" id="s2" data-section="02">
-    <div>
-      <div class="eyebrow">Our Services</div>
-      <h2 class="section-h">Customized <span class="gold">Security.</span></h2>
-      <p class="sub">Protection that doesn&rsquo;t show up in the news.</p>
-      <div class="tiles"><div class="tile rise"><div class="bg" style="background-image:url('images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg');background-position:center"></div><div class="txt"><div class="num">01</div><h3>Executive Protection</h3><p>Discreet, adaptive security for high-level executives and dignitaries.</p><span class="more">Learn more &rarr;</span></div><a class="cover" href="executive-protection.html" aria-label="Executive Protection"></a></div><div class="tile rise"><div class="bg" style="background-image:url('images/atlas/closeup-cctv-camera-wall-min-1024x683.jpg');background-position:center"></div><div class="txt"><div class="num">02</div><h3>Residential Protection</h3><p>24/7 security guards and AI surveillance for your home and estate.</p><span class="more">Learn more &rarr;</span></div><a class="cover" href="residential-protection.html" aria-label="Residential Protection"></a></div><div class="tile rise"><div class="bg" style="background-image:url('images/atlas/Atlas-Glinn-Protection.png');background-position:center"></div><div class="txt"><div class="num">03</div><h3>Secure Transport</h3><p>Armed drivers, route planning, and tactical escort for motorcade operations.</p><span class="more">Learn more &rarr;</span></div><a class="cover" href="executive-protection.html#s7" aria-label="Secure Transport"></a></div><div class="tile rise"><div class="bg" style="background-image:url('images/atlas/Atlas-Glinn-Training-1024x951.jpeg');background-position:center"></div><div class="txt"><div class="num">04</div><h3>Training Programs</h3><p>Rigorous training for real-world challenges. Delivered by operators, for operators.</p><span class="more">Learn more &rarr;</span></div><a class="cover" href="training.html" aria-label="Training Programs"></a></div><div class="tile rise"><div class="bg" style="background-image:url('images/atlas/Atlas-Glinn-3.jpg');background-position:center"></div><div class="txt"><div class="num">05</div><h3>Disaster Recovery</h3><p>Rapid response and asset protection during crisis situations.</p><span class="more">Learn more &rarr;</span></div><a class="cover" href="disaster-recovery.html" aria-label="Disaster Recovery"></a></div></div>
-    </div>
-  </section>
+<!-- ══════════ CREDENTIAL BAR ══════════ -->
 
-  <section class="panel" id="s3" data-section="03">
-    <div>
-      <div class="eyebrow">Atlas Glinn &amp; MAST Solutions</div>
-      <h2 class="section-h">Watch the <span class="gold">Film.</span></h2>
-      
-      <div class="yt-grid one rise"><div class="yt-card"><div class="frame"><video controls preload="none" playsinline poster="images/film/atlas-glinn-and-mast-solutions-poster.jpg" src="images/film/atlas-glinn-and-mast-solutions.mp4" title="Atlas Glinn &amp; MAST Solutions"></video></div><div class="info"><h4>Atlas Glinn &amp; MAST Solutions</h4><p>The film from the atlasglinn.com home page</p></div></div></div>
-    </div>
-  </section>
 
-  <section class="panel" id="s4" data-section="04">
-    <div>
-      <div class="eyebrow">Built By Atlas Glinn</div>
-      <h2 class="section-h">The Atlas EP <span class="gold">Platform.</span></h2>
-      <p class="sub">We didn&rsquo;t just build a security company &mdash; we built the intelligence platform behind it. Because the right tech didn&rsquo;t exist yet.</p>
-      <div class="eyebrow in">AI Intelligence Features</div><div class="cards four"><div class="card rise"><h3>AI Threat Analysis &amp; Scoring</h3><p>Real-time threat intelligence powered by Anthropic Claude AI. Automated situation reports, risk scoring, and predictive threat modeling.</p></div><div class="card rise"><h3>Blue Force Tracking</h3><p>Real-time GPS positioning of your entire protection team. Anti-spoofing technology ensures accurate, tamper-proof location data.</p></div><div class="card rise"><h3>Encrypted Push-to-Talk Radio</h3><p>Military-grade AES-256-GCM encrypted voice comms. No third-party servers, no interception risk.</p></div><div class="card rise"><h3>Crime Data Intelligence</h3><p>Live crime feeds, sex offender mapping, aviation/airspace monitoring &mdash; all layered on Google Earth for advance work.</p></div></div><div class="eyebrow in" style="margin-top:2.2rem">Operator Benefits</div><div class="cards four"><div class="card rise"><h3>Covert Emergency Stream</h3><p>Silent SOS with live audio/video streaming. Your team sees and hears everything without alerting the threat.</p></div><div class="card rise"><h3>Duress Detection</h3><p>Dead man&rsquo;s switch + heart rate monitoring. If you go down, your team knows immediately. Apple Watch companion with wrist SOS.</p></div><div class="card rise"><h3>Counter-Surveillance Sweep</h3><p>BLE + IR camera detection for room sweeps. Identify hidden surveillance devices before your principal arrives.</p></div><div class="card rise"><h3>Cyber Defense Suite</h3><p>Evil twin WiFi detection, jailbreak monitoring, MITM protection. Your device security is part of the mission.</p></div></div><div class="eyebrow in" style="margin-top:2.2rem">Choose Your Plan</div><div class="cards four"><div class="card rise"><h3>Family</h3><p><b style="color:var(--gold-champagne);font-size:1.3rem">$19.99</b><br><span class="meta">/month &middot; up to 6</span></p></div><div class="card rise"><h3>Operator</h3><p><b style="color:var(--gold-champagne);font-size:1.3rem">$149.99</b><br><span class="meta">/month &middot; 1</span></p></div><div class="card rise"><h3>Protection Team</h3><p><b style="color:var(--gold-champagne);font-size:1.3rem">$199.99</b><br><span class="meta">/seat/month &middot; unlimited seats</span></p></div><div class="card rise"><h3>Enterprise</h3><p><b style="color:var(--gold-champagne);font-size:1.3rem">$5,000+</b><br><span class="meta">/month &middot; custom</span></p></div></div><p class="sub" style="margin-top:1.2rem">Every tier pairs with a Protectee.</p><div class="ctas rise" style="margin-top:2rem"><a href="ep-app.html" class="cta">Explore Atlas EP &rarr;</a></div>
-    </div>
-  </section>
-
-  <section class="panel" id="s5" data-section="05">
-    <div>
-      <div class="badge">We Don&rsquo;t Do Press.</div>
-      
-      
-      <p class="sub quote lead">&ldquo;We don&rsquo;t do press. We let our work speak for itself.&rdquo;</p><div class="eyebrow" style="margin-top:2rem;">Request the Capability Statement</div><p class="sub" style="margin-bottom:1.4rem">Submit your request and we&rsquo;ll send our capability statement directly to your email.</p><form class="form rise" data-endpoint="https://mast-booking-backend.matthew-221.workers.dev/contact" data-success="Request received. We&rsquo;ll be in touch shortly." novalidate><label for="cs-name">Full Name</label><input id="cs-name" name="name" type="text" autocomplete="name" placeholder="Full Name" required><div class="row"><div><label for="cs-email">Email Address</label><input id="cs-email" name="email" type="email" autocomplete="email" inputmode="email" placeholder="Email Address" required></div><div><label for="cs-company">Company</label><input id="cs-company" name="company" type="text" autocomplete="organization" placeholder="Company"></div></div><div class="row"><div><label for="cs-status">Do you currently have or need security?</label><select id="cs-status" name="status"><option>Currently have security</option><option>Need security</option><option>Evaluating options</option></select></div><div><label for="cs-type">RFP / RFQ</label><select id="cs-type" name="request_type"><option>RFP &mdash; Request for Proposal</option><option>RFQ &mdash; Request for Quote</option><option>General Inquiry</option></select></div></div><input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="hidden" name="kind" value="capability"><button class="cta-button" type="submit">Request Capability Statement</button><div class="form-msg" role="status" aria-live="polite"></div><p class="fine">Your request goes to Atlas Glinn HQ only. See the <a href="privacy.html">Privacy Policy</a>.</p></form>
-    </div>
-  </section>
-
-  <section class="panel" id="s6" data-section="06">
-    <div>
-      <div class="eyebrow">Reviews</div>
-      <h2 class="section-h">Google Reviews &amp; LinkedIn <span class="gold">Recommendations.</span></h2>
-      <p class="sub"><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span> 5.0 &middot; Google Reviews</p>
-      <div class="quotes"><div class="card rise"><div class="meta">Law Enforcement</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Matthew is an expert in his field. He is highly motivated, knowledgeable and I highly recommend him for top-tier performance.&rdquo;</p><div class="by">Kenny Upton &mdash; Deputy, Harris County Sheriff</div></div><div class="card rise"><div class="meta">Navy SEAL / Former CIA</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;His leadership, dedication, drive, and passion is second to none. A master at teamwork, problem-solving, leadership, and communication.&rdquo;</p><div class="by">Ray Cash Care &mdash; Navy SEAL / Former CIA</div></div><div class="card rise"><div class="meta">Reconnaissance Marine</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;As a former Reconnaissance Marine, Matthew&rsquo;s teaching has not only made me a better shooter, he has made me a better team player.&rdquo;</p><div class="by">Arthur Metcalfe &mdash; Recon Marine, 18yr O&amp;G</div></div><div class="card rise"><div class="meta">Flight Paramedic</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Brockmann had hosted and taught some of the best classes I have been a part of. I can&rsquo;t recommend him enough.&rdquo;</p><div class="by">William H. Miller BS, TP-C, FP-C, CPM &mdash; Flight Paramedic</div></div><div class="card rise"><div class="meta">President &amp; CEO</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Extremely professional. In an extremely competitive industry Matt has never failed to provide exceptional guidance. I recommend him without hesitation.&rdquo;</p><div class="by">Craig Etkin &mdash; President &amp; CEO, intelligence360</div></div><div class="card rise"><div class="meta">CxO / Investor</div><div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;I&rsquo;ve trained with some big-name national &amp; global self-defense trainers. I&rsquo;ve always felt safe training with Matt &mdash; the #1 criterion for choosing a trainer.&rdquo;</p><div class="by">Wayne Sadin &mdash; CxO/VP Investor</div></div></div><div class="ctas rise" style="margin-top:2rem"><a href="https://www.google.com/search?q=Atlas+Glinn+Houston+reviews" class="secondary-cta">Google Reviews &rarr;</a><a href="https://www.linkedin.com/in/mastsolutions1/" class="secondary-cta">LinkedIn &rarr;</a></div><div class="badges rise"><div class="badge-item"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div><div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div>
-    </div>
-  </section>
-
-  <section class="panel" id="s7" data-section="07">
-    <div>
-      <div class="eyebrow">Get in Touch</div>
-      <h2 class="section-h">Protecting What <span class="gold">Matters Most.</span></h2>
-      <p class="sub">From U.S. Senators to Fortune 500 executives &mdash; discreet, adaptive protection at the highest level.</p>
-      <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div><div class="ctas rise"><a href="contact.html" class="cta">Contact Us</a><a href="mastsolutions.html" class="secondary-cta">Book Training &rarr;</a></div>
-    </div>
-  </section>
-
+<!-- ══════════ SERVICES ══════════ -->
+<div class="section-divider">
+    <h2>Our <span class="gold-shimmer">Services</span></h2>
+    <p>Protection that doesn't show up in the news.</p>
 </div>
+<section class="section" id="services" style="padding-top: 2rem;">
+    <div class="services-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="service-card reveal" style="position:relative; overflow:hidden; min-height:320px; display:flex; align-items:flex-end;">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/05/Atlas-Glinn-Executive-Protection-scaled.jpeg" alt="Executive Protection" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;filter:brightness(.6) contrast(1.1);border-radius:4px;" loading="lazy">
+            <div style="position:relative;z-index:1;padding:1.5rem;">
+                <h3>Executive Protection</h3>
+                <p>Discreet, adaptive security for high-level executives and dignitaries.</p>
+                <a href="executive-protection.html" class="card-link">Learn More &rarr;</a>
+            </div>
+        </div>
+        <div class="service-card reveal" style="position:relative; overflow:hidden; min-height:320px; display:flex; align-items:flex-end;">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/04/closeup-cctv-camera-wall-min-1024x683.jpg?v=2" alt="Residential Protection — AI Surveillance" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;filter:brightness(.6) contrast(1.1);border-radius:4px;" loading="lazy">
+            <div style="position:relative;z-index:1;padding:1.5rem;">
+                <h3>Residential Protection</h3>
+                <p>24/7 security guards and AI surveillance for your home and estate.</p>
+                <a href="residential-protection.html" class="card-link">Learn More &rarr;</a>
+            </div>
+        </div>
+        <div class="service-card reveal" style="position:relative; overflow:hidden; min-height:320px; display:flex; align-items:flex-end;">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/05/Atlas-Glinn-Protection.png" alt="Secure Transport" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;filter:brightness(.6) contrast(1.1);border-radius:4px;" loading="lazy">
+            <div style="position:relative;z-index:1;padding:1.5rem;">
+                <h3>Secure Transport</h3>
+                <p>Armed drivers, route planning, and tactical escort for motorcade operations.</p>
+                <a href="executive-protection.html" class="card-link">Learn More &rarr;</a>
+            </div>
+        </div>
+        <div class="service-card reveal" style="position:relative; overflow:hidden; min-height:320px; display:flex; align-items:flex-end;">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/05/Atlas-Glinn-Training-1024x951.jpeg" alt="Training" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;filter:brightness(.6) contrast(1.1);border-radius:4px;" loading="lazy">
+            <div style="position:relative;z-index:1;padding:1.5rem;">
+                <h3>Training Programs</h3>
+                <p>Rigorous training for real-world challenges. Delivered by operators, for operators.</p>
+                <a href="training.html" class="card-link">Learn More &rarr;</a>
+            </div>
+        </div>
+        <div class="service-card reveal" style="position:relative; overflow:hidden; min-height:320px; display:flex; align-items:flex-end;">
+            <img src="https://atlasglinn.com/wp-content/uploads/2025/05/Atlas-Glinn-3.jpg" alt="Disaster Recovery" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;filter:brightness(.6) contrast(1.1);border-radius:4px;" loading="lazy">
+            <div style="position:relative;z-index:1;padding:1.5rem;">
+                <h3>Disaster Recovery</h3>
+                <p>Rapid response and asset protection during crisis situations.</p>
+                <a href="disaster-recovery.html" class="card-link">Learn More &rarr;</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+
+<!-- ══════════ AI-POWERED PROTECTION PLATFORM ══════════ -->
+<div class="section-divider">
+    <h2>Atlas EP <span class="gold-shimmer">Platform</span></h2>
+    <p>We didn't just build a security company &mdash; we built the intelligence platform behind it. Because the right tech didn't exist yet.</p>
+</div>
+<section class="section" id="app" style="position:relative; padding-top: 2rem; padding-bottom: 4rem; padding-left: 2rem; padding-right: 2rem;">
+    <!-- GLOW EFFECT -->
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(26,107,222,.08) 0%,transparent 70%);pointer-events:none;"></div>
+    <div style="text-align:center; margin-bottom:3rem; position:relative; z-index:2;" class="reveal">
+        <p style="font-family:'Orbitron',sans-serif; font-size:0.85rem; letter-spacing:0.2em; color:#C9A84C; text-transform:uppercase; margin-bottom:0.5rem;">Built By Atlas Glinn</p>
+    </div>
+
+    <!-- FEATURES + BENEFITS GRID -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:2rem; margin-bottom:4rem;" class="reveal">
+        <div>
+            <h3 style="font-family:'Orbitron',sans-serif; font-size:1.3rem; color:#1A6BDE; margin-bottom:1.5rem;">AI Intelligence Features</h3>
+            <div style="display:flex; flex-direction:column; gap:1.2rem;">
+                <div style="display:flex; gap:0.8rem; align-items:flex-start;"><span style="color:#C9A84C; font-size:1.4rem; line-height:1;">&#9670;</span><div><strong style="color:#fff;">AI Threat Analysis &amp; Scoring</strong><br><span style="color:#b0b0b0; font-size:0.9rem;">Real-time threat intelligence powered by Anthropic Claude AI. Automated situation reports, risk scoring, and predictive threat modeling.</span></div></div>
+                <div style="display:flex; gap:0.8rem; align-items:flex-start;"><span style="color:#C9A84C; font-size:1.4rem; line-height:1;">&#9670;</span><div><strong style="color:#fff;">Blue Force Tracking</strong><br><span style="color:#b0b0b0; font-size:0.9rem;">Real-time GPS positioning of your entire protection team. Anti-spoofing technology ensures accurate, tamper-proof location data.</span></div></div>
+                <div style="display:flex; gap:0.8rem; align-items:flex-start;"><span style="color:#C9A84C; font-size:1.4rem; line-height:1;">&#9670;</span><div><strong style="color:#fff;">Encrypted Push-to-Talk Radio</strong><br><span style="color:#b0b0b0; font-size:0.9rem;">Military-grade AES-256-GCM encrypted voice comms. No third-party servers, no interception risk.</span></div></div>
+                <div style="display:flex; gap:0.8rem; align-items:flex-start;"><span style="color:#C9A84C; font-size:1.4rem; line-height:1;">&#9670;</span><div><strong style="color:#fff;">Crime Data Intelligence</strong><br><span style="color:#b0b0b0; font-size:0.9rem;">Live crime feeds, sex offender mapping, aviation/airspace monitoring &mdash; all layered on Google Earth for advance work.</span></div></div>
+            </div>
+        </div>
+        <div>
+            <h3 style="font-family:'Orbitron',sans-serif; font-size:1.3rem; color:#1A6BDE; margin-bottom:1.5rem;">Operator Benefits</h3>
+            <div style="display:flex; flex-direction:column; gap:1.2rem;">
+                <div style="display:flex; gap:0.8rem; align-items:flex-start;"><span style="color:#C9A84C; font-size:1.4rem; line-height:1;">&#9670;</span><div><strong style="color:#fff;">Covert Emergency Stream</strong><br><span style="color:#b0b0b0; font-size:0.9rem;">Silent SOS with live audio/video streaming. Your team sees and hears everything without alerting the threat.</span></div></div>
+                <div style="display:flex; gap:0.8rem; align-items:flex-start;"><span style="color:#C9A84C; font-size:1.4rem; line-height:1;">&#9670;</span><div><strong style="color:#fff;">Duress Detection</strong><br><span style="color:#b0b0b0; font-size:0.9rem;">Dead man's switch + heart rate monitoring. If you go down, your team knows immediately. Apple Watch companion with wrist SOS.</span></div></div>
+                <div style="display:flex; gap:0.8rem; align-items:flex-start;"><span style="color:#C9A84C; font-size:1.4rem; line-height:1;">&#9670;</span><div><strong style="color:#fff;">Counter-Surveillance Sweep</strong><br><span style="color:#b0b0b0; font-size:0.9rem;">BLE + IR camera detection for room sweeps. Identify hidden surveillance devices before your principal arrives.</span></div></div>
+                <div style="display:flex; gap:0.8rem; align-items:flex-start;"><span style="color:#C9A84C; font-size:1.4rem; line-height:1;">&#9670;</span><div><strong style="color:#fff;">Cyber Defense Suite</strong><br><span style="color:#b0b0b0; font-size:0.9rem;">Evil twin WiFi detection, jailbreak monitoring, MITM protection. Your device security is part of the mission.</span></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRICING TIERS -->
+    <div class="reveal" style="margin-bottom:3rem;">
+        <h3 style="font-family:'Orbitron',sans-serif; font-size:1.3rem; text-align:center; margin-bottom:1.5rem;">Choose Your <span class="gold-shimmer">Plan</span></h3>
+        <div class="app-tiers" style="justify-content:center;">
+            <div class="app-tier"><div class="app-tier-name">Free</div><div class="app-tier-price">$0</div><div class="app-tier-period">demo mode</div></div>
+            <div class="app-tier"><div class="app-tier-name">Personal Safety</div><div class="app-tier-price">$9.99</div><div class="app-tier-period">/month</div></div>
+            <div class="app-tier"><div class="app-tier-name">Operator</div><div class="app-tier-price">$49</div><div class="app-tier-period">/month</div></div>
+            <div class="app-tier"><div class="app-tier-name">Professional</div><div class="app-tier-price">$149</div><div class="app-tier-period">/month</div></div>
+            <div class="app-tier"><div class="app-tier-name">Command</div><div class="app-tier-price">$249</div><div class="app-tier-period">/seat/mo</div></div>
+            <div class="app-tier"><div class="app-tier-name">Enterprise</div><div class="app-tier-price">$500+</div><div class="app-tier-period">/seat/mo</div></div>
+        </div>
+    </div>
+
+    <!-- BIG CTA -->
+    <div style="text-align:center; margin-top:3rem;" class="reveal">
+        <a href="ep-app.html" style="display:inline-block; padding:1.2rem 3rem; font-family:'Orbitron',sans-serif; font-size:1.1rem; font-weight:700; letter-spacing:.15em; text-transform:uppercase; color:#fff; background:linear-gradient(135deg, #1A6BDE 0%, #0D4EA6 100%); border:2px solid rgba(26,107,222,.6); border-radius:6px; text-decoration:none; box-shadow:0 0 30px rgba(26,107,222,.3), 0 0 60px rgba(26,107,222,.1); transition:all .4s;">
+            Explore Atlas EP &rarr;
+        </a>
+    </div>
+</section>
+
+<!-- ══════════ MEDIA / CAPABILITY ══════════ -->
+<div class="section-divider">
+    <h2>We Don't Do <span class="gold-shimmer">Press.</span></h2>
+    <p>We let our work speak for itself.</p>
+</div>
+<section class="section" id="media" style="padding-top: 2rem;">
+    <!-- REQUEST CAPABILITY STATEMENT -->
+    <div class="reveal" style="max-width:700px; margin:3rem auto 0; background:rgba(26,107,222,0.05); border:1px solid rgba(26,107,222,0.2); border-radius:4px; padding:3rem;">
+        <h3 style="font-family:'Orbitron',sans-serif; font-size:1.5rem; text-align:center; margin-bottom:0.5rem;">Request <span class="gold-shimmer">Capability Statement</span></h3>
+        <p style="text-align:center; color:#b0b0b0; margin-bottom:2rem; font-size:0.95rem;">Submit your request and we'll send our capability statement directly to your email.</p>
+        <form id="cap-form" onsubmit="return false;" style="display:flex; flex-direction:column; gap:1rem;">
+            <input type="text" name="first_name" placeholder="Full Name" required style="background:rgba(255,255,255,0.05); border:2px solid rgba(201,168,76,0.5); color:#fff; padding:0.8rem 1rem; border-radius:4px; font-family:'Rajdhani',sans-serif; font-size:1rem;">
+            <input type="email" name="email" placeholder="Email Address" required style="background:rgba(255,255,255,0.05); border:2px solid rgba(201,168,76,0.5); color:#fff; padding:0.8rem 1rem; border-radius:4px; font-family:'Rajdhani',sans-serif; font-size:1rem;">
+            <input type="hidden" name="confirm_email" value="">
+            <input type="text" name="last_name" placeholder="Company" required style="background:rgba(255,255,255,0.05); border:2px solid rgba(201,168,76,0.5); color:#fff; padding:0.8rem 1rem; border-radius:4px; font-family:'Rajdhani',sans-serif; font-size:1rem;">
+            <select name="phone" required style="background:rgba(255,255,255,0.05); border:2px solid rgba(201,168,76,0.5); color:#b0b0b0; padding:0.8rem 1rem; border-radius:4px; font-family:'Rajdhani',sans-serif; font-size:1rem;">
+                <option value="">Do you currently have or need security?</option>
+                <option value="Currently have security">Currently have security</option>
+                <option value="Need security">Need security</option>
+                <option value="Evaluating options">Evaluating options</option>
+            </select>
+            <select name="message" required style="background:rgba(255,255,255,0.05); border:2px solid rgba(201,168,76,0.5); color:#b0b0b0; padding:0.8rem 1rem; border-radius:4px; font-family:'Rajdhani',sans-serif; font-size:1rem;">
+                <option value="">RFP / RFQ</option>
+                <option value="RFP — Request for Proposal">RFP — Request for Proposal</option>
+                <option value="RFQ — Request for Quote">RFQ — Request for Quote</option>
+                <option value="General Inquiry">General Inquiry</option>
+            </select>
+            <button type="submit" class="cta-button" style="width:100%; padding:1rem; font-size:1.1rem;">Request Capability Statement</button>
+            <div id="cap-success" style="display:none; text-align:center; padding:1rem;">
+                <p style="color:#C9A84C; font-family:'Orbitron',sans-serif;">Request received. We'll be in touch shortly.</p>
+            </div>
+        </form>
+    </div>
+
+</section>
+
+
+<!-- ══════════ GOOGLE REVIEWS ══════════ -->
+<div class="section-divider">
+    <h2><span class="gold-shimmer">Reviews</span></h2>
+    <p>Google Reviews & LinkedIn Recommendations</p>
+</div>
+<section class="section" style="text-align:center; padding-top:2rem;">
+    <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:2rem;">
+        <span style="color:#FFD700; font-size:1.5rem;">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+        <span style="font-size:1.8rem; font-weight:900;">5.0</span>
+        <span style="color:rgba(255,255,255,0.5); font-size:0.9rem;">Google Reviews</span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1.5rem; max-width:1200px; margin:0 auto; text-align:left;">
+        <div class="testimonial reveal" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:2px solid rgba(201,168,76,0.6); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Law Enforcement</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"Matthew is an expert in his field. He is highly motivated, knowledgeable and I highly recommend him for top-tier performance."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Kenny Upton — Deputy, Harris County Sheriff</div>
+        </div>
+        <div class="testimonial reveal" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:2px solid rgba(201,168,76,0.6); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Navy SEAL / Former CIA</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"His leadership, dedication, drive, and passion is second to none. A master at teamwork, problem-solving, leadership, and communication."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Ray Cash Care — Navy SEAL / Former CIA</div>
+        </div>
+        <div class="testimonial reveal" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:2px solid rgba(201,168,76,0.6); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Reconnaissance Marine</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"As a former Reconnaissance Marine, Matthew's teaching has not only made me a better shooter, he has made me a better team player."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Arthur Metcalfe — Recon Marine, 18yr O&G</div>
+        </div>
+        <div class="testimonial reveal" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:2px solid rgba(201,168,76,0.6); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">Flight Paramedic</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"Brockmann had hosted and taught some of the best classes I have been a part of. I can't recommend him enough."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">William H. Miller BS, TP-C, FP-C, CPM — Flight Paramedic</div>
+        </div>
+        <div class="testimonial reveal" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:2px solid rgba(201,168,76,0.6); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">President & CEO</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"Extremely professional. In an extremely competitive industry Matt has never failed to provide exceptional guidance. I recommend him without hesitation."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Craig Etkin — President & CEO, intelligence360</div>
+        </div>
+        <div class="testimonial reveal" style="padding:1.5rem; background:rgba(26,107,222,0.05); border:2px solid rgba(201,168,76,0.6); border-radius:4px;">
+            <div style="font-size:0.65rem; letter-spacing:.12em; text-transform:uppercase; color:#1A6BDE; margin-bottom:0.8rem;">CxO / Investor</div>
+            <p style="font-size:0.9rem; color:rgba(255,255,255,0.7); font-style:italic; margin-bottom:1rem;">"I've trained with some big-name national & global self-defense trainers. I've always felt safe training with Matt — the #1 criterion for choosing a trainer."</p>
+            <div style="font-size:0.8rem; font-weight:700; color:#C9A84C;">Wayne Sadin — CxO/VP Investor</div>
+        </div>
+    </div>
+    <div style="display:flex; gap:1.5rem; justify-content:center; margin-top:2rem;">
+        <a href="https://www.google.com/search?q=Atlas+Glinn+Houston+reviews" target="_blank" style="font-size:0.85rem; color:#1A6BDE; text-decoration:none;">Google Reviews &rarr;</a>
+        <a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" style="font-size:0.85rem; color:#1A6BDE; text-decoration:none;">LinkedIn &rarr;</a>
+    </div>
+</section>
+
+
+<!-- ══════════ FOOTER ══════════ -->
+
 <footer class="site-footer">
-  <div class="footer-container"><div class="footer-awards"><div class="badge-item"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div><div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div><div class="footer-grid"><div class="footer-section"><h4>Atlas Glinn</h4><ul><li><a href="index.html">Home</a></li><li><a href="executive-protection.html">Executive Protection</a></li><li><a href="residential-protection.html">Residential Protection</a></li><li><a href="disaster-recovery.html">Disaster Recovery</a></li><li><a href="technology.html">Technology</a></li><li><a href="ep-app.html">Atlas EP App</a></li></ul></div><div class="footer-section"><h4>MAST Solutions</h4><ul><li><a href="training.html">Training Programs</a></li><li><a href="ep-app.html">Atlas EP Platform</a></li><li><a href="cuas-aerodefense.html">Counter-Drone Solutions</a></li><li><a href="uas.html">Autonomous UAS</a></li><li><a href="mastsolutions.html">MAST Solutions</a></li></ul></div><div class="footer-section"><h4>Company</h4><ul><li><a href="about.html">About Us</a></li><li><a href="careers.html">Careers</a></li><li><a href="about.html#s5">Resources</a></li><li><a href="contact.html">Contact</a></li></ul></div><div class="footer-section"><h4>Connect</h4><p>2450 Fondren Rd, Suite 255<br>Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a><br><a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p><div class="footer-social"><a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a><a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a><a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a><a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a><a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a><a href="https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063" target="_blank" rel="noopener" data-track="review">Google Reviews</a></div></div></div><div class="footer-bottom"><a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a></div></div>
+  <div class="footer-container"><div class="footer-awards"><div class="badge-item"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div><div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div><div class="footer-grid"><div class="footer-section"><h4>Atlas Glinn</h4><ul><li><a href="index.html">Home</a></li><li><a href="executive-protection.html">Executive Protection</a></li><li><a href="residential-protection.html">Residential Protection</a></li><li><a href="disaster-recovery.html">Disaster Recovery</a></li><li><a href="technology.html">Technology</a></li><li><a href="ep-app.html">Atlas EP App</a></li></ul></div><div class="footer-section"><h4>MAST Solutions</h4><ul><li><a href="training.html">Training Programs</a></li><li><a href="ep-app.html">Atlas EP Platform</a></li><li><a href="cuas-aerodefense.html">Counter-Drone Solutions</a></li><li><a href="uas.html">Autonomous UAS</a></li><li><a href="https://www.mastsolutions.com/">MAST Solutions</a></li></ul></div><div class="footer-section"><h4>Company</h4><ul><li><a href="about.html">About Us</a></li><li><a href="careers.html">Careers</a></li><li><a href="contact.html">Contact</a></li></ul></div><div class="footer-section"><h4>Connect</h4><p>2450 Fondren Rd, Suite 255<br>Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a><br><a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></p><div class="footer-social"><a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a><a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a><a href="https://www.youtube.com/@atlasglinn" target="_blank" rel="noopener">YouTube</a><a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a><a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a><a href="https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063" target="_blank" rel="noopener" data-track="review">Google Reviews</a></div></div></div><div class="footer-bottom"><a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a></div></div>
 </footer>
+<div style="text-align:right;padding:12px 60px 12px 0;"><form action="https://atlasglinn-site.matthew-221.workers.dev/portal" method="GET" style="display:inline;"><button type="submit" style="background:none;border:none;color:rgba(201,168,76,0.45);font-size:14px;font-family:monospace;cursor:pointer;transition:color 0.3s;padding:0;" onmouseover="this.style.color='rgba(201,168,76,1)'" onmouseout="this.style.color='rgba(201,168,76,0.45)'">>_&#x1F6E1;</button></form></div>
 <button id="back-to-top" type="button" title="Back to top" aria-label="Back to top">&#8593;</button>
 
-<script type="module">import * as THREE from './vendor/three.module.js';
+<script>
+// ── HERO GOLD DUST PARTICLES ──
+(function(){
+    const c=document.getElementById('hero-particles');if(!c)return;
+    const ctx=c.getContext('2d');let w,h;const pts=[];const count=50;
+    function resize(){w=c.width=c.parentElement.offsetWidth;h=c.height=c.parentElement.offsetHeight;}
+    resize();window.addEventListener('resize',resize);
+    for(let i=0;i<count;i++){pts.push({x:Math.random()*w,y:Math.random()*h,vx:(Math.random()-0.5)*0.3,vy:-Math.random()*0.4-0.1,size:Math.random()*2+0.5,opacity:Math.random()*0.4+0.1,gold:Math.random()>0.4});}
+    function draw(){
+        ctx.clearRect(0,0,w,h);
+        pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fillStyle=p.gold?`rgba(201,168,76,${p.opacity})`:`rgba(255,255,255,${p.opacity*0.3})`;ctx.fill();p.x+=p.vx;p.y+=p.vy;if(p.y<-10){p.y=h+10;p.x=Math.random()*w;}if(p.x<-10||p.x>w+10){p.x=Math.random()*w;}});
+        requestAnimationFrame(draw);
+    }
+    draw();
+})();
 
-const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const mobile = matchMedia('(max-width: 768px)').matches;
+// ── SCROLL REVEAL ──
+const revealObserver=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('active');revealObserver.unobserve(e.target);}});},{threshold:0.1,rootMargin:'0px 0px -50px 0px'});
+document.querySelectorAll('.reveal').forEach(el=>revealObserver.observe(el));
 
+// ── STAT COUNTER ANIMATION ──
+const statObserver=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){const el=e.target;const target=parseInt(el.dataset.target);if(isNaN(target))return;const suffix=el.dataset.suffix||'+';const displayVal=el.dataset.display||null;let current=0;const step=Math.max(1,Math.floor(target/60));const timer=setInterval(()=>{current+=step;if(current>=target){current=target;clearInterval(timer);if(displayVal){el.textContent=displayVal;return;}}el.textContent=current.toLocaleString()+suffix;},30);statObserver.unobserve(el);}});},{threshold:0.5});
+document.querySelectorAll('[data-target]').forEach(el=>statObserver.observe(el));
+
+// ── OLD 3D TILT REMOVED — using universal script below ──
+
+// ── PHOTO STRIP DRAG ──
+document.querySelectorAll('.photo-strip').forEach(strip=>{
+    let isDown=false,startX,scrollLeft;
+    strip.addEventListener('mousedown',(e)=>{isDown=true;strip.style.cursor='grabbing';startX=e.pageX-strip.offsetLeft;scrollLeft=strip.scrollLeft;});
+    strip.addEventListener('mouseleave',()=>{isDown=false;strip.style.cursor='grab';});
+    strip.addEventListener('mouseup',()=>{isDown=false;strip.style.cursor='grab';});
+    strip.addEventListener('mousemove',(e)=>{if(!isDown)return;e.preventDefault();strip.scrollLeft=scrollLeft-((e.pageX-strip.offsetLeft)-startX)*1.5;});
+});
+
+// ── PARALLAX HERO ──
+window.addEventListener('scroll',()=>{const hero=document.querySelector('#hero-globe');if(hero){hero.style.transform=`translateY(${window.scrollY*0.3}px)`;}});
+
+// ── CAPABILITY FORM AJAX ──
+document.getElementById('cap-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    // Copy email to confirm_email so WP handler doesn't reject
+    this.querySelector('[name="confirm_email"]').value = this.querySelector('[name="email"]').value;
+    const btn = this.querySelector('button[type="submit"]');
+    const orig = btn.textContent;
+    btn.textContent = 'Sending...';
+    btn.disabled = true;
+    const fd = new FormData(this);
+    fd.append('action', 'ag_contact_form');
+    try {
+        const res = await fetch('https://atlasglinn.com/wp-admin/admin-ajax.php', { method: 'POST', body: fd });
+        const json = await res.json();
+        if (json.success) {
+            this.style.display = 'none';
+            document.getElementById('cap-success').style.display = 'block';
+        } else {
+            alert(json.data || 'Failed to send. Please call (281) 654-8100.');
+        }
+    } catch(err) {
+        alert('Network error. Please call (281) 654-8100.');
+    }
+    btn.textContent = orig;
+    btn.disabled = false;
+});
+</script>
+<script>
+// ── UNIVERSAL 3D TILT ON ALL CARDS ──
+document.querySelectorAll('.service-card, .testimonial, .benefit-card, .tech-partner, .discipline-card, .app-tier, .position-card').forEach(card => {
+    card.style.transition = 'transform 0.2s ease-out, box-shadow 0.3s ease';
+    card.style.transformStyle = 'preserve-3d';
+    card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width - 0.5;
+        const y = (e.clientY - rect.top) / rect.height - 0.5;
+        card.style.transform = `perspective(800px) rotateY(${x * 12}deg) rotateX(${-y * 8}deg) translateY(-4px) scale(1.02)`;
+        card.style.boxShadow = '0 25px 60px rgba(0,0,0,0.6), 0 0 40px rgba(201,168,76,0.25), 0 0 80px rgba(201,168,76,0.1)';
+    });
+    card.addEventListener('mouseleave', () => {
+        card.style.transform = 'perspective(800px) rotateY(0) rotateX(0) translateY(0) scale(1)';
+        card.style.boxShadow = '';
+    });
+});
+</script>
+<script>(function(){
+var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+var mobile = matchMedia('(max-width: 768px)').matches;
 // Gold ring (Brockmann, 2026-09-04: "the gold around the Atlas Glinn is what I was talking about ... take some of the gold shimmer
 // and fade it in and fade it out"): the sparkle ring of the current atlasglinn.com intro — a tilted, slowly turning, pulsing ring
 // of gold points — drawn in 2D around the wordmark. It fades in after the wordmark appears and out before the splash ends; the
@@ -591,188 +810,7 @@ if (ring && !reduce) {
   requestAnimationFrame(draw);
 }
 
-// ── Reticle ──
-const reticle = document.querySelector('.reticle');
-let cx = innerWidth / 2, cy = innerHeight / 2, rx = cx, ry = cy;
-addEventListener('mousemove', e => { cx = e.clientX; cy = e.clientY; });
-
-// ── Photography layer ──
-const phs = [...document.querySelectorAll('#photos .ph')];
-let photoIdx = -1;
-function setPhoto(i) {
-  if (i === photoIdx) return; photoIdx = i;
-  phs.forEach((p, k) => {
-    const on = k === i; p.classList.toggle('on', on);
-    const v = p.querySelector('video');                            // film backdrops play only while their chapter is on screen
-    if (v) { if (on && !reduce) v.play().catch(() => {}); else v.pause(); }
-    const f = p.querySelector('iframe[data-src]');                 // YouTube backdrops load when their chapter arrives, unload when it leaves
-    if (f) {
-      if (on && !reduce) { if (!f.getAttribute('src')) { f.addEventListener('load', () => f.classList.add('playing'), { once: true }); f.src = f.dataset.src; } }
-      else if (f.getAttribute('src')) { f.classList.remove('playing'); f.removeAttribute('src'); }
-    }
-  });
-}
-document.querySelectorAll('#photos video').forEach(v => {
-  v.addEventListener('playing', () => v.classList.add('playing'));
-  const end = parseFloat(v.dataset.end || '0');                    // data-end: loop the first N seconds of a longer file as the snippet
-  if (end > 0) v.addEventListener('timeupdate', () => { if (v.currentTime >= end) v.currentTime = 0; });
-});
-
-// ── Three: the Tier 3 emblem scene ──
-const canvas = document.getElementById('three-canvas');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, alpha: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.5 : 2));
-renderer.setSize(innerWidth, innerHeight);
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
-
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x050810);
-scene.fog = new THREE.FogExp2(0x0B1221, 0.03);
-const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 1000);
-camera.position.set(0, 0, 9);
-
-// Lights — all warm
-scene.add(new THREE.AmbientLight(0x0a1020, 0.5));
-const keyL = new THREE.DirectionalLight(0x1A6BDE, 3.0); keyL.position.set(6, 10, 7); scene.add(keyL);
-const rimL = new THREE.DirectionalLight(0x0E3F8C, 1.6); rimL.position.set(-7, -4, -5); scene.add(rimL);
-const fillL = new THREE.DirectionalLight(0x5B9BFF, 0.9); fillL.position.set(0, -8, 3); scene.add(fillL);
-const pt = new THREE.PointLight(0xDCEBFF, 3.5, 18); pt.position.set(0, 0, 4); scene.add(pt);
-
-// Reflective floor
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(140, 140, 40, 40),
-  new THREE.MeshStandardMaterial({ color: 0x0B1221, metalness: .95, roughness: .28, emissive: 0x080808, emissiveIntensity: .15 }));
-floor.rotation.x = -Math.PI / 2; floor.position.y = -4.5; scene.add(floor);
-
-// Distant peaks
-const peaks = new THREE.Group();
-for (let i = 0; i < 11; i++) {
-  const m = new THREE.Mesh(new THREE.ConeGeometry(2 + Math.random() * 2.2, 4.5 + Math.random() * 4, 5),
-    new THREE.MeshStandardMaterial({ color: 0x0B1221, roughness: 1, metalness: 0 }));
-  m.position.set(-34 + i * 7 + Math.random() * 3, -3.5, -23 - Math.random() * 7);
-  m.rotation.y = Math.random() * Math.PI; peaks.add(m);
-}
-scene.add(peaks);
-
-// Hero emblem: hexagonal shield, rings, bars, gem, shards
-const emblem = new THREE.Group();
-const gold = new THREE.MeshStandardMaterial({ color: 0x1A6BDE, metalness: 1, roughness: .12, emissive: 0x081a3a, emissiveIntensity: .4 });
-const copper = new THREE.MeshStandardMaterial({ color: 0x0E3F8C, metalness: 1, roughness: .18, emissive: 0x071535, emissiveIntensity: .5 });
-const champagne = new THREE.MeshStandardMaterial({ color: 0x5B9BFF, metalness: 1, roughness: .1, emissive: 0x112a55, emissiveIntensity: .8 });
-const shield = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.3, 0.4, 6), gold); shield.rotation.x = Math.PI / 2; emblem.add(shield);
-const innerHex = new THREE.Mesh(new THREE.CylinderGeometry(1.75, 1.75, 0.45, 6), new THREE.MeshStandardMaterial({ color: 0x050810, metalness: .6, roughness: .4 }));
-innerHex.rotation.x = Math.PI / 2; emblem.add(innerHex);
-for (let i = 0; i < 3; i++) { const ring = new THREE.Mesh(new THREE.TorusGeometry(1.85 + i * .18, .028, 16, 128), i === 1 ? champagne : gold); ring.rotation.x = i * .08; ring.rotation.z = i * .08; emblem.add(ring); }
-for (let i = 0; i < 3; i++) { const bar = new THREE.Mesh(new THREE.BoxGeometry(.12, 2.8, .12), gold); bar.rotation.z = (Math.PI / 3) * i; emblem.add(bar); }
-emblem.add(new THREE.Mesh(new THREE.IcosahedronGeometry(.4, 1), copper));
-const shards = [];
-for (let i = 0; i < 10; i++) {
-  const s = new THREE.Mesh(new THREE.OctahedronGeometry(.08, 0), i % 2 ? champagne : gold);
-  s.userData = { a: (Math.PI * 2 * i) / 10, r: 2.6 + Math.random() * .5, sp: .4 + Math.random() * .3 };
-  emblem.add(s); shards.push(s);
-}
-scene.add(emblem);
-
-// God rays
-const rays = new THREE.Group();
-for (let i = 0; i < 14; i++) {
-  const r = new THREE.Mesh(new THREE.ConeGeometry(.08, 16, 8, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0x1A6BDE, transparent: true, opacity: .04, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
-  r.rotation.z = (Math.PI * 2 * i) / 14; r.position.z = -2; rays.add(r);
-}
-scene.add(rays);
-
-// Particles: gold dust + champagne sparks
-function pts(count, color, size, range) {
-  const g = new THREE.BufferGeometry(); const p = new Float32Array(count * 3), v = new Float32Array(count * 3);
-  for (let i = 0; i < count; i++) { p[i*3] = (Math.random() - .5) * range; p[i*3+1] = (Math.random() - .5) * range * .7; p[i*3+2] = (Math.random() - .5) * range; v[i*3] = (Math.random() - .5) * .002; v[i*3+1] = (Math.random() - .5) * .002; v[i*3+2] = (Math.random() - .5) * .002; }
-  g.setAttribute('position', new THREE.BufferAttribute(p, 3));
-  const o = new THREE.Points(g, new THREE.PointsMaterial({ color, size, transparent: true, opacity: .65, blending: THREE.AdditiveBlending, depthWrite: false }));
-  o.userData = { v }; return o;
-}
-const gd = pts(mobile ? 220 : 600, 0x1A6BDE, .035, 40), ch = pts(mobile ? 60 : 150, 0x5B9BFF, .028, 30);
-scene.add(gd); scene.add(ch);
-
-// Stars
-const sg = new THREE.BufferGeometry(); const sp = new Float32Array(2200 * 3);
-for (let i = 0; i < 2200; i++) { const r = 80 + Math.random() * 40, th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1); sp[i*3] = r * Math.sin(ph) * Math.cos(th); sp[i*3+1] = r * Math.cos(ph); sp[i*3+2] = r * Math.sin(ph) * Math.sin(th); }
-sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
-const stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xF0F4FF, size: .15, transparent: true, opacity: .5 }));
-scene.add(stars);
-
-// ── One continuous camera path ──
-// The camera reads the page's scroll fraction and nothing else: no chapter index, no lock, no counter. The section
-// index is used for one thing only — which backdrop photograph is showing.
-const secs = [...document.querySelectorAll('section.panel')];
-const progressEl = document.getElementById('progress');
-const lerp = (a, b, t) => a + (b - a) * t;
-const kf = [
-  { x: 0, y: 0, z: 9, lx: 0, ly: 0, lz: 0 },
-  { x: 3, y: 1, z: 11, lx: 0, ly: 0, lz: 0 },
-  { x: -3, y: 2, z: 13, lx: 0, ly: -1, lz: 0 },
-  { x: 4, y: 3, z: 14, lx: 0, ly: -.5, lz: 0 },
-  { x: -4, y: 1, z: 12, lx: 0, ly: 0, lz: 0 },
-  { x: 0, y: -2, z: 10, lx: 0, ly: .5, lz: 0 },
-  { x: 0, y: -4, z: 18, lx: 0, ly: 2, lz: 0 },
-];
-function sectionIndex() {
-  const mid = innerHeight * .45; let idx = 0;
-  secs.forEach((s, i) => { if (s.getBoundingClientRect().top <= mid) idx = i; });
-  return idx;
-}
-function update() {
-  const total = document.documentElement.scrollHeight - innerHeight;
-  const t = Math.max(0, Math.min(1, scrollY / Math.max(1, total)));
-  const sc = t * (kf.length - 1), i = Math.floor(sc), f = sc - i;
-  const a = kf[i], b = kf[Math.min(i + 1, kf.length - 1)];
-  camera.position.set(lerp(a.x, b.x, f), lerp(a.y, b.y, f), lerp(a.z, b.z, f));
-  camera.lookAt(lerp(a.lx, b.lx, f), lerp(a.ly, b.ly, f), lerp(a.lz, b.lz, f));
-  const now = performance.now();
-  emblem.rotation.y += 0.004; emblem.rotation.x = Math.sin(now * .0004) * .14;
-  shards.forEach(s => { const ang = s.userData.a + now * .0002 * s.userData.sp; s.position.set(Math.cos(ang) * s.userData.r, Math.sin(ang * 1.3) * .6, Math.sin(ang) * s.userData.r); s.rotation.x += .02; s.rotation.y += .015; });
-  rays.rotation.z += .001;
-  emblem.position.y = -t * 2; emblem.scale.setScalar(1 - t * .25);
-  [gd, ch].forEach(p => { const pos = p.geometry.attributes.position.array, v = p.userData.v; for (let k = 0; k < pos.length; k++) pos[k] += v[k]; p.geometry.attributes.position.needsUpdate = true; });
-  gd.rotation.y = t * .3; ch.rotation.y = -t * .2; stars.rotation.y += .0002;
-  scene.fog.density = 0.03 + t * .025;
-  if (progressEl) progressEl.style.width = (t * 100) + '%';
-  setPhoto(sectionIndex());
-}
-addEventListener('scroll', update, { passive: true });
-addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
-let mx = 0;
-addEventListener('mousemove', e => { mx = (e.clientX / innerWidth - .5) * 2; });
-let paused = false;
-document.addEventListener('visibilitychange', () => { paused = document.hidden; if (!paused) animate(); });
-function animate() {
-  if (paused) return;
-  requestAnimationFrame(animate);
-  emblem.position.x += (mx * .4 - emblem.position.x) * .04;
-  rx = lerp(rx, cx, .22); ry = lerp(ry, cy, .22);
-  reticle.style.transform = `translate(${rx}px,${ry}px) translate(-50%,-50%)`;
-  update(); renderer.render(scene, camera);
-}
-animate();
-
-// ── Reveals ── every block turns on as it arrives. Nothing cuts to black between sections: the page is one scroll now.
-const io = new IntersectionObserver(entries => {
-  entries.forEach(e => {
-    if (!e.isIntersecting) return;
-    e.target.querySelectorAll('.eyebrow, h2.section-h, .sub, h1.mega, .rise').forEach(el => el.classList.add('in'));
-    e.target.querySelectorAll('.stat-num[data-count]').forEach(el => {
-      if (el.dataset.done) return; el.dataset.done = '1';
-      const target = +el.dataset.count, duration = 1600, start = performance.now(), suffix = el.dataset.suffix || '';
-      const tick = now => { const p = Math.min(1, (now - start) / duration); const eased = 1 - Math.pow(1 - p, 3); el.textContent = Math.floor(target * eased).toLocaleString('en-US') + suffix; if (p < 1) requestAnimationFrame(tick); };
-      requestAnimationFrame(tick);
-    });
-  });
-}, { threshold: .25 });
-secs.filter(s => !s.classList.contains('hero')).forEach(s => io.observe(s));
-// A tall section in a short window never reaches 25% visible, so every reveal element is observed on its own too.
-const ioEl = new IntersectionObserver(entries => {
-  entries.forEach(e => { if (!e.isIntersecting) return; e.target.classList.add('in'); ioEl.unobserve(e.target); });
-}, { threshold: 0, rootMargin: '0px 0px -12% 0px' });
-document.querySelectorAll('section.panel:not(.hero) .rise, section.panel:not(.hero) .eyebrow, section.panel:not(.hero) h2.section-h, section.panel:not(.hero) .sub').forEach(el => ioEl.observe(el));
+})();
 </script>
 <script>
 (function () {
@@ -827,55 +865,15 @@ document.querySelectorAll('section.panel:not(.hero) .rise, section.panel:not(.he
     });
   });
 
-  // ── Hero sound toggle — the live #sound-toggle, for a file or for the YouTube player ──
-  var vid = document.getElementById('hero-video'), snd = document.getElementById('sound-toggle');
-  if (vid && snd) {
-    var muted = true;
-    var yt = function (fn) { try { vid.contentWindow.postMessage(JSON.stringify({ event: 'command', func: fn, args: [] }), '*'); } catch (e) {} };
-    snd.addEventListener('click', function (e) {
-      e.stopPropagation();
-      muted = !muted;
-      if (vid.tagName === 'IFRAME') yt(muted ? 'mute' : 'unMute'); else { vid.muted = muted; if (!muted) vid.play().catch(function () {}); }
-      snd.innerHTML = muted ? '&#128263;' : '&#128266;';
-      snd.classList.toggle('on', !muted);
-      snd.setAttribute('aria-pressed', !muted);
-    });
-  }
-
   // ── Back to top ──
   var top = document.getElementById('back-to-top');
   if (top) {
     top.addEventListener('click', function () { scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' }); });
     addEventListener('scroll', function () { top.classList.toggle('show', scrollY > innerHeight * .8); }, { passive: true });
   }
-})();
 
-(function(){
-  document.querySelectorAll('form[data-endpoint]').forEach(f => {
-    f.addEventListener('submit', async e => {
-      e.preventDefault();
-      const btn = f.querySelector('button[type=submit]'), msg = f.querySelector('.form-msg');
-      const data = Object.fromEntries(new FormData(f).entries()); data.page = location.pathname.split('/').pop() || 'index.html';
-      // The contact page asks for first and last name and a confirming email, as the live page does; the Worker takes one name.
-      if (data.first_name !== undefined || data.last_name !== undefined) {
-        data.name = [data.first_name, data.last_name].map(s => (s || '').trim()).filter(Boolean).join(' '); delete data.first_name; delete data.last_name;
-      }
-      if (data.role !== undefined && !data.message) { data.message = 'Atlas EP access request · Role: ' + (data.role || '(not chosen)'); }   // the Atlas EP access form has no message field
-      if (data.confirm_email !== undefined) {
-        if (data.confirm_email.trim().toLowerCase() !== (data.email || '').trim().toLowerCase()) { msg.textContent = 'The two email addresses do not match.'; msg.className = 'form-msg err'; return; }
-        delete data.confirm_email;
-      }
-      btn.disabled = true; const label = btn.textContent; btn.textContent = 'Sending…'; msg.textContent = ''; msg.className = 'form-msg';
-      if (window.mastAttribution) data.attribution = mastAttribution();   // first touch, UTM, referrer, landing page, visitor id → the CRM lead
-      try {
-        const r = await fetch(f.dataset.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok || !j.ok) throw new Error(j.error || 'Could not send');
-        f.reset(); msg.textContent = f.dataset.success || 'Sent. We will respond as soon as possible.'; msg.classList.add('ok');
-      } catch (err) { msg.textContent = err.message + ' You can also call (281) 654-8100.'; msg.classList.add('err'); }
-      btn.disabled = false; btn.textContent = label;
-    });
-  });
+  // The live site enters by itself after 3.5s (atlasglinn.com index.html); Enter and Skip Intro still work first.
+  if (intro && !seen && !reduce) setTimeout(function () { if (!intro.classList.contains('hidden')) enterSite(); }, 3500);
 })();
 </script>
 <script>

@@ -13,7 +13,7 @@ stack (catalog, calendar, checkout, quals modal, media strip) from
 is the earlier Atlas-frame build, kept noindex just in case; `mastsolutions-cinematic.html`
 is a redirect stub for the preview links that were shared.
 
-**Gear chapter (Brockmann, 2026-09-05: "Atlasglinn.com has this product = add to mastsolutions so we can sell there"):** the
+**Store chapter, chapter 12 (Brockmann, 2026-09-05: "Atlasglinn.com has this product = add to mastsolutions so we can sell there"):** the
 Aimpoint optics and IWA International devices from his IWA inventory report are listed in `GEAR` in `mastsolutions-tesla.html`
 and lifted into chapter 12 of the MAST page. They are **quote requests through the existing Request dialog** (`request_type:
 'gear'` to the Worker's `/contact`), never a Stripe checkout: card networks bar weapons accessories and energetic devices from
@@ -29,19 +29,58 @@ requests stay the mechanism on this page (the class account's Stripe must not to
 need its own merchant account, his call. Add products to `GEAR` and their price to the table; the `.gear-card` hover is the
 shared one in `cinematic_shell.py`. **Aimpoint hidden (Brockmann, 2026-09-07 from the live site: "hide Aimpoint for
 now"):** `GEAR_HIDDEN = ['Aimpoint']` in `mastsolutions-tesla.html` keeps the cards off (items and prices stay in `GEAR`),
-the chapter reads "Gear · IWA" (the Aimpoint sentence is parked in a comment beside it in `assemble-cinematic.py`), and
+the chapter reads "Store · IWA" (the Aimpoint sentence is parked in a comment beside it in `assemble-cinematic.py`), and
 the Atlas Training submenu's "Aimpoint Optics" entry is commented out in `assemble-atlas.py`. Bringing it back is those
-three edits on his word.
+three edits on his word. **Renamed Gear → Store (Brockmann, 2026-09-08, on a screenshot of the chapter: `"GEAR"= wrong -
+STORE = header + IWA + Training Devices + List price + OUT OF STOCK + link to add acutal product info
+https://iwainternationalinc.com/shop/`):** the `CHAPTERS` label in `assemble-cinematic.py` carries the rail, the HUD and
+the mobile menu, the heading is "Store." and the brand header over the cards reads "IWA Training Devices"; the `<div
+id="gear">` anchor stays, because the Atlas pages' Training submenu links to `mastsolutions.html#gear`. **`GEAR_OUT_OF_STOCK
+= true` in `mastsolutions-tesla.html`** puts an OUT OF STOCK badge on every device card and a sentence in the quote
+dialog's fine print; a per-item `g.stock` on a `GEAR` row overrides it, so flipping the constant to false is the one edit
+that restocks the line. **Each device card links to its own page on `iwainternationalinc.com`** through
+`GEAR_PRODUCT_URL`, whose URLs were read from the 2026-09-08 capture of `https://iwainternationalinc.com/shop/`
+(`reference/desktop/live/shop.html` on `claude/desktop-assets`); that shop paginates and the capture is page 1 of 5, so
+PA-85, TH-14 and the door charge fall back to the shop root rather than a guessed URL, and the IWA price now renders under
+the label "list price · each · 3-unit minimum". Seven asserts at the foot of `assemble-cinematic.py` hold all of it.
 
-**Experiences chapter, hidden (Brockmann, 2026-09-08: "add in Courses = 'EXPERIENCES' Couples + groups = Pics and Content
-coming"):** `EXPERIENCES` in `mastsolutions-tesla.html` holds the two entries, Couples and Groups, and `renderExperiences()`
-appends them to the course catalog as one more accordion titled "Experiences", in the class-card style. They are not courses:
-no SKU, no D1 catalog row, no price. The card's button opens the same Request dialog the private-instruction rows use
-(`request_type: 'experience'` to the Worker's `/contact`) with the experience name in the message. **`EXPERIENCES_HIDDEN =
-true` keeps the whole accordion off the page** until he has the pictures and the copy — his "Pics and Content coming" — so
-today the two names exist only inside the page script, the way `GEAR_HIDDEN` keeps the Aimpoint cards off. Publishing is one
-edit: set it to `false`, replace each `desc` (they all read the placeholder "Details, photos and dates coming soon."), then
-re-run the assembler. Pricing or booking would need a catalog row and a SKU — his call, not a follow-on to this.
+**Experiences chapter (Brockmann, 2026-09-08: "add in Courses = 'EXPERIENCES' Couples + groups = Pics and Content coming",
+then by email the four he wants):** `EXPERIENCES` in `mastsolutions-tesla.html` holds them — Couples Range Experience, Date
+Night at the Range, Bachelor Party at the Range, Corporate Team Training — and `renderExperiences()` appends them to the
+course catalog as one more accordion titled "Experiences", in the class-card style. They are not courses: no SKU, no D1
+catalog row, no price. **They are placeholders by his direction:** *"$pricing and write-ups can be done later - Placeholder
+for calendar + how to book + package details = can be emailed for details for right now."* So each card carries the name,
+one line ("Package details and pricing are being finalized. Email us for details."), the calendar placeholder ("Dates
+announced soon") and a How to book button that opens the same Request dialog the private-instruction rows use
+(`request_type: 'experience'` to the Worker's `/contact`) with the experience name in the message. **No price, no duration,
+no date and no package contents until he supplies them** — `EXPERIENCES_HIDDEN` is `false` now, and the two earlier
+placeholder entries (Couples, Groups) are gone. Pricing or booking would need a catalog row and a SKU — his call.
+
+**Every date is a waiting list (Brockmann, 2026-09-08: "Every Page should have BOOK CLASS + link to Calendar + ALL DATES
+for now CLASS FILLED until i get the info to you", corrected minutes later to "Not class filled-. Join waiting list"):**
+`WAITLIST_ALL_DATES` is one constant at the top of the booking script in `mastsolutions-tesla.html`. While it is `true`,
+every path into checkout — the catalog row, the weekend calendar's per-class action, and both answers to the prerequisite
+gate — reads **Join waiting list** and goes through `bookCourse()` to the Request dialog as `request_type: 'waitlist'`,
+carrying the course name and, when a weekend was chosen in the Book a Class calendar, that weekend. **The prerequisite gate
+still runs first.** `bookCourse()` is the single door, so the label and the destination cannot drift apart; the assembler
+folds the action label at build time and then asserts the words "Select Date" appear nowhere in the built page. Set the
+constant to `false` and the calendar → checkout path is exactly what it was (verified by diffing the built booking script
+against `main`). A Worker-side `BOOKINGS_PAUSED` flag is what should replace this constant once the schedule is real — the
+pause is then one deploy, not a rebuild of both pages. The Worker files an unknown `request_type` as `leadKind 'contact'`
+with the "Website contact:" subject, so `'experience'` and `'waitlist'` are stored and emailed today; the nicer subject
+lines are a Worker follow-up, not part of this.
+
+**Classes chapter, Range-style (Brockmann, 2026-09-08, over a screenshot of this chapter's heading and one of the Range
+chapter's CLICK TO VIEW button: "Delete this + add like the range + CLICK TO VIEW = gets rid of scrolling + Book Course =
+cal+ courses show", and on the heading itself "Delete SS 2 + Course Catalog enough"):** chapter `s6` is now the eyebrow, its
+one line and two controls in the Range chapter's style. **CLICK TO VIEW** opens `CATALOG_MODAL` — the same `#catalog` panel
+the booking script fills, the same accordions, course rows and prerequisite gate, in a dialog of the `#dcal` / `#req` family
+rather than in the page flow, so the chapter no longer scrolls. It is spliced **before** the calendar, gate and request
+dialogs, which share its z-index and must paint over it. **BOOK COURSE** calls `openDCal()` and is this chapter's
+Book-a-Class control (one button, not two). The backdrop is his photograph (*"For Cources - THIS BACKGROUND PIC NOT THE
+SS"*): `images/mast/courses-instructor.jpg` at `background-position 50% 15%` — the file is 1024x950 and his head sits in its
+top fifth, so a 16:9 cover from the centre crops it away. `courses-low-light.jpg` stays in the repo; chapter 07 still uses
+it.
 
 **Account credentials (Brockmann, 2026-09-08: "Need to add 'CREDENTIALS' to the account if LE Teacher"):** the account panel
 carries a Credentials block — type (`none` / `le` / `teacher`), agency or school, credential or badge number — saved by the
@@ -55,7 +94,62 @@ the panel posts every field on every save and must not re-notify. Columns:
 `mast-backend/migrations/007-account-credentials.sql`, a manual `wrangler d1 execute` per `mast-backend/README.md`; the same
 columns are in `schema.sql` for a fresh database. Nothing here is wired to a member rate yet.
 
+**Class certificates (Brockmann, 2026-09-08: "I love this certificate so wanting to use for all classes + when paid for can
+auto build to print"):** `certificates/mast-certificate-of-completion.html` is the print template, rebuilt from the auction
+gift certificate so the paper, double gold border, corner flourishes, ◆ divider and signature block are the same artwork —
+the auction copy (bearer and guests, rentals, ammunition, `CERTIFICATE VALUE`, `VALID THROUGH`) is deleted and `VALID
+THROUGH` is now a blank INSTRUCTOR rule signed by hand. Build one with `python3 scripts/build-certificate.py` (stdlib only,
+prints through headless Chrome); placeholders are `{{name}} {{course}} {{descriptor}} {{cert_no}} {{date}}` and the course
+name must be verbatim from `SEED_CLASSES` in `mast-backend/src/worker.js`. **The signature PNG is not in this public
+repo** — the builder reads it from `--signature` (default `~/Documents/brain/04-resources/brand/mast-signature-brockmann.png`,
+the private brain repo) and exits 1 without it; built certificates are never committed for the same reason. Long names and
+course names step down in size to stay on their rule. Certificate number rule and print settings are in
+`certificates/README.md`. Auto-building one per paid registration is planned, not built.
+
 ## Atlas Glinn pages (decided by Brockmann 2026-09-03: "SAME front end", mobile first)
+
+### LIVE-CONTENT MODE — what the twelve pages are today (2026-09-08, current; everything below it is history)
+
+Brockmann, 2026-09-08 21:47 UTC, on the preview: *"Atlasglinn is not rendering correctly the main site and the should
+go same font and sizes into the new design + if video - NO hallucinations just use the new frontend - side bar = take
+the current site and drop into new design and see - no changes to anything."*
+
+So the pages are no longer written from copy typed into the assembler. **Each page is the classic shell's chrome —
+sticky bar with its dropdowns, mobile menu, Enter / Skip Intro splash, footer, back-to-top — wrapped around the current
+atlasglinn.com page taken whole** from `reference/live/<slug>.html`: its head, its `<style>` blocks, its copy, its
+photographs and its films **at their own `https://atlasglinn.com/wp-content/…` URLs**, and its own scripts. The theme
+stylesheet it links is served from the repo as `vendor/atlasglinn-shared-styles.css` (same bytes as
+`reference/live/shared-styles.css`), so the live type scale comes with it.
+
+- `scripts/atlas_live.py` reads one snapshot: head facts, `<style>` blocks verbatim, the content between the live
+  chrome boundaries, the tail scripts the content owns, the media list. Internal links become the sibling `.html`;
+  **media URLs are left absolute on purpose** — a repo copy is a different encode (the disaster hero is 44.6 MB live
+  against 3.7 MB here) and a teaser is a different film, and both are the "re-cut" he ruled out.
+- `chrome_css()` cuts the shell stylesheet down to the five chrome roots (`#intro-overlay`, `#main-nav`,
+  `#mobile-nav`, `footer.site-footer`, `#back-to-top`) and drops every global and content rule by name —
+  `DROP_SELECTORS` fails the build if one of them is ever renamed away. The palette is declared **on those roots, not
+  on `:root`**: ep-app.html's own sheet declares `--gold` on `:root` and its content reads it, so a second `:root`
+  would repaint that page. Reading order is theme sheet → the page's own `<style>` blocks → the chrome sheet, so the
+  live body rule, the live type scale and the live components all win.
+- The shell's sound toggle is cut from its script (five live pages ship their own `#sound-toggle` and the code that
+  works it, inside the content) and the live 3.5-second auto-enter is added to the splash, because the shell's waited
+  for a click and that is a black screen on a phone.
+- `scripts/compare-atlas.py` writes **`atlas-compare.html` at the repo root** (tracked, noindex, staged at
+  `/preview/atlasglinn/atlas-compare.html`): the live page and the new page side by side, both read out by one
+  extractor, with the carried text-unit and media counts above each pair. It **exits 1** if any page is short.
+- Re-run after a capture: `python3 scripts/assemble-atlas.py --publish && python3 scripts/compare-atlas.py &&
+  python3 scripts/check-links.py`. Refresh the snapshots from `origin/claude/desktop-assets:reference/desktop/live/`
+  and update `reference/live/_captured.txt` when the live site changes.
+- `--authored` still runs the hand-authored chapters described below. **Deprecated, one release only** — that copy is
+  what made the preview diverge (rewritten headings, a rewritten Atlas EP price table, a 6-second re-cut in place of
+  the 27-second home film). Do not fix a live-content problem by editing it.
+
+Measured 2026-09-08 in Chromium (1440×900 and 390×844, fonts blocked on both sides, the live capture rendered the same
+way as the yardstick): text parity 1257/1257 units, media parity 35/35 URLs, typography 36/36 computed snapshots per
+page, hero `<video>` src equal to the live src on all twelve, zero horizontal overflow, one nav and one footer in every
+DOM, and not one chrome CSS rule matching an element outside the five chrome roots.
+
+### History — the hand-authored build (superseded by the block above)
 
 The rebuilt `index`, `executive-protection`, `residential-protection`, `disaster-recovery`,
 `training`, `technology`, `cuas-aerodefense`, `uas`, `about`, `careers` and `contact` pages are
@@ -83,7 +177,7 @@ are the intro menu text, a Senators figure he corrected, and "over 30 years" →
 now count as approved imagery: `images/atlas/matt-ceo-2026.jpg` (the founder portrait the live About page shows),
 `images/atlas/anthony-glover.png`, and the theme-folder films in `images/film/` (technology-hero, corporate-buildings,
 careers-gallery, forge-legend-mast; plain files, not LFS, served whole because the container has no ffmpeg). The live
-Training submenu (IWA Training Products, Aimpoint Optics) points at the MAST Gear chapter; the live shop pages are
+Training submenu (IWA Training Products, Aimpoint Optics) points at the MAST Store chapter; the live shop pages are
 notify-me catalogs with no checkout. Re-run the capture before any further content pass: `actions_run_trigger`
 on `capture-live.yml`, then `git fetch origin claude/desktop-assets` and read `reference/desktop/live/`.
 **Brockmann, 2026-09-06: "Add all content as in the old version - just updating the front end to brand match
@@ -108,8 +202,71 @@ atlasglinn.com page uses in that section (the approved list at the top of
 `build()` asserts it. The files are the site's own WordPress uploads, kept under `images/atlas/` by their WordPress names
 (handed off from the Mac 2026-09-05). The About portrait is `images/team/brockmann.jpg`, the picture he approved on the
 MAST Instructors chapter: the WordPress file named after him is a press-line scene ("This is not my picture from
-atlasglinn.com", 2026-09-05), kept only as a backdrop. `scripts/compare-atlas.py` writes `preview/compare.html`, the
-section-by-section "as is vs new" sheet he reviews from.
+atlasglinn.com", 2026-09-05), kept only as a backdrop. The imagery rule is moot in live-content mode — the pages carry
+the live page's own media at the live page's own URLs — but `build()` still asserts it under `--authored`.
+
+**The root switch — `wp-ops/atlas-static-root.php` (built 2026-09-08, rounds 2 and 3 the same day, NOT deployed).** The web
+server hands out real files before WordPress runs, so `/index.html` and `/about.html` already serve the uploaded static
+pages; `/` and the section permalinks are still WordPress, because no file is named there. This must-use plugin closes
+that on `muplugins_loaded`: an allowlist of fourteen paths — `/` → `index.html` and `/<slug>` → `<slug>.html` for
+about, careers, contact, cuas-aerodefense, disaster-recovery, ep-app, executive-protection, residential-protection,
+technology, training, uas, privacy, terms — read straight from the docroot and exited. Those are the **14 allowlisted
+pages, which is not the uploaded set**: `wp-upload.sh` uploads 17, and the three it sends that are not allowlisted —
+`mastsolutions.html`, `mast-capability-statement.html`, `signup.html` — keep answering at their own `.html` names and
+nowhere else. Exact and case-sensitive, so it is a prefix of nothing: **`/training` is a page, `/training/shop/` is the
+live IWA shop and never matches** (three pinned cases). **The query decides as much as the path:** a page is served
+only when the query is empty or every parameter name is a tracking tag (`utm_*`, `fbclid`, `gclid`, `msclkid`,
+`ttclid`, `mc_cid`, `mc_eid`, `ref`, `v`) — **any other name is WordPress's**, which is what leaves
+`/?wc-ajax=get_refreshed_fragments` (the shop's cart fragments), `/?s=`, `/?rest_route=`, `/?feed=`, `/?p=`,
+`/?preview=true`, `/?elementor-preview=` and every other query-var route on `/` working. That is also the escape:
+`?wp=1` is the documented one and `?anything=1` does the same. **Two names in that list are generic rather than
+vendor-specific** and are worth knowing about: `ref` is the referrer tag half the web uses, and `v` is in the list on
+purpose because the go-live probe below is `https://atlasglinn.com/?v=<unix ts>` and it has to reach the plugin past
+the edge cache. That generality is the risk in the allowlist — if anything on this site ever reads a `ref` or a `v`
+parameter, a static page answers it instead, and `?wp=1` is the escape until the name comes back out of the list.
+`/about/` is a 301 to `/about` because the pages' asset links are relative and would 404 one directory down, and **the 301 keeps the query** (`/about/?utm_source=x` →
+`/about?utm_source=x`), while `/about/?p=1` never reaches the redirect at all. **The 301 is sent only when the target
+page passes the same servability check the serve path runs** (round 3): otherwise a page that is missing, zero-byte or
+truncated has its own working WordPress permalink — `/privacy/`, `/careers/` — 301'd to a URL where the plugin falls
+through and WordPress renders the slug, which is a loop where the host puts the trailing slash back and a 404 where it
+does not. It carries `Cache-Control: public, max-age=300` and the same `Vary`, so a redirect a browser or an edge has
+already stored is never more than five minutes out of reach of the two kill switches. A page that is missing, a
+symlink, outside the docroot, unreadable, empty, **truncated (no closing `</html>` — the SFTP transfer that died
+halfway)**, or whose bytes would leave wrapped in an output buffer that refuses to drop, falls through to WordPress
+with one `error_log` line rather than putting a broken 200 or a mis-counted `Content-Length` into the CDN. It writes
+nothing — no option, no cron event, no REST route — so removing the file removes the feature. **Deploy is GATED on Brockmann
+replying "go"** to the review email (the brain vault's `00-rules/website-go-live-gate.md`: the root switch is a
+separate, gated deploy). **Two kill switches:** `define('ATLAS_STATIC_ROOT_DISABLED', true);` in wp-config.php, or —
+the one to use, since the saved login is SFTP-only — an empty file named `.atlas-static-root-off` dropped beside the
+plugin in mu-plugins. **The header to look for** is `X-Atlas-Static-Root: 1.2.0;file=<name>;b=<first 8 of sha1 of the
+plugin file>`; a URL without it is one WordPress answered, and `b=` is what proves a re-upload actually replaced the
+bytes (the response's `ETag` is a different digest — the first 8 of sha1 of the page).
+`php wp-ops/tests/atlas-static-root-test.php` is the harness (fake docroot, fake `$_SERVER`, 282 pinned cases across
+five scenarios, no host and no network). **Guard detection is measured each round, not assumed: 37 mutants — one guard
+deleted per mutant — run 2026-09-08, 36 detected.** 35 of them go red as root. The 36th is `is_readable()`, which uid 0
+cannot make false (it reads a `chmod 000` file anyway), so the harness prints `SKIP` with that reason rather than a
+pass that tests nothing, and the mutant was re-run under uid 65534 where it does go red — that one is an
+**environment-only exception, not an untested guard**, and on the host PHP runs unprivileged. The 37th is an
+**equivalent mutant**: dropping the `is_string()` type guard in the If-Modified-Since parser changes no result on any
+value a request header can carry (10 inputs measured, 0 differing), so there is nothing for a case to detect. Running
+the harness costs nothing and cleans up after itself — each child gets its own bounded `error_log` under `ulimit -f`
+inside one run directory the runner deletes on the way out, including after it kills a child at the deadline. That is
+not decoration: on 2026-09-08 a mutant of this suite spun, logged a notice per iteration to PHP's default unbounded
+`error_log`, and put 3.47 GB into the system temp directory before anyone noticed. **CACHE — the deploy is not done
+when the file lands.** GoDaddy's WPaaS/Cloudflare layer keeps serving the WordPress `/` it already cached, so `curl -sI https://atlasglinn.com/ | grep -i x-atlas-static-root`
+can print **nothing while the plugin is installed and firing correctly**, and nothing purges it on its own:
+`atlas-cache-watch` fingerprints the docroot's `*.html` plus `build-manifest.json` and `mast-ping.txt`, so dropping a
+file into `mu-plugins` does **not** move the fingerprint and does **not** trip the watcher. So the deploy carries one
+more step — re-upload `mast-ping.txt` with a fresh stamp (that moves the fingerprint and the watcher flushes within 15
+min) or click Flush Cache in the dashboard — and the verification is **cache-busted URL first**
+(`https://atlasglinn.com/?v=<unix ts>`, and `v` is in the tracking allowlist precisely so this probe still reaches the
+plugin), **then the plain URL after the flush**. Header on the first and nothing on the second = stale edge cache, not
+a broken plugin. **There is no deploy script here on purpose:** once `claude/wp-cache-watch` merges,
+`scripts/wp-cache-watch-deploy.sh` is generalised to take a plugin path and sends this file the same way. Go-live
+follow-up before the switch flips: the eleven slug pages plus
+`privacy`/`terms` still carry `<link rel="canonical">` and `og:url` pointing at their `.html` names (only `index.html`
+already says `https://atlasglinn.com/`), so `scripts/assemble-atlas.py` `meta()` — and `sitemap.xml` — want the slug
+URLs, or serving `/about` with a canonical of `/about.html` splits the page in search.
 
 ## Privacy statement rule (Brockmann, 2026-09-03; repeated 2026-09-05)
 
@@ -131,6 +288,27 @@ a new hover; a card's own rules set only its colours (membership borders carry t
 shell's `panel` / `eyebrow` / `section-h` / `sub` structure and the chapter nav, HUD and backdrop entries in the assembler;
 new booking or checkout pieces go into `mastsolutions-tesla.html` first, so the MAST page lifts them. Gold on the MAST page
 lives in `GOLD_KEEP` (spliced after the palette recolor); everything else recolors to blue.
+
+## Definition of done for a site change
+
+A page change is done when the built file has been regenerated, driven in a browser, and seen on the plain live URL —
+not when the assembler exits 0. PR #72 (merged 2026-09-07) dropped 96 dialog CSS rules because the CSS lifter swallowed
+one-line `@media` queries, and every run after it still exited 0 and still published; PR #83 restored them the next day.
+The assembler's asserts are the guard, so add one for each regression rather than relying on the next reader to notice.
+
+1. **Regenerate.** `python3 scripts/assemble-cinematic.py` (or `assemble-atlas.py`). Never hand-edit `mastsolutions.html`
+   or `dist/mastsolutions/index.html`; the next run overwrites them. Commit the regenerated files with the source change.
+2. **Run the Chromium checklist** against a staging copy outside the repo (`index.html` plus symlinks to `vendor/` and
+   `images/`), at 1280x900 and at iPhone 14 Pro: every dialog opens and lands inside the viewport; every chapter has a
+   visible Book-a-Class control; no `href="/"` survives in `dist/` (on www.mastsolutions.com `/` is the MAST page itself);
+   no request form is a `mailto:`; `scrollWidth === innerWidth` at 393 px; the intro dismisses on a tap; the MENU overlay
+   opens below 900 px; zero console errors that are not the aborted Worker fetches.
+3. **The publish re-runs the assembler.** `pages-mastsolutions.yml` rebuilds and fails on `git diff --exit-code --
+   mastsolutions.html dist/mastsolutions/index.html`, so a hand-edited `dist/` cannot deploy and every assert above runs
+   on the way out (`dist/mastsolutions/sitemap.xml` is out of that diff: its `<lastmod>` is today's date).
+4. **Check the plain live URL after Pages publishes** — `https://www.mastsolutions.com/`, not only the cache-busted
+   `?v=<sha>` one. The `?v=` link proves the origin is right; the plain URL is what a visitor gets, and it is the one
+   that has been stale.
 
 ## Claude SEO toolchain (vendored)
 
@@ -268,8 +446,9 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   `04-resources/agent-memory/project_atlasglinn_wordpress.md` records the WP admin user and its application password in
   the Keychain item `wp_app_password_claude` (rotated 2026-09-03; "REST API works with app password") and that GoDaddy
   clears its cache when WordPress content changes. `scripts/wp-flush.sh` (run by `wp-upload.sh` after every upload)
-  saves a private `cache-bust` page over REST with that password (WP-CLI over SSH with the `mast-wp-sftp` login as the
-  fallback), then measures the plain `/mastsolutions.html` against the cache-busted copy and writes
+  saves a private `cache-bust` page over REST with that password (WP-CLI over SSH with the `mast-wp-sftp` login *was*
+  the fallback — **measured 2026-09-08 18:46 UTC, that login is SFTP-only and has no shell**, so Method B cannot run
+  until SSH is switched on in the dashboard; see the watcher paragraph below), then measures the plain `/mastsolutions.html` against the cache-busted copy and writes
   `~/.cache/wp-upload/last-flush`; `mac-autopilot.sh status` shows it. Wired, NOT confirmed firing until a probe shows
   the plain URL fresh after an upload with no click. Nothing of this reaches a cloud session: the container cannot open
   the host and holds no Keychain.
@@ -281,6 +460,94 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   `atlasglinn.com` A 160.153.0.38, `www.atlasglinn.com` CNAME → atlasglinn.com; **neither domain has the Microsoft 365
   `selector1/selector2._domainkey` CNAMEs** (atlasglinn.com's SPF names outlook, Mailchimp `servers.mcsv.net` and Brevo;
   its DMARC is `p=none` reporting to Brevo).
+  **The purge moved onto the host, 2026-09-08: `wp-ops/atlas-cache-watch.php`.** The saved login proved SFTP-only at
+  18:46 UTC (no shell, so `wp eval-file` never ran) and the application password is not on this Mac, so neither remote
+  method in `wp-flush.sh` can reach the cache — but the SFTP upload still lands, and WordPress on the host can see what
+  it changed. `scripts/wp-cache-watch-deploy.sh` puts a must-use plugin at
+  `html/wp-content/mu-plugins/atlas-cache-watch.php`. There it fingerprints **every `*.html` at the docroot root plus
+  `build-manifest.json` and `mast-ping.txt`** (`name:mtime:size`, sha1 — a glob with no recursion; `wp-admin` and
+  `wp-includes` are not ours) on a 15-minute WP-Cron tick — the upload cadence — and when the fingerprint moves it runs
+  the dashboard button's own cascade: `WPaaS\Cache_V2` `do_ban()` + `flush_cdn()` + `flush_transients()` +
+  `flush_object_cache()` through reflection, each step's result recorded, a two-minute lock against a second run (held
+  in the cascade helper, so the cron tick and the page-save path share it), and `wp_cache_flush()` with `class=null`
+  recorded when no WPaaS class is there (so a reader knows the CDN was *not* purged). The global that names the cache
+  class is checked against an EXACT allowlist — `WPaaS\Cache_V2` or `WPaaS\Cache`, never a `WPaaS\` prefix, because
+  anything that can write that global can write a WPaaS-namespaced name into it too — before anything is constructed
+  from it, and a failing method is recorded as `error:<exception class>:<sha1 prefix>` — never the exception text,
+  which on a CDN client can carry a token or a signed URL. `wp-flush.sh`'s own cascade heredoc, which runs the same
+  four methods over SSH, carries both of those verbatim (it recorded the raw exception message until 2026-09-08). It
+  also fires on `save_post_page` when the saved page's slug is `cache-bust`, which makes `wp-flush.sh`'s Method A real
+  the day the application password is back.
+  **Why no endpoint:** a token-protected REST route was considered and rejected — it would add a remote-control surface
+  to a production site for a job that needs no caller. **The plugin adds no route of its own.** Its only remote
+  reachability is stock WordPress `/wp-cron.php`, which any caller can already hit: that can advance the tick, but it
+  cannot make it purge — the tick acts only when the docroot fingerprint has moved, and the fingerprint is read off the
+  filesystem, never from anything a caller sends. **What it writes:** two options (`atlas_cache_watch_fp`,
+  `atlas_cache_watch_last`, both `autoload=no`) plus a two-minute lock transient, and **one `error_log` line per purge**
+  carrying counts and a 0/1 — not "writes nothing". No admin UI, no file writes, no requests of its own.
+  **How it is seen from outside:** front-end answers carry
+  `X-Atlas-Cache-Watch: <version>;b=<build>;age=<fresh|hour|day|old|never>;cdn=<ok|no|none>;fp=<0|1>;tick=<fresh|hour|day|old|never>`,
+  so `curl -sI "https://www.atlasglinn.com/?atlas-watch=$(date +%s)"` says whether it is deployed and healthy — the
+  query string matters, because a cached answer never runs a line of PHP and carries no header. `b` is the first 8 of
+  the file's own sha1, so a deploy can prove the bytes running are the bytes it sent; `age` is the last purge and
+  `tick` the last cron tick, in coarse buckets with no raw timestamp on a public response. **`fp=0;tick=never` means
+  WP-Cron is not running it; `fp=1;tick=fresh` means healthy and idle.** `wp-flush.sh` prints that line on every run and
+  says so plainly when the tick is stale; `wp-upload.sh` says the purge is coming.
+  **The deploy fails closed** (rounds 3–5, tested): **sftp does not report per-command failure for a batch arriving on
+  stdin** — OpenSSH aborts on a failed `put`/`rm` only under `-b`, and `-b` sets BatchMode, which refuses the Keychain
+  askpass — so the session's exit code and its text are printed as an ADVISORY and decide nothing. **The served
+  fingerprint is the proof:** the run requires the `b=<sha1-8>` the host publishes to equal the sha1 of the file it
+  just sent, one retry after 15 s, then a non-zero exit with the SERVED value in the heartbeat (a same-version copy
+  already on the host used to pass). **A header is only READ off a whole answer (round 5), and the rule that refused a
+  claim is printed:** curl's exit code is captured and a non-zero one — `--max-redirs` exhausted (47), a timeout, a
+  reset mid-chain — means **no header from that dump is parsed at all**, because curl has already printed the hops it
+  followed and one of them can carry the exact fingerprint just uploaded; the status is taken **only** from curl's own
+  tagged `ATLAS_HTTP_CODE:<3 digits>` write-out line (a bare `%{http_code}` tail let a header line's digits stand in as
+  the status when curl printed no write-out) or the code is `000` and the read is refused; and the **FINAL block must
+  be a 200** — a 3xx there is a truncated chain, and a header on any other status is not a page a reader was served.
+  **`--remove` is proven by a second sftp session running a bare `ls` on the remote path — and only when that session
+  PROVES it reached the host and NAMES the path** (round 4): the capture must carry the `sftp> ls` echo OpenSSH writes
+  for a command read off stdin, the session must exit 0, and a line must be **sftp's own** answer — anchored on its
+  `Can't ls: `/`ls: ` prefix — saying that *this* file is not found. **Round 5 tightened three things there:** a line
+  LISTING the file **wins, and is read before any "gone" text** (one session can carry both a banner saying "not
+  found" and the listing itself, and the listing is the fact); the name is matched **exactly**, bounded by
+  start/whitespace/quote/slash on the left and quote/whitespace/end on the right, so `atlas-cache-watch.php.bak` and
+  `old-atlas-cache-watch.php` are other files (a substring match claimed a removal off a neighbour's absence); and the
+  capture is **stripped of carriage returns** before it is classified. The path listed back is `rm-failed`;
+  **everything else is `rm-unknown` and exits non-zero** — a session that never connected, a login banner or a shell's
+  own `command not found` that merely contains the words "not found", a subsystem or auth failure, a "not found" about
+  another path, a non-zero exit. Searching the whole session for "not found" first (what round 3 did) meant a Mac with
+  no `sftp` binary reported a successful removal, so `sftp` is now a preflight check beside the Keychain one; an
+  unknown argument aborts instead of meaning "install", and the argument **COUNT** is checked before the value, so
+  `--remove --install` dies before anything is sent instead of silently acting on the first word.
+  The header is advisory only there, because the plugin stops sending it whenever
+  `ATLAS_CACHE_WATCH_DISABLED`/`_UNINSTALL` is defined, so header-absence would report a removal that never happened.
+  Every abort before the verdict stamps `aborted-<reason>` over the heartbeat, the probe follows redirects and reads
+  the header from the **FINAL response block of the `-D -` chain** (a header on a 301 hop is the hop's, and crediting
+  it would report a deploy from a response no reader sees), and there is no download fallback — the file always comes
+  from the checkout the script runs in.
+  **How to disable:** `define('ATLAS_CACHE_WATCH_DISABLED', true);` in `wp-config.php`, or
+  `bash scripts/wp-cache-watch-deploy.sh --remove`. **`--remove` deletes the file but leaves the two options and the
+  cron event** — a must-use plugin gets no uninstall hook. To clear those, set
+  `define('ATLAS_CACHE_WATCH_UNINSTALL', true);` and load one page: the plugin then deletes both options, drops the
+  lock, unschedules the tick and does nothing else. Heartbeat: `~/.cache/wp-upload/last-watch-deploy`.
+  **Tests:** `php wp-ops/tests/atlas-cache-watch-test.php` (stub WordPress + stub `WPaaS\Cache_V2`, 6 scenarios, 106
+  assertions) and `bash scripts/tests/wp-cache-watch-deploy-test.sh` (stub sftp/curl/security/shasum/sleep, no host
+  touched, 175 cases). Every gate above is pinned by a scenario, not by a grep of the script's own source: round 5
+  replaced the six `wire/*` text checks with cases only a working gate survives, and each was proved by breaking that
+  gate in a scratch copy and watching the case fail (drop the listed-wins ordering and a session that lists the file
+  reports `removed`, 3 cases fail; drop the argument-count check and `--remove --install` deletes the file and exits 0,
+  5 cases fail; drop the exact-basename match and a `.bak` neighbour reads as `removed`, 4 cases fail). The
+  aborted-chain rc gate is defence-in-depth: with real curl an aborted `-L` chain ends on a 3xx block, which the
+  truncated-chain rule already refuses, so removing the rc gate alone changes no verdict — its case pins the rule NAME
+  it prints, not a verdict (round-5 verifier, measured). Both carry pinned counts — a scenario that dies after
+  its first assertion used to report green —
+  and both run in CI on `wp-ops/**`, `scripts/wp-*.sh` or `scripts/tests/**` (`.github/workflows/wp-ops-tests.yml`,
+  no secrets; the job's Syntax step is `bash -n "$s" || exit 1`, because `bash -e` does not fail on the left side of an
+  `&&`, and it must NOT be made a required check while those paths filters exist — a PR that misses them never starts
+  it and the context would hang pending).
+  **Merged, NOT deployed:** the plugin is in the repo and nothing is on the host until the deploy script runs from the
+  Mac; the header is what proves it.
 - **mastsolutions.com** has no site *yet*: it is a GoDaddy domain forward to atlasglinn.com, pointed at
   `https://atlasglinn.com/mastsolutions.html` (set 2026-09-05). It still carries DNS: Resend verifies it so the Worker can send as
   bookings@mastsolutions.com, beside the existing matthew@mastsolutions.com mail.
@@ -291,13 +558,18 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   measured 2026-09-07 against the brain vault (tip 7c111da), this repo, the handoff branch, the transcripts and this
   container:** (1) WordPress on atlasglinn.com — a *Mac* session has it: the admin application password in the Keychain
   item `wp_app_password_claude` and the SFTP/SSH login `mast-wp-sftp` (`project_atlasglinn_wordpress.md`; WP-CLI over
-  SSH; REST works). (2) GoDaddy — the API key pair `godaddy_api_key` / `godaddy_api_secret` lived in the Keychain in
+  SSH; REST works). **Corrected 2026-09-08 18:46 UTC — neither half of that survived the migration to
+  `1127220.us12.ssh.myftpupload.com`:** `mast-wp-sftp` answers "This service allows sftp connections only." (no shell,
+  so no WP-CLI) and `wp_app_password_claude` is **not** in this Mac's Keychain, so the REST path has no password to
+  use. SFTP is the whole of the Mac's WordPress access today; SSH is Brockmann's switch in the GoDaddy dashboard. (2) GoDaddy — the API key pair `godaddy_api_key` / `godaddy_api_secret` lived in the Keychain in
   April 2026 (DNS via curl, `project_atlas_ep_open_threads_2026_04_27.md`) and went with the **2026-05-04 Keychain
   wipe** (`project_session_2026_05_04_keychain_wipe.md`); the 2026-07-04 daily, `_daily-scan-log.md:251` and
   `_tooling-requirements.md` all record "no GoDaddy API credential in Keychain" since. The cloud connector only checks
   domain availability. (3) cPanel — the word appears **nowhere** in the vault, this repo or any transcript; the account in
   his screenshot is new to every session. (4) The container cannot open atlasglinn.com, host.godaddy.com,
-  api.godaddy.com or api.cloudflare.com (egress 000). So: WordPress yes, from the Mac (now used by `scripts/wp-flush.sh`);
+  api.godaddy.com or api.cloudflare.com (egress 000). So: WordPress yes, from the Mac but **over SFTP only** (`scripts/wp-upload.sh`, `scripts/wp-cache-watch-deploy.sh`;
+  `scripts/wp-flush.sh` measures and reports, and its two remote methods are both blocked until SSH is enabled or the
+  application password is back);
   GoDaddy DNS no, until a key pair is minted again (his browser, developer.godaddy.com; his account must still qualify
   for the Domains API) and saved as those two Keychain items; cPanel no, until its login exists somewhere a runner or the
   Mac can read. **The route that needs no login at all — GitHub Pages (2026-09-07 18:29 UTC, first run of
