@@ -523,7 +523,8 @@ files, written by `python3 scripts/assemble-atlas.py --publish` (the default, pr
 needs a look without touching the live set; `preview/` is not committed any more). The previous hand-authored builds are
 parked as `*-atlas.html` (noindex, canonical to the new page). `LIVE_LINKS` is False: cards and menu go to the new pages.
 The pages reach atlasglinn.com through `scripts/wp-upload.sh` (its `PAGES` default carries them) by the Mac's hourly job
-or the page workflow; the WordPress pages at the old permalinks (`/about/` …) still exist on the host until he retires them
+or the page workflow — as of 2026-09-09 this is gated: `deploy/atlas-pages-upload` holds them until Brockmann's `go`, see the
+go-gate block below; the WordPress pages at the old permalinks (`/about/` …) still exist on the host until he retires them
 in WordPress, and whether `index.html` wins over WordPress at `/` is a host setting to confirm on the first upload.
 **Copy source (Brockmann, 2026-09-05: "why the content from the actual site and this new site front end are not
 matching"):** the rebuild was written from the repo's April 2026 build (now `*-atlas.html`), the only copy a cloud

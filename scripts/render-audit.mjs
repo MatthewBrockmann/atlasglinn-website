@@ -323,6 +323,8 @@ async function main() {
     landings: 0, landingsAt72: 0, landingsFirst: 0, landingsHead: 0, headUnderBar: 0 };
   let maxScroll = 0, maxScrollText = '', minGap = 1e9, noEllipsis = 0, overlap1440 = 0, maxOverlap = 0;
   let headMin = 1e9, headMax = -1e9;
+  // Every HIDDEN_ON_LIVE spend, keyed by (slug, unit), so the summary shows exactly which page spent which key.
+  const hiddenSpends = [];
 
   const pages = ONLY ? PAGES.filter((p) => ONLY.split(',').includes(p)) : PAGES;
   if (!pages.length) throw new Error('--only matched no page of: ' + PAGES.join(', '));
@@ -434,6 +436,7 @@ async function main() {
       }
 
       const unseen = want.filter((u) => !seen.has(norm(u)) && !(u in HIDDEN_ON_LIVE));
+      for (const u of want.filter((u) => !seen.has(norm(u)) && u in HIDDEN_ON_LIVE)) hiddenSpends.push([slug, u]);
       sum.units += want.length;
       sum.unseen += unseen.length;
       sum.pageErrors += pageErrors;
@@ -461,8 +464,17 @@ async function main() {
   console.log(`         widest label at 1440: ${maxScroll}px ${JSON.stringify(maxScrollText)}; leftmost rail-link edge ${Math.round(minGap)}px; labels without text-overflow:ellipsis ${noEllipsis}`);
   console.log(`         live text boxes an OPEN hover label covers at 1440: ${overlap1440} over ${sum.labels} labels, worst single label ${maxOverlap}`);
   console.log(`         page errors ${sum.pageErrors}, failed same-origin requests ${sum.localFails}`);
+  const spentKeys = new Set(hiddenSpends.map(([, u]) => u));
+  console.log(`         HIDDEN_ON_LIVE spends ${hiddenSpends.length}, keyed (slug, unit):`);
+  for (const [slug, u] of hiddenSpends) console.log(`           ${slug}: ${JSON.stringify(u.slice(0, 80))}`);
+  const unspent = Object.keys(HIDDEN_ON_LIVE).filter((k) => !spentKeys.has(k));
+  if (unspent.length) console.log(`         HIDDEN_ON_LIVE keys spent by no page this run (an excuse nothing uses): ${unspent.map((k) => JSON.stringify(k.slice(0, 60))).join(', ')}`);
   if (sum.unmeasured) bad++;
   if (sum.headUnderBar) bad++;
+  // A clipped hover label is a severed word a reader meets; a label without ellipsis is a cut with no visual signal.
+  // Both are counted above and both are deltas — the counts were printed and never asserted before r4 (2026-09-09).
+  if (sum.clipped1440 || sum.clipped1800) bad++;
+  if (noEllipsis) bad++;
   console.log(`         ${pages.length} page(s) x 1440x900 + 390x844 (+1800x1000 for the rail) = ${pages.length * 3} runs, ${bad ? bad + ' WITH A DELTA' : '0 with a delta'}`);
   return bad;
 }

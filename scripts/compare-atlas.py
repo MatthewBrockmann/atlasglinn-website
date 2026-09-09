@@ -28,16 +28,26 @@ WHAT IS MEASURED, over the WHOLE VISIBLE PAGE — content, bar, mobile menu and 
 
 ALLOWLIST — the only build-only TEXT units permitted, printed per page in the sheet and on stdout so a reader sees
 exactly what was excused and can object to it:
-  * the splash controls "Enter" and "Skip Intro →"
-  * the splash wordmark — on index matched against the live splash's own <h1 id="intro-title">; on the other eleven
-    it is chrome the shell prints on every page, as the MAST page does, and it is named as such
-  * the back-to-top control "↑"
-  * the menu controls "☰" and "×"
+  * the splash controls "Enter" and "Skip Intro →" — ONLY where the unit is printed inside <button id="intro-enter">
+    / <button id="skip-intro">, one spend per element (CONTROLS below)
+  * the splash wordmark — ONLY inside <h1 id="intro-title">, once; on index it is the live splash's own <h1>, on the
+    other eleven it is chrome the shell prints on every page, as the MAST page does, and it is named as such
+  * the back-to-top control "↑" — ONLY inside <button id="back-to-top">, once
   * a chapter-rail label — and ONLY where the unit is printed INSIDE the <a class="agx-rail-link"> element whose
     label repeats a heading of the chapter it links to, one excuse per anchor. Position is the point: the same string
     dropped into a footer is not a rail label and is not excused.
 And the only build-only ATTRIBUTE units permitted: the shell's own control labels (A11Y below) and the aria-label a
 heading-less chapter's rail tick carries — one per label-less rail anchor, its value "Chapter NN" and nothing else.
+
+MEDIA SET SEMANTICS, stated plainly: the media pass compares the SET of URLs each side carries. A film or photograph
+the live page prints twice and the build once is NOT a delta here — element-count parity for media is not
+implemented. Text and attribute units are counted with repeats; media is not. Anyone who needs media counted per
+element extends live.media to return a multiset first.
+
+DROPPED 2026-09-09 (R4-8): the menu glyphs "☰" and "×" were excused by string and MEASURED on the twelve pages neither
+is printed anywhere — the menu button carries its label as aria-label, which the attribute pass already covers by
+name. Two more excuses nothing used; gone. The three splash/chrome controls that ARE printed are no longer excused
+by string either: each is bound to the element that earns it (CONTROLS) and spent once per page.
 
 DROPPED 2026-09-09 (R4-4): the sound toggle "\U0001f507" and progress text "NN / NN" were excused by string, with no
 position check, and MEASURED on the twelve pages neither was ever spent — the shell's own toggle is cut from the
@@ -80,7 +90,13 @@ _HREF = re.compile(r'\bhref=["\']([^"\']*)["\']', re.I)
 _ATTR = re.compile(r'''\b(?:alt|placeholder|value|title|aria-label|label)\s*=\s*(["'])(.*?)\1''', re.S | re.I)
 _ELEM = re.compile(r'<(option|label)\b[^>]*>(.*?)</\1>', re.S | re.I)
 
-SPLASH = ('Enter', 'Skip Intro →', '↑', '☰', '×')
+# The printed chrome controls and the ONE element each may be printed in. A unit is excused only where it sits inside
+# that element's own span, and each element is spent once per page — "Enter" dropped into a footer has no element
+# to spend and is a delta. The wordmark is bound to #intro-title the same way (see excuse()).
+CONTROLS = (('Enter', 'intro-enter'), ('Skip Intro →', 'skip-intro'), ('↑', 'back-to-top'))
+WORDMARK_ID = 'intro-title'
+_ID_ELEM = {i: re.compile(r'<(\w+)\b[^>]*\bid="%s"[^>]*>(.*?)</\1>' % re.escape(i), re.S | re.I)
+            for i in [e for _u, e in CONTROLS] + [WORDMARK_ID]}
 
 # The shell's own control labels — the only build-only attribute units that are not read off a live page. A tuple and
 # not a set, because "Back to top" is two units: the button carries it as title and as aria-label.
@@ -268,20 +284,53 @@ def rail_anchors(markup):
     return out
 
 
-def excuse(slug, added, rails):
+def control_spans(markup):
+    """{element id: (start, end)} for the chrome controls and the wordmark — the FIRST element carrying each id, its
+    offsets into `markup` (scripts blanked at their own length, as text_spans does, so the offsets agree). An id the
+    page does not carry is simply absent, and the unit it would have excused is then a delta."""
+    src = _STRIP.sub(_blank, markup)
+    out = {}
+    for i, rx in _ID_ELEM.items():
+        m = rx.search(src)
+        if m:
+            out[i] = (m.start(), m.end())
+    return out
+
+
+def excuse(slug, added, rails, chrome):
     """(excused as [(unit, reason)], unexplained as [unit]) — the allowlist, applied unit by unit and POSITION by
     position. A rail label is excused only where the unit is printed inside the rail anchor that earns the excuse, and
     each anchor is spent once: a Counter keyed by the anchors themselves, never by the bare strings, so a second copy
-    of the same string anywhere else on the page has nothing left to spend."""
+    of the same string anywhere else on the page has nothing left to spend. The chrome controls and the wordmark are
+    held to the same bar since r4 (2026-09-09): `chrome` is {element id: (start, end)} for the control elements the
+    BUILD prints and the LIVE page does not (main() computes it from control_spans on both sides), each unit is
+    excused only inside its own element, and each element is spent once. An element the live page carries too —
+    index's own splash, with its <h1 id="intro-title">, "Enter" and "Skip Intro →" — is not chrome and is not here:
+    its units are matched against the live page like any other, and a second copy of "Enter" printed anywhere on
+    that page has no element left to spend."""
     word = live.intro_title()
     budget = collections.Counter(k for k, r in enumerate(rails) if r[4])
+    elems = chrome
+    spent = collections.Counter({i: 1 for i in elems})
     ok, bad = [], []
     for u, a, b in added:
-        if u in SPLASH:
-            ok.append((u, 'splash / chrome control'))
+        ctl = next((i for lab, i in CONTROLS if lab == u), None)
+        if ctl is not None:
+            s, e = elems.get(ctl, (None, None))
+            if s is not None and spent[ctl] and s <= a and b <= e:
+                spent[ctl] -= 1
+                ok.append((u, 'chrome control, printed inside #%s' % ctl))
+            else:
+                bad.append(u)
         elif u == word:
-            ok.append((u, 'splash wordmark, the live splash’s own <h1 id="intro-title">' if slug == 'index' else
-                       'splash wordmark, chrome the shell prints on all twelve pages as the MAST page does'))
+            s, e = elems.get(WORDMARK_ID, (None, None))
+            if s is not None and spent[WORDMARK_ID] and s <= a and b <= e:
+                spent[WORDMARK_ID] -= 1
+                ok.append((u, 'splash wordmark, the live splash’s own <h1 id="intro-title">' if slug == 'index' else
+                           'splash wordmark inside #intro-title, chrome the shell prints on all twelve pages as the '
+                           'MAST page does'))
+            else:
+                bad.append(u)
         else:
             hit = next((k for k, (_a, lab, s, e, r) in enumerate(rails)
                         if r and budget[k] and lab == u and s <= a and b <= e), None)
@@ -454,13 +503,22 @@ def main():
         # heading itself into the build-only list, where it would then fail for sitting outside a rail anchor. Every
         # live unit must be carried by the BODY; the rail's runs are build-only by construction and are excused, or
         # not, one anchor at a time.
-        body = [x for x in sn if not any(s <= x[1] and x[2] <= e for _a, _l, s, e, _r in rails)]
-        rail_runs = [x for x in sn if any(s <= x[1] and x[2] <= e for _a, _l, s, e, _r in rails)]
+        # The chrome controls are separated the same way, and for the same reason: matching is greedy in document
+        # order, so a splash <h1>Atlas Glinn</h1> at the top of the build would consume the live page's own
+        # "Atlas Glinn" (a chapter heading, the footer) and push THAT unit into the build-only list, where it sits
+        # outside any control element and fails (measured on ten of twelve pages, 2026-09-09, the first time the
+        # wordmark was bound to its element). Only the control elements the LIVE page does not carry are chrome:
+        # index's live splash prints #intro-title, #intro-enter and #skip-intro itself, so on index those runs stay
+        # in the body and are matched, not excused.
+        chrome = {i: span for i, span in control_spans(new).items() if i not in control_spans(old)}
+        outside = [(s, e) for _a, _l, s, e, _r in rails] + list(chrome.values())
+        body = [x for x in sn if not any(s <= x[1] and x[2] <= e for s, e in outside)]
+        chrome_runs = [x for x in sn if any(s <= x[1] and x[2] <= e for s, e in outside)]
         tb = [t for t, _a, _b in body]
-        lost_t, added_t = missing(to, tb), added_spans(body, to) + rail_runs
+        lost_t, added_t = missing(to, tb), added_spans(body, to) + chrome_runs
         order = out_of_order(to, tb)
         lost_a, added_a = missing(uo, un), added_spans(an, uo)
-        ok_t, bad_t = excuse(slug, added_t, rails)
+        ok_t, bad_t = excuse(slug, added_t, rails, chrome)
         ok_a, bad_a = excuse_attrs(added_a, rails)
         extra_m = sorted(mn - mo)
         ok_m, lost_m, bad_m = pair_media(sorted(mo - mn), extra_m, mo)

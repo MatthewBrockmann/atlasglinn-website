@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="74ac21a4f87e">
+<meta name="build" content="b93b4f949c1d">
 <title>Atlas Glinn - About Us | Elite Security Leadership</title>
 <meta name="description" content="Meet the Atlas Glinn leadership team. 34+ years of elite security, dignitary protection, and tactical training expertise led by Matthew Brockmann and Michael Cline.">
 <meta name="keywords" content="about Atlas Glinn, Matthew Brockmann, Michael Cline, security leadership Houston, Navy SEAL, U.S. Senator protection, MAST Solutions">
@@ -341,10 +341,10 @@ body.intro-open { overflow:hidden; }
   .agx-rail-link span { max-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:0; transition:max-width .35s ease, opacity .35s ease; }
   .agx-rail-link::after { content:''; width:17px; height:2px; flex:none; background:rgba(240,244,255,.5); box-shadow:0 1px 6px rgba(0,0,0,.9); transition:width .3s, background .3s; }
   .agx-rail-link:hover { color:var(--gold-champagne); border-color:rgba(26,107,222,.35); background:rgba(5,8,16,.7); }
-  /* 20.5rem = 328px, the MEASURED maximum + 1px: the widest of the 79 rail labels is uas ch4's "No Pilot Required.
-     No Gaps in Coverage ." at 327px in Chromium at 1440x900. At 13rem (208px) FOURTEEN of the 79 were cut mid-word
+  /* 20.5rem = 328px, the MEASURED maximum + 1px: the widest of the 77 labels of the 79 rail links (2 are label-less ticks) is uas ch4's "No Pilot Required.
+     No Gaps in Coverage ." at 327px in Chromium at 1440x900. At 13rem (208px) FOURTEEN of the 77 were cut mid-word
      with no ellipsis — "Atlas Glinn SOP for Protective Detail" at 303, "Your Assets Don't Wait. Neither Do We." at
-     311 — and `text-overflow` computed `clip` on all 79, so the cut had no visual signal at all. Both are fixed
+     311 — and `text-overflow` computed `clip` on all 77, so the cut had no visual signal at all. Both are fixed
      together on purpose: the clamp is the fix for today's labels, the ellipsis is the backstop for a label longer
      than any of today's, and either alone leaves one of the two failures standing. */
   .agx-rail-link:hover span { max-width:20.5rem; opacity:1; }
