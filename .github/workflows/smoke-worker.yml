@@ -249,6 +249,19 @@ jobs:
               print('   ** WARNING: %s consecutive tax-carrying Checkout Sessions were REFUSED by Stripe; readiness is %s, so tax is on the grace rather than on a measurement. That is the double fault. Read last_run for what the measurement is failing on. **' % (streak, d.get('tax_readiness')))
           elif streak >= 3:
               print('   %s consecutive tax-carrying Checkout Sessions were refused by Stripe; readiness is MEASURED, so this is not the double fault — read it as Stripe refusing these bodies, not as the loop being down.' % streak)
+          # ROUND 8. The registration create is the one irreversible act in the module and it is now bounded by two
+          # witnesses 30s apart plus a 30-day ledger, so the ledger is printed here: an operator should never have to
+          # read a run log to account for a create, or to find out why one was withheld.
+          led = d.get('registration_create_ledger')
+          wit = d.get('registration_create_witness')
+          if led:
+              print('   registration_create_ledger: attempt #%s (%s) at %s; the next attempt is not allowed before %s (one per %s days)'
+                    % (led.get('attempts'), scrub(str(led.get('outcome'))), led.get('last_attempt_at'), led.get('next_attempt_allowed_at'), led.get('cooldown_days')))
+          else:
+              print('   registration_create_ledger: no registration create has ever been attempted by this Worker.')
+          if wit:
+              print('   registration_create_witness: a validated read found no US/TX registration at %s (%ss ago). A create needs a SECOND such read; %ss to go.'
+                    % (wit.get('at'), wit.get('age_seconds'), wit.get('second_witness_due_in_seconds')))
           for n in d.get('notes') or []: print('   ' + scrub(n))
           print('   the account itself (settings, registration) is read by POST /admin/tax/setup, which deploy-worker.yml runs after each deploy — this report reads D1 only.')
           PY

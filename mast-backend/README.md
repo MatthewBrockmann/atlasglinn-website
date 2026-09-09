@@ -221,7 +221,23 @@ is reverted.** *One:* a measurement is measured only when every field it decides
 **at every level**, is present and well-typed — one validator per Stripe shape
 (`validateTaxSettings`, `validateTaxRegistrations`), whose schema is the exact list
 of fields this module dereferences, and any failure is `<shape>_unparseable` /
-unmeasured rather than a measured *no*. *Two:* every Stripe-controlled string that
+unmeasured rather than a measured *no*.
+
+**AND THE SCHEMA IS DECLARATIVE, BECAUSE A NAMED CHECK CANNOT END THIS CLASS.**
+Rounds 5, 6 and 7 each hand-wrote a check for the fields that round had noticed and
+an independent fuzz found the next unnamed one every time — round 7's was `country`,
+which the validator accepted as *"a string when present"* while `isTexasSalesTax`
+decides on it first: 13 violations of that single class across 226 mutations, with a
+duplicate US/TX registration POST behind them. So the checks are not written any
+more. `TAX_SETTINGS_SCHEMA` and `TAX_REGISTRATION_ROW_SCHEMA` declare every key this
+module dereferences with its `required` rule and its shape, the validator ITERATES
+them, and what it returns is a **frozen object rebuilt from the schema** carrying the
+schema's keys and nothing else — so a predicate cannot reach an unlisted field even
+by accident. The suite then wraps every validated object in a **Proxy whose `get`
+trap throws on any key the schema does not list** and drives `isTexasSalesTax`,
+`measureTaxReady` and `taxRun`'s decision code through it, including all 316 fuzz
+mutations; deleting one key from the schema fails 24 assertions with the key named.
+That is the difference between fixing an instance and closing a class. *Two:* every Stripe-controlled string that
 leaves this Worker — into a log, a report or a D1 column — is **capped**, by
 `taxSafe` / `taxEnum` / `taxDate` where it also needs redacting and by `capText`
 where it is a record field that must survive verbatim. *Three:* the redactor
@@ -287,12 +303,19 @@ held every checkout open behind it. Now:
   not-ready, a measurement that could not be made, or nothing measured inside a
   day → tax off**, byte-identical body, one `tax_skipped` line naming which.
 * **A 200 is not automatically an answer, and the answer goes all the way down.**
-  Two validators own both shapes. `validateTaxSettings`: an object, `status` a
-  non-empty string **and enum-shaped** (`^[a-z][a-z_]*$`). `validateTaxRegistrations`:
-  an object, `data` an Array, `has_more` a boolean if present, and **every row** an
-  object with `status` a string, `country` a string when present, and — for a `US`
-  row — `country_options.us.state` and `.type` present and strings, which is the
-  exact set `isTexasSalesTax` dereferences. Round 5 defined a failed measurement as
+  Two validators own both shapes, and both iterate a declared schema.
+  `TAX_SETTINGS_SCHEMA`: `status` **required** and enum-shaped (`^[a-z][a-z_]*$`),
+  `head_office.address.line1` a non-padded non-empty string when a head office is
+  present. `TAX_REGISTRATION_ROW_SCHEMA`: `status` **required** and enum-shaped,
+  `country` **REQUIRED** and `^[A-Z]{2}$` — the field round 7 left optional while the
+  predicate decided on it first — `country_options`, `.us`, `.us.state`
+  (`^[A-Z]{2}$`, so `''` is refused by the shape itself) and `.us.type` all
+  **required for a `US` row**, plus `id` and `active_from` shape-checked because the
+  report prints them. The list envelope: `data` an Array, `has_more` a boolean if
+  present. **Classify or refuse:** a row the schema cannot fully classify makes the
+  WHOLE list unparseable, and absence is never read as *"not Texas"*. Nothing is
+  lowercased or trimmed anywhere — a drifted value is a shape failure by doctrine,
+  not a value to be repaired into a decision. Round 5 defined a failed measurement as
   `!res.ok`, so a 200 carrying `{}` or a proxy's `<html>502 Bad Gateway</html>`
   counted as a **measured not-ready**; round 6 fixed the containers and left the
   **rows** read on faith, so a registration whose `country_options` an API version
@@ -311,6 +334,27 @@ held every checkout open behind it. Now:
   look"* and *"there is none"* are different sentences and only the second may
   create. That gap was real: with the row check reverted, an unreadable list came out
   of the old `Array.isArray ? … : []` as zero rows and the run created a duplicate.
+* **AND THE CREATE NEEDS TWO WITNESSES AND A LEDGER, because it is the one act here
+  that cannot be undone.** The schema is the fix for the shapes somebody has thought
+  of; this is the fix for the shapes nobody has. Four conditions, all of them:
+  the list **validated**; `has_more === false` on both pages; a **second independent
+  read at least 30 seconds later** that also validates and also finds no US/TX
+  `state_sales_tax` row — the first such read records `tax:registration_witness` and
+  creates **nothing**, deferring to a later run; and a **create ledger**
+  (`tax:registration_create`) that allows **at most one create attempt every 30
+  days**. So a false absence has to be produced TWICE, by two independent reads,
+  thirty seconds apart, before a POST is even built — and **even if every check above
+  were defeated at once, a false absence costs AT MOST ONE registration create per 30
+  days**, with the ledger, the attempt count, the outcome and the date the next
+  attempt becomes allowed printed in `GET /admin/tax/setup`, alongside the note
+  saying which run withheld a create and why. Measured: replay one lying list read
+  against an account that HAS a live Texas registration and the shipped build makes
+  0 POSTs; with the two-witness rule removed it makes 1, `taxreg_DUPLICATE`. The
+  deterministic `Idempotency-Key` is unchanged and still collapses a RACE — it never
+  covered *"this code read the account wrongly on Tuesday and again on Friday"*, and
+  saying so overstated it. **Operator note: a hand-run `POST /admin/tax/setup` against
+  an account with no Texas registration will therefore report a withheld create the
+  first time. Run it again after the lock window (60 s) and it creates.**
 * **`has_more` means this function did not look.** The readiness read is one page
   deep (`?status=active&limit=100`). A Texas registration past the first hundred
   read as a measured *"no Texas registration"*, which turns tax off. It is
@@ -336,9 +380,13 @@ held every checkout open behind it. Now:
   shipped the 24-hour grace and then let its own five-minute tick destroy it: the
   tick wrote *unmeasured* over the ready row on any failure, and the grace is
   granted only to a row that says ready, so tax came off within seconds of an
-  outage rather than after a day of it. Measured by reverting the fix against the
-  test suite: **an hour of Stripe 500s sells 10 of 12 orders untaxed; one failed
-  tick sells the next six untaxed.** With the fix, zero of either.
+  outage rather than after a day of it. **The revert number is harness-dependent, and
+  a number printed without its harness is a measurement presented as a fact:** an hour
+  of Stripe 500s against the reverted code sells **10 of 12** orders untaxed in *this
+  repository's suite* and **11 of 12** in the round-7 reviewer's *independent
+  harness*, because the two advance the virtual clock at different points. **The
+  invariant is what both agree on, and it is the pair worth pinning: unreverted, both
+  report 0 of 12 and 0 of 6.**
 * **The measurement it did not make is enqueued behind the response**
   (`ctx.waitUntil`), and that refresh **does nothing at all unless it can take the
   `tax:lock` row**. A held lock means someone is already measuring — no Stripe
@@ -408,9 +456,18 @@ row at *ready*) **and** Stripe is refusing every Session that carries
 `automatic_tax`. Each order then pays for two Session creates, each one completes
 on the tax-off retry, nothing 5xxs, nothing alerts — and every sale for the whole
 24-hour grace goes out untaxed while the report keeps printing `tax_ready: true`.
-So the consecutive refusals are counted, in the `count` column of the `tax:last_run`
-row, and surfaced as **`tax_fallback_streak`** in the report and in the smoke
-workflow's summary.
+So the consecutive refusals are counted, in the `count` column of its **own**
+`tax:fallback_streak` row, and surfaced as **`tax_fallback_streak`** in the report and
+in the smoke workflow's summary.
+
+**It has its own row as of round 8, and that was a defect and not a tidy-up.** Through
+round 7 the streak shared `tax:last_run`, so the bump had to be an upsert on the
+HEARTBEAT key — which meant N anonymous refused checkouts against a Worker whose setup
+loop **had never run once** INSERTED that row with a current timestamp, and the report
+then printed `age_hours: 0, stale: false` for a loop that was dead. The one field whose
+entire job is to show that a loop stopped firing was writable by the public. The
+heartbeat is now written by a run or a measurement and by nothing else, and four
+anonymous refusals against a never-run Worker leave `last_run: null` — asserted.
 
 **The number is reported always; the ALARM needs a second witness.** The streak is
 raised by anything that can POST a checkout, so one anonymous address driving five
@@ -430,6 +487,20 @@ taxed, which is exactly the round-4 de-tax write that was removed, and it is not
 coming back as a threshold. A test pins the readiness row byte-for-byte across all
 six refusals. It resets on either half of the fault ending: a tax-carrying Session
 Stripe **accepts**, or a measurement Stripe **answers**.
+
+**The fuzz is part of the suite, not a reviewer's scratch file.**
+`mast-backend/scripts/fuzz-tax-shapes.mjs` generates **316 mutations** from one valid
+settings body and one valid registrations body — every key at every level, deleted,
+renamed, retyped, re-cased, padded, emptied, nulled, swapped between array and object,
+nested differently, plus `has_more` variants and paged lists — and asserts, with a ready
+row inside the grace: `measured:true` **only** for byte-shape-valid bodies; every
+drifted one leaves the readiness row **byte-identical**, sells the next order **taxed**,
+and makes **zero** registration POSTs. It runs standalone
+(`node mast-backend/scripts/fuzz-tax-shapes.mjs`, exit 1 on any violation) and inside
+`test-worker.mjs` with the read guard armed, off the same generator, so the two cannot
+disagree about what was tested. Reverting `country` to optional makes it report 7
+violations and the suite fail; the round-7 reviewer's independent 226-mutation fuzz
+reports 0 against this build, where it reported 13 against round 7's.
 
 **Every Stripe call in the tax path is on a clock** (`STRIPE_TAX_TIMEOUT_MS`,
 default 4 s, **clamped to 500 ms – 15 s**). A timeout is not a measurement: it is
@@ -461,6 +532,31 @@ Session create run up to **twice**, which is two open-ended waits on one custome
 budget, and if there is less than 250 ms of it left the retry is not started at all
 and the ordinary error is returned. Measured against a stub that refuses slowly and
 then never answers: one second on a 1 s ceiling, where a ceiling each costs 1.7 s.
+
+**And as of round 8 there is NO raw `fetch` to `api.stripe.com` left in the file** —
+the correction matters because round 7 wrote *"one remaining raw fetch"* and there were
+three: the fire-and-forget name/phone update on `PATCH /account`, and both calls in
+`setDefaultCardFromSetup`, which runs off a **webhook** event and therefore off the one
+Stripe surface the version pin does not govern. All three go through `boundedStripe`
+now, on the checkout ceiling, with their interpolated ids `capText`-ed to 255 before
+they reach a request path. A source sweep in the suite fails if a raw one comes back.
+
+**The Checkout URL is capped too, at 2048.** Round 7 argued it must not be, because
+truncating a redirect target breaks the purchase it exists to start. That is true and
+it is not an argument for no ceiling: a Checkout URL is about ninety characters, and a
+"URL" past 2048 is not something this Worker should hand a browser. It is scheme-checked
+**and then** bounded, in that order — a cap applied first would let a 2048-character
+prefix of something else through on a truncation — and a 2,100-character URL is a clean
+502. It was the last uncapped Stripe-controlled string in the Worker.
+
+**`metadata.registration_id` is capped at 64, at the webhook call site and again inside
+`completeRegistration`.** It was the one Stripe string on that path still echoed whole
+into a log: a 200,000-character metadata value produced a 200,000-character log line.
+The sweep behind that fix is an **enumeration**, not an allow-list grep — every property
+read off a Stripe response in `worker.js` printed beside the bound that stands between
+it and a sink (129 distinct properties, 670 read sites, **0 unbounded**). An allow-list
+grep can only confirm the fields somebody already listed, which is the same wrong
+question the hand-written validators were asking.
 
 One writing run at a time: the `tax:lock` row in D1 (INSERT-if-absent with an
 expiry, so a crashed run frees itself), **held for a further 60 s after the run
