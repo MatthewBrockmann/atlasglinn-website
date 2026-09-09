@@ -1,9 +1,9 @@
-captured 2026-09-08T22:47:54Z by capture-live from main 17f4090
+captured 2026-09-09T00:28:17Z by capture-live from main fe1c43e
 200 text/html; charset=UTF-8 85111  https://atlasglinn.com/  title=[Atlas Glinn - Elite Security Solutions, Risk Management & Training] wordpress_generator=0
-200 text/html 83651  https://atlasglinn.com/index.html  title=[Atlas Glinn | Executive Protection, Risk Management & Training — Houston, TX] wordpress_generator=0
-200 text/html 83790  https://atlasglinn.com/about.html  title=[About Atlas Glinn | Elite Security Leadership — Houston, TX] wordpress_generator=0
+200 text/html 83528  https://atlasglinn.com/index.html  title=[Atlas Glinn | Executive Protection, Risk Management & Training — Houston, TX] wordpress_generator=0
+200 text/html 83667  https://atlasglinn.com/about.html  title=[About Atlas Glinn | Elite Security Leadership — Houston, TX] wordpress_generator=0
 200 text/html; charset=UTF-8 60210  https://atlasglinn.com/about/  title=[Atlas Glinn - About Us | Elite Security Leadership] wordpress_generator=0
-200 text/html 219881  https://atlasglinn.com/mastsolutions.html  title=[MAST Solutions | Details Matter | Tactical Training, Houston TX] wordpress_generator=0
+200 text/html 212570  https://atlasglinn.com/mastsolutions.html  title=[MAST Solutions | Details Matter | Tactical Training, Houston TX] wordpress_generator=0
 200 image/jpeg 149117  https://atlasglinn.com/images/atlas/Atlas-Glinn-3.jpg  title=[] wordpress_generator=0
 200 image/jpeg 461259  https://atlasglinn.com/images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg  title=[] wordpress_generator=0
 200 image/jpeg 99969  https://atlasglinn.com/images/film/atlas-glinn-and-mast-solutions-poster.jpg  title=[] wordpress_generator=0
@@ -11,18 +11,18 @@ captured 2026-09-08T22:47:54Z by capture-live from main 17f4090
 200 video/mp4 132  https://atlasglinn.com/images/technology-hero.mp4  title=[] wordpress_generator=0
 200 video/mp4 132  https://atlasglinn.com/images/careers-gallery.mp4  title=[] wordpress_generator=0
 404 text/html 548  https://atlasglinn.com/wp-content/uploads/2025/03/IMG_1837-1024x751.jpeg  title=[404 Not Found] wordpress_generator=0
---- cache-busted (?v=1788907676) with caching headers; gear-price / foot-site count the current builds' markers
-200 text/html 233932  https://atlasglinn.com/mastsolutions.html?v=  gear-price=3 foot-site=1  [cache-control: public, max-age=2678400 last-modified: Tue, 08 Sep 2026 22:40:11 GMT server: cloudflare cf-cache-status: MISS ]
-200 text/html 93405  https://atlasglinn.com/index.html?v=  gear-price=0 foot-site=0  [cache-control: public, max-age=2678400 last-modified: Tue, 08 Sep 2026 22:40:14 GMT server: cloudflare cf-cache-status: MISS ]
-200 text/html 94526  https://atlasglinn.com/about.html?v=  gear-price=0 foot-site=0  [cache-control: public, max-age=2678400 last-modified: Tue, 08 Sep 2026 22:40:22 GMT server: cloudflare cf-cache-status: MISS ]
-200 text/plain 38  https://atlasglinn.com/mast-ping.txt?v=  gear-price=0 foot-site=0  [etag: W/"6aa08ec1-26" last-modified: Tue, 08 Sep 2026 22:40:01 GMT server: cloudflare cache-control: public, max-age=2678400 cf-cache-status: MISS ]
-   mast-ping.txt body: served by upload 2026-09-08T22:40:01Z
+--- cache-busted (?v=1788913698) with caching headers; gear-price / foot-site count the current builds' markers
+200 text/html 241339  https://atlasglinn.com/mastsolutions.html?v=  gear-price=3 foot-site=1  [cache-control: public, max-age=2678400 last-modified: Wed, 09 Sep 2026 00:24:39 GMT server: cloudflare cf-cache-status: MISS ]
+200 text/html 89601  https://atlasglinn.com/index.html?v=  gear-price=0 foot-site=0  [cache-control: public, max-age=2678400 last-modified: Wed, 09 Sep 2026 00:24:41 GMT server: cloudflare cf-cache-status: MISS ]
+200 text/html 76814  https://atlasglinn.com/about.html?v=  gear-price=0 foot-site=0  [cache-control: public, max-age=2678400 last-modified: Wed, 09 Sep 2026 00:24:44 GMT server: cloudflare cf-cache-status: MISS ]
+200 text/plain 38  https://atlasglinn.com/mast-ping.txt?v=  gear-price=0 foot-site=0  [etag: W/"6aa09d24-26" last-modified: Tue, 08 Sep 2026 23:41:24 GMT server: cloudflare cache-control: public, max-age=2678400 cf-cache-status: MISS ]
+   mast-ping.txt body: served by upload 2026-09-08T23:41:24Z
 --- plain URL caching headers
-   https://atlasglinn.com/mastsolutions.html  cache-control: public, max-age=2678400 last-modified: Tue, 08 Sep 2026 21:38:38 GMT server: cloudflare age: 3707 cf-cache-status: HIT 
-   https://atlasglinn.com/index.html  cache-control: public, max-age=2678400 last-modified: Mon, 07 Sep 2026 14:42:57 GMT server: cloudflare age: 112876 cf-cache-status: HIT 
---- self-refresh: mastsolutions.html  plain build=[5756aaa04d98]  manifest=[4ca8f583f574]  stale → self-refresh to ?v=4ca8f583f574
---- self-refresh: index.html  plain build=[none]  manifest=[5176ad951249]  stale → self-refresh to ?v=5176ad951249
---- self-refresh: about.html  plain build=[none]  manifest=[90908c69a4dd]  stale → self-refresh to ?v=90908c69a4dd
+   https://atlasglinn.com/mastsolutions.html  cache-control: public, max-age=2678400 last-modified: Mon, 07 Sep 2026 12:26:11 GMT server: cloudflare age: 126552 cf-cache-status: HIT 
+   https://atlasglinn.com/index.html  cache-control: public, max-age=2678400 last-modified: Mon, 07 Sep 2026 15:51:25 GMT server: cloudflare age: 117198 cf-cache-status: HIT 
+--- self-refresh: mastsolutions.html  plain build=[none]  manifest=[d8bf3b34b006]  stale → self-refresh to ?v=d8bf3b34b006
+--- self-refresh: index.html  plain build=[none]  manifest=[19c68e493f61]  stale → self-refresh to ?v=19c68e493f61
+--- self-refresh: about.html  plain build=[none]  manifest=[c9ed3bb1431a]  stale → self-refresh to ?v=c9ed3bb1431a
 --- google: https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063
    title=[  Google Maps  ]  mentions 'Atlas Glinn'=2  place ids=[]  consent=0
 --- google: https://www.google.com/maps?cid=4511758973651106295
