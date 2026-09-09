@@ -63,8 +63,26 @@ The old Worker is left untouched — it still serves SafeGuard.
 | `GET` | `/account/me` | Bearer token → profile, classes taken (paid/completed registrations under the account email), saved card (brand, last four, expiry) |
 | `POST` | `/account/update` / `/account/password` / `/account/setup-payment` | Bearer token → profile details; password change (needs the current one); Stripe Checkout in setup mode to save a card on the account's Stripe Customer |
 | `GET` | `/admin/crm?view=weekly` | The Monday digest as `text/plain`, exactly as it is emailed |
-| cron | daily 09:17 UTC | Purges eligibility answers past `purge_after`; marks day-old unpaid registrations abandoned; drops day-old pending sign-ups (and any unverified account row left from before `migrations/012`); **on Monday** (or the Tuesday/Wednesday retry if Monday failed) also emails the CRM digest; and runs the Stripe Tax loop |
-| cron | every 5 min | Stripe Tax only: re-measure the account when the cached measurement is due and run the idempotent self-setup when it is not collecting. `scheduled()` branches on **both** trigger strings by name, so the daily work above stays daily and an unrecognised trigger runs this tick rather than the daily work. See **Sales tax (Texas)** |
+| cron | **every 5 min — the only trigger** (`*/5 * * * *`) | Stripe Tax on all 288 fires: re-measure the account when the cached measurement is due and run the idempotent self-setup when it is not collecting. See **Sales tax (Texas)** |
+| cron | … **and the daily work on the one fire in 09:15–09:19 UTC** | Purges eligibility answers past `purge_after`; marks day-old unpaid registrations abandoned; drops day-old pending sign-ups (and any unverified account row left from before `migrations/012`); the T−7 / T−1 / T+1 journeys; **on Monday** (or the Tuesday/Wednesday retry if Monday failed) also emails the CRM digest. Guarded by `daily:last_run` in D1 — the UTC date, claimed in one conditional upsert — so it runs **at most once a calendar day** however many fires reach the window |
+
+**Why one trigger carries two jobs (2026-09-09).** Workers Free allows **5 cron
+triggers per account** and this account is at the ceiling: Deploy MAST Worker
+**run #38** (main `e8c12da`) uploaded the script and Cloudflare then refused the
+schedules with **code 10072**, so the live Worker ran the new code on the OLD
+trigger set — the daily string alone, with the five-minute tax tick never
+registered. The tax loop is the trigger that cannot be dropped (a ten-minute
+readiness TTL refreshed once a day is stale 1430 minutes out of 1440), so the
+daily work moved onto it. **`*/5` fires on the multiples of five, so exactly one
+fire a day — 09:15 — opens the window**; the four minutes after it are slack for a
+late delivery, and 09:17, the old daily trigger's own minute, sits inside it.
+**The way back to two triggers is the paid plan**, which allows 1,000: put
+`"17 9 * * *"` back in `wrangler.toml [triggers]` and nothing else changes —
+`scheduled()` still branches on that string by name, and both paths take the same
+`daily:last_run` claim, so the restored trigger is a second **fire**, never a
+second **run**. The deploy workflow now reads the Worker's registered schedules
+back through the Cloudflare API after every deploy and fails the run when they
+differ from `wrangler.toml`, so a half-deploy like #38 cannot be silent again.
 
 Every `/admin` route and `/roster` take the key in the **`X-Admin-Key` header**.
 The `?key=` query form was removed 2026-09-09 and now answers 401 on every one of
@@ -438,8 +456,10 @@ held every checkout open behind it. Now:
   — Stripe Tax terms not accepted, say — from being retried on every checkout
   forever.
 * **The trigger that keeps it warm is a cron every five minutes**
-  (`wrangler.toml [triggers]`, `*/5 * * * *`; `scheduled()` branches on
-  `event.cron` so the daily work stays daily). It re-measures only when the
+  (`wrangler.toml [triggers]`, `*/5 * * * *` — the **only** trigger since
+  2026-09-09; `scheduled()` branches on `event.cron`, and the daily work runs on
+  the single fire inside the 09:15–09:19 UTC window, claimed once a day in D1).
+  It re-measures only when the
   measurement is due, so a ready account costs one D1 read per tick and two Stripe
   GETs per ten minutes — about 288 reads a day, no writes. **This is the fix for
   the design's worst bug.** Round 3 paired the ten-minute TTL with a daily cron, so
@@ -447,8 +467,10 @@ held every checkout open behind it. Now:
   taxed while isolated ones never were — measured in review as **20 isolated
   orders, 0 taxed**. A completed Checkout Session cannot be re-taxed afterwards,
   and the permit holder owes Texas the difference out of margin.
-* **The daily cron still runs the same tax work**, so the two triggers cover each
-  other, and neither needs a repository secret.
+* **The daily cron string still runs the same tax work** — it is not registered
+  today (the 10072 ceiling), and the branch stays because restoring it on a paid
+  plan is then a `wrangler.toml` edit and nothing else. Neither path needs a
+  repository secret.
 * **`scheduled()` branches on BOTH trigger strings by name**, and anything else —
   a trigger added to `wrangler.toml`, a renamed schedule, an event with no `cron` —
   logs `{"unknown_cron":…}` and runs the **tick**, which is one D1 read on a ready

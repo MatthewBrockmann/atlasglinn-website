@@ -11,23 +11,35 @@ type = "Data"
 globs = ["**/*.pdf"]
 fallthrough = true
 
-# Two triggers, and scheduled() dispatches on event.cron — the handler branches on BOTH strings BY NAME, so the daily
-# work does not run 288 times a day. Anything that is neither string (a trigger added here, a renamed schedule, an event
-# with no cron) logs { unknown_cron } and runs the TICK, which is one D1 read on a ready account. It used to fall
-# through to the daily branch, so the fail direction was 288 retention purges, journey passes and digest attempts a day.
-# ADD A TRIGGER HERE AND YOU MUST ADD ITS STRING TO scheduled() (src/worker.js): otherwise it runs the tick, not the
-# work you added it for.
-#   17 9 * * *    daily: purge eligibility answers past their purge_after (RETENTION-POLICY.md), mark registrations that
-#                 never reached payment as abandoned, the T−7 / T−1 / T+1 journeys, and the Monday CRM digest
-#                 (scheduled() checks the weekday; there is no third trigger to keep in step). It also runs the tax tick.
-#   */5 * * * *   Stripe Tax ONLY: re-measure the account when the cached measurement is due, and run the idempotent
-#                 self-setup when it is genuinely not collecting. Nothing else runs on this tick.
+# ONE TRIGGER, AND IT DRIVES BOTH JOBS — because a second one cannot be registered on this account.
+# Deploy MAST Worker run #38 (main e8c12da, 2026-09-09) uploaded the script and then had its SCHEDULES refused:
+# "This account has reached the Workers Free limit of 5 cron triggers per account" (Cloudflare code 10072). wrangler had
+# ALREADY put the code live, so the Worker ran run #38's code on the PREVIOUS trigger set — the daily "17 9 * * *" alone,
+# with the */5 tax tick never registered. Half a deploy, and nothing in the run said which half.
+# THE PAID PLAN IS THE WAY BACK: Workers Paid allows 1,000 cron triggers per account, and on it the daily trigger goes
+# straight back into the list below — scheduled() still branches on "17 9 * * *" by name, and both paths take the same
+# once-a-day claim (daily:last_run in D1), so the pair is a second FIRE, never a second RUN of the daily work.
 #
-# WHY FIVE MINUTES. The readiness a checkout reads is trusted for ten minutes (TAX_READY_TTL_MS). Refreshed once a day
-# it was stale 1430 minutes out of 1440, so an order arriving on a quiet afternoon found no fresh measurement and sold
-# UNTAXED — measured in review: 20 isolated orders, 0 taxed. A completed Checkout Session cannot be re-taxed afterwards
-# and the permit holder owes Texas the difference out of margin. Cost of the tick on a ready account: one D1 read, and
-# two Stripe GETs whenever the measurement is due — roughly 288 reads a day, no writes.
+#   */5 * * * *   Stripe Tax on all 288 fires: re-measure the account when the cached measurement is due, and run the
+#                 idempotent self-setup when it is genuinely not collecting.
+#                 AND, on the ONE fire whose scheduled minute falls in 09:15–09:19 UTC, the daily work as well: purge
+#                 eligibility answers past their purge_after (RETENTION-POLICY.md), mark registrations that never
+#                 reached payment as abandoned, the T−7 / T−1 / T+1 journeys, and the Monday CRM digest (scheduled()
+#                 checks the weekday). The window is that wide for the slack a late delivery needs, and because 09:17 —
+#                 the daily trigger's own minute — sits inside it. Running it twice is prevented by the D1 claim, not by
+#                 the window: DAILY_GUARD_KEY holds the UTC date and the claim is one conditional upsert.
+#
+# ADD A TRIGGER HERE AND YOU MUST ADD ITS STRING TO scheduled() (src/worker.js) — and you must have the plan for it.
+# Anything that is neither known string (a trigger added here, a renamed schedule, an event with no cron) logs
+# { unknown_cron } and runs the TICK, which is one D1 read on a ready account. It used to fall through to the daily
+# branch, so the fail direction was 288 retention purges, journey passes and digest attempts a day.
+#
+# WHY FIVE MINUTES, AND WHY THIS IS THE TRIGGER THAT SURVIVED. The readiness a checkout reads is trusted for ten minutes
+# (TAX_READY_TTL_MS). Refreshed once a day it was stale 1430 minutes out of 1440, so an order arriving on a quiet
+# afternoon found no fresh measurement and sold UNTAXED — measured in review: 20 isolated orders, 0 taxed. A completed
+# Checkout Session cannot be re-taxed afterwards and the permit holder owes Texas the difference out of margin. Cost of
+# the tick on a ready account: one D1 read, and two Stripe GETs whenever the measurement is due — roughly 288 reads a
+# day, no writes. The daily work can ride a five-minute trigger; the tax loop cannot ride a daily one.
 # The second half of that fix is in the Worker: a measurement that said READY is still trusted for 24 hours
 # (TAX_READY_GRACE_MS) even once it is stale, so this trigger going quiet costs a day of grace, not the next ten minutes
 # of orders. After 24 hours of silence tax turns itself off — fail closed — and the next checkout re-triggers the loop.
@@ -36,7 +48,7 @@ fallthrough = true
 # 4 wrote UNMEASURED over the ready row on any failure, and the grace only applies to a row that says READY, so this
 # tick destroyed the grace on its first bad tick: an hour of Stripe 500s sold 10 of 12 orders untaxed, measured.
 [triggers]
-crons = ["17 9 * * *", "*/5 * * * *"]
+crons = ["*/5 * * * *"]
 
 # Non-secret configuration. Secrets go in via `wrangler secret put` — never here.
 [vars]

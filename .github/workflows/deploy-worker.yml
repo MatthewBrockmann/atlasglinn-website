@@ -8,6 +8,9 @@
 # Until both exist the job runs the tests and then stops with a notice; nothing is deployed.
 # Worker secrets (Stripe, Resend, ACCOUNT_SECRET, …) live on the Worker already and are untouched by a deploy.
 # D1 migrations: applied by the guarded step below (2026-09-08); mast-backend/README.md still describes the Mac command as the fallback.
+# Cron schedules: wrangler uploads the script and registers the crons as TWO acts, and run #38 (2026-09-09) had the
+# second refused with the first already landed (Workers Free: 5 cron triggers per ACCOUNT, code 10072). The step after
+# Deploy reads the registered schedules back out of the API and fails the run when they differ from wrangler.toml.
 # DEPLOY ORDER (round 9, 2026-09-09): THE PAGE, then the schema, then the Worker. /account/verify takes
 # {email, code, password} since round 7, and the page and the Worker ship on two independent workflows — a new page
 # against an old Worker is harmless (the extra field is ignored) and a new Worker against a cached old page is not, so
@@ -188,6 +191,24 @@ jobs:
               npx wrangler d1 execute mast_bookings --remote --file="$f" && echo "$f: applied ($tbl:$(echo "$cols" | tr ',' ' '))"
             fi
           done
+      # THE CEILING, PRINTED BEFORE EVERY DEPLOY. Workers Free allows FIVE cron triggers PER ACCOUNT, and run #38
+      # (2026-09-09, main e8c12da) found the account at it: wrangler uploaded the script and Cloudflare refused the
+      # schedules with code 10072. The count is one line in every run so the next person to add a trigger sees the
+      # budget before they spend it, not in a red run afterwards.
+      - name: Cron triggers this wrangler.toml declares (Workers Free allows 5 per ACCOUNT)
+        if: steps.creds.outputs.ready == 'true'
+        working-directory: mast-backend
+        run: |
+          python3 - <<'PY'
+          import re
+          toml = open('wrangler.toml', encoding='utf-8').read()
+          m = re.search(r'^crons\s*=\s*\[(.*?)\]', toml, re.M | re.S)
+          crons = [c.strip().strip('"\'') for c in (m.group(1).split(',') if m else []) if c.strip()]
+          print('cron triggers declared: %d of the 5 a Workers Free ACCOUNT allows' % len(crons))
+          for c in crons: print('   ' + c)
+          if len(crons) > 5:
+              print('::warning::wrangler.toml declares %d cron triggers and Workers Free allows 5 per account — Cloudflare will refuse the schedules with code 10072 AFTER uploading the script, exactly as it did on run #38. The verify step below is what catches that; this line is so it is visible first.' % len(crons))
+          PY
       # wranglerVersion matches the devDependency: the action installs its own CLI, so leaving it unset floated the
       # deploy onto whatever wrangler v3 was current that day.
       - name: Deploy
@@ -199,6 +220,77 @@ jobs:
           wranglerVersion: '3.90.0'
           workingDirectory: mast-backend
           command: deploy --var BUILD:${{ steps.sha.outputs.short }}
+      # THE UPLOAD IS NOT THE SCHEDULES, and run #38 is the proof. On 2026-09-09, main e8c12da, wrangler PUT the script
+      # live and Cloudflare then refused its crons — "This account has reached the Workers Free limit of 5 cron triggers
+      # per account" (code 10072). The step failed, but the Worker was already running the new code on the OLD trigger
+      # set, and no line anywhere said which half had landed. This step reads the schedules the account actually holds
+      # back out of the Cloudflare API and fails the run when they are not the ones wrangler.toml declares.
+      #
+      # IT FAILS ONLY ON A MEASURED DISAGREEMENT. A 401/403 (a token without Workers Scripts read), a non-200, a body it
+      # cannot parse, or success=false all PRINT and exit 0: this step exists to make a half-deploy loud, and a step
+      # that reds main because an API answered a shape it did not expect would be turned off within a week. The one
+      # thing it fails on is the thing it can prove — a registered set that differs from the file.
+      - name: Verify the Worker's registered cron schedules are the ones wrangler.toml declares
+        if: steps.creds.outputs.ready == 'true'
+        working-directory: mast-backend
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN || secrets.CLOUDFLARE_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CF_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -eu
+          API=https://api.cloudflare.com/client/v4
+          # The account id, in the order it is cheapest to be sure of: the file that names it (wrangler.toml carries it
+          # so wrangler can skip the /memberships lookup an Account-owned token cannot make), then the repository
+          # secret, then the API's own list — which is one request and only needed when neither of the first two exist.
+          acct="$(python3 -c "import re; t=open('wrangler.toml',encoding='utf-8').read(); m=re.search(r'^account_id\s*=\s*[\"\']([^\"\']+)', t, re.M); print(m.group(1) if m else '')")"
+          src=wrangler.toml
+          if [ -z "$acct" ]; then acct="${CF_ACCOUNT:-}"; src="repository secret"; fi
+          if [ -z "$acct" ]; then
+            src="the API's /accounts list"
+            acct="$(curl -sS -m 30 -H "Authorization: Bearer $CF_TOKEN" "$API/accounts?per_page=1" | python3 -c "import json,sys;d=json.load(sys.stdin);r=d.get('result') or [];print(r[0].get('id','') if r and isinstance(r[0],dict) else '')" 2>/dev/null || true)"
+          fi
+          if [ -z "$acct" ]; then
+            echo "::warning::No Cloudflare account id from wrangler.toml, from a repository secret, or from the API — the registered schedules could not be read, so this run cannot say whether the crons landed. The deploy itself is unaffected."
+            exit 0
+          fi
+          echo "account id from $src"
+          code=$(curl -sS -m 30 -o /tmp/schedules.json -w '%{http_code}' -H "Authorization: Bearer $CF_TOKEN" "$API/accounts/$acct/workers/scripts/mast-booking-backend/schedules" || echo ERR)
+          echo "HTTP $code  GET /accounts/<id>/workers/scripts/mast-booking-backend/schedules"
+          python3 - /tmp/schedules.json "$code" <<'PY'
+          import json, os, re, sys
+          raw = open(sys.argv[1], encoding='utf-8', errors='replace').read() if os.path.exists(sys.argv[1]) else ''
+          code = sys.argv[2]
+          toml = open('wrangler.toml', encoding='utf-8').read()
+          m = re.search(r'^crons\s*=\s*\[(.*?)\]', toml, re.M | re.S)
+          want = sorted(c.strip().strip('"\'') for c in (m.group(1).split(',') if m else []) if c.strip())
+          if code in ('401', '403'):
+              print('::notice::The API token cannot list this Worker\'s schedules (HTTP %s) — it needs Workers Scripts: Read on the account. NOT a deploy failure and nothing is pending on the deploy; what is missing is the check that the crons registered. wrangler.toml declares: %s' % (code, ', '.join(want) or '(none)'))
+              sys.exit(0)
+          if code != '200':
+              print('::warning::Could not read the registered schedules (HTTP %s), so this run cannot confirm the crons landed. The deploy itself succeeded or failed on its own step. wrangler.toml declares: %s' % (code, ', '.join(want) or '(none)'))
+              sys.exit(0)
+          try:
+              d = json.loads(raw)
+          except Exception as e:
+              print('::warning::The schedules endpoint answered 200 with a body this step could not parse (%s), so the registered set is unknown. wrangler.toml declares: %s' % (e.__class__.__name__, ', '.join(want) or '(none)'))
+              sys.exit(0)
+          if not d.get('success', True):
+              errs = '; '.join(str(e.get('message', e)) for e in (d.get('errors') or []))
+              print('::warning::The schedules endpoint answered success=false (%s), so the registered set is unknown. wrangler.toml declares: %s' % (errs or 'no message', ', '.join(want) or '(none)'))
+              sys.exit(0)
+          res = d.get('result')
+          items = res.get('schedules') if isinstance(res, dict) else res if isinstance(res, list) else []
+          have = sorted(str(i.get('cron', '')).strip() for i in (items or []) if isinstance(i, dict) and i.get('cron'))
+          print('registered on the Worker: %s' % (', '.join(have) or '(none)'))
+          print('declared in wrangler.toml: %s' % (', '.join(want) or '(none)'))
+          if have == want:
+              print('The schedules the account holds are the ones this commit declares — the deploy landed whole.')
+              sys.exit(0)
+          missing = [c for c in want if c not in have]
+          extra = [c for c in have if c not in want]
+          print('::error::THE WORKER IS RUNNING THIS COMMIT\'S CODE ON A DIFFERENT TRIGGER SET. Missing (declared, NOT registered): %s. Registered but not declared: %s. This is the run #38 shape: wrangler uploads the script and Cloudflare refuses the schedules — on Workers Free that refusal is code 10072, "5 cron triggers per account", and the account keeps whatever triggers it already had. Fix the trigger set (or the plan) and re-run this workflow; the Worker is live either way.' % (', '.join(missing) or '(none)', ', '.join(extra) or '(none)'))
+          sys.exit(1)
+          PY
       # Worker secrets from a phone: a repository secret named WORKER_RESEND_API_KEY (or WORKER_<NAME> for any other
       # Worker secret) is pushed to the Worker after each deploy, so a rotated key never needs a Terminal. Leave them
       # unset and nothing happens; the value never appears in a log.
