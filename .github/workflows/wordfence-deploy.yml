@@ -1,0 +1,146 @@
+# Wordfence on atlasglinn.com, from Actions, because the Mac is not required for this.
+#
+# scripts/wp-wordfence-install.sh was written to run from the Mac against the Keychain item mast-wp-sftp. The same two
+# repository secrets the page upload already uses drive it here instead — measured 2026-09-09 14:21 UTC, the "Upload
+# MAST page" run pushed 120 files over SFTP from a runner with WP_SFTP_USER / WP_SFTP_PASSWORD — so "merged, not
+# deployed" stops depending on him being at a Terminal. The script's env credential path hands the password to ssh
+# through SSH_ASKPASS exactly as its Keychain path does: the helper prints an exported environment value, so the secret
+# never lands on disk on either route, and the username is used for the connection argument and printed nowhere.
+#
+#   WP_SFTP_USER       the atlasglinn.com SFTP username (Settings → Secrets and variables → Actions)
+#   WP_SFTP_PASSWORD   its password — the same pair the Mac keeps in the Keychain item mast-wp-sftp
+#
+# NOT DISPATCHABLE UNTIL THIS FILE IS ON `main`. Measured 2026-09-09 16:16 UTC: GET
+# /repos/MatthewBrockmann/atlasglinn-website/actions/workflows/wordfence-deploy.yml -> 404, and the path is not in
+# origin/main, while the sibling deploy-page.yml -> 200 active. workflow_dispatch reads its definition from the default
+# branch, so until this merges the button does not exist and neither the UI nor the API can start it. That is a
+# disclosure, not a fix: wired to nothing until merged.
+#
+# DEFAULT IS status, AND status IS READ-ONLY: it opens no sftp session at all, so a stray dispatch measures the site
+# and changes nothing on it. The three write modes refuse to start without both secrets. There is no atlas-email helper
+# on a runner, so the measured verdict goes to the job summary — that is this workflow's deliverable, not the log.
+name: Wordfence (atlasglinn.com)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'status = measure only, changes nothing · install = upload + trigger + verify · remove = take this script''s two mu-plugins off (Wordfence keeps running) · disable-wordfence = THE RECOVERY, renames wp-content/plugins/wordfence to wordfence.off'
+        type: choice
+        required: true
+        default: status
+        options:
+          - status
+          - install
+          - remove
+          - disable-wordfence
+
+# Least privilege: this job reads the repository and talks to the host over SFTP. It never writes a ref.
+permissions:
+  contents: read
+
+# Two of these at once would race an install against a removal on one docroot.
+concurrency:
+  group: wordfence-atlasglinn
+  cancel-in-progress: false
+
+jobs:
+  wordfence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The script needs sftp for every mode but status, and php only to lint the two plugins before it uploads them
+      # (without php it uploads them unchecked and says so — on a runner it never has to).
+      - name: Versions
+        run: |
+          bash --version | head -1
+          php -v | head -1
+          command -v sftp || { echo "::error::no sftp on this runner"; exit 1; }
+
+      - name: Credentials
+        id: creds
+        env:
+          MODE: ${{ inputs.mode }}
+          U: ${{ secrets.WP_SFTP_USER }}
+          P: ${{ secrets.WP_SFTP_PASSWORD }}
+        run: |
+          # Trimmed here as well as in the script: a browser paste puts whitespace around a value, and GitHub masks the
+          # RAW secret, not the trimmed one — so the trimmed forms are registered as secrets themselves before anything
+          # can print them. On 2026-09-08 every run of the sibling upload workflow failed "Permission denied" while the
+          # masked log showed ' ***', which is a leading space in the stored secret.
+          U="$(printf '%s' "$U" | tr -d '\r\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          P="$(printf '%s' "$P" | tr -d '\r\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          [ -n "$U" ] && echo "::add-mask::$U"
+          [ -n "$P" ] && echo "::add-mask::$P"
+          if [ -n "$U" ] && [ -n "$P" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            if [ "$MODE" != status ]; then
+              echo "::error::mode '$MODE' opens an sftp session and WP_SFTP_USER / WP_SFTP_PASSWORD are not both set. Nothing was sent. Add both repository secrets (the same pair the Mac keeps in the Keychain item mast-wp-sftp), or dispatch with mode=status, which needs neither."
+              exit 1
+            fi
+            echo "::notice::mode status needs no credentials — it opens no sftp session."
+          fi
+
+      # The secrets are handed to the script ONLY for the modes that open a session: status is read-only and has no use
+      # for them. The script itself decides nothing from their presence beyond which askpass helper it writes.
+      - name: Run scripts/wp-wordfence-install.sh
+        env:
+          MODE: ${{ inputs.mode }}
+          WP_SFTP_USER: ${{ inputs.mode != 'status' && secrets.WP_SFTP_USER || '' }}
+          WP_SFTP_PASSWORD: ${{ inputs.mode != 'status' && secrets.WP_SFTP_PASSWORD || '' }}
+        run: |
+          # The mode arrives as a choice input, so GitHub already constrains it to the four options; it is still taken
+          # through the environment and mapped by a case rather than interpolated into this shell.
+          case "$MODE" in
+            status)            ARG=--status;;
+            install)           ARG=--install;;
+            remove)            ARG=--remove;;
+            disable-wordfence) ARG=--disable-wordfence;;
+            *) echo "::error::unknown mode '$MODE'"; exit 1;;
+          esac
+          set +e
+          bash scripts/wp-wordfence-install.sh "$ARG" > run.log 2>&1
+          rc=$?
+          set -e
+          cat run.log
+          # TWO ALLOWLISTS, never a blocklist: line SHAPES for the measured report, and one literal row per REFUSAL the
+          # script can print. The summary is this workflow's deliverable — there is no atlas-email helper on a runner —
+          # and round 3's verifier dispatched a run with a malformed WP_SFTP_USER and got a summary that said "Exit 1"
+          # with no reason in it: the old shape list carried two of the script's fourteen die messages. The script
+          # prints every refusal through refuse() or die(), so the set is enumerable from the file, and
+          # scripts/tests/wp-wordfence-install-test.sh extracts all seventeen and fails when a row below is missing —
+          # a new refusal cannot ship without its summary line. Leading whitespace is stripped because these rows are
+          # indented inside a YAML block scalar and a row starting with a space matches no log line.
+          sed 's/^[[:space:]]*//' > refusals.txt <<'ALLOW'
+          refusing to run:
+          this script takes at most one argument and was given
+          unknown argument
+          no reporter at
+          no plugin at
+          no shasum/sha1sum/openssl on this
+          php -l failed on
+          no sftp on this machine
+          no Keychain on this machine and no WP_SFTP_USER/WP_SFTP_PASSWORD
+          no Keychain item
+          the SFTP login name starts with
+          the WordPress-rendered page answers http
+          login page not measurable before install
+          REFUSED, and nothing was sent.
+          ALLOW
+          {
+            printf '### Wordfence — mode `%s`\n\n' "$MODE"
+            printf 'Exit %s. `status` opens no sftp session and changes nothing; the three write modes do.\n\n' "$rc"
+            printf '```\n'
+            # Both passes are numbered and merged by line number, so the summary reads in the order the run printed it
+            # and a line on both lists appears once. `|| true` on each: this step's shell is `bash -e`, and a grep that
+            # matches nothing exits 1, which would drop the other pass's lines entirely.
+            { grep -nE '^(wp-wordfence-install |login: |before: |after:  |verify: |observation: |verdict inputs: |   ls classified |LOOP STATUS: )' run.log || true
+              grep -nF -f refusals.txt run.log || true; } | sort -t: -k1,1n -u | cut -d: -f2- | head -40
+            printf '```\n'
+            printf '\nHeartbeat this run wrote (ephemeral on a runner):\n\n```\n%s\n```\n' "$(cat "$HOME/.cache/wp-upload/last-wordfence-install" 2>/dev/null || printf 'none')"
+          } >> "$GITHUB_STEP_SUMMARY"
+          # The script's exit code IS the verdict: 0 only when what it claims was measured. A failed run is a failed job.
+          exit $rc

@@ -910,6 +910,189 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   it and the context would hang pending).
   **Merged, NOT deployed:** the plugin is in the repo and nothing is on the host until the deploy script runs from the
   Mac; the header is what proves it.
+- **Wordfence, R2 of the 2026-07-01 security packet — `wp-ops/atlas-wordfence-install.php` + `wp-ops/atlas-wordfence-status.php`
+  + `scripts/wp-wordfence-install.sh` (built 2026-09-09, NOT deployed).** `wp-login.php` has answered 200 with nothing in
+  front of it since the P1 opened, and the packet's fix is "install Wordfence Free". It could not be done the obvious
+  way: the saved login is **SFTP-only**, so there is no `wp plugin install`, and a script built on SSH reports a
+  preflight failure and installs nothing. So the install travels the route the cache cascade already travels — a
+  **one-shot must-use plugin**. On the first plain front-end GET after it lands it calls `plugins_api()` for the
+  `wordfence` slug, runs `Plugin_Upgrader` with `Plugin_Installer_Skin` inside a **discarded output buffer** (that skin
+  is an admin-screen skin and it echoes), calls `activate_plugin()` with its defaults — `$silent=true` would skip
+  Wordfence's own activation hook, which is what creates its tables — writes the option `atlas_wordfence_install`
+  (status, version, time, **code**, error, tries, self) and **unlinks itself**. `code` is a short token the installer
+  composes (`install_download_failed`, `activate_*`, `fs_ftpext`, `not_in_plugins_dir`…) and `error` is WordPress's own
+  message: **only the code is ever published**, because a `WP_Error` message can carry the absolute docroot path and
+  the header is readable off the wire.
+  **It sets NO Wordfence setting:** no login-failure limit, no lockout window, no username blacklist, no forced 2FA, no
+  alert-email write, no `auto_prepend_file`. Wordfence's own defaults are the throttle. Every one of those is a way to
+  lock this site's only admin out of `wp-admin` from a script he is not sitting in front of, and the `source` scenario
+  in the harness strips the comments and proves their absence.
+  **It refuses the request shapes where a 30-second install would be felt:** POST, `wp-admin`, admin-ajax (the IWA
+  shop's cart fragments arrive there), REST, XML-RPC, cron, `wp-login.php`, `wp-cron.php`. One attempt per request
+  under a 5-minute lock and `set_time_limit(180)`; a failed attempt **leaves the file for the next trigger** and the
+  third records the failure and removes it anyway. **The lock is a check-then-set transient and the docblock says so** —
+  `get_transient()` then `set_transient()`, so two requests inside the same few milliseconds can both pass it. WordPress
+  core is not in this repo, `add_option()`'s insert could not be read, and calling it atomic would be a claim nothing
+  measured; what bounds the residual is that the second request finds the plugin already on disk and records a retryable
+  error rather than installing twice.
+  **Reading the result is why there are two files.** The installer deletes itself, so it cannot report; there is no
+  `wp option get` without a shell. `atlas-wordfence-status.php` publishes the record as
+  `X-Atlas-Wordfence: <version>;b=<build>;st=<status>;wf=<version>;act=<0|1>;prep=<0|1>;self=<gone|left|pending>;tries=<n>;age=<bucket>;err=<0|code>`
+  — the same header idiom as `X-Atlas-Cache-Watch` and `X-Atlas-Static-Root`, and **no route and no action an outside
+  caller can trigger**, for the reason `atlas-cache-watch.php` already wrote down. **`act=` is the verdict and it is a
+  LIVE read** of `active_plugins` on the request that answered, never the installer's memory of what it did.
+  **The header is sent ONLY to a request carrying `?atlas-wordfence-status=<the reporter's build fingerprint>`** — its
+  own sha1's first 8 (or the whole sha1), compared with `hash_equals` and never echoed back. Ordinary visitors get
+  nothing. Unlike the two sibling headers, which publish cache state, this one publishes **security posture** — whether
+  a WAF is active, its exact version, whether extended protection is off — on a site whose open P1 is `wp-login` brute
+  force, and that is the reconnaissance an attacker wants before choosing a bypass. The fingerprint **is not a secret
+  and authorises nothing** (it is derivable from this public repo); it is a gate against indiscriminate reading, and it
+  is claimed as nothing more.
+  **The kept tradeoff:** the reporter **stays on the host** after a successful run, because with the installer gone and
+  no shell there is otherwise no way to read whether Wordfence is still active without opening `wp-admin`. The cost is
+  one mu-plugin on every WordPress-rendered request; `--remove-status` takes it off when that trade stops being worth it.
+  **Every measurement asks for `/?atlas-wordfence-status=<fingerprint>` and the trigger for `/?atlas-wordfence=<ts>`,**
+  because `https://atlasglinn.com/` is the static `index.html` served by `atlas-static-root.php` on `muplugins_loaded`,
+  which exits before `init` — the plugins never run there.
+  **`scripts/wp-wordfence-install.sh`** (`--install` / `--status` / `--remove` / `--remove-status` /
+  `--disable-wordfence`) uploads both files, triggers, polls, and then requires all four: the status plugin's header
+  carries **the build fingerprint just sent**, `act=1`, an sftp `ls` proving the installer **removed itself**
+  (classified exactly as the sibling script classifies a removal), and the front page, the WordPress-rendered page and
+  **`wp-login.php` all still answering what they answered before** — any change fails the run whatever the plugin says.
+  All three are on **one rule**, which is what round 4 had to make true in code: **a real before-code, an after-code
+  equal to it, or the run fails with both codes printed.** Rounds 2 and 3 wrote that sentence in the docblock and shipped
+  three different rules — the round-3 verifier read line 587 (`[ "$HOME_BEFORE" = 200 ] && [ "$HOME_AFTER" != 200 ]`),
+  drove the front page `000` → `503` with its own stub curl and got `FIRED-OBSERVED` and exit 0 again: round 2's
+  blocking finding **one page over**, on the limb round 2's own finding had named. A non-200 baseline dropped the page
+  out of the verdict, and `403` → `500` was invisible at both ends. The harness could not see any of it because
+  `reset_case` pinned the front page and the rendered page to 200 before and after and **no case ever overrode either**,
+  which is the same coverage hole that hid the round-2 defect, one variable over.
+  The login page is IN the verdict, not merely printed beside it: a security plugin that locks the only admin out is
+  the outcome this design exists to prevent, and a measurement that cannot fail the run is decoration. **And a verdict
+  needs a baseline.** Round 2 shipped that limb as `[ "$LOGIN_BEFORE" != 000 ] && [ "$LOGIN_AFTER" != "$LOGIN_BEFORE" ]`,
+  so an unmeasurable before-read dropped `wp-login.php` out of the verdict altogether and a run that left it at
+  http 503 still printed `FIRED-OBSERVED` and exited 0 — the same false-success shape round 2 existed to kill, narrowed
+  to the case where the baseline read failed (round-2 verifier, reproduced with its own stub curl). The exemption is
+  **gone**: an `--install` whose before-read of `wp-login.php` is `000` stops with *"login page not measurable before
+  install — stopping"* and uploads nothing, no environment variable waives it, any after-code differing from the
+  before-code fails the run, and **all six codes are printed in the verdict** (`verdict inputs: front page X→Y ·
+  WordPress-rendered X→Y · <login> before http X · after http Y`) so the reader can check the rule that was applied.
+  A page reading `000` at BOTH ends fails as well, and is named as *"has no baseline"*: `000` is curl reporting the
+  chain never completed, so an after-code equal to it is equal to nothing that was measured.
+  **"No environment variable waives it" was true of `ATLAS_WF_FORCE` and false of `WP_LOGIN_URL`,** which was read
+  unchecked — point it at any URL that answers a status and the stop is unreachable and the login limb vacuous while the
+  real `wp-login.php` goes unmeasured (the round-3 verifier ran
+  `WP_LOGIN_URL=https://atlasglinn.com/?atlas-notlogin=1` and the run exited 0 with the real login page at `000`). All
+  three measured URLs — `WP_SITE_ROOT`, `WP_BASE`, `WP_LOGIN_URL` — are now shape-checked to this site over https
+  before a single curl is sent, the same treatment `WP_SFTP_HOST`/`WP_DOCROOT` and `KC_SFTP` already had: measuring
+  some other host is not a knob this script has, and a substitute page is not a measurement. `--disable-wordfence` is exempt from the stop on purpose:
+  it is the recovery, run precisely when the site answers nothing. It refuses to
+  upload at all if the WordPress-rendered page is not 200 beforehand (`ATLAS_WF_FORCE=1` overrides). Wordfence markers
+  grepped out of the page body are **advisory and decide nothing**. Which files go to `mu-plugins` is **pinned in the
+  script** — no environment variable chooses them — and a `WP_SFTP_HOST`/`WP_DOCROOT` carrying anything outside
+  `[A-Za-z0-9._/-]` stops the run before a session opens, because both are written into the sftp batch. The SFTP
+  account name is **never printed to the log or the email**. Heartbeat: `~/.cache/wp-upload/last-wordfence-install`.
+  Two more values reach a shell and are now bounded the same way: `KC_SFTP` is interpolated into the **SSH_ASKPASS
+  helper this script executes**, so a command substitution in it runs as this user (a worse primitive than the sftp
+  batch injection next to it, and three lines away from it), and the **login name is the last argument to `sftp`**, so
+  a value starting with `-` is read as an *option* — `-oProxyCommand=…` as a username is arbitrary command execution.
+  Both stop the run before a session opens, and the login name is not echoed in the refusal either.
+  **THE MAC IS NOT REQUIRED — `.github/workflows/wordfence-deploy.yml`.** `workflow_dispatch` only, one `mode` input
+  (`status` · `install` · `remove` · `disable-wordfence`) **defaulting to `status`**, so a stray dispatch measures and
+  changes nothing. It runs the same script with `WP_SFTP_USER`/`WP_SFTP_PASSWORD` — the repository secrets the page
+  upload already uses (measured 2026-09-09 14:21 UTC: that workflow pushed 120 files over SFTP from Actions) — and the
+  script's env path drives **exactly the same SSH_ASKPASS mechanism as the Keychain path**: the helper prints an
+  exported environment value, so the secret never lands on disk on either route, and both values are trimmed of
+  whitespace and CR/LF first (one leading space in a pasted secret failed every run of the sibling workflow for a
+  fortnight, 2026-09-08). The password is `::add-mask::`ed in its trimmed form as well as its raw one, the username is
+  masked and never printed, the job writes the **measured verdict** — before/after codes, `verify:`, `LOOP STATUS:` —
+  to `$GITHUB_STEP_SUMMARY` through a line **allowlist** rather than a blocklist, and the step exits with the script's
+  own exit code, so a failed run is a failed job. **The allowlist now carries every refusal the script can print.** It
+  carried two of fourteen: the round-3 verifier dispatched a run refused for a malformed login name and got a summary
+  reading *"Exit 1"* with the reason nowhere in it — and on a runner the summary IS the deliverable, since there is no
+  `atlas-email` helper there. Every refusal prints through `refuse()` (before the log exists) or `die()` (after), so the
+  set is **enumerable from the file**, and the harness extracts all seventeen and fails when a row is missing, when a
+  row matches no refusal, or when the extractor cannot see a call site at all. A new `die` message without a summary
+  line turns the harness red. The write modes refuse to start without both secrets; `status` needs
+  neither, because it opens no sftp session at all.
+  **`--status` measures and never claims what it did not measure — and never steers.** It opens no sftp session, so it
+  cannot prove the one-shot removed itself: it prints `self-removal: not measured in --status`, never prints
+  `FIRED-OBSERVED`, and exits 0 only on `act=1` read off the wire. **A difference between its two reads is reported as
+  an `observation:`, never as a verdict and never with a remedy attached.** Removing the `000` exemption gave the
+  read-only mode a way to attribute a transient to itself: a login read that glitched `200` → `000` between the two
+  curls printed *"FAILED on the site itself"* and then the `--disable-wordfence` recovery block, which **renames a
+  production plugin directory** (round-3 verifier, 0 sftp calls in that run). It still exits non-zero and still prints
+  both codes — but it says the run changed nothing that could have moved the page, claims no cause, and prints neither
+  `--disable-wordfence` nor `--remove` anywhere in its output. A header saying `self=left` still fails it — the installer's own record can
+  refuse the claim even where it cannot establish one. (Round 1 found the opposite: `--status` printed "the one-shot
+  removed itself (sftp ls says … is gone)" and `FIRED-OBSERVED`, exit 0, having run no `ls` at all, *including* when the
+  header said `self=left`.)
+  **The recovery is `--disable-wordfence`, and `--remove` is not it.** `--remove` deletes the two mu-plugins this script
+  installed and leaves Wordfence exactly as it is, so if Wordfence is what took the site or the login page down,
+  `--remove` cannot bring it back — which is what the site-changed branch used to print. `--disable-wordfence` renames
+  `wp-content/plugins/wordfence` to `wordfence.off` over SFTP; nothing can load from a path that is not there, so it
+  stops on the next request and WordPress drops the missing entry from `active_plugins` when an admin screen next
+  validates the list. It then re-measures the front page, the WordPress-rendered page and `wp-login.php` and prints the
+  result, and **the reverse rename is printed on every outcome of that mode, not only the happy one** — the rename has
+  already been sent by then, and an operator told "nothing is claimed either way" with no way back is being handed the
+  failure branch of the remedy with no remedy on it. It **refuses on `prep=1`** and sends nothing: under Wordfence's
+  extended protection PHP loads `wordfence-waf.php` from inside that very directory on every request via
+  `auto_prepend_file`, so renaming it away turns a degraded site into a hard-down one, `wp-login.php` included; when
+  `prep=` cannot be read (a site that is down answers no header, which is when this mode runs) it says so and names
+  `wordfence-waf.php` as the other half of the job. **No lockout setting is written by any of
+  this — and that is not the same as no lockout:** once Wordfence is active its own shipped defaults govern login
+  throttling, and what those defaults are is UNVERIFIABLE FROM HERE (the vendor's code is not in this repo).
+  **Tests:** `php wp-ops/tests/atlas-wordfence-install-test.php` — stub WordPress, stub `Plugin_Upgrader`/skin, fake
+  docroot, **17 scenarios / 128 pinned assertions**, each in its own process with the plugin **copied into a run
+  directory** so the file the one-shot unlinks is the copy; and `bash scripts/tests/wp-wordfence-install-test.sh` —
+  stub sftp/curl/security/sleep, no host, **170 pinned assertions**. Both in CI, and `wp-ops-tests.yml` now also runs on
+  a change to `wordfence-deploy.yml`, because that workflow's allowlist is an INPUT to one of the cases. Proved by mutation, not by grep: neuter
+  the `is_wp_error()` check on the upgrader's return and 3 assertions fail (that mutant SURVIVED round 1 — the three
+  upgrader-failure branches had zero coverage because `$GLOBALS['t_install']` was set to `true` once and never
+  reassigned); drop the query gate from `send_header()` and 1 fails; publish the message instead of the code and 2 fail;
+  let `--status` return the install verdict and 2 fail; drop `wp-login.php` from the regression test and 6 fail; ignore
+  the live `act=` read and 3 fail; remove the `WP_DOCROOT` validation and 3 fail; print the account name again and 5 fail.
+  **Round 3 added the cases that could not see round 2's hole and then killed 12 more mutants.** No case in the
+  76-assertion harness had ever given any page a `000` baseline, which is exactly why the harness stayed green over a
+  live false success; the round-2 verifier's own three stub-curl scenarios are now cases (before `000` → the install
+  stops and uploads nothing; before 200 after 500 → fails and names both codes; before 200 after 200 → passes and
+  prints both codes), plus a fourth in `--status`, where the stop does not apply and which is therefore what pins the
+  **removal of the `000` exemption itself**. Mutants killed: restore the `000` exemption (3 fail), remove the
+  before-measurable stop (3), drop `wp-login` from the verdict (13), remove the `prep=1` refusal (3), relax the `ls`
+  "gone" classifier to a bare word match (4), remove the `KC_SFTP` validation (4), remove the login-name validation
+  (3), stop printing both login codes (1), put the reverse-rename line back inside the happy branch (2), print the
+  username on the env credential path (6), fall back to the Keychain when the env pair is set (5). Two **surviving**
+  mutants from round 2 are dead too: the `ls` classifier can no longer be relaxed to a bare `no such file|not found`
+  (a shell's own words with no `sftp` prefix, and `sftp`'s prefix naming a *different* path, are both `unknown` now
+  that two cases present them), and the fingerprint gate can no longer be weakened to a 4-character prefix compare —
+  the only refusal fixture was `deadbeef`, which differs from this build in its *first* character, so a fixture
+  sharing the first four and differing in the last four was the one the gate needed (verified: that mutant fails 1).
+  **Round 4 put the other two pages on the login page's rule and killed 14 mutants**, 116 → 170 assertions. The cases
+  round 3 could not see through are now there: front page 200 → 500 (fails, names both codes), rendered 200 → 404,
+  front page 000 → 503 (**the verifier's own live false success**), 000 → 000 (*no baseline*), 403 → 403 (**not** a
+  regression — the rule is "equal to its baseline", not "200"), 403 → 500 (invisible to the old limb, since neither end
+  is 200) and 403 → 500 in `--status`. Mutants killed: delete the front-page limb (15 fail), revert it to the
+  200-baseline form (10), revert the rendered limb the same way (2), delete the rendered limb (5), restore the `000`
+  exemption on the login limb (6, up from 3), make `ATLAS_WF_FORCE=1` waive the login stop (3 — the round-3
+  **surviving** mutant, and the property its commit message claimed), remove the login stop entirely (6), remove the
+  `WP_LOGIN_URL` shape check (4), route `--status` back into the destructive verdict (7), drop the `000`-at-both-ends
+  arm (3), delete one allowlist row from the workflow (1), add a `die` message with no allowlist row (1), add an
+  allowlist row matching no refusal (1), and add a refusal whose message opens with an interpolation so the extractor
+  cannot see its head (1 — the guard's own weak point, pinned by counting call sites against extracted heads).
+  **What this repo publishes, measured 2026-09-09 against `origin/main`:** the SFTP endpoint was **already** in six
+  tracked files before this work (`git grep -c` on `origin/main`: `.github/workflows/deploy-page.yml`, `CLAUDE.md` ×2,
+  `mast-backend/LAUNCH-LEDGER.md`, `scripts/wp-cache-watch-deploy.sh`, `scripts/wp-flush.sh`, `scripts/wp-upload.sh`),
+  so this branch added no new host disclosure. What it DID newly add was a **private brain-vault filename with line
+  numbers** in the installer's docblock — the name is deliberately not repeated here; `git grep -n` for it against
+  `origin/main` returned nothing, so it was new — and it is removed here. **Git history keeps the earlier commit**; the removal closes the forward-looking
+  copy, not the published one, and this is a repository whose visibility must be measured before anything is written
+  into it (2026-08-10 rule).
+  **Merged, NOT deployed — and now dispatchable without the Mac, once this is on `main`.** Nothing is on the host
+  until the script runs; Wordfence is not installed until a run reports `act=1`. Measured 2026-09-09 16:16 UTC: GET
+  `/actions/workflows/wordfence-deploy.yml` → **404** and the path is not in `origin/main` (the sibling
+  `deploy-page.yml` → 200 `active`), because `workflow_dispatch` reads its definition from the default branch. So the
+  Actions route is **wired to nothing until this merges** — after it merges, Actions → *Wordfence (atlasglinn.com)* →
+  Run workflow → `mode: install` is the whole deploy step, and `mode: status` is the safe one to press first.
 - **mastsolutions.com** has no site *yet*: it is a GoDaddy domain forward to atlasglinn.com, pointed at
   `https://atlasglinn.com/mastsolutions.html` (set 2026-09-05). It still carries DNS: Resend verifies it so the Worker can send as
   bookings@mastsolutions.com, beside the existing matthew@mastsolutions.com mail.
