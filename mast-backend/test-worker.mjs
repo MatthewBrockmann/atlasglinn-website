@@ -36,6 +36,11 @@ const emailLog = [];         // journeys idempotency
 
 const stripePriceCalls = [];   // GET /v1/prices?lookup_keys[] and POST /v1/prices (membership price provisioning)
 const stripeCustomerCalls = [];   // /v1/customers (account cards)
+const stripeTaxCalls = [];        // /v1/tax/settings and /v1/tax/registrations (POST /admin/tax/setup)
+let fakeTaxSettings = { status: 'pending', head_office: null, defaults: {} };   // what GET /v1/tax/settings answers
+let fakeTaxRegistrations = [];    // tax registration objects "in Stripe"
+let taxFail = null;               // { on: <substring of the url>, method, status, body } to make one tax call refuse
+let taxRegSeq = 0;
 let fakeDefaultCard = null;         // what GET /v1/customers/<id>?expand=... returns as the default payment method
 const fakePrices = [];         // prices "in Stripe" ({ id, lookup_key })
 let stripeGate = null;         // set to a promise to hold the Checkout Session call open (the oversell-race test)
@@ -59,6 +64,29 @@ globalThis.fetch = async (url, init) => {
     return new Response(JSON.stringify({ id: 'cus_test_1' }), { status: 200 });
   }
   if (u.includes('api.stripe.com/v1/setup_intents')) return new Response(JSON.stringify({ id: 'seti_1', payment_method: 'pm_saved_1' }), { status: 200 });
+  if (u.includes('api.stripe.com/v1/tax/')) {
+    const method = (init && init.method) || 'GET';
+    const body = init && init.body ? new URLSearchParams(init.body) : null;
+    stripeTaxCalls.push({ method, url: u, body });
+    if (taxFail && u.includes(taxFail.on) && method === (taxFail.method || 'GET')) return new Response(JSON.stringify(taxFail.body), { status: taxFail.status });
+    if (u.includes('/v1/tax/settings')) {
+      if (method === 'POST') {
+        fakeTaxSettings = {
+          status: 'active',
+          head_office: { address: { line1: body.get('head_office[address][line1]'), line2: body.get('head_office[address][line2]'), city: body.get('head_office[address][city]'), state: body.get('head_office[address][state]'), postal_code: body.get('head_office[address][postal_code]'), country: body.get('head_office[address][country]') } },
+          defaults: { tax_behavior: body.get('defaults[tax_behavior]'), tax_code: body.get('defaults[tax_code]') },
+        };
+      }
+      return new Response(JSON.stringify(fakeTaxSettings), { status: 200 });
+    }
+    if (method === 'POST') {
+      const reg = { id: 'taxreg_' + (++taxRegSeq), object: 'tax.registration', status: 'active', country: body.get('country'), country_options: { us: { type: body.get('country_options[us][type]'), state: body.get('country_options[us][state]') } } };
+      fakeTaxRegistrations.push(reg);
+      return new Response(JSON.stringify(reg), { status: 200 });
+    }
+    const want = new URL(u).searchParams.get('status');
+    return new Response(JSON.stringify({ object: 'list', data: fakeTaxRegistrations.filter((r) => r.status === want) }), { status: 200 });
+  }
   if (u.includes('api.stripe.com')) {
     stripeCalls.push(new URLSearchParams(init.body));
     if (stripeGate) await stripeGate;   // held open by the oversell-race test; null everywhere else
@@ -1922,6 +1950,179 @@ console.log('\n── Monday CRM digest (owner, 2026-09-08: "weekly CRM Emails t
   ok('GET /admin/crm?view=weekly serves the digest as text/plain', weekly.status === 200 && /text\/plain/.test(weekly.headers.get('Content-Type')) && weeklyText.startsWith('MAST CRM WEEKLY') && /LIFETIME/.test(weeklyText), weekly.status + ' ' + weeklyText.slice(0, 120));
   ok('… and without the key it is 401, like the rest of /admin', (await worker.fetch(new Request('https://api.test/admin/crm?view=weekly'), env, ctx)).status === 401);
   ok('view=weekly did not change what view=summary answers', (await (await worker.fetch(new Request('https://api.test/admin/crm?view=summary', { headers: { 'X-Admin-Key': 'super-secret-admin-key' } }), env, ctx)).json()).stats.profiles >= 1);
+}
+
+
+console.log('\n── Stripe Tax: Houston, Texas (owner 2026-09-08; Texas Sales and Use Tax Permit confirmed 2026-09-09) ──');
+{
+  const taxKey = { 'X-Admin-Key': 'super-secret-admin-key' };
+  const setup = (q = '', method = 'POST', headers = taxKey) =>
+    worker.fetch(new Request('https://api.test/admin/tax/setup' + q, { method, headers }), env, ctx);
+  const posts = () => stripeTaxCalls.filter((c) => c.method === 'POST');
+  const resetTax = () => { stripeTaxCalls.length = 0; fakeTaxRegistrations.length = 0; fakeTaxSettings = { status: 'pending', head_office: null, defaults: {} }; taxFail = null; };
+
+  // ── the gate, first: this route reaches Stripe with the live key, so it must be as closed as the rest of /admin ──
+  resetTax();
+  ok('/admin/tax/setup without the key → 401, like the other /admin routes', (await setup('', 'POST', {})).status === 401);
+  ok('… and a wrong key is 401 too', (await setup('', 'POST', { 'X-Admin-Key': 'not-the-key' })).status === 401);
+  ok('… and neither unauthorised call reached Stripe', stripeTaxCalls.length === 0, JSON.stringify(stripeTaxCalls.map((c) => c.url)));
+
+  // ── nothing set up yet: settings and the TX registration are both created, and only those two ──
+  resetTax();
+  const first = await setup();
+  const f = await first.json();
+  ok('setup on a fresh account → 200', first.status === 200, JSON.stringify(f));
+  ok('… writes exactly TWO things: the settings and the registration', posts().length === 2, 'POSTs=' + posts().length + ' ' + JSON.stringify(posts().map((c) => c.url)));
+  const wroteSettings = posts().find((c) => c.url.includes('/tax/settings'));
+  ok('… the head office is the Houston address, line 2 and all', wroteSettings.body.get('head_office[address][line1]') === '2450 Fondren Rd'
+     && wroteSettings.body.get('head_office[address][line2]') === 'Suite 255' && wroteSettings.body.get('head_office[address][city]') === 'Houston'
+     && wroteSettings.body.get('head_office[address][state]') === 'TX' && wroteSettings.body.get('head_office[address][postal_code]') === '77063'
+     && wroteSettings.body.get('head_office[address][country]') === 'US', wroteSettings.body.toString());
+  ok('… tax is EXCLUSIVE — added on top of the listed price, never folded into it', wroteSettings.body.get('defaults[tax_behavior]') === 'exclusive');
+  ok('… and the default tax code is the services code', wroteSettings.body.get('defaults[tax_code]') === 'txcd_20030000', wroteSettings.body.get('defaults[tax_code]'));
+  const wroteReg = posts().find((c) => c.url.includes('/tax/registrations'));
+  ok('… the registration is a US Texas state sales tax registration, active from now', wroteReg.body.get('country') === 'US'
+     && wroteReg.body.get('country_options[us][type]') === 'state_sales_tax' && wroteReg.body.get('country_options[us][state]') === 'TX'
+     && wroteReg.body.get('active_from') === 'now', wroteReg.body.toString());
+  ok('… both statuses were READ before anything was created (a scheduled registration is not an absent one)',
+     stripeTaxCalls.some((c) => c.method === 'GET' && c.url.includes('status=active')) && stripeTaxCalls.some((c) => c.method === 'GET' && c.url.includes('status=scheduled')));
+  ok('… and the answer is the shape the CI gate reads: active settings, a registration id, created_now true',
+     f.settings.status === 'active' && f.settings.head_office_set === true && /^taxreg_/.test(f.registration.id) && f.registration.status === 'active' && f.registration.created_now === true,
+     JSON.stringify(f));
+
+  // ── idempotency: the whole point. Running it twice must not create a second Texas registration ──
+  stripeTaxCalls.length = 0;
+  const again = await setup();
+  const a2 = await again.json();
+  ok('run it a second time → 200 and NOTHING is written (0 POSTs)', again.status === 200 && posts().length === 0, 'POSTs=' + posts().length);
+  ok('… it reports the registration it found, not one it made', a2.registration.created_now === false && a2.registration.id === f.registration.id, JSON.stringify(a2.registration));
+  ok('… and Stripe still holds exactly one registration', fakeTaxRegistrations.length === 1, 'registrations=' + fakeTaxRegistrations.length);
+  ok('… the notes say what it did rather than leaving it to be guessed', a2.notes.some((n) => /already active/.test(n)) && a2.notes.some((n) => /already exists/.test(n)), JSON.stringify(a2.notes));
+
+  // ── a registration that has not started yet is 'scheduled'; creating a second one for TX is not undoable ──
+  resetTax();
+  fakeTaxSettings = { status: 'active', head_office: { address: { line1: '2450 Fondren Rd' } }, defaults: {} };
+  fakeTaxRegistrations.push({ id: 'taxreg_sched', status: 'scheduled', country: 'US', country_options: { us: { type: 'state_sales_tax', state: 'TX' } } });
+  const sched = await (await setup()).json();
+  ok('a SCHEDULED Texas registration counts as present — no duplicate is created', posts().length === 0 && sched.registration.id === 'taxreg_sched' && sched.registration.created_now === false, 'POSTs=' + posts().length);
+
+  // ── another state's registration is not Texas, and is never touched ──
+  resetTax();
+  fakeTaxSettings = { status: 'active', head_office: { address: { line1: '2450 Fondren Rd' } }, defaults: {} };
+  fakeTaxRegistrations.push({ id: 'taxreg_ca', status: 'active', country: 'US', country_options: { us: { type: 'state_sales_tax', state: 'CA' } } });
+  const ca = await (await setup()).json();
+  ok('a registration for another state does NOT satisfy Texas — TX is created beside it', posts().length === 1 && ca.registration.created_now === true && ca.registration.id !== 'taxreg_ca');
+  ok('… and the other state is left exactly as it was', fakeTaxRegistrations.find((r) => r.id === 'taxreg_ca').country_options.us.state === 'CA' && fakeTaxRegistrations.length === 2);
+
+  // ── Stripe's refusal comes back verbatim, named by the step, and nothing is retried ──
+  resetTax();
+  taxFail = { on: '/tax/registrations', method: 'POST', status: 402, body: { error: { type: 'invalid_request_error', code: 'tax_registration_invalid', message: 'You must accept the Stripe Tax terms before creating a registration.' } } };
+  const bad = await setup();
+  const b = await bad.json();
+  ok('a Stripe refusal is a 502, not a cheerful 200', bad.status === 502, bad.status + ' ' + JSON.stringify(b));
+  ok('… and Stripe\'s own error object comes back VERBATIM, so the message is the one Stripe wrote',
+     b.error.message === 'You must accept the Stripe Tax terms before creating a registration.' && b.error.code === 'tax_registration_invalid' && b.stripe_status === 402, JSON.stringify(b));
+  ok('… named by the step that hit it', b.step === 'registrations.write', b.step);
+  ok('… and it was tried ONCE — nothing is retried blindly', posts().filter((c) => c.url.includes('/tax/registrations')).length === 1);
+  taxFail = null;
+
+  // ── dry=1 and GET are read-only: this is the form the smoke workflow runs against the live Worker ──
+  resetTax();
+  const dry = await (await setup('?dry=1')).json();
+  ok('dry=1 writes NOTHING to Stripe', posts().length === 0, 'POSTs=' + posts().length);
+  ok('… and says what it WOULD have done, both steps', dry.dry === true && dry.notes.some((n) => /WOULD write the head office/.test(n)) && dry.notes.some((n) => /WOULD create US\/TX/.test(n)), JSON.stringify(dry.notes));
+  resetTax();
+  const getOnly = await (await setup('', 'GET')).json();
+  ok('a GET is read-only too, without needing dry=1', posts().length === 0 && getOnly.dry === true, 'POSTs=' + posts().length);
+  ok('… and a dry run still reports the account honestly: pending, no head office, no registration',
+     getOnly.settings.status === 'pending' && getOnly.settings.head_office_set === false && getOnly.registration.id === null, JSON.stringify(getOnly));
+
+  // ── a Worker with no D1: the rate limiter fails closed FIRST (src/ratelimit.js catch → 429), before any route runs.
+  //    Written down because it is the opposite of what the route's own shape suggests — /admin/tax/setup reads no
+  //    database and sits above handleAdmin's DB check, and it still never executes here. What matters is the
+  //    consequence: a degraded Worker writes NOTHING to Stripe's tax settings.
+  resetTax();
+  const { DB: _dropped, ...noDb } = env;
+  const nodb = await worker.fetch(new Request('https://api.test/admin/tax/setup', { method: 'POST', headers: taxKey }), noDb, ctx);
+  ok('with D1 unbound the rate limiter fails closed at 429 before /admin/tax/setup is reached', nodb.status === 429, nodb.status);
+  ok('… so a degraded Worker writes nothing to Stripe', stripeTaxCalls.length === 0, JSON.stringify(stripeTaxCalls.map((c) => c.url)));
+
+  // ── no Stripe key: a clear 503, not a crash ──
+  const { STRIPE_SECRET_KEY: _k, ...noKey } = env;
+  ok('without STRIPE_SECRET_KEY the setup route is a 503 that names the missing secret',
+     (await worker.fetch(new Request('https://api.test/admin/tax/setup', { method: 'POST', headers: taxKey }), noKey, ctx)).status === 503);
+}
+
+console.log('\n── Stripe Tax: the switch, and the bodies on either side of it ──');
+{
+  // The exact body the pre-change Worker sent for this request, MEASURED by replaying it against the worker.js at HEAD
+  // (mast-backend-hardening, df05ff3) — not recalled. If a future edit moves a parameter, reorders one, or lets a tax
+  // field leak in with the switch off, this string stops matching and the build fails. That is the whole job of it.
+  const PRE_BOOKING = 'mode=payment&customer_email=a%40b.com&line_items%5B0%5D%5Bprice_data%5D%5Bcurrency%5D=usd&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Bname%5D=MAST+Solutions+%E2%80%94+Handgun+Fundamentals&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Bdescription%5D=SKU%3A+MAST-HG-FUND&line_items%5B0%5D%5Bprice_data%5D%5Bunit_amount%5D=22500&line_items%5B0%5D%5Bquantity%5D=1&success_url=https%3A%2F%2Fmastsolutions.com%2Fmastsolutions.html%3Fcheckout%3Dsuccess&cancel_url=https%3A%2F%2Fmastsolutions.com%2Fmastsolutions.html%3Fcheckout%3Dcancelled&payment_method_types%5B0%5D=card&billing_address_collection=required&phone_number_collection%5Benabled%5D=true&metadata%5Bkind%5D=class_booking&metadata%5Bsku%5D=MAST-HG-FUND&metadata%5Bclass_name%5D=Handgun+Fundamentals&metadata%5Bqty%5D=1&metadata%5Bsession_date%5D=&metadata%5Bsession_label%5D=&metadata%5Bcustomer_name%5D=&metadata%5Borganization%5D=&metadata%5Bnotes%5D=&metadata%5Bsource%5D=mastsolutions&metadata%5Butm_source%5D=&metadata%5Butm_medium%5D=&metadata%5Butm_campaign%5D=&metadata%5Bfirst_touch_at%5D=';
+  const booking = { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 };
+
+  stripeCalls.length = 0;
+  await post('/create-booking', booking);
+  ok('STRIPE_TAX unset: the booking body is BYTE-IDENTICAL to the pre-change one', stripeCalls[0].toString() === PRE_BOOKING, stripeCalls[0].toString());
+  ok('… no automatic_tax and no tax_code anywhere in it', !/automatic_tax|tax_code/.test(stripeCalls[0].toString()));
+
+  stripeCalls.length = 0;
+  const off = { ...env, STRIPE_TAX: '0' };
+  await worker.fetch(new Request('https://api.test/create-booking', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() }, body: JSON.stringify(booking) }), off, ctx);
+  ok('STRIPE_TAX="0" is the same byte-identical body — "off" is anything that is not "1"', stripeCalls[0].toString() === PRE_BOOKING, stripeCalls[0].toString());
+
+  stripeCalls.length = 0;
+  const on = { ...env, STRIPE_TAX: '1' };
+  const taxPost = (p, b) => worker.fetch(new Request('https://api.test' + p, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() }, body: JSON.stringify(b) }), on, ctx);
+  await taxPost('/create-booking', booking);
+  const sent = stripeCalls[0].toString();
+  ok('STRIPE_TAX="1": the body is the pre-change one PLUS the two tax fields, appended, nothing else moved',
+     sent === PRE_BOOKING + '&automatic_tax%5Benabled%5D=true&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Btax_code%5D=txcd_20030000', sent);
+  ok('… Stripe is asked to compute the tax', stripeCalls[0].get('automatic_tax[enabled]') === 'true');
+  ok('… the line carries the services tax code', stripeCalls[0].get('line_items[0][price_data][product_data][tax_code]') === 'txcd_20030000');
+  ok('… and the server price is untouched: tax goes ON TOP of $225, it is not carved out of it', stripeCalls[0].get('line_items[0][price_data][unit_amount]') === '22500');
+  ok('… no customer_update on a guest session — Stripe rejects it without a customer', !sent.includes('customer_update'));
+
+  // A signed-in checkout attaches a Stripe Customer, and Stripe REFUSES automatic_tax on a Customer session unless it is
+  // told it may write the collected address back — without customer_update[address] there is nothing to compute against.
+  const codeIn = (m) => (/\b(\d{6})\b/.exec((m && m.text) || '') || [])[1];
+  emails.length = 0;
+  await post('/account/register', { email: 'tax-card@example.com', password: 'correct horse battery', name: 'Tax Card' });
+  const taxToken = (await (await post('/account/verify', { email: 'tax-card@example.com', code: codeIn(emails[0]) })).json()).token;
+  stripeCalls.length = 0;
+  await taxPost('/create-booking', { ...booking, account_token: taxToken });
+  ok('a signed-in, tax-enabled booking goes through the Stripe Customer', stripeCalls[0].get('customer') === 'cus_test_1' && !stripeCalls[0].has('customer_email'), stripeCalls[0].toString().slice(0, 160));
+  ok('… and carries customer_update[address]=auto, which Stripe requires before it will compute tax on a Customer session',
+     stripeCalls[0].get('customer_update[address]') === 'auto' && stripeCalls[0].get('automatic_tax[enabled]') === 'true', stripeCalls[0].toString());
+
+  // Registration is the second creator, and the one that reaches Stripe after screening and the agreement.
+  stripeCalls.length = 0;
+  // A weekend and an address no earlier block has touched, so the seat-hold caps and the capacity tests cannot
+  // decide what this one proves.
+  await taxPost('/register', goodReg({ session_date: '2027-04-24', customer: { name: 'Tax Test', email: 'tax-test@example.com', phone: '(713) 555-0177', organization: '' } }));
+  await drain();
+  ok('/register carries automatic_tax and the tax code too', stripeCalls.length === 1 && stripeCalls[0].get('automatic_tax[enabled]') === 'true'
+     && stripeCalls[0].get('line_items[0][price_data][product_data][tax_code]') === 'txcd_20030000', stripeCalls.length + ' ' + (stripeCalls[0] && stripeCalls[0].toString().slice(0, 200)));
+
+  // Membership is the third: a SAVED price, so the code cannot ride on the session — it is on the Price.
+  stripeCalls.length = 0;
+  await taxPost('/create-membership', { plan: 'range_member', email: 'a@b.com', seats: 1 });
+  ok('/create-membership carries automatic_tax', stripeCalls[0].get('automatic_tax[enabled]') === 'true');
+  ok('… and NO line-item tax code: a Session cannot override a saved Price, so setting one there would be a lie',
+     !stripeCalls[0].toString().includes('tax_code'), stripeCalls[0].toString());
+
+  // The membership Price provisions itself on first join; that is the one moment its tax code can be set.
+  stripePriceCalls.length = 0; fakePrices.length = 0;
+  delete fakePlans.red_team.stripe_price_id;
+  await taxPost('/create-membership', { plan: 'red_team', email: 'a@b.com', seats: 1 });
+  const created = stripePriceCalls.find((c) => c.method === 'POST');
+  ok('a membership Price created with the switch on carries the services tax code', created && created.body.get('product_data[tax_code]') === 'txcd_20030000', created && created.body.toString());
+
+  stripePriceCalls.length = 0; fakePrices.length = 0; delete fakePlans.red_team.stripe_price_id;
+  await post('/create-membership', { plan: 'red_team', email: 'a@b.com', seats: 1 });
+  const createdOff = stripePriceCalls.find((c) => c.method === 'POST');
+  ok('… and with the switch off the Price body is untouched — no tax field reaches Stripe at all',
+     createdOff && !createdOff.body.toString().includes('tax_code'), createdOff && createdOff.body.toString());
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

@@ -94,7 +94,7 @@ jobs:
               # visible to whoever can read the run — never into out/_worker-smoke.txt, which is committed to a branch
               # (2026-09-08 security review). Written to /tmp/crm.txt outside this block, appended to the summary after it.
               echo "--- CRM summary: read from the job summary of this run (counts and revenue are never committed to the report file)"
-            else echo "--- CRM summary: skipped (no ADMIN_KEY repository secret; add it under Settings → Secrets → Actions to see counts, revenue and the funnel in this run's job summary)"; fi
+            else echo "--- CRM summary and Stripe Tax status: skipped (no ADMIN_KEY repository secret; add it under Settings → Secrets → Actions to see counts, revenue, the funnel and whether Stripe Tax is collecting for Texas in this run's job summary)"; fi
             if [ "$DO_CONTACT" = "true" ]; then
               echo "--- contact (one labelled test message; the Worker emails NOTIFY_EMAIL through Resend)"
               req POST /contact "{\"name\":\"Smoke test (GitHub Actions)\",\"email\":\"atlasglinn.hq@atlasglinn.com\",\"message\":\"Automated smoke test of the MAST Worker, run $GITHUB_RUN_ID at $(date -u +%FT%TZ). If you read this, the /contact route, Resend and the NOTIFY_EMAIL mailbox all work. No reply needed.\",\"request_type\":\"smoke\",\"page\":\"github-actions\"}"
@@ -196,6 +196,22 @@ jobs:
           PY
               echo '```'; } >> "$GITHUB_STEP_SUMMARY"
             rm -f /tmp/crm.json
+            # Stripe Tax, READ ONLY. dry=1 makes /admin/tax/setup report the account and write nothing — this workflow is
+            # a probe and must never change the live Stripe account, which is why it is the dry form and a GET.
+            # deploy-worker.yml runs the writing form after every deploy; this is how you SEE the result without a deploy.
+            code=$(curl -sS -m 40 -o /tmp/tax.json -w '%{http_code}' -H "X-Admin-Key: $ADMIN_KEY" "$WORKER/admin/tax/setup?dry=1" || echo ERR)
+            { echo; echo '### Stripe Tax — Houston, Texas (read-only; nothing was written)'; echo '```'; echo "HTTP $code"
+              ADMIN_KEY="$ADMIN_KEY" python3 - /tmp/tax.json <<'PY' || head -c 400 /tmp/tax.json
+          import json, os, re, sys
+          scrub = lambda t: re.sub(r'(sk_(?:live|test)_|whsec_|rk_live_|re_)[A-Za-z0-9_-]+', r'\1[redacted]', str(t).replace(os.environ.get('ADMIN_KEY') or '\0', '[redacted]'))
+          d = json.load(open(sys.argv[1])); st = d.get('settings') or {}; reg = d.get('registration') or {}
+          print('   settings status=%s head_office_set=%s' % (st.get('status'), st.get('head_office_set')))
+          print('   US/TX registration id=%s status=%s' % (reg.get('id'), reg.get('status')))
+          print('   collecting: %s' % ('YES — Stripe Tax is active and Texas is registered' if st.get('status') == 'active' and reg.get('id') else 'NO — run the Deploy MAST Worker workflow, whose "Stripe Tax setup" step creates what is missing'))
+          for n in d.get('notes') or []: print('   ' + scrub(n))
+          PY
+              echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            rm -f /tmp/tax.json
           fi
       - name: Commit the report to the handoff branch (sparse, blobless checkout)
         env:

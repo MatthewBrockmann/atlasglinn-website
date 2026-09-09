@@ -34,6 +34,19 @@ export const QUESTIONS_VERSION = '2q-2026-09-03';        // the two questions as
 export const REFUND_POLICY_VERSION = '2026-09-01'; // REFUND-POLICY-DRAFT.md as rendered on the page; approved by the owner 2026-09-02
 export { AGREEMENT_VERSION };
 
+/* ───────────────────────── Stripe Tax (Houston, Texas) ─────────────────────────
+   Owner, 2026-09-08: "Also, a stripe taken out sales tax for Houston, Texas"; 2026-09-09, asked whether the business
+   holds a Texas Sales and Use Tax Permit: "yes". Collection is EXCLUSIVE — tax is added on top of the listed price and
+   never folded into it, so $695 stays $695 on the page and the tax is its own line at checkout.
+
+   UNVERIFIED FROM HERE — the two ids below were NOT read from Stripe's tax-code list in the turn that wrote them:
+   docs.stripe.com is unreachable from this build environment (the agent proxy answers 403 to CONNECT) and
+   GET /v1/tax_codes needs the live key, which this environment does not hold. Confirm both against
+   `GET https://api.stripe.com/v1/tax_codes` before the first tax-enabled checkout; a wrong code is a wrong rate, and
+   Stripe will not tell you it is wrong. */
+const TAX_CODE_SERVICES = 'txcd_20030000'; // "General - Services" — training courses, private instruction, experiences, memberships
+const TAX_CODE_GOODS = 'txcd_99999999';    // "General - Tangible Goods" — IWA devices, if gear is ever sold through Checkout (no route sells goods today)
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -985,6 +998,7 @@ async function handleBooking(request, env, cors) {
   });
 
   await applyAccountCustomer(env, payload, body.account_token, 'Booking');
+  applyTax(payload, env);
   return await createSession(payload, env, cors, 'Booking');
 }
 
@@ -1267,6 +1281,7 @@ async function handleRegister(request, env, ctx, cors) {
     'metadata[first_touch_at]': reg.first_touch_at || '',
   });
   await applyAccountCustomer(env, payload, body.account_token, 'Register');
+  applyTax(payload, env);
   const result = await createStripeSession(payload, env, 'Register');
   if (!result.ok) return json({ error: result.error }, result.status, cors);
   await updateRegistration(env, id, { stripe_session_id: result.session.id }).catch((e) =>
@@ -1538,6 +1553,12 @@ async function ensureMembershipPrice(env, row) {
       'product_data[name]': 'MAST Solutions Membership — ' + row.name,
       'metadata[plan_key]': row.plan_key,
     });
+    // A Checkout Session cannot override the tax code of a saved Price, so a membership's code has to be set HERE, on the
+    // Product, the one time the Price is created. Behind the same switch as the Session so that with STRIPE_TAX off every
+    // body this Worker sends Stripe is byte-identical to the pre-tax one. A Price that already exists — created before
+    // this change, or while the switch was off — keeps whatever code Stripe defaulted it to; README.md "Sales tax (Texas)"
+    // carries the migration.
+    if (String(env.STRIPE_TAX) === '1') body.set('product_data[tax_code]', TAX_CODE_SERVICES);
     const res = await fetch('https://api.stripe.com/v1/prices', { method: 'POST', headers, body: body.toString() });
     const created = await res.json().catch(() => null);
     if (!res.ok || !created || !created.id) {
@@ -1635,7 +1656,35 @@ async function handleMembership(request, env, cors) {
     billing_address_collection: 'auto',
   });
 
+  applyTax(payload, env);
   return await createSession(payload, env, cors, 'Membership');
+}
+
+
+/**
+ * Stripe Tax on one Checkout payload — or nothing at all.
+ *
+ * STRIPE_TAX (wrangler.toml [vars]) is the switch. When it is not "1" this returns the payload untouched, so the body
+ * that reaches Stripe is byte-identical to the pre-tax one; a test pins that exact string. When it is "1" Checkout
+ * computes Texas sales tax on top of the listed price (the account's defaults are tax_behavior=exclusive, set by
+ * POST /admin/tax/setup) and adds it as its own line.
+ *
+ * The tax code rides on the line item only where the price is built here (price_data). A saved Price carries its own
+ * code from ensureMembershipPrice, because Stripe will not let a Session override a Price's product.
+ *
+ * customer_update[address] is required by Stripe whenever a Customer is attached: without it Checkout cannot write the
+ * address it collects back onto the Customer, and tax has nothing to compute against. It is a no-op re-set on the
+ * booking and registration paths, where applyAccountCustomer already sets it, and it is guarded because Stripe rejects
+ * customer_update on a session with no customer.
+ */
+function applyTax(payload, env, taxCode = TAX_CODE_SERVICES) {
+  if (String(env.STRIPE_TAX) !== '1') return payload;
+  payload.set('automatic_tax[enabled]', 'true');
+  if (payload.has('line_items[0][price_data][unit_amount]')) {
+    payload.set('line_items[0][price_data][product_data][tax_code]', taxCode);
+  }
+  if (payload.has('customer')) payload.set('customer_update[address]', 'auto');
+  return payload;
 }
 
 /* ─────────────────────── Stripe session helper ─────────────────────── */
@@ -2107,6 +2156,13 @@ async function catalogRows(env) {
 
 async function handleAdmin(request, env, cors, url) {
   if (!adminKeyOk(request, env, url)) return json({ error: 'Unauthorized' }, 401, cors);
+  // Stripe Tax setup is the one /admin route that reads no D1 — it talks only to Stripe — so it sits above the database
+  // check rather than answering "Database not bound" for a call that never wanted one. Worth being exact about how far
+  // that goes: it does NOT make the route survive a Worker with no D1, because the per-IP limiter fails closed and
+  // answers 429 ahead of every route here (src/ratelimit.js). A test pins that.
+  if (url.pathname === '/admin/tax/setup' && (request.method === 'POST' || request.method === 'GET')) {
+    return await handleTaxSetup(request, env, { ...cors, 'Cache-Control': 'no-store' }, url);
+  }
   if (!env.DB) return json({ error: 'Database not bound' }, 503, cors);
   const noStore = { ...cors, 'Cache-Control': 'no-store' };
   if (url.pathname === '/admin/crm' && request.method === 'GET') {
@@ -2129,6 +2185,110 @@ async function handleAdmin(request, env, cors, url) {
     return json(await runJourneys(env, { send: (m) => sendEmail(env, m), catalog: await catalogRows(env) }), 200, noStore);
   }
   return json({ error: 'Not found' }, 404, cors);
+}
+
+/* ─────────────────── Stripe Tax setup (staff, ADMIN_KEY) ─────────────────── */
+
+/** One Stripe call. GET when `form` is undefined, POST of a form-encoded body otherwise. The parsed body comes back
+ *  whether Stripe accepted it or not, because the caller returns Stripe's refusal verbatim rather than paraphrasing it. */
+async function stripeCall(env, path, form) {
+  const res = await fetch('https://api.stripe.com/v1' + path, form === undefined
+    ? { headers: { Authorization: 'Bearer ' + env.STRIPE_SECRET_KEY } }
+    : { method: 'POST', headers: stripeHeaders(env), body: form.toString() });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+const TAX_HEAD_OFFICE = {
+  'head_office[address][line1]': '2450 Fondren Rd',
+  'head_office[address][line2]': 'Suite 255',
+  'head_office[address][city]': 'Houston',
+  'head_office[address][state]': 'TX',
+  'head_office[address][postal_code]': '77063',
+  'head_office[address][country]': 'US',
+};
+
+/**
+ * POST /admin/tax/setup — switch Stripe Tax on for Houston, Texas over the API.
+ *
+ * The owner is locked out of the Stripe Dashboard (2026-09-08), so every step of this is an API call the Worker's own
+ * key already authorises. It is IDEMPOTENT by construction: each step READS before it writes and writes only what is
+ * missing, so the second run creates nothing and says so. `dry=1`, and any GET, report what the account looks like now
+ * and write nothing — that is the form the smoke workflow uses.
+ *
+ * Order is settings → registration → settings again. The account's tax status only turns 'active' once the origin
+ * address and the defaults are on it, and the read-back at the end is what the deploy workflow gates on, so a run that
+ * created both in one pass still reports the status the account ended with rather than the one it started with.
+ *
+ * Nothing is retried. A Stripe error comes back verbatim, named by the step that hit it, with a 502 — a tax registration
+ * is not something to re-POST hopefully.
+ */
+async function handleTaxSetup(request, env, cors, url) {
+  if (!env.STRIPE_SECRET_KEY) {
+    return json({ error: 'Payments are not configured: STRIPE_SECRET_KEY is not set on this Worker.' }, 503, cors);
+  }
+  const dry = request.method === 'GET' || url.searchParams.get('dry') === '1';
+  const notes = [];
+  const fail = (step, r) => json({ step, error: r.data && r.data.error ? r.data.error : r.data, stripe_status: r.status, notes }, 502, cors);
+
+  // (a) Settings: the origin address Stripe sources the sale from, and the defaults every line inherits.
+  let read = await stripeCall(env, '/tax/settings');
+  if (!read.ok) return fail('settings.read', read);
+  const hasOffice = !!(read.data.head_office && read.data.head_office.address && read.data.head_office.address.line1);
+  if (hasOffice && read.data.status === 'active') {
+    notes.push('settings: already active with a head office; not written.');
+  } else if (dry) {
+    notes.push('settings: WOULD write the head office and defaults (status ' + read.data.status + ', head_office ' + (hasOffice ? 'set' : 'missing') + ') — dry run, nothing written.');
+  } else {
+    const form = new URLSearchParams({ ...TAX_HEAD_OFFICE, 'defaults[tax_behavior]': 'exclusive', 'defaults[tax_code]': TAX_CODE_SERVICES });
+    const wrote = await stripeCall(env, '/tax/settings', form);
+    if (!wrote.ok) return fail('settings.write', wrote);
+    notes.push('settings: wrote the Houston head office and the defaults (exclusive, ' + TAX_CODE_SERVICES + ').');
+    read = await stripeCall(env, '/tax/settings');
+    if (!read.ok) return fail('settings.readback', read);
+  }
+
+  // (b) Registration: the state the account is registered to collect in. Both statuses are read — a registration that
+  // starts tomorrow is 'scheduled', not 'active', and creating a second one for the same state is not undoable.
+  const found = [];
+  for (const status of ['active', 'scheduled']) {
+    const list = await stripeCall(env, '/tax/registrations?status=' + status + '&limit=100');
+    if (!list.ok) return fail('registrations.read:' + status, list);
+    for (const r of (list.data && Array.isArray(list.data.data) ? list.data.data : [])) found.push(r);
+  }
+  const isTexas = (r) => r && r.country === 'US' && r.country_options && r.country_options.us && r.country_options.us.state === 'TX';
+  let registration = found.find(isTexas) || null;
+  let createdNow = false;
+  if (registration) {
+    notes.push('registration: US/TX already exists (' + registration.id + ', ' + registration.status + '); not created. ' + found.length + ' registration(s) read, none other touched.');
+  } else if (dry) {
+    notes.push('registration: WOULD create US/TX state_sales_tax active from now — dry run, nothing written. ' + found.length + ' existing registration(s) read.');
+  } else {
+    const form = new URLSearchParams({ country: 'US', 'country_options[us][type]': 'state_sales_tax', 'country_options[us][state]': 'TX', active_from: 'now' });
+    const made = await stripeCall(env, '/tax/registrations', form);
+    if (!made.ok) return fail('registrations.write', made);
+    registration = made.data;
+    createdNow = true;
+    notes.push('registration: created US/TX state_sales_tax (' + registration.id + ').');
+  }
+
+  // (c) The status the account ended on, not the one it started on.
+  if (!dry) {
+    const final = await stripeCall(env, '/tax/settings');
+    if (!final.ok) return fail('settings.final', final);
+    read = final;
+  }
+  notes.push('Tax is EXCLUSIVE: added on top of the listed price, never folded into it.');
+  notes.push('Tangible goods would use ' + TAX_CODE_GOODS + '; no route sells goods through Checkout today, so nothing is tagged with it.');
+  if (dry) notes.push('dry run — no POST was made to Stripe.');
+  if (String(env.STRIPE_TAX) !== '1') notes.push('STRIPE_TAX is not "1" on this Worker: Stripe Tax is set up on the ACCOUNT but no checkout asks for it yet.');
+
+  return json({
+    dry,
+    settings: { status: read.data.status || null, head_office_set: !!(read.data.head_office && read.data.head_office.address && read.data.head_office.address.line1) },
+    registration: { id: registration ? registration.id : null, status: registration ? registration.status : null, created_now: createdNow },
+    notes,
+  }, 200, cors);
 }
 
 /* ─────────────────────────── Admin roster ─────────────────────────── */

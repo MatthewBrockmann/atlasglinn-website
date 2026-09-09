@@ -47,6 +47,7 @@ The old Worker is left untouched — it still serves SafeGuard.
 | `POST` | `/contact` | Site contact form and capability-statement requests (honeypot, validation, one email to `NOTIFY_EMAIL` with reply-to the sender) |
 | `POST` | `/webhook` | Stripe events; persists orders, links registrations, sends the documents |
 | `GET` | `/roster?key=…` | Admin: recent bookings (`&sku=MAST-DA`), or `&view=registrations` for the screening → payment records, review items first |
+| `POST` | `/admin/tax/setup` | Admin: turn Stripe Tax on for Houston, Texas, or report it. Idempotent — reads before it writes, creates nothing that is already there. `?dry=1`, and any `GET`, report and write nothing. See **Sales tax (Texas)** |
 | `POST` | `/event` | First-party beacon from the pages (`action` in a fixed list: view, open_class, pick_date, start_registration, checkout, contact, gear_request, video_play, follow…), with the visitor id and first-touch attribution; feeds the CRM funnel |
 | `POST` | `/subscribe` | Newsletter sign-up: `{email, name?, consent: true, source?, attribution?}`; stored as a lead with the consent wording, upserted to Mailchimp when configured |
 | `GET` | `/admin` | The staff CRM page (noindex, no-store); the key goes in the page and travels as `X-Admin-Key` |
@@ -199,6 +200,97 @@ wrangler d1 execute mast_bookings --remote --command \
 
 3. Publish a matching Membership in WordPress with **Stripe plan key** =
    `range_member`. The Memberships section appears once a tier exists.
+
+## Sales tax (Texas)
+
+Owner, 2026-09-08: *"Also, a stripe taken out sales tax for Houston, Texas"*, and
+on 2026-09-09, asked directly whether the business holds a Texas Sales and Use Tax
+Permit: **"yes"**. That permit is the thing that makes collecting lawful, and it is
+his statement — this repo does not hold the permit number and does not need it.
+
+**What is collected.** Texas state and local sales tax on sales sourced to the
+Houston head office, computed by Stripe Tax at checkout. Collection is
+**exclusive**: the tax is added **on top of** the listed price and shown as its own
+line. A $695 class stays $695 on the page. Tax is never folded into the price.
+
+**How it was set up — over the API, with no Dashboard.** The owner is locked out of
+the Stripe Dashboard, so every step is an API call the Worker's own key already
+authorises, behind `ADMIN_KEY`:
+
+```
+curl -sS -X POST -H "X-Admin-Key: <the Worker's ADMIN_KEY>" \
+  https://mast-booking-backend.matthew-221.workers.dev/admin/tax/setup
+```
+
+It is **idempotent**. Each step reads before it writes:
+
+1. `GET /v1/tax/settings` → if the head office is missing or the status is not
+   `active`, `POST` the Houston origin address (2450 Fondren Rd, Suite 255,
+   Houston, TX 77063, US) with `defaults[tax_behavior]=exclusive` and the services
+   tax code.
+2. `GET /v1/tax/registrations` for `active` **and** `scheduled` → if none is
+   `country=US` with `country_options.us.state=TX`, `POST` one
+   (`state_sales_tax`, `active_from=now`). A registration for another state does
+   not count as Texas, a *scheduled* Texas one does, and no other registration is
+   ever touched.
+3. Re-read the settings, so the reported status is the one the account ended on.
+
+Run it twice and the second run writes nothing and says so. A Stripe error comes
+back **verbatim**, named by the step that hit it, with a 502 — nothing is retried.
+
+**To just look, without changing anything:** add `?dry=1`, or use `GET`. That is
+what the *Smoke-test the MAST Worker* workflow runs; the result lands in that run's
+job summary under "Stripe Tax — Houston, Texas".
+
+**Nobody has to run any of this by hand.** `deploy-worker.yml` calls the writing
+form after every deploy and **fails the job** if the settings are not `active` or
+the Texas registration is absent — so the account cannot drift behind the code. It
+needs a repository secret `ADMIN_KEY` holding the Worker's admin key; without it
+the step prints a warning naming exactly that and exits 0.
+
+**To turn it off.** Set `STRIPE_TAX = "0"` in `wrangler.toml` and redeploy (push to
+`main`, or run *Deploy MAST Worker*). Every request body then goes back to being
+byte-identical to the pre-tax one — a test pins that exact string against the body
+measured from the pre-change Worker. Nothing on the Stripe account needs undoing;
+the Worker simply stops asking.
+
+**Tax codes.** `txcd_20030000` "General - Services" for everything sold today —
+training courses, private instruction, experiences and memberships.
+`txcd_99999999` "General - Tangible Goods" is defined for IWA devices should gear
+ever be sold through Checkout; **no route sells goods today**, so nothing carries
+it. ⚠ **UNVERIFIED FROM HERE** — both ids were written from recall, not read:
+`docs.stripe.com` is unreachable from the build environment and `GET /v1/tax_codes`
+needs the live key. **Confirm both against
+`GET https://api.stripe.com/v1/tax_codes` before the first live tax-enabled sale.**
+A wrong code is a wrong rate and Stripe will not tell you it is wrong.
+
+**Price migration — the one real gap.** A Checkout Session cannot override the tax
+code of a *saved* Price, so a membership's code is set on its Product the single
+time `ensureMembershipPrice` creates it. **Membership Prices that already exist —
+created before this change, or while `STRIPE_TAX` was not `"1"` — keep whatever
+code Stripe defaulted them to.** Class bookings and registrations are unaffected:
+they build `price_data` per session and carry the code every time. To migrate a
+membership Price, set the code on its Product:
+
+```
+curl -sS -X POST https://api.stripe.com/v1/products/<product_id> \
+  -u "<STRIPE_SECRET_KEY>:" -d tax_code=txcd_20030000
+```
+
+The product id is on the Price: `GET /v1/prices?lookup_keys[]=mast_<plan_key>`.
+
+**Watch item on the first live membership join.** `/create-membership` sends
+`billing_address_collection=auto` and this change did not alter it, because
+changing it was not asked for. Stripe should collect the address it needs once
+`automatic_tax` is on — if a membership checkout ever errors for a missing address,
+that parameter is the first place to look.
+
+**What Stripe does, and what still needs him.** Stripe calculates the tax, adds it
+to the session and records it per transaction; `/admin/crm` and `/roster` show the
+orders. **Stripe does not file the return.** The Texas Comptroller filing still
+needs him (or his accountant): the taxable-sales and tax-collected figures come
+from Stripe's tax reporting for the period, and the permit, the filing frequency
+and the payment are his. Nothing in this repo files anything.
 
 ## Pulling a class roster
 
@@ -643,6 +735,7 @@ the takeover.
 | `HUBSPOT_TOKEN` | secret | HubSpot private-app token (`crm.objects.contacts` write). With it every profile and every new lead is upserted as a HubSpot contact by email (`lifecyclestage` lead or customer) — a CRM record, not marketing consent, so it is not gated on the newsletter tick |
 | `CRM_DIGEST_TO` | var | Comma-separated recipients of the Monday CRM digest (`matthew@atlasglinn.com,matthew@mastsolutions.com`). Unset = the digest is logged and not sent |
 | `JOURNEYS_ENABLED` | var | `"1"` switches the daily T−7 / T−1 / T+1 emails on; `"0"` (the default) until the owner approves the texts |
+| `STRIPE_TAX` | var | `"1"` (set) makes every Checkout Session ask Stripe to compute sales tax and puts the tax code on the line; anything else and the bodies sent to Stripe are byte-identical to the pre-tax ones. See **Sales tax (Texas)** |
 | `REVIEW_URL` | var | Optional review link in the T+1 email; without it the email asks for a reply that may be quoted |
 | `BUILD` | var (deploy flag) | Not in `wrangler.toml`: passed as `--var BUILD:<short sha>` by the two deploy paths and echoed by `/health` so a runner can tell which merge is running |
 | `RANGE_ADDRESS` | secret | Range street address; emailed only to a paid participant, never on the site |
@@ -662,3 +755,7 @@ Deliberately loud rather than silently broken:
 - **Email unconfigured** → the order is still stored; the details are logged at
   `error` level.
 - **Plan key with no Price ID** → 400 naming the exact env var to set.
+- **`STRIPE_TAX="1"` but Stripe Tax not active on the account** → Stripe refuses
+  the session and checkout fails. This is why `deploy-worker.yml` runs
+  `POST /admin/tax/setup` after every deploy and fails the job when the account
+  is not ready, rather than letting a customer find out.

@@ -41,6 +41,16 @@ REPLY_TO = "matthew@mastsolutions.com"
 # CRM journeys (T−7 / T−1 / T+1 emails to booked participants, src/crm.js). Switched on 2026-09-06: Brockmann pasted all
 # three texts back with his edits the same day ("show me them before" → done), so the daily cron sends them.
 JOURNEYS_ENABLED = "1"
+# Stripe Tax. "1" = every Checkout Session asks Stripe to compute sales tax and the tax code rides on the line item;
+# anything else and the bodies sent to Stripe are byte-identical to the pre-tax ones. On for Houston, Texas because the
+# owner said so on 2026-09-08 ("Also, a stripe taken out sales tax for Houston, Texas") and confirmed on 2026-09-09 that
+# the business holds a Texas Sales and Use Tax Permit. Tax is EXCLUSIVE: added on top of the listed price.
+# TO TURN IT OFF: set this to "0" and redeploy (push to main, or run the Deploy MAST Worker workflow). Nothing else needs
+# undoing — the account keeps its Stripe Tax registration, the Worker just stops asking.
+# ORDER MATTERS: a Session with automatic_tax fails outright when Stripe Tax is not active on the ACCOUNT, so
+# POST /admin/tax/setup has to have run once before the first tax-enabled checkout. deploy-worker.yml runs it after every
+# deploy and fails the job if the account is not active, so a tax-enabled deploy cannot reach the page without it.
+STRIPE_TAX = "1"
 # The Google review link in the T+1 email and on both sites (same value as GOOGLE_REVIEW_URL in scripts/cinematic_shell.py).
 # 2026-09-07, Brockmann from his phone: "The google review is wrong" - the search-dialog link built from the id in his
 # Business Profile paste was replaced by the Maps Search URL by name and address: it always lands on the listing, where
