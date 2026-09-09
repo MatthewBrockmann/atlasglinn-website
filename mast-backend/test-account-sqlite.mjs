@@ -22,6 +22,7 @@
  *   4  the burn's predicate lives in its binds: nothing below the cap, everything at it         (the statement-count tell)
  *   5  the guarded INSERT refuses a second account, and the two DELETEs clear the address       (the atomic create)
  *   6  migrations/012 recreates the table and removes unverified accounts rows, not one verified one
+ *   7  the Worker's own schema heal, against a real database rather than a stand-in            (the deploy that lands first)
  *
  * RUN IT DIRECTLY AND IT SAYS SO: every assertion prints, and it exits 1 on any failure.
  * Engine: node:sqlite (node 22+, what CI runs), then better-sqlite3 if it is installed. No engine is a FAILURE, never a
@@ -77,7 +78,7 @@ const createArgs = (id, email) => {
   return [id, email, 'pbkdf2-sha256$100000$AA==$AA=', 1, '', '', '', '', '', '', '', '', '', '[]', '', now, now, null, now, null, null, null, 0, null, email];
 };
 
-export function run(db) {
+export async function run(db) {
   const S = statementsFromWorker();
   db.exec(read('schema.sql'));
   const results = [];
@@ -180,6 +181,41 @@ export function run(db) {
       removed === 1 && left.length === 1 && left[0].email === 'verified@example.com' && !!left[0].verified_at,
       'removed=' + removed + ' left=' + left.map((r) => r.email).join());
 
+  /* ── 7. the heal, against a real database ──
+     healPendingSignups is the whole of what makes the hourly Mac deploy — which applies no migrations — survive round
+     7's shape change, and until now it was driven only against a stand-in that answered its probe in JavaScript. Its
+     probe was `SELECT name FROM pragma_table_info('pending_signups')`, a table-valued function, and nothing had ever
+     executed it against a database. It reads sqlite_master since round 8, so this file can drive it end to end: the
+     genuine round-5/6 table (migrations/010's own CREATE, read out of the file) must be dropped, and the table
+     src/ratelimit.js creates must be left alone. */
+  {
+    const { healPendingSignups, RATE_SCHEMA } = SELF_HEAL;
+    const d1 = { DB: { prepare: (sql) => ({
+      all: async () => ({ results: db.all(sql) }),
+      run: async () => { db.run(sql); return { meta: { changes: 0 } }; },
+    }) } };
+    const tableSql = () => (db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'pending_signups'") || {}).sql || '';
+    const healSrc = (() => { const src = read('src/ratelimit.js'); const i = src.indexOf('export async function healPendingSignups'); return src.slice(i, src.indexOf('\n}', i)); })();
+    add('the heal probes with SQL a database answers — sqlite_master, an ordinary table — and not with the pragma_table_info() call no test had ever run against D1 (the round-8 comment above it names the old form; the STATEMENT is what this reads)',
+        /FROM sqlite_master/.test(healSrc) && !/pragma_table_info/.test(healSrc), healSrc.split('\n').find((l) => /prepare\(/.test(l)).trim());
+    db.run('DROP TABLE IF EXISTS pending_signups');
+    db.exec(read('migrations/010-pending-signups.sql'));
+    const oldShape = tableSql();
+    const healedOld = await healPendingSignups(d1);
+    add('a round-5/6 pending_signups — the table migrations/010 actually creates, keyed on address_digest — is DROPPED by the Worker itself, against a real database',
+        /address_digest\s+TEXT PRIMARY KEY/.test(oldShape) && !/signup_id/.test(oldShape) && healedOld === true && tableSql() === '',
+        'healed=' + healedOld + ' table after=' + (tableSql() ? 'still there' : 'gone'));
+    for (const st of RATE_SCHEMA.filter((q) => q.includes('pending_signups'))) db.run(st);
+    const keptNew = await healPendingSignups(d1);
+    add('… and the per-sign-up table it heals into is left alone on every isolate after that — the heal is not a table that gets dropped once a request',
+        keptNew === false && /signup_id\s+TEXT PRIMARY KEY/.test(tableSql()), 'kept=' + (keptNew === false) + ' pk=' + /signup_id\s+TEXT PRIMARY KEY/.test(tableSql()));
+    db.run('DROP TABLE IF EXISTS pending_signups');
+    const keptAbsent = await healPendingSignups(d1);
+    add('… and a database that has no such table is left for the CREATE, which is the fresh-install path',
+        keptAbsent === false && tableSql() === '', 'absent=' + keptAbsent);
+    for (const st of RATE_SCHEMA.filter((q) => q.includes('pending_signups'))) db.run(st);
+  }
+
   return results;
 }
 
@@ -205,7 +241,7 @@ export async function runAccountSql() {
   }
   if (!Database) return { skipped: 'no SQLite engine (node:sqlite needs node 22.5+)' };
   const db = engineFor(Database);
-  try { return { engine, results: run(db) }; }
+  try { return { engine, results: await run(db) }; }
   finally { db.close(); }
 }
 

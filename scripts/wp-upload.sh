@@ -93,25 +93,38 @@ git -C "$R" fetch -q $FILTER origin "+refs/heads/$REFB:refs/remotes/origin/$REFB
 HEADSHA="$(git -C "$R" rev-parse "refs/remotes/origin/$REFB")"; STAMP="$HOME/.cache/wp-upload/last-uploaded"
 # The Worker rides along (owner, 2026-09-05, leaving without a Terminal: "Do it yourself or figure out an easier way"): when
 # mast-backend/ moved since the last deploy this Mac made, `wrangler deploy` runs from the clone (it holds node_modules and
-# the wrangler login) before the page logic, so the hourly LaunchAgent turns a merge into a running Worker with no paste.
+# the wrangler login), so the hourly LaunchAgent turns a merge into a running Worker with no paste.
 # Secrets and D1 migrations are untouched. WORKER_DEPLOY=0 skips it. Stamp: ~/.cache/wp-upload/last-worker-deploy.
+#
+# IT RUNS AFTER THE PAGE IS LIVE, NOT BEFORE (round 8, 2026-09-09). It used to fire here, before the upload — and since
+# round 7 /account/verify takes {email, code, password} where it used to take {email, code}. A new page against an old
+# Worker is harmless (the old contract ignores the extra field); a new Worker against the page still in the CDN is not,
+# because the cached page posts {email, code} and had no way forward. So the deploy is a function now, called at the two
+# points where this Mac KNOWS the host is serving this commit's page: after the live check below passes, and on the
+# --if-changed path where the page was already uploaded and checked on an earlier run. That second call is what keeps a
+# failed Worker deploy retrying every hour instead of waiting for the next commit.
 WSTAMP="$HOME/.cache/wp-upload/last-worker-deploy"; mkdir -p "$HOME/.cache/wp-upload"
-if [ "${WORKER_DEPLOY:-1}" = 1 ] && [ -d "$R/mast-backend" ]; then
+worker_deploy() {
+  [ "${WORKER_DEPLOY:-1}" = 1 ] && [ -d "$R/mast-backend" ] || return 0
   LASTW="$(cat "$WSTAMP" 2>/dev/null || true)"
   if [ -z "$LASTW" ] || ! git -C "$R" diff --quiet "$LASTW" "$HEADSHA" -- mast-backend/ 2>/dev/null; then
-    say "Worker: mast-backend/ moved since ${LASTW:0:7}; deploying ${HEADSHA:0:7}"
+    say "Worker: mast-backend/ moved since ${LASTW:0:7}; deploying ${HEADSHA:0:7} (the page above is live, so the new contract has a page that speaks it)"
     # --var BUILD:<sha>: /health reports the commit it runs, so a runner (smoke-worker.yml) can confirm this deploy landed.
     if (cd "$R/mast-backend" && { [ -d node_modules ] || npm install --no-audit --no-fund >/dev/null 2>&1; } && CI=1 npx wrangler deploy --var "BUILD:${HEADSHA:0:7}"); then
       echo "$HEADSHA" > "$WSTAMP"; say "Worker deployed from ${HEADSHA:0:7}"
     else
-      echo "   Worker deploy failed (is wrangler logged in on this Mac? run: cd \"$R/mast-backend\" && npx wrangler whoami). The page upload continues."
+      echo "   Worker deploy failed (is wrangler logged in on this Mac? run: cd \"$R/mast-backend\" && npx wrangler whoami). It is retried on the next hourly run."
     fi
   else
     say "Worker: up to date (${LASTW:0:7})"
   fi
-fi
+}
 if [ "${1:-}" = "--if-changed" ] && [ -f "$STAMP" ] && [ "$(cat "$STAMP")" = "$HEADSHA" ]; then
-  say "up to date: ${HEADSHA:0:7} is already the uploaded page"; exit 0
+  say "up to date: ${HEADSHA:0:7} is already the uploaded page"
+  # The stamp is only written after the live check passed, so the page on the host IS this commit's — the one condition
+  # the Worker deploy waits for. A deploy that failed on an earlier run gets its retry here.
+  worker_deploy
+  exit 0
 fi
 git -C "$R" worktree add -q --detach "$W" "$HEADSHA"
 cd "$W"
@@ -284,4 +297,6 @@ for a in images/mast/mast-cqb-poster.jpg vendor/three.module.js; do
   code=$(curl -sL -o /dev/null -w '%{http_code}' "https://atlasglinn.com/$a"); echo "   $a → $code"
 done
 mkdir -p "$(dirname "$STAMP")" && printf '%s\n' "$HEADSHA" > "$STAMP"
+# THE WORKER SHIPS HERE, and only here: everything above has confirmed the host is serving this commit's page.
+worker_deploy
 say "Done. Open https://atlasglinn.com/mastsolutions.html on your phone."

@@ -123,6 +123,13 @@ jobs:
               req POST /account/register "{\"email\":\"$em\",\"password\":\"$pw\",\"name\":\"Smoke test (GitHub Actions)\"}"
               echo "--- account verify, wrong code with the right password (expect 401 bad_code — the route takes email + code + password)"
               req POST /account/verify "{\"email\":\"$em\",\"code\":\"000000\",\"password\":\"$pw\"}"
+              # The OLD page's request, which is what a copy of mastsolutions.html cached before the round-7 deploy sends
+              # (round 8, 2026-09-09). Expect 400 password_required, NEVER 401 bad_code: a missing field is a request the
+              # Worker cannot act on, and answering it as a wrong guess sent the visitor back to retype the six digits
+              # from their mailbox until the twenty-try burn took the sign-up. A 401 here means the page and the Worker
+              # are out of step in the direction that hurts — the Worker landed ahead of the page.
+              echo "--- account verify, the OLD page's {email, code} with no password (expect 400 password_required — never 401 bad_code)"
+              req POST /account/verify "{\"email\":\"$em\",\"code\":\"000000\"}"
               echo "--- account sign-in, wrong password (expect 401 bad_login, never 5xx — a sign-up in progress answers what an unknown address answers)"
               req POST /account/login "{\"email\":\"$em\",\"password\":\"not-the-password-1\"}"
             else echo "--- account: skipped (input account=false)"; fi

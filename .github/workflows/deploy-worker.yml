@@ -8,6 +8,10 @@
 # Until both exist the job runs the tests and then stops with a notice; nothing is deployed.
 # Worker secrets (Stripe, Resend, ACCOUNT_SECRET, …) live on the Worker already and are untouched by a deploy.
 # D1 migrations: applied by the guarded step below (2026-09-08); mast-backend/README.md still describes the Mac command as the fallback.
+# DEPLOY ORDER (round 8, 2026-09-09): schema, then THE PAGE, then the Worker. /account/verify takes {email, code, password}
+# since round 7, and the page and the Worker ship on two independent workflows — a new page against an old Worker is
+# harmless (the extra field is ignored) and a new Worker against a cached old page is not, so the step before the deploy
+# waits for www.mastsolutions.com to serve this commit's build hash and fails the run rather than landing first.
 name: Deploy MAST Worker
 
 on:
@@ -99,7 +103,9 @@ jobs:
       # same set daily on the 09:17 UTC cron, so the legacy rows go within a day either way. What the Worker DOES handle
       # by itself is the shape change: healPendingSignups (src/ratelimit.js) drops a pending_signups that has no
       # signup_id column before the CREATE runs, so a deploy that lands ahead of 012 — the hourly wp-upload.sh path
-      # applies no migrations at all — converges instead of writing into a table that cannot take it. See README section 5.
+      # applies no migrations at all — converges instead of writing into a table that cannot take it. See the README
+      # residual titled "Nothing here is deployed, and there are TWO live deploy paths" (named, not numbered: round 7
+      # inserted one above it and three pointers went on saying 5).
       # npx with no -y and no @version: it resolves the wrangler pinned in mast-backend/package.json + package-lock.json,
       # so the CLI that touches the live database is the one the lockfile names.
       - name: Apply pending D1 migrations (schema before code)
@@ -131,6 +137,55 @@ jobs:
               npx wrangler d1 execute mast_bookings --remote --file="$f" && echo "$f: applied ($tbl:$(echo "$cols" | tr ',' ' '))"
             fi
           done
+      # THE PAGE GOES FIRST, THE WORKER SECOND (round 8, 2026-09-09) — and this step is what enforces the order.
+      #
+      # Round 7 changed the /account/verify contract: it takes {email, code, password} where it used to take {email, code}.
+      # The two halves ship on two independent workflows (this one on mast-backend/**, pages-mastsolutions.yml on the
+      # page), so on a merge that moves both, whichever runner finishes first is what visitors meet. One order is
+      # harmless and the other is not:
+      #   page first, Worker second  — the new page posts {email, code, password}; the OLD Worker ignores the extra field
+      #                                and verifies on the code, exactly as it always did. Nobody notices.
+      #   Worker first, page second  — the cached old page posts {email, code}, and until round 8 the new Worker answered
+      #                                401 bad_code, which reads as "your code is wrong" and has no way forward.
+      # So this step waits for the page and FAILS the deploy rather than shipping into the second order. Failing leaves
+      # the old Worker serving the new page, which is the harmless combination; re-run this workflow once the Pages
+      # publish is green. It only waits when the pushed range actually moved the page — a mast-backend-only merge is
+      # not held up by a page nobody changed.
+      #
+      # The build hash is the page's own content hash (scripts/build_manifest.py), and dist/mastsolutions/build-manifest.json
+      # is the copy pages-mastsolutions.yml stages as the site's /build-manifest.json — so the field to compare is
+      # "index.html", not "mastsolutions.html" (that key belongs to the atlasglinn.com copy in the ROOT manifest).
+      - name: Wait for www.mastsolutions.com to carry this commit's page (the Worker never lands ahead of it)
+        if: steps.creds.outputs.ready == 'true'
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -e
+          MANIFEST=dist/mastsolutions/build-manifest.json
+          test -f "$MANIFEST" || { echo "::error::$MANIFEST is missing — run python3 scripts/assemble-cinematic.py and commit its output"; exit 1; }
+          want="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["index.html"])' "$MANIFEST")"
+          # What this push moved. The compare API rather than git, because actions/checkout fetches one commit.
+          if [ -n "${BEFORE:-}" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            files="$(gh api "repos/$GITHUB_REPOSITORY/compare/$BEFORE...$GITHUB_SHA" --jq '.files[].filename' 2>/dev/null || echo UNKNOWN)"
+          else
+            files="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA" --jq '.files[].filename' 2>/dev/null || echo UNKNOWN)"
+          fi
+          # UNKNOWN waits too: when the answer cannot be read, the poll costs one request if the host is already current.
+          if [ "$files" != UNKNOWN ] && ! echo "$files" | grep -qE '^(mastsolutions\.html|dist/mastsolutions/index\.html)$'; then
+            echo "this push did not move the page (build $want); nothing to wait for"
+            exit 0
+          fi
+          echo "waiting for https://www.mastsolutions.com/build-manifest.json to carry index.html=$want (max 10 minutes, every 20 s)"
+          for i in $(seq 1 30); do
+            live="$(curl -sS -m 20 "https://www.mastsolutions.com/build-manifest.json?ci=$(date +%s)" 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("index.html") or "")' 2>/dev/null || true)"
+            if [ "$live" = "$want" ]; then echo "attempt $i: the host serves $live — the page knows the {email, code, password} contract; deploying the Worker"; exit 0; fi
+            echo "attempt $i: host has '${live:-unreachable}', want $want"
+            sleep 20
+          done
+          echo "::error::www.mastsolutions.com still does not serve this commit's page (build $want) after 10 minutes, so the Worker is NOT deployed — the old Worker keeps serving the new page correctly, which is the safe half of the pair. Check the 'Publish mastsolutions.com (GitHub Pages)' run for this commit, then re-run this workflow."
+          exit 1
       # wranglerVersion matches the devDependency: the action installs its own CLI, so leaving it unset floated the
       # deploy onto whatever wrangler v3 was current that day.
       - name: Deploy

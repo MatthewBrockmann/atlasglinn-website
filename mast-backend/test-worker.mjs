@@ -2167,22 +2167,234 @@ console.log('\n── Round 7: one pending row per SIGN-UP, verification takes e
      !JSON.stringify([...pendingSignups.values()]).includes('@'),
      pendingSignups.size + ' rows');
 
-  /* ── the Worker's own schema heal, which is what makes a round-5/6 database survive a deploy that lands first ── */
+  /* ── the Worker's own schema heal, which is what makes a round-5/6 database survive a deploy that lands first ──
+     The DDL is what the decision reads since round 8: the probe is a SELECT against sqlite_master, an ordinary table,
+     rather than the pragma_table_info() table-valued function nothing had ever run against D1. */
   {
     const { healPendingSignups, RATE_SCHEMA } = await import('./src/ratelimit.js');
     const shapes = [];
-    const fakeDb = (cols) => ({ DB: { prepare(sql) { return { async all() { shapes.push(sql); return { results: cols.map((name) => ({ name })) }; }, async run() { shapes.push(sql); return { meta: { changes: 0 } }; } }; } } });
-    const droppedOld = await healPendingSignups(fakeDb(['address_digest', 'password_hash', 'verify_code_hash', 'code_sent_at']));
-    const keptNew = await healPendingSignups(fakeDb(['signup_id', 'address_digest', 'code_hash']));
-    const keptAbsent = await healPendingSignups(fakeDb([]));
+    const OLD_DDL = 'CREATE TABLE pending_signups (address_digest TEXT PRIMARY KEY, password_hash TEXT NOT NULL, name TEXT, phone TEXT, organization TEXT, verify_code_hash TEXT, verify_expires_at TEXT, verify_attempts INTEGER NOT NULL DEFAULT 0, code_sent_at TEXT, created_ip TEXT, created_at TEXT NOT NULL)';
+    const NEW_DDL = 'CREATE TABLE pending_signups (signup_id TEXT PRIMARY KEY, address_digest TEXT NOT NULL, password_hash TEXT NOT NULL, code_hash TEXT, verify_expires_at TEXT, verify_attempts INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, created_ip TEXT)';
+    const fakeDb = (ddl) => ({ DB: { prepare(sql) { return { async all() { shapes.push(sql); return { results: ddl ? [{ sql: ddl }] : [] }; }, async run() { shapes.push(sql); return { meta: { changes: 0 } }; } }; } } });
+    const droppedOld = await healPendingSignups(fakeDb(OLD_DDL));
+    const keptNew = await healPendingSignups(fakeDb(NEW_DDL));
+    const keptAbsent = await healPendingSignups(fakeDb(''));
     ok('R7: the Worker drops a pre-round-7 pending_signups and ONLY that — a table with signup_id and a database with no table at all are both left alone',
        droppedOld === true && keptNew === false && keptAbsent === false && shapes.filter((q) => /DROP TABLE/.test(q)).length === 1,
        'old=' + droppedOld + ' new=' + keptNew + ' absent=' + keptAbsent + ' drops=' + shapes.filter((q) => /DROP TABLE/.test(q)).length);
+    ok('R8-8: … and it asks sqlite_master for the DDL rather than calling pragma_table_info() through the D1 binding — the form no test had ever executed against D1',
+       shapes.some((q) => /FROM sqlite_master/.test(q) && /name = 'pending_signups'/.test(q)) && !shapes.some((q) => /pragma_table_info/.test(q)),
+       shapes.filter((q) => /SELECT/.test(q))[0]);
     ok('… and the CREATE it heals into is the per-sign-up shape, with the (address_digest, code_hash) index /account/verify reads',
        RATE_SCHEMA.some((st) => /CREATE TABLE IF NOT EXISTS pending_signups \(signup_id TEXT PRIMARY KEY/.test(st)) &&
        RATE_SCHEMA.some((st) => /CREATE INDEX IF NOT EXISTS idx_pending_signups_code ON pending_signups \(address_digest, code_hash\)/.test(st)),
        String(RATE_SCHEMA.filter((st) => st.includes('pending_signups')).length) + ' statements');
   }
+
+  resetLimits(); emails.length = 0;
+}
+
+console.log('\n── Round 8: a failed sign-up write is a refusal, the schema probe is plain SQL, and the old page is answered (security review round 8, 2026-09-09) ──');
+{
+  const from = (path, body, ip) => post(path, body, 'https://mastsolutions.com', ip);
+  const rowsFor = (email) => [...accounts.values()].filter((a) => a.email === email);
+  const codeIn = (m) => (/\b(\d{6})\b/.exec((m && m.text) || '') || [])[1];
+  const lastCode = () => codeIn([...emails].reverse().find((m) => /verification code/i.test(m.subject)));
+  const cost = async (path, body, ip) => {
+    const before = sqlLog.length;
+    const res = await from(path, body, ip);
+    return { res, statements: sqlLog.length - before, sql: sqlLog.slice(before) };
+  };
+  const clearRouteWindows = () => { for (const k of [...rateLimits.keys()]) if (/^(login|signup|code|verify|seat|contact|subscribe|admin|event):/.test(k)) rateLimits.delete(k); };
+  const OWNER_PW = 'the real owner pw', ATT_PW = 'attacker password 1';
+
+  /* ═══ R8-7 · /account/register answered 202 and mailed a code when the row was never written ═══
+     The PENDING_INSERT result was swallowed by a .catch that logged and continued, so a D1 that could not take the row
+     still sent six digits — and every attempt to use them met the one 401 bad_code a wrong guess gets, with nothing to
+     say the sign-up does not exist. Two failure shapes, because they are not the same shape: a statement that REJECTS,
+     and one that resolves reporting it changed nothing. */
+  resetLimits(); emails.length = 0;
+  const envWith = (prepare) => ({ ...env, DB: { prepare } });
+  const REJECTS = envWith((sql) => (sql.startsWith('INSERT OR REPLACE INTO pending_signups')
+    ? { bind: () => ({ run: async () => { throw new Error('D1_ERROR: database is locked'); } }) }
+    : DB.prepare(sql)));
+  const CHANGES_NOTHING = envWith((sql) => (sql.startsWith('INSERT OR REPLACE INTO pending_signups')
+    ? { bind: () => ({ run: async () => ({ meta: { changes: 0 } }) }) }
+    : DB.prepare(sql)));
+  const registerAgainst = async (e, email, ip) => {
+    const res = await worker.fetch(new Request('https://api.test/account/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': ip }, body: JSON.stringify({ email, password: OWNER_PW, name: 'Vic Owner' }),
+    }), e, ctx);
+    await drain();
+    return { status: res.status, body: await res.clone().json() };
+  };
+  const R8IP = '198.51.100.10';
+  emails.length = 0;
+  const rejected = await registerAgainst(REJECTS, 'r8reject@example.com', R8IP);
+  const mailsAfterReject = emails.length;
+  ok('R8-7: a sign-up whose pending row was REJECTED by D1 is refused — 503 signup_unavailable — and no code is mailed, so nobody is handed six digits that can never be verified',
+     rejected.status === 503 && rejected.body.code === 'signup_unavailable' && mailsAfterReject === 0 && (await pendingsFor('r8reject@example.com')).length === 0,
+     rejected.status + ' ' + JSON.stringify(rejected.body) + ' mails=' + mailsAfterReject);
+  emails.length = 0;
+  const silent = await registerAgainst(CHANGES_NOTHING, 'r8silent@example.com', '198.51.100.11');
+  ok('R8-7: … and a write that resolves having changed NOTHING is the same refusal — meta.changes is read, not the absence of a rejection',
+     silent.status === 503 && silent.body.code === 'signup_unavailable' && emails.length === 0,
+     silent.status + ' ' + JSON.stringify(silent.body) + ' mails=' + emails.length);
+  emails.length = 0;
+  const healthy = await registerAgainst(env, 'r8healthy@example.com', '198.51.100.12');
+  ok('R8-7: … and the healthy path is untouched: the ordinary 202, one code mailed, one row written',
+     healthy.status === 202 && healthy.body.pending === true && emails.length === 1 && (await pendingsFor('r8healthy@example.com')).length === 1,
+     healthy.status + ' mails=' + emails.length);
+  /* The refusal must not be an address classifier: it is decided by the write, which is the same write at every address. */
+  resetLimits(); emails.length = 0;
+  const R8ACC = 'r8class-account@example.com', R8PEND = 'r8class-pending@example.com', R8STR = 'r8class-stranger@example.com';
+  const R8CLASS_IP = '198.51.100.150';
+  await from('/account/register', { email: R8ACC, password: OWNER_PW }, R8CLASS_IP);
+  await from('/account/verify', { email: R8ACC, code: lastCode(), password: OWNER_PW }, R8CLASS_IP);
+  await from('/account/register', { email: R8PEND, password: OWNER_PW }, R8CLASS_IP);
+  await from('/account/register', { email: R8STR, password: ATT_PW }, '198.51.100.151');
+  await from('/account/register', { email: R8STR, password: ATT_PW }, '198.51.100.152');
+  const regClasses = (n) => [['brand-new', 'r8class-new-' + n + '@example.com'], ['pending', R8PEND], ['account', R8ACC], ['stranger-rows', R8STR]];
+  const regSeen = {}, regStatus = new Set();
+  for (let n = 0; n < 3; n++) {
+    for (const [name, addr] of regClasses(n)) {
+      clearRouteWindows();
+      const c = await cost('/account/register', { email: addr, password: 'a long enough password' }, '10.8.' + (n + 1) + '.' + (regClasses(n).findIndex(([k]) => k === name) + 1));
+      (regSeen[name] = regSeen[name] || []).push(c.statements); regStatus.add(c.res.status);
+    }
+  }
+  console.log('  (/account/register after R8-7 — ' + Object.entries(regSeen).map(([k, v]) => k + ' ' + [...new Set(v)].join('/')).join(', ') + ' statements)');
+  ok('R8-7: … and reading the result adds no statement and no branch a caller can see: the four classes still cost one count and still answer one 202',
+     new Set(Object.values(regSeen).flat()).size === 1 && regStatus.size === 1 && [...regStatus][0] === 202,
+     JSON.stringify(Object.fromEntries(Object.entries(regSeen).map(([k, v]) => [k, [...new Set(v)].join('/')]))) + ' statuses=' + [...regStatus].join());
+
+  /* ═══ R8-8 · the schema probe, and what happens when the probe itself fails ═══
+     healPendingSignups asked pragma_table_info('pending_signups') through the D1 binding — a table-valued function no
+     test has ever executed against D1 rather than against a stand-in. If D1 rejects it the probe throws, and what
+     followed was the real defect: ensureRateSchema set allOk = false and CONTINUED into a CREATE TABLE IF NOT EXISTS,
+     which is a no-op against the old shape, so every sign-up wrote signup_id into a table with no such column. */
+  {
+    const { ensureRateSchema, _resetRateSchemaMemo } = await import('./src/ratelimit.js');
+    const ran = [];
+    let probes = 0;
+    const brokenProbe = { DB: { prepare(sql) { return {
+      async all() { if (/sqlite_master/.test(sql)) { probes++; throw new Error('D1_ERROR: no such table: sqlite_master'); } return { results: [] }; },
+      async run() { ran.push(sql); return { meta: { changes: 0 } }; },
+    }; } } };
+    _resetRateSchemaMemo();
+    const first = await ensureRateSchema(brokenProbe);
+    ok('R8-8: when the schema probe itself fails, NOTHING is created over the shape it could not read — the run reports failure and the CREATE that used to paper over it does not run',
+       first === false && probes === 1 && ran.length === 0, 'ok=' + first + ' probes=' + probes + ' statements run=' + ran.length + (ran[0] ? ' first=' + ran[0].slice(0, 40) : ''));
+    const second = await ensureRateSchema(brokenProbe);
+    ok('R8-8: … and the memo is cleared, so the next request probes again rather than believing a schema it never saw',
+       second === false && probes === 2, 'probes=' + probes);
+    _resetRateSchemaMemo();
+    const good = { DB: { prepare(sql) { return {
+      async all() { return { results: [{ sql: 'CREATE TABLE pending_signups (signup_id TEXT PRIMARY KEY, address_digest TEXT NOT NULL)' }] }; },
+      async run() { ran.push(sql); return { meta: { changes: 0 } }; },
+    }; } } };
+    ok('R8-8: … and a probe that answers lets the schema run as it always did',
+       (await ensureRateSchema(good)) === true && ran.some((q) => /CREATE TABLE IF NOT EXISTS rate_limits/.test(q)) && ran.some((q) => /CREATE TABLE IF NOT EXISTS pending_signups/.test(q)),
+       ran.length + ' statements');
+    _resetRateSchemaMemo();
+  }
+
+  /* ═══ R8-9 · a page cached before round 7 posts {email, code} and had no way forward ═══
+     Round 7 made /account/verify take the triple. The old client's request is missing a field rather than wrong about
+     one, and answering it with the one 401 bad_code told the visitor their code was wrong — so they retyped the six
+     digits from their mailbox until the twenty-try burn took the sign-up. */
+  resetLimits(); emails.length = 0;
+  const OLDPAGE = 'r8oldpage@example.com', OLDIP = '198.51.100.60';
+  await from('/account/register', { email: OLDPAGE, password: OWNER_PW }, OLDIP);
+  const realCode = lastCode();
+  const noPw = await cost('/account/verify', { email: OLDPAGE, code: realCode }, OLDIP);
+  const noPwBody = await noPw.res.clone().json();
+  ok('R8-9: the old page\'s {email, code} is answered 400 password_required rather than 401 bad_code — a request this Worker cannot act on, not a guess it refused',
+     noPw.res.status === 400 && noPwBody.code === 'password_required' && !noPwBody.token, noPw.res.status + ' ' + JSON.stringify(noPwBody));
+  ok('R8-9: … and it costs no D1 read of the address and no PBKDF2 — the answer is decided by the request body, so it cannot classify anything',
+     !noPw.sql.some((q) => /pending_signups|FROM accounts/.test(q)), noPw.sql.join(' | ').slice(0, 160));
+  const pwClasses = [['brand-new', 'r8nopw-new@example.com'], ['pending', OLDPAGE], ['account', R8ACC], ['stranger-rows', R8STR]];
+  const pwSeen = {}, pwBodies = new Set();
+  for (const [name, addr] of pwClasses) {
+    clearRouteWindows();
+    const c = await cost('/account/verify', { email: addr, code: '123456' }, '10.8.9.' + (pwClasses.findIndex(([k]) => k === name) + 1));
+    pwSeen[name] = c.statements; pwBodies.add(c.res.status + ' ' + (await c.res.clone().text()));
+  }
+  ok('R8-9: … and it is the same answer and the same cost at a brand-new address, one with a sign-up, one with an account and one a stranger has rows at',
+     new Set(Object.values(pwSeen)).size === 1 && pwBodies.size === 1 && [...pwBodies][0].startsWith('400'),
+     JSON.stringify(pwSeen) + ' ' + [...pwBodies].join(' | '));
+  const emptyPw = await from('/account/verify', { email: OLDPAGE, code: realCode, password: '' }, OLDIP);
+  ok('R8-9: … an empty password string is the same missing field, not an empty guess to hash',
+     emptyPw.status === 400 && (await emptyPw.clone().json()).code === 'password_required', emptyPw.status);
+  const wrongPw = await from('/account/verify', { email: OLDPAGE, code: realCode, password: ATT_PW }, OLDIP);
+  ok('R8-9: … and a password that is PRESENT and wrong is still the one 401 bad_code, so the new answer separates a missing field and nothing else',
+     wrongPw.status === 401 && (await wrongPw.clone().json()).code === 'bad_code', wrongPw.status + ' ' + (await wrongPw.clone().text()));
+  const good = await from('/account/verify', { email: OLDPAGE, code: realCode, password: OWNER_PW }, OLDIP);
+  ok('R8-9: … and the triple the current page posts still finishes the sign-up', good.status === 200 && !!(await good.clone().json()).token, good.status);
+
+  /* ═══ R8-11 · the blocked gate: an address that acquired an account while a sign-up was live ═══
+     handleAccountVerify reads the accounts row and pendingVerify then discards whatever the code found —
+     `const row = blocked ? null : found`. Nothing pinned that line: mutating it to `const row = found` left the whole
+     suite green, and the mutation is a second account created from a code minted before the address had one. The state
+     cannot be reached through the routes (verification drops every row at the address), so the account row is placed
+     the way the race places it: under a sign-up that is already live. */
+  resetLimits(); emails.length = 0;
+  const BLK = 'r8blocked@example.com', BLKIP = '198.51.100.70';
+  await from('/account/register', { email: BLK, password: OWNER_PW, name: 'Vic Owner' }, BLKIP);
+  const blkCode = lastCode();
+  const nowIso = new Date().toISOString();
+  accounts.set('acct_r8_blocked', { id: 'acct_r8_blocked', email: BLK, password_hash: 'pbkdf2-sha256$100000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=', token_version: 1, name: '', phone: '', organization: '', standards_passed: '[]', created_at: nowIso, updated_at: nowIso, verified_at: nowIso, verify_attempts: 0, failed_logins: 0, locked_until: null });
+  ok('R8-11 fixture: the address has an account AND a live sign-up carrying its own code and password — the mid-flight race the gate exists for',
+     rowsFor(BLK).length === 1 && (await pendingsFor(BLK)).length === 1 && !!blkCode, 'accounts=' + rowsFor(BLK).length + ' rows=' + (await pendingsFor(BLK)).length);
+  clearRouteWindows();
+  const blocked = await cost('/account/verify', { email: BLK, code: blkCode, password: OWNER_PW }, BLKIP);
+  const blockedBody = await blocked.res.clone().json();
+  ok('R8-11: the sign-up\'s OWN code and OWN password are refused once the address has an account — 401 bad_code, no token, no second account, and the create is never even ATTEMPTED',
+     blocked.res.status === 401 && blockedBody.code === 'bad_code' && !blockedBody.token && rowsFor(BLK).length === 1 &&
+     !blocked.sql.some((q) => /INSERT INTO accounts/.test(q)),
+     blocked.res.status + ' ' + JSON.stringify(blockedBody) + ' accounts=' + rowsFor(BLK).length + ' create attempted=' + blocked.sql.some((q) => /INSERT INTO accounts/.test(q)));
+  const blkClasses = [['pending', R8PEND], ['account', R8ACC], ['stranger-rows', R8STR]];
+  const blkOther = {};
+  for (const [name, addr] of blkClasses) {
+    clearRouteWindows();
+    blkOther[name] = (await cost('/account/verify', { email: addr, code: '123456', password: 'a long enough password' }, '10.8.8.' + (blkClasses.findIndex(([k]) => k === name) + 1))).statements;
+  }
+  clearRouteWindows();
+  const blkNew = (await cost('/account/verify', { email: 'r8blk-new@example.com', code: '123456', password: 'a long enough password' }, '10.8.8.9')).statements;
+  ok('R8-11: … and it costs exactly what the other classes cost, so the discarded row is not visible as a statement either',
+     new Set([blocked.statements, blkNew, ...Object.values(blkOther)]).size === 1,
+     'blocked=' + blocked.statements + ' brand-new=' + blkNew + ' ' + Object.entries(blkOther).map(([k, v]) => k + '=' + v).join(' '));
+  /* ═══ R8-1 · the docs cite assertions by their TEXT, and a line number can never come back ═══
+     Round 7 left two citations in README.md and both were wrong by the time anyone read them — "test-worker.mjs:1256"
+     for an assertion at 1282, and "test-worker.mjs:1992" for one at 2144. A line number is stale the moment anything is
+     inserted above it and every round inserts, so the round-8 answer is not "fix the numbers" (round 7 fixed a number
+     too, and here we are) — it is that the docs quote the assertion, which is what a reader greps and what cannot
+     drift. This is the guard that keeps it that way, and the two quotes below are the pins: if either assertion is
+     renamed, the doc that quotes it fails here rather than going quietly out of date. */
+  {
+    const HERE8 = path.dirname(fileURLToPath(import.meta.url));
+    const suite = readFileSync(path.join(HERE8, 'test-worker.mjs'), 'utf8');
+    const docs = ['README.md', 'LAUNCH-LEDGER.md'].map((f) => [f, readFileSync(path.join(HERE8, f), 'utf8')]);
+    const CITE = /test-(?:worker|account-sqlite)\.mjs:\d+/g;
+    const strays = docs.flatMap(([f, text]) => (text.match(CITE) || []).map((m) => f + ' → ' + m));
+    ok('R8-1: no doc in mast-backend/ cites this suite by LINE NUMBER — they were wrong twice in one round, and the quoted assertion is what a reader can actually grep',
+       strays.length === 0, strays.join('  |  ') || 'README.md + LAUNCH-LEDGER.md clean');
+    const quoted = [
+      '2b: 21 samples per class — an absent address, an address with only a sign-up, and a LOCKED verified account all answer one 401 bad_login, byte for byte',
+      'a Resend outage answers identically for a new address and one that has an account — the ordinary 202 both ways, never a 502 that names the mail leg',
+    ];
+    const flat = (t) => t.replace(/\s+/g, ' ');   // the docs wrap their quotes across lines; the suite does not
+    // "ok('<name>'" and not the bare text: the array above is IN this file, so a bare includes() matches itself and the
+    // pin passes whatever the assertion is called. It has to find the string as an assertion NAME to mean anything.
+    const missing = quoted.filter((q) => !suite.includes("ok('" + q + "'") || !docs.some(([, text]) => flat(text).includes(flat(q))));
+    ok('R8-1: … and every assertion the docs quote by name is still in the suite under that name, so a rename breaks the build instead of the documentation',
+       missing.length === 0, missing.join(' | ') || quoted.length + ' quotes pinned, both present in the suite and in README.md');
+  }
+
+  /* The source-level twin, because the behaviour above is one expression and an expression can be edited back. */
+  const workerSrc8 = readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'src', 'worker.js'), 'utf8');
+  ok('R8-11: … and the gate is still the discard rather than a branch around the statements — the row is dropped after the reads, not instead of them',
+     /const row = blocked \? null : found;/.test(workerSrc8), 'gate expression present');
 
   resetLimits(); emails.length = 0;
 }

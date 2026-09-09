@@ -661,7 +661,7 @@ async function handleAccountRegister(request, env, ctx, cors) {
   //
   // The row is this sign-up's own, keyed on a random signup_id (round 7). The branch that mails nothing binds the
   // constant PENDING_ABSENT, so it rewrites one row of nothing: same statement, same count, no row an address can find.
-  await env.DB.prepare(PENDING_INSERT).bind(
+  const wrote = await env.DB.prepare(PENDING_INSERT).bind(
     mail ? newSignupId() : PENDING_ABSENT,
     mail ? digest : PENDING_ABSENT,
     mail ? hash : DUMMY_PASSWORD_HASH,
@@ -669,7 +669,14 @@ async function handleAccountRegister(request, env, ctx, cors) {
     mail ? issued : null,
     mail ? new Date(Date.now() + CODE_TTL_MS).toISOString() : null,
     now, mail ? ip : '',
-  ).run().catch((e) => console.error('[Account] pending sign-up write failed:', e.message));
+  ).run().catch((e) => { console.error('[Account] pending sign-up write failed:', e.message); return null; });
+  // A FAILED WRITE IS A REFUSAL, NEVER A 202 WITH A CODE IN IT (round 8, 2026-09-09). The result used to be swallowed by
+  // the .catch above and the send ran anyway, so a database that could not take the row still mailed six digits — and the
+  // person entering them met the one 401 bad_code every wrong guess gets, with nothing on the page to tell them the
+  // sign-up never existed. This says so instead. It reads a result that is 1 on EVERY branch when D1 is healthy (the
+  // mailing branch inserts a fresh signup_id, the branch that mails nothing REPLACEs the PENDING_ABSENT constant), so the
+  // answer does not depend on the address and the statement count does not move.
+  if (!wrote || !wrote.meta || !wrote.meta.changes) return json({ error: 'Sign-up is temporarily unavailable. Please try again shortly.', code: 'signup_unavailable' }, 503, cors);
   if (mail) {
     // Handed to ctx.waitUntil like every other code send: a refusing mail provider is a log line, never a status code.
     // It used to answer 502 email_failed here, which told an unauthenticated caller that the mail leg had run at all.
@@ -703,6 +710,13 @@ async function handleAccountVerify(request, env, ctx, cors) {
   const body = await request.json().catch(() => null);
   const email = String((body && body.email) || '').trim().toLowerCase();
   const password = String((body && body.password) || '');
+  // THE OLD PAGE IS ANSWERED, NOT REFUSED (round 8, 2026-09-09). Round 7 changed this route's contract to {email, code,
+  // password}; a copy of the page cached before that deploy posts {email, code} and met the one 401 bad_code, which reads
+  // as "your code is wrong" and has no way forward — the visitor retypes the six digits from their mailbox until the
+  // twenty-try burn takes their sign-up. A missing password is a request this Worker cannot act on rather than a guess it
+  // refused, and saying which one it is costs nothing: this runs before the digest, before D1 and before any PBKDF2, and
+  // it is decided by the request body alone, so it answers identically at every address and classifies none of them.
+  if (!password) return json({ error: 'Please enter the password you chose when you created the account.', code: 'password_required' }, 400, cors);
   const digest = await addressDigest(email);
   // THIS is where an account is created (round 5, 2026-09-09). /account/register only writes a pending row, so the
   // credentials that become an account are the ones belonging to the code the mailbox actually received.

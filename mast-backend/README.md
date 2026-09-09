@@ -320,7 +320,9 @@ answered `401` in 10 statements and 45.7 ms. That is an account-existence oracle
 at the price of five throwaway guesses. The lock now runs the dummy hash and the same statements the absent path runs.
 The two costs, named: the hashing CPU is spent on refused requests (the 20-per-window `login` bucket is what bounds
 that), and a locked-out customer sees the plain `401` rather than a message naming the lock — the recovery it used to
-name, `forgot` → `reset`, is on the page either way. Measured at 21 samples per class in `test-worker.mjs:1992`.
+name, `forgot` → `reset`, is on the page either way. Measured at 21 samples per class by the assertion
+*"2b: 21 samples per class — an absent address, an address with only a sign-up, and a LOCKED verified account all answer
+one 401 bad_login, byte for byte"* in `test-worker.mjs`.
 
 **Per (connection, address) — and this is what makes the lock symmetric** (round 2). The per-account lock cannot fire for
 an address that has no account row, so the *sixth* wrong password used to answer `429 locked` for a real address and
@@ -619,8 +621,14 @@ owner's sign-up simply replaced it, and a stranger who signed up *first* left th
 `INSERT OR REPLACE … verify_attempts … VALUES (…, 0, …)` — a literal zero, written by an **unauthenticated** route. That
 is round 4's deferred-burn primitive, alive again on the round-5 pending path: a sign-up between every five guesses
 deferred the twenty-try burn, and the owner's *"your code was invalidated"* notice with it, for ever. `INSERT OR REPLACE`
-cannot preserve a column, so the statement is now an `ON CONFLICT(address_digest) DO UPDATE` naming every column a later
-sign-up may move — `verify_attempts`, `created_at` and `created_ip` are not among them. The regression test that was
+cannot preserve a column, so round 6 made the statement an `ON CONFLICT(address_digest) DO UPDATE` naming every column a
+later sign-up may move, with `verify_attempts`, `created_at` and `created_ip` left out of the list. **That is what round
+6 shipped and it is not what runs.** Round 7 deleted the upsert with the slot it defended: `address_digest` is not
+unique any more, so there is no conflict to resolve, and `PENDING_INSERT` is an `INSERT OR REPLACE` again
+(`src/worker.js`) whose key is a fresh `signup_id` — the REPLACE half can only fire on the branch that binds the
+`PENDING_ABSENT` constant and mails nothing. The counter is safe for a different reason now, stated where the round-4
+rule is: a sign-up writes a NEW row, which starts at 0 because it is new, and the burn reads `MAX(verify_attempts)`
+across the live rows at the address, which a new row cannot lower. The regression test that was
 supposed to catch this drove its reissue through `/account/resend` only, the one of the three named routes that was
 safe; it runs **register, resend and forgot** now, and each must burn by try 20 and mail the owner exactly one notice.
 
@@ -698,8 +706,62 @@ verified is touched. Two consequences worth reading before deploying:
   into 012 with them.
 - the Worker heals the shape itself. `healPendingSignups()` drops a `pending_signups` that exists **without**
   `signup_id`, and only that, before `ensureRateSchema` runs its `CREATE`. This exists because one of the two live
-  deploy paths applies no migrations at all (residual 5), so "the migration will have run first" is not something this
-  Worker may assume. Driven three ways in the suite: old shape → dropped, new shape → untouched, no table → untouched.
+  deploy paths applies no migrations at all (the residual titled *"Nothing here is deployed, and there are TWO live
+  deploy paths"* — named rather than numbered, because round 7 inserted a residual above it and three pointers went on
+  saying 5), so "the migration will have run first" is not something this Worker may assume. Driven four ways in the
+  suite: old shape → dropped, new shape → untouched, no table → untouched, and an unreadable probe → nothing created.
+
+**Round 8 — nothing takeable is left, so this round is about the three ways the sign-up can simply STOP WORKING.**
+
+Round 7's review found no takeover and no lockout. What it found were three availability defects, none of which needs an
+attacker: each of them is what a bad afternoon does on its own.
+
+- **`/account/register` answered `202` and mailed a code when the row was never written.** The `PENDING_INSERT` result
+  went into a `.catch` that logged and carried on, so a D1 that could not take the row still sent six digits — and every
+  attempt to use them met the one `401 bad_code` a wrong guess gets, which reads as *"your code is wrong"*. The result is
+  read now: a rejection **or** a write reporting `meta.changes` of 0 answers
+  `503 {code:'signup_unavailable'}` **before** the send, so nobody is handed a code that cannot be verified. It costs no
+  extra statement and no branch a caller can see — the write already ran on every branch, and the four classes still
+  measure one count and one `202` (printed by the suite). Reverting the one line: the test answers `202` with one mail
+  and no row.
+- **The schema probe was a call D1 has never been asked to make.** `healPendingSignups()` asked
+  `SELECT name FROM pragma_table_info('pending_signups')` — a table-valued function, driven only against a stand-in that
+  answered it in JavaScript. If D1 rejects that form the probe throws, and what followed was worse than the failure:
+  `ensureRateSchema` set `allOk = false` and **continued into the `CREATE TABLE IF NOT EXISTS`**, which is a no-op
+  against the round-5/6 shape — so every sign-up would write `signup_id` into a table with no such column, silently,
+  for ever. The probe is `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'pending_signups'` now, an
+  ordinary table in every SQLite database, and the DDL it stores is what the decision reads. A probe that fails **fails
+  closed**: nothing is created over a shape that could not be read, the memo is cleared so the next request tries again,
+  and the writes that need the table fail loudly (which, with the change above, is a `503` rather than a dead code).
+  Driven against **real SQLite** in `test-account-sqlite.mjs` — the table `migrations/010` actually creates is dropped,
+  the table `src/ratelimit.js` creates is left alone — and against the fake D1 for the probe-failure path.
+- **A page cached before round 7 posts `{email, code}` and had no way forward.** The contract changed to the triple and
+  the old client's request is missing a field rather than wrong about one; answering it `401 bad_code` sent the visitor
+  back to retype the digits until the twenty-try burn took the sign-up. A missing password now answers a constant
+  `400 {code:'password_required'}` **before the digest, before D1 and before any PBKDF2** — decided by the request body
+  alone, so it is the same answer at the same cost at every address and classifies none of them. A password that is
+  present and wrong is still the one `401 bad_code`.
+
+**And the deploy order is now enforced rather than hoped for, in both paths.** The page and the Worker ship on two
+independent workflows. One order is harmless and the other is not: a new page against an **old** Worker works, because
+the old contract ignores the extra field; a new Worker against a **cached old page** is the failure above. So
+`deploy-worker.yml` waits, before `wrangler deploy`, for `https://www.mastsolutions.com/build-manifest.json` to carry
+this commit's `index.html` build hash — ten minutes at twenty-second intervals — and **fails the run** if it never does,
+which leaves the old Worker serving the new page. It only waits when the pushed range actually moved
+`mastsolutions.html` or `dist/mastsolutions/index.html`. On the Mac, `scripts/wp-upload.sh` no longer deploys the Worker
+first: the deploy is a function called after the live-page check passes, and on the `--if-changed` path where the page
+was uploaded and checked on an earlier run — which is what keeps a failed Worker deploy retrying hourly rather than
+waiting for the next commit. `smoke-worker.yml` sends the old client's `{email, code}` and expects the `400`.
+
+**One gate had no assertion behind it, and now has one.** `handleAccountVerify` discards whatever the code found when
+the address already has an account — `const row = blocked ? null : found` — and mutating that line to `const row = found`
+left the whole suite green. It is pinned: an accounts row placed under a live sign-up (the mid-flight race, which the
+routes cannot otherwise produce), the sign-up's **own** code and **own** password, `401 bad_code`, no token, no second
+account, the account INSERT never attempted, and the same statement count as the other three classes. The mutation now
+fails three assertions. Worth stating precisely: the mutation does **not** create a second account — the guarded
+`INSERT … WHERE NOT EXISTS` behind it refuses that — it makes the request reach the create at all, which shows up as
+**12 statements where every other class costs 11**. The gate's job is to keep the discarded row invisible, and that is
+what the test measures.
 
 **Round 3 — the code routes are uniform in time and in statement count, not only in body.** Round 2 made the body
 identical and left two ways to tell the paths apart, both measured:
@@ -805,9 +867,16 @@ Round 2 closed the three ways that answer could still be told apart:
   Round 2 made both branches answer `502 {code:'email_failed'}`, which was symmetric but still said the mail leg had
   run. Round 5 put `/account/register`'s send on `ctx.waitUntil()` and deleted the helper: `email_failed` appears
   nowhere in `src/` but in a comment recording its removal, and a Resend outage answers the ordinary **`202` on every
-  branch**, as does a retry inside the throttle window. Asserted at `test-worker.mjs:1256` — *"a Resend outage answers
+  branch**, as does a retry inside the throttle window. Asserted in `test-worker.mjs` by *"a Resend outage answers
   identically for a new address and one that has an account — the ordinary 202 both ways, never a 502 that names the
   mail leg."* (This bullet still claimed the 502 in the present tense through round 5; corrected in round 6.)
+
+  **THE LINE NUMBERS ARE GONE FROM THIS FILE AND THAT IS THE ROUND-8 FIX (2026-09-09).** Both citations this file
+  carried were wrong: line **1256** was cited for the assertion above, which is at **1282**, and line **1992** for the
+  21-samples-per-class assertion, which is at **2144**. A line number is stale the moment anything is inserted
+  above it, and every round inserts. The quoted assertion text is what a reader can `grep -n` and what cannot drift, so
+  that is what is cited now — and `test-worker.mjs` **fails** if a citation of the form `test-worker.mjs:NNNN` is
+  reintroduced into this file or into `LAUNCH-LEDGER.md`, which is what stops round 9 from re-adding one.
 
 **Repository-side guards changed in the same round.** They are not Worker code, but they are the reason a finding about
 this backend reaches a person, so they belong with it:
@@ -865,6 +934,23 @@ which mails immediately — no throttle exemption, no fifteen minutes, no row to
 is gone, and with it the residual that bought every takeover from round 5 on.** The cost that remains is noise in a
 mailbox, bounded by residual 1.
 
+The number that bounds the owner's own way out, stated rather than left to be worked out from the budget table: the CODE
+mail budget is **three an hour per (IP, address)** (`ratelimit.js`), so signing up again works **up to three times an
+hour from one connection** — a stranger who burns all three owner sign-ups forces the owner onto a different connection
+or the next window. That is a delay measured in a window rather than a hold measured in hours, which is the whole
+difference from rounds 5 and 6, but it is not zero and it is not written down anywhere else.
+
+**And the round-7 review's own P3, which no code change answers:** a stranger can park a row at `verify_attempts = 19`
+and keep it alive with `/account/resend`, so the **owner's first typo** spends the twentieth try and burns every sign-up
+at the address. The count is `MAX(verify_attempts)` across the live rows, deliberately — that is what stops a fresh
+sign-up deferring the burn (round 4's primitive). **No fix ships, and the reason is that both obvious ones are worse.**
+Resetting the count on a resend hands back the round-4 counter-reset primitive to an unauthenticated route, which is the
+bug that made the twenty-try burn unreachable for two rounds. Counting per row defeats the burn instead: a stranger
+opens rows and no single row ever reaches twenty, so a live code in the owner's mailbox can be guessed indefinitely. The
+cost as it stands is bounded and asymmetric in the right direction — the attacker's amplification is nil (they spend
+twenty guesses to cost the owner one burn notice and one re-registration), and the owner's recovery is the ordinary one,
+signing up again, which always mails. Named, priced, deliberately not done.
+
 **3. `/account/resend` is unauthenticated, so it can only match on the connection — and a visitor whose connection
 changed loses the button.** A phone that moves between wifi and cell between signing up and tapping *Resend code* is
 answered the same `200` and mailed nothing. This is a real usability cost and it is on the page rather than hidden: the
@@ -881,6 +967,14 @@ out works: `forgot` → `reset` from the owner's own connection mails a code and
 driven end to end in the suite; and refusals no longer feed the ladder, so the lock cannot be walked past its first 15
 minutes by continued guessing. Scoping the lock per `(connection, account)` is still the real fix; its cost is written
 out in the lockout section above. Named, priced, not done.
+
+**One sharp edge on that recovery, which is the price of the uniform answer rather than a defect in it:** `/account/forgot`
+throttles on `verify_sent_at` and answers the same `200 {ok:true}` whether or not it mailed. So if a stranger's request
+opened the sixty-second window, the owner's own *Forgot your password* inside that window answers `200` and sends
+nothing — and the page says a code is on its way. **The code already in the mailbox is the owner's to use** (it is
+theirs the moment it arrives; nothing binds it to who asked), and a second attempt after the minute mails a fresh one.
+Saying *"a code was not sent because one just was"* is the answer this route cannot give, because it is the answer that
+tells a stranger the address has an account.
 
 **5. Two statement-count tells remain, both on the ACCOUNTS path, both inherited and both now measured.** Round 7 closed
 the pending-side one (the burn branch) because it rewrote that path; it did not rewrite the accounts path, and saying so
@@ -901,6 +995,17 @@ is cheaper than implying a clean sweep:
 Both cost an attacker five to twenty requests per address tested and neither leaks a credential. They are listed here
 with their measured numbers so the next round can pick them up with the measurement already done.
 
+**And round 7's own cost, measured rather than asserted:** taking the password on `/account/verify` adds **one
+unauthenticated PBKDF2 per request** — the hash runs against `DUMMY_PASSWORD_HASH` when no row matched, which is what
+makes a wrong code and a wrong password cost the same. At the shipped iteration count (`PBKDF2_ITER = 100000`) that is
+**tens of milliseconds of CPU per request, spent by anyone who can reach the route**. The number is runner-dependent and
+both figures in this file were taken in Node, not on Cloudflare: the suite's own login probe medians read **45.7 ms**,
+and a direct 21-sample measurement of the shipped parameters on the round-8 runner read a **58.1 ms median (43.3 ms
+minimum)**. What bounds it is the route limit already in the table — `POST /account/verify` is **20 requests per 10
+minutes per IP** (bucket `verify`) — so one connection can buy at most **~0.9–1.2 s of CPU per window** at those
+medians. **Not measured on the Worker itself**, which is where the figure that matters would come from; the bound is a
+control that already exists either way. Written here so the next round does not rediscover it as a finding.
+
 **6. Nothing here is deployed, and there are TWO live deploy paths — only one of them applies migrations. Round 7 raises
 the stakes on that.** `migrations/012` is merged, not applied.
 
@@ -910,6 +1015,31 @@ the stakes on that.** `migrations/012` is merged, not applied.
 - **`scripts/wp-upload.sh`**, run hourly by the LaunchAgent in `scripts/mac-autopilot.sh` — runs `wrangler deploy` from
   the owner's Mac whenever `mast-backend/` has moved, and its own comment says *"Secrets and D1 migrations are
   untouched."* **It deploys code without applying a single migration.**
+
+**THE ORDER BETWEEN THE PAGE AND THE WORKER IS ENFORCED SINCE ROUND 8, in both paths.** They are separate workflows, so
+on a merge that moves both, whichever runner finishes first is what visitors meet — and only one of the two orders is
+harmless:
+
+| Order | What a visitor gets |
+|---|---|
+| page first, Worker second | the new page posts `{email, code, password}`; the **old** Worker ignores the extra field and verifies on the code. Nobody notices. |
+| Worker first, page second | the cached old page posts `{email, code}` — the `400 password_required` answer above exists for exactly this, and before round 8 it was a `401 bad_code` with no way forward. |
+
+- **Actions:** `deploy-worker.yml` polls `https://www.mastsolutions.com/build-manifest.json` for this commit's
+  `index.html` build hash before `wrangler deploy` — ten minutes at twenty-second intervals — and **fails the run** with
+  a `::error::` if it never matches, which leaves the old Worker serving the new page (the harmless half). It only waits
+  when the pushed range actually moved `mastsolutions.html` or `dist/mastsolutions/index.html`, so a mast-backend-only
+  merge is not held up by a page nobody changed. The field is `index.html` because
+  `dist/mastsolutions/build-manifest.json` is what that host serves as its `/build-manifest.json`; the `mastsolutions.html`
+  key belongs to the atlasglinn.com copy in the **root** manifest.
+- **Mac:** the `WORKER_DEPLOY` block in `scripts/wp-upload.sh` used to run *before* the upload. It is a function now,
+  called after the live-page check passes — and on the `--if-changed` path where the page was uploaded and checked on an
+  earlier run, which is what keeps a failed Worker deploy retrying hourly instead of waiting for the next commit.
+- **Proof it is not just wiring:** `smoke-worker.yml`'s account probe sends the old client's `{email, code}` and expects
+  `400 password_required`. A `401` there means the two halves are out of step in the direction that hurts.
+
+**What this does NOT fix, said plainly:** the migration gap in the two bullets above is unchanged. The order enforced
+here is page-before-Worker, not migration-before-Worker on the Mac path.
 
 Through round 6 that was survivable because `ensureRateSchema` created the same table the migration created. Round 7
 changes the table's **primary key**, and a `CREATE TABLE IF NOT EXISTS` is a no-op against the old shape — so a Worker

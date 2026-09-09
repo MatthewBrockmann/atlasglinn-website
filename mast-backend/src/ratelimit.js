@@ -3,8 +3,14 @@
  *
  * Two independent counters, because they answer two different attacks:
  *   per account   failed_logins / locked_until on the accounts row. Five wrong passwords lock the account for 15 minutes,
- *                 doubling at every further five up to a day. A locked account is answered BEFORE the PBKDF2 runs, so
- *                 guess six costs the Worker nothing.
+ *                 doubling at every further five up to a day. A locked account runs the SAME dummy PBKDF2 and the same
+ *                 statements an address with no account runs, and answers the same 401 bad_login (security review round
+ *                 6). It used to answer 429 before any hashing, which saved the CPU and cost the property the uniform
+ *                 answers exist for: the lock is GLOBAL, so five wrong passwords from any five connections made the
+ *                 sixth request — from anywhere — answer 429 in 5 statements and 0.7 ms where an absent address answered
+ *                 401 in 10 statements and 45.7 ms. That is a six-request existence oracle on any address, on status,
+ *                 statement count and time at once. The hashing CPU on refused requests is the price, and the
+ *                 20-per-window login bucket is what bounds it.
  *   per IP        a counter row per (bucket, CF-Connecting-IP) in rate_limits. Fixed windows that roll: the first request
  *                 after a window has run out starts a new one. Every increment is a single conditional UPDATE, so
  *                 concurrent requests can neither share nor skip a count (the same reason checkCode claims its try first).
@@ -95,12 +101,23 @@ export const RATE_SCHEMA = [
  * This drops the table when, and only when, it exists WITHOUT signup_id: the old shape and nothing else. What is lost is
  * unverified sign-ups minutes old by design, which is the same thing migrations/012 drops and the same thing the daily
  * purge drops. It exists because ONE of the two live deploy paths (scripts/wp-upload.sh, hourly) applies no migrations
- * at all — see README residual 5 — so "the migration will have run first" is not something this Worker may assume.
+ * at all — see README, "Nothing here is deployed, and there are TWO live deploy paths" — so "the migration will have run
+ * first" is not something this Worker may assume.
+ *
+ * IT ASKS sqlite_master, NOT pragma_table_info (round 8, 2026-09-09). The probe used to be
+ * `SELECT name FROM pragma_table_info('pending_signups')` — a table-valued function, and one no test has ever run
+ * against D1 rather than against a stand-in that answers it in JavaScript. If D1 rejects that form the probe throws, and
+ * what followed was worse than the failure: ensureRateSchema set allOk = false and CONTINUED into a
+ * `CREATE TABLE IF NOT EXISTS`, which is a no-op against the old shape, so every sign-up wrote signup_id into a table
+ * with no such column and failed silently for ever. sqlite_master is an ordinary table in every SQLite database and the
+ * DDL it stores is what the decision reads. A probe that fails now THROWS: ensureRateSchema stops instead of creating
+ * over an unknown shape, and /account/register answers 503 rather than mailing a code no verification can complete.
  */
 export async function healPendingSignups(env) {
-  const cols = await env.DB.prepare("SELECT name FROM pragma_table_info('pending_signups')").all();
-  const names = ((cols && cols.results) || []).map((r) => r.name);
-  if (!names.length || names.includes('signup_id')) return false;
+  const found = await env.DB.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'pending_signups'").all();
+  const ddl = String(((((found && found.results) || [])[0]) || {}).sql || '');
+  if (!ddl) return false;                    // no table at all: the CREATE below writes the current shape
+  if (ddl.includes('signup_id')) return false;   // already the per-sign-up shape
   await env.DB.prepare('DROP TABLE IF EXISTS pending_signups').run();
   console.error('[Rate] pending_signups was the pre-round-7 shape (no signup_id) — dropped so the per-sign-up table can be created');
   return true;
@@ -122,8 +139,17 @@ export function ensureRateSchema(env) {
     let attempt;
     attempt = (async () => {
       let allOk = true;
+      // THE HEAL IS A PRECONDITION OF THE CREATEs, NOT A STEP BESIDE THEM (round 8, 2026-09-09). This used to log the
+      // failure and fall through to the loop below, where `CREATE TABLE IF NOT EXISTS pending_signups` is a no-op
+      // against a table that already exists in the WRONG shape — so an unreadable schema produced a Worker that looked
+      // healthy and could not take a single sign-up. When the probe cannot say what shape is there, nothing is created
+      // over it; the memo is cleared, so the next request tries again, and the writes that need the table fail loudly.
       try { await healPendingSignups(env); }
-      catch (e) { allOk = false; console.error('[Rate] pending_signups heal failed:', e.message); }
+      catch (e) {
+        console.error('[Rate] pending_signups heal failed — schema left untouched:', e.message);
+        if (schemaReady === attempt) schemaReady = null;
+        return false;
+      }
       for (const s of RATE_SCHEMA) {
         try { await env.DB.prepare(s).run(); }
         catch (e) {

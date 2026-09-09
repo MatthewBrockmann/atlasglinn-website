@@ -1,9 +1,11 @@
 -- 010 — A sign-up is not an account until a code comes back (security review round 5, 2026-09-09).
 -- Run once on the live database, after 009:
 --   npx wrangler d1 execute mast_bookings --remote --file=migrations/010-pending-signups.sql
--- The CREATE and the INDEX are idempotent; the DELETE at the bottom is a one-time equivalence, described below, and
--- running it twice removes nothing the first run left behind. deploy-worker.yml applies this file when pending_signups
--- has none of its columns and stops if it has some of them (a half-applied schema needs a person, not a retry).
+-- The CREATE and the INDEX are idempotent. NOTHING RUNS THIS FILE ANY MORE and that is deliberate: round 7 replaced this
+-- table with the per-sign-up shape, so deploy-worker.yml's GUARDS row for 010 was removed (once 012 has run, this file's
+-- columns are half-present by construction and the guard would print HALF APPLIED and stop every deploy for ever). The
+-- file stays in the tree as the record of the shape rounds 5 and 6 ran on; migrations/012 is what a database gets. Its
+-- one-time DELETE moved into 012 — actually moved, since round 8; see the note where it used to be, at the bottom.
 --
 -- WHAT THIS CLOSES. Until now POST /account/register INSERTed an accounts row for a brand-new address, with whatever
 -- password the caller typed, and the row sat unverified until someone entered the code emailed to that address. Two
@@ -52,15 +54,10 @@ CREATE TABLE IF NOT EXISTS pending_signups (
 );
 CREATE INDEX IF NOT EXISTS idx_pending_signups_created ON pending_signups (created_at);
 
--- THE ONE-TIME EQUIVALENCE, and why it is a DELETE rather than a move.
--- Rows that already exist and were never verified cannot be moved into the table above, because SQLite cannot compute a
--- SHA-256 digest and the digest is this table's primary key. They are removed instead, and that is an equivalence rather
--- than a loss: an unverified accounts row is a sign-up nobody has proved, the daily retention cron has been DELETing
--- exactly this set every day since migrations/005 ("DELETE FROM accounts WHERE verified_at IS NULL AND created_at <
--- <a day ago>"), and the person simply signs up again — which now costs them one email and gives them an account whose
--- password is theirs. Leaving them in place would carry both findings above forward for those addresses.
---
--- VERIFIED ACCOUNTS ARE NOT TOUCHED. The predicate is verified_at IS NULL and nothing else; there is no branch in this
--- file that can reach a row with a verified_at.
-DELETE FROM accounts
-WHERE verified_at IS NULL;
+-- THE ONE-TIME EQUIVALENCE LIVES IN migrations/012 NOW, and it is GONE FROM HERE (round 8, 2026-09-09).
+-- This file carried `DELETE FROM accounts WHERE verified_at IS NULL` — rows that already existed and were never verified
+-- cannot be moved into the table above, because SQLite cannot compute a SHA-256 digest and the digest was this table's
+-- primary key, so they were removed instead. Round 7 said the step had MOVED into 012 and it had been COPIED: both files
+-- carried it. That was harmless only because this file has no GUARDS row in deploy-worker.yml and therefore never runs —
+-- which is a reason not to worry, not a reason for the sentence to be false. The step is deleted here, so "moved" is now
+-- what happened. 012 carries it, with the same predicate and the same note that no verified row can be reached by it.
