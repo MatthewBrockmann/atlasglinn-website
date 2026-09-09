@@ -64,6 +64,10 @@ jobs:
           mkdir -p stage
           cp dist/mastsolutions/index.html stage/index.html
           cp dist/mastsolutions/build-manifest.json stage/build-manifest.json
+          # The capability statement one-pager: the MAST page's footer 'View One-Pager' is a relative link (owner 2026-09-09: no
+          # atlasglinn.com/*.html targets on MAST), so the file must be served on this host too. It carries no local assets.
+          test -f mast-capability-statement.html || { echo "::error::mast-capability-statement.html missing at the repo root"; exit 1; }
+          cp mast-capability-statement.html stage/mast-capability-statement.html
           # robots.txt + sitemap.xml are this domain's own (the root ones are atlasglinn.com's); written by assemble-cinematic.py
           for f in robots.txt sitemap.xml; do test -f "dist/mastsolutions/$f" || { echo "::error::dist/mastsolutions/$f missing — run python3 scripts/assemble-cinematic.py and commit"; exit 1; }; cp "dist/mastsolutions/$f" "stage/$f"; done
           printf '%s\n' "$DOMAIN" > stage/CNAME
