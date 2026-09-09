@@ -140,6 +140,7 @@
         .gear-card.device { border-color: rgba(201,168,76,.28); }
         .gear-card.device .gear-sku { color: #C9A84C; }
         .gear-card .gear-oos { display: inline-block; margin-top: .55rem; padding: .22rem .55rem; border: 1px solid rgba(139,152,173,.45); font-family: 'Share Tech Mono', monospace; font-size: .55rem; letter-spacing: .22em; color: #8B98AD; }
+        .gear-card .gear-oos.in { color: #7BC67E; border-color: rgba(123,198,126,.45); }
         .gear-card .gear-link { display: block; margin-top: .55rem; font-family: 'Share Tech Mono', monospace; font-size: .58rem; letter-spacing: .1em; color: #1A6BDE; text-decoration: none; }
         .gear-card .gear-link:hover, .gear-card .gear-link:focus-visible { color: #fff; }
         .modal.req [hidden] { display: none !important; }
@@ -1100,6 +1101,8 @@ function gearOut(g){ return g.stock ? g.stock === 'out' : (GEAR_OUT_OF_STOCK && 
 // capture of https://iwainternationalinc.com/shop/ (reference/desktop/live/shop.html on claude/desktop-assets). That shop
 // paginates and the capture is page 1 of 5, so PA-85, TH-14 and the door charge are not in the table and fall back to the
 // shop root — a guessed product URL would be worse than the listing he asked for.
+// SOURCE ONLY — never rendered as a link (owner 2026-09-08). These are where the product descriptions, specs and
+// images for our cards are read from (captured by capture-live into reference/desktop/live/); buyers stay on MAST.
 const GEAR_SHOP = 'https://iwainternationalinc.com/shop/';
 const GEAR_PRODUCT_URL = {
   'IWA-M11-4B': 'https://iwainternationalinc.com/m11-multibang-device-4-bang/',
@@ -1112,19 +1115,21 @@ function gearUrl(g){ return GEAR_PRODUCT_URL[g.sku] || GEAR_SHOP; }
 function renderGear(){ const p = $('gear-panel'); if (!p) return; let html = '', brand = '';
   GEAR.forEach((g, i) => { if (GEAR_HIDDEN.includes(g.brand)) return; if (g.brand !== brand) { brand = g.brand; html += '<div class="gear-brand"><h3>' + esc(GEAR_BRAND_NAMES[brand] || brand) + '</h3><span>' + esc(GEAR_BRANDS[brand] || '') + '</span></div>'; }
     html += '<div class="gear-card' + (g.device ? ' device' : '') + '"><div class="gear-sku">' + esc(g.sku) + '</div><h4>' + esc(g.name) + '</h4><div class="gear-fam">' + esc(g.brand + ' · ' + g.fam) + '</div>'
-         + (gearOut(g) ? '<div class="gear-oos">OUT OF STOCK</div>' : '')
+         + (gearOut(g) ? '<div class="gear-oos">OUT OF STOCK</div>' : (g.device ? '<div class="gear-oos in">IN STOCK</div>' : ''))
          + (g.price ? '<div class="gear-price">' + esc(g.price) + '<small>' + (g.device ? 'list price · each · 3-unit minimum' : 'MAP · dealer pricing on request') + '</small></div>' : '')
-         + (g.device ? '<a class="gear-link" href="' + esc(gearUrl(g)) + '" target="_blank" rel="noopener noreferrer">Product details · IWA International ↗</a>' : '')
-         + '<button class="cta-button" type="button" onclick="requestGear(' + i + ')">Request a quote</button></div>'; });
+         /* no outbound link: owner 2026-09-08 "the link to IWA sends them to their store. We need them to buy from our store, not theirs." — the buy path stays on MAST (Email about availability; MAST is the dealer); IWA's pages are only the SOURCE of the product information shown here */
+         /* owner 2026-09-09: "take request quiote off ... they can click product if out of stock _ email + inventory available" — the card's one control emails us about availability and files to the CRM; the click-to-see product view with IWA's own verbiage lands with the captured product pages */
+         + '<button class="cta-button" type="button" onclick="requestGear(' + i + ')">Email about availability</button></div>'; });
   p.innerHTML = html; }
 let reqKind = 'private';
 function openReqDialog(kind, title, meta, eyebrow, fine){ reqKind = kind; lastFocus = document.activeElement; $('req-eyebrow').textContent = eyebrow; $('req-title').textContent = title; $('req-meta').textContent = meta; $('req-fine').textContent = fine;
   $('req-org-wrap').hidden = kind !== 'gear'; $('req-qty-wrap').hidden = kind !== 'gear'; if ($('req-qty')) $('req-qty').value = 1; $('req-msg').value = ''; $('req-err').hidden = true;
-  const b = $('req-go'); b.disabled = false; b.textContent = kind === 'gear' ? 'Request Quote' : 'Send Request'; $('req-bd').classList.add('open'); $('req').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('req-name').focus(), 60); }
-function requestGear(i){ reqIdx = i; const g = GEAR[i]; if (window.mastTrack) mastTrack('gear_request', g.name, g.sku); openReqDialog('gear', g.name, g.sku + ' · ' + g.brand + ' · ' + g.fam + (g.price ? ' · ' + g.price + (g.device ? ' each' : ' MAP') : ''), 'Store quote',
-  (gearOut(g) ? 'This device is currently out of stock; we confirm availability by email. ' : '')
-  + (g.device ? 'IWA training devices need a PPC certification; orders are verified before fulfillment. 3-unit minimum, 27 per box; hazmat shipping is included. We confirm availability and shipping by email within one business day. Nothing is charged online.'
-              : 'MAP price shown; dealer and volume pricing on request. We confirm availability and shipping by email within one business day. Nothing is charged online.')); }
+  const b = $('req-go'); b.disabled = false; b.textContent = kind === 'gear' ? 'Email Us' : 'Send Request'; $('req-bd').classList.add('open'); $('req').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('req-name').focus(), 60); }
+function requestGear(i){ reqIdx = i; const g = GEAR[i]; if (window.mastTrack) mastTrack('gear_request', g.name, g.sku); openReqDialog('gear', g.name, g.sku + ' · ' + g.brand + ' · ' + g.fam + (g.price ? ' · ' + g.price + (g.device ? ' each' : ' MAP') : ''),
+  'Availability',
+  (gearOut(g) ? 'This device is currently out of stock. Tell us the quantity you need and we email you when it is available, with lead time. ' : 'In stock. Tell us the quantity you need and we email you availability and shipping. ')
+  + (g.device ? 'IWA training devices need a PPC certification; orders are verified before fulfillment. 3-unit minimum, 27 per box; hazmat shipping is included. Nothing is charged online.'
+              : 'MAP price shown; dealer and volume pricing on request. Nothing is charged online.')); }
 function requestPrivate(i){ reqIdx = i; const c = COURSES[i]; openReqDialog('private', c.name, c.meta ? c.meta.replace(/ · /g, ' · ') : '', 'Private instruction',
   'We reply within one business day. Private sessions are by arrangement, not on the weekend calendar. The fee is instruction only: ammunition, range fees and gear are not included.'); }
 /* Capability statement (2026-09-08): the agencies-and-procurement request goes through the same dialog and the same

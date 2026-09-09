@@ -81,6 +81,10 @@ def main(dry):
             for path in sorted(files):
                 base, ext = os.path.splitext(path)
                 ext = ext.lower()
+                if kind == 'gallery' and ext in CLIPS:
+                    # In Action is photographs only (owner, 2026-09-08/09: "This is a video and does not belong" / "NOT VIDEOS");
+                    # a clip in the drop folder is listed here and left where it is, never a tile.
+                    print('skip clip (In Action is photographs only): ' + path); continue
                 if ext not in IMAGES | CLIPS or base.endswith('-poster') or path in seen:
                     continue
                 n += 1

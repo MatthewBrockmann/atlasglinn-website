@@ -77,3 +77,16 @@ https://atlasglinn.com/wp-content/themes/atlasglinn/shared-styles.css
 # actual product info https://iwainternationalinc.com/shop/"): the IWA International shop page, so the Store chapter can link each
 # device to its real product page instead of the shop root. Saved as shop.html beside the live pages.
 https://iwainternationalinc.com/shop/
+
+# Added 2026-09-08 23:59 UTC (owner: buyers stay on MAST; IWA pages are the SOURCE of product information for the Store
+# cards). The six device pages matched from shop page 1, and shop pages 2-5 for PA-85, TH-14 and the door charge.
+https://iwainternationalinc.com/m12-distraction-device/
+https://iwainternationalinc.com/m11-multibang-device-4-bang/
+https://iwainternationalinc.com/m11-multibang-device-7-bang/
+https://iwainternationalinc.com/m13-thermobaric-device/
+https://iwainternationalinc.com/m14-smoke-deployment-device/
+https://iwainternationalinc.com/m15-large-smoke-grenade/
+https://iwainternationalinc.com/shop/?page=2
+https://iwainternationalinc.com/shop/?page=3
+https://iwainternationalinc.com/shop/?page=4
+https://iwainternationalinc.com/shop/?page=5
