@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="d8bf3b34b006">
+<meta name="build" content="3c55f5e35233">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
 <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
@@ -1786,9 +1786,12 @@ async function acctSubmit(){
   const body = acctModeNow === 'up' ? { email, password, name: $('acct-name').value.trim(), phone: $('acct-phone').value.trim() } : { email, password };
   try {
     const { r, d } = await acctPost(acctModeNow === 'up' ? '/account/register' : '/account/login', body);
+    // The code box opens on the sign-up's 202, which is the one answer /account/register ever gives. It used to open on
+    // a 403 'unverified' from sign-in as well, and that answer is gone (backend security review round 5, 2026-09-09): it
+    // came back only for an address that had started a sign-up, so it told anyone who asked which addresses those were.
+    // A refused sign-in now says both things it could mean and neither of them about a particular address.
     if (r.status === 202 && d.pending) { $('acct-pass').value = ''; acctShowCode('verify', d.email || email); }
-    else if (r.status === 403 && d.code === 'unverified') { $('acct-pass').value = ''; acctShowCode('verify', d.email || email, 'This email was never verified. We sent a fresh code.'); }
-    else if (!r.ok || !d.token) throw new Error(d.error || 'Could not sign in.');
+    else if (!r.ok || !d.token) throw new Error(r.status === 401 ? 'That email and password do not match — or you never finished creating the account. Use Create account to get a fresh code.' : (d.error || 'Could not sign in.'));
     else await acctSignedIn(d);
   } catch (e) { acctErr(e.message); }
   b.disabled = false;

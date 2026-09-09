@@ -1,6 +1,6 @@
 import worker from './src/worker.js';
 import { execFileSync } from 'node:child_process';
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -93,6 +93,7 @@ const fakePlans = {                // memberships rows; a plan without a stripe_
 // The Worker's HOLDING_SEATS predicate, in JavaScript: a pending row holds a seat for 15 minutes once it carries a
 // Stripe session id, and for 2 minutes before that.
 const holdsASeat = (r, live, fresh) => r.status === 'pending' && (r.stripe_session_id ? r.created_at > live : r.created_at > fresh);
+const pendingSignups = new Map();  // pending_signups rows: address_digest -> row (a sign-up nobody has verified yet)
 const rateLimits = new Map();      // rate_limits rows: key -> { key, window_start, count }
 const resetLimits = () => rateLimits.clear();   // a fresh window; the per-IP limits get their own block below
 let rateFail = false;              // flip on to make every rate_limits statement throw (the fail-closed test)
@@ -142,6 +143,7 @@ const DB = {
             if (sql.includes('FROM memberships')) return fakePlans[args[0]] || null;
             if (sql.includes('FROM registrations WHERE id')) return registrations.get(args[0]) || null;
             if (sql.includes('FROM email_log')) { const k = (/kind = '(\w+)'/.exec(sql) || [])[1]; const l = emailLog.find(x => x.email === args[0] && x.ref === args[1] && x.kind === k); return l ? { ...l } : null; }
+            if (sql.includes('FROM pending_signups WHERE address_digest')) { const r = pendingSignups.get(args[0]); return r ? { ...r } : null; }
             if (sql.includes('FROM accounts WHERE email')) { for (const a of accounts.values()) if (a.email === args[0]) return { ...a }; return null; }
             if (sql.includes('FROM accounts WHERE id')) return accounts.has(args[0]) ? { ...accounts.get(args[0]) } : null;
             return null;
@@ -162,6 +164,35 @@ const DB = {
             if (sql.startsWith('UPDATE email_log SET created_at')) { const l = emailLog.find(x => x.email === args[1] && x.ref === args[2] && x.kind === args[3]); if (l) l.created_at = args[0]; return { meta: { changes: l ? 1 : 0 } }; }
             if (sql.startsWith('DELETE FROM email_log')) { const st = (/status = '(\w+)'/.exec(sql) || [])[1]; const i = emailLog.findIndex(x => x.email === args[0] && x.ref === args[1] && x.kind === args[2] && (!st || x.status === st)); if (i >= 0) emailLog.splice(i, 1); return { meta: { changes: i >= 0 ? 1 : 0 } }; }
             if (sql.startsWith('INSERT OR IGNORE INTO worker_keys')) { const [name, created_at, key_id, public_jwk, private_jwk] = args; if (!workerKeys.has(name)) workerKeys.set(name, { name, created_at, key_id, public_jwk, private_jwk }); return { meta: { changes: 1 } }; }
+            if (sql.includes('pending_signups')) {
+              if (sql.startsWith('INSERT OR REPLACE INTO pending_signups')) {
+                const cols = sql.slice(sql.indexOf('(') + 1, sql.indexOf(')')).split(',').map((c) => c.trim());
+                const vals = [...args]; vals.splice(cols.indexOf('verify_attempts'), 0, 0);   // the SQL carries 0 as a literal
+                const row = Object.fromEntries(cols.map((c, i) => [c, vals[i]]));
+                pendingSignups.set(row.address_digest, row);
+                return { meta: { changes: 1 } };
+              }
+              if (sql.startsWith('UPDATE pending_signups SET verify_attempts = verify_attempts + 1')) {
+                const [digest, now, max] = args; const row = pendingSignups.get(digest);
+                const live = !!(row && row.verify_code_hash && row.verify_expires_at > now && (row.verify_attempts || 0) < max);
+                if (live) row.verify_attempts = (row.verify_attempts || 0) + 1;
+                return { meta: { changes: live ? 1 : 0 } };
+              }
+              if (sql.startsWith('UPDATE pending_signups SET verify_code_hash = ?') && sql.includes('AND verify_code_hash IS NOT NULL')) {
+                const row = pendingSignups.get(args[args.length - 1]);
+                if (!row || !row.verify_code_hash) return { meta: { changes: 0 } };
+                Object.assign(row, { verify_code_hash: args[0], verify_expires_at: args[1], verify_attempts: args[2], code_sent_at: args[3] });
+                return { meta: { changes: 1 } };
+              }
+              if (sql.startsWith('UPDATE pending_signups SET')) {
+                const keys = [...sql.matchAll(/(\w+) = \?/g)].map((m) => m[1]); const row = pendingSignups.get(args[args.length - 1]);
+                if (row) keys.forEach((k, i) => { row[k] = args[i]; });
+                return { meta: { changes: row ? 1 : 0 } };
+              }
+              if (sql.startsWith('DELETE FROM pending_signups WHERE address_digest')) { const had = pendingSignups.delete(args[0]); return { meta: { changes: had ? 1 : 0 } }; }
+              if (sql.startsWith('DELETE FROM pending_signups')) { let n = 0; for (const [k, r] of [...pendingSignups]) if (r.created_at < args[0]) { pendingSignups.delete(k); n++; } return { meta: { changes: n } }; }
+              return { meta: { changes: 0 } };
+            }
             if (sql.includes('rate_limits')) {
               if (rateFail) throw new Error('D1_ERROR: rate_limits unavailable');
               if (sql.startsWith('INSERT OR IGNORE INTO rate_limits')) { const [key, window_start, count] = args; if (rateLimits.has(key)) return { meta: { changes: 0 } }; rateLimits.set(key, { key, window_start, count }); return { meta: { changes: 1 } }; }
@@ -184,7 +215,13 @@ const DB = {
             if (/^(CREATE TABLE|CREATE INDEX|ALTER TABLE)/.test(sql)) return { meta: { changes: 0 } };
             if (sql.includes('INSERT INTO eligibility_outcomes')) { outcomes.push(args); if (onEligibilityInsert) { const f = onEligibilityInsert; onEligibilityInsert = null; f(); } return { meta: { last_row_id: outcomes.length, changes: 1 } }; }
             if (sql.includes('INSERT INTO eligibility_answers')) { answers.push(args); return { meta: { last_row_id: answers.length, changes: 1 } }; }
-            if (sql.startsWith('INSERT INTO accounts')) { const cols = sql.slice(sql.indexOf('(') + 1, sql.indexOf(')')).split(',').map(c => c.trim()); const row = Object.fromEntries(cols.map((c, i) => [c, args[i]])); accounts.set(row.id, row); return { meta: { changes: 1 } }; }
+            if (sql.startsWith('INSERT INTO accounts')) {
+              const cols = sql.slice(sql.indexOf('(') + 1, sql.indexOf(')')).split(',').map(c => c.trim());
+              const row = Object.fromEntries(cols.map((c, i) => [c, args[i]]));
+              // WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE email = ?) — the last bind is the address it guards on.
+              if (/WHERE NOT EXISTS/.test(sql) && [...accounts.values()].some((a) => a.email === args[args.length - 1])) return { meta: { changes: 0 } };
+              accounts.set(row.id, row); return { meta: { changes: 1 } };
+            }
             if (sql.startsWith('UPDATE accounts SET verify_attempts = verify_attempts + 1')) { const [id, kind, now, max] = args; const row = accounts.get(id); const live = !!(row && row.verify_kind === kind && row.verify_code_hash && row.verify_expires_at > now && (row.verify_attempts || 0) < max); if (live) row.verify_attempts = (row.verify_attempts || 0) + 1; return { meta: { changes: live ? 1 : 0 } }; }
             if (sql.startsWith('UPDATE accounts SET verify_kind = ?') && sql.includes('AND verify_code_hash IS NOT NULL')) {
               const row = accounts.get(args[args.length - 1]);
@@ -279,6 +316,10 @@ const raw = (path, body, origin = 'https://mastsolutions.com', ip = nextIp()) =>
     method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin, 'CF-Connecting-IP': ip }, body: JSON.stringify(body),
   }), env, ctx);
 const post = async (...a) => { const res = await raw(...a); await drain(); return res; };
+// A sign-up nobody has verified yet is a pending_signups row keyed on the digest of the address, not an accounts row
+// (security review round 5, 2026-09-09), so the assertions about a half-finished sign-up look here.
+const { addressDigest } = await import('./src/ratelimit.js');
+const pendingFor = async (email) => pendingSignups.get(await addressDigest(email)) || null;
 
 console.log('\n── Server-side pricing (client cannot set the amount) ──');
 {
@@ -698,20 +739,22 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   ok('register → 202 pending with no token; one code email to the student alone (no BCC)', reg1.status === 202 && p0.pending === true && !p0.token && emails.length === 1 && emails[0].to[0] === 'student@example.com' && !emails[0].bcc && /Your MAST Solutions verification code/.test(emails[0].subject) && !!codeIn(emails[0]), JSON.stringify({ status: reg1.status, body: p0, email: emails[0] && { to: emails[0].to, bcc: emails[0].bcc, subject: emails[0].subject } }));
   const code1 = codeIn(emails[0]);
   ok('the code email replies to the real mailbox (REPLY_TO), not the sender label', emails[0].reply_to === 'replies@example.com', JSON.stringify(emails[0].reply_to));
-  let acctRow = rowFor('student@example.com');
-  ok('the password is stored as a PBKDF2 hash, never in clear', acctRow && /^pbkdf2-sha256\$100000\$/.test(acctRow.password_hash) && !acctRow.password_hash.includes('correct horse'), acctRow && acctRow.password_hash.slice(0, 30));
-  ok('the code is stored hashed and the account is unverified', acctRow && acctRow.verify_code_hash && !acctRow.verify_code_hash.includes(code1) && !acctRow.verified_at);
+  let pendRow = await pendingFor('student@example.com');
+  ok('the password is stored as a PBKDF2 hash, never in clear', pendRow && /^pbkdf2-sha256\$100000\$/.test(pendRow.password_hash) && !pendRow.password_hash.includes('correct horse'), pendRow && pendRow.password_hash.slice(0, 30));
+  ok('a sign-up writes a pending_signups row and NO account, keyed on a digest that is not the address', !!pendRow && !rowFor('student@example.com') && /^[0-9a-f]{64}$/.test(pendRow.address_digest) && !pendRow.address_digest.includes('student'), JSON.stringify({ pending: !!pendRow, account: !!rowFor('student@example.com') }));
+  ok('the code is stored hashed on the pending row', pendRow && pendRow.verify_code_hash && !pendRow.verify_code_hash.includes(code1));
   const early = await post('/account/login', { email: 'student@example.com', password: 'correct horse battery' });
-  ok('login before verifying → 403 unverified, no token', early.status === 403 && (await early.json()).code === 'unverified');
+  const earlyGhost = await post('/account/login', { email: 'never-signed-up-at-all@example.com', password: 'correct horse battery' });
+  ok('sign-in for an address that has only STARTED a sign-up answers what an address with nothing answers — 401 bad_login, byte for byte, never the 403 that classified it', early.status === 401 && (await early.clone().json()).code === 'bad_login' && early.status === earlyGhost.status && (await early.clone().text()) === (await earlyGhost.clone().text()), early.status + ' ' + (await early.clone().text()) + ' vs ' + earlyGhost.status + ' ' + (await earlyGhost.clone().text()));
   const wrongCode = await post('/account/verify', { email: 'student@example.com', code: code1 === '000000' ? '000001' : '000000' });
-  ok('verify with a wrong code → 400 and the try is counted', wrongCode.status === 400 && rowFor('student@example.com').verify_attempts === 1, String(wrongCode.status));
+  ok('verify with a wrong code → 400 and the try is counted', wrongCode.status === 400 && (await pendingFor('student@example.com')).verify_attempts === 1, String(wrongCode.status));
   const ver = await post('/account/verify', { email: 'student@example.com', code: code1 }); const r1 = await ver.json();
   ok('verify with the emailed code → 200 with a token and the account (email normalised)', ver.status === 200 && typeof r1.token === 'string' && r1.token.includes('.') && r1.account.email === 'student@example.com' && r1.account.name === 'Jane Doe', JSON.stringify(r1).slice(0, 160));
-  acctRow = accounts.get(r1.account.id);
-  ok('verified_at is set and the code is cleared', !!acctRow.verified_at && !acctRow.verify_code_hash);
+  const acctRow = accounts.get(r1.account.id);
+  ok('verifying is what CREATES the account: verified_at is set, no code is stored on it, and the pending row is gone', !!acctRow.verified_at && !acctRow.verify_code_hash && !(await pendingFor('student@example.com')), JSON.stringify({ verified: !!acctRow.verified_at, pending: !!(await pendingFor('student@example.com')) }));
   ok('verify on an already-verified address → the same generic 400 bad_code, never a 409 that confirms it', (await post('/account/verify', { email: 'student@example.com', code: code1 })).status === 400);
   emails.length = 0;
-  rowFor('student@example.com').verify_sent_at = new Date(Date.now() - 120000).toISOString();   // the sign-up code went out a while ago
+  rowFor('student@example.com').signup_notice_sent_at = null;   // the last notice went out a while ago
   const dup = await post('/account/register', { email: 'student@example.com', password: 'another long password' }); const dupBody = await dup.json();
   ok('register for a VERIFIED address → the same 202 pending envelope a new address gets (no exists oracle)', dup.status === 202 && dupBody.pending === true && !dupBody.token && dupBody.email === 'student@example.com' && dupBody.message === p0.message, JSON.stringify({ status: dup.status, body: dupBody }));
   ok('… and the real owner is told someone tried, with no code and no BCC', emails.length === 1 && emails[0].to[0] === 'student@example.com' && !emails[0].bcc && /Someone tried to create a MAST Solutions account/.test(emails[0].subject) && !/\b\d{6}\b/.test(emails[0].text), JSON.stringify(emails.map(e => e.subject)));
@@ -789,23 +832,27 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   ok('the new token works', (await get('/account/me', p1.token)).status === 200);
   const relog = await post('/account/login', { email: 'student@example.com', password: 'a brand new long password' });
   ok('login with the new password → 200', relog.status === 200);
-  // squatting: a sign-up for someone else's address sees nothing and is taken over by the real owner
+  /* ── the squat takeover, the four-step probe, now impossible by construction (security review round 5, 2026-09-09) ──
+     Steps 1-4 as the round-4 review measured them: a stranger signs up victim@, the victim signs up with their OWN
+     password, the victim enters the code from their OWN mailbox — and the account came up holding the STRANGER's
+     password, because round 3's "a sign-up never overwrites an existing row" protected the row the stranger had already
+     written. A sign-up writes no accounts row at all now: the account is created at verification, out of whichever
+     pending row the verified code belongs to. */
   emails.length = 0;
   const squat = await post('/account/register', { email: 'victim@example.com', password: 'attacker password 1', name: 'Mallory' });
   const squatCode = codeIn(emails[0]);
   ok('a sign-up for another address gets no token, only a code sent to that address', squat.status === 202 && emails.length === 1 && emails[0].to[0] === 'victim@example.com');
-  ok('the squatter (right password, unverified) cannot sign in → 403', (await post('/account/login', { email: 'victim@example.com', password: 'attacker password 1' })).status === 403);
+  ok("the stranger's sign-up creates NO account — nothing for their password to be attached to", !rowFor('victim@example.com') && !!(await pendingFor('victim@example.com')), JSON.stringify({ account: !!rowFor('victim@example.com'), pending: !!(await pendingFor('victim@example.com')) }));
+  ok('the squatter (right password, sign-up unverified) cannot sign in → 401 bad_login, the answer an unknown address gets', (await post('/account/login', { email: 'victim@example.com', password: 'attacker password 1' })).status === 401);
   emails.length = 0;
   const soon = await post('/account/register', { email: 'victim@example.com', password: 'the real owner pw', name: 'Vic Owner' });
   ok('a second sign-up within a minute → the same 202 envelope with no second email, never a 429 that confirms the address', soon.status === 202 && (await soon.json()).pending === true && emails.length === 0, String(soon.status) + ' emails=' + emails.length);
-  rowFor('victim@example.com').verify_sent_at = new Date(Date.now() - 120000).toISOString();   // a minute later
+  ok('… and a sign-up that mails nothing replaces nothing either: a stranger cannot silently kill the code in a mailbox by re-posting the address', (await pendingFor('victim@example.com')).name === 'Mallory', JSON.stringify((await pendingFor('victim@example.com')).name));
+  (await pendingFor('victim@example.com')).code_sent_at = new Date(Date.now() - 120000).toISOString();   // a minute later
   emails.length = 0;
   const owner = await post('/account/register', { email: 'victim@example.com', password: 'the real owner pw', name: 'Vic Owner' });
   const ownerCode = codeIn(emails[0]);
-  // Round 3: a second sign-up NEVER writes over an existing row's credentials. It re-sends the code and touches nothing
-  // else, which is what stops a stranger setting the password on an address whose owner started but did not finish —
-  // and then reading the answer off /account/login, where that password used to come back 403 'unverified'.
-  ok('a second sign-up re-sends the code and changes nothing on the row: not the password, not the name', owner.status === 202 && !!ownerCode && rowFor('victim@example.com').name === 'Mallory' && (await post('/account/login', { email: 'victim@example.com', password: 'the real owner pw' })).status === 401, JSON.stringify({ status: owner.status, name: rowFor('victim@example.com').name }));
+  ok("a sign-up that DOES mail replaces the pending one — last writer wins on the pending side, where no account exists to take over", owner.status === 202 && !!ownerCode && (await pendingFor('victim@example.com')).name === 'Vic Owner', JSON.stringify({ status: owner.status, name: (await pendingFor('victim@example.com')).name }));
   ok("the squatter's code is dead", squatCode === ownerCode || (await post('/account/verify', { email: 'victim@example.com', code: squatCode })).status === 400);
   ok('an unknown address and a wrong code answer byte for byte the same 400', await (async () => {
     const a = await post('/account/verify', { email: 'nobody-at-all@example.com', code: '123456' });
@@ -814,14 +861,15 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   })(), 'unknown vs wrong code must be indistinguishable');
   const ownerIn = await post('/account/verify', { email: 'victim@example.com', code: ownerCode });
   ok('the emailed code verifies the address', ownerIn.status === 200, String(ownerIn.status));
-  // Whoever holds the MAILBOX takes the address, not whoever typed a password first: Forgot password serves an
-  // unverified account now, and a successful reset sets the password and marks the address verified in one act.
+  ok('THE TAKEOVER IS GONE: the account the owner just verified holds the OWNER\'s password, and the stranger\'s does not sign in — no forgot/reset needed to undo it', (await post('/account/login', { email: 'victim@example.com', password: 'the real owner pw' })).status === 200 && (await post('/account/login', { email: 'victim@example.com', password: 'attacker password 1' })).status === 401, 'owner then attacker');
+  ok('… and verifying wrote exactly one account and dropped the pending row', [...accounts.values()].filter((a) => a.email === 'victim@example.com').length === 1 && !(await pendingFor('victim@example.com')));
+  // Forgot password still moves a password on a verified account, which is the ordinary recovery path.
   emails.length = 0;
   rowFor('victim@example.com').verify_sent_at = new Date(Date.now() - 120000).toISOString();
   const backIn = await post('/account/forgot', { email: 'victim@example.com' });
   const backCode = codeIn(emails[0]);
-  const reclaimed = await post('/account/reset', { email: 'victim@example.com', code: backCode, password: 'the real owner pw' });
-  ok("the real owner reclaims the address through the mailbox, and the squatter's password stops working", backIn.status === 200 && !!backCode && reclaimed.status === 200 && !!rowFor('victim@example.com').verified_at && (await post('/account/login', { email: 'victim@example.com', password: 'attacker password 1' })).status === 401 && (await post('/account/login', { email: 'victim@example.com', password: 'the real owner pw' })).status === 200, String(reclaimed.status));
+  const reclaimed = await post('/account/reset', { email: 'victim@example.com', code: backCode, password: 'a replacement owner pw' });
+  ok('the owner can still move their own password through the mailbox', backIn.status === 200 && !!backCode && reclaimed.status === 200 && (await post('/account/login', { email: 'victim@example.com', password: 'a replacement owner pw' })).status === 200, String(reclaimed.status));
   // lockout and re-send
   emails.length = 0;
   await post('/account/register', { email: 'locked@example.com', password: 'a long enough password' });
@@ -834,10 +882,10 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   const wrongFrom = (ip) => post('/account/verify', { email: 'locked@example.com', code: lockCode === '111111' ? '222222' : '111111' }, 'https://mastsolutions.com', ip);
   for (let i = 0; i < 5; i++) statuses.push((await wrongFrom(STRANGER_IP)).status);
   const sixthGuess = await wrongFrom(STRANGER_IP);
-  ok("five wrong codes from one connection answer the same 400, refuse that connection, and do NOT burn the owner's code", statuses.join() === '400,400,400,400,400' && sixthGuess.status === 400 && !!rowFor('locked@example.com').verify_code_hash && rowFor('locked@example.com').verify_attempts === 5, statuses.join() + ' then ' + sixthGuess.status + ' attempts=' + rowFor('locked@example.com').verify_attempts);
+  ok("five wrong codes from one connection answer the same 400, refuse that connection, and do NOT burn the owner's code", statuses.join() === '400,400,400,400,400' && sixthGuess.status === 400 && !!(await pendingFor('locked@example.com')).verify_code_hash && (await pendingFor('locked@example.com')).verify_attempts === 5, statuses.join() + ' then ' + sixthGuess.status + ' attempts=' + (await pendingFor('locked@example.com')).verify_attempts);
   emails.length = 0;
   ok('resend within a minute → the same 200 and no email (no account enumeration)', (await post('/account/resend', { email: 'locked@example.com' })).status === 200 && emails.length === 0);
-  rowFor('locked@example.com').verify_sent_at = new Date(Date.now() - 120000).toISOString();
+  (await pendingFor('locked@example.com')).code_sent_at = new Date(Date.now() - 120000).toISOString();
   ok('resend after a minute → 200 and a new code email', (await post('/account/resend', { email: 'locked@example.com' })).status === 200 && emails.length === 1);
   ok('resend for an unknown email → 200 and no email (no account enumeration)', (await post('/account/resend', { email: 'nobody@example.com' })).status === 200 && emails.length === 1);
   ok('the new code works', (await post('/account/verify', { email: 'locked@example.com', code: codeIn(emails[0]) })).status === 200);
@@ -847,10 +895,11 @@ console.log('\n── Student accounts (owner, 2026-09-05) ──');
   const raceCode = codeIn(emails[0]);
   const raced = await Promise.all(Array.from({ length: 8 }, (_, i) => post('/account/verify', { email: 'raced@example.com', code: String(900000 + i) === raceCode ? '000000' : String(900000 + i) })));
   const raceStatuses = raced.map((r) => r.status);
+  const racedRow = await pendingFor('raced@example.com');
   const raceBodies = new Set(await Promise.all(raced.map((r) => r.clone().text())));
   // The claim-first UPDATE inside checkCode still bounds the comparisons at five however many arrive at once; what
   // changed is that all eight answers are now one answer, so the count cannot be read off the status codes either.
-  ok('eight concurrent wrong guesses answer 400 with one identical body, and each try is claimed exactly once', raceStatuses.every((s) => s === 400) && raceBodies.size === 1 && rowFor('raced@example.com').verify_attempts === 8 && !!rowFor('raced@example.com').verify_code_hash, raceStatuses.join() + ' bodies=' + raceBodies.size + ' attempts=' + rowFor('raced@example.com').verify_attempts);
+  ok('eight concurrent wrong guesses answer 400 with one identical body, and each try is claimed exactly once', raceStatuses.every((s) => s === 400) && raceBodies.size === 1 && racedRow.verify_attempts === 8 && !!racedRow.verify_code_hash, raceStatuses.join() + ' bodies=' + raceBodies.size + ' attempts=' + racedRow.verify_attempts);
   ok('… and the right code still works afterwards: eight wrong tries is not twenty', (await post('/account/verify', { email: 'raced@example.com', code: raceCode })).status === 200);
   // forgotten password (Codex P2)
   emails.length = 0;
@@ -1080,6 +1129,8 @@ console.log('\n── Account oracles, limiter coverage and schema retry (securi
   // No live code — what every real account looks like when nobody has just asked for one. This is the state that used to
   // answer 'expired' where an invented address answered 'bad_code'.
   const clearCodeOn = (email) => Object.assign(rowFor(email), { verify_kind: null, verify_code_hash: null, verify_expires_at: null, verify_attempts: 0 });
+  // The same state on a PENDING sign-up: a real half-finished sign-up with no live code, which is what a probe lands in.
+  const clearPendingCodeOn = async (email) => Object.assign(await pendingFor(email), { verify_code_hash: null, verify_expires_at: null, verify_attempts: 0 });
 
   // ── H2-1: POST /account/reset was a one-request account-existence oracle ──
   resetLimits();
@@ -1105,10 +1156,10 @@ console.log('\n── Account oracles, limiter coverage and schema retry (securi
   // ── H2-1: the same shape on POST /account/verify ──
   resetLimits(); emails.length = 0;
   await post('/account/register', { email: 'unverified-real@example.com', password: 'a long enough password' });
-  await clearCodeOn('unverified-real@example.com');   // a real, unverified account with NO live code — the ordinary state
+  await clearPendingCodeOn('unverified-real@example.com');   // a real, half-finished sign-up with NO live code — the ordinary state
   const vKnown = await post('/account/verify', { email: 'unverified-real@example.com', code: '123456' });
   const vGhost = await post('/account/verify', { email: GHOST, code: '123456' });
-  ok('verify against a REAL unverified address with no live code answers what an unknown address answers, byte for byte', await same(vKnown, vGhost) && vKnown.status === 400 && (await vKnown.clone().json()).code === 'bad_code', vKnown.status + ' ' + (await vKnown.clone().text()) + '  vs  ' + vGhost.status + ' ' + (await vGhost.clone().text()));
+  ok('verify against a REAL half-finished sign-up with no live code answers what an unknown address answers, byte for byte', await same(vKnown, vGhost) && vKnown.status === 400 && (await vKnown.clone().json()).code === 'bad_code', vKnown.status + ' ' + (await vKnown.clone().text()) + '  vs  ' + vGhost.status + ' ' + (await vGhost.clone().text()));
   // The MESSAGE still says "or it has expired" — that is the advice both old answers used to carry, and it is now given
   // to every caller including one holding an address that has no account. What must never come back is the machine-
   // readable code, which is what a script would branch on.
@@ -1154,13 +1205,18 @@ console.log('\n── Account oracles, limiter coverage and schema retry (securi
   ok('… and the notice itself is still throttled to one a minute on its own column', attack2.status === 202 && emails.length === 0, attack2.status + ' emails=' + emails.length);
 
   // ── H2-7: when Resend refuses, both sign-up paths answer the same thing ──
+  // Round 5: the answer on both is the ordinary 202. The mail leaves through ctx.waitUntil like every other code send,
+  // so a refusing provider is a log line rather than a status code — the 502 email_failed this used to assert was itself
+  // a statement that the mail leg had run at all, which is a thing only one of the two branches could say.
   resetLimits();
   const notTooSoon = rowFor('holdshut@example.com'); notTooSoon.signup_notice_sent_at = new Date(Date.now() - 120000).toISOString();
   resendStatus = 500;
   const failNew = await from('/account/register', { email: 'brand-new-address@example.com', password: 'a long enough password' }, '198.51.100.83');
   const failKnown = await from('/account/register', { email: 'holdshut@example.com', password: 'the attackers password' }, '198.51.100.84');
+  await drain();
   resendStatus = 200;
-  ok('a Resend outage answers identically for a new address and a verified one — 502 email_failed either way', failNew.status === 502 && (await failNew.clone().json()).code === 'email_failed' && (await same(failNew, failKnown)), failNew.status + ' ' + (await failNew.clone().text()) + '  vs  ' + failKnown.status + ' ' + (await failKnown.clone().text()));
+  const shapeReg = async (r, email) => (await r.clone().text()).split(email).join('<ADDRESS>');
+  ok('a Resend outage answers identically for a new address and one that has an account — the ordinary 202 both ways, never a 502 that names the mail leg', failNew.status === 202 && failKnown.status === 202 && (await shapeReg(failNew, 'brand-new-address@example.com')) === (await shapeReg(failKnown, 'holdshut@example.com')), failNew.status + ' ' + (await failNew.clone().text()) + '  vs  ' + failKnown.status + ' ' + (await failKnown.clone().text()));
   // and the throttled retry is 202 on both paths too, so the second request does not separate them either
   const soonNew = await from('/account/register', { email: 'brand-new-address@example.com', password: 'a long enough password' }, '198.51.100.85');
   const soonKnown = await from('/account/register', { email: 'holdshut@example.com', password: 'the attackers password' }, '198.51.100.86');
@@ -1287,6 +1343,7 @@ console.log('\n── Uniform code routes, immovable credentials, per-connection
   const PIN = '198.51.100.150';
   const measure = async (path, body) => {
     rowFor('r3owner@example.com').verify_sent_at = new Date(Date.now() - 120000).toISOString();
+    const pend = await pendingFor('r3unver@example.com'); if (pend) pend.code_sent_at = new Date(Date.now() - 120000).toISOString();
     emails.length = 0;
     const before = sqlLog.length;
     // The mail call is PARKED. A Worker that awaited it could not answer at all; this one answers, and the send lands
@@ -1304,7 +1361,7 @@ console.log('\n── Uniform code routes, immovable credentials, per-connection
     resetLimits();
     // resend is the unverified path, so it gets an unverified account to be real against; forgot serves both.
     const realAddr = route === '/account/forgot' ? 'r3owner@example.com' : 'r3unver@example.com';
-    if (route === '/account/resend') { await post('/account/register', { email: realAddr, password: 'a long enough password' }); rowFor(realAddr).verify_sent_at = new Date(Date.now() - 120000).toISOString(); }
+    if (route === '/account/resend') { await post('/account/register', { email: realAddr, password: 'a long enough password' }); (await pendingFor(realAddr)).code_sent_at = new Date(Date.now() - 120000).toISOString(); }
     resetLimits();
     const real = await measure(route, { email: realAddr });
     const ghost = await measure(route, { email: GHOST3 });
@@ -1328,7 +1385,9 @@ console.log('\n── Uniform code routes, immovable credentials, per-connection
   const stGhost = sqlLog.length - beforeGhost;
   ok('/account/reset costs an invented address exactly what it costs a real one — same body, same statement count', (await same(resetReal, resetGhost)) && resetReal.status === 400 && stReal === stGhost, resetReal.status + ' ' + (await resetReal.clone().text()) + ' stmts ' + stReal + ' vs ' + stGhost);
 
-  /* ── H3-2: /account/register never writes over an existing row's credentials ── */
+  /* ── H3-2: /account/register never writes over an existing row's credentials ──
+     Round 5 moves the ground under this one and keeps its point: there is no accounts row for a half-finished sign-up to
+     overwrite, so the password a stranger types cannot sign in and cannot be read off /account/login either. */
   resetLimits(); emails.length = 0;
   await post('/account/register', { email: 'r3half@example.com', password: 'the owners half-done password' });
   const ATTACK_PW = 'the attackers chosen password';
@@ -1339,18 +1398,19 @@ console.log('\n── Uniform code routes, immovable credentials, per-connection
   ok("a stranger registering over an unverified address cannot make that password sign in: 401 bad_login, exactly what a verified address answers", loginOver.status === 401 && (await loginOver.clone().json()).code === 'bad_login' && (await same(loginOver, loginVerified)), loginOver.status + ' ' + (await loginOver.clone().text()) + '  vs  ' + loginVerified.status + ' ' + (await loginVerified.clone().text()));
   const shape3 = async (r, email) => (await r.clone().text()).split(email).join('<ADDRESS>');
   ok('… and the 202 envelope is byte-identical for the taken address and a brand-new one', overUnverified.status === 202 && overNew.status === 202 && (await shape3(overUnverified, 'r3half@example.com')) === (await shape3(overNew, 'r3brandnew@example.com')), overUnverified.status + ' ' + overNew.status);
-  ok("… and the row kept its own password and its own name: nothing a stranger typed reached it", (await post('/account/login', { email: 'r3half@example.com', password: 'the owners half-done password' })).status === 403 && rowFor('r3half@example.com').password_hash === rowFor('r3half@example.com').password_hash, 'unverified owner sign-in should answer 403 unverified');
+  ok("… and neither password signs in, because there is no account yet: the half-finished sign-up answers exactly what an address with nothing answers", (await post('/account/login', { email: 'r3half@example.com', password: 'the owners half-done password' })).status === 401 && !rowFor('r3half@example.com') && !!(await pendingFor('r3half@example.com')), 'a half-finished sign-up must not be an accounts row');
 
   /* ── H3-3: five wrong codes from a stranger no longer burn what is in the owner's inbox ── */
   resetLimits(); emails.length = 0;
   await post('/account/register', { email: 'r3burn@example.com', password: 'a long enough password' });
   const burnCode3 = codeIn(emails[0]);
-  const liveHash = rowFor('r3burn@example.com').verify_code_hash;
+  const burnPend = await pendingFor('r3burn@example.com');
+  const liveHash = burnPend.verify_code_hash;
   const ATT_IP = '198.51.100.210';
   const strangerTries = [];
   for (let i = 0; i < 6; i++) strangerTries.push((await from('/account/verify', { email: 'r3burn@example.com', code: burnCode3 === '111111' ? '222222' : '111111' }, ATT_IP)).status);
-  ok("five wrong codes from one connection refuse that connection and leave the code live — the stranger cannot reach into the owner's inbox", strangerTries.join() === '400,400,400,400,400,400' && rowFor('r3burn@example.com').verify_code_hash === liveHash && rowFor('r3burn@example.com').verify_attempts === 5, strangerTries.join() + ' attempts=' + rowFor('r3burn@example.com').verify_attempts);
-  ok('… and the sixth cost the code nothing: it never reached checkCode, so the global count did not move either', rowFor('r3burn@example.com').verify_attempts === 5);
+  ok("five wrong codes from one connection refuse that connection and leave the code live — the stranger cannot reach into the owner's inbox", strangerTries.join() === '400,400,400,400,400,400' && burnPend.verify_code_hash === liveHash && burnPend.verify_attempts === 5, strangerTries.join() + ' attempts=' + burnPend.verify_attempts);
+  ok('… and the sixth cost the code nothing: it never reached the check, so the global count did not move either', burnPend.verify_attempts === 5);
   ok('… and the owner, on their own connection, signs in with the code that was in their inbox all along', (await from('/account/verify', { email: 'r3burn@example.com', code: burnCode3 }, '198.51.100.211')).status === 200);
 
   // the same shape on the reset path
@@ -1367,16 +1427,18 @@ console.log('\n── Uniform code routes, immovable credentials, per-connection
   resetLimits(); emails.length = 0;
   await post('/account/register', { email: 'r3global@example.com', password: 'a long enough password' });
   const globalCode = codeIn(emails[0]);
+  const globalPend = await pendingFor('r3global@example.com');
   emails.length = 0;
   const wrongCodes = []; for (let n = 200000; wrongCodes.length < 20; n++) if (String(n) !== globalCode) wrongCodes.push(String(n));
   const globalStatuses = [];
   for (const w of wrongCodes) globalStatuses.push((await post('/account/verify', { email: 'r3global@example.com', code: w })).status);
-  const burned = rowFor('r3global@example.com');
+  const burned = globalPend;
   ok('twenty wrong tries in total, from twenty connections, DO burn the code — six digits against twenty tries is a 0.002% chance', globalStatuses.every((s) => s === 400) && !burned.verify_code_hash, globalStatuses.length + ' tries, code live=' + !!burned.verify_code_hash);
   ok('… and the owner is emailed exactly once that it happened, with no code in the notice', emails.length === 1 && emails[0].to[0] === 'r3global@example.com' && /invalidated/i.test(emails[0].subject) && !/\b\d{6}\b/.test(emails[0].text), emails.length + ' ' + (emails[0] && emails[0].subject));
   emails.length = 0;
+  const clearedByBurn = burned.code_sent_at;
   const replacement = await post('/account/resend', { email: 'r3global@example.com' });
-  ok('… and the one-a-minute throttle is lifted with the burn, so the owner asks for a replacement at once', burned.verify_sent_at === null || (replacement.status === 200 && emails.length === 1), 'sent_at=' + burned.verify_sent_at + ' emails=' + emails.length);
+  ok('… and the one-a-minute throttle is lifted with the burn, so the owner asks for a replacement at once', clearedByBurn === null && replacement.status === 200 && emails.length === 1, 'sent_at=' + clearedByBurn + ' emails=' + emails.length);
 
   /* ── H3-4: the seat claim is atomic, and it is the authority ── */
   const CLAIM_SKU = 'MAST-HG-FUND', CLAIM_DATE = '2027-01-09';   // capacity 16 in the fake catalog
@@ -1419,9 +1481,10 @@ console.log('\n── Uniform code routes, immovable credentials, per-connection
   resetLimits(); emails.length = 0;
   await post('/account/register', { email: 'r3anon@example.com', password: 'a long enough password' });
   const anonCode = codeIn(emails[0]);
-  const anonHash = rowFor('r3anon@example.com').verify_code_hash;
+  const anonPend = await pendingFor('r3anon@example.com');
+  const anonHash = anonPend.verify_code_hash;
   for (let i = 0; i < 6; i++) await noIp('/account/verify', { email: 'r3anon@example.com', code: anonCode === '111111' ? '222222' : '111111' });
-  ok('… and the code-guess counter uses the same bucket: five wrong codes with no address refuse that bucket and leave the code live', rowFor('r3anon@example.com').verify_attempts === 5 && rowFor('r3anon@example.com').verify_code_hash === anonHash && [...rateLimits.keys()].some((k) => k.startsWith('codeguess:unknown:')), 'attempts=' + rowFor('r3anon@example.com').verify_attempts + ' keys=' + [...rateLimits.keys()].filter((k) => k.startsWith('codeguess:')).length);
+  ok('… and the code-guess counter uses the same bucket: five wrong codes with no address refuse that bucket and leave the code live', anonPend.verify_attempts === 5 && anonPend.verify_code_hash === anonHash && [...rateLimits.keys()].some((k) => k.startsWith('codeguess:unknown:')), 'attempts=' + anonPend.verify_attempts + ' keys=' + [...rateLimits.keys()].filter((k) => k.startsWith('codeguess:')).length);
 
   resetLimits(); emails.length = 0;
 }
@@ -1504,7 +1567,9 @@ console.log('\n── Round 4: ghost counters per address, sign-in cost symmetry
      across five connections with a sign-up between each batch, and the code was still live with no notice sent. */
   resetLimits(); emails.length = 0;
   await post('/account/register', { email: 'r4burn@example.com', password: 'a long enough password' });
-  const burnRow = rowFor('r4burn@example.com');
+  const burnRow = await pendingFor('r4burn@example.com');
+  const { pendingGuessId } = await import('./src/ratelimit.js');
+  const burnCounter = await pendingGuessId('r4burn@example.com');
   // Every reissue mails a NEW code, so the wrong guess is chosen against the live one each time — a fixed string would
   // eventually BE the code and pass.
   let liveCode = codeIn(emails[0]);
@@ -1517,59 +1582,197 @@ console.log('\n── Round 4: ghost counters per address, sign-in cost symmetry
     for (let i = 0; i < 5; i++) burnStatuses.push((await from('/account/verify', { email: 'r4burn@example.com', code: wrongNow() }, burnIps[b])).status);
     if (b < burnIps.length - 1) {
       // the interleaved UNAUTHENTICATED reissue — the whole primitive
-      burnRow.verify_sent_at = new Date(Date.now() - 120000).toISOString();
+      burnRow.code_sent_at = new Date(Date.now() - 120000).toISOString();
       emails.length = 0;
       await from('/account/resend', { email: 'r4burn@example.com' }, '198.51.100.7' + (5 + b));
       liveCode = codeIn(emails[emails.length - 1]) || liveCode;
-      if (b === 0) sixthAfterReissue = rateLimits.get('codeguess:' + burnIps[0] + ':' + burnRow.id);
+      if (b === 0) sixthAfterReissue = rateLimits.get('codeguess:' + burnIps[0] + ':' + burnCounter);
     }
   }
   ok('a reissue does not hand a refused connection a fresh budget: its counter still stands at five afterwards',
      !!sixthAfterReissue && sixthAfterReissue.count === 5, JSON.stringify(sixthAfterReissue));
   ok('twenty wrong codes with an unauthenticated reissue between every five STILL burn the code — the global count is no longer resettable by a stranger',
-     burnStatuses.every((st) => st === 400) && !rowFor('r4burn@example.com').verify_code_hash,
-     burnStatuses.length + ' tries, code live=' + !!rowFor('r4burn@example.com').verify_code_hash);
+     burnStatuses.every((st) => st === 400) && !burnRow.verify_code_hash,
+     burnStatuses.length + ' tries, code live=' + !!burnRow.verify_code_hash);
   ok('… and the owner is emailed once that it happened, which is the notice the reissue used to suppress entirely',
      emails.filter((m) => /invalidated/i.test(m.subject)).length === 1 && emails.filter((m) => /invalidated/i.test(m.subject))[0].to[0] === 'r4burn@example.com',
      emails.map((m) => m.subject).join(' | '));
 
-  /* ── R4-4: three unauthenticated code mails an hour at any one address ──
-     The 60-second reissue throttle and a 5-per-window-per-IP limit left the ADDRESS uncapped: twelve connections spaced
-     past the throttle delivered twelve mails to one mailbox, out of the firm's own sending domain. */
-  resetLimits(); emails.length = 0;
-  const MAILTARGET = 'r4real@example.com';
-  const mailStatuses = [], mailCosts = [];
-  for (let i = 0; i < 4; i++) {
-    rowFor(MAILTARGET).verify_sent_at = new Date(Date.now() - 120000).toISOString();
-    const c = await cost('/account/forgot', { email: MAILTARGET }, '198.51.100.8' + i);
-    mailStatuses.push(c.res.status); mailCosts.push(c.statements);
-  }
-  ok('four unauthenticated /account/forgot from four connections mail one address THREE times, not four',
-     emails.filter((m) => m.to[0] === MAILTARGET).length === 3 && rateLimits.get('codemail:' + MAILTARGET).count === 3,
-     emails.length + ' mails, counter=' + JSON.stringify(rateLimits.get('codemail:' + MAILTARGET)));
-  ok('… and being over the budget changes nothing a caller can see: same 200, same statement count as the mails that went',
-     mailStatuses.join() === '200,200,200,200' && mailCosts.every((n) => n === mailCosts[0]), mailStatuses.join() + ' stmts ' + mailCosts.join());
-  const ghostMail = await cost('/account/forgot', { email: 'r4-mail-ghost@example.com' }, '198.51.100.89');
-  ok('… and an invented address still costs what the real one costs, over budget or under it',
-     ghostMail.res.status === 200 && ghostMail.statements === mailCosts[3], 'ghost ' + ghostMail.statements + ' vs over-budget real ' + mailCosts[3]);
+  /* ── R4-4 and R4-5 are superseded by round 5 and are measured in its own block below ──
+     R4-4's per-ADDRESS mail budget was a counter a stranger shared with the owner, and R4-5's 6/5/5 register split was
+     the statement-count half of the register→login oracle. Both are re-measured under their round-5 shapes rather than
+     asserted twice in two shapes. */
 
-  /* ── R4-5: what POST /account/register actually costs, measured, because the README has to say a number ──
-     The round-3 residual called it "one extra statement". It is a three-way split, and the doc now states what this
-     prints rather than what reads well. */
   resetLimits(); emails.length = 0;
-  await post('/account/register', { email: 'r4taken-unverified@example.com', password: 'a long enough password' });
-  const regBranch = async (email) => {
-    const row = rowFor(email);
-    if (row) { row.verify_sent_at = new Date(Date.now() - 120000).toISOString(); row.signup_notice_sent_at = null; }
-    resetLimits();
-    return (await cost('/account/register', { email, password: 'a long enough password' }, '198.51.100.90')).statements;
+}
+
+console.log('\n── Round 5: no account until a code comes back, budgets a stranger cannot spend, register under the mail rules (security review round 5, 2026-09-09) ──');
+{
+  const from = (path, body, ip) => post(path, body, 'https://mastsolutions.com', ip);
+  const rowFor = (email) => [...accounts.values()].find((a) => a.email === email);
+  const codeIn = (m) => (/\b(\d{6})\b/.exec((m && m.text) || '') || [])[1];
+  const same = async (a, b) => a.status === b.status && (await a.clone().text()) === (await b.clone().text());
+  const cost = async (path, body, ip) => {
+    const before = sqlLog.length;
+    const res = await from(path, body, ip);
+    return { res, statements: sqlLog.length - before };
   };
-  const regNew = await regBranch('r4brand-new@example.com');
-  const regUnverified = await regBranch('r4taken-unverified@example.com');
-  const regVerified = await regBranch('r4real@example.com');
-  console.log('  (register branch cost — brand-new ' + regNew + ', existing-unverified ' + regUnverified + ', existing-verified ' + regVerified + ' statements)');
-  ok('POST /account/register costs 6 / 5 / 5 statements for brand-new / existing-unverified / existing-verified — the number the README states',
-     regNew === 6 && regUnverified === 5 && regVerified === 5, [regNew, regUnverified, regVerified].join());
+  /* The per-IP ROUTE windows, cleared without touching the mail budgets — which live in the same table and are the
+     thing under test. resetLimits() would wipe both and prove nothing. */
+  const clearRouteWindows = () => { for (const k of [...rateLimits.keys()]) if (/^(login|signup|code|verify|seat|contact|subscribe|admin|event):/.test(k)) rateLimits.delete(k); };
+  const mailKeys = () => [...rateLimits.keys()].filter((k) => k.startsWith('codemail'));
+
+  /* ── R5-1: the register→login existence oracle, in status AND in statement count ──
+     An address that had started a sign-up owned an accounts row, so /account/login answered 403 'unverified' where an
+     address with nothing answered 401 — one request, no password needed, any address classified. Round 4 measured it
+     and named pending_signups as the fix; this is that fix, measured. */
+  resetLimits(); emails.length = 0;
+  await post('/account/register', { email: 'r5started@example.com', password: 'a long enough password' });
+  ok('a sign-up in progress is a pending row and NOT an accounts row', !rowFor('r5started@example.com') && !!(await pendingFor('r5started@example.com')));
+  resetLimits();
+  const startedLogin = await cost('/account/login', { email: 'r5started@example.com', password: 'a long enough password' }, '198.51.100.120');
+  const nothingLogin = await cost('/account/login', { email: 'r5-never-heard-of@example.com', password: 'a long enough password' }, '198.51.100.121');
+  ok('sign-in for an address mid-sign-up answers an address with nothing byte for byte, on the same statements — the 403 unverified oracle is gone',
+     (await same(startedLogin.res, nothingLogin.res)) && startedLogin.res.status === 401 && (await startedLogin.res.clone().json()).code === 'bad_login' && startedLogin.statements === nothingLogin.statements,
+     startedLogin.res.status + ' ' + (await startedLogin.res.clone().text()) + ' stmts ' + startedLogin.statements + ' vs ' + nothingLogin.statements);
+  /* The two source-level guards this round rests on. Both are checked in the SOURCE, not only through a request, for the
+     reason the seat block reads its predicate out of sqlLog: the behaviour above is closed by the ABSENCE of an accounts
+     row, so putting the 403 back — or putting the INSERT back — passes every request-level assertion in this file until
+     the day something else writes one. This is the invariant, stated where it cannot rot. */
+  const workerSrc = readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'src', 'worker.js'), 'utf8');
+  const registerBody = workerSrc.slice(workerSrc.indexOf('async function handleAccountRegister'), workerSrc.indexOf('/** The one answer POST /account/register ever gives'));
+  ok('POST /account/register contains no INSERT INTO accounts — a sign-up cannot create an account, in the source and not only in this run',
+     registerBody.length > 500 && !/INSERT (OR \w+ )?INTO accounts/.test(registerBody) && /INSERT OR REPLACE INTO pending_signups|PENDING_UPSERT/.test(registerBody),
+     'register body ' + registerBody.length + ' chars');
+  ok("… and no answer /account/login can give is a 403 or carries the code 'unverified': the oracle has no line left to come back on",
+     !/code: 'unverified'/.test(workerSrc) && !/403, cors/.test(workerSrc.slice(workerSrc.indexOf('async function handleAccountLogin'), workerSrc.indexOf('async function handleAccountForgot'))) && !(await startedLogin.res.clone().text()).includes('unverified'),
+     'unverified answer in source: ' + /code: .unverified./.test(workerSrc));
+
+  /* ── R5-3: /account/register costs the same whichever of the three states the address is in ──
+     Round 4 printed 6 / 5 / 5 for brand-new / already-signing-up / has-an-account: two reads, one budget and exactly one
+     write on every branch now, so the INSERT that used to be the tell is one of three statements that always run. */
+  resetLimits(); emails.length = 0;
+  await post('/account/register', { email: 'r5taken-pending@example.com', password: 'a long enough password' });
+  await post('/account/register', { email: 'r5has-account@example.com', password: 'a long enough password' });
+  await post('/account/verify', { email: 'r5has-account@example.com', code: codeIn(emails[emails.length - 1]) });
+  const regBranch = async (email) => {
+    const acc = rowFor(email); if (acc) acc.signup_notice_sent_at = null;
+    const pend = await pendingFor(email); if (pend) pend.code_sent_at = new Date(Date.now() - 120000).toISOString();
+    resetLimits();
+    return await cost('/account/register', { email, password: 'a long enough password' }, '198.51.100.122');
+  };
+  const regNew = await regBranch('r5brand-new@example.com');
+  const regPending = await regBranch('r5taken-pending@example.com');
+  const regAccount = await regBranch('r5has-account@example.com');
+  console.log('  (register branch cost — brand-new ' + regNew.statements + ', already-signing-up ' + regPending.statements + ', has-an-account ' + regAccount.statements + ' statements)');
+  ok('POST /account/register costs the SAME statements for a brand-new address, one mid-sign-up and one with an account — round 4 measured 6 / 5 / 5',
+     regNew.statements === regPending.statements && regPending.statements === regAccount.statements && regNew.res.status === 202,
+     [regNew.statements, regPending.statements, regAccount.statements].join());
+
+  /* ── R5-2: three strangers cannot close the owner's recovery ──
+     Round 4 keyed the code-mail budget on the ADDRESS: three unauthenticated /account/forgot from any three connections
+     spent it, and the owner's own reset then answered 200 with no mail for the rest of the hour — the escape hatch the
+     README named as what keeps a sign-in lock survivable, held shut for the price of three requests. */
+  resetLimits(); emails.length = 0;
+  await post('/account/register', { email: 'r5owner@example.com', password: 'the owners real password' });
+  await post('/account/verify', { email: 'r5owner@example.com', code: codeIn(emails[emails.length - 1]) });
+  resetLimits(); emails.length = 0;
+  const rewind = () => { rowFor('r5owner@example.com').verify_sent_at = new Date(Date.now() - 120000).toISOString(); };
+  const strangerStatuses = [];
+  for (let i = 0; i < 3; i++) { rewind(); strangerStatuses.push((await cost('/account/forgot', { email: 'r5owner@example.com' }, '198.51.100.13' + i)).res.status); }
+  const strangerMails = emails.length;
+  // Five wrong passwords from a fourth stranger connection, so the account is locked as well — the full round-4 chain.
+  for (let i = 0; i < 5; i++) await from('/account/login', { email: 'r5owner@example.com', password: 'wrong password ' + i }, '198.51.100.139');
+  const lockedNow = await from('/account/login', { email: 'r5owner@example.com', password: 'the owners real password' }, '198.51.100.139');
+  emails.length = 0; rewind();
+  const ownerForgot = await cost('/account/forgot', { email: 'r5owner@example.com' }, '198.51.100.140');
+  const ownerCode = codeIn(emails[0]);
+  ok('three strangers spending their own budgets do NOT close the owner\'s recovery: their three requests mailed, and the owner\'s own request still mails a reset code',
+     strangerStatuses.join() === '200,200,200' && strangerMails === 3 && ownerForgot.res.status === 200 && emails.length === 1 && !!ownerCode && /Reset your MAST Solutions password/.test(emails[0].subject),
+     'stranger mails=' + strangerMails + ' owner mails=' + emails.length + ' ' + (emails[0] && emails[0].subject));
+  const reclaimed = await from('/account/reset', { email: 'r5owner@example.com', code: ownerCode, password: 'a brand new owner password' }, '198.51.100.140');
+  ok('… so the documented escape hatch out of a sign-in lock actually works: locked out on the guessed connection, back in through the mailbox',
+     lockedNow.status === 429 && reclaimed.status === 200 && (await from('/account/login', { email: 'r5owner@example.com', password: 'a brand new owner password' }, '198.51.100.141')).status === 200,
+     'locked=' + lockedNow.status + ' reset=' + reclaimed.status);
+  ok('… and the budgets that replaced it are keyed on the connection AND a digest, never on the address alone',
+     mailKeys().length > 0 && mailKeys().every((k) => /^codemail:[^:]+:[0-9a-f]{16}$/.test(k) || /^codemailtotal:[^:]+$/.test(k)) && mailKeys().some((k) => k.startsWith('codemailtotal:')),
+     mailKeys().slice(0, 4).join(' '));
+
+  /* ── R5-2: the budget still bites, on the connection that spends it ── */
+  resetLimits(); emails.length = 0;
+  const ONE_IP = '198.51.100.150';
+  const ownMail = [], ownCost = [];
+  for (let i = 0; i < 4; i++) { rewind(); const c = await cost('/account/forgot', { email: 'r5owner@example.com' }, ONE_IP); ownMail.push(c.res.status); ownCost.push(c.statements); }
+  ok('four /account/forgot from ONE connection mail one address three times, not four — the connection spends its own three an hour',
+     emails.filter((m) => m.to[0] === 'r5owner@example.com').length === 3 && ownMail.join() === '200,200,200,200' && ownCost.every((n) => n === ownCost[0]),
+     emails.length + ' mails, statuses ' + ownMail.join() + ' stmts ' + ownCost.join());
+  const ghostMail = await cost('/account/forgot', { email: 'r5-mail-ghost@example.com' }, ONE_IP);
+  ok('… and an invented address costs exactly what the over-budget real one costs — being refused a mail is not visible',
+     ghostMail.res.status === 200 && ghostMail.statements === ownCost[3], 'ghost ' + ghostMail.statements + ' vs over-budget real ' + ownCost[3]);
+
+  /* ── R5-3: /account/register mails under the same budgets, measured ──
+     Round 4 wired the budget to /account/forgot and /account/resend and left the third unauthenticated mailer out, so
+     the ~1,440-a-day-at-any-mailbox ceiling it was written to lower was unmoved: twelve connections delivered twelve. */
+  resetLimits(); emails.length = 0;
+  const REG_IP = '198.51.100.160';
+  const regMailStatuses = [], regMailCosts = [];
+  for (let i = 0; i < 4; i++) {
+    const pend = await pendingFor('r5regmail@example.com'); if (pend) pend.code_sent_at = new Date(Date.now() - 120000).toISOString();
+    clearRouteWindows();
+    const c = await cost('/account/register', { email: 'r5regmail@example.com', password: 'a long enough password' }, REG_IP);
+    regMailStatuses.push(c.res.status); regMailCosts.push(c.statements);
+  }
+  ok('four /account/register from one connection mail one address THREE times, not four — the same budget forgot and resend spend',
+     emails.filter((m) => m.to[0] === 'r5regmail@example.com').length === 3 && regMailStatuses.join() === '202,202,202,202' && regMailCosts.every((n) => n === regMailCosts[0]),
+     emails.length + ' mails, statuses ' + regMailStatuses.join() + ' stmts ' + regMailCosts.join());
+  ok('… and the sign-up notice to an address that already has an account is under it too', await (async () => {
+    resetLimits(); emails.length = 0;
+    const NOTICE_IP = '198.51.100.161';
+    for (let i = 0; i < 4; i++) { rowFor('r5has-account@example.com').signup_notice_sent_at = null; clearRouteWindows(); await from('/account/register', { email: 'r5has-account@example.com', password: 'a stranger password' }, NOTICE_IP); }
+    return emails.filter((m) => /Someone tried to create/.test(m.subject)).length === 3;
+  })(), 'the notice mail is a mail like any other');
+
+  /* ── R5-2: the per-connection total, across every address one host can invent ── */
+  resetLimits(); emails.length = 0;
+  const SPRAY_IP = '198.51.100.170';
+  for (let i = 0; i < 31; i++) { clearRouteWindows(); await from('/account/register', { email: 'r5spray-' + i + '@example.com', password: 'a long enough password' }, SPRAY_IP); }
+  ok('one connection gets thirty code mails an hour across every address it can invent, then nothing — the ceiling an attacker pays for in connections',
+     emails.length === 30 && rateLimits.get('codemailtotal:' + SPRAY_IP).count === 30,
+     emails.length + ' mails, total counter=' + JSON.stringify(rateLimits.get('codemailtotal:' + SPRAY_IP)));
+
+  /* ── R5-2 / the round-4 P3: rate_limits must not be a list of the addresses strangers have typed ── */
+  ok('no key in rate_limits carries a plaintext address — not the mail budgets, not the sign-in failure counter',
+     [...rateLimits.keys()].every((k) => !k.includes('@')) && [...rateLimits.keys()].some((k) => k.startsWith('codemail')),
+     [...rateLimits.keys()].filter((k) => k.includes('@')).slice(0, 3).join(' ') || 'none');
+  ok('… including loginfail, which carried the address in clear from round 2 until now', await (async () => {
+    resetLimits();
+    await from('/account/login', { email: 'r5-plaintext-probe@example.com', password: 'wrong password here' }, '198.51.100.180');
+    const keys = [...rateLimits.keys()].filter((k) => k.startsWith('loginfail:'));
+    return keys.length === 1 && /^loginfail:198\.51\.100\.180:[0-9a-f]{16}$/.test(keys[0]);
+  })(), [...rateLimits.keys()].filter((k) => k.startsWith('loginfail:')).join(' '));
+
+  /* ── R5-1: pending_signups holds no plaintext address either ── */
+  ok('a pending sign-up is keyed on a digest and stores no address: the table is not a list of half-finished sign-ups by name',
+     pendingSignups.size > 0 && [...pendingSignups.values()].every((r) => /^[0-9a-f]{64}$/.test(r.address_digest) || r.address_digest === 'absent') && !JSON.stringify([...pendingSignups.values()]).includes('@'),
+     [...pendingSignups.keys()].slice(0, 2).join(' '));
+
+  /* ── R5-6: the migration the deploy workflow must apply, and the guard that makes it apply it ── */
+  {
+    const mig = readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'migrations', '010-pending-signups.sql'), 'utf8');
+    const wf = readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '.github', 'workflows', 'deploy-worker.yml'), 'utf8');
+    const guard = /migrations\/010-pending-signups\.sql\|pending_signups\|([a-z_,]+)/.exec(wf);
+    const cols = guard ? guard[1].split(',') : [];
+    ok('migrations/010 creates pending_signups and moves no verified account out of the way',
+       /CREATE TABLE IF NOT EXISTS pending_signups/.test(mig) && /DELETE FROM accounts\s+WHERE verified_at IS NULL/.test(mig) && !/DELETE FROM accounts\s+WHERE verified_at IS NOT NULL/.test(mig),
+       mig.slice(0, 0) + 'create=' + /CREATE TABLE IF NOT EXISTS pending_signups/.test(mig));
+    ok('… and deploy-worker.yml carries a GUARDS row for it, naming every column the file adds, so schema lands before code',
+       !!guard && cols.includes('address_digest') && cols.includes('password_hash') && cols.includes('verify_code_hash') && cols.includes('created_ip') && cols.every((c) => new RegExp('\\b' + c + '\\b').test(mig)),
+       cols.join());
+    const { RATE_SCHEMA } = await import('./src/ratelimit.js');
+    ok('… and the Worker self-heals the same table, so a deploy that lands ahead of the migration still takes sign-ups',
+       RATE_SCHEMA.some((st) => /CREATE TABLE IF NOT EXISTS pending_signups/.test(st)) && cols.every((c) => RATE_SCHEMA.some((st) => st.includes('pending_signups') && st.includes(c))),
+       String(RATE_SCHEMA.filter((st) => st.includes('pending_signups')).length));
+  }
 
   resetLimits(); emails.length = 0;
 }
@@ -1582,6 +1785,19 @@ console.log('\n── The seat claim against a real SQL engine (security review 
   const { runSeatClaimSql } = await import('./test-seat-claim-sqlite.mjs');
   const sqlOut = await runSeatClaimSql();
   if (sqlOut.skipped) ok('the seat claim is proved against a real SQL engine', false, 'SKIPPED: ' + sqlOut.skipped);
+  else {
+    console.log('  (engine: ' + sqlOut.engine + ')');
+    for (const r of sqlOut.results) ok(r.name, r.pass, r.detail);
+  }
+}
+
+console.log('\n── The pending-sign-up statements against a real SQL engine (security review round 5, 2026-09-09) ──');
+{
+  // Same reason as the block above: the fake D1 answers these queries in JavaScript, so an INSERT OR REPLACE that did
+  // not replace, or a WHERE NOT EXISTS that guarded nothing, would pass every assertion in this file.
+  const { runAccountSql } = await import('./test-account-sqlite.mjs');
+  const sqlOut = await runAccountSql();
+  if (sqlOut.skipped) ok('the pending-sign-up statements are proved against a real SQL engine', false, 'SKIPPED: ' + sqlOut.skipped);
   else {
     console.log('  (engine: ' + sqlOut.engine + ')');
     for (const r of sqlOut.results) ok(r.name, r.pass, r.detail);

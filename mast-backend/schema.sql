@@ -316,15 +316,49 @@ CREATE TABLE IF NOT EXISTS accounts (
 );
 CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email);
 
+-- ── Sign-ups nobody has proved yet (migrations/010-pending-signups.sql on a live database) ──
+-- A sign-up is NOT an account. POST /account/register writes a row here and nothing else; POST /account/verify, given
+-- the code emailed to the address, INSERTs the accounts row and drops this one — in one batch, and only when no account
+-- for the address exists yet (security review round 5, 2026-09-09).
+--
+-- That one change closes two findings the previous three rounds patched around: a stranger could no longer leave their
+-- password sitting inside an account the owner later verified (the row the owner verified WAS the stranger's), and
+-- /account/login stopped answering 403 'unverified' for an address mid-sign-up where it answers 401 for an address with
+-- nothing — a one-request account-existence oracle.
+--
+-- The key is a SHA-256 digest of the normalised address, so this table is not a readable list of half-finished sign-ups.
+-- A later sign-up replaces the row when it mails a code; the daily cron drops anything a day old.
+CREATE TABLE IF NOT EXISTS pending_signups (
+  address_digest    TEXT PRIMARY KEY,              -- SHA-256 of the normalised address, hex. Never the address itself.
+  password_hash     TEXT NOT NULL,                 -- pbkdf2-sha256$<iterations>$<salt b64>$<hash b64>
+  name              TEXT,
+  phone             TEXT,
+  organization      TEXT,
+  verify_code_hash  TEXT,                          -- HMAC(ACCOUNT_SECRET, digest:verify:code)
+  verify_expires_at TEXT,                          -- 15 minutes
+  verify_attempts   INTEGER NOT NULL DEFAULT 0,    -- twenty wrong tries burn the code
+  code_sent_at      TEXT,                          -- the one-a-minute reissue throttle
+  created_ip        TEXT,
+  created_at        TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_pending_signups_created ON pending_signups (created_at);
+
 -- ── Per-IP request counters (migrations/008-rate-limits.sql on a live database) ──
 -- One row per (bucket, CF-Connecting-IP): login, signup, code (forgot + resend + reset), verify, seat, contact,
 -- subscribe, admin. Fixed windows that roll — the first request after a window has run out starts a new one. Every
 -- increment is a single conditional UPDATE, so concurrent requests can neither share nor skip a count. /event is NOT
 -- counted here: it is a page-view beacon and limiting it would turn every page view into a D1 write.
 --
--- The same table also carries 'loginfail:<ip>:<address>' rows — consecutive failed sign-ins for one pair, count in
--- count and the lock expiry in window_start — so an address with no account locks on the same attempt as one that has
--- an account. The daily cron drops rows older than a day, which is also how a partial failure count resets.
+-- The same table also carries counters keyed on a DIGEST of an address, never the address (round 5, 2026-09-09 — every
+-- one of these held the address in clear until then, which made rate_limits a list of what strangers had typed):
+--   'loginfail:<ip>:<digest>'      consecutive failed sign-ins for one pair; count in count, lock expiry in window_start,
+--                                  so an address with no account locks on the same attempt as one that has an account
+--   'codeguess:<ip>:<id>'          wrong verification/reset codes from one connection against one account or address
+--   'codemail:<ip>:<digest>'       unauthenticated code mails from one connection to one address, three an hour
+--   'codemailtotal:<ip>'           unauthenticated code mails from one connection to any address, thirty an hour
+-- The two mail budgets are per CONNECTION on purpose: a counter keyed on the address alone is one a stranger can spend
+-- on the owner's behalf, which is how three requests closed a customer's password reset for an hour in round 4.
+-- The daily cron drops rows older than a day, which is also how a partial failure count resets.
 CREATE TABLE IF NOT EXISTS rate_limits (
   key          TEXT PRIMARY KEY,
   window_start TEXT NOT NULL,

@@ -107,13 +107,16 @@ jobs:
             if [ "$DO_ACCOUNT" = "true" ]; then
               # 2026-09-08, owner: "Sign in / ADD ACCOUNT does not work — check all sign up capability + email". The page's
               # sign-up posts /account/register and waits for an emailed code; the answer here says which half is broken:
-              # 200 = account row written and the code went out through Resend (the owner's mailbox gets it via plus-addressing)
-              # 503 accounts_off = ACCOUNT_SECRET missing on the Worker · 503 email_off = RESEND_API_KEY missing · 5xx email_failed = Resend rejected it
+              # 202 pending = a pending_signups row was written and the code went out through Resend (the owner's mailbox
+              #   gets it via plus-addressing). No account exists until that code comes back to /account/verify — so a 202
+              #   with no email in the mailbox means Resend, not the Worker (round 5, 2026-09-09: the mail leg leaves through
+              #   ctx.waitUntil, so a refusing provider can no longer turn this into a 502)
+              # 503 accounts_off = ACCOUNT_SECRET missing on the Worker · 503 email_off = RESEND_API_KEY missing
               # The password is random, not derived from the public run id, and is masked so no later step can print it.
               em="matthew+smoke$GITHUB_RUN_ID@atlasglinn.com"; pw="$(openssl rand -hex 24)"; echo "::add-mask::$pw"
               echo "--- account sign-up (POST /account/register for $em)"
               req POST /account/register "{\"email\":\"$em\",\"password\":\"$pw\",\"name\":\"Smoke test (GitHub Actions)\"}"
-              echo "--- account sign-in, wrong password (expect 401 or 403 unverified, never 5xx)"
+              echo "--- account sign-in, wrong password (expect 401 bad_login, never 5xx — a sign-up in progress answers what an unknown address answers)"
               req POST /account/login "{\"email\":\"$em\",\"password\":\"not-the-password-1\"}"
             else echo "--- account: skipped (input account=false)"; fi
             echo "--- sitemaps and robots (what Search Console can fetch)"

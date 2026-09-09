@@ -74,6 +74,12 @@ export const RATE_SCHEMA = [
   // (security review round 2, 2026-09-08). Carried here as well as in migrations/008 because that file has not been
   // applied to the live database yet.
   'ALTER TABLE accounts ADD COLUMN signup_notice_sent_at TEXT',
+  // A sign-up that nobody has proved yet. It lives HERE, in the rate-limiter's schema hook, because ensureRateSchema is
+  // the one memoised self-heal every limited route already awaits — and /account/register is a limited route — so a
+  // Worker deployed ahead of migrations/010 still has the table rather than answering 500 to every sign-up. The row is
+  // keyed on a DIGEST of the address: pending_signups never holds the plaintext address of someone who has not verified.
+  'CREATE TABLE IF NOT EXISTS pending_signups (address_digest TEXT PRIMARY KEY, password_hash TEXT NOT NULL, name TEXT, phone TEXT, organization TEXT, verify_code_hash TEXT, verify_expires_at TEXT, verify_attempts INTEGER NOT NULL DEFAULT 0, code_sent_at TEXT, created_ip TEXT, created_at TEXT NOT NULL)',
+  'CREATE INDEX IF NOT EXISTS idx_pending_signups_created ON pending_signups (created_at)',
 ];
 
 let schemaReady = null;
@@ -230,10 +236,15 @@ export async function dummyFailedLogin(env, id, failures) {
    2026-09-08). This counter is keyed on the pair (CF-Connecting-IP, normalised address) and lives in rate_limits, so an
    address with no account locks on exactly the attempt one with an account locks on, with the same body.
 
-   key    'loginfail:<ip>:<address>'
+   key    'loginfail:<ip>:<digest of the address>'
    count  consecutive failures
    window_start  the ISO time the lock runs out, or NO_LOCK while there is none. The daily purge drops both, so a partial
                  count also resets once a day.
+
+   THE ADDRESS IS DIGESTED (round 5, 2026-09-09). This key carried the plaintext address from round 2 onward, so
+   rate_limits accumulated a list of every address a stranger had typed at the sign-in form — the exact property the
+   code-guess counter three functions below claims for itself. A digest finds the same row on the next request, which is
+   the only thing a counter needs, so there was never anything to trade for it.
 
    What this does NOT make symmetric, stated rather than claimed away: the account lock is global and this one is per
    connection, so five failures from one address followed by a sixth from ANOTHER still answers 429 for a real account
@@ -241,12 +252,12 @@ export async function dummyFailedLogin(env, id, failures) {
    lock a customer out and lets an attacker grow this table with addresses they invent. The remaining probe costs five
    requests from one address plus a sixth from a second, against a 20-per-window sign-in limit. */
 const NO_LOCK = '1970-01-01T00:00:00.000Z';
-const identityKey = (ip, email) => 'loginfail:' + (ip || 'unknown') + ':' + String(email || '').trim().toLowerCase();
+const identityKey = async (ip, email) => 'loginfail:' + (ip || 'unknown') + ':' + (await addressDigest(email)).slice(0, 16);
 
 /** Seconds left on the (IP, address) lock, or 0. Read before the password is hashed, for both paths. */
 export async function identityLockedFor(env, ip, email, now = Date.now()) {
   if (!env || !env.DB) return 0;
-  const row = await env.DB.prepare('SELECT window_start, count FROM rate_limits WHERE key = ?').bind(identityKey(ip, email)).first().catch(() => null);
+  const row = await env.DB.prepare('SELECT window_start, count FROM rate_limits WHERE key = ?').bind(await identityKey(ip, email)).first().catch(() => null);
   const until = row && row.window_start ? Date.parse(row.window_start) : 0;
   return Number.isFinite(until) && until > now ? seconds(until - now) : 0;
 }
@@ -260,7 +271,7 @@ export async function identityLockedFor(env, ip, email, now = Date.now()) {
  */
 export async function noteFailedIdentity(env, ip, email) {
   if (!env || !env.DB) return 0;
-  const key = identityKey(ip, email);
+  const key = await identityKey(ip, email);
   try {
     await ensureRateSchema(env);
     await env.DB.prepare('INSERT OR IGNORE INTO rate_limits (key, window_start, count) VALUES (?, ?, ?)').bind(key, NO_LOCK, 0).run();
@@ -279,7 +290,7 @@ export async function noteFailedIdentity(env, ip, email) {
 /** The right password clears the pair, exactly as it clears the account counter. */
 export async function clearFailedIdentity(env, ip, email) {
   if (!env || !env.DB) return;
-  await env.DB.prepare('DELETE FROM rate_limits WHERE key = ?').bind(identityKey(ip, email)).run().catch((e) => console.error('[Rate] identity clear failed:', e.message));
+  await env.DB.prepare('DELETE FROM rate_limits WHERE key = ?').bind(await identityKey(ip, email)).run().catch((e) => console.error('[Rate] identity clear failed:', e.message));
 }
 
 /* ──────────── Wrong verification / reset codes, per (connection, account) ────────────
@@ -296,7 +307,10 @@ export async function clearFailedIdentity(env, ip, email) {
                         chance of a hit, so the burn costs an attacker far more than it costs the owner — who is emailed
                         that it happened and can ask for a new one immediately.
 
-   key    'codeguess:<ip>:<account id>', or 'codeguess:<ip>:absent:<digest of the address>' when there is no account
+   key    on /account/reset:  'codeguess:<ip>:<account id>', or 'codeguess:<ip>:absent:<digest>' when there is no account
+          on /account/verify: 'codeguess:<ip>:pending:<digest>' ALWAYS, whether or not a sign-up is in progress (round 5)
+                              — the row appearing is something a caller can cause with one /account/register, so keying
+                              on its presence would hand a spent connection five fresh guesses for the price of a POST
    count  wrong guesses from that connection against that account
    The row is dropped when a guess is RIGHT and when the owner signs in with their password, and by the daily purge. A
    fresh code no longer drops it (round 4) — see issueCode in src/worker.js.
@@ -312,11 +326,26 @@ export async function clearFailedIdentity(env, ip, email) {
 export const CODE_GUESSES_PER_IP = 5;
 const codeGuessKey = (ip, id) => 'codeguess:' + (ip || 'unknown') + ':' + id;
 
-/** The counter id for an address with no account: 'absent:' + the first 16 hex of SHA-256 over the normalised address. */
-export async function absentGuessId(email) {
+/**
+ * SHA-256 over the normalised address, hex. THE one address digest in this Worker: the counter keys below, the sign-in
+ * failure key above and the primary key of pending_signups are all cut from it, so nothing in rate_limits or in an
+ * unverified sign-up row is a readable list of the addresses strangers have typed. A digest finds the same row the next
+ * request finds, which is everything a counter or a pending row needs.
+ */
+export async function addressDigest(email) {
   const bytes = new TextEncoder().encode(String(email || '').trim().toLowerCase());
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
-  return 'absent:' + [...digest.slice(0, 8)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return [...digest].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** The counter id for an address with no account: 'absent:' + the first 16 hex of the digest. */
+export async function absentGuessId(email) {
+  return 'absent:' + (await addressDigest(email)).slice(0, 16);
+}
+
+/** The verify route's counter id, whether or not a pending sign-up exists — one guess budget per (connection, address). */
+export async function pendingGuessId(email) {
+  return 'pending:' + (await addressDigest(email)).slice(0, 16);
 }
 
 /** Wrong guesses this connection has already spent against this account. A D1 failure counts as none — the global
@@ -351,38 +380,65 @@ export async function clearCodeGuesses(env, id) {
   await env.DB.prepare('DELETE FROM rate_limits WHERE key LIKE ?').bind('codeguess:%:' + id).run().catch((e) => console.error('[Rate] code-guess clear failed:', e.message));
 }
 
-/* ──────────── Unauthenticated code mail, per ADDRESS ────────────
-   /account/forgot and /account/resend mail a 6-digit code to whatever address is posted, and nothing capped the ADDRESS:
-   the 60-second reissue throttle and a 5-per-10-minutes-per-IP limit left a ceiling of about one mail a minute at any
-   mailbox on earth, ~1,440 a day, sent from the firm's own sending domain (security review round 4, 2026-09-08). That is
-   a deliverability and sender-reputation problem before it is anything else.
+/* ──────────── Unauthenticated code mail: budgets a STRANGER CANNOT SPEND ON THE OWNER'S BEHALF ────────────
+   Round 4 capped the mailbox with one counter per ADDRESS, three an hour, whoever asked. That counter is one a stranger
+   SHARES with the owner, and /account/forgot is the owner's only way back from a sign-in lock: three unauthenticated
+   requests from any three connections, in under a second, closed the documented escape hatch for an hour — and the
+   README asserted in the same commit that the hatch was what kept the lock a denial rather than a lockout (security
+   review round 4, 2026-09-08, P1). Worse, the slot was spent BEFORE the mail was decided, so requests that sent nothing
+   still consumed it.
 
-   key    'codemail:<normalised address>'
-   count  unauthenticated code mails to that address in the current hour
-   Over the budget the route still answers the same 200 and still spends the same statements — a refusal that changed the
-   answer would be the oracle this whole surface exists to close. The address is the key here (not a digest) because the
-   throttle is only useful if a second request for the SAME mailbox finds it, and every value in it is an address someone
-   posted to a public route; the daily purge drops the rows. */
-export const CODE_MAIL_PER_ADDRESS = 3;
+   Round 5 replaces it with two budgets, and neither of them is spendable by anyone but the caller:
+     per (connection, address)  'codemail:<ip>:<digest of the address>'   3 an hour
+     per connection, all mail   'codemailtotal:<ip>'                      30 an hour
+   A stranger can spend their OWN three at the owner's address and their OWN thirty across every address they can think
+   of. The owner's next request arrives on a different connection with its own untouched budget, so recovery cannot be
+   held shut from outside. Both keys carry a digest, never the address.
+
+   THERE IS DELIBERATELY NO GLOBAL PER-ADDRESS CAP, and that is a stated trade rather than an oversight. Any counter
+   keyed on the address alone is, by construction, a counter a stranger can spend for the owner — which is the P1 above.
+   What bounds the mailbox instead is the price of connections: one gets 3 mails an hour at one address, so about 72 a
+   day, where round 4's shape allowed ~1,440 from a single host. An attacker who rents twenty addresses can still reach
+   ~1,440 a day at one mailbox; that is written down in README "What is NOT closed" rather than claimed closed, because
+   the alternative is a lockout switch anyone on the internet may flip.
+
+   A SLOT IS SPENT ONLY WHEN A MAIL ACTUALLY GOES. `sending` is decided from state the route has already read (is there
+   an account or a pending sign-up, and is the 60-second reissue throttle up), and it is bound into the taking UPDATE as
+   its limit — a limit of -1 can never be met, so the branch that mails nothing takes nothing while running exactly the
+   same statements. The customer who taps "resend" three times in ninety seconds therefore still has their budget.
+
+   SIX STATEMENTS, always, whichever way it answers and whichever branch the route is on: create the row, roll a window
+   that has run out, take the try with one conditional UPDATE — twice, once per budget. An answer that changed the
+   statement count would be the oracle this whole surface exists to close. Fails CLOSED, like every other limiter here. */
+export const CODE_MAIL_PER_PAIR = 3;
+export const CODE_MAIL_PER_IP = 30;
 export const CODE_MAIL_WINDOW_MS = 60 * MINUTE;
-const codeMailKey = (email) => 'codemail:' + String(email || '').trim().toLowerCase();
+const pairMailKey = (ip, digest) => 'codemail:' + (ip || 'unknown') + ':' + digest.slice(0, 16);
+const ipMailKey = (ip) => 'codemailtotal:' + (ip || 'unknown');
 
-/**
- * true = mail it. THREE statements whichever way it answers, and the same three on every branch: the row is created,
- * a run-out window is rolled back to zero, and the try is taken with one conditional UPDATE that cannot be shared or
- * skipped by a parallel request. Fails CLOSED, like every other limiter here.
- */
-export async function noteCodeMail(env, email) {
-  if (!env || !env.DB) return false;
-  const key = codeMailKey(email);
+/** One budget: three statements, and it takes only when `limit` is a number it can reach. */
+async function spendMailBudget(env, key, limit) {
   const nowIso = new Date().toISOString();
   const cutoff = new Date(Date.now() - CODE_MAIL_WINDOW_MS).toISOString();
+  await env.DB.prepare('INSERT OR IGNORE INTO rate_limits (key, window_start, count) VALUES (?, ?, ?)').bind(key, nowIso, 0).run();
+  await env.DB.prepare('UPDATE rate_limits SET window_start = ?, count = ? WHERE key = ? AND window_start <= ?').bind(nowIso, 0, key, cutoff).run();
+  const took = await env.DB.prepare('UPDATE rate_limits SET count = count + 1 WHERE key = ? AND count < ?').bind(key, limit).run();
+  return !!(took && took.meta && took.meta.changes);
+}
+
+/**
+ * true = mail it. `sending` is what the route already knows about its own state; passing false runs every statement and
+ * takes nothing, which is how "this request was never going to mail" costs a caller no allowance and costs an observer
+ * no information.
+ */
+export async function noteCodeMail(env, ip, email, sending) {
+  if (!env || !env.DB) return false;
+  const digest = await addressDigest(email);
   try {
     await ensureRateSchema(env);
-    await env.DB.prepare('INSERT OR IGNORE INTO rate_limits (key, window_start, count) VALUES (?, ?, ?)').bind(key, nowIso, 0).run();
-    await env.DB.prepare('UPDATE rate_limits SET window_start = ?, count = ? WHERE key = ? AND window_start <= ?').bind(nowIso, 0, key, cutoff).run();
-    const took = await env.DB.prepare('UPDATE rate_limits SET count = count + 1 WHERE key = ? AND count < ?').bind(key, CODE_MAIL_PER_ADDRESS).run();
-    return !!(took && took.meta && took.meta.changes);
+    const pair = await spendMailBudget(env, pairMailKey(ip, digest), sending ? CODE_MAIL_PER_PAIR : -1);
+    const total = await spendMailBudget(env, ipMailKey(ip), sending && pair ? CODE_MAIL_PER_IP : -1);
+    return pair && total;
   } catch (e) { console.error('[Rate] code-mail budget:', e.message); return false; }
 }
 

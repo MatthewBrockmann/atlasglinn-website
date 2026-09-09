@@ -82,6 +82,8 @@ jobs:
       # credential_type alone, so a run that died after the first ALTER left four columns missing and looked applied
       # forever after. All present = skip; none present = apply; SOME present = stop, because re-running the file would
       # fail on the first duplicate and a half-applied schema needs a person.
+      # A file that CREATEs a table rather than ALTERing one fits the same shape: PRAGMA table_info on a table that does
+      # not exist yet returns no rows, so every column reads missing and the file is applied (migrations/010).
       # npx with no -y and no @version: it resolves the wrangler pinned in mast-backend/package.json + package-lock.json,
       # so the CLI that touches the live database is the one the lockfile names.
       - name: Apply pending D1 migrations (schema before code)
@@ -94,7 +96,8 @@ jobs:
           set -e
           GUARDS="migrations/007-account-credentials.sql|accounts|credential_type,credential_org,credential_id,credential_status,credential_submitted_at
           migrations/008-rate-limits.sql|accounts|failed_logins,locked_until,signup_notice_sent_at
-          migrations/009-seat-claim.sql|registrations|abandoned_reason"
+          migrations/009-seat-claim.sql|registrations|abandoned_reason
+          migrations/010-pending-signups.sql|pending_signups|address_digest,password_hash,name,phone,organization,verify_code_hash,verify_expires_at,verify_attempts,code_sent_at,created_ip,created_at"
           echo "$GUARDS" | while IFS= read -r g; do
             g="$(echo "$g" | xargs)"; [ -n "$g" ] || continue
             f="${g%%|*}"; rest="${g#*|}"; tbl="${rest%%|*}"; cols="${rest#*|}"
