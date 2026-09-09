@@ -44,16 +44,19 @@ if ($SCN === '') {
         'already-active' => 6,
         'on-disk'        => 5,
         'api-error'      => 12,
+        'install-wp-error' => 12,
+        'install-false'  => 6,
+        'install-empty'  => 4,
         'no-installer'   => 4,
         'no-filesystem'  => 5,
-        'activate-fails' => 5,
+        'activate-fails' => 6,
         'guard'          => 4,
         'give-up'        => 4,
         'locked'         => 3,
         'refused'        => 9,
         'disabled'       => 3,
-        'status-header'  => 14,
-        'source'         => 9,
+        'status-header'  => 23,
+        'source'         => 10,
     );
     $php  = defined('PHP_BINARY') && PHP_BINARY ? PHP_BINARY : 'php';
     $fail = 0; $total = 0;
@@ -84,10 +87,12 @@ $GLOBALS['t_opts']   = array();
 $GLOBALS['t_trans']  = array();
 $GLOBALS['t_acts']   = array();
 $GLOBALS['t_calls']  = array();
+$GLOBALS['t_reads']  = 0;
 $GLOBALS['t_active'] = false;      // is_plugin_active()
 $GLOBALS['t_fsmeth'] = 'direct';
 $GLOBALS['t_api']    = null;       // object, or a WP_Error, set per scenario
-$GLOBALS['t_install']= true;       // what Plugin_Upgrader::install() returns
+$GLOBALS['t_install']= true;       // what Plugin_Upgrader::install() returns: true, false, or a WP_Error
+$GLOBALS['t_install_writes'] = true;   // whether a `true` from install() actually put the plugin on disk
 $GLOBALS['t_act_ret']= true;       // what activate_plugin() returns
 $GLOBALS['t_admin']  = false;
 $GLOBALS['t_ajax']   = false;
@@ -104,7 +109,10 @@ function is_wp_error($t) { return $t instanceof WP_Error; }
 function t_hit($n) { $GLOBALS['t_calls'][] = $n; }
 function t_hits($n) { return count(array_keys($GLOBALS['t_calls'], $n)); }
 
-function get_option($k, $d = false) { return array_key_exists($k, $GLOBALS['t_opts']) ? $GLOBALS['t_opts'][$k] : $d; }
+// Reads are counted separately from t_calls, which is the WRITE ledger: the reporter must write nothing, and it must
+// also not READ anything on a request that did not ask for it. The second count is what proves the gate is wired into
+// atlas_wf_status_send_header() rather than merely existing as a function.
+function get_option($k, $d = false) { $GLOBALS['t_reads']++; return array_key_exists($k, $GLOBALS['t_opts']) ? $GLOBALS['t_opts'][$k] : $d; }
 function update_option($k, $v, $a = null) { t_hit('update_option:' . $k); $GLOBALS['t_opts'][$k] = $v; return true; }
 function delete_option($k) { unset($GLOBALS['t_opts'][$k]); return true; }
 function get_transient($k) { return array_key_exists($k, $GLOBALS['t_trans']) ? $GLOBALS['t_trans'][$k] : false; }
@@ -149,7 +157,10 @@ class Plugin_Upgrader {
         t_hit('install:' . $package);
         $this->skin->header(); $this->skin->before(); $this->skin->feedback('installing');
         $r = $GLOBALS['t_install'];
-        if ($r === true) {
+        // WordPress's upgrader answers three ways, and all three are ordinary: a WP_Error (wordpress.org 403, "Download
+        // failed", "destination folder already exists"), a bare false, and a true that wrote nothing where the plugin
+        // was supposed to land. $t_install_writes is what separates the last one from a real success.
+        if ($r === true && $GLOBALS['t_install_writes']) {
             $dir = WP_PLUGIN_DIR . '/wordfence';
             if (!is_dir($dir)) { mkdir($dir, 0777, true); }
             file_put_contents($dir . '/wordfence.php', "<?php // stub wordfence\n");
@@ -278,6 +289,64 @@ case 'api-error':
     ok('the message text never reached the error_log line', strpos($log, 'err=1') !== false && strpos($log, 'WordPress.org') === false);
     break;
 
+case 'install-wp-error':
+    // The upgrader's OWN failure, which api-error does not reach: plugins_api answers, the package is fetched, and
+    // WP_Upgrader::install() returns a WP_Error. This is the likeliest real-world outcome on this host (a
+    // wordpress.org 403, a slug the platform blocklists, "destination folder already exists" from a half-unpacked
+    // previous try) and it had zero coverage — $GLOBALS['t_install'] was set once, to true, and never reassigned.
+    t_write_includes($INCLUDES);
+    $GLOBALS['t_api'] = (object) array('download_link' => 'https://downloads.wordpress.org/plugin/wordfence.zip');
+    $GLOBALS['t_install'] = new WP_Error('download_failed', "Download failed.\nNot Found");
+    copy($SRC_INSTALL, $COPY_INSTALL); require $COPY_INSTALL;
+    $leak = t_run_init();
+    ok('status=error', t_field('status') === 'error');
+    ok('the code is the upgrader error code, and only that', t_field('code') === 'install_download_failed');
+    ok("the option keeps WordPress's own message", strpos((string) t_field('error'), 'install:download_failed:Download failed.') === 0);
+    ok('the message is flattened to one line', strpos((string) t_field('error'), "\n") === false);
+    ok('nothing the skin printed reached the response', $leak === '');
+    ok('no version is claimed for a failed install', t_field('version') === '');
+    ok('it was activated by nobody', t_hits('activate_plugin') === 0);
+    ok('tries=1 and the file STAYS for the next trigger', t_field('tries') === 1 && file_exists($COPY_INSTALL));
+    t_run_init(); t_run_init();
+    ok('three attempts, then the one-shot removes itself anyway', t_field('tries') === 3 && !file_exists($COPY_INSTALL));
+    ok('and it is still recorded as an error, not a false success', t_field('status') === 'error');
+    ok('the record says self=gone', t_field('self') === 'gone');
+    $log = is_file($ERRLOG) ? file_get_contents($ERRLOG) : '';
+    ok('the log line carries the code and not the message', strpos($log, 'code=install_download_failed') !== false && strpos($log, 'Not Found') === false);
+    break;
+
+case 'install-false':
+    // The other shape: no WP_Error, just false. WP_Upgrader returns it when the filesystem refused or the download was
+    // unreadable, and `false` is not a WP_Error — a run that only checks is_wp_error() walks straight past it.
+    t_write_includes($INCLUDES);
+    $GLOBALS['t_api'] = (object) array('download_link' => 'https://downloads.wordpress.org/plugin/wordfence.zip');
+    $GLOBALS['t_install'] = false;
+    copy($SRC_INSTALL, $COPY_INSTALL); require $COPY_INSTALL;
+    t_run_init();
+    ok('status=error', t_field('status') === 'error');
+    ok('the code names the refusal', t_field('code') === 'install_refused');
+    ok('the reason is recorded in full', strpos((string) t_field('error'), 'the upgrader refused the package') !== false);
+    ok('nothing was activated', t_hits('activate_plugin') === 0);
+    ok('retryable: the file stays', file_exists($COPY_INSTALL));
+    t_run_init(); t_run_init();
+    ok('and the third attempt removes it', t_field('tries') === 3 && !file_exists($COPY_INSTALL));
+    break;
+
+case 'install-empty':
+    // install() reported success and the plugin is not in the plugins directory. WordPress's upgrader can do this when
+    // the package unpacked somewhere else; believing it would mean activating a plugin that is not there.
+    t_write_includes($INCLUDES);
+    $GLOBALS['t_api'] = (object) array('download_link' => 'https://downloads.wordpress.org/plugin/wordfence.zip');
+    $GLOBALS['t_install'] = true;
+    $GLOBALS['t_install_writes'] = false;
+    copy($SRC_INSTALL, $COPY_INSTALL); require $COPY_INSTALL;
+    t_run_init();
+    ok('a success that wrote no plugin is an error', t_field('status') === 'error');
+    ok('the code names it', t_field('code') === 'not_in_plugins_dir');
+    ok('it did not activate a plugin that is not there', t_hits('activate_plugin') === 0);
+    ok('retryable: the file stays', file_exists($COPY_INSTALL));
+    break;
+
 case 'no-installer':
     // class-wp-upgrader.php absent: WordPress's own installer is not there, so nothing is constructed.
     t_write_includes(array('plugin.php', 'file.php', 'misc.php', 'plugin-install.php'));
@@ -310,6 +379,7 @@ case 'activate-fails':
     t_run_init();
     ok('status=installed-not-active', t_field('status') === 'installed-not-active');
     ok('the error carries the activation code', strpos((string) t_field('error'), 'activate:plugin_not_found') === 0);
+    ok('the published code is the activation one, and carries no message', t_field('code') === 'activate_plugin_not_found');
     ok('the version is still recorded', t_field('version') === '8.0.5');
     ok('it installed exactly once', t_hits('upgrader:new') === 1);
     ok('not retryable: the file is removed', !file_exists($COPY_INSTALL));
@@ -381,6 +451,18 @@ case 'disabled':
 
 case 'status-header':
     copy($SRC_STATUS, $COPY_STATUS); require $COPY_STATUS;
+    // FIRST, before this scenario prints a single line: in the CLI SAPI headers_sent() becomes true the moment
+    // anything is echoed, and the reporter checks it. So the two measurements that prove the gate is wired into
+    // atlas_wf_status_send_header() — rather than sitting there as an unused function — are taken here, and asserted
+    // at the bottom with the rest.
+    unset($_GET[ATLAS_WF_STATUS_QUERY]);
+    $r0 = $GLOBALS['t_reads'];
+    atlas_wf_status_send_header();
+    $reads_ungated = $GLOBALS['t_reads'] - $r0;
+    $_GET[ATLAS_WF_STATUS_QUERY] = substr(sha1_file($COPY_STATUS), 0, 8);
+    atlas_wf_status_send_header();
+    $reads_gated = $GLOBALS['t_reads'] - $r0 - $reads_ungated;
+    unset($_GET[ATLAS_WF_STATUS_QUERY]);
     $GLOBALS['t_opts']['active_plugins'] = array('woocommerce/woocommerce.php');
     $GLOBALS['t_opts']['atlas_wordfence_install'] = array(
         'status' => 'installed', 'version' => '8.0.5', 'time' => time() - 30, 'error' => '', 'tries' => 1, 'self' => 'gone',
@@ -399,13 +481,36 @@ case 'status-header':
     $GLOBALS['t_opts']['active_plugins'][] = 'wordfence/wordfence.php';
     ok('act=1 the moment the plugin is in active_plugins', strpos(atlas_wf_status_value(), ';act=1;') !== false);
     $GLOBALS['t_opts']['atlas_wordfence_install'] = array(
-        'status' => 'error', 'version' => '', 'time' => time() - 7200, 'error' => "install:download_failed:Download failed.\nsemi;colon and a space", 'tries' => 2, 'self' => 'pending',
+        'status' => 'error', 'version' => '', 'time' => time() - 7200, 'code' => 'install_download_failed',
+        'error' => "install:download_failed:Download failed. /home/1127220/html/wp-content/upgrade\nsemi;colon and a space",
+        'tries' => 2, 'self' => 'pending',
     );
     $h2 = atlas_wf_status_value();
     ok('a message with a newline stays ONE header line', strpos($h2, "\n") === false && strpos($h2, "\r") === false);
     ok('its own semicolon cannot fake a limb', substr_count($h2, ';') === 9);
     ok('age=day two hours later', strpos($h2, ';age=day;') !== false);
-    ok('the message survives percent-decoding', strpos(rawurldecode(substr($h2, strpos($h2, ';err=') + 5)), 'Download failed.') !== false);
+    ok('err= is the short CODE', substr($h2, -strlen(';err=install_download_failed')) === ';err=install_download_failed');
+    // The whole point of the split: an installer message can carry the docroot, and this header is read off the wire.
+    ok("WordPress's own message is NOWHERE on the header", strpos($h2, 'Download failed') === false && strpos($h2, '/home/') === false && strpos($h2, 'upgrade') === false);
+    $GLOBALS['t_opts']['atlas_wordfence_install'] = array(
+        'status' => 'error', 'version' => '', 'time' => time(), 'error' => 'a record written before codes existed', 'tries' => 1, 'self' => 'pending',
+    );
+    ok('a record with an error but no code says so without quoting it', strpos(atlas_wf_status_value(), ';err=recorded') !== false);
+    // The gate. Nothing is published to a request that did not ask for this exact build.
+    unset($_GET[ATLAS_WF_STATUS_QUERY]);
+    ok('an ordinary front-end request asks for nothing and gets nothing', atlas_wf_status_requested() === false);
+    $_GET[ATLAS_WF_STATUS_QUERY] = 'deadbeef';
+    ok('another build fingerprint is refused', atlas_wf_status_requested() === false);
+    $_GET[ATLAS_WF_STATUS_QUERY] = substr(sha1_file($COPY_STATUS), 0, 8);
+    ok('the 8-character build the deploy script sends is accepted', atlas_wf_status_requested() === true);
+    $_GET[ATLAS_WF_STATUS_QUERY] = sha1_file($COPY_STATUS);
+    ok('the whole sha1 is accepted too', atlas_wf_status_requested() === true);
+    $_GET[ATLAS_WF_STATUS_QUERY] = 'xx<script>xx';
+    ok('nothing the request sent is reflected back into the header', strpos(atlas_wf_status_value(), 'script') === false && atlas_wf_status_requested() === false);
+    // And the gate is WIRED, not merely present (measured at the top of this scenario): on a request that did not ask,
+    // the header hook reads no option at all, which is the only observable a CLI harness has — header() is a no-op here.
+    ok('an ungated request never even reads the record', $reads_ungated === 0);
+    ok('a request carrying the build fingerprint does', $reads_gated > 0);
     break;
 
 case 'source':
@@ -421,6 +526,7 @@ case 'source':
     ok('no auto_prepend_file / extended protection', stripos($src, 'auto_prepend') === false && stripos($src, 'WFWAF') === false);
     ok('the only plugin slug it can install is wordfence', substr_count($src, "'wordfence'") === 1 && strpos($src, "ATLAS_WF_INSTALL_SLUG', 'wordfence'") !== false);
     ok('it exits when loaded outside WordPress', strpos($src, "if (!defined('ABSPATH')) { exit; }") !== false);
+    ok('the installer never publishes a WP_Error message itself — the reporter reads the option', strpos($src, 'header(') === false);
     $st = t_code($SRC_STATUS);
     ok('the reporter writes no option, transient or file', strpos($st, 'update_option') === false && strpos($st, 'set_transient') === false && strpos($st, 'file_put_contents') === false && strpos($st, 'unlink') === false);
     break;

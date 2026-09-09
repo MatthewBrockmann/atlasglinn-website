@@ -5,10 +5,9 @@
  * Version: 1.0.0
  * Author: atlasglinn-website (scripts/wp-wordfence-install.sh)
  *
- * WHY A FILE AND NOT A DASHBOARD CLICK OR WP-CLI. R2 of the 2026-07-01 security packet (brain vault
- * 02-projects/atlasglinn-security-incident-2026-07-01.md:139-146) is "install Wordfence Free", and it has been open
- * since. The saved GoDaddy login `mast-wp-sftp` answers "This service allows sftp connections only." (measured
- * 2026-09-08 18:46 UTC, scripts/wp-cache-watch-deploy.sh), so `wp plugin install wordfence` over SSH cannot run from
+ * WHY A FILE AND NOT A DASHBOARD CLICK OR WP-CLI. R2 of the 2026-07-01 security packet is "install Wordfence Free",
+ * and it has been open since. The saved GoDaddy login `mast-wp-sftp` answers "This service allows sftp connections
+ * only." (measured 2026-09-08 18:46 UTC, scripts/wp-cache-watch-deploy.sh), so `wp plugin install wordfence` over SSH cannot run from
  * the Mac at all — a script built on that route installs nothing and reports a preflight failure. What still works is
  * SFTP, and WordPress itself is already running on the host with the installer WP-CLI would have called. So the
  * install travels the way the cache cascade travels: as a must-use plugin dropped into
@@ -36,18 +35,26 @@
  * exits before `init` — so https://atlasglinn.com/ does NOT run this file. The trigger and every measurement use a
  * URL carrying a non-tracking query (?atlas-wordfence=<ts>), which that plugin passes through to WordPress by design.
  *
- * BOUNDED, AND IT GIVES UP. One attempt per request, guarded by a 5-minute lock transient so two overlapping requests
- * cannot both install; set_time_limit(180) while the package downloads (the previous limit is restored). A failed
+ * BOUNDED, AND IT GIVES UP. One attempt per request, behind a 5-minute lock transient; set_time_limit(180) while the
+ * package downloads (the previous limit is restored). THE LOCK IS NOT ATOMIC and this file does not claim it is: it is
+ * get_transient() then set_transient(), a check-then-set, so two front-end requests arriving inside the same few
+ * milliseconds can both pass it. The transient is kept anyway rather than add_option() — WordPress core is not in this
+ * repository and add_option()'s insert could not be read this run, so calling it an atomic insert would be a claim
+ * nothing here measured. What bounds the residual is the branch below it: the second request finds Wordfence already
+ * on disk (or gets the upgrader's own "destination folder already exists"), which is recorded as a retryable error,
+ * not a second install. A failed
  * attempt increments `tries` and leaves this file in place so the next trigger retries; on the third it records the
  * failure and removes itself anyway. A request killed mid-install leaves status=running and the lock, and the next
  * request after the lock expires retries. A terminal record already present means the work is done: the file removes
  * itself and returns without touching anything.
  *
  * WHAT IT WRITES: one option (autoload=no), one transient, and one error_log line carrying a status word, a version
- * and a 0/1 — never the error text, in keeping with wp-ops/atlas-cache-watch.php. The error message IS kept in the
- * option and published in the header, because it is WordPress's own installer string ("Download failed",
- * "destination folder already exists", a 403 from wordpress.org) and an operator with no shell has no other way to
- * read it. No post, no user, no setting, no file beyond its own deletion.
+ * and a 0/1 — never the error text, in keeping with wp-ops/atlas-cache-watch.php. Two fields carry a failure, and the
+ * split is deliberate: `code` is a short token this file composes itself (install_download_failed, activate_*,
+ * api_*, fs_ftpext, no_download_link, install_refused, not_in_plugins_dir, missing_include, gave_up) and `error` is
+ * WordPress's own message. ONLY THE CODE GOES ON THE RESPONSE HEADER — a WP_Error message can carry an absolute
+ * filesystem path or a source URL, and that header is readable off the wire. The message stays in the option, which
+ * needs the database to reach. No post, no user, no setting, no file beyond its own deletion.
  *
  * HOW TO STOP IT: define('ATLAS_WORDFENCE_INSTALL_DISABLED', true); in wp-config.php, or delete
  * html/wp-content/mu-plugins/atlas-wordfence-install.php (bash scripts/wp-wordfence-install.sh --remove). Removing
@@ -109,19 +116,30 @@ function atlas_wf_install_refused() {
     return '';
 }
 
-function atlas_wf_install_record($status, $version, $error, $tries, $self) {
+// `code` is the short token that may be published; `error` is WordPress's own message and stays in the option.
+function atlas_wf_install_code($s, $max = 32) {
+    $s = preg_replace('/[^A-Za-z0-9_]/', '_', strtolower((string) $s));
+    $s = trim($s, '_');
+    if ($s === '') { return 'unknown'; }
+    return strlen($s) > $max ? substr($s, 0, $max) : $s;
+}
+
+function atlas_wf_install_record($status, $version, $code, $error, $tries, $self) {
     update_option(ATLAS_WF_INSTALL_OPT, array(
         'status'  => $status,
         'version' => $version,
         'time'    => time(),
+        'code'    => $code,
         'error'   => $error,
         'tries'   => (int) $tries,
         'plugin'  => ATLAS_WF_INSTALL_PLUGIN,
         'self'    => $self,
         'by'      => ATLAS_WF_INSTALL_VERSION . '/' . atlas_wf_install_build(),
     ), false);
-    // A status word, a version and a 0/1 — the message itself stays out of the log, as in atlas-cache-watch.php.
+    // A status word, a version, this file's own error CODE and a 0/1 — WordPress's message stays out of the log, as
+    // in atlas-cache-watch.php: a path or a token can ride inside an installer string.
     error_log('[atlas-wordfence-install] status=' . $status . ' version=' . ($version === '' ? 'none' : $version)
+        . ' code=' . ($code === '' ? 'none' : $code)
         . ' tries=' . (int) $tries . ' err=' . ($error === '' ? 0 : 1) . ' self=' . $self);
 }
 
@@ -177,13 +195,13 @@ function atlas_wf_install_version() {
     return '';
 }
 
-// The install itself. Returns array(status, error) and touches nothing else; the caller records and removes.
+// The install itself. Returns array(status, code, error) and touches nothing else; the caller records and removes.
 function atlas_wf_install_do() {
     $dir  = defined('WP_PLUGIN_DIR') ? WP_PLUGIN_DIR : (defined('WP_CONTENT_DIR') ? WP_CONTENT_DIR . '/plugins' : ABSPATH . 'wp-content/plugins');
     $path = $dir . '/' . ATLAS_WF_INSTALL_PLUGIN;
 
     if (is_plugin_active(ATLAS_WF_INSTALL_PLUGIN)) {
-        return array('already-active', '');
+        return array('already-active', '', '');
     }
     $on_disk = is_file($path);
     if (!$on_disk) {
@@ -192,17 +210,17 @@ function atlas_wf_install_do() {
         // Refuse before that happens rather than discover it in an output buffer.
         $method = get_filesystem_method();
         if ($method !== 'direct') {
-            return array('no-filesystem', 'WP_Filesystem method is "' . atlas_wf_install_clip($method, 40) . '", not "direct" — WordPress cannot write to wp-content/plugins without credentials this file will not ask for');
+            return array('no-filesystem', atlas_wf_install_code('fs_' . $method), 'WP_Filesystem method is "' . atlas_wf_install_clip($method, 40) . '", not "direct" — WordPress cannot write to wp-content/plugins without credentials this file will not ask for');
         }
         $api = plugins_api('plugin_information', array(
             'slug'   => ATLAS_WF_INSTALL_SLUG,
             'fields' => array('sections' => false, 'short_description' => false, 'screenshots' => false, 'banners' => false),
         ));
         if (is_wp_error($api)) {
-            return array('error', 'plugins_api:' . $api->get_error_code() . ':' . atlas_wf_install_clip($api->get_error_message()));
+            return array('error', atlas_wf_install_code('api_' . $api->get_error_code()), 'plugins_api:' . $api->get_error_code() . ':' . atlas_wf_install_clip($api->get_error_message()));
         }
         if (!is_object($api) || empty($api->download_link)) {
-            return array('error', 'plugins_api returned no download_link for the ' . ATLAS_WF_INSTALL_SLUG . ' slug');
+            return array('error', 'no_download_link', 'plugins_api returned no download_link for the ' . ATLAS_WF_INSTALL_SLUG . ' slug');
         }
         $skin = new Plugin_Installer_Skin(array('type' => 'web', 'api' => $api, 'nonce' => '', 'title' => '', 'url' => ''));
         // The skin is WordPress's admin-screen skin and it echoes: a header, a feedback line per step, and a block of
@@ -216,22 +234,22 @@ function atlas_wf_install_do() {
         ob_end_clean();
         clearstatcache();
         if (is_wp_error($res)) {
-            return array('error', 'install:' . $res->get_error_code() . ':' . atlas_wf_install_clip($res->get_error_message()));
+            return array('error', atlas_wf_install_code('install_' . $res->get_error_code()), 'install:' . $res->get_error_code() . ':' . atlas_wf_install_clip($res->get_error_message()));
         }
         if ($res === false) {
-            return array('error', 'install: the upgrader refused the package (a filesystem it could not write, or an unreadable download)');
+            return array('error', 'install_refused', 'install: the upgrader refused the package (a filesystem it could not write, or an unreadable download)');
         }
         if (!is_file($path)) {
-            return array('error', 'install: reported success but ' . ATLAS_WF_INSTALL_PLUGIN . ' is not in the plugins directory');
+            return array('error', 'not_in_plugins_dir', 'install: reported success but ' . ATLAS_WF_INSTALL_PLUGIN . ' is not in the plugins directory');
         }
     }
     // activate_plugin() with its defaults on purpose: $silent=true would skip Wordfence's own activation hook, which is
     // what creates its tables — an "active" plugin with no schema is worse than none.
     $act = activate_plugin(ATLAS_WF_INSTALL_PLUGIN);
     if (is_wp_error($act)) {
-        return array('installed-not-active', 'activate:' . $act->get_error_code() . ':' . atlas_wf_install_clip($act->get_error_message()));
+        return array('installed-not-active', atlas_wf_install_code('activate_' . $act->get_error_code()), 'activate:' . $act->get_error_code() . ':' . atlas_wf_install_clip($act->get_error_message()));
     }
-    return array($on_disk ? 'activated' : 'installed', '');
+    return array($on_disk ? 'activated' : 'installed', '', '');
 }
 
 function atlas_wf_install_run() {
@@ -252,7 +270,7 @@ function atlas_wf_install_run() {
     }
     if (get_transient(ATLAS_WF_INSTALL_LOCK)) { return; }
     if ($tries >= ATLAS_WF_INSTALL_TRIES) {
-        atlas_wf_install_record('gave-up', '', ATLAS_WF_INSTALL_TRIES . ' attempts did not finish', $tries, 'pending');
+        atlas_wf_install_record('gave-up', '', 'gave_up', ATLAS_WF_INSTALL_TRIES . ' attempts did not finish', $tries, 'pending');
         atlas_wf_install_remove_self();
         return;
     }
@@ -260,11 +278,12 @@ function atlas_wf_install_run() {
     $tries++;
     // status=running is written BEFORE the download, so a request killed mid-install is visible as running rather than
     // as "never started", and the attempt is counted whether or not it comes back.
-    atlas_wf_install_record('running', '', '', $tries, 'pending');
+    atlas_wf_install_record('running', '', '', '', $tries, 'pending');
 
     $miss = atlas_wf_install_load_installer();
     if ($miss !== '') {
         $status = 'error';
+        $code   = 'missing_include';
         $error  = 'installer:' . $miss;
     } else {
         $limit = ini_get('max_execution_time');
@@ -272,7 +291,8 @@ function atlas_wf_install_run() {
         $out = atlas_wf_install_do();
         if (function_exists('set_time_limit')) { set_time_limit($limit === false ? 0 : (int) $limit); }
         $status = $out[0];
-        $error  = $out[1];
+        $code   = $out[1];
+        $error  = $out[2];
     }
     $version = ($status === 'installed' || $status === 'activated' || $status === 'already-active' || $status === 'installed-not-active')
         ? atlas_wf_install_version() : '';
@@ -280,7 +300,7 @@ function atlas_wf_install_run() {
     // A retryable failure keeps this file on the host so the next trigger fetch tries again; everything else — success,
     // a filesystem that cannot be written, the last allowed attempt — is the end of this file's life.
     $retry = ($status === 'error' && $tries < ATLAS_WF_INSTALL_TRIES);
-    atlas_wf_install_record($status, $version, $error, $tries, $retry ? 'pending' : 'removing');
+    atlas_wf_install_record($status, $version, $code, $error, $tries, $retry ? 'pending' : 'removing');
     delete_transient(ATLAS_WF_INSTALL_LOCK);
     if (!$retry) { atlas_wf_install_remove_self(); }
 }

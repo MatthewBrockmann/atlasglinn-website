@@ -7,12 +7,23 @@
 # and the same route the cache cascade already travels carries this: two must-use plugins land in
 # html/wp-content/mu-plugins/, one request triggers them, and the answer comes back on a response header.
 #
-#   bash scripts/wp-wordfence-install.sh            # upload, trigger, measure, report — the whole R2 step in one run
-#   bash scripts/wp-wordfence-install.sh --status   # measure only: nothing is uploaded and nothing is triggered
-#   bash scripts/wp-wordfence-install.sh --remove   # delete BOTH mu-plugins (Wordfence itself is left running)
+#   bash scripts/wp-wordfence-install.sh                     # upload, trigger, measure, report — the whole R2 step
+#   bash scripts/wp-wordfence-install.sh --status            # measure only: no upload, no trigger, no sftp session
+#   bash scripts/wp-wordfence-install.sh --remove            # delete BOTH mu-plugins (Wordfence itself keeps running)
+#   bash scripts/wp-wordfence-install.sh --remove-status     # delete the reporter alone (after a run it is the file left)
+#   bash scripts/wp-wordfence-install.sh --disable-wordfence # THE RECOVERY: rename the Wordfence plugin directory off
 #
 # Any other argument, or more than one, aborts before anything is sent — the same rule as the sibling deploy script,
 # for the same reason: `--remove --install` reads as a removal to a human and must reach no host at all.
+#
+# THE RECOVERY, because the obvious one is wrong. --remove deletes the two mu-plugins THIS script installed and does
+# not touch Wordfence, so if Wordfence is what took the site or the login page down, --remove cannot bring it back.
+# With no shell and no WP-CLI the only route left is SFTP, and what SFTP can do is RENAME:
+# --disable-wordfence renames html/wp-content/plugins/wordfence to wordfence.off. Nothing of Wordfence can load from a
+# path that no longer exists, so it stops running on the very next request; WordPress drops the missing entry from
+# active_plugins the next time an admin screen validates the plugin list. The run then re-measures the front page, the
+# WordPress-rendered page and wp-login.php and prints what they answer. Renaming BACK is a one-line sftp rename in the
+# other direction, which is why this is the recovery rather than a delete.
 #
 # WHAT IS INSTALLED, AND WHAT IS NOT. wp-ops/atlas-wordfence-install.php installs and activates the `wordfence` slug
 # from wordpress.org and does nothing else — no login-failure limit, no lockout window, no username blacklist, no
@@ -24,23 +35,31 @@
 # WHAT COUNTS AS PROOF HERE.
 #   1. The status plugin's own header must carry the build fingerprint of the file this run just sent — the same rule
 #      as scripts/wp-cache-watch-deploy.sh: a same-version copy already on the host answers identically, so only the
-#      exact bytes uploaded count as deployed. Without that, nothing below is read at all.
+#      exact bytes uploaded count as deployed. Without that, nothing below is read at all. That fingerprint is also
+#      what ASKS for the header: the reporter answers only a request carrying ?atlas-wordfence-status=<fingerprint>,
+#      so a copy of another build on the host stays silent rather than answering with the wrong build.
 #   2. `act=1` on that header is the verdict, and it is a LIVE read of the site's active_plugins option on the request
 #      that answered — not the installer's memory of what it did. A recorded st=installed with act=0 is a failure.
 #   3. The installer file must be GONE, proved by an sftp `ls` of its path classified exactly as the sibling script
 #      classifies a removal (the session must carry OpenSSH's `sftp> ls` echo, exit 0, and either LIST the file — which
 #      wins over any "gone" text in the same session — or answer with sftp's own `Can't ls: … not found`). A one-shot
 #      that did not remove itself is live code left on a production site, so that is a non-zero exit even when
-#      Wordfence installed perfectly.
-#   4. The site must still answer. The reader-facing front page (https://atlasglinn.com/, served from index.html by
-#      wp-ops/atlas-static-root.php) and the WordPress-rendered page are both measured before and after; a 200 that
-#      stops being a 200 fails the run whatever the plugin says.
+#      Wordfence installed perfectly. --status RUNS NO SFTP SESSION AT ALL, so it cannot prove this and does not say
+#      it: it prints "self-removal: not measured in --status" and never prints FIRED-OBSERVED, whatever the header's
+#      own self= limb claims. That limb is the installer's memory of what it did; only the `ls` is a measurement of
+#      the host, and a mode that did not measure does not get to report the result.
+#   4. The site must still answer, and THAT INCLUDES THE LOGIN PAGE. The reader-facing front page
+#      (https://atlasglinn.com/, served from index.html by wp-ops/atlas-static-root.php), the WordPress-rendered page
+#      and https://atlasglinn.com/wp-login.php are all measured before and after. Any of the three answering something
+#      different afterwards fails the run whatever the plugin says — a security plugin that breaks the only admin's way
+#      in is the exact outcome this whole design exists to prevent, and it is worthless to measure it and then leave it
+#      out of the verdict. The failure prints --disable-wordfence, which is the remedy that can actually undo it.
 # What is NOT proof: the sftp exit code and its text (a batch on stdin does not abort on a failed put — that needs -b,
 # which sets BatchMode and refuses the Keychain askpass), and the Wordfence markers grepped out of the page body.
 # Wordfence Free adds nothing to a front-end response as a rule, so their absence says nothing; they are printed as an
 # advisory and decide nothing.
 #
-# EVERY MEASUREMENT USES ?atlas-wordfence=<ts>. https://atlasglinn.com/ is answered by wp-ops/atlas-static-root.php
+# EVERY MEASUREMENT USES ?atlas-wordfence-status=<fingerprint> (the trigger fetch uses ?atlas-wordfence=<ts>). https://atlasglinn.com/ is answered by wp-ops/atlas-static-root.php
 # from the uploaded index.html on `muplugins_loaded` — it exits before `init`, so the installer never runs there and
 # the status header is never sent there. That plugin passes any URL carrying a non-tracking query straight through to
 # WordPress, which is the door this uses (and the same one scripts/wp-cache-watch-deploy.sh uses with ?atlas-watch=).
@@ -54,6 +73,12 @@
 set -u
 HOST="${WP_SFTP_HOST:-1127220.us12.ssh.myftpupload.com}"
 DOCROOT="${WP_DOCROOT:-html}"
+# Both of these are interpolated into the sftp batch below, and a newline in either one injects an sftp command of
+# somebody else's choosing into a session pointed at a production docroot. Neither ever legitimately holds anything but
+# a host name and a path, so anything else stops the run before a session opens.
+case "$HOST$DOCROOT" in
+  *[!A-Za-z0-9._/-]*) printf 'refusing to run: WP_SFTP_HOST/WP_DOCROOT carry a character outside [A-Za-z0-9._/-], and both are written into the sftp batch. Nothing was sent.\n' >&2; exit 1;;
+esac
 WP_BASE="${WP_BASE:-https://www.atlasglinn.com}"
 SITE_ROOT="${WP_SITE_ROOT:-https://atlasglinn.com}"
 LOGIN_URL="${WP_LOGIN_URL:-https://atlasglinn.com/wp-login.php}"
@@ -61,6 +86,12 @@ KC_SERVICE="${KC_SFTP:-mast-wp-sftp}"
 REMOTE_DIR="$DOCROOT/wp-content/mu-plugins"
 REMOTE_INSTALL="$REMOTE_DIR/atlas-wordfence-install.php"
 REMOTE_STATUS="$REMOTE_DIR/atlas-wordfence-status.php"
+# --disable-wordfence renames the directory; the file inside it is what the `ls` classifier can answer about, because
+# an `ls` of a directory lists its contents rather than its name.
+REMOTE_WF_DIR="$DOCROOT/wp-content/plugins/wordfence"
+REMOTE_WF_OFF="$DOCROOT/wp-content/plugins/wordfence.off"
+REMOTE_WF_FILE="$REMOTE_WF_DIR/wordfence.php"
+REMOTE_WF_OFF_FILE="$REMOTE_WF_OFF/wordfence.php"
 LOG="$HOME/.cache/wp-upload/wp-wordfence-install.log"
 STAMP="$HOME/.cache/wp-upload/last-wordfence-install"
 TRIGGER_TRIES="${ATLAS_WF_TRIGGER_TRIES:-3}"
@@ -75,10 +106,13 @@ say() { printf '%s\n' "$*" | tee -a "$LOG"; }
 TS="$(date -u +%FT%TZ)"
 MODE=install
 
+# The two files that get uploaded are PINNED to this checkout and no environment variable may choose them. They land
+# in mu-plugins, where PHP runs them on every request with no activation step and no review — "which files go to
+# production" is not a knob, and the only reason it ever was one is that a harness found it convenient.
 SELF="${BASH_SOURCE[0]:-$0}"
 ROOT="$(cd "$(dirname "$SELF")/.." 2>/dev/null && pwd || true)"
-SRC_INSTALL="${ATLAS_WF_INSTALL_SRC:-${ROOT:-.}/wp-ops/atlas-wordfence-install.php}"
-SRC_STATUS="${ATLAS_WF_STATUS_SRC:-${ROOT:-.}/wp-ops/atlas-wordfence-status.php}"
+SRC_INSTALL="${ROOT:-.}/wp-ops/atlas-wordfence-install.php"
+SRC_STATUS="${ROOT:-.}/wp-ops/atlas-wordfence-status.php"
 B=""; A=""
 FP_INSTALL=""; FP_STATUS=""
 result="not-run"; ST="none"; ACT="0"; WF="none"; SELFSTATE="unknown"; ERRTXT=""
@@ -107,13 +141,15 @@ trap on_exit EXIT
 die() { ABORT="$1"; shift; say "$*"; exit 1; }
 
 if [ "$#" -gt 1 ]; then
-  die bad-arg "this script takes at most one argument and was given $# (\"$*\") — say --install, --status or --remove, never two; nothing was sent"
+  die bad-arg "this script takes at most one argument and was given $# (\"$*\") — say --install, --status, --remove, --remove-status or --disable-wordfence, never two; nothing was sent"
 fi
 case "${1:-}" in
-  ""|--install) MODE=install;;
-  --status)     MODE=status;;
-  --remove)     MODE=remove;;
-  *)            die bad-arg "unknown argument \"$1\" — this script takes no argument (or --install) to install, --status to measure only, and --remove to delete both mu-plugins; nothing was sent";;
+  ""|--install)        MODE=install;;
+  --status)            MODE=status;;
+  --remove)            MODE=remove;;
+  --remove-status)     MODE=remove-status;;
+  --disable-wordfence) MODE=disable;;
+  *)                   die bad-arg "unknown argument \"$1\" — no argument (or --install) installs, --status measures only, --remove deletes both mu-plugins, --remove-status deletes the reporter alone, and --disable-wordfence renames the Wordfence plugin directory off (the recovery); nothing was sent";;
 esac
 
 # ── HTTP measurement ──────────────────────────────────────────────────────────────────────────────────────────────────
@@ -128,13 +164,17 @@ http_code() {
   code="$(printf '%s\n' "$raw" | tr -d '\r' | grep -Ex 'ATLAS_HTTP_CODE:[0-9]{3}' | tail -1 | cut -d: -f2)"
   printf '%s' "${code:-000}"
 }
+# Two URLs, and the difference matters. The TRIGGER only has to be a plain front-end GET that WordPress renders, so it
+# carries a cache-busting timestamp. The PROBE has to ask the reporter for its header, which it sends only to a request
+# carrying its own build fingerprint — the one this run computed from the file it is sending.
 wp_url() { printf '%s/?atlas-wordfence=%s' "$WP_BASE" "$(date +%s)"; }
+probe_url() { printf '%s/?atlas-wordfence-status=%s&atlas-wordfence=%s' "$WP_BASE" "$FP_STATUS" "$(date +%s)"; }
 
 PROBE_RC=1; PROBE_CODE="000"; PROBE_FINAL=""; PROBE_HDR=""; PROBE_WHY=""; RULE=""
 probe() {
   local raw parsed
   PROBE_RC=1; PROBE_CODE="000"; PROBE_FINAL=""; PROBE_HDR=""; PROBE_WHY=""
-  raw="$(curl -sI -L --max-redirs 3 -o /dev/null -D - -w '\nATLAS_HTTP_CODE:%{http_code}\n' -m 45 -A "wp-wordfence-install" "$(wp_url)" 2>/dev/null)"
+  raw="$(curl -sI -L --max-redirs 3 -o /dev/null -D - -w '\nATLAS_HTTP_CODE:%{http_code}\n' -m 45 -A "wp-wordfence-install" "$(probe_url)" 2>/dev/null)"
   PROBE_RC=$?
   # An ABORTED chain is not read AT ALL: curl has already printed every hop it followed, and a header on one of them is
   # not a header a reader was served.
@@ -172,6 +212,15 @@ read_limbs() {
   SELFSTATE="$(limb self)"; SELFSTATE="${SELFSTATE:-unknown}"
   ERRTXT="$(limb err)"
 }
+# err=0 is the reporter saying there was NO error, and "0" is a non-empty string — ${ERRTXT:+…} fired on it and told
+# the operator "Recorded error: 0" on a clean run. The limb carries a short CODE now (the message stays in the option
+# on the host, because a WP_Error message can carry an absolute path), so this prints the code or nothing at all.
+err_note() {
+  case "${ERRTXT:-}" in
+    ""|0|none) printf '';;
+    *) printf ' Recorded error code: %s — the full message is in the option atlas_wordfence_install on the host, deliberately not on the header.' "$ERRTXT";;
+  esac
+}
 # The header is evidence only off a completed chain that ended in a 200 whose build is the file just sent. Each gate
 # names itself in RULE, so the log says which one refused the claim.
 STATUS_OK=0
@@ -185,7 +234,7 @@ classify_status_plugin() {
   if [ "$PROBE_CODE" != 200 ] || [ "$PROBE_FINAL" != 200 ]; then
     RULE="rule not-200: the final response block is http ${PROBE_FINAL:-none} and curl reported $PROBE_CODE — only a 200 is a page a reader was served"; return
   fi
-  if [ -z "$PROBE_HDR" ]; then RULE="rule header-absent: the chain ended in http 200 and that response carried no X-Atlas-Wordfence"; return; fi
+  if [ -z "$PROBE_HDR" ]; then RULE="rule header-absent: the chain ended in http 200 and that response carried no X-Atlas-Wordfence — either the reporter is not on the host, or the copy that is running is not build $FP_STATUS and stayed silent because the fingerprint in the URL is not its own"; return; fi
   local b; b="$(limb b)"
   if [ -n "$FP_STATUS" ] && [ "$b" != "$FP_STATUS" ]; then
     RULE="rule served-fingerprint: the 200 answer carries build \"${b:-none}\", not the $FP_STATUS just sent — an older copy of the status plugin is loaded"; return
@@ -238,6 +287,12 @@ ls_proof() {
 
 # ── preflight ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 say "wp-wordfence-install $TS — $HOST:$DOCROOT · mode $MODE"
+# EVERY mode needs the reporter's build fingerprint, not just --install: it is what the probe URL carries, and the
+# reporter answers nothing without it. A run that cannot compute it cannot read a header in any mode, so it stops here
+# rather than later, mistaking its own missing key for "Wordfence is not installed".
+[ -f "$SRC_STATUS" ] || die no-source "no reporter at $SRC_STATUS — this script sends and reads the files from its own checkout; run it from a clone of atlasglinn-website"
+FP_STATUS="$(sha1_of "$SRC_STATUS" | cut -c1-8)"
+[ -n "$FP_STATUS" ] || die no-sha1 "no shasum/sha1sum/openssl on this machine, so the build fingerprint cannot be computed — it is both the key the reporter answers to and the proof the bytes running are the bytes sent. Nothing was sent."
 if [ "$MODE" = install ]; then
   for f in "$SRC_INSTALL" "$SRC_STATUS"; do
     [ -f "$f" ] || die no-source "no plugin at $f — this script sends the files from its own checkout and never downloads one; run it from a clone of atlasglinn-website"
@@ -251,11 +306,8 @@ if [ "$MODE" = install ]; then
     say "no php on this Mac — the two plugin files were NOT syntax-checked before upload (CI checks them on every push; .github/workflows/wp-ops-tests.yml)"
   fi
   FP_INSTALL="$(sha1_of "$SRC_INSTALL" | cut -c1-8)"
-  FP_STATUS="$(sha1_of "$SRC_STATUS" | cut -c1-8)"
-  { [ -n "$FP_INSTALL" ] && [ -n "$FP_STATUS" ]; } || die no-sha1 "no shasum/sha1sum/openssl on this Mac, so the build fingerprint the host publishes cannot be checked against the file being sent — that check is the only proof this run has. Nothing was uploaded."
+  [ -n "$FP_INSTALL" ] || die no-sha1 "no shasum/sha1sum/openssl on this Mac, so the build fingerprint the host publishes cannot be checked against the file being sent — that check is the only proof this run has. Nothing was uploaded."
   say "atlas-wordfence-install build $FP_INSTALL ($(wc -c < "$SRC_INSTALL" | tr -d ' ') bytes) + atlas-wordfence-status build $FP_STATUS ($(wc -c < "$SRC_STATUS" | tr -d ' ') bytes) → $HOST:$REMOTE_DIR/"
-elif [ "$MODE" = status ] && [ -f "$SRC_STATUS" ]; then
-  FP_STATUS="$(sha1_of "$SRC_STATUS" | cut -c1-8)"
 fi
 
 if [ "$MODE" != status ]; then
@@ -280,33 +332,88 @@ if [ "$MODE" = install ] && [ "$WP_BEFORE" != 200 ] && [ "${ATLAS_WF_FORCE:-0}" 
   die site-not-answering "the WordPress-rendered page answers http $WP_BEFORE BEFORE anything was uploaded — this run stops rather than add two plugins to a site that is already not answering. Fix that first, or re-run with ATLAS_WF_FORCE=1 if the code is expected."
 fi
 
-# ── remove ────────────────────────────────────────────────────────────────────────────────────────────────────────────
-if [ "$MODE" = remove ]; then
+# ── remove · remove-status ────────────────────────────────────────────────────────────────────────────────────────────
+if [ "$MODE" = remove ] || [ "$MODE" = remove-status ]; then
   # act= is read BEFORE the reporter is deleted: after the rm there is no header to read, and reporting act=0 off a
   # plugin this run just removed would say Wordfence is off when it is running.
   probe; classify_status_plugin
   if [ "$STATUS_OK" = 1 ]; then read_limbs; say "before the removal: X-Atlas-Wordfence: $PROBE_HDR"
   else ST="none"; ACT="unread"; WF="none"; SELFSTATE="unknown"; say "before the removal: no usable X-Atlas-Wordfence header — $RULE"; fi
-  { printf -- 'rm "%s"\n' "$REMOTE_INSTALL"; printf -- 'rm "%s"\n' "$REMOTE_STATUS"; } > "$B"
+  if [ "$MODE" = remove ]; then { printf -- 'rm "%s"\n' "$REMOTE_INSTALL"; printf -- 'rm "%s"\n' "$REMOTE_STATUS"; } > "$B"
+  else printf -- 'rm "%s"\n' "$REMOTE_STATUS" > "$B"; fi
   say "sftp batch:"; sed 's/^/   /' "$B" | tee -a "$LOG"
   out="$(sftp_run)"; rc=$?
   out="$(printf '%s\n' "$out" | tr -d '\r')"
-  say "sftp $U@$HOST → exit $rc: $(flat "$out")"
+  say "sftp → $HOST exit $rc: $(flat "$out")"
   advisory "$rc" "$(sftp_trouble "$out")"
-  ls_proof "$REMOTE_INSTALL"; r_install="$LS_RESULT"
-  ls_proof "$REMOTE_STATUS";  r_status="$LS_RESULT"
-  if [ "$r_install" = absent ] && [ "$r_status" = absent ]; then result="removed"
-  elif [ "$r_install" = present ] || [ "$r_status" = present ]; then result="rm-failed"
-  else result="rm-unknown"; fi
+  # Only the paths this run actually asked to delete are classified: an `ls` that was never sent proves nothing, and
+  # --remove-status deliberately leaves the installer alone.
+  r_install="not-measured"
+  if [ "$MODE" = remove ]; then ls_proof "$REMOTE_INSTALL"; r_install="$LS_RESULT"; fi
+  ls_proof "$REMOTE_STATUS"; r_status="$LS_RESULT"
+  if [ "$MODE" = remove ]; then
+    if [ "$r_install" = absent ] && [ "$r_status" = absent ]; then result="removed"
+    elif [ "$r_install" = present ] || [ "$r_status" = present ]; then result="rm-failed"
+    else result="rm-unknown"; fi
+  else
+    case "$r_status" in absent) result="removed";; present) result="rm-failed";; *) result="rm-unknown";; esac
+  fi
   say "verify: installer $r_install · status plugin $r_status → $result"
-  say "   Wordfence itself is NOT touched by --remove: it stays exactly as it was (act=${ACT}, measured before the removal). Deactivating or uninstalling it is a wp-admin act, not this script's."
+  say "   Wordfence itself is NOT touched by $MODE: it stays exactly as it was (act=${ACT}, measured before the removal). Turning Wordfence OFF is --disable-wordfence, which renames its plugin directory; uninstalling it is a wp-admin act, not this script's."
   stamp "$result"
+  WHAT="both mu-plugins"; [ "$MODE" = remove-status ] && WHAT="the reporter"
   case "$result" in
-    removed)   say "LOOP STATUS: atlas-wordfence mu-plugins — removed from the host (sftp ls says both paths are gone); heartbeat $STAMP ✓";;
-    rm-failed) say "LOOP STATUS: atlas-wordfence mu-plugins — STILL LISTED after the rm; they were not deleted. Heartbeat $STAMP.";;
-    *)         say "LOOP STATUS: atlas-wordfence mu-plugins — $result; nothing is claimed either way. Heartbeat $STAMP.";;
+    removed)   say "LOOP STATUS: atlas-wordfence $WHAT — removed from the host (sftp ls says the path is gone); heartbeat $STAMP ✓";;
+    rm-failed) say "LOOP STATUS: atlas-wordfence $WHAT — STILL LISTED after the rm; not deleted. Heartbeat $STAMP.";;
+    *)         say "LOOP STATUS: atlas-wordfence $WHAT — $result; nothing is claimed either way. Heartbeat $STAMP.";;
   esac
   [ "$result" = removed ]
+  exit
+fi
+
+# ── disable-wordfence: the recovery ───────────────────────────────────────────────────────────────────────────────────
+# This is the mode --remove cannot be. --remove deletes what this script installed; if WORDFENCE is what took the site
+# or the login page down, the only thing that helps is Wordfence not loading, and over SFTP that means renaming the
+# directory out from under it. The proof is an `ls` of wordfence/wordfence.php (gone) and of wordfence.off/wordfence.php
+# (there) — an `ls` of a directory lists its contents, so the file inside is what can be classified — and then the three
+# pages are measured again and printed. Renaming back is the same command with the arguments swapped.
+if [ "$MODE" = disable ]; then
+  probe; classify_status_plugin
+  if [ "$STATUS_OK" = 1 ]; then read_limbs; say "before the rename: X-Atlas-Wordfence: $PROBE_HDR"
+  else ST="none"; ACT="unread"; WF="none"; SELFSTATE="unknown"; say "before the rename: no usable X-Atlas-Wordfence header — $RULE (a site that is down answers no header either, which is why this mode does not need one)"; fi
+  printf -- 'rename "%s" "%s"\n' "$REMOTE_WF_DIR" "$REMOTE_WF_OFF" > "$B"
+  say "sftp batch:"; sed 's/^/   /' "$B" | tee -a "$LOG"
+  out="$(sftp_run)"; rc=$?
+  out="$(printf '%s\n' "$out" | tr -d '\r')"
+  say "sftp → $HOST exit $rc: $(flat "$out")"
+  advisory "$rc" "$(sftp_trouble "$out")"
+  ls_proof "$REMOTE_WF_FILE";     r_live="$LS_RESULT"; ev_live="$LS_EV"
+  ls_proof "$REMOTE_WF_OFF_FILE"; r_off="$LS_RESULT";  ev_off="$LS_EV"
+  if [ "$r_live" = absent ] && [ "$r_off" = present ]; then result="wordfence-disabled"
+  elif [ "$r_live" = present ]; then result="disable-failed"
+  else result="disable-unknown"; fi
+  HOME_AFTER="$(http_code "$SITE_ROOT/")"
+  WP_AFTER="$(http_code "$(wp_url)")"
+  LOGIN_AFTER="$(http_code "$LOGIN_URL")"
+  say "after:  front page http $HOME_AFTER (was $HOME_BEFORE) · WordPress-rendered http $WP_AFTER (was $WP_BEFORE) · $LOGIN_URL http $LOGIN_AFTER (was $LOGIN_BEFORE)"
+  say "verify: wordfence/wordfence.php $r_live · wordfence.off/wordfence.php $r_off → $result"
+  stamp "$result"
+  case "$result" in
+    wordfence-disabled)
+      say "   Wordfence cannot load from a path that is not there, so it stopped running on the request after the rename; WordPress drops the missing entry from active_plugins the next time an admin screen validates the plugin list."
+      if [ "$WP_AFTER" = 200 ] && [ "$LOGIN_AFTER" = 200 ]; then
+        say "   The WordPress-rendered page and $LOGIN_URL both answer http 200 now."
+      else
+        say "   The WordPress-rendered page answers http $WP_AFTER and $LOGIN_URL answers http $LOGIN_AFTER — still not both 200, so Wordfence was NOT the whole cause. Nothing else has been changed."
+      fi
+      say "   To put it back: one sftp rename in the other direction — rename \"$REMOTE_WF_OFF\" \"$REMOTE_WF_DIR\"."
+      say "LOOP STATUS: atlas-wordfence — Wordfence DISABLED by rename (sftp ls says $REMOTE_WF_FILE is gone and $REMOTE_WF_OFF_FILE is there); heartbeat $STAMP ✓";;
+    disable-failed)
+      say "LOOP STATUS: atlas-wordfence — the rename did NOT take: $REMOTE_WF_FILE is still listed. Wordfence is still running. Heartbeat $STAMP.";;
+    *)
+      say "LOOP STATUS: atlas-wordfence — $result; the ls could not answer (wordfence/wordfence.php: $ev_live · wordfence.off/wordfence.php: $ev_off), so nothing is claimed either way. Heartbeat $STAMP.";;
+  esac
+  [ "$result" = wordfence-disabled ]
   exit
 fi
 
@@ -320,7 +427,7 @@ if [ "$MODE" = install ]; then
   say "sftp batch:"; sed 's/^/   /' "$B" | tee -a "$LOG"
   out="$(sftp_run)"; rc=$?
   out="$(printf '%s\n' "$out" | tr -d '\r')"
-  say "sftp $U@$HOST → exit $rc: $(flat "$out")"
+  say "sftp → $HOST exit $rc: $(flat "$out")"
   WARN="$(sftp_trouble "$out")"
   advisory "$rc" "$WARN"
 
@@ -383,7 +490,8 @@ HOME_AFTER="$(http_code "$SITE_ROOT/")"
 WP_AFTER="$(http_code "$(wp_url)")"
 LOGIN_AFTER="$(http_code "$LOGIN_URL")"
 say "after:  front page http $HOME_AFTER (was $HOME_BEFORE) · WordPress-rendered http $WP_AFTER (was $WP_BEFORE) · $LOGIN_URL http $LOGIN_AFTER (was $LOGIN_BEFORE)"
-say "        wp-login.php answering 200 is EXPECTED and is not a failure — the form is meant to load; Wordfence throttles failed POSTs, and no lockout setting was written by this run."
+say "        wp-login.php answering what it answered BEFORE is expected — the form is meant to load. What is not expected is a change, and a change fails this run (below)."
+say "        No lockout setting was written by this run, and that is not the same as no lockout: once Wordfence is active ITS OWN shipped defaults govern login throttling, and what those defaults are is UNVERIFIABLE FROM HERE — the vendor's code is not in this repository. If a lockout does happen, the way out with no shell is bash scripts/wp-wordfence-install.sh --disable-wordfence."
 
 # Advisory only, and deliberately so: Wordfence Free adds nothing to a front-end response as a rule, so a count of 0
 # here says nothing about whether it is running. act= above is the verdict.
@@ -392,54 +500,81 @@ MARKS="$(printf '%s' "$BODY" | grep -o -i -E 'wp-content/plugins/wordfence|wordf
 say "markers on the WordPress-rendered page: ${MARKS:-none} (advisory — Wordfence Free normally prints nothing on a public page, so an empty count is not a failure and a count is not a proof)"
 
 # ── the installer must be gone ────────────────────────────────────────────────────────────────────────────────────────
-SELF_LS="skipped"
+# --status opens no sftp session at all, so it cannot answer this. It says so, in those words, and the verdict below
+# refuses to print FIRED-OBSERVED in that mode: a claim of self-removal off a mode that measured nothing is exactly the
+# false success this script exists to make impossible.
+SELF_LS="not-measured"
+SELF_WHY="self-removal: not measured in --status (this mode runs no sftp session); the header's own self=$SELFSTATE limb is the installer's record of what it did, not a measurement of the host by this run"
 if [ "$MODE" = install ]; then
   ls_proof "$REMOTE_INSTALL"
   SELF_LS="$LS_RESULT"
+  SELF_WHY="sftp ls classified $SELF_LS ($LS_EV)"
 fi
 
 # ── verdict ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+# The login page is IN the regression test, not merely printed beside it. It is measured before and after for one
+# reason — to catch a security plugin that locks the only admin out — and a measurement that cannot fail the run is
+# decoration. Any CHANGE fails, not just a 200 that stops being one: 200 → 503 and 200 → 302-to-somewhere-else are both
+# the login page behaving differently than it did ten seconds earlier, and neither is something this run may pass over.
 regressed=""
 [ "$HOME_BEFORE" = 200 ] && [ "$HOME_AFTER" != 200 ] && regressed="the front page went from http 200 to http $HOME_AFTER"
 [ "$WP_BEFORE" = 200 ] && [ "$WP_AFTER" != 200 ] && regressed="${regressed:+$regressed; }the WordPress-rendered page went from http 200 to http $WP_AFTER"
+[ "$LOGIN_BEFORE" != 000 ] && [ "$LOGIN_AFTER" != "$LOGIN_BEFORE" ] && regressed="${regressed:+$regressed; }$LOGIN_URL went from http $LOGIN_BEFORE to http $LOGIN_AFTER"
+
+# --status never returns the install verdict, because it never ran the sftp ls that the install verdict includes.
+ACTIVE_RESULT=active
+[ "$MODE" = status ] && ACTIVE_RESULT=active-status-only
 
 if [ -n "$regressed" ]; then
   result="site-changed"
 elif [ "$STATUS_OK" != 1 ]; then
   result="status-absent"
+elif [ "$ACT" = 1 ]; then
+  # act= is a LIVE read of active_plugins on the request that answered, and it outranks every recorded status —
+  # including installed-not-active, which activate_plugin() can return AFTER it has already written active_plugins.
+  # Reporting a running WAF as off is the error direction that costs a second, unnecessary install run.
+  result="$ACTIVE_RESULT"
 else
   case "$ST" in
-    installed|activated|already-active)
-      if [ "$ACT" = 1 ]; then result="active"; else result="not-active"; fi;;
-    installed-not-active) result="not-active";;
+    installed|activated|already-active|installed-not-active) result="not-active";;
     error|gave-up|no-filesystem) result="install-error";;
     running) result="timed-out";;
     *) result="unknown-status";;
   esac
-  if [ "$result" = active ] && [ "$MODE" = install ] && [ "$SELF_LS" != absent ]; then
-    result="self-left"
-  fi
+fi
+# The one-shot's own record is not a measurement of the host. In --install the sftp ls decides; in --status the header's
+# self=left is still enough to REFUSE the claim (the installer itself says it is still there), but self=gone is never
+# enough to MAKE one.
+if [ "$result" = "$ACTIVE_RESULT" ]; then
+  if [ "$MODE" = install ] && [ "$SELF_LS" != absent ]; then result="self-left"
+  elif [ "$MODE" = status ] && [ "$SELFSTATE" = left ]; then result="self-left"; fi
 fi
 
 case "$result" in
   active)
     say "verify: Wordfence $WF is INSTALLED and ACTIVE on atlasglinn.com — st=$ST, and act=1 is a live read of the site's active_plugins on the request that answered, not the installer's memory of what it did."
-    say "        The one-shot removed itself (sftp ls says $REMOTE_INSTALL is gone). No Wordfence setting was written: no login-failure limit, no lockout, no blacklist, no 2FA, no auto_prepend_file (prep=$(limb prep))."
-    say "        wp-ops/atlas-wordfence-status.php stays on the host as the read-only reporter; bash scripts/wp-wordfence-install.sh --remove deletes it.";;
+    say "        The one-shot removed itself — $SELF_WHY. No Wordfence setting was written by this run: no login-failure limit, no lockout window, no blacklist, no 2FA, no auto_prepend_file (prep=$(limb prep)); Wordfence's own defaults govern from here."
+    say "        wp-ops/atlas-wordfence-status.php stays on the host as the read-only reporter — it answers only a request carrying its build fingerprint, and bash scripts/wp-wordfence-install.sh --remove-status takes it off.";;
+  active-status-only)
+    say "verify: Wordfence $WF is INSTALLED and ACTIVE on atlasglinn.com — st=$ST, and act=1 is a live read of the site's active_plugins on the request that answered, not the installer's memory of what it did."
+    say "        $SELF_WHY. Run bash scripts/wp-wordfence-install.sh --install to have that ls done, or --remove to take both files off."
+    say "        No Wordfence setting was written by any run of this script; Wordfence's own defaults govern login throttling.";;
   not-active)
-    say "verify: the installer recorded st=$ST but act=$ACT — Wordfence is NOT active right now.${ERRTXT:+ Recorded error: $(printf '%b' "${ERRTXT//%/\\x}")}"
+    say "verify: the installer recorded st=$ST but act=$ACT — Wordfence is NOT active right now.$(err_note)"
     say "        GoDaddy Managed WordPress keeps a blocklist of disallowed plugins and whether wordfence is on it is UNVERIFIABLE FROM HERE. Nothing else on the host was changed.";;
   install-error)
-    say "verify: the install FAILED — st=$ST.${ERRTXT:+ Error: $(printf '%b' "${ERRTXT//%/\\x}")}"
-    say "        Nothing was activated and no setting was written. The installer stopped after ${TRIGGER_TRIES} triggers; the option atlas_wordfence_install holds the full message.";;
+    say "verify: the install FAILED — st=$ST.$(err_note)"
+    say "        Nothing was activated and no setting was written. The installer stopped after ${TRIGGER_TRIES} triggers; the option atlas_wordfence_install holds WordPress's own message, which is deliberately not on the header.";;
   timed-out)
     say "verify: the installer is still st=running after $TRIGGER_TRIES triggers — the download did not finish inside a request. It has $(limb tries) of 3 attempts used; the next front-end request retries by itself, so re-run --status in a few minutes before re-installing.";;
   self-left)
-    say "verify: Wordfence $WF is active (st=$ST, act=1) BUT the one-shot installer is STILL ON THE HOST — sftp ls classified $SELF_LS ($LS_EV)."
+    say "verify: Wordfence $WF is active (st=$ST, act=1) BUT the one-shot installer is STILL ON THE HOST — $SELF_WHY."
     say "        That is live code on a production site that has already done its job. Remove it: bash scripts/wp-wordfence-install.sh --remove";;
   site-changed)
     say "verify: FAILED on the site itself — $regressed. That outranks whatever the plugin reports (st=$ST act=$ACT)."
-    say "        Remove both mu-plugins now and re-measure: bash scripts/wp-wordfence-install.sh --remove";;
+    say "        RECOVERY, in this order. If Wordfence is what changed it, the fix is Wordfence not loading, and --remove CANNOT do that — it deletes this script's two mu-plugins and leaves Wordfence exactly where it is:"
+    say "            bash scripts/wp-wordfence-install.sh --disable-wordfence   # renames wp-content/plugins/wordfence to wordfence.off over sftp, then re-measures the front page and $LOGIN_URL"
+    say "        Then, once the site answers again, take this script's own files off with: bash scripts/wp-wordfence-install.sh --remove";;
   status-absent)
     say "verify: UNKNOWN — no usable X-Atlas-Wordfence header on the final read. $RULE. This run claims nothing.";;
   *)
@@ -448,7 +583,11 @@ esac
 
 stamp "$result"
 case "$result" in
-  active) say "LOOP STATUS: R2 Wordfence install — FIRED-OBSERVED (Wordfence $WF active on atlasglinn.com, act=1 off the wire, installer self-removed); heartbeat $STAMP ✓";;
+  active) say "LOOP STATUS: R2 Wordfence install — FIRED-OBSERVED (Wordfence $WF active on atlasglinn.com, act=1 off the wire, installer self-removal proved by sftp ls); heartbeat $STAMP ✓";;
+  active-status-only)
+    # The words FIRED-OBSERVED do not appear on this line at all, not even to deny them: an operator greps for that
+    # token, and a line that carries it inside a negation reads as a success in every log search that matters.
+    say "LOOP STATUS: R2 Wordfence install — Wordfence $WF is active (act=1, measured on the wire); self-removal NOT measured in --status, so this run does not close the loop. Heartbeat $STAMP.";;
   *)      say "LOOP STATUS: R2 Wordfence install — $result; NOT verified as active. Heartbeat $STAMP.";;
 esac
 
@@ -460,4 +599,10 @@ else
   say "no ~/.claude/bin/atlas-email on this Mac; nothing emailed"
 fi
 say "log: $LOG"
-[ "$result" = active ]
+# --status exits 0 on what --status can actually prove: act=1 measured on the wire. It never exits 0 on a claim it did
+# not measure, and it never prints the install verdict.
+case "$result" in
+  active)             exit 0;;
+  active-status-only) [ "$MODE" = status ] && exit 0; exit 1;;
+  *)                  exit 1;;
+esac
