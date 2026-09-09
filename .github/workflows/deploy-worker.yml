@@ -183,8 +183,15 @@ jobs:
           print('   registration id=%s status=%s type=%s collecting=%s created_now=%s' % (scrub(reg.get('id')), scrub(reg.get('status')), scrub(reg.get('type')), reg.get('collecting'), reg.get('created_now')))
           print('   tax_ready=%s (%s)' % (d.get('tax_ready'), scrub(d.get('tax_ready_reason'))))
           print('   readiness cache: measured_at=%s age=%ss TTL=%ss grace=%ss stale=%s' % (cache.get('measured_at'), cache.get('age_seconds'), cache.get('ttl_seconds'), cache.get('grace_seconds'), cache.get('stale')))
-          if run: print('   last setup run: %s  outcome=%s  age=%sh  stale=%s' % (run.get('at'), scrub(run.get('outcome')), run.get('age_hours'), run.get('stale')))
-          else:   print('   last setup run: none recorded yet (this run is the first, or D1 is not bound)')
+          # Two measurements, not one (round 9): last_run is the last measurement of ANY origin — including the run a
+          # refused checkout enqueues — so it cannot answer "is the cron alive". cron_last_run is stamped by a cron
+          # trigger and by nothing else, and loop_stale is the verdict on it. This step's own POST stamps the first and
+          # never the second, which is exactly why they are printed apart.
+          cron = d.get('cron_last_run')
+          if run: print('   last measurement (any origin): %s  outcome=%s  age=%sh' % (run.get('at'), scrub(run.get('outcome')), run.get('age_hours')))
+          else:   print('   last measurement (any origin): none recorded yet (this run is the first, or D1 is not bound)')
+          if cron: print('   cron loop liveness: %s  trigger=%s  age=%sh  stale=%s' % (cron.get('at'), scrub(cron.get('trigger')), cron.get('age_hours'), d.get('loop_stale')))
+          else:   print('   cron loop liveness: NEVER — no cron trigger has fired since the last D1 reset. Not a deploy failure; check the [triggers] block in wrangler.toml if it stays empty.')
           if d.get('tax_ready') is not True:
               print('::error::Stripe Tax is still NOT collecting after the setup run: tax_ready=%s (%s) — this is a REPORT, not a broken checkout. Checkout keeps working - the Worker will not put automatic_tax on a session for an account it has not measured as active - but Texas sales tax is NOT being charged on it. The notes above name the step that refused; a fresh account usually has to accept the Stripe Tax terms once, which is an account-holder action nothing here can do for you. A registration showing status=scheduled starts collecting on its active_from date and needs no action.' % (d.get('tax_ready'), scrub(d.get('tax_ready_reason'))))
               sys.exit(1)

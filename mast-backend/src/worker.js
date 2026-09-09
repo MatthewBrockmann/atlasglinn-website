@@ -139,17 +139,21 @@ export default {
     // retention purges, 288 journey passes and 288 chances at the weekly digest in a day. The tick is the cheap,
     // idempotent one (one D1 read on a ready account), so it is what an unknown trigger gets, out loud.
     const cron = String((event && event.cron) || '');
-    const tick = (trigger) => {
-      if (String(env.STRIPE_TAX) === '1') ctx.waitUntil(taxTick(env, trigger).catch((e) => console.error('[Tax] tick failed:', e.message)));
+    // `fromCron` is what stamps tax:cron_last_run, and it is the RECOGNISED trigger strings alone — not "scheduled()
+    // was entered". An event carrying a cron this Worker does not know is a wrong wrangler.toml, and treating it as
+    // proof the tax loop is alive is how a renamed schedule would report a healthy loop while the tick it was supposed
+    // to drive never ran. It still gets the cheap tick; it does not get to write the liveness row.
+    const tick = (trigger, fromCron) => {
+      if (String(env.STRIPE_TAX) === '1') ctx.waitUntil(taxTick(env, trigger, fromCron).catch((e) => console.error('[Tax] tick failed:', e.message)));
       else console.log(JSON.stringify({ tax_tick: 'skipped', reason: 'stripe_tax_off' }));
     };
     if (cron === TAX_TICK_CRON) {
-      tick('tax-cron');
+      tick('tax-cron', true);
       return;
     }
     if (cron !== DAILY_CRON) {
       console.log(JSON.stringify({ unknown_cron: cron }));
-      tick('unknown-cron');
+      tick('unknown-cron', false);
       return;
     }
     ctx.waitUntil(runRetention(env).catch((e) => console.error('[Retention] failed:', e.message)));
@@ -174,7 +178,7 @@ export default {
     // and nobody's attention. The */5 tick above is what keeps the measurement WARM; this daily run does the same work
     // and is the backstop if that trigger ever stops firing. Both are where the Stripe calls belong: off the customer's
     // path entirely. A checkout can only ENQUEUE the same work behind its response.
-    tick('cron');
+    tick('cron', true);
   },
 };
 
@@ -1848,19 +1852,27 @@ function isStripeRefusal(status, data) {
  * (customer_tax_location_invalid) that says nothing about the account. So the refusal now buys exactly one thing: a
  * measurement, enqueued behind the response, that takes the tax:lock and ASKS STRIPE.
  *
- * SAID EXACTLY. What is proved is that the READINESS ROW is unreachable from here by any string — a test pins the row
- * byte-for-byte across a refusal carrying attacker-chosen text. isTaxRefusal still reads FREE TEXT, and it still
- * matches on it: a message a stranger influenced and Stripe echoes back can therefore start ONE bounded second Session
- * attempt inside the same ceiling. That is the whole of what a string can buy, and it cannot buy an untaxed order for
- * anybody — not for the sender, whose second body is the one this Worker would have sent anyway, and not for the next
- * buyer, whose tax is decided by the row this path never writes.
+ * SAID EXACTLY, AND THE PREVIOUS WORDING OVERSTATED IT. "The row this path never writes" was false: a refusal enqueues
+ * a MEASUREMENT behind the response, that measurement takes the tax:lock, asks Stripe, and writes the readiness row
+ * with what Stripe answered. A checkout can therefore cause a readiness write — at most once per TAX_LOCK_MS however
+ * many refusals arrive, and off the customer's path. The property that actually holds is the narrower and stronger
+ * one: NO CUSTOMER-INFLUENCED STRING CAN DETERMINE ITS VALUE. What goes into that row is Stripe's own answer to a
+ * fresh read of the account; the refusal decides only that the question gets asked. A test pins the row byte-for-byte
+ * across a refusal carrying attacker-chosen text, which is the same fact stated without the overclaim.
+ *
+ * isTaxRefusal still reads FREE TEXT, and it still matches on it: a message a stranger influenced and Stripe echoes
+ * back can therefore start ONE bounded second Session attempt inside the same ceiling, plus that one enqueued
+ * measurement. That is the whole of what a string can buy, and it cannot buy an untaxed order for anybody — not for
+ * the sender, whose second body is the one this Worker would have sent anyway, and not for the next buyer, whose tax
+ * is decided by whatever Stripe says when the account is next read.
  *
  * One retry, tax-class only, only on a 4xx refusal Stripe actually answered, only when the body carried tax fields,
  * and only if the shared budget has room — both attempts live inside ONE checkout ceiling, so the retry cannot double
  * the worst case a customer waits.
  *
- * THE STREAK is the one thing it does write, and it is a counter with nothing behind it: +1 on the tax:last_run count
- * column per refusal, cleared the moment a tax-carrying Session is accepted. It exists because the double fault — tax
+ * THE STREAK is the one row it writes directly, and it is a counter with nothing behind it: +1 on the
+ * tax:fallback_streak count column per refusal — its OWN row since round 8, not the heartbeat's, which is the fix for
+ * a public counter that used to insert a liveness stamp — cleared the moment a tax-carrying Session is accepted. It exists because the double fault — tax
  * endpoints unreadable, so the grace holds the row at ready, AND Stripe refusing every tax-carrying body — is invisible
  * otherwise: every order completes, every order completes untaxed, and the report says tax_ready: true for 24 hours.
  */
@@ -1907,12 +1919,14 @@ async function createStripeSession(payload, env, label, ctx) {
   // not both strings is a 200 this Worker cannot act on, and passing `undefined` to the browser as a redirect is a
   // broken checkout with no error behind it. The id, which goes to a log and to D1, is capped at 255.
   //
-  // AND SO IS THE URL, AS OF ROUND 8 — the last Stripe-controlled string in this Worker that left uncapped. Round 7
-  // argued it must not be, because truncating a redirect target breaks the purchase. That is true and it is not an
-  // argument for no ceiling: a Checkout URL is about ninety characters, the ceiling here is 2048, and a "URL" longer
-  // than that is not a redirect this Worker should hand a browser in the first place. It is checked for its scheme,
-  // then bounded, in that order — a cap applied before the https check would let a 2048-character prefix of something
-  // else through on a truncation.
+  // AND THE URL IS BOUNDED TOO, AS OF ROUND 8 — the last Stripe-controlled string in this Worker that left unbounded.
+  // BOUNDED, NOT CAPPED, and round 9 fixes the word because the difference is the whole design: this URL is never
+  // TRUNCATED. Round 7 argued against a cap on exactly that ground — truncating a redirect target breaks the purchase
+  // it exists to start — and that argument is right and is not an argument for no ceiling. So a URL over
+  // CHECKOUT_URL_MAX (2048) is REJECTED WHOLE: the Session is refused, the customer gets the ordinary 502, and no
+  // truncated redirect is ever handed to a browser. A Checkout URL is about ninety characters; a "URL" past 2048 is
+  // not a redirect this Worker should act on. Scheme first, length second — a length test applied before the https
+  // check would be asking about the size of something that was never a URL.
   const session = res.data;
   if (typeof session.id !== 'string' || typeof session.url !== 'string' || !session.url.startsWith('https://') || session.url.length > CHECKOUT_URL_MAX) {
     console.error('[' + label + '] Stripe answered 200 with a Session this Worker cannot use:', taxSafe(env, JSON.stringify(res.data), 300));
@@ -2492,7 +2506,7 @@ async function boundedStripe(env, path, init, ms) {
  */
 const CHECKOUT_TIMEOUT_MS = 8000;
 const CHECKOUT_RETRY_FLOOR_MS = 250;   // less budget left than this and the tax-off retry is not started at all
-const CHECKOUT_URL_MAX = 2048;         // a Checkout URL is ~90 characters; past this it is not a redirect target
+const CHECKOUT_URL_MAX = 2048;         // a Checkout URL is ~90 characters; past this the Session is REFUSED, never truncated
 export function checkoutTimeoutMs(env) {
   const n = Number(env && env.STRIPE_CHECKOUT_TIMEOUT_MS);
   if (!Number.isFinite(n) || n <= 0) return CHECKOUT_TIMEOUT_MS;
@@ -2518,12 +2532,20 @@ const TAX_HEAD_OFFICE = {
 const TAX_IDEMPOTENCY = { settings: 'mast-tax-settings-v1', registration: 'mast-tax-reg-us-tx-v1' };
 
 /**
- * Six rows of Worker state, in the rate_limits table — no new binding, no migration to apply by hand.
+ * Seven rows of Worker state, in the rate_limits table — no new binding, no migration to apply by hand.
  *
  *   tax:ready                   the measured readiness of the Stripe account. count 1/0/2, good for TAX_READY_TTL_MS.
  *   tax:lock                    held while a setup run is writing. window_start is the EXPIRY, so a crashed run frees
  *                               itself.
- *   tax:last_run                the heartbeat, and NOTHING ELSE: when the last setup run finished and how it went.
+ *   tax:last_run                the LAST MEASUREMENT OF ANY ORIGIN: when a run finished and how it went, whichever
+ *                               trigger started it — the cron, an /admin call, or the refresh a checkout enqueued.
+ *   tax:cron_last_run           LOOP LIVENESS, and it is a separate row for the reason round 8 gave the streak one
+ *                               (R9-4). A checkout that finds the measurement due enqueues a run, and that run stamps
+ *                               tax:last_run — so on a site taking orders the heartbeat stays fresh whether or not
+ *                               Cloudflare's scheduler has fired once, and "is the loop alive" cannot be read off it.
+ *                               This row is stamped ONLY when the trigger was TAX_TICK_CRON or DAILY_CRON, at the top
+ *                               of the tick, before any early return — so a healthy account, whose ticks cost one D1
+ *                               read and never reach a run, still proves the scheduler fired. Absent = stale.
  *   tax:fallback_streak         the consecutive tax_fallback count (the double fault below), on its OWN key as of
  *                               round 8. It shared tax:last_run through round 7, and the shared row was a real defect
  *                               rather than a tidiness one: the streak bump had to INSERT the row when it was absent,
@@ -2552,6 +2574,7 @@ const TAX_IDEMPOTENCY = { settings: 'mast-tax-settings-v1', registration: 'mast-
  * a measurement that Stripe actually answered.
  */
 const TAX_READY_KEY = 'tax:ready', TAX_LOCK_KEY = 'tax:lock', TAX_RUN_KEY = 'tax:last_run';
+const TAX_CRON_RUN_KEY = 'tax:cron_last_run';          // loop liveness, stamped by a cron trigger and by nothing else
 const TAX_STREAK_KEY = 'tax:fallback_streak';          // the double-fault counter, no longer riding on the heartbeat row
 const TAX_WITNESS_KEY = 'tax:registration_witness';    // the first of the two witnesses a registration create needs
 const TAX_CREATE_KEY = 'tax:registration_create';      // the create ledger the admin report prints
@@ -2746,6 +2769,23 @@ async function taxRunStamp(env, note, measured) {
   }
 }
 
+/** LOOP LIVENESS, on its own key. taxRunStamp says a measurement happened; it does not say the SCHEDULER is alive,
+ *  because a checkout that finds the measurement due enqueues a run and that run stamps it too. So the one question an
+ *  operator actually asks of a heartbeat — "has Cloudflare fired this trigger lately?" — could not be read off
+ *  tax:last_run on any Worker taking orders. This row answers it and nothing else: written only where the trigger is
+ *  one of the two crons, and written at the TOP of the tick so the cheap early return on a healthy account (one D1
+ *  read, no run, no measurement) still records that the scheduler fired. */
+async function taxCronStamp(env, trigger) {
+  if (!env || !env.DB) return;
+  try {
+    await ensureRateSchema(env);
+    await env.DB.prepare('INSERT INTO rate_limits (key, window_start, count) VALUES (?, ?, 0) ON CONFLICT(key) DO UPDATE SET window_start = excluded.window_start')
+      .bind(TAX_CRON_RUN_KEY, new Date().toISOString() + '|' + trigger).run();
+  } catch (e) {
+    console.error('[Tax] cron heartbeat write failed:', e.message);
+  }
+}
+
 /** +1 on the streak, on the streak's OWN key. Nothing an anonymous checkout can reach writes the heartbeat: a
  *  customer's refused Session is evidence that Stripe said no to a tax-carrying body and evidence of nothing else, and
  *  it is certainly not evidence that the setup loop ran. The measurement this same refusal enqueues is what stamps the
@@ -2859,6 +2899,13 @@ async function holdTaxWindow(env) {
  * AND NO NORMALISATION, ANYWHERE. Nothing is lowercased or trimmed on the way in. ' active ' and 'Active' are not the
  * enum Stripe documents; a drifted value is a SHAPE failure by doctrine, not a value to be repaired into a decision.
  */
+const TAX_TEXT_MAX = 500;                       // Stripe's own ceiling on an address line; the head office line1 is 15
+/** U+200B ZWSP, U+200C ZWNJ, U+200D ZWJ and U+FEFF are NOT in JavaScript's `\s`, which is the whole of R9-5: a line1 of
+ *  one zero-width space satisfied `^\S(?:[\s\S]*\S)?$` and read as "the head office is set", so the settings write was
+ *  skipped on an account that has no address. U+00A0 and U+FEFF ARE in `\s` and were already refused outright by that
+ *  same test — they are named in the class anyway rather than left resting on one engine's definition of `\s`. Matched
+ *  ANYWHERE, not only alone: an invisible in the middle of a line is padding this module does not normalise away. */
+const TAX_INVISIBLE = /[\u200B-\u200D\uFEFF\u00A0]/;
 const IS = {
   object: (v) => v !== null && typeof v === 'object' && !Array.isArray(v),
   array: (v) => Array.isArray(v),
@@ -2866,15 +2913,29 @@ const IS = {
   fn: (v) => typeof v === 'function',
   string: (v) => typeof v === 'string',
   regexp: (v) => v instanceof RegExp,
-  // A head-office line is prose, so it gets the only non-enum test here — and it is still a SHAPE test, not a length
-  // one: a line that is empty, or entirely whitespace, or padded, is not an address line Stripe wrote, and reading a
-  // padded one as "the head office is set" is how a settings write is skipped on a body this code did not understand.
-  text: (v) => typeof v === 'string' && /^\S(?:[\s\S]*\S)?$/.test(v),
+  // A head-office line is prose, so it gets the only non-enum test here. SHAPE AND SIZE, both: a line that is empty, or
+  // entirely whitespace, or padded, or made of invisibles, or 100,000 characters long, is not an address line Stripe
+  // wrote — and reading one as "the head office is set" is how a settings write is skipped on a body this code did not
+  // understand. The ceiling is R9-2 applied to the one non-enum string the schema declares: `^\S…\S$` is satisfied by
+  // any length, and an unbounded string inside a validated object is the residual that check was written to close.
+  text: (v) => typeof v === 'string' && v.length <= TAX_TEXT_MAX && !TAX_INVISIBLE.test(v) && /^\S(?:[\s\S]*\S)?$/.test(v),
   // `active_from` is a timestamp — unix SECONDS or an ISO-8601 date-time — and never free text. The two shapes are the
   // two taxDate accepts, deliberately: one field, one answer about what it is allowed to be, asked once.
   timestamp: (v) => (typeof v === 'number' && Number.isInteger(v) && v >= 1e8 && v < 1e10)
     || (typeof v === 'string' && /^(?:\d{9,10}|\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?)$/.test(v)),
 };
+
+/**
+ * THE ENUM SHAPE, WITH A SIZE — R9-2. `^[a-z][a-z_]*$` is a shape and nothing else, and it is satisfied by a
+ * 100,000-character lowercase status. That is not a hypothetical read: taxEnum was capped in round 6 for exactly this
+ * reason and the SCHEMA was written without one in round 8, so a deciding field was byte-shape-VALID at any size —
+ * measured:true, the ready row inside its grace destroyed, the next order sold untaxed, on a body no Stripe account
+ * produces. Shape and size are two questions and passing one is not passing the other, which this file has now
+ * established twice; the bound is written into the regex so there is no second place for it to be forgotten. 60 is
+ * TAX_ENUM_MAX — the ceiling the report already applies — so the schema and the redactor agree on what an enum is.
+ * The two-letter fields (country, us.state) are bounded by `{2}` already, and `id` by `{1,64}`.
+ */
+const TAX_ENUM_SHAPE = /^[a-z][a-z_]{0,59}$/;
 
 /** `required` is a US row's condition, not a constant: `country_options` is mandatory on a US registration and absent
  *  by design on every other one. It reads `country` off the RAW row, which the schema has already required and
@@ -2885,7 +2946,7 @@ const US_ROW = (row) => row.country === 'US';
  *  on, and the head-office line taxRun decides whether to WRITE on. Anything else Stripe sends is not read here, so it
  *  is not listed here, so it cannot be read here. */
 const TAX_SETTINGS_SCHEMA = {
-  status: { required: true, test: /^[a-z][a-z_]*$/ },
+  status: { required: true, test: TAX_ENUM_SHAPE },
   head_office: { required: false, test: IS.object },
   'head_office.address': { required: (s) => s.head_office !== undefined && s.head_office !== null, test: IS.object },
   'head_office.address.line1': { required: (s) => s.head_office !== undefined && s.head_office !== null, test: IS.text },
@@ -2896,14 +2957,21 @@ const TAX_SETTINGS_SCHEMA = {
  *  is why the regexes are anchored and non-empty rather than a length check somewhere else. `id` and `active_from` are
  *  listed because the REPORT reads them: every key this module touches is declared, or the read guard throws. */
 const TAX_REGISTRATION_ROW_SCHEMA = {
-  status: { required: true, test: /^[a-z][a-z_]*$/ },
+  status: { required: true, test: TAX_ENUM_SHAPE },
   country: { required: true, test: /^[A-Z]{2}$/ },
   id: { required: false, test: /^[A-Za-z0-9_]{1,64}$/ },
   active_from: { required: false, test: IS.timestamp },
-  country_options: { required: US_ROW, test: IS.object },
+  // R9-3: PRESENT ON A NON-US ROW IS A SHAPE FAILURE, not a decidable "not Texas". `required` alone made this field
+  // optional-when-absent and unchecked-when-present, so a row saying `country: 'CA'` while carrying
+  // `country_options.us.state = 'TX'` validated, came out of isTexasSalesTax as a confident FALSE — a MEASURED "this
+  // account has no Texas registration" — and is a row Stripe cannot have written. A body that contradicts itself is
+  // one this module did not understand, and the whole point of classify-or-refuse is that those take the grace path
+  // rather than decide anything. The test reads the RAW row, which the validator hands it as the second argument;
+  // `country` is declared above and has already been required and shape-checked by the time this runs.
+  country_options: { required: US_ROW, test: (v, row) => IS.object(v) && US_ROW(row) },
   'country_options.us': { required: US_ROW, test: IS.object },
   'country_options.us.state': { required: US_ROW, test: /^[A-Z]{2}$/ },
-  'country_options.us.type': { required: US_ROW, test: /^[a-z][a-z_]*$/ },
+  'country_options.us.type': { required: US_ROW, test: TAX_ENUM_SHAPE },
 };
 
 /** The list envelope. ABSENT has_more is read as false, deliberately and documentedly — Stripe omits it on a non-list
@@ -2975,7 +3043,9 @@ function validateAgainstSchema(schema, byPath, source, at) {
       if (need) return { ok: false, reason: name + '_missing' };
       continue;
     }
-    const good = IS.regexp(rule.test) ? (IS.string(value) && rule.test.test(value)) : rule.test(value) === true;
+    // The SOURCE is the second argument, which is what lets a rule ask about the row rather than only about the value —
+    // R9-3's contradictory-row check is the one rule that needs it, and every other test ignores it.
+    const good = IS.regexp(rule.test) ? (IS.string(value) && rule.test.test(value)) : rule.test(value, source) === true;
     if (!good) return { ok: false, reason: name + '_invalid' };
     if (byPath.has(path)) target[leaf] = target[leaf] || {};
     else target[leaf] = value;
@@ -3091,7 +3161,11 @@ async function taxReadyCached(env) {
 /** The loop that keeps the measurement warm: the five-minute trigger, and the daily cron. A cache that is fresh AND
  *  ready needs nothing, so a tick costs one D1 read; anything else re-measures under the lock and repairs the account
  *  when it is genuinely not collecting. Off the customer's path by construction — a checkout can only ENQUEUE this. */
-async function taxTick(env, trigger) {
+async function taxTick(env, trigger, fromCron) {
+  // The liveness stamp is FIRST and unconditional, because the healthy path is the one that returns two lines down
+  // without running anything: on an account that is collecting, every tick for the next ten minutes costs one D1 read
+  // and stamps nothing else. A liveness row only a FAILING tick writes reports a working loop as dead.
+  if (fromCron) await taxCronStamp(env, trigger);
   const state = await taxReadyCached(env);
   if (state.fresh && state.ready) return console.log(JSON.stringify({ tax_cron: 'ready', trigger, reason: state.reason, age_seconds: Math.round(state.age_ms / 1000) }));
   await ensureTaxSetup(env, { trigger, background: true });
@@ -3118,9 +3192,25 @@ async function taxTick(env, trigger) {
  * not-ready still overwrites, immediately: Stripe answered and said the account is not collecting, and that is
  * evidence. Fail-closed is unchanged in the direction that matters — the grace still expires at 24h, and a failure
  * with no ready measurement behind it still writes UNMEASURED on the short negative TTL.
+ *
+ * AND A MEASUREMENT THAT FINDS THE ACCOUNT COLLECTING DROPS THE STANDING WITNESS — R9-1, and the reason it is HERE
+ * rather than beside the other two clears is that the other two are in taxRun, which the cron does not reach on a
+ * healthy account. ensureTaxSetup's background branch measures first and RETURNS on `seen.ready`, so every ordinary
+ * five-minute tick against a collecting account ran the one code path that could see Texas and could not drop a
+ * witness. A witness left standing has a 24-hour life (TAX_WITNESS_MAX_MS) and only two things end it: a create, or
+ * being seen off. So a false absence on Tuesday and a second false absence on Friday — with a week of ticks in
+ * between, every one of them MEASURING the registration present — still met as two witnesses and authorised a
+ * duplicate registration, which is the one act in this module that cannot be undone. The clear belongs to the
+ * MEASUREMENT, which every path makes, not to the run, which the healthy path skips.
  */
 async function taxMeasure(env) {
   const m = await measureTaxReady(env);
+  // Only on a measured ready: an unparseable body or a timeout says nothing about whether Texas is registered, and a
+  // witness dropped on silence would be a witness the grace path quietly destroys. Dropping one is always the SAFE
+  // direction — it can only delay a create, never cause one — so it is done on every measurement that earns it.
+  // READ BEFORE WRITE, like everything else here: a standing witness is the rare case, so the ordinary healthy tick
+  // costs one SELECT that finds nothing and issues no DELETE at all.
+  if (m.measured && m.ready && (await taxStateGet(env, TAX_WITNESS_KEY))) await taxStateClear(env, TAX_WITNESS_KEY);
   if (!m.measured) {
     const row = await taxStateGet(env, TAX_READY_KEY);
     const age = row ? Date.now() - row.at : 0;
@@ -3402,8 +3492,14 @@ async function ensureTaxSetup(env, opts = {}) {
  *
  * `tax_ready` is the boolean every checkout gates on. `tax_ready_cache` is the row it reads — its age, its TTL, its
  * grace, and whether a re-measurement is overdue — built from taxReadyCached rather than from the measurement this
- * request happens to have made, because a field that can only ever say `age_seconds: 0` reports nothing. `last_run` is
- * the heartbeat: a loop that quietly stopped shows up as a stale stamp instead of as tax silently not being collected.
+ * request happens to have made, because a field that can only ever say `age_seconds: 0` reports nothing.
+ *
+ * `last_run` and `cron_last_run` ARE TWO DIFFERENT MEASUREMENTS and round 9 stopped reading the first as the second.
+ * `last_run` is the last measurement of ANY origin — a cron, an /admin call, or the refresh a checkout enqueued — and
+ * that last origin is what made it useless as liveness: a site taking orders refreshes it all day with the scheduler
+ * dead. `cron_last_run` is stamped by a cron trigger and by nothing else, so `loop_stale` is a statement about
+ * Cloudflare's scheduler and about nothing else. Both print, because both are worth knowing and they answer different
+ * questions: a fresh last_run with a stale cron_last_run is a loop that stopped and orders that are covering for it.
  *
  * `tax_fallback_streak` is the double fault, and it is the one number here that can be nonzero while every other field
  * on this page looks healthy: tax_ready true, a fresh cache, a recent heartbeat, and every order for the last day sold
@@ -3431,6 +3527,14 @@ async function handleTaxSetup(request, env, cors, url) {
   const state = res.ready || cache;
   const run = await taxStateGet(env, TAX_RUN_KEY);
   const runAge = run ? Date.now() - run.at : null;
+  // R9-4: LIVENESS IS A DIFFERENT QUESTION FROM "when did a measurement last happen", and last_run only ever answered
+  // the second one. A checkout that finds the measurement due enqueues a run, and that run stamps last_run — so on a
+  // site taking orders last_run stays fresh whether or not Cloudflare has fired a trigger since the deploy, which is
+  // precisely the failure a heartbeat exists to show. tax:cron_last_run is written by a cron trigger and by nothing
+  // else, so `loop_stale` means the scheduler, and last_run keeps its own honest meaning. Both print.
+  const cronRun = await taxStateGet(env, TAX_CRON_RUN_KEY);
+  const cronAge = cronRun ? Date.now() - cronRun.at : null;
+  const loopStale = !cronRun || cronAge > TAX_RUN_STALE_MS;
   // The streak is read from its OWN row now (R8-5). While it shared the heartbeat's, an anonymous refused checkout
   // INSERTED that row with a current timestamp, so a Worker whose loop had never run reported a fresh heartbeat.
   const streakRow = await taxStateGet(env, TAX_STREAK_KEY);
@@ -3460,7 +3564,11 @@ async function handleTaxSetup(request, env, cors, url) {
     tax_ready_reason: taxSafe(env, state.reason, 60),
     tax_ready_cache: { cached: !!cache.cached, measured_at: cache.measured_at, age_seconds: Math.round((cache.age_ms || 0) / 1000),
       ttl_seconds: Math.round((cache.ttl_ms || TAX_READY_TTL_MS) / 1000), grace_seconds: Math.round(TAX_READY_GRACE_MS / 1000), stale: !!cache.stale },
-    last_run: run ? { at: new Date(run.at).toISOString(), outcome: taxSafe(env, run.note, 60), age_hours: Math.round(runAge / 36000) / 100, stale: runAge > TAX_RUN_STALE_MS } : null,
+    last_run: run ? { at: new Date(run.at).toISOString(), outcome: taxSafe(env, run.note, 60), age_hours: Math.round(runAge / 36000) / 100, stale: runAge > TAX_RUN_STALE_MS,
+      origin: 'any — a cron, an /admin call, or the refresh a checkout enqueued. Read loop liveness from cron_last_run.' } : null,
+    cron_last_run: cronRun ? { at: new Date(cronRun.at).toISOString(), trigger: taxSafe(env, cronRun.note, 40),
+      age_hours: Math.round(cronAge / 36000) / 100, stale: loopStale } : null,
+    loop_stale: loopStale,
     tax_fallback_streak: streak,
     tax_readiness: readiness,
     tax_fallback_alarm: alarm,

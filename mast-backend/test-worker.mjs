@@ -3125,29 +3125,53 @@ console.log('\n── Round 6: an unparseable 200 is not a measurement, the cap 
        && measureLine(garbageLines).reason === 'settings_unparseable' && measureLine(emptyLines).reason === 'settings_unparseable',
        JSON.stringify([measureLine(garbageLines), measureLine(emptyLines)]));
 
-    /* ── R6-2: the allow-list answers "is this one of the three", and it has to answer "how long" as well ──
-       ^[a-z_]+$ is satisfied by a 50,000-character lowercase status. Round 5 replaced taxSafe with taxEnum on these
-       fields and dropped the length cap with it, so the enum branch was a strictly LARGER write than the free-text one
-       it replaced: the whole value into D1, and the whole value back out through /admin/tax/setup. */
-    const LONG_STATUS = 'a'.repeat(50000);
+    /* ── R9-2 (supersedes R6-2): the DECIDING SCHEMA has a size as well as a shape ──
+       Round 6 capped taxEnum because ^[a-z_]+$ is satisfied by a 50,000-character lowercase status, and then round 8
+       wrote the SCHEMA — the thing that decides whether a body was measured at all — with no length in it. So the
+       50,000-character status came back BYTE-SHAPE-VALID: measured:true, a measured `settings_status:aaa…`, and the
+       ready row inside its 24-hour grace destroyed by a body no Stripe account produces. The cap downstream limited
+       what got PRINTED; it never touched what got DECIDED. Every enum-shaped rule carries {0,59} now, so the boundary
+       is a real pair rather than an assertion about one side of it: 60 characters is measured, 61 is unparseable. */
+    const enumStatus = (n) => 'a'.repeat(n);
     taxAccountBlank(); forgetTaxState(); expireTaxWindow();
-    fakeTaxSettings = { status: LONG_STATUS, head_office: { address: { line1: '2450 Fondren Rd' } }, defaults: {} };
+    fakeTaxSettings = { status: enumStatus(60), head_office: { address: { line1: '2450 Fondren Rd' } }, defaults: {} };
     fakeTaxRegistrations.length = 0;
     // The account must stay unrepaired, or the run's own write turns it active and the row never records the status.
     taxFail = { on: '/tax/settings', method: 'POST', status: 402, body: { error: { type: 'invalid_request_error', code: 'tax_terms_not_accepted', message: 'Accept the Stripe Tax terms first.' } } };
     await tick();
-    taxFail = null;
     const capNote = String((readyRow() || {}).window_start || '').split('|')[1] || '';
-    ok('a 50,000-character settings.status that IS enum-shaped is capped before it is persisted: 61 characters in D1, not 50,000',
-       capNote.startsWith('settings_status:aaa') && capNote.endsWith('…') && capNote.length === 'settings_status:'.length + 61,
-       'len=' + capNote.length + ' head=' + capNote.slice(0, 24));
+    ok('60 characters is the bound, and the value ON it is still a MEASURED answer: enum-shaped, inside TAX_ENUM_MAX, persisted whole and not truncated',
+       (readyRow() || {}).count === 0 && capNote === 'settings_status:' + enumStatus(60),
+       'count=' + (readyRow() || {}).count + ' len=' + capNote.length + ' head=' + capNote.slice(0, 24));
+
+    // …and ONE character past it is not a smaller answer, it is NO answer: shape failure, unmeasured, grace kept.
+    taxAccountReady(); forgetTaxState(); cacheTaxReady(); ageTaxState('tax:ready', 11 * 60000); expireTaxWindow();
+    fakeTaxSettings = { status: enumStatus(61), head_office: { address: { line1: '2450 Fondren Rd' } }, defaults: {} };
+    const overBefore = JSON.stringify(readyRow());
+    await tick();
+    ok('61 characters is a SHAPE failure — over-length is unmeasured, not a measured no, so the ready row inside its grace is byte-identical',
+       JSON.stringify(readyRow()) === overBefore && /\|tax-cron\/settings_unparseable$/.test(beat()),
+       'row=' + JSON.stringify(readyRow()) + ' beat=' + beat());
+    stripeCalls.length = 0;
+    await bookAlone();
+    ok('… and the order behind it is still TAXED: a 100,000-character lowercase status can no longer destroy a ready row and sell the next sale untaxed',
+       stripeCalls[0].toString() === TAXED_BODY, stripeCalls[0].toString());
+
+    taxAccountReady(); forgetTaxState(); cacheTaxReady(); ageTaxState('tax:ready', 11 * 60000); expireTaxWindow();
+    fakeTaxSettings = { status: enumStatus(100000), head_office: { address: { line1: '2450 Fondren Rd' } }, defaults: {} };
+    const hugeBefore = JSON.stringify(readyRow());
+    await tick();
+    taxFail = null;
+    ok('… the same at 100,000 characters, which is the shape the finding was written against',
+       JSON.stringify(readyRow()) === hugeBefore, 'row=' + JSON.stringify(readyRow()));
+
     forgetTaxState();
     rateLimits.set('tax:lock', { key: 'tax:lock', window_start: new Date(Date.now() + 60000).toISOString(), count: 1 });
     const capRep = await (await adminTax6()).json();
-    ok('… and the /admin/tax/setup report mirrors the capped value, not the whole of it — shape and size are two checks',
-       typeof capRep.settings.status === 'string' && capRep.settings.status.length === 61 && capRep.settings.status.endsWith('…'),
-       'len=' + (capRep.settings && String(capRep.settings.status).length));
-    ok('… and no note carries it whole either', JSON.stringify(capRep.notes).length < 2000, 'notes bytes=' + JSON.stringify(capRep.notes).length);
+    ok('… and the report of an over-length status is the named unparseable error, carrying the failing field rather than 100,000 characters of it',
+       capRep.error && capRep.error.type === 'unparseable_response' && capRep.error.code === 'settings_status_invalid'
+       && JSON.stringify(capRep).length < 2000,
+       'bytes=' + JSON.stringify(capRep).length + ' ' + JSON.stringify(capRep.error).slice(0, 120));
     forgetTaxState(); taxAccountReady();
 
     /* ── R6-4: has_more is the page saying "you have not looked at all of it" ──
@@ -3590,6 +3614,18 @@ console.log('\n── Round 6: the numbers in the comments are the numbers this 
      JSON.stringify((/\*\* [a-z0-9 -]*overdue \*\*/.exec(smoke) || [''])[0]));
   ok('… and it prints the double-fault streak with a warning line of its own',
      smoke.includes('tax_fallback_streak') && smoke.includes('consecutive tax-carrying Checkout Sessions'), 'tax_fallback_streak in summary');
+  // R9-4: both workflows read LIVENESS from cron_last_run and keep last_run as the last measurement of any origin. A
+  // summary that prints one number under two meanings is how a dead loop reads healthy on a site taking orders.
+  ok('… and BOTH workflows read loop liveness from cron_last_run, keeping last_run as the last measurement of any origin',
+     smoke.includes("cron = d.get('cron_last_run')") && smoke.includes('last measurement (any origin)')
+     && smoke.includes('the scheduler is not firing') && !smoke.includes("if run.get('stale')")
+     && deploy.includes("cron = d.get('cron_last_run')") && deploy.includes('cron loop liveness'),
+     'liveness split in both workflows');
+  // R9-6: three regexes in a workflow are a second layer over a body Python could not parse. Saying so is the point —
+  // a reader who thinks the workflow is the control stops asking whether the Worker redacted anything.
+  ok('… and smoke-worker.yml says its 3-rule scrub is a courtesy, not the control: redaction is the Worker\'s job',
+     smoke.includes('COURTESY, NOT A CONTROL') && smoke.includes("REDACTION IS THE WORKER'S JOB"),
+     'scrub described as a second layer');
 
   const probe = repoFile('mast-backend/scripts/probe-tax-refusal.mjs');
   ok('the live refusal-status probe reads its key from the environment ONLY, holds no literal, and posts to api.stripe.com and nowhere else',
@@ -3630,9 +3666,27 @@ console.log('\n── Round 6: the numbers in the comments are the numbers this 
   ok('… and it states the bound on the create as a NUMBER an operator can act on: at most one attempt per 30 days, printed in the report',
      readme.includes('TWO WITNESSES AND A LEDGER') && readme.includes('AT MOST ONE registration create per 30\n  days')
      && readme.includes('taxreg_DUPLICATE'), 'create bound described');
-  ok('… and it corrects round 7 where round 7 was wrong: three raw fetches, not one, and the Checkout URL is capped after all',
+  ok('… and it corrects round 7 where round 7 was wrong: three raw fetches, not one, and the Checkout URL is bounded after all',
      readme.includes('NO raw `fetch` to `api.stripe.com` left in the file') && readme.includes('there were\nthree')
-     && readme.includes('The Checkout URL is capped too, at 2048'), 'corrections present');
+     && readme.includes('bounded at 2048 — REJECTED past it, never truncated'), 'corrections present');
+  // R9-6: the word, not the number. `capped` reads as "shortened", and a shortened redirect target is the one thing
+  // round 7 was right to refuse; the Session is REJECTED whole. A file that describes a reject as a truncation
+  // describes a different design from the one it ships.
+  ok('… and it says REJECTED rather than capped, because a truncated Checkout URL is the failure round 7 named',
+     !readme.includes('The Checkout URL is capped too') && readme.includes('refused whole'), 'reject wording');
+  ok('… and it states the webhook log ceiling as a CEILING — the notes cap — rather than as a probe\'s longest line',
+     readme.includes('longest line the webhook path can emit is ~2,000 characters')
+     && readme.includes('capText(meta.notes, 2000)'), 'log ceiling stated');
+  ok('… and it says a readiness write IS reachable from a checkout, and states the property that actually holds',
+     readme.includes('No customer-influenced string can determine the readiness row')
+     && readme.includes('once per `tax:lock` window'), 'readiness write stated');
+  ok('… and it splits loop liveness (cron_last_run) from the last measurement of any origin (last_run)',
+     readme.includes('`cron_last_run` + `loop_stale`') && readme.includes('last measurement of any origin')
+     && readme.includes('fresh `last_run` beside a stale `cron_last_run`'), 'liveness split described');
+  ok('… and it records the round-9 findings: a shape with no size, a self-contradicting row, and a zero-width blank',
+     readme.includes('a shape with no SIZE in it is satisfied at any size')
+     && readme.includes('A row that contradicts itself is not a decidable answer')
+     && readme.includes('a blank is not only whitespace'), 'round 9 findings described');
   ok('… and it prints each revert number with the harness that produced it, and the invariant both harnesses agree on',
      readme.includes('The revert number is harness-dependent'.replace('The', '**The')) && readme.includes('11 of 12** in the round-7 reviewer')
      && readme.includes('unreverted, both\n  report 0 of 12 and 0 of 6'), 'revert numbers attributed');
@@ -3640,7 +3694,7 @@ console.log('\n── Round 6: the numbers in the comments are the numbers this 
      readme.includes('`tax:fallback_streak` row') && readme.includes('writable by the public')
      && readme.includes('leave `last_run: null`'), 'streak row described');
   ok('… and it describes the fuzz as part of the suite, with its mutation count and the two invariants it pins',
-     readme.includes('316 mutations') && readme.includes('fuzz-tax-shapes.mjs')
+     readme.includes('**' + taxShapeMutations().length + ' mutations**') && readme.includes('fuzz-tax-shapes.mjs')
      && readme.includes('byte-identical**, sells the next order **taxed**'), 'fuzz described');
   ok('… and the cache.stale line in the report table says a re-measurement is overdue, not that the trigger is dead',
      readme.includes('a `stale: true` here means a **re-measurement is overdue**')
@@ -3687,7 +3741,7 @@ console.log('\n── Round 8: an unlisted field cannot be READ, an absence need
   globalThis.Date = VirtualDate;
 
   /* ── R8-1: THE READ GUARD. Every validated object the tax module hands back is wrapped in a Proxy whose get trap
-     throws on any key the schema does not list, and then the cron, the admin setup, a booking and the whole 316-case
+     throws on any key the schema does not list, and then the cron, the admin setup, a booking and the whole 350-case
      fuzz below are driven THROUGH it. This is the construction the round exists for: rounds 5, 6 and 7 each wrote a
      check for the fields they had named and an independent fuzz found the next unnamed one every time — round 7's was
      `country`, optional in the validator and DECIDED ON first by isTexasSalesTax. A named check cannot end that class.
@@ -3858,6 +3912,75 @@ console.log('\n── Round 8: an unlisted field cannot be READ, an absence need
     ok('a 200,000-character metadata.registration_id off a webhook is capped at 64 before it reaches a log — it was the one Stripe string on that path still echoed whole',
        !idLines.some((l) => l.includes(bigId)) && idLines.every((l) => l.length <= 100),
        'longest=' + Math.max(0, ...idLines.map((l) => l.length)) + ' ' + JSON.stringify(idLines.filter((l) => l.length > 100).map((l) => l.slice(0, 60))));
+
+    /* ── R9-1: THE WITNESS IS DROPPED BY THE MEASUREMENT, WHICH IS WHY THIS RUNS THROUGH worker.scheduled() ──
+       Round 8 dropped it in taxRun, at three call sites, all of them gated on `write`. The CRON NEVER REACHES THEM on
+       a collecting account: ensureTaxSetup's background branch measures first and RETURNS on `seen.ready`, so the one
+       path that runs 288 times a day was the one path that could see Texas present and could not drop a witness. A
+       witness lives 24 hours (TAX_WITNESS_MAX_MS), so a false absence on Tuesday and a second one on Friday met as
+       two witnesses — with a week of ticks in between, every one of them MEASURING the registration present — and
+       authorised a duplicate registration, which is the one act in this module that cannot be undone. Driven here
+       through worker.scheduled(), not through taxRun, because taxRun is exactly the path that already worked. */
+    taxAccountReady(); forgetTaxState(); witnessTaxAbsence(); stripeTaxCalls.length = 0;
+    const witnessBefore = !!taxStateRow('tax:registration_witness');
+    await tick();
+    ok('a CRON TICK that measures the account COLLECTING drops the standing witness — the path round 8 could not reach, because a healthy tick returns before taxRun',
+       witnessBefore && !taxStateRow('tax:registration_witness') && (readyRow() || {}).count === 1,
+       'before=' + witnessBefore + ' after=' + JSON.stringify(taxStateRow('tax:registration_witness')) + ' row=' + JSON.stringify(readyRow()));
+
+    fakeTaxRegistrations.length = 0;          // the account "loses" Texas: the Friday false absence
+    advance(2 * 3600000); expireTaxWindow(); stripeTaxCalls.length = 0;
+    const fridayA = await (await adminTax8()).json();
+    ok('… so a later false absence is a FIRST witness again and creates NOTHING: the Tuesday-and-Friday pair that used to reach the POST now needs two fresh readings',
+       taxPosts() === 0 && (fridayA.notes || []).some((n) => n.includes('FIRST witness')),
+       'POSTs=' + taxPosts() + ' ' + JSON.stringify(fridayA.notes));
+
+    advance(31000); expireTaxWindow();
+    const fridayB = await (await adminTax8()).json();
+    ok('… and the rule itself is untouched by the extra drop: two independent reads 31 s apart still authorise the create',
+       taxPosts() === 1 && fridayB.registration.created_now === true, 'POSTs=' + taxPosts());
+
+    /* ── R9-4: LOOP LIVENESS IS ITS OWN ROW, because a checkout can stamp the heartbeat ──
+       tax:last_run says a measurement happened; it does not say the SCHEDULER fired, because a refused checkout
+       enqueues a run and that run stamps it. On a site taking orders the heartbeat therefore stays fresh with the
+       trigger dead — which is the exact failure a heartbeat exists to show. */
+    const REFUSAL9 = { type: 'invalid_request_error', code: 'tax_registration_incomplete', message: 'Stripe Tax is not active on this account (automatic_tax).' };
+    taxAccountReady(); forgetTaxState(); cacheTaxReady(); stripeTaxCalls.length = 0;
+    const lq = [];
+    const lctx = { waitUntil: (p) => { lq.push(Promise.resolve(p).catch(() => {})); return p; } };
+    sessionFail = { n: 99, status: 400, when: (params) => !!(params && params.get('automatic_tax[enabled]')), body: { error: REFUSAL9 } };
+    for (let i = 0; i < 4; i++) { await bookWith(lctx); await Promise.all(lq.splice(0)); }
+    sessionFail = null;
+    const deadLoop = await (await adminTax8('?dry=1', 'GET')).json();
+    ok('four anonymous refused checkouts on a Worker whose CRON HAS NEVER FIRED leave tax:cron_last_run ABSENT and loop_stale TRUE — while last_run is fresh, because the checkouts stamped it',
+       !taxStateRow('tax:cron_last_run') && deadLoop.cron_last_run === null && deadLoop.loop_stale === true && deadLoop.last_run !== null,
+       JSON.stringify({ cron: deadLoop.cron_last_run, loop_stale: deadLoop.loop_stale, last_run: deadLoop.last_run }));
+
+    rateLimits.delete('tax:lock');
+    const unknownLive = await captureLogs(() => tick('0 * * * *'));
+    ok('… and an UNRECOGNISED trigger does not get to write it either: a renamed schedule is a wrong wrangler.toml, not evidence the tax loop is alive',
+       !taxStateRow('tax:cron_last_run') && unknownLive.some((l) => l.includes('"unknown_cron"')),
+       JSON.stringify(taxStateRow('tax:cron_last_run')));
+
+    await tick();
+    const liveLoop = await (await adminTax8('?dry=1', 'GET')).json();
+    ok('… one real cron tick stamps it, and the report reads liveness from THAT row: loop_stale false, the trigger named, last_run left saying what it honestly says',
+       !!taxStateRow('tax:cron_last_run') && liveLoop.cron_last_run !== null && liveLoop.cron_last_run.stale === false
+       && liveLoop.cron_last_run.trigger === 'tax-cron' && liveLoop.loop_stale === false,
+       JSON.stringify(liveLoop.cron_last_run));
+
+    // The healthy path is the one that matters here: a collecting account makes the tick return after ONE D1 read,
+    // before ensureTaxSetup, before any measurement. A liveness row only a failing tick writes reports a working loop
+    // as dead, so the stamp is at the top of the tick and this is what proves it.
+    cacheTaxReady(); ageTaxState('tax:cron_last_run', 30 * 3600000); stripeTaxCalls.length = 0;
+    const staleStamp = String((taxStateRow('tax:cron_last_run') || {}).window_start);
+    await tick();
+    ok('… and a tick that does NOTHING — a fresh ready cache, no measurement, no Stripe call at all — still stamps it: liveness that only a failing tick records is not liveness',
+       stripeTaxCalls.length === 0 && String((taxStateRow('tax:cron_last_run') || {}).window_start) !== staleStamp
+       && (await (await adminTax8('?dry=1', 'GET')).json()).loop_stale === false,
+       'stripe calls=' + stripeTaxCalls.length + ' stamp=' + String((taxStateRow('tax:cron_last_run') || {}).window_start));
+
+    forgetTaxState(); taxAccountReady();
 
     /* ── R8-8: THE FUZZ, WIRED. Not a reviewer's scratch script — it runs here, every run. ── */
     const fuzzTrial = async (settings, regs) => {

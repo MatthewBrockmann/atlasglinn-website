@@ -235,8 +235,31 @@ them, and what it returns is a **frozen object rebuilt from the schema** carryin
 schema's keys and nothing else — so a predicate cannot reach an unlisted field even
 by accident. The suite then wraps every validated object in a **Proxy whose `get`
 trap throws on any key the schema does not list** and drives `isTexasSalesTax`,
-`measureTaxReady` and `taxRun`'s decision code through it, including all 316 fuzz
+`measureTaxReady` and `taxRun`'s decision code through it, including all 350 fuzz
 mutations; deleting one key from the schema fails 24 assertions with the key named.
+
+**And a shape with no SIZE in it is satisfied at any size — round 9.** Round 8 wrote
+`status: /^[a-z][a-z_]*$/`, which a **100,000-character lowercase status** satisfies:
+byte-shape-valid, therefore MEASURED, therefore the ready row inside its 24-hour grace
+destroyed and the next order sold untaxed, on a body no Stripe account produces.
+`taxEnum` had been capped in round 6 for this exact reason, and that cap bounds what is
+PRINTED — it never touched what is DECIDED. Every enum-shaped rule now carries its
+ceiling in the regex itself (`/^[a-z][a-z_]{0,59}$/`, 60 = `TAX_ENUM_MAX`), the two
+country/state fields are `{2}`, `id` is `{1,64}` and the one non-enum string,
+`head_office.address.line1`, is bounded at 500. The boundary is asserted as a **pair**:
+60 characters is a measured answer, 61 is `settings_unparseable`.
+
+**A row that contradicts itself is not a decidable answer.** `country_options` was
+optional-when-absent and unchecked-when-present, so a row saying `country: 'CA'` while
+carrying `country_options.us.state = 'TX'` validated and came out of `isTexasSalesTax`
+as a confident FALSE — a **measured** *"this account has no Texas registration"*, which
+is the absence that, seen twice, authorises the one irreversible act in the module. It
+is a shape failure now: present on a non-US row means the body was not understood.
+
+**And a blank is not only whitespace.** U+200B–U+200D and U+FEFF are **not** in
+JavaScript's `\s`, so a `line1` of one zero-width space satisfied `^\S(?:[\s\S]*\S)?$`
+and read as *"the head office is set"* — skipping the settings write on an account with
+no address. They are refused anywhere in the string, not only alone.
 That is the difference between fixing an instance and closing a class. *Two:* every Stripe-controlled string that
 leaves this Worker — into a log, a report or a D1 column — is **capped**, by
 `taxSafe` / `taxEnum` / `taxDate` where it also needs redacting and by `capText`
@@ -355,6 +378,19 @@ held every checkout open behind it. Now:
   saying so overstated it. **Operator note: a hand-run `POST /admin/tax/setup` against
   an account with no Texas registration will therefore report a withheld create the
   first time. Run it again after the lock window (60 s) and it creates.**
+
+  **And Tuesday-and-Friday was still reachable until round 9, because only `taxRun`
+  dropped the witness.** All three clears sat inside `taxRun` and were gated on
+  `write` — and the **cron never reaches `taxRun` on a collecting account**:
+  `ensureTaxSetup`'s background branch measures first and RETURNS on `ready`. So the
+  one path that runs 288 times a day was the one path that could see Texas present and
+  could not drop a standing witness. A witness lives 24 hours, so a false absence on
+  Tuesday and a second on Friday met as two witnesses — **with a week of ticks between
+  them, every one of them measuring the registration present** — and authorised a
+  duplicate. The clear belongs to the **measurement**, which every path makes, not to
+  the run, which the healthy path skips. Asserted through `worker.scheduled()` rather
+  than through `taxRun`, because `taxRun` is the path that already worked; reverting it
+  reproduces the POST, `taxreg_12`, from *"two independent reads 7245s apart"*.
 * **`has_more` means this function did not look.** The readiness read is one page
   deep (`?status=active&limit=100`). A Texas registration past the first hundred
   read as a measured *"no Texas registration"*, which turns tax off. It is
@@ -436,8 +472,15 @@ a timeout and a transport failure are not answers about the body and go to the
 ordinary error path — and only when the body actually carried tax fields: a
 declined card is an answer, and re-sending it would be a second charge attempt.
 
-**That path does NOT write the readiness row, and that is a security fix, not a
-tidy-up.** Round 4 wrote `tax:ready = unmeasured` here, from the **anonymous**
+**No customer-influenced string can determine the readiness row — which is the claim
+that holds, and is narrower than the one this file used to make.** Saying the refusal
+path *"never writes the readiness row"* was wrong: the refusal **enqueues a
+measurement**, that measurement takes the `tax:lock` and asks Stripe, and it writes the
+row with **Stripe's own answer**. A checkout can therefore cause a readiness write — at
+most **once per `tax:lock` window** however many refusals arrive, off the customer's
+path, carrying nothing a stranger chose. The refusal decides only that the question gets
+asked. That is a security fix, not a tidy-up, and here is what it fixed.
+Round 4 wrote `tax:ready = unmeasured` here, from the **anonymous**
 customer path, with no lock, no measurement and no rate limit, on any non-ok
 response whose **free text** matched `/automatic_tax|tax|registration/`. A string
 an attacker influences and Stripe echoes back — an email local part, a
@@ -447,7 +490,8 @@ afterwards. The same write de-taxed everyone on a *customer-scoped* code such as
 `customer_tax_location_invalid`, which says nothing about the account at all. So
 the refusal now buys exactly one thing beyond the retry: a real measurement,
 enqueued behind the response with `ctx.waitUntil`, that takes the `tax:lock` row
-and **asks Stripe**. No inference from a string ever flips the gate.
+and **asks Stripe**. No inference from a string ever flips the gate — a test pins the
+row byte-for-byte across a refusal carrying attacker-chosen text.
 
 **The double fault, counted — `tax_fallback_streak`.** There is one state where
 every rule above is working exactly as written and the business still loses the
@@ -489,10 +533,12 @@ six refusals. It resets on either half of the fault ending: a tax-carrying Sessi
 Stripe **accepts**, or a measurement Stripe **answers**.
 
 **The fuzz is part of the suite, not a reviewer's scratch file.**
-`mast-backend/scripts/fuzz-tax-shapes.mjs` generates **316 mutations** from one valid
+`mast-backend/scripts/fuzz-tax-shapes.mjs` generates **350 mutations** from one valid
 settings body and one valid registrations body — every key at every level, deleted,
 renamed, retyped, re-cased, padded, emptied, nulled, swapped between array and object,
-nested differently, plus `has_more` variants and paged lists — and asserts, with a ready
+nested differently, plus `has_more` variants, paged lists, **over-length values at every
+string field** (on the bound, one past it, and 100,000 characters), **contradictory rows**
+and **zero-width blanks** — and asserts, with a ready
 row inside the grace: `measured:true` **only** for byte-shape-valid bodies; every
 drifted one leaves the readiness row **byte-identical**, sells the next order **taxed**,
 and makes **zero** registration POSTs. It runs standalone
@@ -541,17 +587,24 @@ Stripe surface the version pin does not govern. All three go through `boundedStr
 now, on the checkout ceiling, with their interpolated ids `capText`-ed to 255 before
 they reach a request path. A source sweep in the suite fails if a raw one comes back.
 
-**The Checkout URL is capped too, at 2048.** Round 7 argued it must not be, because
-truncating a redirect target breaks the purchase it exists to start. That is true and
-it is not an argument for no ceiling: a Checkout URL is about ninety characters, and a
-"URL" past 2048 is not something this Worker should hand a browser. It is scheme-checked
-**and then** bounded, in that order — a cap applied first would let a 2048-character
-prefix of something else through on a truncation — and a 2,100-character URL is a clean
-502. It was the last uncapped Stripe-controlled string in the Worker.
+**The Checkout URL is bounded at 2048 — REJECTED past it, never truncated.** The word
+matters and round 9 corrects it: *capped* reads as "shortened", and shortening a redirect
+target is exactly what round 7 argued against, rightly, because a truncated URL breaks
+the purchase it exists to start. That argument is not an argument for no ceiling. So a
+Session whose `url` is longer than `CHECKOUT_URL_MAX` is **refused whole** — a clean 502,
+the ordinary error the customer already sees when Stripe answers something unusable — and
+no shortened redirect is ever handed to a browser. A Checkout URL is about ninety
+characters. Scheme first, length second: a length test applied before the `https://`
+check would be asking about the size of something that was never a URL. Measured with a
+2,100-character URL. It was the last unbounded Stripe-controlled string in the Worker.
 
 **`metadata.registration_id` is capped at 64, at the webhook call site and again inside
 `completeRegistration`.** It was the one Stripe string on that path still echoed whole
 into a log: a 200,000-character metadata value produced a 200,000-character log line.
+With it bounded, **the longest line the webhook path can emit is ~2,000 characters**, and
+that ceiling is the `notes` cap (`capText(meta.notes, 2000)`) rather than an observation —
+the probe's own longest line is under a hundred, which is a fact about the probe and not
+about the bound. State the ceiling.
 The sweep behind that fix is an **enumeration**, not an allow-list grep — every property
 read off a Stripe response in `worker.js` printed beside the bound that stands between
 it and a sink (129 distinct properties, 670 read sites, **0 unbounded**). An allow-list
@@ -624,7 +677,8 @@ under "Stripe Tax — Houston, Texas":
 |---|---|
 | `tax_ready` + `tax_ready_reason` | the exact boolean every checkout gates on, and why (`active`, `last_known_ready`, `measurement_expired`, `settings_status:…`, `never_measured`…) |
 | `tax_ready_cache` | the row itself: `measured_at`, `age_seconds`, `ttl_seconds` (600, or 60 for a measurement that failed), `grace_seconds` (86400) and `stale` — a `stale: true` here means a **re-measurement is overdue** and nothing more: a Stripe outage leaves it true while the trigger fires on time and correctly declines to overwrite a good row. The trigger's own liveness is `last_run` |
-| `last_run` | the heartbeat: when a setup run last held the lock, its outcome, its age, and `stale: true` past 25 hours |
+| `last_run` | the **last measurement of any origin**: when a run last held the lock, its outcome and its age. A cron, an `/admin` call, or the refresh a checkout enqueued — that last one is why it is not liveness |
+| `cron_last_run` + `loop_stale` | **liveness, and only liveness**: stamped when the trigger was one of the two crons and by nothing else, at the top of the tick so a healthy account whose ticks cost one D1 read still records that the scheduler fired. Absent = stale. A **fresh `last_run` beside a stale `cron_last_run`** is the shape of the failure this split exists to show — the trigger stopped and the orders are covering for it |
 | `tax_fallback_streak` + `tax_readiness` + `tax_fallback_alarm` | consecutive tax-carrying Sessions Stripe refused; whether the last readiness was `measured` / `unmeasured` / `kept_ready` / `never_measured`; and whether both halves of the double fault are present. The **number always prints**; the warning line needs the alarm, because a counter an anonymous request can raise is not by itself evidence that anything is wrong |
 
 **What CI does, and what it does not.** `deploy-worker.yml`'s tax step is a

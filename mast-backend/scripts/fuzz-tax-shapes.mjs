@@ -48,6 +48,19 @@ const RETYPE = [['number', 1], ['zero', 0], ['true', true], ['false', false], ['
 const restring = (v) => [['upper', String(v).toUpperCase()], ['title', String(v).charAt(0).toUpperCase() + String(v).slice(1)],
   ['lead_space', ' ' + v], ['trail_space', v + ' '], ['both_space', ' ' + v + ' '], ['newline', v + NL], ['tab', TAB + v],
   ['dotted', v + '.'], ['suffixed', v + '-1'], ['dashed', String(v).split('_').join('-')]].filter(([, out]) => out !== v);
+/**
+ * OVER-LENGTH, AT EVERY STRING FIELD — R9-2. A shape test with no size in it is satisfied at any size, and the round-8
+ * schema had none: a 100,000-character lowercase `settings.status` was byte-shape-VALID, so it was MEASURED, so the
+ * ready row inside its 24-hour grace was destroyed by a body no Stripe account produces. Three widths, because the
+ * interesting one is the boundary and not the absurd one: ON the bound (still a real answer), one past it, and the
+ * width the finding was written against. Generated per field from that field's own ceiling, so a bound that moves in
+ * the schema and not here shows up as a fuzz violation rather than as silence.
+ */
+const overlong = (bound, alphabet = 'a') => [['on_the_bound', alphabet.repeat(bound)], ['one_past_the_bound', alphabet.repeat(bound + 1)], ['100k', alphabet.repeat(100000)]];
+/** The invisibles that are NOT in JavaScript's `\s` — R9-5. A line1 of one zero-width space satisfied `^\S…\S$`, so it
+ *  read as "the head office is set" and the settings write was skipped on an account that has no address. U+00A0 and
+ *  U+FEFF are in `\s` and were already refused; they are fuzzed anyway rather than trusted to an engine's table. */
+const ZERO_WIDTH = [['zwsp', '\u200B'], ['zwnj', '\u200C'], ['zwj', '\u200D'], ['bom', '\uFEFF'], ['nbsp', '\u00A0']];
 /** How a key drifts: an API version renames it, a v2 shape moves it, somebody's proxy re-cases it. */
 const rekey = (k) => [k.toUpperCase(), k + '_code', k + '_name', 'x_' + k, k.split('_').join(''), 'the_' + k].filter((out) => out !== k);
 
@@ -71,6 +84,9 @@ export function taxShapeMutations() {
   add('settings.status DELETED', 'drift', S((s) => { delete s.status; }), OK_REGS());
   for (const k of rekey('status')) add('settings.status renamed -> ' + k, 'drift', S((s) => { s[k] = s.status; delete s.status; }), OK_REGS());
   for (const v of ['pending', 'not_collecting']) add('settings.status = ' + v + ' (a real answer)', 'measured_no', S((s) => { s.status = v; }), OK_REGS());
+  // ON the 60-character bound is still an enum Stripe could theoretically send, and it is a real answer: measured, not
+  // ready. One character past it is not a longer answer — it is a body this module did not understand.
+  for (const [t, v] of overlong(60)) add('settings.status ' + t + ' (' + v.length + ' chars)', t === 'on_the_bound' ? 'measured_no' : 'drift', S((s) => { s.status = v; }), OK_REGS());
 
   // ── settings.head_office, which is the field the SETUP path decides to write on ──
   for (const [t, v] of RETYPE.filter(([t2]) => t2 !== 'null')) add('settings.head_office retyped ' + t, 'drift', S((s) => { s.head_office = v; }), OK_REGS());
@@ -82,6 +98,13 @@ export function taxShapeMutations() {
   add('settings.head_office.address.line1 DELETED', 'drift', S((s) => { delete s.head_office.address.line1; }), OK_REGS());
   for (const k of rekey('line1')) add('settings.head_office.address.line1 renamed -> ' + k, 'drift', S((s) => { s.head_office.address[k] = s.head_office.address.line1; delete s.head_office.address.line1; }), OK_REGS());
   add('settings.head_office nesting shifted (address hoisted)', 'drift', S((s) => { s.head_office = { line1: '2450 Fondren Rd' }; }), OK_REGS());
+  // line1 is the one non-enum string the schema declares, and it decides whether the setup run WRITES. Size and
+  // invisibles are the two ways a string stops being an address line while still passing a shape test.
+  for (const [t, v] of overlong(500)) add('settings.head_office.address.line1 ' + t + ' (' + v.length + ' chars)', t === 'on_the_bound' ? 'valid' : 'drift', S((s) => { s.head_office.address.line1 = v; }), OK_REGS());
+  for (const [t, v] of ZERO_WIDTH) {
+    add('settings.head_office.address.line1 is one ' + t + ' and nothing else', 'drift', S((s) => { s.head_office.address.line1 = v; }), OK_REGS());
+    add('settings.head_office.address.line1 carries an interior ' + t, 'drift', S((s) => { s.head_office.address.line1 = '2450' + v + ' Fondren Rd'; }), OK_REGS());
+  }
 
   // ── the settings BODY itself ──
   for (const [t, v] of [['array', [{ status: 'active' }]], ['null', null], ['string', 'active'], ['number', 7], ['true', true], ['empty_object', {}]])
@@ -116,6 +139,14 @@ export function taxShapeMutations() {
   for (const v of ['USA', 'U.S.', 'us', 'Us', 'united_states']) add('row.country = ' + JSON.stringify(v), 'drift', OK_SET(), R((r) => { r.country = v; }));
   for (const v of ['CA', 'GB', 'DE']) add('row.country = ' + v + ' (a real non-US registration)', 'measured_no', OK_SET(), R((r) => { r.country = v; delete r.country_options; }));
   for (const v of ['scheduled', 'expired']) add('row.status = ' + v + ' (a real answer)', 'measured_no', OK_SET(), R((r) => { r.status = v; }));
+  for (const [t, v] of overlong(60)) add('row.status ' + t + ' (' + v.length + ' chars)', t === 'on_the_bound' ? 'measured_no' : 'drift', OK_SET(), R((r) => { r.status = v; }));
+  for (const [t, v] of overlong(64, 'A')) add('row.id ' + t + ' (' + v.length + ' chars)', t === 'on_the_bound' ? 'valid' : 'drift', OK_SET(), R((r) => { r.id = v; }));
+  // R9-3: a row that says it is not a US registration while carrying US registration options is a row Stripe cannot
+  // have written. Reading it as a decidable "not Texas" is how a self-contradicting body measures an absence — and an
+  // absence, measured twice, is what authorises the one irreversible act in the module.
+  for (const v of ['CA', 'GB', 'DE']) add('row.country = ' + v + ' while country_options.us.state is still TX (a contradictory row)', 'drift', OK_SET(), R((r) => { r.country = v; }));
+  add('row.country = CA with an EMPTY country_options object', 'drift', OK_SET(), R((r) => { r.country = 'CA'; r.country_options = {}; }));
+  add('row.country = CA with country_options.us present but no state', 'drift', OK_SET(), R((r) => { r.country = 'CA'; delete r.country_options.us.state; }));
 
   for (const [t, v] of RETYPE) add('row.country_options retyped ' + t, 'drift', OK_SET(), R((r) => { r.country_options = v; }));
   add('row.country_options DELETED', 'drift', OK_SET(), R((r) => { delete r.country_options; }));
@@ -134,6 +165,9 @@ export function taxShapeMutations() {
   for (const v of ['CA', 'NY']) add('row..us.state = ' + v + ' (a real other-state registration)', 'measured_no', OK_SET(), R((r) => { r.country_options.us.state = v; }));
   for (const [t, v] of restring('state_sales_tax')) add('row..us.type restrung ' + t, 'drift', OK_SET(), R((r) => { r.country_options.us.type = v; }));
   for (const v of ['local_lease_tax', 'simplified_sellers_use_tax']) add('row..us.type = ' + v + ' (a real wrong-type registration)', 'measured_no', OK_SET(), R((r) => { r.country_options.us.type = v; }));
+  for (const [t, v] of overlong(60)) add('row..us.type ' + t + ' (' + v.length + ' chars)', t === 'on_the_bound' ? 'measured_no' : 'drift', OK_SET(), R((r) => { r.country_options.us.type = v; }));
+  for (const [t, v] of overlong(2, 'X')) if (t !== 'on_the_bound') add('row..us.state ' + t + ' (' + v.length + ' chars)', 'drift', OK_SET(), R((r) => { r.country_options.us.state = v; }));
+  for (const [t, v] of overlong(2, 'U')) if (t !== 'on_the_bound') add('row.country ' + t + ' (' + v.length + ' chars)', 'drift', OK_SET(), R((r) => { r.country = v; }));
 
   // ── nesting shifts: what an API version bump actually looks like from in here ──
   add('v2 shape: state/type flattened onto the row', 'drift', OK_SET(), R((r) => { r.state = 'TX'; r.type = 'state_sales_tax'; delete r.country_options; }));
