@@ -20,6 +20,8 @@ out of cinematic_shell and reused verbatim:
 
 mastsolutions.html does not import this module; the MAST build is untouched.
 """
+import re
+
 import cinematic_shell as shell
 
 # ── The chapter rail, the trailer splash and the letterbox cut have no place in a one-scroll page, so their rules come
@@ -77,7 +79,6 @@ CLASSIC_CSS = r"""
   #mobile-nav.open { opacity:1; visibility:visible; }
   #mobile-nav a { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.05rem; letter-spacing:.12em; text-transform:uppercase; color:var(--text); text-decoration:none; text-align:center; }
   #mobile-nav a.subitem { font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.68rem; letter-spacing:.2em; color:var(--gold-champagne); opacity:1; transform:none; margin:0; }
-  #mobile-nav a small { display:block; font-family:'Share Tech Mono',monospace; font-weight:400; font-size:.6rem; letter-spacing:.3em; color:var(--text-mute); text-transform:uppercase; margin-top:.2rem; }
   #mobile-nav a.here { color:var(--gold); }
   .mobile-nav-close { position:absolute; top:1rem; right:1rem; background:none; border:1px solid rgba(201,168,76,.35); color:var(--text); font-size:1.5rem; line-height:1; padding:.1rem .55rem; cursor:pointer; }
   /* ── Hero: the film full-bleed under the headline, with the live sound toggle ── */
@@ -272,26 +273,34 @@ def chrome(intro_eyebrow, wordmark, intro_tagline, photos):
             % (intro_eyebrow, wordmark, intro_tagline, ph))
 
 
-def nav(items, here, logo, brand='ATLAS GLINN', home='index.html'):
-    """items: [(href, label, kind, desc)] where kind is None, 'cta', 'mobile' (the full-screen list only), or
-    [(href, icon, title, desc)] for a dropdown. `desc` is the live menu's descriptor line under the label."""
+def nav(bar_items, mobile_items, here, logo, brand='ATLAS GLINN', home='index.html', logo_alt=None):
+    """The sticky bar and the full-screen menu, both filled from the live page's own two menus.
+
+    bar_items:    [(href, label, kind, dropdown)] — kind None or 'cta', dropdown [(href, icon, title, desc)] or None
+    mobile_items: [(href, label, sub)] — sub True for the entries the live menu prints indented
+    logo_alt:     the alt the live bar's logo carries, passed in from the capture; the brand constant is only the
+                  fallback for the deprecated --authored path, which has no capture to read.
+
+    The descriptor line under a bar item is gone: the live bar prints none, and the eleven the shell invented for it
+    ("Dignitary and close protection", "Book a course", "Mission and team", …) were copy no page has ever carried.
+    The three descriptors that stay are the live Training menu's own, read off the capture (reference/live/index.html
+    <span class="ndb-desc">), and they are printed only where the live banner carries one.
+    """
     bar, mob = [], []
-    for href, label, kind, desc in items:
+    for href, label, kind, drop in bar_items:
         cur = ' class="here"' if href == here else ''
-        line = '  <a href="%s"%s>%s<small>%s</small></a>' % (href, cur, label, desc)
-        if isinstance(kind, list):
+        if drop:
             menu = ''.join('<a href="%s" class="nav-dropdown-banner"><span class="ndb-icon" aria-hidden="true">%s</span>'
-                           '<span class="ndb-text"><span class="ndb-title">%s</span><span class="ndb-desc">%s</span></span></a>'
-                           % (h, ic, t, d) for h, ic, t, d in kind)
+                           '<span class="ndb-text"><span class="ndb-title">%s</span>%s</span></a>'
+                           % (h, ic, t, '<span class="ndb-desc">%s</span>' % d if d else '')
+                           for h, ic, t, d in drop)
             bar.append('        <li class="nav-dropdown"><a href="%s"%s>%s</a>\n          <div class="nav-dropdown-menu">%s</div>\n        </li>' % (href, cur, label, menu))
-            mob.append(line)
-            mob += ['  <a href="%s" class="subitem%s">%s<small>%s</small></a>' % (h, ' here' if h == here else '', t, d)
-                    for h, _, t, d in kind if h != href]
         else:
-            if kind != 'mobile':
-                cls = ' class="nav-cta"' if kind == 'cta' else cur
-                bar.append('        <li><a href="%s"%s>%s</a></li>' % (href, cls, label))
-            mob.append(line)
+            cls = ' class="nav-cta"' if kind == 'cta' else cur
+            bar.append('        <li><a href="%s"%s>%s</a></li>' % (href, cls, label))
+    for href, label, sub in mobile_items:
+        cls = ' class="subitem%s"' % (' here' if href == here else '') if sub else (' class="here"' if href == here else '')
+        mob.append('  <a href="%s"%s>%s</a>' % (href, cls, label))
     return ('<nav id="main-nav" aria-label="Main">\n  <div class="nav-container">\n'
             '    <a href="%s" class="nav-logo"><img src="%s" alt="%s" width="40" height="40"><span class="nav-logo-text">%s</span></a>\n'
             '      <ul class="nav-links">\n%s\n      </ul>\n'
@@ -299,7 +308,7 @@ def nav(items, here, logo, brand='ATLAS GLINN', home='index.html'):
             '  </div>\n</nav>\n\n'
             '<div id="mobile-nav" role="dialog" aria-label="Site menu">\n'
             '  <button class="mobile-nav-close" id="mobile-nav-close" type="button" aria-label="Close menu">&times;</button>\n%s\n</div>\n'
-            % (home, logo, brand, brand, '\n'.join(bar), '\n'.join(mob)))
+            % (home, logo, logo_alt or brand, brand, '\n'.join(bar), '\n'.join(mob)))
 
 
 def hero_media(img, pos=None, film=None):
@@ -319,8 +328,11 @@ def hero_media(img, pos=None, film=None):
     return '<figure class="hero-media">%s%s</figure><span class="hero-scrim"></span>%s' % (still, video, toggle)
 
 
-def footer(inner):
-    return '<footer class="site-footer">\n  <div class="footer-container">%s</div>\n</footer>\n' % inner
+def footer(inner, container=True):
+    """The site footer. A live page brings its own `.footer-container` (ep-app brings `.footer-inner` instead), so the
+    live build passes container=False and the shell contributes the element and the stylesheet, nothing else."""
+    body = '\n  <div class="footer-container">%s</div>\n' % inner if container else '\n%s\n' % inner
+    return '<footer class="site-footer">%s</footer>\n' % body
 
 
 BACK_TO_TOP = '<button id="back-to-top" type="button" title="Back to top" aria-label="Back to top">&#8593;</button>\n'
@@ -403,3 +415,302 @@ CLASSIC_JS = r"""
   }
 })();
 """
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+# The cinematic layer — MAST's front end over the live Atlas pages
+#
+# Brockmann, 2026-09-08 22:57:31: "These are not same as mastsolutions- or currewnt site = BLAND NO EXCIOTMENT NO 3D",
+# and 23:04:11Z: "the actual format. with the front end looks good, but content and everything else doesn't match mass
+# solutions or what Atlas Lin had in it." The content half landed (PR #97, the live pages verbatim). This is the other
+# half: the trailer's three.js scene, a chapter's own photograph or film full-bleed behind it, entrance motion, the
+# progress line and the chapter rail — over live copy that is not touched.
+#
+# EVERYTHING HERE IS NAMESPACED `agx-`. mastsolutions.html draws its layers on `#three-canvas`, `#photos .ph`,
+# `.grain`, `.vignette`, `.progress` and `.chap-link`; on an Atlas page those names are not safe. The live index ships
+# its own `#three-canvas { position:absolute }` rule inside the <style> block this build carries verbatim, the live
+# stylesheet styles a BARE `nav` selector (26 rules, `transform:translateY(-100%)`), and contact.html already has an
+# `ag-contact-form`. `agx-` collides with none of it — measured 0 hits of `\.agx` across shared-styles.css and all
+# twelve pages' <style> blocks — so the cinema sheet cannot reach a live element it was not pointed at, and
+# assert_cinema_scope() below is the receipt.
+CINEMA_CSS = r"""
+  /* ── The 3D scene, the backdrop and the film grain: four fixed layers under the content ── */
+  #agx-canvas { position:fixed; inset:0; width:100vw; height:100vh; height:100svh; z-index:1; pointer-events:none; }
+  #agx-photos { position:fixed; inset:0; z-index:2; pointer-events:none; }
+  /* The outgoing photograph leaves faster than the incoming one arrives, so the two never stack to a brighter frame
+     mid-switch (Brockmann, 2026-09-04: "the background pulled forward"). */
+  .agx-ph { position:absolute; inset:0; background:center/cover no-repeat; opacity:0; transition:opacity .6s ease; filter:saturate(.72) contrast(1.06); }
+  .agx-ph.agx-on { opacity:.42; transition:opacity 1.6s ease .3s; }
+  .agx-ph::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.42) 0%, rgba(5,8,16,.08) 45%, rgba(5,8,16,.72) 100%); }
+  /* A chapter's backdrop can be the page's own film instead of a still, on the four pages that carry no photograph at
+     all (Brockmann, 2026-09-05: "the video should be in the background, just a snippet playing"). Same file, same URL,
+     already loaded by the hero — it plays only while its chapter is on screen. */
+  .agx-ph video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0; transition:opacity 1.2s ease; }
+  .agx-ph video.agx-playing { opacity:1; }
+  .agx-ph.agx-film.agx-on { opacity:.58; }
+  .agx-ph.agx-yt iframe { position:absolute; top:50%; left:50%; width:100vw; height:56.25vw; min-height:100%; min-width:177.78vh; transform:translate(-50%,-50%); border:0; pointer-events:none; opacity:0; transition:opacity 1.2s ease; }
+  .agx-ph.agx-yt iframe.agx-playing { opacity:1; }
+  .agx-grain { position:fixed; inset:0; z-index:3; pointer-events:none; opacity:.035; background-image:repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(255,255,255,.3) 2px, rgba(255,255,255,.3) 3px); mix-blend-mode:overlay; }
+  .agx-vignette { position:fixed; inset:0; z-index:4; pointer-events:none; background:radial-gradient(ellipse at center, transparent 0%, transparent 55%, rgba(5,8,16,.75) 100%); }
+  /* ── The read-position line, on the bar's top edge rather than behind it ── */
+  #agx-progress { position:fixed; top:0; left:0; height:2px; width:0; background:linear-gradient(90deg, #D4AF37, #FCF6BA, #B87333); z-index:1001; box-shadow:0 0 14px rgba(201,168,76,.7); transition:width .1s linear; pointer-events:none; }
+  /* ── Chapters: each live section, full-bleed over its own backdrop ──
+     display:grid with one 100% column and width:100% on the child, NOT flex: the live sections centre themselves with
+     `max-width:1400px; margin:0 auto`, and an auto cross-axis margin in a flex column shrinks the item to fit-content —
+     which is the shape of the render P0 that pinned a hero column to the left of the viewport. A definite width keeps
+     the auto margins splitting the remainder, so the live layout is exactly what it was. */
+  .agx-content { position:relative; z-index:5; }
+  /* The bar is fixed and 60px tall, so a rail link that lands a chapter at scroll-position 0 puts its heading
+     under the bar. Measured before this rule: index ch2/ch3/ch4 headings landed 26/26/49px from the top,
+     executive-protection ch3 and technology ch3 the same. The shell's `section.panel` scroll-margin never
+     applied here — a live-content page has no section.panel; the chapter wrapper is `.agx-ch`. */
+  .agx-ch { position:relative; min-height:100vh; min-height:100svh; display:grid; grid-template-columns:100%; align-content:center; scroll-margin-top:72px; }
+  .agx-ch > * { width:100%; }
+  .agx-ch::before { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(180deg, rgba(8,12,20,.58) 0%, rgba(8,12,20,.3) 42%, rgba(8,12,20,.72) 100%); }
+  .agx-ch.agx-hero::before { background:none; }
+  /* Entrance motion. The opacity rule is gated on a class the script adds at boot, so a page whose JS never runs —
+     or whose IntersectionObserver never fires — shows every chapter at full strength. Nothing on an Atlas page is
+     allowed to be invisible because a script did not arrive. */
+  html.agx-motion .agx-ch { opacity:0; transform:translateY(26px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
+  html.agx-motion .agx-ch.agx-in { opacity:1; transform:translateY(0); }
+  html.agx-motion { scroll-behavior:smooth; }
+  /* ── Chapter rail: MAST's, in its tick form, so it sits in the live section's own right padding and moves nothing.
+     A <div>, never a <nav> — the live stylesheet styles a bare `nav` and would fix it to the top and slide it away. ── */
+  .agx-rail { position:fixed; right:.45rem; top:50%; transform:translateY(-50%); z-index:900; display:none; flex-direction:column; gap:.4rem; align-items:flex-end; font-family:'Share Tech Mono',monospace; font-size:.6rem; }
+  .agx-rail-link { display:flex; align-items:center; justify-content:flex-end; gap:.5rem; padding:.32rem .4rem; color:var(--text); font-weight:700; letter-spacing:.25em; text-transform:uppercase; text-decoration:none; text-shadow:0 1px 10px rgba(0,0,0,.9); border:1px solid transparent; transition:color .3s, border-color .3s, background .3s; }
+  .agx-rail-link span { max-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:0; transition:max-width .35s ease, opacity .35s ease; }
+  .agx-rail-link::after { content:''; width:17px; height:2px; flex:none; background:rgba(240,244,255,.5); box-shadow:0 1px 6px rgba(0,0,0,.9); transition:width .3s, background .3s; }
+  .agx-rail-link:hover { color:var(--gold-champagne); border-color:rgba(201,168,76,.35); background:rgba(5,8,16,.7); }
+  /* 20.5rem = 328px, the MEASURED maximum + 1px: the widest of the 77 labels of the 79 rail links (2 are label-less ticks) is uas ch4's "No Pilot Required.
+     No Gaps in Coverage ." at 327px in Chromium at 1440x900. At 13rem (208px) FOURTEEN of the 77 were cut mid-word
+     with no ellipsis — "Atlas Glinn SOP for Protective Detail" at 303, "Your Assets Don't Wait. Neither Do We." at
+     311 — and `text-overflow` computed `clip` on all 77, so the cut had no visual signal at all. Both are fixed
+     together on purpose: the clamp is the fix for today's labels, the ellipsis is the backstop for a label longer
+     than any of today's, and either alone leaves one of the two failures standing. */
+  .agx-rail-link:hover span { max-width:20.5rem; opacity:1; }
+  .agx-rail-link.agx-active { color:var(--gold-champagne); }
+  .agx-rail-link:hover::after, .agx-rail-link.agx-active::after { width:30px; background:var(--gold); box-shadow:0 0 10px rgba(201,168,76,.6); }
+  /* MAST shows its rail from 769px up (cinematic_shell.py:220-223: hidden at <=768px, ticks only 769-1024px,
+     labels from 1025px with `section.panel { padding-right:16.5rem }` making the room). The Atlas rail now
+     appears at the same 769px and in the same tick form; from 1025px MAST's always-on label needs a right
+     gutter this build cannot cut, because the live sections are the live page's own 1400px centred blocks
+     and widening their padding is a content change. So above 1025px the label comes on hover, and on the
+     reading position from 1700px, where the centred column finally leaves the margin for it.
+     THE 1025-1699px DIVERGENCE FROM MAST IS ACCEPTED, not an oversight: MAST prints 13 labels always at those
+     widths, Atlas prints ticks and gives the label on hover. It is the direct consequence of the sentence above —
+     MAST owns its own right gutter, an Atlas page's sections are the live page's, and taking a gutter out of them
+     would be a content change. CLAUDE.md states it as the accepted deviation. */
+  @media (min-width:769px) { .agx-rail { display:flex; } }
+  @media (min-width:769px) and (max-width:1024px) { .agx-rail { right:.8rem; gap:.35rem; } .agx-rail-link { padding:.3rem .4rem; gap:0; } .agx-rail-link::after { width:16px; } .agx-rail-link:hover::after, .agx-rail-link.agx-active::after { width:22px; } }
+  /* The live sections are 1400px wide and centred, so below 1700px there is no margin to print a chapter's line in
+     without covering its own text: the rail stays a column of ticks and gives the line on hover. Above it, the
+     reading position carries its label the way the trailer's rail does. */
+  @media (min-width:1700px) { .agx-rail { right:1.4rem; } .agx-rail-link.agx-active span { max-width:20.5rem; opacity:1; } }
+  @media (prefers-reduced-motion: reduce) { html.agx-motion .agx-ch { opacity:1; transform:none; transition:none; } html.agx-motion { scroll-behavior:auto; } }
+  @media (max-width:768px) { .agx-ph.agx-on { opacity:.35; } .agx-ph.agx-film.agx-on { opacity:.5; } .agx-ch { min-height:auto; } }
+"""
+
+# The five roots the cinema layer owns. Every selector in CINEMA_CSS has to name one of them, so the sheet cannot
+# reach a live element: the only content it touches is the wrapper this build put there itself.
+CINEMA_TOKENS = ('#agx-', '.agx-', 'html.agx-motion')
+
+
+def assert_cinema_scope(css):
+    """Raise on any selector that is not anchored to the cinema layer. Returns the selectors checked."""
+    import atlas_live as live
+    sels = live.audit_chrome_css(live._COMMENT.sub('', css))
+    loose = [s for s in sels if not any(tok in re.split(r'[\s>+~]', s.strip())[0] for tok in CINEMA_TOKENS)]
+    assert not loose, 'cinema CSS reaches outside the cinema layer: %s' % loose[:6]
+    return sels
+
+
+def cinema_css(mono_family='Inconsolata'):
+    """The cinema sheet in the Atlas palette, with the chrome's small caps taken from the font the page already loads."""
+    css = shell._recolor(CINEMA_CSS, shell.ATLAS)
+    css = css.replace("'Share Tech Mono',monospace", "'%s',monospace" % mono_family)
+    assert_cinema_scope(css)
+    return css
+
+
+# ── The cinema layer's markup: four fixed layers and the rail, printed BEFORE the sticky bar so the compare sheet's
+#    content span (mobile menu → <footer>) never sees them and the parity yardstick stays exactly where it was. ──
+def cinema_chrome(chapters):
+    """chapters: [(anchor id, rail label, backdrop)] in order. A backdrop is an image URL, an .mp4 the page already
+    serves, a `yt:<id>` the live page already embeds, or None where the live page carries no imagery at all."""
+    layers = []
+    for k, (anchor, _label, back) in enumerate(chapters, 1):
+        if not back:
+            layers.append('  <div class="agx-ph" data-for="%02d"></div>' % k)
+        elif back.startswith('yt:'):
+            vid = back[3:]
+            layers.append('  <div class="agx-ph agx-yt" data-for="%02d"><iframe data-src="https://www.youtube.com/embed/%s'
+                          '?autoplay=1&amp;mute=1&amp;loop=1&amp;playlist=%s&amp;controls=0&amp;showinfo=0&amp;modestbranding=1'
+                          '&amp;rel=0&amp;playsinline=1&amp;iv_load_policy=3&amp;disablekb=1" title="" tabindex="-1" aria-hidden="true"'
+                          ' allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>'
+                          % (k, vid, vid))
+        elif re.search(r'\.(?:mp4|webm|mov)(?:$|[?#])', back, re.I):
+            layers.append('  <div class="agx-ph agx-film" data-for="%02d"><video muted loop playsinline preload="none" '
+                          'aria-hidden="true"><source src="%s" type="video/mp4"></video></div>' % (k, back))
+        else:
+            layers.append('  <div class="agx-ph" data-for="%02d" style="background-image:url(\'%s\')"></div>' % (k, back))
+    # A chapter that opens on a lede paragraph has no heading of its own. Its tick used to carry the chapter number as
+    # its hover label, and that printed a text unit — "02" — that no live page carries. The tick itself is drawn by the
+    # link's ::after rule and needs no text, so a heading-less chapter gets an empty label and an aria-label: the reader
+    # sees the tick, a screen reader hears the chapter number, and the page prints no label at all.
+    rail = ''.join('  <a class="agx-rail-link" href="#%s"%s><span>%s</span></a>\n'
+                   % (anchor, '' if label else ' aria-label="Chapter %02d"' % k, label or '')
+                   for k, (anchor, label, _) in enumerate(chapters, 1))
+    return ('<canvas id="agx-canvas" aria-hidden="true"></canvas>\n'
+            '<div id="agx-photos" aria-hidden="true">\n%s\n</div>\n'
+            '<div class="agx-grain" aria-hidden="true"></div>\n<div class="agx-vignette" aria-hidden="true"></div>\n'
+            '<div id="agx-progress" aria-hidden="true"></div>\n'
+            '<div class="agx-rail" role="navigation" aria-label="Chapters">\n%s</div>\n'
+            % ('\n'.join(layers), rail))
+
+
+# ── The cinema layer's behaviour, in a plain script so it runs whether or not the three.js module loads. The entrance
+#    motion, the backdrop crossfade, the rail and the progress line are all here; the module below only draws. ──
+CINEMA_JS = r"""
+(function () {
+  var doc = document.documentElement;
+  var chs = [].slice.call(document.querySelectorAll('.agx-ch'));
+  var phs = [].slice.call(document.querySelectorAll('#agx-photos .agx-ph'));
+  var links = [].slice.call(document.querySelectorAll('.agx-rail-link'));
+  var bar = document.getElementById('agx-progress');
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!chs.length) return;
+
+  // ── Backdrops ── one chapter's photograph or film at a time; a film plays only while its chapter is on screen.
+  var photoIdx = -1;
+  function setPhoto(i) {
+    if (i === photoIdx) return; photoIdx = i;
+    phs.forEach(function (p, k) {
+      var on = k === i;
+      p.classList.toggle('agx-on', on);
+      var v = p.querySelector('video');
+      if (v) { if (on && !reduce) { var q = v.play(); if (q && q.catch) q.catch(function () {}); } else v.pause(); }
+      var f = p.querySelector('iframe[data-src]');
+      if (f) {
+        if (on && !reduce) { if (!f.getAttribute('src')) { f.addEventListener('load', function () { f.classList.add('agx-playing'); }, { once: true }); f.src = f.dataset.src; } }
+        else if (f.getAttribute('src')) { f.classList.remove('agx-playing'); f.removeAttribute('src'); }
+      }
+    });
+  }
+  document.querySelectorAll('#agx-photos video').forEach(function (v) {
+    v.addEventListener('playing', function () { v.classList.add('agx-playing'); });
+  });
+  window.agxSetPhoto = setPhoto;
+
+  // ── Entrance motion ── the class that arms it is added here, so a page whose script never ran shows everything.
+  function reveal(el) { el.classList.add('agx-in'); }
+  if (reduce || !('IntersectionObserver' in window)) { chs.forEach(reveal); }
+  else {
+    doc.classList.add('agx-motion');
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        reveal(e.target); io.unobserve(e.target);
+        setTimeout(function () { unhide(e.target); }, 700);
+      });
+    }, { threshold: 0, rootMargin: '0px 0px -8% 0px' });
+    chs.forEach(function (c) { io.observe(c); });
+    // Belt and braces: anything within a screen and a bit of the top turns on after three seconds whatever the
+    // observer did, so a chapter can never be left at opacity 0 in front of a reader.
+    setTimeout(function () { chs.forEach(function (c) { if (c.getBoundingClientRect().top < innerHeight * 1.25) { reveal(c); unhide(c); } }); }, 3000);
+  }
+
+  // ── The live page's own reveals ──
+  // Eleven of the twelve pages reveal their blocks on scroll with `.reveal` → `.active`; ep-app uses `.fade-in` →
+  // `.visible`. Measured on main at 1440x900: after a full scroll pass, 11 blocks on index, 11 on training and 15 on
+  // ep-app were still at opacity 0 — service cards, testimonials, discipline cards, hardware cards. A block a reader
+  // has scrolled to is not allowed to stay invisible, so when a chapter arrives its own blocks are turned on with the
+  // page's own class. The live observer usually gets there first; this only ever closes a gap.
+  var LIVE_REVEALS = [['.reveal', 'active'], ['.fade-in', 'visible']];
+  function unhide(root) {
+    if (!root) return;
+    LIVE_REVEALS.forEach(function (pair) {
+      [].slice.call(root.querySelectorAll(pair[0])).forEach(function (el) { el.classList.add(pair[1]); });
+    });
+  }
+
+  // ── Read position and the rail ──
+  var active = -1;
+  function here() { var mid = innerHeight * .45, idx = 0; chs.forEach(function (s, i) { if (s.getBoundingClientRect().top <= mid) idx = i; }); return idx; }
+  function onScroll() {
+    var total = document.documentElement.scrollHeight - innerHeight;
+    if (bar) bar.style.width = (Math.max(0, Math.min(1, scrollY / Math.max(1, total))) * 100) + '%';
+    var idx = here();
+    if (idx === active) return;
+    active = idx;
+    links.forEach(function (l, k) { l.classList.toggle('agx-active', k === idx); });
+    setPhoto(idx);
+    // The chapter being read, the one behind it and the one arriving from the bottom of the window.
+    [idx - 1, idx, idx + 1].forEach(function (k) { if (chs[k]) { reveal(chs[k]); unhide(chs[k]); } });
+  }
+  addEventListener('scroll', onScroll, { passive: true });
+  addEventListener('resize', onScroll, { passive: true });
+  onScroll();
+  setPhoto(0);
+})();
+"""
+
+# ── The three.js layer: MAST's emblem scene, lifted whole out of cinematic_shell, on a camera path that reads one
+#    number — how far down the page you are. The rail, the backdrops and the reveals are the plain script's; this
+#    module draws and nothing else, so a machine without WebGL loses the scene and keeps the page.
+CINEMA_LOOP = """
+// ── One continuous camera path ──
+// The camera reads the page's scroll fraction and nothing else. The chapter index drives the backdrop, and that lives
+// in the plain script, so this module can fail on a machine without WebGL and the page still reads and still moves.
+const chs = [...document.querySelectorAll('.agx-ch')];
+const lerp = (a, b, t) => a + (b - a) * t;
+const kf = [
+%(kf)s
+];
+function update() {
+  const total = document.documentElement.scrollHeight - innerHeight;
+  const t = Math.max(0, Math.min(1, scrollY / Math.max(1, total)));
+  const sc = t * (kf.length - 1), i = Math.floor(sc), f = sc - i;
+  const a = kf[i], b = kf[Math.min(i + 1, kf.length - 1)];
+  camera.position.set(lerp(a.x, b.x, f), lerp(a.y, b.y, f), lerp(a.z, b.z, f));
+  camera.lookAt(lerp(a.lx, b.lx, f), lerp(a.ly, b.ly, f), lerp(a.lz, b.lz, f));
+  const now = performance.now();
+  emblem.rotation.y += 0.004; emblem.rotation.x = Math.sin(now * .0004) * .14;
+  shards.forEach(s => { const ang = s.userData.a + now * .0002 * s.userData.sp; s.position.set(Math.cos(ang) * s.userData.r, Math.sin(ang * 1.3) * .6, Math.sin(ang) * s.userData.r); s.rotation.x += .02; s.rotation.y += .015; });
+  rays.rotation.z += .001;
+  emblem.position.y = -t * 2; emblem.scale.setScalar(1 - t * .25);
+  [gd, ch].forEach(p => { const pos = p.geometry.attributes.position.array, v = p.userData.v; for (let k = 0; k < pos.length; k++) pos[k] += v[k]; p.geometry.attributes.position.needsUpdate = true; });
+  gd.rotation.y = t * .3; ch.rotation.y = -t * .2; stars.rotation.y += .0002;
+  scene.fog.density = 0.03 + t * .025;
+}
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+let mx = 0;
+addEventListener('mousemove', e => { mx = (e.clientX / innerWidth - .5) * 2; });
+let paused = false;
+document.addEventListener('visibilitychange', () => { paused = document.hidden; if (!paused) animate(); });
+// The frame counter is the proof the scene is running: a render check reads it twice and compares.
+window.__agxFrames = 0;
+function animate() {
+  if (paused) return;
+  requestAnimationFrame(animate);
+  window.__agxFrames++;
+  emblem.position.x += (mx * .4 - emblem.position.x) * .04;
+  update(); renderer.render(scene, camera);
+}
+animate();
+"""
+
+_CANVAS_OLD = "document.getElementById('three-canvas')"
+_CANVAS_NEW = "document.getElementById('agx-canvas')"
+
+
+def cinema_three(chapters=6, palette=shell.ATLAS):
+    """MAST's emblem scene verbatim — shield, rings, shards, god rays, gold dust, stars — on an Atlas camera path with
+    one keyframe per chapter. Nothing but the canvas id is changed on the way across."""
+    src = shell.THREE_JS
+    scene = src[src.index('// ── Three: the Tier 3 emblem scene ──'):src.index('// Scroll-driven camera')]
+    assert _CANVAS_OLD in scene, 'the emblem scene no longer takes its canvas by id'
+    scene = scene.replace(_CANVAS_OLD, _CANVAS_NEW)
+    js = PREAMBLE + scene + (CINEMA_LOOP % {'kf': shell._keyframes(max(2, chapters))})
+    for banned in ('chap-link', 'hud-section', 'SECTION 0', 'intro-seq', 'letterbox', 'three-canvas', '#photos'):
+        assert banned not in js, 'the cinema module still carries the trailer chrome: ' + banned
+    return shell._recolor(js, palette)

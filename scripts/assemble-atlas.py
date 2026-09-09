@@ -140,6 +140,20 @@ TOPNAV = [
     ('privacy.html', 'Privacy Policy', 'mobile', 'What we keep, and for how long'),
 ]
 
+def _topnav_lists():
+    """TOPNAV in the two-list shape nav() takes. Only the deprecated --authored path reads it; the twelve pages that
+    ship take their bar and their menu off the capture (atlas_live.nav_items)."""
+    bar, mobile = [], []
+    for href, label, kind, _desc in TOPNAV:
+        drop = kind if isinstance(kind, list) else None
+        if kind != 'mobile':
+            bar.append((href, label, None if drop else kind, drop))
+        mobile.append((href, label, False))
+        if drop:
+            mobile += [(h, t, True) for h, _ic, t, _d in drop if h != href]
+    return bar, mobile
+
+
 SOCIAL_LINKS = [('https://www.instagram.com/atlasglinn_mastsolutions/', 'Instagram'),
                 ('https://www.linkedin.com/in/mastsolutions1/', 'LinkedIn'),
                 ('https://www.youtube.com/@atlasglinn', 'YouTube'),
@@ -419,7 +433,7 @@ def build(path, title, desc, og_image, credits, chapters, photos, jsonld=''):
     assert '<!--HERO-MEDIA-->' in first_html, f'{path}: the opening section is not a hero'
     chapters = [(first_label, first_html.replace('<!--HERO-MEDIA-->', atlas.hero_media(*photos[0])))] + chapters[1:]
     chrome = atlas.chrome(credits[0], 'ATLAS GLINN', credits[1], [(img, pos) for img, pos, *_ in photos])
-    body = ('\n' + chrome + atlas.nav(TOPNAV, path, LOGO_MARK) + '\n<div class="content">\n'
+    body = ('\n' + chrome + atlas.nav(*_topnav_lists(), here=path, logo=LOGO_MARK) + '\n<div class="content">\n'
             + ''.join(h for _, h in chapters) + '\n</div>\n' + atlas.footer(site_footer()) + atlas.BACK_TO_TOP)
     css = atlas.css(shell.ATLAS, EXTRA_CSS) + HERO_CSS
     html = shell.head(meta(title, desc, path, og_image, jsonld), css) + body + shell.tail(atlas.three(n, shell.ATLAS), atlas.CLASSIC_JS + FORM_JS)
@@ -997,44 +1011,100 @@ build('ep-app.html',
 # reason the live type wins: the theme stylesheet, then the page's own <style> blocks, then the shell's chrome sheet —
 # which atlas_live.chrome_css() has already cut down to the bar, the menu, the splash, the footer and the back-to-top
 # button, so there is nothing left in it that could reach the content.
-INTRO_TAGLINE = 'Executive Protection &middot; Intelligence &middot; Training'
+# ── The live chrome, page by page ─────────────────────────────────────────────────────────────────────────────────
+# r1 gave all twelve pages one hand-written bar, one hand-written menu and one hand-written footer. Measured against
+# the capture that cost ep-app its "Talk To A Coordinator" button and its whole four-column footer (8 units), cost
+# every page the live footer's "Resources" link, and added units no live page carries — "Autonomous UAS" and a Google
+# Reviews link in the footer, eleven descriptor lines under the menu items, two award badges on ep-app. So the bar,
+# the menu and the footer are now read off the capture per page, exactly like the content between them.
+#
+# Two hrefs are redirected on top of that, and only two. Both are AG-5 / §G-6 ("every Atlas page →
+# https://www.mastsolutions.com/ absolute, and /#gear for the IWA entry") applied to a link the live page already
+# prints, under its own label: the menu's IWA entry and the footer's "MAST Solutions" entry, which the live site
+# points at its own /training/ page. No label changes, no unit is added or removed by this.
+MAST_HREFS = {'https://atlasglinn.com/training/shop/': 'https://www.mastsolutions.com/#gear',
+              'https://atlasglinn.com/aimpoint-shop/': 'https://atlasglinn.com/aimpoint-shop/'}
+MAST_FOOTER_LINK = ('<a href="training.html">MAST Solutions</a>', '<a href="https://www.mastsolutions.com/">MAST Solutions</a>')
+
+
+def live_nav(slug, page):
+    bar, mobile = live.nav_items(slug)
+    bar = [(MAST_HREFS.get(h, h), l, k,
+            [(MAST_HREFS.get(dh, dh), ic, t, d) for dh, ic, t, d in drop] if drop else None)
+           for h, l, k, drop in bar]
+    mobile = [(MAST_HREFS.get(h, h), l, sub) for h, l, sub in mobile]
+    return atlas.nav(bar, mobile, page, LOGO_MARK, logo_alt=live.logo_alt(slug))
+
+
+def live_footer(slug):
+    inner = live.footer_inner(slug)
+    old, new = MAST_FOOTER_LINK
+    if old in inner:
+        inner = inner.replace(old, new, 1)
+    return atlas.footer(inner, container=False)
+
+
 
 
 def build_live(slug):
     page = 'index.html' if slug == 'index' else slug + '.html'
     body = live.content(slug)
+    # The cinematic pass: the page is cut at its own section boundaries and each piece becomes a chapter — a full
+    # viewport with the section's own photograph or film behind it, arriving on its own motion, with a tick on the rail
+    # and the read-position line at the top. The markup inside a chapter is the live markup, byte for byte; the wrapper
+    # is the only thing added, and _chapters_html() asserts that concatenating the chapters returns content(slug).
+    chs = live.chapters(slug, body)
+    marks = [('agx-c%d' % (k + 1), label, back) for k, (label, _, back) in enumerate(chs)]
+    body = _chapters_html(chs, body, page)
     chrome = ''.join('<script>%s</script>\n' % s for s in live.scripts(slug))
     sheet = live.chrome_css(live.mono(slug))   # assert_chrome_scope() runs inside: every selector anchored to the chrome
+    cinema = atlas.cinema_css(live.mono(slug))  # assert_cinema_scope() runs inside: every selector anchored to agx-
     html = ('<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n'
             '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n'
             '<meta name="build" content="">\n'
             + live.head(slug)
             + f'<link rel="icon" href="{SITE}{LOGO_MARK}" type="image/png">\n'
             + '\n'.join(live.styles(slug)) + '\n'
-            + '<style>' + sheet + '</style>\n'
+            + '<style>' + sheet + cinema + '</style>\n'
             + '</head>\n<body>\n<script>' + shell.REFRESH_JS + '</script>\n\n'
-            + live.intro_overlay('Houston &middot; Texas', 'ATLAS GLINN', INTRO_TAGLINE) + '\n'
-            + atlas.nav(TOPNAV, page, LOGO_MARK) + '\n'
+            + atlas.cinema_chrome(marks)
+            + live.intro_overlay('', live.intro_title(), '') + '\n'
+            + live_nav(slug, page) + '\n'
             + body + '\n\n'
-            + atlas.footer(site_footer()) + live.after_footer(slug) + '\n' + atlas.BACK_TO_TOP + '\n'
+            + live_footer(slug) + live.after_footer(slug) + '\n' + atlas.BACK_TO_TOP + '\n'
             + chrome
             + '<script>' + live.intro_ring_js() + '</script>\n'
             + '<script>' + live.chrome_js() + '</script>\n'
+            + '<script>' + atlas.CINEMA_JS + '</script>\n'
             + '<script>' + shell.TRACK_JS + '</script>\n'
+            + '<script type="module">' + atlas.cinema_three(len(chs), shell.ATLAS) + '</script>\n'
             + '</body>\n</html>\n')
-    # One bar, one menu, one splash, one footer: the live chrome is out and the shell's is in exactly once.
+    # One bar, one menu, one splash, one footer, one scene: the live chrome is out and the shell's is in exactly once.
     for tag, n in (('<nav id="main-nav"', 1), ('<div id="mobile-nav"', 1), ('id="intro-overlay"', 1),
-                   ('<footer', 1), ('</footer>', 1)):
+                   ('<footer', 1), ('</footer>', 1), ('<canvas id="agx-canvas"', 1), ('<div id="agx-photos"', 1)):
         assert html.count(tag) == n, f'{page}: {tag} appears {html.count(tag)} times, expected {n}'
     if not PUBLISH:
         html = _previewize(html)
     out = os.path.join(REPO, OUT_DIR, page)
     os.makedirs(os.path.dirname(out) or '.', exist_ok=True)
     open(out, 'w', encoding='utf-8').write(html)
-    print('wrote %-30s %7d bytes   %2d chrome selectors, all anchored   hero %s'
-          % (OUT_DIR + page, len(html.encode('utf-8')), len(live.audit_chrome_css(sheet)),
+    backs = [b for _, _, b in marks if b]
+    print('wrote %-30s %7d bytes   %2d chapters, %d backdrops   %2d chrome + %d cinema selectors   hero %s'
+          % (OUT_DIR + page, len(html.encode('utf-8')), len(chs), len(set(backs)),
+             len(live.audit_chrome_css(sheet)), len(atlas.assert_cinema_scope(cinema)),
              (live.hero_media(slug, body) or 'still').split('/')[-1]))
     return out
+
+
+def _chapters_html(chs, body, page):
+    """The chapters wrapped, and nothing else touched. The wrapper carries the anchor the rail links to and, on the
+    opening chapter, the class that drops the reading scrim — the live hero is already its own full-bleed frame."""
+    out = []
+    for k, (_label, markup, _back) in enumerate(chs):
+        cls = 'agx-ch agx-hero' if k == 0 else 'agx-ch'
+        out.append('<div class="%s" id="agx-c%d" data-agx-ch="%02d">%s</div>\n' % (cls, k + 1, k + 1, markup))
+    assert ''.join(m for _, m, _ in chs) == body, '%s: the chapter split lost markup' % page
+    return '<div class="agx-content">\n' + ''.join(out) + '</div>'
 
 
 if not AUTHORED:

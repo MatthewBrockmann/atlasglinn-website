@@ -185,6 +185,26 @@ stylesheet it links is served from the repo as `vendor/atlasglinn-shared-styles.
   chrome boundaries, the tail scripts the content owns, the media list. Internal links become the sibling `.html`;
   **media URLs are left absolute on purpose** — a repo copy is a different encode (the disaster hero is 44.6 MB live
   against 3.7 MB here) and a teaser is a different film, and both are the "re-cut" he ruled out.
+- **The chrome's CONTENT is the live page's too** (2026-09-09). `atlas_live.nav_items(slug)` reads the live bar and
+  the live mobile menu — every label, href, icon and descriptor — and `atlas_live.footer_inner(slug)` reads the live
+  footer whole; `atlas_shell.nav()` and `footer()` supply only the markup and the stylesheet. Before this the twelve
+  pages shared one hand-written bar and one hand-written footer, and the cost was measurable: **ep-app lost its
+  "Talk To A Coordinator" button and its entire four-column footer (8 units) and gained two award badges its live
+  page does not carry; all twelve lost the footer's "Resources" link; eleven invented descriptor lines
+  ("Dignitary and close protection", "Book a course", "Mission and team", …), an invented "Autonomous UAS" footer
+  entry and a Google Reviews link rode every page.** Eleven live footers are the same; ep-app's is a different
+  footer entirely and now ships as its own. **Two DISTINCT hrefs and only two are redirected on top of the capture**
+  (AG-5 / ledger §G-6, "every Atlas page → https://www.mastsolutions.com/ absolute, and /#gear for the IWA entry"):
+  the menu's IWA entry (`https://atlasglinn.com/training/shop/` → `https://www.mastsolutions.com/#gear`) and the
+  footer's "MAST Solutions" entry (`https://atlasglinn.com/training/` → `https://www.mastsolutions.com/`), both under
+  their own live labels. Two rules, **three anchors a page** — the bar dropdown banner, the mobile menu item and the
+  footer link — and **two on ep-app**, whose live footer carries no MAST Solutions link. Re-counted 2026-09-09 from
+  `compare-atlas.py`'s own printed allowlist: **"IWA Training Products" 2 anchors on 12/12 pages; "MAST Solutions"
+  1 anchor on 11 pages and 0 on ep-app — 3 × 11 + 2 = 35 redirected anchors in the page-set.** No unit is added or removed
+  by that, and `compare-atlas.py` prints both rules with their per-page anchor counts as its href allowlist. The
+  dropdown keeps the three descriptor lines the LIVE menu prints (`reference/live/index.html:357-359`) and none of
+  the shell's. The bar logo's `alt` is the capture's own (`Atlas Glinn`, all twelve, `atlas_live.logo_alt`), not the
+  brand constant — `ATLAS GLINN` was a re-typed string only the attribute pass can see.
 - `chrome_css()` cuts the shell stylesheet down to the five chrome roots (`#intro-overlay`, `#main-nav`,
   `#mobile-nav`, `footer.site-footer`, `#back-to-top`) and drops every global and content rule by name —
   `DROP_SELECTORS` fails the build if one of them is ever renamed away. The palette is declared **on those roots, not
@@ -196,7 +216,49 @@ stylesheet it links is served from the repo as `vendor/atlasglinn-shared-styles.
   for a click and that is a black screen on a phone.
 - `scripts/compare-atlas.py` writes **`atlas-compare.html` at the repo root** (tracked, noindex, staged at
   `/preview/atlasglinn/atlas-compare.html`): the live page and the new page side by side, both read out by one
-  extractor, with the carried text-unit and media counts above each pair. It **exits 1** if any page is short.
+  extractor. **It compares the WHOLE VISIBLE PAGE — content, bar, mobile menu and footer — BOTH WAYS**, and
+  **exits 1** on any delta in either direction. Until 2026-09-09 it measured live-minus-build only, over the content
+  region only, so it could see neither an invented unit nor anything in the chrome: it reported "12 pages / 0 deltas"
+  while ep-app was missing its whole live footer and its "Talk To A Coordinator" button, every page had lost the
+  footer's "Resources" link, and eleven invented descriptor lines rode the menu. **Six measurements now, all of them
+  both ways:** text units; ORDER (the live sequence must be a subsequence of the build's); ATTRIBUTE text (`alt`,
+  `placeholder`, `value`, `title`, `aria-label`, `label`, plus `<option>` and `<label>` text); media; the
+  DESTINATION behind every anchor the live page labels, the live URL resolved by the build's own relink rule; and the
+  lazy media attributes `srcset` / `data-src`, counted on both sides and printed per page.
+  The only build-only units permitted are one printed allowlist — the splash controls Enter / Skip Intro, the splash
+  wordmark (on index matched against the live splash's own `<h1 id="intro-title">`; on the other eleven named as
+  shell chrome), back-to-top, and the menu controls `☰` / `×` — plus
+  seven shell control labels in the attribute pass (`Main`, `Menu`, `Site menu`, `Close menu`, `Chapters`,
+  `Back to top` ×2) and, on the two pages that have a heading-less chapter, that tick's `aria-label`.
+  **A rail label is excused by POSITION, not by string**: the unit must be printed inside the `a.agx-rail-link`
+  element whose label repeats a heading of the chapter it links to, and each anchor is spent once — a Counter keyed
+  by the anchors themselves. The r2 gate compared bare strings, and an invented `<p>Reviews</p>` dropped in a footer
+  passed it (fire-observed 2026-09-09: r2 exit 0, r3 exit 1). The rail is separated from the body before anything is
+  compared, so a rail label can never satisfy the live page's own heading. The logo is compared by **exact basename**
+  instead of the old substring drop, which had made every URL carrying `Atlas-Glinn-Logo` invisible to the gate,
+  invented or not. Every excused unit and both redirect rules are printed per page, on stdout and in the sheet, so
+  the excuse itself is reviewable.
+- **The ATTRIBUTE tick excuse is budgeted and value-bounded (R4-2, 2026-09-09).** r3 excused the `aria-label` a
+  heading-less chapter's rail tick carries **by position alone and without a budget** — any number of attribute units,
+  of any name and any value, printed inside a label-less `a.agx-rail-link` were excused. It is now spent like a rail
+  label: one unit per label-less anchor, and the value must `fullmatch` `Chapter \d\d`. Fire-observed on the merged
+  bytes: a **second** `title="Chapter 02"` inside executive-protection's own ch2 tick, and a single
+  `aria-label="Reviews"` in the same tick — **r3 exit 0 on both, r4 exit 1 on both**.
+- **`srcset` and `data-src` are in the media pass (R4-3, 2026-09-09).** `atlas_live._MEDIA` read `src`, `poster` and
+  CSS `url()` by name. Measured: `data-src` was read **by accident** — the pattern carried no word boundary, so `src=`
+  matched inside `data-src=` — and `srcset` was **not read at all**, because in `srcset=` the characters after `src`
+  are `set`, not `=`. Both are named now, and every candidate URL in a `srcset` is a media unit. Measured across the
+  twelve pages: **`srcset` 0 on both sides; `data-src` 0 live / 10 build**, all ten the lazy YouTube backdrops on
+  cuas-aerodefense, which `pair_media` already excused as the backdrop form of the live page's own `fO8_EOUrSfg`.
+  Because `srcset` measures 0 on both sides, that 0 is **asserted**: a future `srcset` on either side is a delta
+  somebody must look at. Fire-observed: an `<img srcset="images/atlas/x.png 1x">` added above training's footer —
+  **r3 exit 0, r4 exit 1** on two counts (media not on the live page, and the srcset assertion).
+- **Two excuses nothing ever spent were DROPPED (R4-4, 2026-09-09).** The sound toggle `🔇` and progress text
+  `NN / NN` sat in the allowlist matched by string with **no position check**, and tallying every excuse actually
+  spent across the twelve pages showed **neither was ever used** — the shell's own toggle is cut from its script and
+  `.progress` has no markup on these pages. An excuse nothing spends is a hole nothing guards: either string dropped
+  anywhere on a page would have passed. They are gone rather than anchored, because there is no element here to
+  anchor them to. Fire-observed: `<p>03 / 08</p>` above about's footer — **r3 exit 0, r4 exit 1**.
 - Re-run after a capture: `python3 scripts/assemble-atlas.py --publish && python3 scripts/compare-atlas.py &&
   python3 scripts/check-links.py`. Refresh the snapshots from `origin/claude/desktop-assets:reference/desktop/live/`
   and update `reference/live/_captured.txt` when the live site changes.
@@ -205,9 +267,248 @@ stylesheet it links is served from the repo as `vendor/atlasglinn-shared-styles.
   the 27-second home film). Do not fix a live-content problem by editing it.
 
 Measured 2026-09-08 in Chromium (1440×900 and 390×844, fonts blocked on both sides, the live capture rendered the same
-way as the yardstick): text parity 1257/1257 units, media parity 35/35 URLs, typography 36/36 computed snapshots per
-page, hero `<video>` src equal to the live src on all twelve, zero horizontal overflow, one nav and one footer in every
-DOM, and not one chrome CSS rule matching an element outside the five chrome roots.
+way as the yardstick): typography 36/36 computed snapshots per page, hero `<video>` src equal to the live src on all
+twelve, zero horizontal overflow, one nav and one footer in every DOM, and not one chrome CSS rule matching an element
+outside the five chrome roots. **The two counts this paragraph used to carry — "text parity 1257/1257 units" and
+"media parity 35/35 URLs" — are STRUCK: they were taken over the content region only, before the comparator was
+widened to the whole `<body>`, and they read as page-set totals.** The page-set totals measured 2026-09-09 by
+`compare-atlas.py` are **2019 live text units across the twelve** (index 183 · executive-protection 227 ·
+residential-protection 146 · disaster-recovery 137 · training 151 · technology 122 · cuas-aerodefense 169 · uas 164 ·
+about 167 · careers 142 · contact 84 · ep-app 327) and **72 live media URLs** (9 · 5 · 5 · 11 · 8 · 7 · 4 · 5 · 9 ·
+4 · 4 · 1), all carried, 0 missing either way.
+
+### THE CINEMATIC LAYER — MAST's front end over that content (2026-09-09)
+
+Brockmann, 2026-09-08 22:57:31: *"These are not same as mastsolutions- or currewnt site = BLAND NO EXCIOTMENT NO 3D +
+LOOK AT THE no-brag for this page"*, and 23:04:11Z: *"the actual format. with the front end looks good, but content and
+everything else doesn't match mass solutions or what Atlas Lin had in it."* The content half was already right; this is
+the presentation half, and it changes **nothing** inside a chapter.
+
+- **Chapters.** `atlas_live.chapters(slug)` cuts the live page at its own top-level `<section>` boundaries (ep-app is
+  built from top-level `…-wrap` divs and cuts there). A `section-divider` band carries the next section's title, so it
+  **opens** that chapter instead of closing the last one; a `<script>` between two sections rides with whatever follows.
+  The wrapper `<div class="agx-ch" id="agx-cN">` is the only markup the split adds — `assemble-atlas._chapters_html()`
+  asserts that concatenating the chapters returns `content(slug)` byte for byte. 2–11 chapters a page — contact 2, careers 4, cuas-aerodefense 11 — 79 in all.
+- **Backdrops.** Each chapter takes the photograph it carries itself, or the next unused one on the page, or the one
+  before it. The four pages with **no photograph at all** — training, cuas-aerodefense, contact (film heroes) and
+  ep-app (drawn in CSS) — fall back to the page's **own** opening film as the backdrop behind chapters 2..n
+  (`yt:<id>` where the live hero is a YouTube embed). No new asset, no new URL, nothing invented; ep-app has no media
+  of any kind and runs on the 3D scene alone. Stated exactly, and re-counted 2026-09-09 from the assembler's own
+  output: **ELEVEN pages point at live backdrop URLs** — index 4, executive-protection 2, residential-protection 1,
+  disaster-recovery 5, training 1, technology 3, cuas-aerodefense 1, uas 1, about 3, careers 1, contact 1 — all
+  served by the live page; **ep-app has 0** and runs on the 3D scene alone; **no backdrop has been seen rendering
+  with live bytes** (no egress from here — the photographs and films 404 in this sandbox, which is the sandbox, not
+  a finding). The r3 line said "twelve pages point at live backdrop URLs" in the same sentence that said ep-app has
+  none, which cannot both be true.
+- **The scene.** `atlas_shell.cinema_three()` lifts MAST's emblem scene out of `cinematic_shell.THREE_JS` verbatim —
+  shield, rings, shards, god rays, gold dust, stars, peaks — recolored to the Atlas blue, on a camera path with one
+  keyframe per chapter. **`vendor/three.module.js`, not the live index's CDN r128**: that copy drove the live intro
+  overlay the shell replaces, and a second three.js runtime for nothing is waste. Both staging workflows already copy
+  the module (their shared resolver matches `from './….js'`), so neither workflow needed a line changed.
+- **`agx-` IS THE NAMESPACE AND IT IS NOT OPTIONAL.** MAST paints on `#three-canvas`, `#photos .ph`, `.grain`,
+  `.vignette`, `.progress`, `.chap-link`. On an Atlas page those names are unsafe: the live index ships its own
+  `#three-canvas { position:absolute }` in the `<style>` block this build carries verbatim, the live stylesheet styles
+  a **bare `nav`** (11 declarations, `transform:translateY(-100%)`, `vendor/atlasglinn-shared-styles.css:18`) — which is why the chapter rail is a `<div>`, never a
+  `<nav>` — and contact.html already has an `ag-contact-form`. `\.agx` measures 0 hits across `shared-styles.css` and
+  all twelve pages' `<style>` blocks. `atlas_shell.assert_cinema_scope()` fails the build if a cinema selector is not
+  anchored to `agx-`, the same way `assert_chrome_scope()` does for the chrome sheet.
+- **Layout, and the render P0 it avoids.** A chapter is `display:grid; grid-template-columns:100%; align-content:center`
+  with `width:100%` on its child — **not flex**. The live sections centre themselves with `max-width:1400px;
+  margin:0 auto`, and an auto cross-axis margin in a flex column shrinks the item to fit-content, which is exactly the
+  shape of the P0 that pinned a hero column to the left. Measured after the change: the hero headline is centred to the
+  pixel on all five audited pages at both widths (`left == right`, e.g. 533/533 at 1440, 35/35 at 390).
+- **Chapter heading sizes: SEVEN, and they stay.** Measured 2026-09-09 at 1440×900 across the twelve pages, `h1`/`h2`
+  inside `.agx-ch`: **32px ×57, 35.2px ×2, 40px ×2, 48px ×6, 51.2px ×12, 56px ×1, 80px ×1 — seven distinct sizes.**
+  MAST renders **one** (51.2px ×11). **"Chapter headers one size" is FALSE of these pages and must not be claimed.**
+  The decision (ledger §K-3, not to be re-decided): the live type scale STAYS. F-1 — *"same font and sizes … no
+  changes to anything"* — is his explicit direction for the Atlas content, and ledger §E resolution 1 says content
+  wins where it collides with the MAST-shell rule; §G-7 was a MAST row (MS-29) extrapolated onto Atlas. One line in
+  the go packet names it so he can reverse it with one word.
+- **Nothing may be left invisible.** The entrance motion's `opacity:0` is gated on `html.agx-motion`, a class the
+  script adds at boot, so a page whose JS never runs shows every chapter at full strength. On top of that, `CINEMA_JS`
+  turns on the live page's own reveals (`.reveal` → `.active`, ep-app `.fade-in` → `.visible`) for the chapter being
+  read, the one behind it and the one arriving — because the reveals on main can strand — and the honest version of
+  that measurement, taken 2026-09-09 at 1440×900 on `origin/main` and stated with its method, is that **it depends on
+  the walk cadence**: stepping 55% of a viewport every 90 ms leaves 13 unique blocks at opacity 0 on index, 11 on
+  training and 19 on ep-app; stepping the same distances every 300 ms leaves **0 on all three**. The r1 note's
+  "11 / 11 / 15" was one cadence reported as the property. The cinema layer removes the cadence dependence rather
+  than the defect class: `CINEMA_JS` turns the live page's own reveals on for the chapter being read, the one behind
+  it and the one arriving. **State it as the measurement, never as "no element sits at opacity 0"** — below-fold
+  chapters and reveals DO sit at `opacity:0` until they are scrolled in; that is the entrance motion working. The
+  claim that holds is that **none is left stranded**: walking each page at half a viewport every 320 ms and letting
+  the last fade finish for 1.4 s, **0 of `.agx-ch` / `.reveal` / `.fade-in` / `.rise` remain below opacity 0.99 on
+  24/24 runs** (twelve pages × two widths, 2026-09-09).
+- **Audio is the live site's, unchanged.** `#sound-toggle` on index, residential, disaster, training and cuas because
+  those five live pages ship one; none on the other seven, because their live pages ship none. The shell's own toggle
+  stays cut. **No bed track, and no toggle added to a film whose audio cannot be measured from here.** For the record,
+  because r1 said the opposite: **MAST ships no sound toggle at all** — `sound-toggle` measures 0 in
+  `mastsolutions.html`, and 0 elements with an id or class containing "sound" render at either width. There is nothing
+  of MAST's to add or to have declined to add; the build reproduces the LIVE site's toggle footprint, 5 of 12 pages,
+  and **whether any of those five films carries audio is UNVERIFIABLE FROM HERE** (no egress).
+- **The rail — measured against MAST's at each width, 2026-09-09.** MAST (`mastsolutions.html`): `display:none` at
+  390; `display:flex`, ticks, **0 labelled** at 900 and 1024; `display:flex`, **13/13 labelled** at 1440 and 1800.
+  Atlas now: `display:none` at 390 (same as MAST), ticks at 900 and 1024 (**same as MAST** — it used to be hidden
+  below 1025), ticks with labels on hover at 1440, and the reading position's label from 1700. **Where it differs
+  from MAST it is because MAST cuts itself a right gutter its own content owns** (`section.panel
+  { padding-right:16.5rem }` at 1025–1600) and an Atlas page cannot: the sections are the live page's own centred
+  1400px blocks and widening their padding is a content change. Overlap measured the same way on both: the Atlas
+  rail's box intersects 1–10 live text boxes per page per width (their right edges, not necessarily their glyphs);
+  MAST's own intersects **443 at 900 and 284 at 1024** on its own page. Written as a behaviour, never as
+  "chapter rail": **rail: hidden ≤768 · ticks 769–1699 · reading-position label ≥1700, hover label throughout.**
+  **THE 1025–1699 px DIVERGENCE FROM MAST IS THE ACCEPTED DEVIATION**, not an oversight and not a defect to re-open:
+  at those widths MAST prints thirteen labels permanently and an Atlas page prints ticks with the label on hover.
+  It follows directly from the gutter sentence above, `scripts/atlas_shell.py` says so at the media queries, and
+  this line is the record that it was decided rather than missed.
+- **The rail label clamp is the measured maximum, and the ellipsis is behind it (R4-9, 2026-09-09).** The page-set
+  carries **79 rail links: 77 with a label and 2 label-less ticks** (executive-protection ch2 and ep-app ch2, whose
+  chapters carry no heading — their `<span>` is present but empty, which is why the test skips on the label TEXT and
+  not on the element). At `max-width:13rem` (208 px) **14 of the 77 labels were cut mid-word at 1440×900, and the
+  same 14 at 1800×1000**
+  — "Atlas Glinn SOP for Protective Detail" 303 px, "Your Assets Don't Wait. Neither Do We." 311 px, "Four Pillars of
+  Residential Defense" 286 px, "No Pilot Required. No Gaps in Coverage ." 327 px — and `text-overflow` computed
+  `clip` on **all 79**, so the cut carried no signal at all. The clamp is now **20.5 rem = 328 px, one pixel past the
+  widest label measured (327 px, uas ch4)**, and `text-overflow:ellipsis` is the backstop for any label longer than
+  today's. Re-measured after the change with `scripts/render-audit.mjs`: **0 clipped of 77 at 1440, 0 of 77 at 1800,
+  0 labels without the ellipsis.** **What the wider clamp costs, measured, not assumed:** an open label's left edge
+  moves from **1172 px to 1053 px** at 1440, which is INSIDE the 1400 px centred column's box (20–1420 px) — so
+  "it clears the column" would be false — but the open label covers **0 live text boxes on all 77 labels, worst
+  single label 0**, because it opens into the column's own right padding. The honest sentence is: it overlaps the
+  column's box and covers none of its text.
+  **Compare like with like on the count:** MAST's rail is **13 `.chap-link` plus 2 `.chap-extra`** — `· Blogs`
+  (`preview-only`) and `· Sign in` (`chap-always`). Its container is `display:none` at **≤899**
+  (`mastsolutions.html:618`, which supersedes the ≤768 rule at :580); the 13 `.chap-link` are `font-size:0` from
+  769–1024 (:577) while `.chap-extra.chap-always` is never zeroed, so **`· Sign in` keeps its label at every width
+  where the rail shows.** Thirteen chapter ticks either side is the comparison; fifteen is not.
+
+Measured 2026-09-09 in Chromium at 1440×900 and 390×844 on **all twelve pages** (24 runs; no egress — the live
+photographs and films 404 in this sandbox, which is the sandbox and not a finding). Each claim below is written as the
+measurement that produced it:
+- **The three.js scene is drawing on 24/24.** Not "a canvas exists": `drawArrays`/`drawElements` were wrapped at page
+  init and counted, and every run made **118–500 real WebGL draw calls in a 700 ms window** with the canvas
+  non-`display:none` and at non-zero opacity. **Whether the scene shows THROUGH the hero band is UNVERIFIABLE FROM
+  HERE** — that band is occupied by the page's own live `<video>`/`<img>` hero, whose source is an atlasglinn.com
+  film or photograph that 404s in this sandbox, so what a visitor sees there cannot be established from the build.
+  The r2 line "behind the hero on 10/12" was a heuristic reported as a fact and is struck.
+- **The dropdown carries the live menu and nothing else, on 24/24.** Across all 24 runs it printed exactly one set of
+  items — Training Programs · IWA Training Products · Aimpoint Optics — and exactly one set of descriptors, the LIVE
+  `ndb-desc` strings at `reference/live/index.html:357-359` ("EP, firearms, tactical & security courses" ·
+  "Flashbangs, smoke & diversionary devices" · "Red dot sights & magnifiers"). **No shell-invented descriptor on any
+  run.** It opens on a real pointer hover on **12/12** at 1440; the mobile menu opens and closes on **12/12** at 390;
+  the splash offers both Enter and Skip Intro on **24/24**.
+- **Rail landings: 79 links a page-set, 158 across the two widths the RAIL SHOWS AT, 0 under the bar.** Re-measured
+  2026-09-09 by `scripts/render-audit.mjs` at **1440×900 and 1800×1000** — the r3 figures were taken at 1440 and 390,
+  where the rail is `display:none`, and they are superseded rather than repeated. **130 of 158 land the chapter box at
+  71.5–72.5 px** (`.agx-ch { scroll-margin-top:72px }`); the other **24 are each page's FIRST rail link at each
+  width** (12 × 2), which scrolls to the document top where the chapter box begins at 0 and the hero fills the space.
+  **The remaining 4 land outside that band and WHY IS NOT ESTABLISHED** — the only one that reproduced on a second
+  pass is about ch8 at 1440, box 60.3 px with 662 px of scroll still available, so it is not a bottom-of-document
+  case; do not write a reason for the other three that has not been measured. What IS measured, on all 158, is the
+  thing that matters: **0 put a heading under the 60 px bar**, and that is the assertion the script fails on. The **154** landings whose chapter carries a heading put
+  it between **97.5 px and 933.7 px** from the top (the top of the range is a first-link landing behind a full-height
+  hero, not a mis-landing). **Two chapters carry no heading** — executive-protection ch2 and ep-app ch2 — and they
+  print **no rail label at all**, only the tick, with `aria-label="Chapter 02"` for a screen reader. Before
+  `scroll-margin-top` the same landings put index ch2/ch3/ch4 at 26/26/49 px, under the bar.
+- **Zero page errors from page-authored URLs on 24/24.** Every failed request is an external atlasglinn.com /
+  YouTube / Google URL — the no-egress sandbox — plus the `mast-booking-backend` beacon all twelve pages inherit.
+
+**THE BROWSER PASS IS A TRACKED SCRIPT NOW: `scripts/render-audit.mjs` (2026-09-09).** Every rendering claim above
+was one session's terminal scrollback and could not be re-run by the next one. It serves the repo with
+`python3 -m http.server` on 127.0.0.1 (≥8900, killed on the way out), drives Chromium through Playwright over
+**12 pages × 1440×900 + 390×844, plus 1800×1000 for the rail = 36 runs**, and exits non-zero on any of four
+assertions: rendered visibility, rail-label clipping, the reveal walk, and page/same-origin-request errors.
+`node scripts/render-audit.mjs --shots <dir>`.
+
+- **RENDERED VISIBILITY (R4-6).** `compare-atlas.py` proves every live text unit is PRESENT in the markup; presence
+  is not visibility. Every live text unit must have a **non-zero box at 1440×900 or at 390×844**, with the bar
+  dropdown and the mobile menu open — the two widths together, because the dropdown is `display:none` at 390 and the
+  mobile menu is `display:none` at 1440. The units come from `compare-atlas.py --units`, the same extractor the
+  parity sheet reads, so the two passes cannot drift. Measured: **2019 live text units, 2019 rendered, 0 with no box
+  on 12/12 pages.** `HIDDEN_ON_LIVE` is the named list of units allowed to render nowhere and **it is not empty**:
+  six keys covering the seven units that render no box anywhere, **every one of them form-success text that is
+  `display:none` until the form is submitted** — index `#cap-success`, contact `#contact-success`, ep-app
+  `#form-success` — and in each case the live capture carries the same element with the same rule, byte for byte,
+  so the live site hides it too. That evidence is the bar for being on the list.
+- **Two measurement bugs were found by the test itself and are written into it**, because either one silently
+  produces a confident wrong number. (1) `elementHandle.hover()` after the pointer has touched anything else leaves
+  Chromium's hover state stale: `a.agx-rail-link:hover` matched the right anchor while its span still computed
+  `max-width:0`, and the first run reported **79 of 79 labels clipped**. Two `page.mouse.move` calls one pixel apart
+  settle it. (2) The label's `max-width` transition is `.35s`; a 140 ms wait measured every label at `clientWidth 0`.
+  A label at `clientWidth 0` is now counted as **UNMEASURED, never as clipped**, and any unmeasured label fails the
+  run (measured: **0 unmeasured**).
+- **The reveal walk states its cadence, and overrides `scroll-behavior`.** Stepping too fast strands blocks at
+  opacity 0 — 55% of a viewport every 90 ms left 13 / 11 / 19 on index / training / ep-app, the same distances at
+  300 ms left 0 — so the cadence is the condition the claim holds under, not an implementation detail. The test walks
+  **half a viewport every 320 ms, then 1400 ms for the last fade**, and asserts every `.agx-ch` / `.reveal` /
+  `.fade-in` / `.rise` is at opacity ≥ 0.99: **0 of 254 blocks below 0.99.** It sets `scroll-behavior:auto` on
+  `documentElement` for the duration and restores it after, because the shell's `html.agx-motion { scroll-behavior:
+  smooth }` means a `scrollTo` every 320 ms is still animating when the next arrives — without the override the test
+  measures the smooth-scroll animation instead of the reveals. Still never write "no element sits at opacity 0":
+  below-fold chapters DO, and that is the entrance motion working. The claim is **none is left stranded at this
+  cadence**.
+
+Parity: `compare-atlas.py` **12 pages / 0 deltas in BOTH directions over text, order, attributes, media (srcset and
+data-src included) and hrefs**, `check-links.py` **310 references / 0 dead**, `assemble-atlas.py --publish`
+**byte-identical on a second run (12/12 pages + build-manifest.json)**, `render-audit.mjs` **36 runs / 0 deltas**.
+All read 2026-09-09.
+
+### The public upload is fenced — ONE SWITCH, BOTH WRITERS (2026-09-09, R3-1)
+
+There are **two** writers to the public atlasglinn.com docroot, and r2 fenced only one of them.
+`.github/workflows/deploy-page.yml` uploads on any push to `main` touching a listed path; `scripts/wp-upload.sh` is
+the Mac's hourly LaunchAgent doing the same job. Both take their file list from `PAGES` in `wp-upload.sh`, which
+carries all twelve Atlas pages, so the r2 Actions-variable gate left the Mac path wide open.
+
+**The switch is a tracked file: `deploy/atlas-pages-upload`, and the WHOLE FILE is compared, not its first line.**
+The content is collapsed — CR dropped, every run of whitespace (newlines included) squeezed to one space, the ends
+trimmed — and the gate opens only when what is left is exactly `true`. **r3 read it through `head -1`, so a file whose
+first line was `true` and whose second line was `held` OPENED the gate**; fire-observed on the merged bytes
+2026-09-09, r3: 134 files and all twelve Atlas pages, r4: held. `True`, `true held`, an empty file and a missing file
+are all held. Held drops the twelve from the upload list **before the asset resolver runs**, and prints one line:
+`Atlas pages held: deploy/atlas-pages-upload is not true (go gate)` (as `::notice::` under Actions). A file in git
+shows who flipped it and when; an Actions variable does not. **ATLAS flips it over the GitHub contents API on his word
+go — no portal click.** `vars.ATLAS_PAGES_UPLOAD` is deleted; the file is the only gate. The workflow's
+`on.push.paths` includes the switch itself, so flipping it is what starts the publishing run.
+
+**One implementation, not two.** The page lists, the gate, both assertions and the manifest filter live between the
+`# >>> atlas-pages-gate` / `# <<< atlas-pages-gate` markers in `scripts/wp-upload.sh`; `deploy-page.yml` lifts that
+range verbatim with `sed` and evals it.
+
+**Two assertions, because `PAGES` being right is not enough.**
+1. **Partition:** `PAGES` minus the twelve Atlas names must equal exactly the six declared MAST files
+   (`mastsolutions.html`, `mast-capability-statement.html`, `privacy.html`, `terms.html`, `signup.html`,
+   `articles/index.html`) — otherwise both writers die before uploading anything.
+2. **Resolved list (new, R4-5):** every `.html` row the LISTER returns must be a page the gate approved. The resolver
+   follows a link to a `.html` by **basename**, so any file in the tree named like a declared page rides in behind it.
+   **Measured 2026-09-09 before this assertion existed:** `mastsolutions.html` links `articles/index.html`, whose
+   basename is the Atlas `index.html`, so with the gate open the resolver put a **thirteenth page** into the upload —
+   declared nowhere, partition-asserted nowhere, gated nowhere. It is genuine MAST collateral (the articles index the
+   MAST page links, beside `images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png`), so it is now **declared in
+   `MAST_PAGES` and uploads in both gate states**, and any OTHER undeclared `.html` fails the run.
+
+Both fail with `::error::` + exit 1 in Actions and `nothing uploaded` + exit 1 on the Mac, before a byte is sent.
+
+**Fire-observed 2026-09-09 on the MERGED bytes, the workflow step extracted with PyYAML and the Mac block lifted from
+the same markers — nine states, eighteen runs, the two writers agreeing on every one:** `held` → **120 files, 6
+`.html`, 0 of the 12**, notice printed once; `true` → **134 files, 18 `.html`, all 12 present**, no notice; **missing
+file**, **`True`**, **an empty file** and **`true\nheld`** → identical to `held`; **`true ` with a trailing space** and
+**`true` with no newline** → identical to `true`; **13th page in `PAGES`** → partition `::error::`, exit 1, `files.txt`
+never written; **a 13th `.html` the resolver pulls** (a copy at `articles/terms.html` linked from `mastsolutions.html`)
+→ resolved-list `::error::`, exit 1, in BOTH gate states.
+
+**The fence keeps the Atlas pages' OWN assets out — it does not empty `images/atlas/`.** Held runs still carry
+`images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png` and `articles/index.html`, because both are collateral of
+`mastsolutions.html`, which has his word and uploads as it always has. The r2 wording ("keeps `images/atlas/**` out")
+was not literally true. Measured 2026-09-09: held = **1** file under `images/atlas/` (the badge) in **120** files /
+94.3 MB; `true` = **2** (the badge plus the bar logo) in **134** files / 95.5 MB. The r3 line said 119 and 133; both
+were one short.
+
+**The manifest names only what this run may upload (R4-7).** `build-manifest.json` carries all **13** generated pages
+and the pages fetch it to reload themselves past the CDN cache; uploading it whole while the gate is held told the
+host about twelve pages it does not carry. `atlas_manifest_for_upload()` writes the approved keys to a temporary file
+which goes up under the name `build-manifest.json` — measured: **1 key held (mastsolutions.html), 13 with the switch
+on**, both writers.
+
+`pages-mastsolutions.yml` (the preview stage, the intended publish surface) is deliberately untouched.
 
 ### History — the hand-authored build (superseded by the block above)
 
@@ -222,7 +523,8 @@ files, written by `python3 scripts/assemble-atlas.py --publish` (the default, pr
 needs a look without touching the live set; `preview/` is not committed any more). The previous hand-authored builds are
 parked as `*-atlas.html` (noindex, canonical to the new page). `LIVE_LINKS` is False: cards and menu go to the new pages.
 The pages reach atlasglinn.com through `scripts/wp-upload.sh` (its `PAGES` default carries them) by the Mac's hourly job
-or the page workflow; the WordPress pages at the old permalinks (`/about/` …) still exist on the host until he retires them
+or the page workflow — as of 2026-09-09 this is gated: `deploy/atlas-pages-upload` holds them until Brockmann's `go`, see the
+go-gate block below; the WordPress pages at the old permalinks (`/about/` …) still exist on the host until he retires them
 in WordPress, and whether `index.html` wins over WordPress at `/` is a host setting to confirm on the first upload.
 **Copy source (Brockmann, 2026-09-05: "why the content from the actual site and this new site front end are not
 matching"):** the rebuild was written from the repo's April 2026 build (now `*-atlas.html`), the only copy a cloud
