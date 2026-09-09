@@ -25,9 +25,10 @@ fallthrough = true
 #                 AND, on the ONE fire whose scheduled minute falls in 09:15–09:19 UTC, the daily work as well: purge
 #                 eligibility answers past their purge_after (RETENTION-POLICY.md), mark registrations that never
 #                 reached payment as abandoned, the T−7 / T−1 / T+1 journeys, and the Monday CRM digest (scheduled()
-#                 checks the weekday). The window is that wide for the slack a late delivery needs, and because 09:17 —
-#                 the daily trigger's own minute — sits inside it. Running it twice is prevented by the D1 claim, not by
-#                 the window: DAILY_GUARD_KEY holds the UTC date and the claim is one conditional upsert.
+#                 checks the weekday). The window is five minutes wide because a fire may carry no scheduledTime (then
+#                 Date.now() places it) and because 09:17 — the daily trigger's own minute — is documented as inside it;
+#                 a LATE delivery still carries the scheduler's own minute. Running it twice is prevented by the D1 claim,
+#                 not by the window: DAILY_GUARD_KEY holds the UTC date and the claim is one conditional upsert.
 #
 # ADD A TRIGGER HERE AND YOU MUST ADD ITS STRING TO scheduled() (src/worker.js) — and you must have the plan for it.
 # Anything that is neither known string (a trigger added here, a renamed schedule, an event with no cron) logs

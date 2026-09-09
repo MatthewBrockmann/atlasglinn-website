@@ -204,7 +204,9 @@ jobs:
           toml = open('wrangler.toml', encoding='utf-8').read()
           m = re.search(r'^crons\s*=\s*\[(.*?)\]', toml, re.M | re.S)
           crons = [c.strip().strip('"\'') for c in (m.group(1).split(',') if m else []) if c.strip()]
-          print('cron triggers declared: %d of the 5 a Workers Free ACCOUNT allows' % len(crons))
+          print('cron triggers declared IN THIS FILE: %d (Workers Free allows 5 per ACCOUNT, across every script — this step does not measure the account total; run #38 was refused while this file declared 2)' % len(crons))
+          if not crons:
+              print('::error::wrangler.toml declares NO cron triggers — the [triggers] table moved or was renamed; the tax tick and the daily work would never fire'); raise SystemExit(1)
           for c in crons: print('   ' + c)
           if len(crons) > 5:
               print('::warning::wrangler.toml declares %d cron triggers and Workers Free allows 5 per account — Cloudflare will refuse the schedules with code 10072 AFTER uploading the script, exactly as it did on run #38. The verify step below is what catches that; this line is so it is visible first.' % len(crons))
@@ -226,12 +228,15 @@ jobs:
       # set, and no line anywhere said which half had landed. This step reads the schedules the account actually holds
       # back out of the Cloudflare API and fails the run when they are not the ones wrangler.toml declares.
       #
-      # IT FAILS ONLY ON A MEASURED DISAGREEMENT. A 401/403 (a token without Workers Scripts read), a non-200, a body it
-      # cannot parse, or success=false all PRINT and exit 0: this step exists to make a half-deploy loud, and a step
-      # that reds main because an API answered a shape it did not expect would be turned off within a week. The one
-      # thing it fails on is the thing it can prove — a registered set that differs from the file.
+      # IT FAILS ON A MEASURED DISAGREEMENT AND ON AN ANSWER IT CANNOT READ. A 401/403 (a token without Workers Scripts
+      # read) and a transport failure WARN and exit 0 — the API did not answer, and a step that reds main on a missing
+      # permission would be turned off within a week. But a 200 whose body cannot be parsed, is not an object, or says
+      # success=false is the endpoint ANSWERING and this step being unable to say whether the crons landed — that is
+      # exit 1 (round-1 verifier: a check that passes on a malformed answer is a check that passes on anything). An
+      # empty declared set is exit 1 too: nothing can be checked against nothing. Both sets land in the step summary.
       - name: Verify the Worker's registered cron schedules are the ones wrangler.toml declares
-        if: steps.creds.outputs.ready == 'true'
+        # always(): run #38's shape is a FAILED Deploy step with the script already live — the case this check exists for.
+        if: always() && steps.creds.outputs.ready == 'true'
         working-directory: mast-backend
         env:
           CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN || secrets.CLOUDFLARE_TOKEN }}
@@ -263,32 +268,41 @@ jobs:
           toml = open('wrangler.toml', encoding='utf-8').read()
           m = re.search(r'^crons\s*=\s*\[(.*?)\]', toml, re.M | re.S)
           want = sorted(c.strip().strip('"\'') for c in (m.group(1).split(',') if m else []) if c.strip())
+          summ = open(os.environ.get('GITHUB_STEP_SUMMARY', '/dev/null'), 'a')
+          def note(line):
+              print(line); summ.write(line.replace('::error::', 'ERROR: ').replace('::warning::', 'WARNING: ') + '\n')
+          if not want:
+              note('::error::this step parsed NO cron triggers out of wrangler.toml — the file moved or the [triggers] table was renamed; the registered set cannot be checked against nothing')
+              sys.exit(1)
           if code in ('401', '403'):
-              print('::notice::The API token cannot list this Worker\'s schedules (HTTP %s) — it needs Workers Scripts: Read on the account. NOT a deploy failure and nothing is pending on the deploy; what is missing is the check that the crons registered. wrangler.toml declares: %s' % (code, ', '.join(want) or '(none)'))
+              note('::warning::The API token cannot list this Worker\'s schedules (HTTP %s) — it needs Workers Scripts: Read on the account. NOT a deploy failure and nothing is pending on the deploy; what is missing is the check that the crons registered. wrangler.toml declares: %s' % (code, ', '.join(want) or '(none)'))
               sys.exit(0)
           if code != '200':
-              print('::warning::Could not read the registered schedules (HTTP %s), so this run cannot confirm the crons landed. The deploy itself succeeded or failed on its own step. wrangler.toml declares: %s' % (code, ', '.join(want) or '(none)'))
+              note('::warning::Could not read the registered schedules (HTTP %s), so this run cannot confirm the crons landed. The deploy itself succeeded or failed on its own step. wrangler.toml declares: %s' % (code, ', '.join(want) or '(none)'))
               sys.exit(0)
           try:
               d = json.loads(raw)
           except Exception as e:
-              print('::warning::The schedules endpoint answered 200 with a body this step could not parse (%s), so the registered set is unknown. wrangler.toml declares: %s' % (e.__class__.__name__, ', '.join(want) or '(none)'))
-              sys.exit(0)
+              note('::error::The schedules endpoint answered 200 with a body this step could not parse (%s): the API answered and this run cannot say whether the crons landed. wrangler.toml declares: %s' % (e.__class__.__name__, ', '.join(want) or '(none)'))
+              sys.exit(1)
+          if not isinstance(d, dict):
+              note('::error::The schedules endpoint answered 200 with a non-object body (%s): the registered set cannot be read. wrangler.toml declares: %s' % (type(d).__name__, ', '.join(want) or '(none)'))
+              sys.exit(1)
           if not d.get('success', True):
-              errs = '; '.join(str(e.get('message', e)) for e in (d.get('errors') or []))
-              print('::warning::The schedules endpoint answered success=false (%s), so the registered set is unknown. wrangler.toml declares: %s' % (errs or 'no message', ', '.join(want) or '(none)'))
-              sys.exit(0)
+              errs = '; '.join(str(e.get('message', e)) if isinstance(e, dict) else str(e) for e in (d.get('errors') or []))
+              note('::error::The schedules endpoint answered success=false (%s): the registered set cannot be read. wrangler.toml declares: %s' % (errs or 'no message', ', '.join(want) or '(none)'))
+              sys.exit(1)
           res = d.get('result')
           items = res.get('schedules') if isinstance(res, dict) else res if isinstance(res, list) else []
           have = sorted(str(i.get('cron', '')).strip() for i in (items or []) if isinstance(i, dict) and i.get('cron'))
-          print('registered on the Worker: %s' % (', '.join(have) or '(none)'))
-          print('declared in wrangler.toml: %s' % (', '.join(want) or '(none)'))
+          note('registered on the Worker: %s' % (', '.join(have) or '(none)'))
+          note('declared in wrangler.toml: %s' % (', '.join(want) or '(none)'))
           if have == want:
               print('The schedules the account holds are the ones this commit declares — the deploy landed whole.')
               sys.exit(0)
           missing = [c for c in want if c not in have]
           extra = [c for c in have if c not in want]
-          print('::error::THE WORKER IS RUNNING THIS COMMIT\'S CODE ON A DIFFERENT TRIGGER SET. Missing (declared, NOT registered): %s. Registered but not declared: %s. This is the run #38 shape: wrangler uploads the script and Cloudflare refuses the schedules — on Workers Free that refusal is code 10072, "5 cron triggers per account", and the account keeps whatever triggers it already had. Fix the trigger set (or the plan) and re-run this workflow; the Worker is live either way.' % (', '.join(missing) or '(none)', ', '.join(extra) or '(none)'))
+          note('::error::THE WORKER IS RUNNING THIS COMMIT\'S CODE ON A DIFFERENT TRIGGER SET. Missing (declared, NOT registered): %s. Registered but not declared: %s. This is the run #38 shape: wrangler uploads the script and Cloudflare refuses the schedules — on Workers Free that refusal is code 10072, "5 cron triggers per account", and the account keeps whatever triggers it already had. Fix the trigger set (or the plan) and re-run this workflow; the Worker is live either way.' % (', '.join(missing) or '(none)', ', '.join(extra) or '(none)'))
           sys.exit(1)
           PY
       # Worker secrets from a phone: a repository secret named WORKER_RESEND_API_KEY (or WORKER_<NAME> for any other

@@ -70,7 +70,10 @@ export default {
         // deploy-worker.yml), so a runner can tell which merge is running; crm marks the /event, /subscribe, /admin routes.
         // directions: sealed = the owner's range PDF decrypts on this Worker (src/sealed.js); secrets = rendered from RANGE_*; none.
         const directions = await directionsStatus(env).catch((e) => 'error: ' + e.message);
-        return json({ status: 'MAST booking backend — ONLINE', version: '1.2.0', build: env.BUILD || null, crm: true, directions }, 200, cors);
+        // daily_last_run: the UTC date the once-a-day claim holds (DAILY_GUARD_KEY), so a lost day is measurable from
+        // outside the isolate now that the daily work rides on one fire in 288. null when D1 is absent or unreadable.
+        const dailyLastRun = await dailyLastRunDate(env);
+        return json({ status: 'MAST booking backend — ONLINE', version: '1.2.0', build: env.BUILD || null, crm: true, directions, daily_last_run: dailyLastRun }, 200, cors);
       }
       if (url.pathname === '/directions-key' && request.method === 'GET') {
         // The public half of the Worker's sealing key (never the private half). Anyone may read it; only main decides what is sealed.
@@ -172,7 +175,7 @@ export default {
     if (cron === TAX_TICK_CRON) {
       // Daily work first, tick second: the daily job is the established one, and the tick is the cheap idempotent one
       // that a failure above must not cost. Each keeps its own catch, and the liveness stamp still belongs to the tick.
-      if (inDailyWindow(firedAt) && await claimDailyRun(env, firedAt)) await runDailyWork(event, env, ctx);
+      if (inDailyWindow(firedAt) && await claimDailyRun(env, firedAt)) await runDailyWork(event, env, ctx).catch((e) => console.error('[Daily] work failed:', e.message));
       await tick('tax-cron', true);
       return;
     }
@@ -183,7 +186,7 @@ export default {
     }
     // The daily string still does the daily work, and it takes the SAME once-a-day claim as the window path above — so
     // restoring the daily trigger on a paid plan adds a second fire, not a second run of the work.
-    if (await claimDailyRun(env, firedAt)) await runDailyWork(event, env, ctx);
+    if (await claimDailyRun(env, firedAt)) await runDailyWork(event, env, ctx).catch((e) => console.error('[Daily] work failed:', e.message));
     // Stripe Tax repairs itself here rather than in CI. Every run reads the cached measurement and, when the switch is on
     // and that cache is stale or says the account is not collecting, measures and runs the idempotent setup — so a Worker
     // deployed with STRIPE_TAX = "1" onto an account that was never set up converges on its own, with no repository secret
@@ -2666,6 +2669,15 @@ export function inDailyWindow(at) {
  * Claim today for the daily work. True = this fire owns the day and must do the work; false = a fire already did it.
  * One statement, so two fires cannot both read "not yet" and both proceed. Absent D1 or a throw returns TRUE (see above).
  */
+/** The UTC date (YYYY-MM-DD) the daily claim currently holds, or null when there is no D1, no row, or a read failure. */
+async function dailyLastRunDate(env) {
+  if (!env || !env.DB) return null;
+  try {
+    const row = await env.DB.prepare('SELECT window_start FROM rate_limits WHERE key = ?').bind(DAILY_GUARD_KEY).first();
+    const v = row && row.window_start ? String(row.window_start) : '';
+    return /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null;
+  } catch (e) { return null; }
+}
 async function claimDailyRun(env, at) {
   const day = (at instanceof Date ? at : new Date(at)).toISOString().slice(0, 10);
   if (!env || !env.DB) { console.log(JSON.stringify({ daily_claim: 'no-db', day })); return true; }
