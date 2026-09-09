@@ -1,28 +1,28 @@
-captured 2026-09-09T06:43:01Z by capture-live from main 03fa863
+captured 2026-09-09T18:08:15Z by capture-live from main dc7b73e
 200 text/html; charset=UTF-8 85111  https://atlasglinn.com/  title=[Atlas Glinn - Elite Security Solutions, Risk Management & Training] wordpress_generator=0
-200 text/html 83528  https://atlasglinn.com/index.html  title=[Atlas Glinn | Executive Protection, Risk Management & Training — Houston, TX] wordpress_generator=0
-200 text/html 83667  https://atlasglinn.com/about.html  title=[About Atlas Glinn | Elite Security Leadership — Houston, TX] wordpress_generator=0
+200 text/html 112688  https://atlasglinn.com/index.html  title=[Atlas Glinn - Elite Security Solutions, Risk Management & Training] wordpress_generator=0
+200 text/html 100535  https://atlasglinn.com/about.html  title=[Atlas Glinn - About Us | Elite Security Leadership] wordpress_generator=0
 200 text/html; charset=UTF-8 60210  https://atlasglinn.com/about/  title=[Atlas Glinn - About Us | Elite Security Leadership] wordpress_generator=0
-200 text/html 212570  https://atlasglinn.com/mastsolutions.html  title=[MAST Solutions | Details Matter | Tactical Training, Houston TX] wordpress_generator=0
+200 text/html 265989  https://atlasglinn.com/mastsolutions.html  title=[MAST Solutions | Details Matter | Tactical Training, Houston TX] wordpress_generator=0
 200 image/jpeg 149117  https://atlasglinn.com/images/atlas/Atlas-Glinn-3.jpg  title=[] wordpress_generator=0
 200 image/jpeg 461259  https://atlasglinn.com/images/atlas/Atlas-Glinn-Executive-Protection-scaled.jpeg  title=[] wordpress_generator=0
-200 image/jpeg 99969  https://atlasglinn.com/images/film/atlas-glinn-and-mast-solutions-poster.jpg  title=[] wordpress_generator=0
-200 image/jpeg 146274  https://atlasglinn.com/images/team/brockmann.jpg  title=[] wordpress_generator=0
+200 image/jpeg 100998  https://atlasglinn.com/images/film/atlas-glinn-and-mast-solutions-poster.jpg  title=[] wordpress_generator=0
+200 image/jpeg 150674  https://atlasglinn.com/images/team/brockmann.jpg  title=[] wordpress_generator=0
 200 video/mp4 132  https://atlasglinn.com/images/technology-hero.mp4  title=[] wordpress_generator=0
 200 video/mp4 132  https://atlasglinn.com/images/careers-gallery.mp4  title=[] wordpress_generator=0
 404 text/html 548  https://atlasglinn.com/wp-content/uploads/2025/03/IMG_1837-1024x751.jpeg  title=[404 Not Found] wordpress_generator=0
---- cache-busted (?v=1788936182) with caching headers; gear-price / foot-site count the current builds' markers
-200 text/html 264522  https://atlasglinn.com/mastsolutions.html?v=  gear-price=3 foot-site=1  [cache-control: public, max-age=2678400 last-modified: Wed, 09 Sep 2026 06:16:43 GMT server: cloudflare cf-cache-status: MISS ]
-200 text/html 89601  https://atlasglinn.com/index.html?v=  gear-price=0 foot-site=0  [cache-control: public, max-age=2678400 last-modified: Wed, 09 Sep 2026 06:16:45 GMT server: cloudflare cf-cache-status: MISS ]
-200 text/html 76814  https://atlasglinn.com/about.html?v=  gear-price=0 foot-site=0  [cache-control: public, max-age=2678400 last-modified: Wed, 09 Sep 2026 06:16:54 GMT server: cloudflare cf-cache-status: MISS ]
-200 text/plain 38  https://atlasglinn.com/mast-ping.txt?v=  gear-price=0 foot-site=0  [etag: W/"6aa0f9c2-26" last-modified: Wed, 09 Sep 2026 06:16:34 GMT server: cloudflare cache-control: public, max-age=2678400 cf-cache-status: MISS ]
-   mast-ping.txt body: served by upload 2026-09-09T06:16:34Z
+--- cache-busted (?v=1788977299) with caching headers; gear-price / foot-site count the current builds' markers
+200 text/html 265989  https://atlasglinn.com/mastsolutions.html?v=  gear-price=3 foot-site=1  [cache-control: public, max-age=2678400 last-modified: Wed, 09 Sep 2026 18:06:16 GMT server: cloudflare cf-cache-status: MISS ]
+200 text/html 112688  https://atlasglinn.com/index.html?v=  gear-price=0 foot-site=0  [cache-control: public, max-age=2678400 last-modified: Wed, 09 Sep 2026 18:06:17 GMT server: cloudflare cf-cache-status: MISS ]
+200 text/html 100535  https://atlasglinn.com/about.html?v=  gear-price=0 foot-site=0  [cache-control: public, max-age=2678400 last-modified: Wed, 09 Sep 2026 18:06:18 GMT server: cloudflare cf-cache-status: MISS ]
+200 text/plain 38  https://atlasglinn.com/mast-ping.txt?v=  gear-price=0 foot-site=0  [etag: W/"6aa1920d-26" last-modified: Wed, 09 Sep 2026 17:06:21 GMT server: cloudflare cache-control: public, max-age=2678400 cf-cache-status: MISS ]
+   mast-ping.txt body: served by upload 2026-09-09T17:06:21Z
 --- plain URL caching headers
-   https://atlasglinn.com/mastsolutions.html  cache-control: public, max-age=2678400 last-modified: Mon, 07 Sep 2026 12:26:11 GMT server: cloudflare age: 149036 cf-cache-status: HIT 
-   https://atlasglinn.com/index.html  cache-control: public, max-age=2678400 last-modified: Mon, 07 Sep 2026 15:51:25 GMT server: cloudflare age: 139681 cf-cache-status: HIT 
---- self-refresh: mastsolutions.html  plain build=[none]  manifest=[e2eff83f53db]  stale → self-refresh to ?v=e2eff83f53db
---- self-refresh: index.html  plain build=[none]  manifest=[19c68e493f61]  stale → self-refresh to ?v=19c68e493f61
---- self-refresh: about.html  plain build=[none]  manifest=[c9ed3bb1431a]  stale → self-refresh to ?v=c9ed3bb1431a
+   https://atlasglinn.com/mastsolutions.html  cache-control: public, max-age=2678400 last-modified: Wed, 09 Sep 2026 18:06:16 GMT server: cloudflare age: 4 cf-cache-status: HIT 
+   https://atlasglinn.com/index.html  cache-control: public, max-age=2678400 last-modified: Wed, 09 Sep 2026 18:06:17 GMT server: cloudflare age: 4 cf-cache-status: HIT 
+--- self-refresh: mastsolutions.html  plain build=[3374d986acf1]  manifest=[3374d986acf1]  fresh
+--- self-refresh: index.html  plain build=[e19a57b37263]  manifest=[e19a57b37263]  fresh
+--- self-refresh: about.html  plain build=[b93b4f949c1d]  manifest=[b93b4f949c1d]  fresh
 --- google: https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063
    title=[  Google Maps  ]  mentions 'Atlas Glinn'=2  place ids=[]  consent=0
 --- google: https://www.google.com/maps?cid=4511758973651106295
