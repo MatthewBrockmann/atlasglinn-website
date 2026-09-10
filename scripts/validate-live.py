@@ -81,8 +81,8 @@ CHROME_ROOTS = ', '.join(live.CHROME_ROOTS)
 # .agx-ch and .agx-content are in _SELF and not in _ANC on purpose: the wrapper itself is the cinema layer's, the
 # live markup inside it is not, so a cinema rule reaching a card would still fail.
 CINEMA_SELF = ('#agx-canvas, #agx-photos, #agx-progress, .agx-grain, .agx-vignette, .agx-rail, .agx-hud, '
-               '.agx-ch, .agx-content, html')
-CINEMA_ANC = '#agx-canvas, #agx-photos, #agx-progress, .agx-rail, .agx-hud'
+               '.agx-sitenav, .agx-menu-btn, .agx-ch, .agx-content, html')
+CINEMA_ANC = '#agx-canvas, #agx-photos, #agx-progress, .agx-rail, .agx-hud, .agx-sitenav'
 CINEMA_CONTENT_OK = ('.agx-ch > *',)
 
 # A pseudo-class or pseudo-element is a STATE, not a target: querySelectorAll('a::after') throws and
@@ -131,18 +131,30 @@ const PROBE = ([sels, self, anc]) => {
   }
   return out;
 };
-const TYPESCALE = () => {
-  const SKIP = '.agx-rail, .agx-hud, #intro-overlay, #main-nav, #mobile-nav, footer, #back-to-top';
+// CHECK 4 IS SPLIT SINCE r8 AND THE SPLIT IS WHAT KEEPS THE HERO EXCEPTION HONEST. `mode` is 'body' (everything
+// OUTSIDE the opening hero — this must stay EQUAL to the live capture, ledger K-3, unchanged) or 'hero' (the one
+// chapter Brockmann's 2026-09-09 call re-styles — collected on both sides and PRINTED, never skipped). `.hero` is
+// the scope on BOTH sides: the build wraps the live `<section class="hero">` in `.agx-ch.agx-hero` and the capture
+// does not, so keying on the LIVE class is what makes the two sides comparable.
+// #main-nav / #mobile-nav STAY IN THE SKIP LIST even though the build no longer has a bar: the LIVE CAPTURE still
+// does, and dropping them would collect the capture's own bar and report a length delta that is really about the
+// chrome. .agx-sitenav / .agx-menu-btn are the build-side equivalents.
+const TYPESCALE = (mode) => {
+  const SKIP = '.agx-rail, .agx-hud, .agx-sitenav, .agx-menu-btn, #intro-overlay, #main-nav, #mobile-nav, '
+    + 'footer, #back-to-top';
   const out = [];
   for (const el of document.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li')) {
     if (el.closest(SKIP)) continue;
+    const inHero = !!el.closest('.hero');
+    if (mode === 'hero' ? !inHero : inHero) continue;
     const cs = getComputedStyle(el);
     out.push([el.tagName.toLowerCase(), cs.fontSize, cs.fontFamily, cs.lineHeight]);
   }
   return out;
 };
 const BOXES = () => {
-  const names = ['.agx-hud-br', '.agx-hud-bl', '.agx-rail', '#back-to-top', '#sound-toggle'];
+  const names = ['.agx-hud-tl', '.agx-hud-tr', '.agx-hud-bl', '.agx-hud-br', '.agx-menu-btn', '.agx-rail',
+    '#back-to-top', '#sound-toggle'];
   const out = {};
   for (const n of names) {
     const el = document.querySelector(n);
@@ -204,12 +216,24 @@ try {
     const chrome = await page.evaluate(PROBE, [P.chromeSels, P.chromeRoots, P.chromeRoots]);
     const cinema = await page.evaluate(PROBE, [P.cinemaSels, P.cinemaSelf, P.cinemaAnc]);
     const skin = await page.evaluate(PROBE, [P.skinSels, '', '.agx-content']);
-    const buildType = await page.evaluate(TYPESCALE);
+    const buildType = await page.evaluate(TYPESCALE, 'body');
+    const buildHero = await page.evaluate(TYPESCALE, 'hero');
     const chapters = await page.evaluate(() => document.querySelectorAll('.agx-ch').length);
-    const hud0 = await page.evaluate(() => ({
-      bl: getComputedStyle(document.querySelector('.agx-hud-bl'), '::before').content,
-      br: getComputedStyle(document.querySelector('.agx-hud-br'), '::before').content,
-      disp: getComputedStyle(document.querySelector('.agx-hud-br')).display }));
+    // CHECK 5 — the generated content, read back off the rendered page. Nothing here prints a text node, so this
+    // positive assert is what stands in place of a comparator excuse for the whole HUD, the scroll cue, the chapter
+    // eyebrow and the overlay's two list headings.
+    const hud0 = await page.evaluate(() => {
+      const c = (sel, pseudo) => { const el = document.querySelector(sel); return el ? getComputedStyle(el, pseudo).content : '(no element)'; };
+      const ch2 = document.querySelectorAll('.agx-ch')[1];
+      return {
+        tl: c('.agx-hud-tl', '::before'), tr: c('.agx-hud-tr', '::before'),
+        bl: c('.agx-hud-bl', '::before'), br: c('.agx-hud-br', '::before'),
+        cue: c('.agx-scroll-cue', '::after'),
+        qi: c('.agx-sitenav-index', '::before'), ap: c('.agx-sitenav-extra', '::before'),
+        ch2: ch2 ? getComputedStyle(ch2, '::after').content : '(no chapter 2)',
+        ch2label: ch2 ? (ch2.getAttribute('data-agxlabel') || '') : '',
+        disp: getComputedStyle(document.querySelector('.agx-hud-tr')).display };
+    });
     const k = Math.min(3, chapters);
     await page.evaluate((k) => {
       document.documentElement.style.scrollBehavior = 'auto';
@@ -218,7 +242,7 @@ try {
       window.dispatchEvent(new Event('scroll'));
     }, k);
     await page.waitForTimeout(450);
-    const hudK = await page.evaluate(() => getComputedStyle(document.querySelector('.agx-hud-br'), '::before').content);
+    const hudK = await page.evaluate(() => getComputedStyle(document.querySelector('.agx-hud-tr'), '::before').content);
     await page.evaluate(() => window.scrollTo(0, 0));
 
     // The rail box was not reproducible run to run, and the cause is HERE, in the probe, not on the page: the rail
@@ -243,18 +267,26 @@ try {
     }
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(600);
-    const narrow = await page.evaluate(() => [
-      getComputedStyle(document.querySelector('.agx-hud-bl')).display,
-      getComputedStyle(document.querySelector('.agx-hud-br')).display]);
+    // The top-left brand line is the one corner that shows on a phone (MAST does the same); the other three are
+    // >=1025 only. tl is asserted VISIBLE and the other three HIDDEN, so "the HUD is hidden on phones" cannot be
+    // bought by hiding the piece that is meant to stay.
+    const narrow = await page.evaluate(() => ['.agx-hud-tl', '.agx-hud-tr', '.agx-hud-bl', '.agx-hud-br']
+      .map((n) => getComputedStyle(document.querySelector(n)).display));
+    const buildType390 = await page.evaluate(TYPESCALE, 'body');
 
     await page.setViewportSize({ width: 1440, height: 900 });
     phase = 'live';
     await page.goto(base + '__live__/' + P.slug + '.html', { waitUntil: 'domcontentloaded', timeout: 45000 });
     await page.waitForTimeout(700);
-    const liveType = await page.evaluate(TYPESCALE);
+    const liveType = await page.evaluate(TYPESCALE, 'body');
+    const liveHero = await page.evaluate(TYPESCALE, 'hero');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(600);
+    const liveType390 = await page.evaluate(TYPESCALE, 'body');
 
     const shared = new Set(liveErrs);
-    results.push({ slug: P.slug, chrome, cinema, skin, buildType, liveType, chapters, hud0, hudK, boxes,
+    results.push({ slug: P.slug, chrome, cinema, skin, buildType, liveType, buildHero, liveHero,
+      buildType390, liveType390, chapters, hud0, hudK, boxes,
       narrow, errs: errs.filter((e) => !shared.has(e)), liveErrs, k });
     await ctx.close();
   }
@@ -264,6 +296,59 @@ try {
 }
 fs.writeFileSync(OUT_PATH, JSON.stringify(results));
 """
+
+
+P_FLOOR = 15.0
+
+
+def _px(v):
+    try:
+        return float(str(v).replace('px', ''))
+    except ValueError:
+        return 0.0
+
+
+def hero_delta(R):
+    """CHECK 4b — the hero is the one place the type MOVES, so it is measured rather than skipped: the same number
+    of elements on both sides, the headline in Orbitron, and its size at or above the live one. Everything else in
+    the hero is compared for element COUNT only, because the sheet re-styles it on Brockmann's 2026-09-09 call."""
+    out = []
+    if len(R['buildHero']) != len(R['liveHero']):
+        out.append('the hero carries %d sized elements and the live hero carries %d'
+                   % (len(R['buildHero']), len(R['liveHero'])))
+        return out
+    for i, (b, l) in enumerate(zip(R['buildHero'], R['liveHero'])):
+        if b[0] != l[0]:
+            out.append('element %d is a <%s> in the build and a <%s> live' % (i, b[0], l[0]))
+            continue
+        # THE RE-SET MAY ENLARGE AND MAY NOT SHRINK, on every hero element and not only the headline. The first
+        # clamp on the lede made ep-app's live 22px .hero-sub compute 18.72px at 1440 and the h1-only version of
+        # this check passed it — a readability regression inside the one exception this sheet is allowed.
+        if _px(b[1]) < _px(l[1]):
+            out.append('element %d <%s> is %s in the build and %s live — the hero re-set may not shrink live copy'
+                       % (i, b[0], b[1], l[1]))
+        if b[0] == 'h1' and 'Orbitron' not in b[2]:
+            out.append('the hero h1 computes %s, not Orbitron' % b[2])
+    return out
+
+
+def phone_delta(R):
+    """CHECK 4c — the phone floor, measured in a browser at 390 on BOTH sides. build >= live everywhere; build ==
+    live wherever the live value already cleared the floor (so a floor rule may raise a small paragraph and may not
+    touch a compliant one); and no <p> under the floor in the build. The 11px LABEL floor is on div/span/label
+    elements this collector does not see — that one is render-audit.mjs check 9, which walks every rendered leaf."""
+    out, b390, l390 = [], R['buildType390'], R['liveType390']
+    if len(b390) != len(l390):
+        return ['the 390 pass collected %d elements on the build and %d live' % (len(b390), len(l390))]
+    for i, (b, l) in enumerate(zip(b390, l390)):
+        bp, lp = _px(b[1]), _px(l[1])
+        if bp < lp - 0.01:
+            out.append('element %d <%s> is %s in the build and %s live — a floor may not lower' % (i, b[0], b[1], l[1]))
+        elif lp >= P_FLOOR and abs(bp - lp) > 0.01:
+            out.append('element %d <%s> was already %s live and the build makes it %s' % (i, b[0], l[1], b[1]))
+        if b[0] == 'p' and bp < P_FLOOR - 0.01:
+            out.append('element %d <p> computes %s at 390, under the %gpx floor' % (i, b[1], P_FLOOR))
+    return out[:8]
 
 
 def main():
@@ -321,18 +406,30 @@ def main():
         for i, r in enumerate(R['skin']):
             skin_hits[i] += r['n']
         type_ok = R['buildType'] == R['liveType']
+        hero_bad = hero_delta(R)
+        phone_bad = phone_delta(R)
         n = R['chapters']
         hud_bad = []
-        if R['hud0']['bl'] != '"ATLAS GLINN · HOUSTON"':
-            hud_bad.append('bottom-left content %s' % R['hud0']['bl'])
-        if R['hud0']['br'] != '"SECTION 01 / %02d"' % n:
-            hud_bad.append('bottom-right content %s at scroll 0 (%d chapters)' % (R['hud0']['br'], n))
-        if R['hud0']['disp'] == 'none':
+        H = R['hud0']
+        for key, want in (('tl', '"ATLAS GLINN · HOUSTON"'), ('bl', '"HOU · 29.7604°N · 95.3698°W"'),
+                          ('br', '"DETAILS MATTER"'), ('cue', '"SCROLL ↓"'),
+                          ('qi', '"QUICK INDEX"'), ('ap', '"ALL PAGES"')):
+            if H[key] != want:
+                hud_bad.append('%s computes %s, not %s' % (key, H[key], want))
+        if H['tr'] != '"SECTION 01 / %02d"' % n:
+            hud_bad.append('top-right content %s at scroll 0 (%d chapters)' % (H['tr'], n))
+        if H['disp'] == 'none':
             hud_bad.append('the HUD is display:none at 1440')
         if R['hudK'] != '"SECTION %02d / %02d"' % (R['k'], n):
-            hud_bad.append('bottom-right content %s at chapter %d' % (R['hudK'], R['k']))
-        if R['narrow'] != ['none', 'none']:
-            hud_bad.append('the HUD computes %r at 390, not hidden' % R['narrow'])
+            hud_bad.append('top-right content %s at chapter %d' % (R['hudK'], R['k']))
+        # getComputedStyle resolves attr() and does NOT resolve counter(), so the chapter eyebrow reads back with
+        # its counter expression intact and its label substituted. That is the string asserted — it proves the
+        # attribute reached the sheet and the number is still a counter and not a printed text node.
+        want_ch2 = ('counter(agx-chapter, decimal-leading-zero) " · %s"' % H['ch2label']) if H['ch2label'] else 'none'
+        if H['ch2'] != want_ch2:
+            hud_bad.append('the chapter-2 eyebrow computes %s, not %s' % (H['ch2'], want_ch2))
+        if R['narrow'][0] == 'none' or R['narrow'][1:] != ['none', 'none', 'none']:
+            hud_bad.append('the HUD computes %r at 390 (tl must show, tr/bl/br must not)' % R['narrow'])
         # A pair is a FAILURE only where one side is an agx- element — the rail and the two HUD corners are what
         # this layer puts on the page. #back-to-top x #sound-toggle intersects on ORIGIN/MAIN too (measured
         # 2026-09-09 at 1440: back-to-top [1378,1424,848,894], sound-toggle [1360,1408,820,868], on the five live
@@ -347,14 +444,28 @@ def main():
                     if a[0] < b[1] and b[0] < a[1] and a[2] < b[3] and b[2] < a[3]:
                         line = '%spx %s %s intersects %s %s' % (w, ks[i], a, ks[j], b)
                         (hits if ('agx' in ks[i] or 'agx' in ks[j]) else pre).append(line)
-        ok = not (chrome_out or cinema_out or skin_out or not type_ok or hud_bad or hits or R['errs'])
+        ok = not (chrome_out or cinema_out or skin_out or not type_ok or hero_bad or phone_bad or hud_bad
+                  or hits or R['errs'])
         bad += 0 if ok else 1
         print('%-24s chrome %2d sel/%d outside  cinema %2d sel/%d outside  skin %3d sel/%d outside  '
-              'type %d==%d %s  hud %s  fixed-chrome hits %d  page errors %d (+%d the capture raises too)  %s'
+              '4a %d==%d %s  4b hero %d/%d %s  4c 390 %s  hud %s  fixed-chrome hits %d  '
+              'page errors %d (+%d the capture raises too)  %s'
               % (slug, len(R['chrome']), len(chrome_out), len(R['cinema']), len(cinema_out),
                  len(R['skin']), len(skin_out), len(R['buildType']), len(R['liveType']),
-                 'EQUAL' if type_ok else 'DIFFER', 'OK' if not hud_bad else 'BAD', len(hits), len(R['errs']),
+                 'EQUAL' if type_ok else 'DIFFER', len(R['buildHero']), len(R['liveHero']),
+                 'OK' if not hero_bad else 'BAD', 'OK' if not phone_bad else 'BAD',
+                 'OK' if not hud_bad else 'BAD', len(hits), len(R['errs']),
                  len(R['liveErrs']), 'OK' if ok else 'DELTA'))
+        # 4b PRINTS THE HERO ON BOTH SIDES, ALWAYS. A skip that prints nothing is how "the hero is exempt" becomes
+        # "h1 is exempt"; this is the line that makes the exception readable in the run rather than in a comment.
+        for i in range(max(len(R['buildHero']), len(R['liveHero']))):
+            b = R['buildHero'][i] if i < len(R['buildHero']) else None
+            l = R['liveHero'][i] if i < len(R['liveHero']) else None
+            print('    hero type %d: build %s / live %s' % (i, b, l))
+        for h in hero_bad:
+            print('    HERO TYPE: %s' % h)
+        for h in phone_bad:
+            print('    PHONE TYPE AT 390: %s' % h)
         for r in chrome_out:
             print('    CHROME RULE REACHES CONTENT: %s -> %d outside the five roots %s'
                   % (r['sel'], r['outsideN'], r['outside']))

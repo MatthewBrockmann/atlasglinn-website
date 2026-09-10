@@ -1,19 +1,35 @@
 """
 atlas_shell.py — the classic one-scroll layout for the Atlas Glinn pages.
 
-Brockmann, 2026-09-08, on the chapter preview: "too many clicks to get to content and back is confusing — look at how
-easy the current site is and rebuild" and "atlasglinn needs to mimic the current site with the new build". So the Atlas
-pages keep the trailer's visual system and drop the trailer's navigation: the chapter rail, the SECTION counter, the
-MENU overlay and the per-chapter letterbox cuts are gone, and in their place sit the live site's sticky top bar with its
-dropdown, its intro overlay with Enter / Skip Intro, its full-bleed muted hero film with the sound toggle, its footer and
-a back-to-top control. Everything is one continuous scroll; the `id="sN"` anchors stay, so existing links still land.
+THE PARAGRAPH THAT USED TO OPEN THIS FILE IS SUPERSEDED, AND EVERY CLAUSE OF IT IS NOW FALSE. It read: Brockmann,
+2026-09-08, on the chapter preview: "too many clicks to get to content and back is confusing — look at how easy the
+current site is and rebuild" and "atlasglinn needs to mimic the current site with the new build". So the Atlas pages
+keep the trailer's visual system and drop the trailer's navigation: "the chapter rail, the SECTION counter, the MENU
+overlay and the per-chapter letterbox cuts are gone, and in their place sit the live site's sticky top bar with its
+dropdown …". The 2026-09-08 quote is real and stays on the record; the conclusion drawn from it was reversed by him
+eleven days later and is struck.
+
+Brockmann, 2026-09-09 17:12–18:12 UTC: "Menu should be like the mastsolutions menu side bar?" · "Add more of the
+teslas style" · "floor" · "for mobile" · "SHould have embedded videos" · "Site should be same as most look mobile
+first" · and, over two screenshots side by side — the live site with its sticky bar, and the cinematic build with its
+four HUD corners, its MENU overlay, its numbered rail and its big Orbitron two-tone headline — "Look at the difference
+- the frontend should be the same with the Tesla as a styled".
+
+SO WHAT SHIPS IS THE TRAILER'S CHROME AROUND THE LIVE SITE'S WORDS: no sticky bar and no mobile menu, a four-corner
+HUD (tl the brand line and a link home, tr "SECTION NN / NN", bl the Houston coordinates, br "DETAILS MATTER"), a
+"MENU ☰" button opening a full-screen overlay that carries the live bar's list, the live mobile menu's list and a
+third list of the pages this page's live nav never names, the numbered chapter rail STANDING with its gutter, the
+intro overlay with Enter / Skip Intro, the footer and a back-to-top control. The `id="sN"` anchors stay, so existing
+links still land. Body copy keeps the live words at the live sizes — ledger K-3 is reversed for the HERO and the
+CHROME only, and for the <=768 readability floors, and nowhere else.
 
 Nothing here duplicates the shell. The palette, the type, the buttons, the cards and the three.js emblem scene are read
 out of cinematic_shell and reused verbatim:
   css(palette, extra)        the shell stylesheet with the chapter-rail rules removed, plus the classic chrome
   three(sections, palette)   the shell's gold ring + reticle + photo layer + emblem scene on a continuous camera path
   chrome(...)                intro overlay, canvas, photo layer, grain, vignette, progress, reticle
-  nav(items, here, logo)     the sticky bar and the mobile overlay
+  nav(items, here, logo)     the sticky bar and the mobile overlay — the --authored path ONLY since 2026-09-09
+  sitenav(main, index, ...)  the MENU button and the full-screen overlay that replaced them on the live pages
   hero_media(img, pos, film) the hero film, its scrim and the sound toggle
   footer(html)               the site footer element
   JS                         intro, nav, dropdown, sound toggle, back to top
@@ -29,6 +45,26 @@ import cinematic_shell as shell
 #    declarations ride along in the same source lines (the reticle's mobile hide and the mobile cursor) and come back in
 #    CLASSIC_CSS below. `.intro-ring` stays: the gold sparkle ring is the one piece of the splash the classic intro keeps.
 _TRAILER_ONLY = ('chap-link', 'chapter-nav', 'Chapter menu', '#intro-seq', '.intro-credit', '.letterbox', 'introFade')
+
+
+# ── The sticky bar and its mobile menu come OUT of the live-content pages (r8, 2026-09-09). They stay in
+#    CLASSIC_CSS because assemble-atlas.build() — the --authored path — still prints atlas.nav(); the cut is made
+#    in atlas_live.chrome_css(), which is the live path's own sheet. Cut BY MARKER, not by token: the block carries
+#    a three-line @media whose opening and closing braces name nothing, so a line filter would leave the sheet
+#    unbalanced. Every selector in _BAR_ONLY must be inside the cut or the build stops.
+_BAR_A = '  /* ── Sticky top bar ── */'
+_BAR_B = '  /* ── Hero: the film full-bleed under the headline, with the live sound toggle ── */'
+_BAR_ONLY = ('#main-nav', '.nav-container', '.nav-logo', '.nav-links', '.nav-toggle', '.nav-dropdown',
+             '.nav-dropdown-menu', '.nav-dropdown-banner', '.ndb-icon', '.ndb-title', '.ndb-desc', '.nav-cta',
+             '#mobile-nav', '.mobile-nav-close')
+
+
+def _debar(css_text):
+    a, b = css_text.index(_BAR_A), css_text.index(_BAR_B)
+    cut = css_text[a:b]
+    missing = [t for t in _BAR_ONLY if t not in cut]
+    assert not missing, 'the sticky-bar block no longer carries %s — the cut would leave its sheet behind' % missing
+    return css_text[:a] + css_text[b:]
 
 
 def _derail(css_text):
@@ -316,6 +352,69 @@ def nav(bar_items, mobile_items, here, logo, brand='ATLAS GLINN', home='index.ht
             % (home, logo, logo_alt or brand, brand, '\n'.join(bar), '\n'.join(mob)))
 
 
+# ── THE MENU BUTTON AND THE FULL-SCREEN OVERLAY ───────────────────────────────────────────────────────────────────
+# Brockmann, 2026-09-09: "Menu should be like the mastsolutions menu side bar?" and, over two screenshots, "the
+# frontend should be the same with the Tesla as a styled". So the live sticky bar comes off the twelve Atlas pages
+# and MAST's MENU overlay takes its place — namespaced agx-, never MAST's own `.menu-btn`/`.sitenav`, because the
+# live pages style a bare <nav> and assert_cinema_scope() fails an unanchored selector.
+#
+# AND THE WORD "MENU" CARRIES ITS OWN id FOR THE SAME REASON. compare-atlas cuts a build-only CHROME CONTROL out
+# of the body pool by ELEMENT SPAN, so binding the excuse to the button would have taken the button's whole span —
+# including the live "☰" — out of the pool, and the live hamburger would have read as MISSING FROM BUILD on all
+# twelve. Measured exactly that way before the id moved: text 182/183, order 1, NOT ON THE LIVE PAGE '☰'. The
+# excuse is bound to `#agx-menu-word`, which contains one build-only word and nothing else.
+#
+# THE SOURCE ORDER OF THE TWO GLYPHS IS LOAD-BEARING AND IT IS THE ONLY ODD THING HERE. The live page prints, in
+# this order: the brand "ATLAS GLINN", the bar's links, the bar's hamburger "☰", the mobile menu's close "×", the
+# mobile menu's links. compare-atlas.out_of_order() requires the live sequence to be a SUBSEQUENCE of the build's,
+# so the overlay prints the same five things in the same five places: brand, main list, MENU button, close button,
+# index list. The two buttons are position:fixed and position:absolute, so where they sit in the source has no
+# bearing on where they sit on the screen — and putting them anywhere else costs two live text units.
+#
+# WHICH IS ALSO WHY `.agx-sitenav` FADES ON ITS CHILDREN AND NOT ON ITSELF. The MENU button has to stay visible
+# while the overlay is shut, and an ancestor `opacity:0` makes every descendant transparent with no way out;
+# `visibility` is the one property a child can take back. So the closed state is `visibility:hidden` on the
+# container plus `opacity:0` on the scrim and the two panels, and the button re-declares `visibility:visible`.
+def sitenav(main, index, extra, here, logo, logo_alt, brand='ATLAS GLINN', home='index.html'):
+    """main:  [(href, label, kind, dropdown)] — the live BAR, kind None or 'cta', dropdown [(href, icon, title, desc)]
+       index: [(href, label, sub)]            — the live MOBILE menu
+       extra: [(href, label)]                 — the build-only third list, compare-atlas.sitenav_anchors()'s budget
+    """
+    def cls_of(href, kind):
+        parts = (['agx-cta'] if kind == 'cta' else []) + (['agx-here'] if href == here else [])
+        return ' class="%s"' % ' '.join(parts) if parts else ''
+
+    rows = []
+    for href, label, kind, drop in main:
+        item = '<a href="%s"%s>%s</a>' % (href, cls_of(href, kind), label)
+        if drop:
+            item += ('\n        <ul class="agx-sitenav-drop">%s</ul>'
+                     % ''.join('<li><a href="%s"><span class="agx-sitenav-i" aria-hidden="true">%s</span>%s%s</a></li>'
+                               % (h, ic, t, '<small>%s</small>' % d if d else '')
+                               for h, ic, t, d in drop))
+        rows.append('      <li>%s</li>' % item)
+    idx = ''.join('<li><a href="%s"%s>%s</a></li>' % (h, ' class="agx-here"' if h == here else '', l)
+                  for h, l, _sub in index)
+    xtra = ''.join('<li><a class="agx-sitenav-x" href="%s">%s</a></li>' % (h, l) for h, l in extra)
+    return ('<div class="agx-sitenav" id="agx-sitenav" role="dialog" aria-modal="true" aria-label="Site menu">\n'
+            '  <div class="agx-sitenav-scrim" aria-hidden="true"></div>\n'
+            '  <div class="agx-sitenav-in">\n'
+            '    <a href="%s" class="agx-sitenav-logo"><img src="%s" alt="%s" width="40" height="40">'
+            '<span class="agx-sitenav-brand">%s</span></a>\n'
+            '    <ul class="agx-sitenav-main">\n%s\n    </ul>\n'
+            '  </div>\n'
+            '  <button id="agx-menu-btn" class="agx-menu-btn" type="button" aria-controls="agx-sitenav" '
+            'aria-expanded="false" aria-label="Menu"><span id="agx-menu-word" class="agx-menu-word">MENU</span> '
+            '<span class="agx-menu-glyph" aria-hidden="true">&#9776;</span></button>\n'
+            '  <div class="agx-sitenav-in agx-sitenav-tail">\n'
+            '    <button id="agx-sitenav-close" class="agx-sitenav-close" type="button" aria-label="Close menu">'
+            '&times;</button>\n'
+            '    <ul class="agx-sitenav-index">%s</ul>\n'
+            '    <ul class="agx-sitenav-extra">%s</ul>\n'
+            '  </div>\n</div>\n'
+            % (home, logo, logo_alt or brand, brand, '\n'.join(rows), idx, xtra))
+
+
 def hero_media(img, pos=None, film=None):
     """The opening frame: the film autoplaying muted full-bleed with the live sound toggle, or the page's still.
     A `yt:<id>` film is the YouTube player the live page embeds, with the JS API on so the toggle can unmute it."""
@@ -447,13 +546,15 @@ CINEMA_CSS = r"""
      :root declares --gold, the same declaration resolved to rgb(201,168,76) — MAST gold on an Atlas page.
      shell._recolor is a literal str.replace over hex tokens and CANNOT rewrite a var() NAME, which is why
      recoloring never caught it. `--agx-` measures 0 hits across all twelve <style> blocks and shared-styles.css. */
-  .agx-rail, .agx-hud, #agx-progress { --agx-blue:#1A6BDE; --agx-blue-l:#5B9BFF; --agx-ink:#F0F4FF; --agx-dim:rgba(240,244,255,.55); }
+  .agx-rail, .agx-hud, #agx-progress, .agx-menu-btn, .agx-sitenav { --agx-blue:#1A6BDE; --agx-blue-l:#5B9BFF; --agx-ink:#F0F4FF; --agx-dim:rgba(240,244,255,.55); }
   /* ── The 3D scene, the backdrop and the film grain: four fixed layers under the content ── */
   #agx-canvas { position:fixed; inset:0; width:100vw; height:100vh; height:100svh; z-index:1; pointer-events:none; }
   #agx-photos { position:fixed; inset:0; z-index:2; pointer-events:none; }
   /* The outgoing photograph leaves faster than the incoming one arrives, so the two never stack to a brighter frame
      mid-switch (Brockmann, 2026-09-04: "the background pulled forward"). */
-  .agx-ph { position:absolute; inset:0; background:center/cover no-repeat; opacity:0; transition:opacity .6s ease; filter:saturate(.72) contrast(1.06); }
+  /* overflow:hidden because the YouTube backdrop is a 100vw/56.25vw COVER box — 1515px wide in a 393px viewport,
+     measured at 393x852 on cuas-aerodefense. The layer that puts it there clips it; the content is not asked to shrink. */
+  .agx-ph { position:absolute; inset:0; overflow:hidden; background:center/cover no-repeat; opacity:0; transition:opacity .6s ease; filter:saturate(.72) contrast(1.06); }
   .agx-ph.agx-on { opacity:.42; transition:opacity 1.6s ease .3s; }
   .agx-ph::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,8,16,.42) 0%, rgba(5,8,16,.08) 45%, rgba(5,8,16,.72) 100%); }
   /* A chapter's backdrop can be the page's own film instead of a still, on the four pages that carry no photograph at
@@ -473,15 +574,34 @@ CINEMA_CSS = r"""
      `max-width:1400px; margin:0 auto`, and an auto cross-axis margin in a flex column shrinks the item to fit-content —
      which is the shape of the render P0 that pinned a hero column to the left of the viewport. A definite width keeps
      the auto margins splitting the remainder, so the live layout is exactly what it was. */
-  .agx-content { position:relative; z-index:5; }
-  /* The bar is fixed and 60px tall, so a rail link that lands a chapter at scroll-position 0 puts its heading
-     under the bar. Measured before this rule: index ch2/ch3/ch4 headings landed 26/26/49px from the top,
-     executive-protection ch3 and technology ch3 the same. The shell's `section.panel` scroll-margin never
-     applied here — a live-content page has no section.panel; the chapter wrapper is `.agx-ch`. */
-  .agx-ch { position:relative; min-height:100vh; min-height:100svh; display:grid; grid-template-columns:100%; align-content:center; scroll-margin-top:72px; }
+  .agx-content { position:relative; z-index:5; counter-reset:agx-chapter; }
+  /* scroll-margin-top WAS 72px — the 60px sticky bar plus twelve. THE BAR IS GONE (r8, 2026-09-09), so the only
+     fixed thing over a landed heading is the TOP HUD ROW, whose box measures [29,217,19,35] at 1440 (validate-live
+     check 6 prints it). 48px is that 35px bottom edge plus thirteen. It was set to 24 first and render-audit check
+     4 caught it on the one chapter where the heading sits at the very top of its section: executive-protection
+     agx-c5 landed its heading at 30px, four pixels inside the HUD row. One page in twelve, found by the walk and
+     not by a screenshot. The shell's `section.panel` scroll-margin never applied here — a live-content page has no
+     section.panel; the chapter wrapper is `.agx-ch`. */
+  .agx-ch { position:relative; min-height:100vh; min-height:100svh; display:grid; grid-template-columns:100%; align-content:center; counter-increment:agx-chapter; scroll-margin-top:48px; }
   .agx-ch > * { width:100%; }
   .agx-ch::before { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(180deg, rgba(8,12,20,.58) 0%, rgba(8,12,20,.3) 42%, rgba(8,12,20,.72) 100%); }
   .agx-ch.agx-hero::before { background:none; }
+  /* ── The chapter eyebrow: "02 · <the chapter's own heading>", and NOT ONE TEXT NODE ──
+     `.agx-ch::before` is taken (the reading scrim above), so this is ::after. The number is a CSS counter and the
+     label is `attr(data-agxlabel)`, which means: generated content is not in the DOM text stream, so
+     compare-atlas.text_spans() and render-audit's TreeWalker never see it.
+     THE ATTRIBUTE IS `data-agxlabel` AND THE MISSING HYPHEN IS THE WHOLE REASON. compare-atlas.attr_spans() reads
+     `\b(?:alt|placeholder|value|title|aria-label|label)\s*=` — and `\b` matches between a HYPHEN and a letter, so
+     `data-agx-label="Our Services"` is read by that pass as a `label` attribute and lands as a build-only
+     attribute unit on every chapter of every page. Measured this turn against the live regex, not assumed:
+     `_ATTR.finditer('<div data-agx-label="Our Services">')` returns ['Our Services']. Written without the hyphen
+     the preceding character is a word character, there is no boundary, and the pass does not see it. Zero units, zero excuses —
+     the same reasoning the HUD already banked, asserted positively by validate-live.py check 5 instead.
+     Hidden on the hero, where the hero's own eyebrow is; hidden <=768, where it would sit under the top HUD row.
+     A chapter with no heading carries NO attribute at all (_chapters_html omits it) — `[data-agxlabel]` matches
+     an EMPTY attribute, so an empty label would print a bare "02 · ". */
+  .agx-ch[data-agxlabel]:not(.agx-hero)::after { content:counter(agx-chapter, decimal-leading-zero) " · " attr(data-agxlabel); position:absolute; top:calc(1.2rem + env(safe-area-inset-top,0px)); left:calc(1.8rem + env(safe-area-inset-left,0px)); font-family:'Share Tech Mono',monospace; font-size:.6rem; letter-spacing:.35em; text-transform:uppercase; color:rgba(240,244,255,.45); text-shadow:0 1px 10px rgba(0,0,0,.9); pointer-events:none; z-index:6; }
+  @media (max-width:768px) { .agx-ch[data-agxlabel]:not(.agx-hero)::after { display:none; } }
   /* Entrance motion. The opacity rule is gated on a class the script adds at boot, so a page whose JS never runs —
      or whose IntersectionObserver never fires — shows every chapter at full strength. Nothing on an Atlas page is
      allowed to be invisible because a script did not arrive. */
@@ -570,13 +690,17 @@ CINEMA_CSS = r"""
     .agx-rail-link span { max-width:9.5rem; opacity:1; }
   }
   @media (prefers-reduced-motion: reduce) { html.agx-motion .agx-ch { opacity:1; transform:none; transition:none; } html.agx-motion { scroll-behavior:auto; } }
-  /* ── HUD: MAST's two bottom corners (cinematic_shell.py:78-83), carrying only the brand line and the chapter the
-     reader is in. BOTH LINES ARE CSS `content`, NOT TEXT NODES — a printed "SECTION 02 / 08" is a build-only text
+  /* ── HUD: MAST's FOUR corners (cinematic_shell.py:78-83 and :615-616, read this turn) — tl the brand line and a
+     link home, tr the chapter the reader is in, bl the Houston coordinates, br "DETAILS MATTER", which is also the
+     live <h1> on eleven of the twelve. The two bottom literals are MAST's own strings, carried under the
+     site-consistency rule. ALL FOUR LINES ARE CSS `content`, NOT TEXT NODES — a printed "SECTION 02 / 08" is a build-only text
      unit, and the old unanchored `NN / NN` excuse was DROPPED from compare-atlas.py in R4-4 precisely because "an
      excuse nothing spends is a hole nothing guards". Generated content adds no unit, so text parity is unchanged
      and no excuse is needed at all; the HUD is asserted POSITIVELY instead, by computed ::before content in
      scripts/validate-live.py check 5.
-     right:5.2rem, not 1.5rem: #back-to-top is a fixed 46px button at l:1378 r:1424 t:848 b:894 with z-index:900
+     right:8.5rem on .agx-hud-tr is MAST's own value under its own sitenav (cinematic_shell.py:706, `.hud.tr {
+     right:8.5rem }`) and it is what clears the MENU button; validate-live check 6 measures that pair.
+     right:5.2rem on the bottom corners, not 1.5rem: #back-to-top is a fixed 46px button at l:1378 r:1424 t:848 b:894 with z-index:900
      (measured 1440x900), and 1.5rem would put the counter under it. 5.2rem clears it by 21px. Hidden below 1025 —
      phones and tablets keep the bar and the ticks and nothing else.
      ── THE LANE GATE, AND THE MEASUREMENT THAT FORCED IT (r5, 2026-09-09) ──
@@ -596,11 +720,57 @@ CINEMA_CSS = r"""
      a page whose script never ran prints no HUD at all rather than printing one across a sentence. */
   .agx-hud { position:fixed; z-index:899; display:none; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; text-transform:uppercase; opacity:.62; pointer-events:none; text-shadow:0 1px 10px rgba(0,0,0,.9); transition:opacity .3s ease .2s; }
   .agx-hud.agx-clear { opacity:0; transition:opacity 0s; }
+  .agx-hud-tl { top:calc(1.2rem + env(safe-area-inset-top,0px)); left:calc(1.8rem + env(safe-area-inset-left,0px)); color:var(--agx-blue-l); pointer-events:auto; text-decoration:none; }
+  .agx-hud-tr { top:calc(1.2rem + env(safe-area-inset-top,0px)); right:calc(8.5rem + env(safe-area-inset-right,0px)); color:var(--agx-dim); }
   .agx-hud-bl { bottom:calc(1.15rem + env(safe-area-inset-bottom,0px)); left:calc(1.6rem + env(safe-area-inset-left,0px)); color:var(--agx-dim); }
   .agx-hud-br { bottom:calc(1.15rem + env(safe-area-inset-bottom,0px)); right:calc(5.2rem + env(safe-area-inset-right,0px)); color:var(--agx-blue-l); }
-  .agx-hud-bl::before { content:"ATLAS GLINN · HOUSTON"; }
-  .agx-hud-br::before { content:"SECTION " attr(data-n) " / " attr(data-of); }
+  .agx-hud-tl::before { content:"ATLAS GLINN · HOUSTON"; }
+  .agx-hud-tr::before { content:"SECTION " attr(data-n) " / " attr(data-of); }
+  .agx-hud-bl::before { content:"HOU · 29.7604°N · 95.3698°W"; }
+  .agx-hud-br::before { content:"DETAILS MATTER"; }
   @media (min-width:1025px) { html.agx-hudgate .agx-hud { display:block; } }
+  /* The top-left brand line is the only navigation-adjacent affordance below 1025 besides MENU, so it shows from 0
+     while the other three stay >=1025 — exactly MAST (cinematic_shell.py:234 hides .hud.tr/.bl/.br at <=768 and
+     keeps .tl). Same specificity as the rule above and later in source, so it wins at every width. */
+  html.agx-hudgate .agx-hud-tl { display:block; }
+  /* ── THE MENU BUTTON AND THE FULL-SCREEN OVERLAY ──
+     Every selector is anchored to .agx-, matches nothing inside .agx-content, and is therefore covered by
+     assert_cinema_scope() and validate-live check 2 without adding a name to CINEMA_CONTENT_OK.
+     THE CLOSED STATE IS `visibility`, NOT `opacity`, ON THE CONTAINER: the MENU button lives INSIDE the overlay
+     (see atlas_shell.sitenav() for why — the live "☰" unit sits between the bar's links and the mobile menu's "×"
+     and text parity is order-sensitive), and an ancestor opacity:0 makes every descendant transparent with no way
+     out. visibility is the one property a child can take back, so the fade is on the scrim and the two panels and
+     the button re-declares visibility:visible. */
+  .agx-menu-btn { position:fixed; visibility:visible; top:calc(.95rem + env(safe-area-inset-top,0px)); right:calc(1.5rem + env(safe-area-inset-right,0px)); z-index:9500; font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.35em; text-transform:uppercase; color:var(--agx-blue-l); background:rgba(5,8,16,.55); border:1px solid rgba(26,107,222,.4); padding:.5rem .9rem .5rem 1.1rem; cursor:pointer; backdrop-filter:blur(8px); }
+  .agx-menu-btn:hover { background:rgba(26,107,222,.12); border-color:var(--agx-blue); }
+  .agx-sitenav { position:fixed; inset:0; z-index:9400; visibility:hidden; overflow-y:auto; }
+  .agx-sitenav.agx-open { visibility:visible; }
+  .agx-sitenav-scrim { position:fixed; inset:0; background:rgba(5,8,16,.94); backdrop-filter:blur(14px); opacity:0; transition:opacity .35s; }
+  .agx-sitenav.agx-open .agx-sitenav-scrim { opacity:1; }
+  .agx-sitenav-in { position:relative; z-index:1; width:min(980px,100%); margin:0 auto; padding:5rem 1.5rem 0; opacity:0; transition:opacity .35s; }
+  .agx-sitenav-tail { padding:0 1.5rem 4rem; }
+  .agx-sitenav.agx-open .agx-sitenav-in { opacity:1; }
+  .agx-sitenav ul { list-style:none; margin:0; padding:0; }
+  .agx-sitenav-logo { display:flex; align-items:center; gap:.7rem; text-decoration:none; margin-bottom:1.6rem; }
+  .agx-sitenav-logo img { height:40px; width:auto; }
+  .agx-sitenav-brand { font-family:'Orbitron',sans-serif; font-weight:700; font-size:.95rem; letter-spacing:.14em; color:var(--agx-blue-l); }
+  .agx-sitenav-close { position:fixed; top:calc(.95rem + env(safe-area-inset-top,0px)); left:calc(1.5rem + env(safe-area-inset-left,0px)); z-index:9500; background:none; border:1px solid rgba(26,107,222,.4); color:var(--agx-ink); font-size:1.4rem; line-height:1; padding:.05rem .55rem .2rem; cursor:pointer; }
+  .agx-sitenav-main { display:grid; grid-template-columns:1fr 1fr; gap:.2rem 2rem; }
+  .agx-sitenav-main > li > a { display:block; padding:.75rem 0; font-family:'Orbitron',sans-serif; font-weight:700; font-size:clamp(1rem,1.6vw,1.25rem); letter-spacing:.06em; color:#F0F4FF; text-decoration:none; border-bottom:1px solid rgba(26,107,222,.18); transition:color .25s, padding-left .25s; }
+  .agx-sitenav-main > li > a:hover, .agx-sitenav a.agx-here { color:var(--agx-blue-l); padding-left:.4rem; }
+  .agx-sitenav-main a.agx-cta { background:linear-gradient(135deg,#1A6BDE 0%,#0F4AA8 100%); border:1px solid rgba(91,155,255,.55); color:#fff; padding:.75rem 1.1rem; }
+  .agx-sitenav-drop { padding-left:1.1rem; }
+  .agx-sitenav-drop a { display:block; padding:.35rem 0; font-family:'Share Tech Mono',monospace; font-size:.68rem; letter-spacing:.2em; text-transform:uppercase; color:#8FBBFF; text-decoration:none; }
+  .agx-sitenav-drop small { display:block; font-size:.58rem; letter-spacing:.16em; color:rgba(240,244,255,.5); }
+  .agx-sitenav-i { margin-right:.5rem; }
+  .agx-sitenav-index, .agx-sitenav-extra { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:.15rem 1.6rem; margin-top:1.6rem; }
+  .agx-sitenav-index a, .agx-sitenav-extra a { display:block; padding:.42rem 0; font-family:'Share Tech Mono',monospace; font-size:.66rem; letter-spacing:.22em; text-transform:uppercase; color:rgba(240,244,255,.72); text-decoration:none; }
+  .agx-sitenav-index a:hover, .agx-sitenav-extra a:hover { color:var(--agx-blue-l); }
+  /* The two list headings are generated content: zero text units, nothing to excuse, and validate-live check 5
+     asserts them POSITIVELY — the same discipline the HUD corners already bank. */
+  .agx-sitenav-index::before { content:"QUICK INDEX"; grid-column:1/-1; font-family:'Share Tech Mono',monospace; font-size:.58rem; letter-spacing:.4em; color:rgba(240,244,255,.4); padding-bottom:.4rem; }
+  .agx-sitenav-extra::before { content:"ALL PAGES"; grid-column:1/-1; font-family:'Share Tech Mono',monospace; font-size:.58rem; letter-spacing:.4em; color:rgba(240,244,255,.4); padding-bottom:.4rem; }
+  @media (max-width:768px) { .agx-sitenav-main { grid-template-columns:1fr; } .agx-sitenav-in { padding:4.5rem 1.2rem 0; } .agx-sitenav-tail { padding:0 1.2rem 3rem; } .agx-menu-btn { right:1rem; top:.8rem; } .agx-sitenav-close { left:1rem; top:.8rem; } }
   @media (max-width:768px) { .agx-ph.agx-on { opacity:.35; } .agx-ph.agx-film.agx-on { opacity:.5; } .agx-ch { min-height:auto; } }
 """
 
@@ -943,30 +1113,171 @@ AGX_SKIN_CSS = r"""
        document itself overflows by 0 on the built page at every width measured, because the shell clips it, and
        the row's 5px is inside a cut the live page already makes. */
     .agx-content .agx-icon-ring { width:40px; height:40px; border-radius:12px; }
+/* AGX-PHONE-BLOCK */
   }
   @media (prefers-reduced-motion: reduce) {
     .agx-content .feature-card, .agx-content .service-card, .agx-content .pricing-card { transition:none; }
   }
 """
 
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+# THE PHONE BLOCK — Brockmann, 2026-09-09: "floor" · "for mobile" · "Site should be same as most look mobile first".
+#
+# TWO MEASUREMENTS DECIDE THE SHAPE OF EVERY RULE BELOW AND NEITHER IS NEGOTIABLE BY TASTE.
+#
+#   1. AN INLINE DECLARATION BEATS ANY STYLESHEET RULE AT ANY SPECIFICITY. The rows that do not collapse at 393 are
+#      class-less `<div style="display:grid; grid-template-columns:repeat(N,1fr)">` — twelve repeat(3,1fr), one
+#      repeat(4,1fr), four repeat(5,1fr), one repeat(6,1fr) across the twelve captures, counted this turn. Same for
+#      the type: 61 `<p style="font-size:0.9rem">`, 60 `<div style="font-size:0.65rem">` and so on. Those two
+#      classes of rule are the second and third bounded `!important` this sheet takes, each with its own enumerated
+#      value list in assert_skin_scope(), never a widened "allow !important on these properties".
+#
+#   2. THERE IS NO CSS PRIMITIVE FOR "FLOOR MY OWN COMPUTED SIZE". `max(15px, 1em)` and `max(15px, 100%)` both
+#      resolve against the PARENT and RAISE `.section-divider p` from 13.6px to 16px instead of flooring it to 15.
+#      So the floor is enumerated, selector by selector, with the LIVE value written into the max() — which is why
+#      a rule here can never lower anything, and why a selector whose elements do not all share one live value is
+#      split rather than averaged. `.service-card p` measures 12.8 / 13.6 / 15.2 / 16.0px across the page set: its
+#      sub-floor members are all inline-styled, so they are floored by the value-keyed rules and the class carries
+#      NO rule of its own — a `.service-card p` rule would have dragged 27 compliant paragraphs down to 15px.
+#      `.pillar-card p` measures 13.6px on residential-protection and 15.2px on disaster-recovery, so its max() is
+#      written 15.2px: the small ones rise, the compliant ones do not move.
+#
+# THE TABLE IS NOT THE ASSERT. validate-live.py check 4c collects (tag, font-size) at 390 on the BUILD and on the
+# LIVE CAPTURE and fails unless build >= live everywhere, build == live wherever live already cleared the floor,
+# and nothing computes under the floor. An entry no page spends fails validate-live check 3b as a dead selector.
+P_FLOOR_PX = 15
+LABEL_FLOOR_PX = 11
+# Every inline grid-template-columns value the twelve captures carry. The four below reflow; the other two already
+# measure one column at 393 under the live page's own media queries and are left alone. build_live() asserts the
+# page's inline values are a subset of PHONE_GRID_OK, so a capture that grows a repeat(7,1fr) fails the build.
+PHONE_GRID_VALUES = ('repeat(3,1fr)', 'repeat(4,1fr)', 'repeat(5,1fr)', 'repeat(6,1fr)')
+PHONE_GRID_OK = PHONE_GRID_VALUES + ('1fr 1fr', 'repeat(auto-fit,minmax(280px,1fr))')
+# 5 and 6 go to TWO columns, not one: those are the five one-word leadership traits on executive-protection and the
+# six comms-stack tiles on ep-app. One column would make eleven screenfuls of a five-word list.
+PHONE_GRID_TRACKS = {'repeat(3,1fr)': '1fr', 'repeat(4,1fr)': '1fr',
+                     'repeat(5,1fr)': 'repeat(2,1fr)', 'repeat(6,1fr)': 'repeat(2,1fr)'}
+# (selector, smallest live px, the px written into the max()). Measured at 393x852 in Chromium on 1f26ae5.
+PHONE_P_FLOOR = (
+    ('.section-divider p', 13.6, 13.6), ('.testimonial p', 14.4, 14.4),
+    ('.benefit-card p', 13.6, 13.6), ('.blog-text p', 13.6, 13.6),
+    ('.cap-card p', 14.4, 14.4), ('.discipline-card p', 13.6, 13.6),
+    ('.how-step .how-desc', 14.4, 14.4), ('.hw-card p', 14, 14),
+    ('.integration-visual p', 12, 14.4), ('.legal-card p', 14, 14),
+    ('.legal-disclaimer p', 14, 14), ('.pillar-card p', 13.6, 15.2),
+    ('.pricing-desc', 14, 14), ('.pricing-note-bar p', 14, 14),
+    ('.scenario-body p', 14.4, 14.4), ('.team-card p', 14.4, 14.4),
+    ('.threat-card p', 13.6, 13.6), ('.video-card-info p', 13.6, 13.6),
+    ('.form-disclaimer', 12, 12),
+    ('p[style*="font-size:0.9rem"]', 14.4, 14.4), ('p[style*="font-size:0.85rem"]', 13.6, 13.6),
+    ('p[style*="font-size:.85rem"]', 13.6, 13.6), ('p[style*="font-size:.8rem"]', 12.8, 12.8),
+    ('p[style*="font-size:0.75rem"]', 12, 12), ('p[style*="font-size:14px"]', 14, 14),
+)
+PHONE_LABEL_FLOOR = (
+    ('.app-tier-name', 10, 10), ('.feature-tags span', 9, 9), ('.hero-stat .lbl', 10, 10),
+    ('.pricing-badge', 9, 9), ('.pricing-tier', 10, 10), ('.signup-form label', 10, 10),
+    ('div[style*="font-size:0.65rem"]', 10.4, 10.4),
+)
+# THE FLOOR RULES ALL TAKE !important, AND THE REASON IS MEASURED, NOT DEFENSIVE. Two live mechanisms cannot be
+# beaten any other way and both are in this page set: an inline `style="font-size:0.9rem"` (61 paragraphs), and the
+# theme sheet's OWN !important — `reference/live/shared-styles.css:186`, inside its <=768 block, sets
+# `.section-divider p { font-size:0.85rem !important }` on 33 paragraphs across ten pages. Shipped without it, that
+# one selector was the single row still measuring 13.6px after the first phone pass. Taking !important per-entry
+# where it happened to be needed would encode today's captures; taking it on every floor entry and BOUNDING it to
+# the two tables is the same guarantee with nothing left to drift. assert_skin_scope() enforces the bound.
+_INLINE_FLOOR = re.compile(r'^(\w+)\[style\*="font-size:')
+
+
+def _grid_sel(value):
+    """The attribute selector for one inline grid value, WITHOUT ITS COMMA. atlas_live.audit_chrome_css() flattens a
+    selector list by splitting on ',' — a comma inside an attribute value would be split into two broken selectors
+    and validate-live.py's probe would throw on both. `columns:repeat(3` is the same match with no comma in it."""
+    return '.agx-content div[style*="columns:%s"]' % value.split(',')[0]
+
+
+def _floor_rule(sel, low, high, floor):
+    return '    .agx-content %s { font-size:max(%dpx,%gpx) !important; }' % (sel, floor, high)
+
+
+def phone_block():
+    """The rules that go inside AGX_SKIN_CSS's one @media (max-width:768px) block, generated from the tables above
+    so the CSS and the numbers assert_phone_floor() checks can never be two different things."""
+    out = ['    /* ---- 8. THE PHONE BLOCK: the rows that do not collapse, and the body-copy floor ---- */']
+    for tracks in ('1fr', 'repeat(2,1fr)'):
+        sels = [_grid_sel(v) for v in PHONE_GRID_VALUES if PHONE_GRID_TRACKS[v] == tracks]
+        out.append('    %s { grid-template-columns:%s !important; }' % (', '.join(sels), tracks))
+    for sel, low, high in PHONE_P_FLOOR:
+        out.append(_floor_rule(sel, low, high, P_FLOOR_PX))
+    for sel, low, high in PHONE_LABEL_FLOOR:
+        out.append(_floor_rule(sel, low, high, LABEL_FLOOR_PX))
+    return '\n'.join(out)
+
+
+# The generated block lands in the sheet HERE, at import, so `AGX_SKIN_CSS` is the whole sheet on every surface
+# that reads it — validate-live.py asserts the constant by name and would otherwise probe a sheet the pages do not
+# ship. The marker is a comment inside the one @media (max-width:768px) block, so the block count stays 1.
+AGX_SKIN_CSS = AGX_SKIN_CSS.replace('/* AGX-PHONE-BLOCK */', phone_block())
+assert AGX_SKIN_CSS.count('@media (max-width:768px)') == 1, 'the skin grew a second phone block'
+
+
+def assert_phone_floor(css):
+    """The phone block's own bounds: every floor entry does work, every rule is the one phone_block() generates,
+    and no floor rule sits outside the @media (max-width:768px) block. Returns (p rules, label rules) counted."""
+    import atlas_live as live
+    body = live._COMMENT.sub('', css)
+    block = live._block(body, '@media (max-width:768px) {')
+    for table, floor, name in ((PHONE_P_FLOOR, P_FLOOR_PX, 'PHONE_P_FLOOR'),
+                               (PHONE_LABEL_FLOOR, LABEL_FLOOR_PX, 'PHONE_LABEL_FLOOR')):
+        for sel, low, high in table:
+            assert low < floor, '%s carries %s at %gpx, which already clears the %dpx floor — a rule nothing ' \
+                                'spends is a hole nothing guards' % (name, sel, low, floor)
+            assert high >= low, '%s: %s writes %gpx into a max() over live copy measured at %gpx' % (name, sel, high, low)
+            rule = _floor_rule(sel, low, high, floor).strip()
+            assert rule in block, 'the phone block no longer carries: ' + rule
+    outside = body.replace(block, '')
+    assert 'font-size:max(' not in outside, 'a floor rule sits outside the @media (max-width:768px) block'
+    return len(PHONE_P_FLOOR), len(PHONE_LABEL_FLOOR)
+
+
 _GOLD_TOKENS = ('#C9A84C', '#D4AF37', '#BF953F', '#FCF6BA', '#B38728', '#AA771C', '#E8D27D',
                 '#B87333', 'rgba(201,168,76', 'rgba(201, 168, 76', '--gold')
 _SKIN_TYPE_EXEMPT = ('.agx-icon',)   # the only selector this sheet may size, because it draws the element itself
 
 
+_HEADING_SEL = re.compile(r'h[1-6]\s*$', re.I)
+
+
 def assert_skin_scope(css):
-    """The skin's four bounds, as a build failure. Returns the selectors checked."""
+    """The skin's bounds, as a build failure. Returns the selectors checked.
+
+    BOUND 2 IS SPLIT SINCE THE PHONE BLOCK, AND THE SPLIT IS THE POINT. Outside @media (max-width:768px) the ban on
+    font-size and font-family is exactly what it was — ledger K-3, seven heading sizes that stay. INSIDE it, and only
+    inside it, a font-size is legal where it is one of the rules phone_block() generates from PHONE_P_FLOOR /
+    PHONE_LABEL_FLOOR, verbatim. "The phone has a floor" must never quietly become "the skin may set type"."""
     import atlas_live as live
     body = live._COMMENT.sub('', css)
     sels = live.audit_chrome_css(body)
     loose = [s for s in sels if not s.strip().startswith('.agx-content ')]
     assert not loose, 'skin CSS is not anchored to .agx-content: %s' % loose[:6]
+    assert_phone_floor(css)
+    phone = live._block(body, '@media (max-width:768px) {')
+    floor_rules = set(_floor_rule(sel, low, high, floor).strip()
+                      for table, floor in ((PHONE_P_FLOOR, P_FLOOR_PX), (PHONE_LABEL_FLOOR, LABEL_FLOOR_PX))
+                      for sel, low, high in table)
     for prop in ('font-size', 'font-family'):
         for m in re.finditer(r'([^{}]+)\{([^{}]*)\}', body):
-            if re.search(r'(?<![\w-])%s\s*:' % prop, m.group(2)) and \
-               not any(x in m.group(1) for x in _SKIN_TYPE_EXEMPT):
-                raise AssertionError('the skin sets %s on live content (ledger K-3): %s'
-                                     % (prop, ' '.join(m.group(1).split())[:90]))
+            if not re.search(r'(?<![\w-])%s\s*:' % prop, m.group(2)):
+                continue
+            sel = ' '.join(m.group(1).split())
+            if any(x in m.group(1) for x in _SKIN_TYPE_EXEMPT):
+                continue
+            if prop == 'font-size' and m.group(0).strip() in phone \
+                    and ' '.join(m.group(0).split()) in set(' '.join(r.split()) for r in floor_rules):
+                # G — and it stays true by measurement, not by the table being read carefully: a floor rule may
+                # never name a live heading, because the heading scale is the one thing K-3 froze outright.
+                assert not any(_HEADING_SEL.search(part.strip()) for part in sel.split(',')), \
+                    'a phone floor rule targets a live heading: ' + sel[:90]
+                continue
+            raise AssertionError('the skin sets %s on live content (ledger K-3): %s' % (prop, sel[:90]))
     for g in _GOLD_TOKENS:
         assert g not in body, 'gold in the Atlas content skin (gold is MAST): ' + g
     assert SHARED_HOVER_LIFT in body and SHARED_HOVER_TRANSITION in body, \
@@ -983,11 +1294,32 @@ def assert_skin_scope(css):
             'the skin no longer forces the .45s transition over the tilt script on .%s' % c
         assert hov and TILT_LIFT in hov[0] and 'box-shadow:' in hov[0], \
             'the skin no longer forces the -6px lift and the blue glow over the tilt script on .%s' % c
+    # !IMPORTANT IS THREE BOUNDED EXCEPTIONS NOW, NEVER ONE WIDENED RULE. Each has its own enumerated list and each
+    # exists for the SAME measured reason — an inline declaration cannot be beaten any other way:
+    #   (a) transform / transition / box-shadow over the live tilt script, on SKIN_TILT_CLASSES;
+    #   (b) grid-template-columns over an inline `display:grid`, in the phone block, on a _grid_sel() selector;
+    #   (c) font-size over an inline font-size OR over the theme sheet's own !important (shared-styles.css:186),
+    #       in the phone block, on a PHONE_P_FLOOR / PHONE_LABEL_FLOOR selector.
+    # A single "allow !important on these properties" check would let the next session put it anywhere, which is
+    # how the tilt-override defect shipped in the first place.
+    grid_sels = set(_grid_sel(v) for v in PHONE_GRID_VALUES)
+    floor_sels = set('.agx-content ' + sel for table in (PHONE_P_FLOOR, PHONE_LABEL_FLOOR)
+                     for sel, _lo, _hi in table)
     for sel, decl in rules:
+        parts = set(x.strip() for x in sel.split(','))
+        in_phone = sel in ' '.join(phone.split()) or all(p in phone for p in parts)
         for d in decl.split(';'):
             if '!important' not in d:
                 continue
             prop = d.split(':')[0].strip()
+            if prop == 'grid-template-columns':
+                assert in_phone and parts <= grid_sels, \
+                    'the skin takes !important on grid-template-columns outside the enumerated phone rows: %s' % sel[:70]
+                continue
+            if prop == 'font-size':
+                assert in_phone and parts <= floor_sels, \
+                    'the skin takes !important on font-size outside the enumerated phone floor: %s' % sel[:70]
+                continue
             assert prop in ('transform', 'transition', 'box-shadow'), \
                 'the skin takes !important on %s in %s — the exception is bounded to the tilt override' % (prop, sel[:70])
             assert any('.%s' % c in sel for c in SKIN_TILT_CLASSES), \
@@ -1001,6 +1333,101 @@ def skin_css():
     assert_shared_hover()
     assert_skin_scope(AGX_SKIN_CSS)
     return AGX_SKIN_CSS
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+# THE HERO TYPE SHEET — the SECOND declared exception, and it is a separate sheet on purpose
+#
+# assert_skin_scope() bans font-size and font-family outright and exempts one selector by name (.agx-icon, which the
+# skin draws itself). THAT BAN IS NOT WIDENED. Brockmann's 2026-09-09 call reverses ledger K-3 for the HERO and the
+# CHROME only — body copy keeps the live words at the live sizes — so the hero's type lives in its own block, with
+# its own mark, its own assert and its own name in validate-live.py. "The hero is exempt" must never quietly become
+# "h1 is exempt", and the way that is prevented is bound 2 below: the sheet may size FIVE elements and no others,
+# each named, and every one of them is inside the opening chapter.
+#
+# THE GOLD IS THE LIVE PAGE'S OWN. `.gold-text` / `.gold-shimmer` are the classes the live <h1> already carries on
+# all twelve; this sheet keeps them gold, gives them the shimmer index already serves live, and paints the trailing
+# word Atlas blue — the same two-tone assemble-atlas.shimmer()/blue() print for the authored hero. It is NOT a breach
+# of the skin's no-gold bound: that bound stops this build INTRODUCING gold into Atlas content, and it says in terms
+# that the live page's own gold is carried. Bound 3 holds the line mechanically — the five shimmer stops and one
+# gold text-shadow, only inside a rule naming one of those two live classes, and `--gold` nowhere.
+AGX_HERO_MARK = '/* AGX-HERO v1 */'
+HERO_ROOT = '.agx-content .agx-ch.agx-hero '
+# The five elements this sheet OWNS the type of. Everything else it touches (the hero container, the CTA rows) it
+# lays out and never sizes.
+HERO_TYPE_OWNED = ('h1', '.hero-badge', '.hero-tagline', '.hero-sub', '.agx-scroll-cue')
+HERO_SHIMMER_STOPS = ('#BF953F', '#FCF6BA', '#B38728', '#FBF5B7', '#AA771C', 'rgba(201,168,76,.3)')
+HERO_LIVE_GOLD_CLASSES = ('.gold-text', '.gold-shimmer')
+
+AGX_HERO_CSS = r"""
+/* AGX-HERO v1 */
+  /* THE TWO LAYOUT NUMBERS THE BAR'S REMOVAL LEFT BEHIND, AND THE SCREENSHOT THAT FOUND THEM. Eleven live heroes
+     are `display:flex; align-items:flex-end` with `margin-top:70px` on two of them — bottom-anchored under a 70px
+     sticky bar, which is exactly right on the live site and wrong here. Shot at 1440 on executive-protection with
+     the re-set headline: the h1 sat at y=773 and "REQUEST A 30-MINUTE POSTURE ASSESSMENT" was cut off by the fold.
+     `align-items:center` and `margin-top:0` are layout on the hero container only; ep-app's `.hero` is a block
+     with its own padding and `align-items` is inert on it, so this reaches the eleven and not the twelfth. */
+  .agx-content .agx-ch.agx-hero .hero { position:relative; text-align:center; align-items:center; margin-top:0; }
+  .agx-content .agx-ch.agx-hero .hero-content { text-align:center; }
+  .agx-content .agx-ch.agx-hero .hero-badge { font-family:'Share Tech Mono',monospace; font-size:.75rem; letter-spacing:.45em; text-transform:uppercase; color:#8FBBFF; margin-bottom:1.6rem; text-shadow:0 1px 2px rgba(5,8,16,.7); }
+  .agx-content .agx-ch.agx-hero h1 { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2.6rem,7.2vw,6.6rem); letter-spacing:.02em; line-height:.95; margin-bottom:2rem; }
+  .agx-content .agx-ch.agx-hero h1 .gold-text, .agx-content .agx-ch.agx-hero h1 .gold-shimmer { background:linear-gradient(90deg,#BF953F 0%,#FCF6BA 25%,#B38728 50%,#FBF5B7 75%,#AA771C 100%); background-size:1000px 100%; animation:agxShimmer 6s linear infinite; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; text-shadow:0 0 80px rgba(201,168,76,.3); }
+  .agx-content .agx-ch.agx-hero h1 .agx-hero-blue { color:#1A6BDE; -webkit-text-fill-color:#1A6BDE; }
+  /* clamp MAX 1.4rem = 22.4px, and that number is measured, not chosen: ep-app's live .hero-sub computes 22px at
+     1440 and the first clamp (1.3vw, max 1.25rem) shipped it at 18.72px — the re-set SHRINKING the one live lede
+     in the page set. validate-live check 4b prints the hero on both sides and now fails on any element the build
+     makes smaller than the live one, so this cannot come back silently. */
+  .agx-content .agx-ch.agx-hero .hero-tagline, .agx-content .agx-ch.agx-hero .hero-sub { font-size:clamp(1.05rem,1.6vw,1.4rem); line-height:1.55; font-weight:300; max-width:720px; margin:0 auto 2.5rem; color:rgba(240,244,255,.8); text-shadow:0 1px 2px rgba(5,8,16,.7); }
+  .agx-content .agx-ch.agx-hero .hero-ctas, .agx-content .agx-ch.agx-hero .hero-btns { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; }
+  .agx-content .agx-ch.agx-hero .agx-scroll-cue { position:absolute; left:50%; bottom:2.2rem; z-index:4; transform:translateX(-50%); font-family:'Share Tech Mono',monospace; font-size:.6rem; letter-spacing:.4em; color:rgba(240,244,255,.55); pointer-events:none; }
+  .agx-content .agx-ch.agx-hero .agx-scroll-cue::after { content:"SCROLL \2193"; }
+  @keyframes agxShimmer { 0% { background-position:-1000px 0; } 100% { background-position:1000px 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .agx-content .agx-ch.agx-hero h1 .gold-text, .agx-content .agx-ch.agx-hero h1 .gold-shimmer { animation:none; }
+  }
+  @media (max-width:768px) {
+    .agx-content .agx-ch.agx-hero .agx-scroll-cue { display:none; }
+  }
+"""
+
+
+def assert_hero_scope(css):
+    """The hero sheet's four bounds, as a build failure. Returns the selectors checked."""
+    import atlas_live as live
+    body = live._COMMENT.sub('', css)
+    sels = live.audit_chrome_css(body)
+    loose = [s for s in sels if not s.strip().startswith(HERO_ROOT)]
+    assert not loose, 'hero CSS reaches outside the opening chapter: %s' % loose[:6]
+    rules = [(' '.join(m.group(1).split()), m.group(2)) for m in re.finditer(r'([^{}]+)\{([^{}]*)\}', body)]
+    for sel, decl in rules:
+        for prop in ('font-size', 'font-family'):
+            if not re.search(r'(?<![\w-])%s\s*:' % prop, decl):
+                continue
+            for part in sel.split(','):
+                tail = part.strip().split()[-1] if part.strip() else ''
+                assert tail in HERO_TYPE_OWNED, \
+                    'the hero sheet sets %s on %r, which is not one of the five elements it owns %s' \
+                    % (prop, tail, list(HERO_TYPE_OWNED))
+        assert '!important' not in decl, 'the hero sheet takes !important on %s' % sel[:70]
+        gold = [g for g in _GOLD_TOKENS if g in decl]
+        if gold:
+            assert any(c in sel for c in HERO_LIVE_GOLD_CLASSES), \
+                'gold outside the live headline classes %s: %s' % (list(HERO_LIVE_GOLD_CLASSES), sel[:70])
+            for token in re.findall(r'#[0-9A-Fa-f]{6}|rgba\([\d.,\s]*\)', decl):
+                if any(g in token for g in _GOLD_TOKENS):
+                    assert token.replace(' ', '') in HERO_SHIMMER_STOPS, \
+                        'a gold literal the hero sheet does not declare: %s' % token
+    assert '--gold' not in body, 'the hero sheet reads --gold; the palette is declared, not borrowed'
+    return sels
+
+
+def hero_css(mono_family='Inconsolata'):
+    """The hero type sheet, with the small caps taken from the mono the page already loads — the same substitution
+    chrome_css() and cinema_css() make, and for the same reason: adding a face the live site does not request is the
+    'same font' line he drew."""
+    css = AGX_HERO_CSS.replace("'Share Tech Mono',monospace", "'%s',monospace" % mono_family)
+    assert_hero_scope(css)
+    return css
 
 
 # ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -1360,10 +1787,14 @@ def cinema_chrome(chapters):
     rail = ''.join('  <a class="agx-rail-link" href="#%s"%s><span>%s</span></a>\n'
                    % (anchor, '' if label else ' aria-label="Chapter %02d"' % k, label or '')
                    for k, (anchor, label, _) in enumerate(chapters, 1))
-    # The two HUD corners. aria-hidden on both: they carry no information a reader needs that the rail does not
-    # already expose to assistive tech, and their text is CSS `content` — no text node, no unit, no excuse.
-    hud = ('<div class="agx-hud agx-hud-bl" aria-hidden="true"></div>\n'
-           '<div class="agx-hud agx-hud-br" id="agx-section-hud" data-n="01" data-of="%02d" aria-hidden="true"></div>\n'
+    # The four HUD corners. Their text is CSS `content` — no text node, no unit, no excuse — and three of them are
+    # aria-hidden because they carry nothing a reader needs that the rail does not already expose. The top-left is
+    # the exception and it is a real <a> home: its visible line is generated content, so the aria-label is the ONE
+    # unit it adds, and compare-atlas.A11Y carries it as a spent-once attribute excuse.
+    hud = ('<a href="index.html" class="agx-hud agx-hud-tl" aria-label="Atlas Glinn, Houston"></a>\n'
+           '<div class="agx-hud agx-hud-tr" id="agx-section-hud" data-n="01" data-of="%02d" aria-hidden="true"></div>\n'
+           '<div class="agx-hud agx-hud-bl" aria-hidden="true"></div>\n'
+           '<div class="agx-hud agx-hud-br" aria-hidden="true"></div>\n'
            % len(chapters))
     return ('<canvas id="agx-canvas" aria-hidden="true"></canvas>\n'
             '<div id="agx-photos" aria-hidden="true">\n%s\n</div>\n'
@@ -1451,7 +1882,7 @@ CINEMA_JS = r"""
   function collectLines() {
     var all = [].slice.call(document.querySelectorAll('body *'));
     lines = all.filter(function (el) {
-      if (el.closest('.agx-hud, .agx-rail, script, style')) return false;
+      if (el.closest('.agx-hud, .agx-rail, .agx-sitenav, .agx-menu-btn, script, style')) return false;
       for (var i = 0; i < el.childNodes.length; i++) {
         var n = el.childNodes[i];
         if (n.nodeType === 3 && n.nodeValue.trim()) return true;
@@ -1472,7 +1903,7 @@ CINEMA_JS = r"""
     // text-only 42 hits (192 paints), painted-surface incl. bands 146 hits (88 paints), painted-surface excluding
     // bands 80 hits (154 paints). The middle number is what ships.
     paints = all.filter(function (el) {
-      if (el.closest('.agx-hud, .agx-rail, #agx-photos, #agx-canvas, script, style')) return false;
+      if (el.closest('.agx-hud, .agx-rail, .agx-sitenav, .agx-menu-btn, #agx-photos, #agx-canvas, script, style')) return false;
       var cs = getComputedStyle(el);
       if (cs.position === 'fixed') return false;
       return (cs.backgroundImage && cs.backgroundImage !== 'none') || bgAlpha(cs.backgroundColor) > 0;
@@ -1535,6 +1966,30 @@ CINEMA_JS = r"""
     addEventListener('resize', function () { collectLines(); queueGate(); }, { passive: true });
     addEventListener('load', function () { collectLines(); queueGate(); });
     queueGate();
+  }
+
+  // ── The MENU overlay ──
+  // sbtn.textContent on the WORD SPAN only, never on the button: the button also prints the live page's own "☰"
+  // hamburger glyph, which is a live text unit compare-atlas matches, and rewriting the whole button would delete
+  // it. Escape closes, a click on the scrim closes, a click on any link closes.
+  var snav = document.getElementById('agx-sitenav'), sbtn = document.getElementById('agx-menu-btn');
+  var sword = document.getElementById('agx-menu-word');
+  var sclose = document.getElementById('agx-sitenav-close');
+  if (snav && sbtn) {
+    var setNav = function (open) {
+      snav.classList.toggle('agx-open', open);
+      if (sword) sword.textContent = open ? 'CLOSE' : 'MENU';
+      sbtn.setAttribute('aria-expanded', open);
+      document.body.style.overflow = open ? 'hidden' : '';
+    };
+    sbtn.addEventListener('click', function (e) { e.stopPropagation(); setNav(!snav.classList.contains('agx-open')); });
+    if (sclose) sclose.addEventListener('click', function (e) { e.stopPropagation(); setNav(false); });
+    snav.addEventListener('click', function (e) {
+      if (e.target === snav || e.target.classList.contains('agx-sitenav-scrim') || e.target.closest('a')) setNav(false);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && snav.classList.contains('agx-open')) setNav(false);
+    });
   }
 
   // ── Read position and the rail ──

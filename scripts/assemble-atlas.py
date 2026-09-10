@@ -5,9 +5,12 @@ Brockmann, 2026-09-08, on the preview: "Atlasglinn is not rendering correctly th
 and sizes into the new design + if video - NO hallucinations just use the new frontend - side bar = take the current
 site and drop into new design and see - no changes to anything."
 
-LIVE-CONTENT MODE IS THE DEFAULT AND IS WHAT SHIPS. Each page is the classic shell's chrome — the sticky bar with its
-dropdowns, the mobile menu, the Enter / Skip Intro splash, the footer, the back-to-top button — wrapped around the
-live page taken whole from reference/live/<slug>.html: its head, its stylesheet, its <style> blocks, its copy, its
+LIVE-CONTENT MODE IS THE DEFAULT AND IS WHAT SHIPS. Each page is the TRAILER's chrome — the four-corner HUD, the
+"MENU ☰" overlay, the standing chapter rail, the Enter / Skip Intro splash, the footer, the back-to-top button —
+wrapped around the
+live page taken whole from reference/live/<slug>.html (it read "the classic shell's chrome — the sticky bar with its
+dropdowns, the mobile menu, …" until 2026-09-09, when Brockmann reversed the 2026-09-08 call over two screenshots:
+"the frontend should be the same with the Tesla as a styled"): its head, its stylesheet, its <style> blocks, its copy, its
 photographs, its films at their own atlasglinn.com URLs, its own scripts. Nothing is rewritten and nothing is re-cut.
 scripts/atlas_live.py does the reading and keeps the shell's stylesheet off the content; scripts/atlas_shell.py is the
 chrome; mastsolutions.html is untouched.
@@ -25,6 +28,7 @@ a live-content problem by editing it — fix reference/live/ or scripts/atlas_li
 The twelve pages either mode writes: index, executive-protection, residential-protection, disaster-recovery, training,
 technology, cuas-aerodefense, uas, about, careers, contact, ep-app. signup.html is not generated here.
 """
+import html as html_mod
 import os, re, sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PUBLISH = '--publish' in sys.argv
@@ -1028,18 +1032,32 @@ build('ep-app.html',
 # https://www.mastsolutions.com/ absolute, and /#gear for the IWA entry") applied to a link the live page already
 # prints, under its own label: the menu's IWA entry and the footer's "MAST Solutions" entry, which the live site
 # points at its own /training/ page. No label changes, no unit is added or removed by this.
+# The three off-page destinations the overlay must reach, stated HERE and not read out of the table that fills it.
+# A coverage assert whose requirement comes from the same tuple as its content proves nothing: deleting the
+# mastsolutions row from atlas_live.SITENAV_FIXED shrank the requirement with the content and the build stayed
+# green — measured 2026-09-10, which is why this line exists. mastsolutions.html is the AG-5 / §G-6 redirect
+# target; privacy.html and terms.html are the two legal pages only ep-app's own footer has ever linked.
+SITENAV_MUST_REACH = ('mastsolutions.html', 'privacy.html', 'terms.html')
+
 MAST_HREFS = {'https://atlasglinn.com/training/shop/': 'https://www.mastsolutions.com/#gear',
               'https://atlasglinn.com/aimpoint-shop/': 'https://atlasglinn.com/aimpoint-shop/'}
 MAST_FOOTER_LINK = ('<a href="training.html">MAST Solutions</a>', '<a href="https://www.mastsolutions.com/">MAST Solutions</a>')
 
 
-def live_nav(slug, page):
-    bar, mobile = live.nav_items(slug)
-    bar = [(MAST_HREFS.get(h, h), l, k,
-            [(MAST_HREFS.get(dh, dh), ic, t, d) for dh, ic, t, d in drop] if drop else None)
-           for h, l, k, drop in bar]
-    mobile = [(MAST_HREFS.get(h, h), l, sub) for h, l, sub in mobile]
-    return atlas.nav(bar, mobile, page, LOGO_MARK, logo_alt=live.logo_alt(slug))
+# live_nav() STOOD HERE and it is gone with the bar (r8, 2026-09-09). It built `atlas.nav()` from the capture and
+# nothing calls it any more — live_sitenav() below reads the same two lists through live.sitenav_items() and prints
+# them into the overlay. `atlas.nav()` itself stays: build() — the --authored path — still uses it, from
+# _topnav_lists(), and deleting it would break that path. A function nothing calls is not kept "just in case"; it is
+# in the history, on this branch, which is where a deletion belongs.
+
+
+def live_sitenav(slug, page):
+    main, index, extra = live.sitenav_items(slug)
+    main = [(MAST_HREFS.get(h, h), l, k,
+             [(MAST_HREFS.get(dh, dh), ic, ti, de) for dh, ic, ti, de in drop] if drop else None)
+            for h, l, k, drop in main]
+    index = [(MAST_HREFS.get(h, h), l, sub) for h, l, sub in index]
+    return atlas.sitenav(main, index, extra, page, LOGO_MARK, live.logo_alt(slug))
 
 
 def live_footer(slug):
@@ -1117,10 +1135,23 @@ def _controls(skin, body):
 
 
 
+_INLINE_GRID = re.compile(r'''\sstyle=["'][^"']*grid-template-columns\s*:\s*([^;"']+)''')
+
+
 def build_live(slug):
     page = 'index.html' if slug == 'index' else slug + '.html'
     body = live.content(slug)
     body = atlas.skin_icons(slug, body)   # ICON_SWAPS: the declared emoji-as-icon glyphs become inline SVG
+    # C — the hero re-set. Two unit-neutral edits inside the opening chapter (the headline's trailing word wrapped
+    #     blue, an empty scroll cue appended) and NOTHING ELSE MOVES. hero_reset() asserts its own text-unit and
+    #     media equality against the markup it was handed; the numbers are printed below so the equality is a
+    #     measurement in the build log rather than a silent pass.
+    hero_before = body
+    body = live.hero_reset(slug, body)
+    hero_u0, hero_u1, hero_m0, hero_m1 = live.hero_report(slug, hero_before, body)
+    assert body.count(live.BLUE_CLASS) == 1, \
+        '%s: %d runs painted %s in the content, expected the headline\'s trailing word and nothing else' \
+        % (slug, body.count(live.BLUE_CLASS), live.BLUE_CLASS)
     # The cinematic pass: the page is cut at its own section boundaries and each piece becomes a chapter — a full
     # viewport with the section's own photograph or film behind it, arriving on its own motion, with a tick on the rail
     # and the read-position line at the top. The markup inside a chapter is the live markup, byte for byte; the wrapper
@@ -1132,17 +1163,19 @@ def build_live(slug):
     sheet = live.chrome_css(live.mono(slug))   # assert_chrome_scope() runs inside: every selector anchored to the chrome
     cinema = atlas.cinema_css(live.mono(slug))  # assert_cinema_scope() runs inside: every selector anchored to agx-
     skin = atlas.skin_css()                 # assert_skin_scope() runs inside: .agx-content only, no type, no gold
+    hero = atlas.hero_css(live.mono(slug))  # assert_hero_scope() runs inside: the opening chapter only, five owned
+    snav = live_sitenav(slug, page)
     html = ('<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n'
             '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n'
             '<meta name="build" content="">\n'
             + live.head(slug)
             + f'<link rel="icon" href="{SITE}{LOGO_MARK}" type="image/png">\n'
             + '\n'.join(live.styles(slug)) + '\n'
-            + '<style>' + sheet + cinema + skin + '</style>\n'
+            + '<style>' + sheet + cinema + skin + hero + '</style>\n'
             + '</head>\n<body>\n<script>' + shell.REFRESH_JS + '</script>\n\n'
             + atlas.cinema_chrome(marks)
             + live.intro_overlay('', live.intro_title(), '') + '\n'
-            + live_nav(slug, page) + '\n'
+            + snav + '\n'
             + body + '\n\n'
             + live_footer(slug) + live.after_footer(slug) + '\n' + atlas.BACK_TO_TOP + '\n'
             + chrome
@@ -1152,12 +1185,21 @@ def build_live(slug):
             + '<script>' + shell.TRACK_JS + '</script>\n'
             + '<script type="module">' + atlas.cinema_three(len(chs), shell.ATLAS) + '</script>\n'
             + '</body>\n</html>\n')
-    # One bar, one menu, one splash, one footer, one scene: the live chrome is out and the shell's is in exactly once.
-    for tag, n in (('<nav id="main-nav"', 1), ('<div id="mobile-nav"', 1), ('id="intro-overlay"', 1),
+    # NO BAR, one overlay, one splash, one footer, one scene: the live chrome is out, the trailer's is in exactly
+    # once, and the two ids the sticky bar used to own must not appear anywhere on the page.
+    # The two ids are matched with their `id=` attribute and not as bare substrings: the LIVE pages' own <style>
+    # blocks are carried byte for byte and they still declare `#main-nav` and `.mobile-nav` rules with no markup
+    # left to match. That is the live page's stylesheet, not this build's chrome, and it is not ours to edit.
+    for tag, n in (('id="main-nav"', 0), ('id="mobile-nav"', 0), ('class="nav-dropdown-menu"', 0),
+                   ('id="intro-overlay"', 1),
                    ('<footer', 1), ('</footer>', 1), ('<canvas id="agx-canvas"', 1), ('<div id="agx-photos"', 1),
                    (atlas.AGX_SKIN_MARK, 1),                    # F: the content skin, exactly once
-                   ('<div class="agx-hud agx-hud-bl"', 1),      # B: the brand line
-                   ('id="agx-section-hud"', 1)):                # B: the section counter
+                   (atlas.AGX_HERO_MARK, 1),                    # the hero type sheet, exactly once
+                   ('class="agx-scroll-cue"', 1),
+                   ('<div class="agx-sitenav"', 1), ('id="agx-menu-btn"', 1), ('id="agx-sitenav-close"', 1),
+                   ('class="agx-hud agx-hud-tl"', 1), ('class="agx-hud agx-hud-tr"', 1),
+                   ('class="agx-hud agx-hud-bl"', 1), ('class="agx-hud agx-hud-br"', 1),
+                   ('id="agx-section-hud"', 1)):                # the section counter, now the top-right corner
         assert html.count(tag) == n, f'{page}: {tag} appears {html.count(tag)} times, expected {n}'
     # A — the rail carries one link per chapter and its labels ARE the chapter labels, in order
     rail_labels = re.findall(r'<a class="agx-rail-link"[^>]*><span>(.*?)</span></a>', html, re.S)
@@ -1182,6 +1224,41 @@ def build_live(slug):
     #     it. So the enumeration IS the assert now: every <a>/<button> inside .agx-content is resolved against
     #     the skin's own selectors, the count is asserted per page, and every class the skin does not reach is
     #     printed by name — a miss is surfaced at build time instead of found in a screenshot.
+    # A — SITENAV COVERAGE, which is the reachability his 2026-09-08 "too many clicks to get to content and back"
+    #     call was actually about, asserted rather than asserted away. Every one of the twelve Atlas pages, plus
+    #     MAST / Privacy / Terms, is one click from here; and every destination the LIVE bar or the LIVE mobile
+    #     menu named is still reachable, so the bar's removal took no route with it.
+    snav_hrefs = set(re.findall(r'<a[^>]*\bhref="([^"]*)"', snav))
+    want = set(('index.html' if s == 'index' else s + '.html') for s in live.PAGES) | set(SITENAV_MUST_REACH)
+    assert want <= snav_hrefs, '%s: the overlay does not reach %s' % (page, sorted(want - snav_hrefs))
+    bar_i, mob_i = live.nav_items(slug)
+    live_hrefs = set(MAST_HREFS.get(h, h) for h, _l, _k, _d in bar_i)
+    live_hrefs |= set(MAST_HREFS.get(h, h) for h, _l, _s in mob_i)
+    live_hrefs |= set(MAST_HREFS.get(dh, dh) for _h, _l, _k, d in bar_i for dh, _i, _t, _d in (d or ()))
+    assert live_hrefs <= snav_hrefs, \
+        '%s: the live nav reached %s and the overlay does not' % (page, sorted(live_hrefs - snav_hrefs))
+    # B — SITENAV PARITY, and this is the assert that makes out_of_order() pass. The overlay's text units, in order,
+    #     are the live BAR's units, then the live MOBILE menu's units, then exactly the third list's labels. Three
+    #     lists in live document order is the only shape in which the bar's removal costs no live unit; a session
+    #     that "simplifies" the overlay to one list fails HERE, with the reason, instead of failing twelve pages of
+    #     compare-atlas with a temptation to add a lost-unit allowlist.
+    main_i, index_i, extra_i = live.sitenav_items(slug)
+    snav_units = live._units(snav)
+    bar_units = live._units(atlas.nav(main_i, [], page, LOGO_MARK, logo_alt=live.logo_alt(slug)))
+    bar_units = [u for u in bar_units if u not in ('ATLAS GLINN', '☰', '×')]
+    idx_units = [l for _h, l, _s in index_i]
+    # 'MENU' is the ONE build-only word in the overlay and it sits between the two live glyphs, which is where the
+    # live page prints its bar's hamburger and its mobile menu's close. compare-atlas.CONTROLS spends it once,
+    # inside #agx-menu-word, and nowhere else.
+    lead = ['ATLAS GLINN'] + bar_units + ['MENU', '☰', '×'] + idx_units
+    assert snav_units == lead + [l for _h, l in extra_i], \
+        ('%s: the overlay prints %r; the live bar then the live mobile menu then the third list is %r'
+         % (page, snav_units, lead + [l for _h, l in extra_i]))
+    # F — the inline grid values this page carries are ones the phone block knows how to reflow. A capture that
+    #     grows a repeat(7,1fr) fails the build instead of shipping a seven-column row on a 393px screen.
+    inline_grids = set(m.group(1).strip() for m in _INLINE_GRID.finditer(body))
+    unknown = inline_grids - set(atlas.PHONE_GRID_OK)
+    assert not unknown, '%s: inline grid value(s) the phone block does not enumerate: %s' % (page, sorted(unknown))
     matched, unmatched = _controls(skin, body)
     assert (matched, unmatched) == SKIN_CONTROLS[slug], \
         ('%s: the skin reaches %d control(s) and misses %r; SKIN_CONTROLS says %r'
@@ -1204,6 +1281,8 @@ def build_live(slug):
              (live.hero_media(slug, body) or 'still').split('/')[-1]))
     print('    %-22s skin-matched controls %2d   tilt classes named by the page %d, matching an element here %d %s'
           % (slug, matched, len(tilt_named), len(tilt_here), list(tilt_here)))
+    print('    %-22s hero re-set: text units %d -> %d, media URLs %d -> %d (both asserted equal in hero_reset)'
+          % (slug, hero_u0, hero_u1, hero_m0, hero_m1))
     return out
 
 
@@ -1211,9 +1290,14 @@ def _chapters_html(chs, body, page):
     """The chapters wrapped, and nothing else touched. The wrapper carries the anchor the rail links to and, on the
     opening chapter, the class that drops the reading scrim — the live hero is already its own full-bleed frame."""
     out = []
-    for k, (_label, markup, _back) in enumerate(chs):
+    for k, (label, markup, _back) in enumerate(chs):
         cls = 'agx-ch agx-hero' if k == 0 else 'agx-ch'
-        out.append('<div class="%s" id="agx-c%d" data-agx-ch="%02d">%s</div>\n' % (cls, k + 1, k + 1, markup))
+        # The label is the chapter eyebrow's text, printed by CSS `content` and never as a node. A chapter with no
+        # heading of its own gets NO attribute — `[data-agxlabel]` matches an empty one, and an empty one would
+        # print a bare "02 · ". Two chapters page-set-wide are label-less: executive-protection ch2 and ep-app ch2,
+        # the same two the rail draws as ticks.
+        lab = (' data-agxlabel="%s"' % html_mod.escape(label, quote=True)) if label else ''
+        out.append('<div class="%s" id="agx-c%d" data-agx-ch="%02d"%s>%s</div>\n' % (cls, k + 1, k + 1, lab, markup))
     assert ''.join(m for _, m, _ in chs) == body, '%s: the chapter split lost markup' % page
     return '<div class="agx-content">\n' + ''.join(out) + '</div>'
 

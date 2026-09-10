@@ -4,9 +4,14 @@ Brockmann, 2026-09-08, on the preview: "Atlasglinn is not rendering correctly th
 and sizes into the new design + if video - NO hallucinations just use the new frontend - side bar = take the current site
 and drop into new design and see - no changes to anything."
 
-So the shape is settled: the classic shell (scripts/atlas_shell.py) keeps its sticky bar and dropdowns, its mobile menu,
-its Enter / Skip Intro splash, its footer and its back-to-top control — and everything between the bar and the footer is
-the current page, byte for byte. Its copy, its photographs, its films at their own URLs, its stylesheet and its type
+So the shape is settled: the shell (scripts/atlas_shell.py) supplies the chrome and everything inside it is the current
+page, byte for byte. WHICH CHROME CHANGED ON 2026-09-09 AND THIS PARAGRAPH IS CORRECTED IN PLACE. It read "the classic
+shell keeps its sticky bar and dropdowns, its mobile menu, its Enter / Skip Intro splash, its footer and its
+back-to-top control". Brockmann, 2026-09-09, over two screenshots: "the frontend should be the same with the Tesla as
+a styled", and "Menu should be like the mastsolutions menu side bar?". The sticky bar and the mobile menu are GONE;
+the MENU overlay, the four-corner HUD and the standing chapter rail took their place. The splash, the footer and the
+back-to-top control are unchanged, and the content rule below is unchanged: everything between the chrome is the
+current page, byte for byte. Its copy, its photographs, its films at their own URLs, its stylesheet and its type
 scale. Nothing is re-authored, nothing is re-cut, nothing is swapped for a repo copy.
 
 This module reads one snapshot under reference/live/ and returns the parts:
@@ -14,6 +19,11 @@ This module reads one snapshot under reference/live/ and returns the parts:
   styles(slug)    its <style> blocks verbatim, in order (the theme sheet is linked separately, see SHARED_CSS)
   content(slug)   everything between the live chrome boundaries — its own nav, mobile menu and footer removed and
                   nothing else touched, except internal links, which point at the sibling .html file
+  sitenav_items(slug)  the three lists the MENU overlay prints: the live bar's, the live mobile menu's, and the
+                  pages this page's live nav never names. Three lists because the first two print OVERLAPPING BUT
+                  DIFFERENT strings and one merged list would drop about twelve live text units a page.
+  hero_reset(slug)     the opening chapter re-styled in place: the headline's trailing word wrapped blue and an
+                  empty scroll cue appended, both asserted unit-neutral and media-neutral against the live markup
   scripts(slug)   the tail scripts the CONTENT owns; the live chrome's own scripts are cut out by name
   media(slug)     every image, film, poster and YouTube id the content carries — the parity list
 The snapshots are tracked, so a build off main reproduces without the media branch; reference/live/_captured.txt records
@@ -196,6 +206,110 @@ def chapters(slug, html=None):
     return [(lab, mk, bd or (None if not (k or pool) else first)) for k, (lab, mk, bd) in enumerate(out)]
 
 
+# ── THE HERO RE-SET ───────────────────────────────────────────────────────────────────────────────────────────────
+# Brockmann, 2026-09-09, two screenshots side by side: "Look at the difference - the frontend should be the same with
+# the Tesla as a styled". The trailer's hero is what he pointed at.
+#
+# MEASURED FIRST, AND IT CHANGED THE SHAPE OF THE WORK: ELEVEN OF THE TWELVE LIVE HEROES CARRY ONE TEXT UNIT.
+# Ten print `<h1 class="hero-headline"><span class="gold-text">Details</span> Matter</h1>` and nothing else; index
+# prints the same headline already two-tone (`gold-shimmer` + an inline blue) plus one CTA; executive-protection adds
+# one CTA. Only ep-app carries a badge, a tagline, a sub and two buttons. So this is a RE-STYLE, not a re-authoring:
+# there is no lede to set and no eyebrow to set, and the brief's fallback — "the live page <title>'s first segment"
+# — is REFUSED, because compare-atlas.visible() is body-only and a <title> segment printed into the body is invented
+# copy on eleven pages whose whole contract is byte-for-byte. The eyebrow slot is filled on ep-app, from ep-app's own
+# .hero-badge, and nowhere else.
+#
+# SO THE MARKUP BARELY MOVES, AND THAT IS THE POINT. Two changes, both unit-neutral:
+#   1. the trailing word of the <h1> is wrapped in `<span class="agx-hero-blue">` — the two-tone gold->blue shape
+#      assemble-atlas.opening() already prints for the authored hero and index already serves live;
+#   2. an empty `<div class="agx-scroll-cue">` is appended inside the hero, whose "SCROLL" arrow is CSS `content`.
+# Everything else — the film, the .hero-overlay, the .hero-content, the CTAs, the sound toggle, ep-app's .hero-stats
+# — stays exactly where the live page puts it, and atlas_shell.AGX_HERO_CSS restyles it in place. hero_reset()
+# asserts BOTH directions rather than asking the comparator for an excuse: the text units and the media set of the
+# rewritten hero must equal the live hero's, or the build stops.
+_H1 = re.compile(r'(<h1\b[^>]*>)(.*?)(</h1>)', re.S | re.I)
+_SPAN_ANY = re.compile(r'<span\b([^>]*)>(.*?)</span>', re.S | re.I)
+_CLASS_ATTR = re.compile(r'(\bclass=["\'])([^"\']*)(["\'])', re.I)
+BLUE_CLASS = 'agx-hero-blue'
+SCROLL_CUE = '<div class="agx-scroll-cue" aria-hidden="true"></div>'
+
+
+def _units(markup):
+    """compare-atlas.text_spans()' unit extraction, locally — one unit per run between tags, scripts, styles and
+    comments removed. It is here rather than imported so this module stays importable without the compare sheet, and
+    it is the yardstick hero_reset() holds itself to."""
+    import html as H
+    src = re.sub(r'<(script|style)\b[^>]*>.*?</\1>|<!--.*?-->', ' ', markup, flags=re.S | re.I)
+    out, pos = [], 0
+    for m in re.finditer(r'<[^>]+>', src):
+        t = re.sub(r'\s+', ' ', H.unescape(src[pos:m.start()])).strip()
+        if t:
+            out.append(t)
+        pos = m.end()
+    t = re.sub(r'\s+', ' ', H.unescape(src[pos:])).strip()
+    if t:
+        out.append(t)
+    return out
+
+
+def _add_class(open_tag, cls):
+    if _CLASS_ATTR.search(open_tag):
+        return _CLASS_ATTR.sub(lambda m: m.group(1) + (m.group(2) + ' ' + cls).strip() + m.group(3), open_tag, 1)
+    return open_tag[:-1].rstrip() + ' class="%s">' % cls
+
+
+def hero_two_tone(markup):
+    """The hero <h1> with its trailing word carried in `<span class="agx-hero-blue">`.
+
+    Three live shapes, all measured: ten pages end the headline in a BARE TEXT NODE (`<span
+    class="gold-text">Details</span> Matter`), index already wraps it (`<span style="color:#1A6BDE;">Matter</span>`
+    and the inline style is KEPT, not replaced), and ep-app carries `<span class="line2">EP</span>`.
+
+    WHY THIS IS UNIT-NEUTRAL, AND IT IS ASSERTED, NOT ARGUED: compare-atlas.text_spans() splits a run at every tag,
+    so `<span>Details</span> Matter` and `<span>Details</span> <span>Matter</span>` both yield ["Details","Matter"]."""
+    m = _H1.search(markup)
+    assert m, 'the hero carries no <h1> to two-tone'
+    inner = m.group(2)
+    spans = list(_SPAN_ANY.finditer(inner))
+    assert spans, 'the hero headline carries no <span> — the two-tone has no first word to leave gold'
+    last = spans[-1]
+    if inner[last.end():].strip():
+        tail = inner[last.end():]
+        rewritten = inner[:last.end()] + re.sub(r'(\S(?:.*\S)?)', r'<span class="%s">\1</span>' % BLUE_CLASS,
+                                                tail, count=1)
+    else:
+        rewritten = (inner[:last.start()] + _add_class('<span%s>' % last.group(1), BLUE_CLASS)
+                     + last.group(2) + '</span>' + inner[last.end():])
+    out = markup[:m.start(2)] + rewritten + markup[m.end(2):]
+    assert _units(out) == _units(markup), 'the two-tone moved a text unit: %r -> %r' % (_units(markup), _units(out))
+    assert out.count(BLUE_CLASS) == 1, 'the two-tone painted more than one run blue'
+    return out
+
+
+def hero_reset(slug, html=None):
+    """The live content with its opening hero re-set: the headline two-toned and the scroll cue appended. Returns the
+    whole content so chapters() cuts the rewritten body and _chapters_html()'s join assert still holds."""
+    html = content(slug) if html is None else html
+    name, tag, a, b = _top_level(html)[0]
+    cls = _CLASS.search(tag)
+    assert cls and 'hero' in cls.group(1).split(), \
+        '%s: the first top-level element is %s (class %r), not the hero' % (slug, name, cls.group(1) if cls else None)
+    close = '</%s>' % name
+    hero = html[a:b]
+    assert hero.endswith(close), '%s: the hero element does not end in %s' % (slug, close)
+    hero = hero_two_tone(hero)
+    hero = hero[:-len(close)] + SCROLL_CUE + close
+    out = html[:a] + hero + html[b:]
+    assert _units(out) == _units(html), '%s: the hero re-set moved a text unit' % slug
+    assert media(None, out) == media(None, html), '%s: the hero re-set moved a media URL' % slug
+    return out
+
+
+def hero_report(slug, before, after):
+    """(live units, build units, live media, build media) over the hero re-set — printed by the assembler, §7 C."""
+    return len(_units(before)), len(_units(after)), len(media(None, before)), len(media(None, after))
+
+
 def _photographs(markup):
     """Every still the markup names, in order — a film's poster counts, a mark or an icon does not."""
     out = []
@@ -283,6 +397,72 @@ def nav_items(slug):
               for a in _A.finditer(_relink(mob_html))]
     assert bar and mobile, '%s: the live bar or mobile menu came back empty' % slug
     return bar, mobile
+
+
+# ── THE OVERLAY'S THIRD LIST ──────────────────────────────────────────────────────────────────────────────────────
+# The live BAR and the live MOBILE MENU print OVERLAPPING BUT DIFFERENT STRINGS — measured over all twelve captures:
+# "Residential Protection" in the bar against "Residential" in the mobile menu, "Contact Us" against "Contact",
+# "Training" plus the banner "Training Programs" plus "Training" again. Deleting both and printing ONE list would
+# drop about twelve LIVE text units per page, and compare-atlas.missing() has NO allowlist in the live->build
+# direction — that is a hard MISSING FROM BUILD failure on all twelve, and no honest excuse mechanism covers it,
+# because those words ARE on the live page. Interleaving the two sets does not save it either: the live sequence is
+# [all bar units][all mobile units], so after greedily matching the bar set the build's second "Home" already sits
+# behind out_of_order()'s pointer.
+#
+# SO THE OVERLAY IS THREE LISTS IN LIVE DOCUMENT ORDER, and that is not a style choice — it is the only shape in
+# which text parity survives the bar's removal. The live units stay a strict subsequence of the build's, nothing is
+# lost, the comparator is not loosened in the direction that matters, and the only new excuse is a small,
+# positionally-budgeted one over the third list (compare-atlas.sitenav_anchors()).
+#
+# THE THIRD LIST IS THE REACHABILITY HE ASKED FOR. Measured: the live nav of eleven pages names NEITHER
+# cuas-aerodefense.html, ep-app.html NOR uas.html, and ep-app's names neither careers, cuas-aerodefense,
+# disaster-recovery, residential-protection nor uas. EVERY LABEL BELOW IS A LIVE STRING and the page it is read
+# from is recorded in the row, so a label nobody can point at fails the build (assert_sitenav_labels).
+SITENAV_EXTRA = (
+    ('ep-app.html', 'Atlas EP App', 'ep-app'),                              # ep-app's own live mobile menu
+    ('cuas-aerodefense.html', 'Counter-Drone Solutions', 'index'),          # the live footer of the eleven
+    ('uas.html', 'Autonomous Drones That Never Sleep', 'uas'),              # uas's own first live <h2>
+    ('careers.html', 'Careers', 'index'),                                   # the live bar label on the eleven
+    ('disaster-recovery.html', 'Disaster Recovery', 'index'),               # the live bar label on the eleven
+    ('residential-protection.html', 'Residential Protection', 'index'),     # the live bar label on the eleven
+)
+# The three off-page destinations no Atlas nav names and every page should reach. mastsolutions.html is the AG-5 /
+# §G-6 redirect target and the label is the live footer's own; the two legal pages are ep-app's own legal cards.
+SITENAV_FIXED = (
+    ('mastsolutions.html', 'MAST Solutions', 'index'),
+    ('privacy.html', 'Privacy Policy', 'ep-app'),
+    ('terms.html', 'Terms of Service', 'ep-app'),
+)
+
+
+def assert_sitenav_labels():
+    """Every overlay label is a string the live site prints, on the page the row cites. Returns the rows checked."""
+    import html as H
+    rows = SITENAV_EXTRA + SITENAV_FIXED
+    for href, label, src in rows:
+        page = _read(src)
+        body = page[page.index('>', page.index('<body')) + 1:page.index('</body>')]
+        text = re.sub(r'\s+', ' ', H.unescape(re.sub(r'<[^>]+>', ' ', body)))
+        assert label in text, ('the overlay would print %r for %s and %s.html does not carry that string — '
+                               'invented copy, not a live label' % (label, href, src))
+    return rows
+
+
+def sitenav_items(slug):
+    """(main, index, extra) — the three lists, all read off this page's own capture, no invented copy.
+
+    main   nav_items(slug)[0] verbatim, in bar order, each item's dropdown banners nested under it
+    index  nav_items(slug)[1] verbatim, in mobile order
+    extra  the Atlas pages THIS page's live nav never names, plus MAST / Privacy / Terms — ALL of them after the
+           live ones, which is what keeps the live sequence a subsequence of the build's
+    """
+    bar, mobile = nav_items(slug)
+    named = set(h for h, _l, _k, _d in bar) | set(h for h, _l, _s in mobile)
+    for _h, _l, _k, drop in bar:
+        named |= set(dh for dh, _i, _t, _d in (drop or ()))
+    extra = [(h, l) for h, l, _src in SITENAV_EXTRA if h not in named]
+    extra += [(h, l) for h, l, _src in SITENAV_FIXED]
+    return bar, mobile, extra
 
 
 def footer_inner(slug):
@@ -485,7 +665,9 @@ DROP_SELECTORS = frozenset([
 ])
 # The five roots the chrome is allowed to touch. validate-live.py resolves every surviving selector against a rendered
 # page and fails if one matches an element outside them.
-CHROME_ROOTS = ('#intro-overlay', '#main-nav', '#mobile-nav', 'footer.site-footer', '#back-to-top')
+# The three roots the chrome is allowed to touch. It was FIVE until r8, 2026-09-09: #main-nav and #mobile-nav are
+# gone with the sticky bar, and the MENU overlay that replaced them is the CINEMA layer's, not the chrome's.
+CHROME_ROOTS = ('#intro-overlay', 'footer.site-footer', '#back-to-top')
 
 _COMMENT = re.compile(r'/\*.*?\*/', re.S)
 
@@ -556,10 +738,12 @@ def chrome_css(mono_family='Inconsolata'):
     palette = ', '.join(CHROME_ROOTS) + palette[palette.index(' {'):]
     parts = [palette] + [_block(shell.CSS_A, tok) for tok in ('.intro-ring {', '@keyframes shimmer {')]
     seen = set()
-    body = _filter(_COMMENT.sub('', atlas.CLASSIC_CSS), seen)
+    body = _filter(_COMMENT.sub('', atlas._debar(atlas.CLASSIC_CSS)), seen)
     missing = DROP_SELECTORS - seen
     assert not missing, 'atlas_shell.CLASSIC_CSS no longer carries %s — decide which side of the line it is on' % sorted(missing)
     css = '\n'.join(parts + [body])
+    for tok in ('#main-nav', '#mobile-nav', '.nav-dropdown', '.ndb-'):
+        assert tok not in body, 'the sticky bar survived the cut: ' + tok
     css = shell._recolor(css, shell.ATLAS) + atlas.CLASSIC_RAW_CSS
     # The shell hides the pointer and draws a reticle in its place; the live pages do not, and html,body is dropped
     # above, so cursor:none here would only blank the pointer over the chrome's own links.
@@ -585,8 +769,8 @@ def audit_chrome_css(css):
 # A chrome rule has to be anchored: its leftmost compound selector must name a piece of the chrome, so the rule can
 # only ever reach inside one of the five roots. Anything else — a bare tag, a content class, a stray global — means
 # the cut above missed something, and the build stops rather than shipping a sheet that restyles the live page.
-CHROME_TOKENS = ('#main-nav', '#mobile-nav', '#back-to-top', '#intro-', '#skip-intro', '.nav-', '.ndb-',
-                 '.mobile-nav-close', '.site-footer', '.footer-', '.intro-ring', '.intro-open')
+CHROME_TOKENS = ('#back-to-top', '#intro-', '#skip-intro', '.site-footer', '.footer-', '.intro-ring',
+                 '.intro-open')
 
 
 def assert_chrome_scope(css):
@@ -605,8 +789,14 @@ def assert_chrome_scope(css):
 # The classic script minus its sound toggle: five of the twelve live pages ship their own #sound-toggle button and the
 # script that works it, inside the content, and both come across verbatim. Binding a second handler to the same button
 # would mute and unmute it on one click.
+_NAV_A = '  // ── Mobile menu ──'
 _SOUND_A = '  // ── Hero sound toggle'
 _SOUND_B = '  // ── Back to top ──'
+# The three lines the intro block uses to raise the bar it no longer has. Cut by exact text so a rewrite upstream
+# fails here instead of leaving `nav is not defined` in a shipped page.
+_BAR_JS = ("  var nav = document.getElementById('main-nav');\n",
+           "  var mob = document.getElementById('mobile-nav');\n",
+           "    if (nav) nav.classList.add('visible');\n")
 # The live index auto-enters 3.5 seconds after load; the classic splash waits for a click, which on a phone is a black
 # screen until someone taps it. The live timer comes across with the rest of the live behaviour.
 _AUTO_ENTER = """
@@ -618,9 +808,14 @@ _AUTO_ENTER = """
 def chrome_js():
     import atlas_shell as atlas
     js = atlas.CLASSIC_JS
-    a, b = js.index(_SOUND_A), js.index(_SOUND_B)
+    a, b = js.index(_NAV_A), js.index(_SOUND_B)
     js = js[:a] + js[b:]
+    for line in _BAR_JS:
+        assert line in js, 'the classic intro no longer opens with: ' + line.strip()
+        js = js.replace(line, '', 1)
     assert 'sound-toggle' not in js, 'the classic script still binds the sound toggle'
+    for tok in ('main-nav', 'mobile-nav', 'nav-dropdown', 'nav-toggle'):
+        assert tok not in js, 'the classic script still reaches for the sticky bar: ' + tok
     close = js.rindex('})();')
     return js[:close] + _AUTO_ENTER + js[close:]
 

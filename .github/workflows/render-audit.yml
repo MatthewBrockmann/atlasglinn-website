@@ -1,0 +1,45 @@
+# THE PLAYBACK PROOF, AND IT MEASURES THE DEPLOYED SITE, NOT THE REPO.
+#
+# Brockmann, 2026-09-09: "SHould have embedded videos" and "for mobile". Every atlasglinn.com film 404s in the build
+# container, so "the embedded videos play on a phone" is UNVERIFIABLE FROM THERE — the repo checks can prove the DOM
+# (autoplay, muted, loop, playsinline, a poster where the live element has none) and nothing else. This job loads the
+# live URL in Chromium AND WebKit, at iPhone 14 Pro emulation and at 1440x900, waits, and reads currentTime off every
+# <video> on the page. It runs AFTER the PR merges and deploy-page.yml uploads; it is the only honest playback
+# measurement available from here.
+#
+# workflow_dispatch on purpose: it is a measurement of a running site, not a gate on a commit.
+name: Render audit (playback proof)
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: The deployed URL to measure
+        required: true
+        default: https://atlasglinn.com/index.html
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Playwright with Chromium and WebKit
+        run: |
+          npm i -D playwright
+          npx playwright install --with-deps chromium webkit
+      - name: Measure playback
+        run: node .github/scripts/render-audit-live.mjs "${{ inputs.url }}"
+      # if: always() — the failing frame is exactly the one you cannot see otherwise.
+      - name: Upload the frames
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: render-audit-shots
+          path: shots/
+          if-no-files-found: error

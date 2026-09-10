@@ -168,15 +168,23 @@ course names step down in size to stay on their rule. Certificate number rule an
 
 ## Atlas Glinn pages (decided by Brockmann 2026-09-03: "SAME front end", mobile first)
 
-### LIVE-CONTENT MODE — what the twelve pages are today (2026-09-08, current; everything below it is history)
+### LIVE-CONTENT MODE — what the twelve pages are today (2026-09-08, amended 2026-09-09; everything below it is history)
 
 Brockmann, 2026-09-08 21:47 UTC, on the preview: *"Atlasglinn is not rendering correctly the main site and the should
 go same font and sizes into the new design + if video - NO hallucinations just use the new frontend - side bar = take
 the current site and drop into new design and see - no changes to anything."*
 
-So the pages are no longer written from copy typed into the assembler. **Each page is the classic shell's chrome —
+So the pages are no longer written from copy typed into the assembler. ~~**Each page is the classic shell's chrome —
 sticky bar with its dropdowns, mobile menu, Enter / Skip Intro splash, footer, back-to-top — wrapped around the current
-atlasglinn.com page taken whole** from `reference/live/<slug>.html`: its head, its `<style>` blocks, its copy, its
+atlasglinn.com page taken whole**~~ — **STRUCK 2026-09-09 BY BROCKMANN, NOT BY A SESSION.** He sent two screenshots
+side by side, the live site as it serves and the cinematic build, and wrote: *"Look at the difference - the frontend
+should be the same with the Tesla as a styled"*, having already asked *"Menu should be like the mastsolutions menu
+side bar?"* and *"Add more of the teslas style"*. **The sticky bar and the mobile menu are REMOVED from the twelve
+pages.** What wraps the live content now is the trailer's own chrome: a four-corner HUD (`tl` "ATLAS GLINN · HOUSTON"
+linking home, `tr` "SECTION NN / NN", `bl` the Houston coordinates, `br` "DETAILS MATTER"), a **"MENU ☰" button
+opening a full-screen overlay**, the standing chapter rail, the Enter / Skip Intro splash, the footer and the
+back-to-top button — **wrapped around the current atlasglinn.com page taken whole** from
+`reference/live/<slug>.html`: its head, its `<style>` blocks, its copy, its
 photographs and its films **at their own `https://atlasglinn.com/wp-content/…` URLs**, and its own scripts. The theme
 stylesheet it links is served from the repo as `vendor/atlasglinn-shared-styles.css` (same bytes as
 `reference/live/shared-styles.css`), so the live type scale comes with it.
@@ -568,6 +576,89 @@ the presentation half, and it changes **nothing** inside a chapter.
   left by the same 280 px. Nothing else changes — **no copy, no type scale** (`validate-live.py` check 4 still
   reports the build's `(tag, font-size, font-family, line-height)` sequence EQUAL to the live capture's on 12/12
   pages), and below 1025 the live layout is untouched.
+#### SECOND PASS (2026-09-09 → 2026-09-10) — HE REVERSED TWO OF HIS OWN CALLS AND THE FILE HAS TO SAY SO
+
+Brockmann, 2026-09-09 17:46–18:12 UTC, in order: *"floor"* · *"i want the liove"* · *"for mobile"* · *"SHould have
+embedded videos"* · *"Site should be same as most look mobile first]"* — then two screenshots side by side, the live
+atlasglinn.com index as it serves and the cinematic Atlas build, and: *"Look at the difference - the frontend should
+be the same with the Tesla as a styled"*.
+
+**TWO EARLIER CALLS OF HIS ARE REVERSED, and only for the CHROME and the HERO:**
+
+1. **2026-09-08, *"too many clicks to get to content and back is confusing … keep the current site's bar"*** →
+   **the sticky bar and the mobile menu are gone.** In their place: the four-corner HUD, the "MENU ☰" overlay and
+   the standing rail. The cost is real and is named here rather than argued away — **every page is now one click
+   from any other instead of zero**, which is the exact thing he objected to on 2026-09-08. The mitigation is
+   asserted, not promised: `assemble-atlas.build_live()` fails the build unless the overlay reaches **all twelve
+   Atlas pages plus mastsolutions.html, privacy.html and terms.html**, and unless **every href the live bar or the
+   live mobile menu named is still in it**. `render-audit.mjs` check 10 clicks the button on a real phone viewport
+   and fails unless the overlay opens, every anchor has a box, and Escape closes it.
+2. **Ledger §K-3, *"same font and sizes … no changes to anything"*** → reversed **for the hero headline and the
+   chrome only**, plus the ≤768 readability floors. Body copy keeps the live words at the live sizes everywhere
+   else, and `validate-live.py` check **4a** still asserts the type-scale sequence outside the hero is EQUAL to the
+   capture's on 12/12. Check **4b** collects the hero on both sides and PRINTS it; check **4c** measures 390 on both
+   sides. A skip that prints nothing is how "the hero is exempt" becomes "h1 is exempt".
+
+**THE ONE FINDING THAT SHAPED THE OVERLAY.** The live BAR and the live MOBILE MENU print **overlapping but different
+strings** — "Residential Protection" vs "Residential", "Contact Us" vs "Contact", "Training" + "Training Programs" +
+"Training". Deleting both and printing ONE list drops about **twelve live text units per page**, and
+`compare-atlas.missing()` has **no allowlist in the live→build direction**. Interleaving them fails `out_of_order()`
+instead. **So the overlay is THREE LISTS IN LIVE DOCUMENT ORDER** — `ul.agx-sitenav-main` (the bar's, banners nested
+under Training), `ul.agx-sitenav-index` (the mobile menu's), `ul.agx-sitenav-extra` (the build-only third list) — and
+that is not a style choice, it is the only shape in which text parity survives. `build_live()` assert **B** fails the
+build if a future session "simplifies" it to one list; fired-observed 2026-09-10 by deleting the index list.
+**Do not solve a red run here by adding a lost-unit allowlist to `missing()`. It would be the first hole in this
+repo's live→build direction and it would be permanent.**
+
+**The source order of "☰" and "×" inside the overlay is load-bearing.** The live page prints brand → bar links → the
+bar's hamburger → the mobile menu's close → mobile links, so the overlay prints its MENU button and its close button
+BETWEEN the main list and the index list. Both are fixed/absolute, so where they sit in the source has no bearing on
+where they sit on the screen — and putting them anywhere else costs two live text units. The same measurement is why
+`.agx-sitenav` fades on its children (`visibility` on the container, `opacity` on the scrim and panels): the MENU
+button lives inside it and an ancestor `opacity:0` cannot be taken back by a child.
+
+**The hero is a RE-STYLE, not a re-authoring, and eleven of the twelve carry ONE text unit.** Measured: ten live
+heroes print `<h1><span class="gold-text">Details</span> Matter</h1>` and nothing else, index adds one CTA and is
+already two-tone, executive-protection adds one CTA, and only ep-app has a badge, a tagline, a sub and two buttons.
+**No eyebrow is invented** — the brief offered "the live page `<title>`'s first segment or nothing" and NOTHING is
+taken, because `compare-atlas.visible()` is body-only and a `<title>` segment printed into the body is new copy on
+eleven pages whose whole contract is byte-for-byte. The markup moves twice, both unit-neutral and both asserted in
+`atlas_live.hero_reset()`: the headline's trailing word is wrapped `<span class="agx-hero-blue">`, and an empty
+`<div class="agx-scroll-cue">` is appended whose "SCROLL ↓" is CSS `content`. Printed per page in the build log as
+`text units N -> N, media URLs M -> M`.
+
+**The chapter eyebrow costs nothing, and the attribute name is the reason.** `.agx-ch[data-agxlabel]:not(.agx-hero)::after`
+prints `counter(agx-chapter, decimal-leading-zero) " · " attr(data-agxlabel)`. It was written `data-agx-label` first
+and that is a **hole**: `compare-atlas.attr_spans()` reads `\b(?:alt|placeholder|value|title|aria-label|label)\s*=`
+and `\b` matches between a hyphen and a letter, so `data-agx-label="Our Services"` lands as a `label` attribute unit
+on every chapter of every page. Measured against the live regex this turn, not assumed. Without the hyphen there is
+no boundary and the pass does not see it.
+
+**PHONES — `@media (max-width:768px)` in the skin, and the three things that had to be enumerated.** (1) The rows
+that do not collapse are class-less `<div style="display:grid; grid-template-columns:repeat(N,1fr)">` — **twelve
+`repeat(3,1fr)`, one `repeat(4,1fr)`, four `repeat(5,1fr)`, one `repeat(6,1fr)`** across the captures; an inline
+declaration beats any stylesheet rule at any specificity, so 3 and 4 go to one column and **5 and 6 go to two**
+(five one-word leadership traits, six comms-stack tiles — one column would be eleven screenfuls). (2) **There is no
+CSS primitive for "floor my own computed size"**: `max(15px, 1em)` and `max(15px, 100%)` resolve against the PARENT
+and RAISE `.section-divider p` from 13.6px to 16px instead of flooring it to 15. The floor is **25 p-selectors and
+7 label-selectors**, each with the live value written into its `max()`, generated from
+`atlas_shell.PHONE_P_FLOOR` / `PHONE_LABEL_FLOOR`. A selector whose elements do not share one live value is SPLIT,
+not averaged — `.service-card p` measures 12.8 / 13.6 / 15.2 / 16.0px, so its small members are floored by the
+value-keyed inline rules and the class carries no rule at all. (3) **`!important` goes from one bounded exception to
+three**, each with its own enumerated list in `assert_skin_scope()`: the tilt override (unchanged),
+`grid-template-columns` over an inline grid, and `font-size` over an inline font-size **or over the theme sheet's own
+`!important`** (`reference/live/shared-styles.css:186` sets `.section-divider p { font-size:0.85rem !important }` on
+33 paragraphs across ten pages — that one selector was the single row still measuring 13.6px after the first pass).
+**The table is not the assert:** `validate-live.py` check 4c compares build against the live capture at 390 element
+for element and fails on any lowering, and `render-audit.mjs` check 9 walks every rendered leaf at 393×852.
+
+**PLAYBACK IS NOT PROVEN FROM HERE, AND THE WORKFLOW'S EXISTENCE IS NOT A PASS.** Every atlasglinn.com film 404s in
+the build container, so *"SHould have embedded videos"* ships **proven only structurally** — `autoplay`, `muted`,
+`loop`, `playsinline` present in the DOM, asserted. `.github/workflows/render-audit.yml` (workflow_dispatch) loads
+the DEPLOYED URL in Chromium **and WebKit**, at 393×852 isMobile and 1440×900, and reads `currentTime` off every
+`<video>`. It runs **after** the merge and after `deploy-page.yml` uploads. Until it has run once, the honest
+sentence is "structurally asserted, playback UNVERIFIED".
+
 - **The rail label clamp is still the measured maximum (R4-9, unchanged).** The page-set carries **79 rail links:
   77 with a label and 2 label-less ticks** (executive-protection ch2 and ep-app ch2, whose chapters carry no
   heading — their `<span>` is present but empty, which is why the test skips on the label TEXT and not on the

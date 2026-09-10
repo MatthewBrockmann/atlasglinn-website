@@ -54,9 +54,10 @@
  *    documentElement for its duration and restores the sheet's value afterwards. Without that override this test
  *    measures a different page than a visitor reads.
  *
- * 4. RAIL LANDINGS. Every rail link is followed and the chapter it lands is measured. `.agx-ch` carries
- *    `scroll-margin-top:72px` because the bar is fixed and 60px tall; before that rule index ch2/ch3/ch4 landed their
- *    headings 26/26/49px from the top, under the bar. NO landing may put a heading above 60px.
+ * 4. RAIL LANDINGS. Every rail link is followed and the chapter it lands is measured. `.agx-ch` carried
+ *    `scroll-margin-top:72px` — the 60px sticky bar plus twelve — and the bar is GONE since r8 (2026-09-09). The
+ *    margin is 24px now, which clears the top HUD row (1.2rem + the safe-area inset), and the floor a landed
+ *    heading may not go under is HUD_FLOOR below, not the bar's 60. The number and this sentence move together.
  *
  * 5. PAGE ERRORS. No uncaught page error, and no failed request for a page-authored (same-origin) URL. External
  *    atlasglinn.com / YouTube / Google / mast-booking-backend requests are expected to fail here and are counted,
@@ -106,6 +107,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// The two numbers check 4 is written against, read off atlas_shell.CINEMA_CSS by eye and asserted here so the
+// sheet and the test cannot drift: `.agx-ch { scroll-margin-top:24px }` is what a rail link lands on, and the top
+// HUD row's box measures [29,217,19,35] at 1440 (validate-live check 6 prints it), so 40px is the lowest a heading
+// may land and still clear it. It was 60 — the sticky bar's height — until the bar came off (r8, 2026-09-09), and
+// the first pair tried, 24/34, failed here on executive-protection agx-c5 at 30px. The pair moves together.
+const SCROLL_MARGIN = 48;
+const HUD_FLOOR = 40;
+
 const require = createRequire(import.meta.url);
 // Playwright from wherever this machine keeps it: the repo, a normal global install, or the container's node22 tree.
 // PLAYWRIGHT=<path> overrides. A hard-coded /opt path is how a tool ends up runnable on exactly one machine.
@@ -124,6 +133,7 @@ const PAGES = ['index', 'executive-protection', 'residential-protection', 'disas
   'technology', 'cuas-aerodefense', 'uas', 'about', 'careers', 'contact', 'ep-app'];
 const WIDE = { width: 1440, height: 900 };
 const NARROW = { width: 390, height: 844 };
+const PHONE = { width: 393, height: 852 };   // checks 9 and 10 — iPhone 14 Pro, isMobile + hasTouch
 const WIDER = { width: 1800, height: 1000 };
 
 // Live text units allowed to render no box at either width. One entry, and it carries the reason it is invisible and
@@ -177,28 +187,129 @@ async function freePort(from) {
 /** Past the splash, with the bar dropdown and the mobile menu opened so their text is laid out. The splash is
  *  DISMISSED BY ITS OWN CONTROL, never by display:none — the splash prints "Enter" and "Skip Intro →", which are live
  *  units of index, and hiding the overlay took their boxes away and reported them as unrendered. */
-async function openChrome(page, wide) {
+// The splash is dismissed and the MENU overlay is OPENED — at both widths, and by clicking the page's own button
+// rather than by forcing classes on. Until r8 this opened the sticky bar's dropdown at 1440 and its mobile menu at
+// 390, because the live bar carried two different link sets at the two widths. There is no bar now: ONE overlay
+// carries the live bar's list, the live mobile menu's list and the third list, so one open covers every chrome unit
+// at either width.
+/** CHECK 9 — THE PHONE, MEASURED AT 393x852 WITH isMobile AND hasTouch (Brockmann, 2026-09-09: "for mobile",
+ *  "floor", "Site should be same as most look mobile first").
+ *
+ *  FOUR THINGS, AND THE OVERFLOW ONE IS CLIP-AWARE ON PURPOSE. A right edge past the viewport is only a defect if
+ *  something can SEE it: measured on origin/main, the live pages' own ken-burns backdrops compute 402-432px wide
+ *  inside a 393px `.hero { overflow:hidden }` / `.full-bleed { overflow:hidden }`, and the cinema layer's YouTube
+ *  backdrop is a 1515px cover box inside `.agx-ph { overflow:hidden }`. Those are transforms and cover boxes inside
+ *  a clip, not layout overflow, and counting them would mean either a false failure or a blanket that hides a real
+ *  one. So an element is over the edge only if no ancestor clips it — and the document's own scrollWidth is
+ *  asserted separately, which is the reading that cannot be argued with. */
+async function phoneAudit(page) {
+  return page.evaluate(([P_FLOOR, LEAF_FLOOR]) => {
+    const path = (el) => {
+      const parts = [];
+      for (let e = el, i = 0; e && e.tagName && i < 4; e = e.parentElement, i++) {
+        parts.unshift(e.tagName.toLowerCase() + (e.id ? '#' + e.id : '')
+          + (typeof e.className === 'string' && e.className.trim()
+            ? '.' + e.className.trim().split(/\s+/).slice(0, 2).join('.') : ''));
+      }
+      return parts.join(' > ');
+    };
+    const clipped = (el) => {
+      for (let e = el.parentElement; e; e = e.parentElement) {
+        const cs = getComputedStyle(e);
+        if (cs.overflow !== 'visible' || cs.overflowX !== 'visible') return true;
+      }
+      return false;
+    };
+    const grids = [], over = [], small = [];
+    for (const el of document.querySelectorAll('.agx-content *')) {
+      const cs = getComputedStyle(el);
+      const box = el.getBoundingClientRect();
+      if (cs.display.includes('grid')) {
+        const kids = [...el.children].filter((c) => {
+          const b = c.getBoundingClientRect();
+          return b.width > 0 && b.height > 0;
+        });
+        const tracks = cs.gridTemplateColumns.split(' ').filter(Boolean).length;
+        if (kids.length >= 4 && tracks > 2) {
+          grids.push({ p: path(el), kids: kids.length, tracks, gtc: cs.gridTemplateColumns.slice(0, 70) });
+        }
+      }
+      if (box.right > innerWidth + 1 && box.width > 2 && cs.position !== 'fixed'
+        && cs.visibility !== 'hidden' && cs.display !== 'none' && !clipped(el)) {
+        over.push({ p: path(el), right: Math.round(box.right), w: Math.round(box.width) });
+      }
+      const text = [...el.childNodes].some((n) => n.nodeType === 3 && n.nodeValue.trim());
+      if (text && box.width > 0 && box.height > 0 && cs.visibility !== 'hidden' && parseFloat(cs.opacity) > 0) {
+        const f = parseFloat(cs.fontSize);
+        const floor = el.tagName === 'P' ? P_FLOOR : LEAF_FLOOR;
+        if (f < floor - 0.01) small.push({ p: path(el), tag: el.tagName, f, floor });
+      }
+    }
+    return { grids, over, small,
+      scrollW: document.documentElement.scrollWidth, innerW: innerWidth,
+      rail: document.querySelector('.agx-rail') ? getComputedStyle(document.querySelector('.agx-rail')).display : 'none' };
+  }, [15, 11]);
+}
+
+/** CHECK 10 — THE OVERLAY IS THE ONLY NAVIGATION ON PHONES, AND IT OPENS.
+ *  The button is CLICKED, not class-forced: the whole point of the deliverable is that a reader can reach every
+ *  page from any page, and a menu that only opens when a test sets a class is the same defect as a rail label that
+ *  only stands under the pointer — which is exactly what r4-r6 shipped. Escape is measured too, because the brief
+ *  asked for it and a keydown handler nobody fires is not a feature. */
+async function sitenavAudit(page) {
+  const shut = await page.evaluate(() => {
+    const n = document.querySelector('.agx-sitenav');
+    return n ? getComputedStyle(n).visibility : '(no overlay)';
+  });
+  const btn = await page.$('#agx-menu-btn');
+  const btnBox = btn ? await btn.boundingBox() : null;
+  if (btn) await btn.click().catch(() => {});
+  await page.waitForTimeout(500);
+  const open = await page.evaluate(() => {
+    const n = document.querySelector('.agx-sitenav');
+    const panel = document.querySelector('.agx-sitenav-in');
+    const links = [...document.querySelectorAll('.agx-sitenav a')];
+    const noBox = links.filter((a) => {
+      const b = a.getBoundingClientRect();
+      return !(b.width > 0 && b.height > 0);
+    }).map((a) => a.getAttribute('href'));
+    return { vis: getComputedStyle(n).visibility, op: parseFloat(getComputedStyle(panel).opacity),
+      links: links.length, noBox,
+      hrefs: [...new Set(links.map((a) => a.getAttribute('href')))].length,
+      rail: getComputedStyle(document.querySelector('.agx-rail')).display };
+  });
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(500);
+  const closed = await page.evaluate(() => {
+    const n = document.querySelector('.agx-sitenav');
+    return { vis: getComputedStyle(n).visibility, op: parseFloat(getComputedStyle(document.querySelector('.agx-sitenav-in')).opacity) };
+  });
+  return { shut, btn: btnBox ? [Math.round(btnBox.x), Math.round(btnBox.y), Math.round(btnBox.width), Math.round(btnBox.height)] : null, open, closed };
+}
+
+async function openChrome(page) {
   await page.evaluate(() => {
     const s = document.getElementById('skip-intro') || document.getElementById('intro-enter');
     if (s) s.click();
   });
   await page.waitForTimeout(400);
-  if (wide) {
-    const drop = await page.$('#main-nav .nav-dropdown, #main-nav .has-dropdown, #main-nav li:has(.nav-dropdown-menu)');
-    if (drop) { await drop.hover().catch(() => {}); }
-    await page.evaluate(() => {
-      document.querySelectorAll('#main-nav .nav-dropdown-menu, #main-nav .dropdown-menu, #main-nav ul ul')
-        .forEach((el) => { el.style.display = 'block'; el.style.opacity = '1'; el.style.visibility = 'visible'; });
-    });
-  } else {
-    await page.evaluate(() => {
-      const t = document.getElementById('nav-toggle');
-      if (t) t.click();
-      const m = document.getElementById('mobile-nav');
-      if (m) { m.classList.add('open', 'active'); m.style.display = 'block'; m.style.opacity = '1'; m.style.visibility = 'visible'; m.style.transform = 'none'; }
-    });
-  }
-  await page.waitForTimeout(250);
+  const btn = await page.$('#agx-menu-btn');
+  if (btn) await btn.click().catch(() => {});
+  await page.waitForTimeout(450);
+}
+
+// AND IT IS SHUT AGAIN BEFORE ANYTHING ELSE IS MEASURED, which is not housekeeping — it is a defect this pass
+// created and caught. Left open, the overlay covers the viewport: check 8's card hovers landed on the overlay and
+// measured dy 0px on all three classes, check 2's rail labels never opened and read 155>152px as "clipped", and
+// check 7 counted the overlay's own 30 anchors as live text under the rail (9 runs on index, 72 on ep-app at 1025).
+// All four went green again the moment it was shut.
+async function closeChrome(page) {
+  await page.evaluate(() => {
+    const n = document.querySelector('.agx-sitenav');
+    if (n) n.classList.remove('agx-open');
+    document.body.style.overflow = '';
+  });
+  await page.waitForTimeout(400);
 }
 
 /** Every normalized text run in the document that has a non-zero box, as a Set.
@@ -315,8 +426,8 @@ async function railLabels(page) {
 }
 
 /** Where each rail link LANDS its chapter: the chapter box's top and its first heading's top, after the browser's
- *  own scroll-to-fragment (which honours `.agx-ch { scroll-margin-top:72px }`). The bar is fixed and 60px tall, so a
- *  heading landing above 60px is under the bar and unreadable — that is the assertion. `scroll-behavior` is forced to
+ *  own scroll-to-fragment (which honours `.agx-ch { scroll-margin-top:24px }`). With no bar the only fixed thing
+ *  over a landed heading is the top HUD row, so HUD_FLOOR is the assertion. `scroll-behavior` is forced to
  *  auto for the same reason the reveal walk forces it: under the shell's smooth scrolling the box is measured
  *  mid-animation. */
 async function railLandings(page) {
@@ -508,7 +619,7 @@ async function standingStop(page) {
       for (let n = w.nextNode(); n; n = w.nextNode()) {
         if (!(n.nodeValue || '').trim()) continue;
         const pe = n.parentElement;
-        if (!pe || pe.closest('script, style, .agx-rail, .agx-hud, [data-agx-invis]')) continue;
+        if (!pe || pe.closest('script, style, .agx-rail, .agx-hud, .agx-sitenav, .agx-menu-btn, [data-agx-invis]')) continue;
         // PER LINE BOX, not the range's union box. A wrapped paragraph's union box spans the whole column even
         // where its last line stops short, so a union-box test reported about's bio paragraph as covered at 1280
         // with a right edge of 1284 in a 1280px viewport — an artefact of the union, not a glyph under the rail.
@@ -678,7 +789,8 @@ async function main() {
   let browser = null;
   let bad = 0;
   const sum = { units: 0, unseen: 0, labels: 0, clipped1440: 0, clipped1800: 0, stranded: 0, chapters: 0, pageErrors: 0, localFails: 0, unmeasured: 0, ticks: 0,
-    landings: 0, landingsAt72: 0, landingsFirst: 0, landingsHead: 0, headUnderBar: 0 };
+    landings: 0, landingsAt72: 0, landingsFirst: 0, landingsHead: 0, headUnderBar: 0,
+    phoneGrids: 0, phoneOver: 0, phoneSmall: 0, sitenavLinks: 0 };
   let maxScroll = 0, maxScrollText = '', minGap = 1e9, noEllipsis = 0, overlap1440 = 0, maxOverlap = 0;
   const STANDING_WIDTHS = [1800, 1440, 1280, 1025];
   const standing = Object.fromEntries(STANDING_WIDTHS.map((w) =>
@@ -718,8 +830,9 @@ async function main() {
         await page.goto(base + file, { waitUntil: 'domcontentloaded', timeout: 45000 });
         await page.waitForTimeout(900);
         for (const u of await renderedUnits(page)) seen.add(u);   // the splash is up: "Enter", "Skip Intro →"
-        await openChrome(page, wide);
-        for (const u of await renderedUnits(page)) seen.add(u);   // and the page behind it, menus open
+        await openChrome(page);
+        for (const u of await renderedUnits(page)) seen.add(u);   // and the page behind it, the overlay open
+        await closeChrome(page);                                  // shut before checks 2, 7 and 8 measure anything
         if (SHOTS) {
           await page.screenshot({ path: path.join(SHOTS, `${slug}-${vp.width}x${vp.height}.png`) });
         }
@@ -770,12 +883,12 @@ async function main() {
           for (const L of await railLandings(page)) {
             sum.landings++;
             if (L.first) sum.landingsFirst++;
-            else if (L.box >= 71.5 && L.box <= 72.5) sum.landingsAt72++;
+            else if (L.box >= SCROLL_MARGIN - 0.5 && L.box <= SCROLL_MARGIN + 0.5) sum.landingsAt72++;
             if (L.head !== null) {
               sum.landingsHead++;
               if (L.head < headMin) headMin = L.head;
               if (L.head > headMax) headMax = L.head;
-              if (L.head < 60) { sum.headUnderBar++; console.log(`    HEADING UNDER THE 60px BAR on ${slug} ${L.id}: ${Math.round(L.head)}px`); }
+              if (L.head < HUD_FLOOR) { sum.headUnderBar++; console.log(`    HEADING UNDER THE TOP HUD ROW on ${slug} ${L.id}: ${Math.round(L.head)}px (floor ${HUD_FLOOR}px)`); }
             }
           }
           const icons = await iconSwaps(page);
@@ -832,16 +945,17 @@ async function main() {
         const page = await ctx.newPage();
         await page.goto(base + file, { waitUntil: 'domcontentloaded', timeout: 45000 });
         await page.waitForTimeout(700);
-        await openChrome(page, true);
+        await openChrome(page);
+        await closeChrome(page);
         for (const L of await railLandings(page)) {
           sum.landings++;
           if (L.first) sum.landingsFirst++;
-          else if (L.box >= 71.5 && L.box <= 72.5) sum.landingsAt72++;
+          else if (L.box >= SCROLL_MARGIN - 0.5 && L.box <= SCROLL_MARGIN + 0.5) sum.landingsAt72++;
           if (L.head !== null) {
             sum.landingsHead++;
             if (L.head < headMin) headMin = L.head;
             if (L.head > headMax) headMax = L.head;
-            if (L.head < 60) { sum.headUnderBar++; console.log(`    HEADING UNDER THE 60px BAR on ${slug} ${L.id} at 1800: ${Math.round(L.head)}px`); }
+            if (L.head < HUD_FLOOR) { sum.headUnderBar++; console.log(`    HEADING UNDER THE TOP HUD ROW on ${slug} ${L.id} at 1800: ${Math.round(L.head)}px (floor ${HUD_FLOOR}px)`); }
           }
         }
         await markInvisible(page);
@@ -911,6 +1025,63 @@ async function main() {
         await ctx.close();
       }
 
+      // ── CHECKS 9 AND 10: the phone, in its own context at 393x852 with isMobile and hasTouch ──
+      // A separate context on purpose: check 1 measures 390x844 without isMobile and changing THAT viewport would
+      // move the numbers a different check is written against. This is the deliverable's own width.
+      {
+        const ctx = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+        const page = await ctx.newPage();
+        await page.goto(base + file, { waitUntil: 'domcontentloaded', timeout: 45000 });
+        await page.waitForTimeout(900);
+        await page.evaluate(() => {
+          const s = document.getElementById('skip-intro') || document.getElementById('intro-enter');
+          if (s) s.click();
+        });
+        await page.waitForTimeout(500);
+        await page.evaluate(async () => {
+          const step = Math.round(innerHeight * 0.6);
+          for (let y = 0; y <= document.body.scrollHeight; y += step) {
+            window.scrollTo(0, y);
+            await new Promise((r) => setTimeout(r, 100));
+          }
+          window.scrollTo(0, 0);
+        });
+        await page.waitForTimeout(500);
+        const ph = await phoneAudit(page);
+        const phoneOK = ph.grids.length === 0 && ph.over.length === 0 && ph.small.length === 0
+          && ph.scrollW === ph.innerW && ph.rail === 'none';
+        sum.phoneGrids += ph.grids.length;
+        sum.phoneOver += ph.over.length;
+        sum.phoneSmall += ph.small.length;
+        if (!phoneOK) {
+          bad++;
+          console.log(`    THE PHONE AT ${PHONE.width}: ${ph.grids.length} row(s) still >2 columns, `
+            + `${ph.over.length} element(s) past the edge unclipped, ${ph.small.length} under the floor, `
+            + `scrollWidth ${ph.scrollW}/${ph.innerW}, rail ${ph.rail}`);
+          for (const g of ph.grids.slice(0, 4)) console.log(`      GRID ${g.tracks} tracks, ${g.kids} kids: ${g.p} [${g.gtc}]`);
+          for (const o of ph.over.slice(0, 4)) console.log(`      OVER right ${o.right} w ${o.w}: ${o.p}`);
+          for (const f of ph.small.slice(0, 6)) console.log(`      UNDER THE ${f.floor}px FLOOR ${f.f}px <${f.tag}>: ${f.p}`);
+        }
+        const sn = await sitenavAudit(page);
+        const snOK = sn.shut === 'hidden' && sn.open.vis === 'visible' && sn.open.op >= 0.99
+          && sn.open.noBox.length === 0 && sn.open.rail === 'none' && sn.closed.op <= 0.01 && sn.btn !== null;
+        sum.sitenavLinks += sn.open.links;
+        if (!snOK) {
+          bad++;
+          console.log(`    THE OVERLAY IS NOT THE PHONE'S NAVIGATION on ${slug}: shut ${sn.shut}, button ${JSON.stringify(sn.btn)}, `
+            + `open visibility ${sn.open.vis} opacity ${sn.open.op}, ${sn.open.links} link(s) `
+            + `(${sn.open.hrefs} distinct hrefs), ${sn.open.noBox.length} with no box ${JSON.stringify(sn.open.noBox.slice(0, 4))}, `
+            + `rail ${sn.open.rail}, after Escape opacity ${sn.closed.op}`);
+        }
+        phoneRows.push(`${slug} @${PHONE.width} grids>2 ${ph.grids.length}, unclipped over-edge ${ph.over.length}, `
+          + `under-floor ${ph.small.length}, scrollWidth ${ph.scrollW}/${ph.innerW}, overlay ${sn.open.links} links `
+          + `(${sn.open.hrefs} hrefs) opens ${sn.open.vis}/${sn.open.op}, Escape closes to ${sn.closed.op}`);
+        if (SHOTS) {
+          await page.screenshot({ path: path.join(SHOTS, `${slug}-phone-menu.png`) });
+        }
+        await ctx.close();
+      }
+
       // Object.hasOwn, not `in`: `in` walks Object.prototype, so a live unit reading 'constructor' or 'toString' would
       // count as allowed-invisible (r5 verifier; 0 such units today, measured over all 2019 live units).
       const unseen = want.filter((u) => !seen.has(norm(u)) && !Object.hasOwn(HIDDEN_ON_LIVE, u));
@@ -947,7 +1118,7 @@ async function main() {
     + STANDING_WIDTHS.map((w) => `${w}px ${standing[w].opaque}/${standing[w].labelled} labels with a box AND opacity 1`
       + `, rail ${standing[w].railGap}px off the right edge, section gutter ${standing[w].gutter === 1e9 ? 'n/a' : standing[w].gutter}px`
       + `, overflow ${standing[w].overflow}px`).join('; '));
-  console.log(`         the phone did not pay for it (390x844): ${phoneRows.join(' | ')}`);
+  console.log(`         the phone rows (390x844 gutter pass, then the 393x852 checks 9 and 10): ${phoneRows.join(' | ')}`);
   console.log(`         card hovers driven at 1440: ${hoverRows} (one per skinned class per page), ${hoverOK} `
     + `measuring dy -6px +-0.75 and a 0.45s transition with no rgb(201,168,76) in the computed box-shadow, `
     + `${hoverBad} with a delta${hoverSample ? '; e.g. ' + hoverSample : ''}`);
@@ -966,7 +1137,7 @@ async function main() {
       + (ONLY ? ' — reported, not a failure, because --only narrowed the page set' : ''));
     if (!ONLY) bad++;
   }
-  console.log(`         rail landings ${sum.landings} across 1440 and 1800: ${sum.landingsAt72} put the chapter box at 71.5-72.5px, ${sum.landingsFirst} are each page's FIRST link (document top), ${sum.headUnderBar} put a heading under the 60px bar`);
+  console.log(`         rail landings ${sum.landings} across 1440 and 1800: ${sum.landingsAt72} put the chapter box at ${SCROLL_MARGIN}+-0.5px, ${sum.landingsFirst} are each page's FIRST link (document top), ${sum.headUnderBar} put a heading under the ${HUD_FLOOR}px top HUD row`);
   console.log(`         of those, ${sum.landingsHead} land a chapter that carries a heading: ${headMin === 1e9 ? 'n/a' : Math.round(headMin * 10) / 10}px to ${headMax === -1e9 ? 'n/a' : Math.round(headMax * 10) / 10}px from the top`);
   console.log(`         rail labels whose hover state never settled, excluded from the clipped counts: ${sum.unmeasured}`);
   console.log(`         reveal walk at 0.5 viewport / 320 ms + 1400 ms settle: ${sum.stranded} of ${sum.chapters} blocks below opacity 0.99`);

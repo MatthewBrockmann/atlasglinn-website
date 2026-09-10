@@ -101,14 +101,19 @@ _EMOJI = re.compile('[\U0001F300-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\u2300-\u23
 # The printed chrome controls and the ONE element each may be printed in. A unit is excused only where it sits inside
 # that element's own span, and each element is spent once per page — "Enter" dropped into a footer has no element
 # to spend and is a delta. The wordmark is bound to #intro-title the same way (see excuse()).
-CONTROLS = (('Enter', 'intro-enter'), ('Skip Intro →', 'skip-intro'), ('↑', 'back-to-top'))
+CONTROLS = (('Enter', 'intro-enter'), ('Skip Intro →', 'skip-intro'), ('↑', 'back-to-top'),
+            ('MENU', 'agx-menu-word'))
 WORDMARK_ID = 'intro-title'
 _ID_ELEM = {i: re.compile(r'<(\w+)\b[^>]*\bid="%s"[^>]*>(.*?)</\1>' % re.escape(i), re.S | re.I)
             for i in [e for _u, e in CONTROLS] + [WORDMARK_ID]}
 
 # The shell's own control labels — the only build-only attribute units that are not read off a live page. A tuple and
 # not a set, because "Back to top" is two units: the button carries it as title and as aria-label.
-A11Y = ('Main', 'Menu', 'Site menu', 'Close menu', 'Chapters', 'Back to top', 'Back to top')
+# 'Main' left with the sticky bar (r8, 2026-09-09) — it was `<nav id="main-nav" aria-label="Main">` and there is
+# no bar to label. 'Atlas Glinn, Houston' arrived with it: the HUD's top-left corner is a real <a href="index.html">
+# whose visible line is CSS `content`, so its aria-label is the one unit it adds. An excuse nothing spends is a hole
+# nothing guards, which is why the tuple shrank and grew in the same pass rather than only growing.
+A11Y = ('Menu', 'Site menu', 'Close menu', 'Chapters', 'Atlas Glinn, Houston', 'Back to top', 'Back to top')
 
 # The two deliberate redirects (§G-6 / AG-5), and there are only two: the menu's IWA entry and the footer's MAST
 # Solutions entry, both of which the live site points at its own pages. Matched on the label AND on the live
@@ -292,6 +297,32 @@ def rail_anchors(markup):
     return out
 
 
+_SNAV_A = re.compile(r'<a class="agx-sitenav-x" href="([^"]*)">(.*?)</a>', re.S)
+
+
+def sitenav_anchors(markup):
+    """(href, label, start, end, reason or None) for the overlay's THIRD list — the build-only entries.
+
+    The reason is set ONLY where (href, label) is a declared row of atlas_live.SITENAV_EXTRA / SITENAV_FIXED for
+    this page. A label the table does not declare for that exact href is NOT excusable, and the two lists ABOVE it
+    in the overlay — the live bar's and the live mobile menu's — are not walked here at all: they carry LIVE units
+    and must be MATCHED, never excused. That is the whole reason the third list carries a class of its own.
+
+    THE ALTERNATIVE WAS A HOLE. Printing one merged list instead of three would drop about twelve live units a page
+    (the bar says "Residential Protection" where the mobile menu says "Residential"), and the only way to pass would
+    have been a lost-unit allowlist in missing() — the first hole in this repo's live->build direction, and a
+    permanent one. Three lists in live document order costs this one small, positionally-budgeted excuse instead.
+    """
+    declared = {(h, l) for h, l, _src in live.SITENAV_EXTRA + live.SITENAV_FIXED}
+    out = []
+    for m in _SNAV_A.finditer(markup):
+        href, lab = m.group(1), clean(m.group(2))
+        reason = ('overlay third list, %s — a page this page’s live nav never names' % href) \
+            if (href, lab) in declared else None
+        out.append((href, lab, m.start(), m.end(), reason))
+    return out
+
+
 def _live_content_region(slug, vis):
     """(start, end) of the live page's own content inside `visible(capture)` — the same cut atlas_live.content()
     makes, in the capture's own coordinates. The walk is scoped to it because the CHROME carries three emoji of its
@@ -374,7 +405,7 @@ def control_spans(markup):
     return out
 
 
-def excuse(slug, added, rails, chrome):
+def excuse(slug, added, rails, chrome, snavs=()):
     """(excused as [(unit, reason)], unexplained as [unit]) — the allowlist, applied unit by unit and POSITION by
     position. A rail label is excused only where the unit is printed inside the rail anchor that earns the excuse, and
     each anchor is spent once: a Counter keyed by the anchors themselves, never by the bare strings, so a second copy
@@ -387,6 +418,7 @@ def excuse(slug, added, rails, chrome):
     that page has no element left to spend."""
     word = live.intro_title()
     budget = collections.Counter(k for k, r in enumerate(rails) if r[4])
+    sbudget = collections.Counter(k for k, r in enumerate(snavs) if r[4])
     elems = chrome
     spent = collections.Counter({i: 1 for i in elems})
     ok, bad = [], []
@@ -411,11 +443,20 @@ def excuse(slug, added, rails, chrome):
         else:
             hit = next((k for k, (_a, lab, s, e, r) in enumerate(rails)
                         if r and budget[k] and lab == u and s <= a and b <= e), None)
+            if hit is not None:
+                budget[hit] -= 1
+                ok.append((u, rails[hit][4]))
+                continue
+            # The rail's budget first, then the overlay's third list — one anchor, one spend, keyed by the anchor
+            # index and never by the bare string, so a second copy of the same label anywhere else on the page has
+            # nothing left to spend.
+            hit = next((k for k, (_h, lab, s, e, r) in enumerate(snavs)
+                        if r and sbudget[k] and lab == u and s <= a and b <= e), None)
             if hit is None:
                 bad.append(u)
             else:
-                budget[hit] -= 1
-                ok.append((u, rails[hit][4]))
+                sbudget[hit] -= 1
+                ok.append((u, snavs[hit][4]))
     return ok, bad
 
 
@@ -485,12 +526,16 @@ def _resolve(href):
 
 
 def anchor_pairs(markup, drop_rail=False):
-    """(label, destination) for every anchor that prints a label, destinations resolved. The rail is dropped from the
-    build side: its links are in-page fragments the live page never had, and its labels are already accounted for by
-    the text allowlist."""
+    """(label, destination) for every anchor that prints a label, destinations resolved. Two build-only anchor sets
+    are dropped from the build side: the chapter rail, whose links are in-page fragments the live page never had,
+    and the overlay's third list, whose entries are pages this page's live nav never names. Both are already
+    accounted for one anchor at a time by the text allowlist (rail_anchors / sitenav_anchors), and leaving either in
+    would compare a build-only anchor's destination against a live label that has nothing to do with it — measured:
+    'Counter-Drone Solutions', 'MAST Solutions' and 'Atlas EP App' are live FOOTER labels as well, so the overlay's
+    copies read as three href deltas a page."""
     out = []
     for m in _A.finditer(_STRIP.sub(_blank, markup)):
-        if drop_rail and 'agx-rail-link' in m.group(1):
+        if drop_rail and ('agx-rail-link' in m.group(1) or 'agx-sitenav-x' in m.group(1)):
             continue
         lab = clean(m.group(2))
         if not lab:
@@ -600,6 +645,7 @@ def main():
         uo, un = [t for t, _a, _b in ao], [t for t, _a, _b in an]
         mo, mn = seen_media(old), seen_media(new)
         rails = rail_anchors(new)
+        snavs = sitenav_anchors(new)
         icons = icon_spans(slug, old)
         svg_keys, icon_bad = icon_receipts(slug, new)
 
@@ -616,7 +662,8 @@ def main():
         # index's live splash prints #intro-title, #intro-enter and #skip-intro itself, so on index those runs stay
         # in the body and are matched, not excused.
         chrome = {i: span for i, span in control_spans(new).items() if i not in control_spans(old)}
-        outside = [(s, e) for _a, _l, s, e, _r in rails] + list(chrome.values())
+        outside = ([(s, e) for _a, _l, s, e, _r in rails] + [(s, e) for _h, _l, s, e, _r in snavs]
+                   + list(chrome.values()))
         body = [x for x in sn if not any(s <= x[1] and x[2] <= e for s, e in outside)]
         chrome_runs = [x for x in sn if any(s <= x[1] and x[2] <= e for s, e in outside)]
         tb = [t for t, _a, _b in body]
@@ -628,7 +675,7 @@ def main():
         lost_t, added_t = missing(tlb, tb), added_spans(body, tlb) + chrome_runs
         order = out_of_order(tlb, tb)
         lost_a, added_a = missing(uo, un), added_spans(an, uo)
-        ok_t, bad_t = excuse(slug, added_t, rails, chrome)
+        ok_t, bad_t = excuse(slug, added_t, rails, chrome, snavs)
         ok_a, bad_a = excuse_attrs(added_a, rails)
         extra_m = sorted(mn - mo)
         ok_m, lost_m, bad_m = pair_media(sorted(mo - mn), extra_m, mo)
