@@ -1222,12 +1222,33 @@ def _chapters_html(chs, body, page):
 # WRITTEN, not after. It used to run at the end of build_live(), so an assembler that had already rewritten
 # mastsolutions.html would have rewritten it before anything looked.
 def assert_mast_untouched():
+    """The four MAST paths, byte-identical to origin/main, WITH THE OFFENDING NAME PRINTED.
+
+    It ran `git diff --quiet` and, on failure, named all four paths — so the operator was told MAST had been
+    edited without being told WHICH file, and `--quiet` exits 1 for a missing ref exactly as it does for a real
+    difference. A worktree with no `origin/main` therefore reported "MAST paths differ", which is a false
+    accusation, not a measurement. Both are separated here: the ref is resolved first and its absence is reported
+    as UNVERIFIABLE, and a real difference is printed by name from `git diff --name-only`.
+    """
     import subprocess
     paths = ['scripts/cinematic_shell.py', 'mastsolutions.html', 'mastsolutions-tesla.html',
              'scripts/assemble-cinematic.py']
-    if subprocess.call(['git', 'diff', '--quiet', 'origin/main', '--'] + paths, cwd=REPO) != 0:
-        raise SystemExit('MAST paths differ from origin/main: ' + ' '.join(paths))
-    print('MAST byte-identical to origin/main: ' + ', '.join(paths))
+    ref = subprocess.run(['git', 'rev-parse', '--verify', '--quiet', 'origin/main'], cwd=REPO,
+                         capture_output=True, text=True)
+    if ref.returncode != 0 or not ref.stdout.strip():
+        raise SystemExit('cannot resolve origin/main — MAST parity UNVERIFIABLE FROM HERE '
+                         '(fetch the remote, or name the ref this tree should be compared against)')
+    sha = ref.stdout.strip()
+    diff = subprocess.run(['git', 'diff', '--name-only', sha, '--'] + paths, cwd=REPO,
+                          capture_output=True, text=True)
+    if diff.returncode != 0:
+        raise SystemExit('git diff against origin/main (%s) failed, MAST parity UNVERIFIABLE FROM HERE: %s'
+                         % (sha[:9], diff.stderr.strip()[:200]))
+    changed = [ln for ln in diff.stdout.split('\n') if ln.strip()]
+    if changed:
+        raise SystemExit('MAST is not in this change and these paths differ from origin/main (%s): %s'
+                         % (sha[:9], ', '.join(changed)))
+    print('MAST byte-identical to origin/main %s: %s' % (sha[:9], ', '.join(paths)))
 
 
 if not AUTHORED:

@@ -28,7 +28,11 @@
  *    is invisible AND the evidence the live page hides it. Nothing else on the twelve pages renders nowhere.
  *
  * 2. RAIL HOVER LABELS (r4-9). Every chapter-rail label, hovered, must fit its own box: `scrollWidth <= clientWidth`
- *    on the label span. Measured at 1440x900 and at 1800x1000. The page-set carries 79 rail links, 77 of them with a
+ *    on the label span. Since r7 the label also STANDS at rest, clamped to 9.5rem so the rail fits its gutter, and
+ *    the hover is what opens it to its full width — so this check measures the OPEN state and check 7 measures the
+ *    standing one. Both are needed: a label that fits when hovered says nothing about whether it is visible when
+ *    it is not, which is exactly how three rounds shipped a rail whose every label computed max-width 0px.
+ * Measured at 1440x900 and at 1800x1000. The page-set carries 79 rail links, 77 of them with a
  *    label and 2 label-less ticks (executive-protection ch2, ep-app ch2, whose chapters carry no heading); the ticks
  *    hold an EMPTY span, so they are skipped on the label TEXT and never on the element. Before the clamp was raised,
  *    14 of the 77 labels at 1440 were cut mid-word by `max-width:13rem` with `text-overflow:clip` — the widest is uas
@@ -68,10 +72,19 @@
  *    submitted, so that block is force-shown for the box measurement and put back — otherwise the honest count
  *    would be 27 drawn of 28 for a reason that has nothing to do with the swap.
  *
- * 7. WHAT THE FIXED CHROME COVERS, WALKED DOWN THE PAGE — THE RAIL *AND* THE HUD. The live text boxes the
- *    unhovered rail covers are counted at 1025, 1280, 1440 and 1800 and asserted to be ZERO. That is the gate the
- *    band in CINEMA_CSS was set from, not a formality: shipping a label sitting on top of a reader's own sentence
- *    is not a trade this rail is allowed to make.
+ * 7. WHAT THE FIXED CHROME COVERS, WALKED DOWN THE PAGE — THE RAIL *AND* THE HUD — AND, SINCE r7, WHETHER THE
+ *    RAIL IS THERE AT ALL. The live text boxes the unhovered rail covers are counted at 1025, 1280, 1440 and 1800
+ *    and asserted to be ZERO. That is the gate the band in CINEMA_CSS was set from, not a formality: shipping a
+ *    label sitting on top of a reader's own sentence is not a trade this rail is allowed to make.
+ *    THE OTHER HALF IS NEW AND IT IS THE DELIVERABLE ITSELF. Brockmann asked on 2026-09-09 for MAST's standing
+ *    sidebar ("Menu should be like the mastsolutions menu side bar?"). Three rounds shipped a rail whose every
+ *    label computed `max-width:0px; opacity:0` and appeared only under the pointer, and NOTHING HERE FAILED,
+ *    because this walk only ever counted what the labels COVERED — zero covered is also what an invisible rail
+ *    measures. So the same stop now counts what the labels ARE: per width, every label a page carries must have a
+ *    box AND compute opacity 1 with no pointer on the page, the rail must sit 24px (1.5rem) off the right edge,
+ *    and the gutter on the live sections must be at least the rail's own measured width plus that offset. The
+ *    390x844 pass asserts the opposite for the phone — rail display:none, no section carrying the desktop gutter,
+ *    no horizontal overflow — so the sidebar cannot be bought with the phone layout.
  *    THE HUD IS WALKED BY THE SAME MEASUREMENT SINCE r5, and that is a finding, not a feature. The walk was
  *    written for the rail, applied to the rail, and its number ("the tick alone at right:.45rem -> 0") was used to
  *    drop the standing sidebar — while the other fixed element the same commit added was never pointed at it.
@@ -130,14 +143,14 @@ const HIDDEN_ON_LIVE = {
 // Rail-overlap runs that ORIGIN/MAIN produces too, keyed `slug@width`, each with the measurement that proves it.
 // The bar is the same as HIDDEN_ON_LIVE's: the reason AND the evidence it is not this branch's. Anything else is a
 // delta. Unspent keys are printed, because an allowance nothing uses is a hole nothing guards.
-const RAIL_OVERLAP_ON_MAIN = {
-  'about@1280': 'about\u2019s team-card bio line box ends at x=1278 in a 1280px viewport, which is 2px from the '
-    + 'edge, so the rail\u2019s TICK sits on it whatever the rail does. Measured 2026-09-09 by driving '
-    + 'origin/main\u2019s own about.html through this exact walk and this branch\u2019s beside it: both cover the '
-    + 'same single run, ["TICK","J. Renee Renobato serves as Office Manag",1278,X], with X=1249 on origin/main and '
-    + 'X=1253 here \u2014 this branch\u2019s tick lane is 4px FURTHER from the copy than main\u2019s, and it still '
-    + 'touches. Not introduced here, and not fixable from the rail side.',
-};
+const RAIL_OVERLAP_ON_MAIN = {};
+// IT IS EMPTY, AND THAT IS THE RESULT OF THIS ROUND, NOT A DELETED GUARD. It held one key — `about@1280`, whose
+// team-card bio line box ended at x=1278 in a 1280px viewport, 2px from the edge, so the rail's TICK sat on it
+// whatever the rail did (measured 2026-09-09 against origin/main's own about.html: both covered the same run).
+// The >=1025 gutter moved that copy 280px off the edge and the skin's team-grid reflow stopped the fourth card
+// hanging past it, so nothing spends the key any more and an allowance nothing spends is a hole nothing guards —
+// the same rule that fails an unspent HIDDEN_ON_LIVE key below. The mechanism stays armed at zero keys: a new
+// overlap that origin/main also produces has to be measured on BOTH trees and named here before it passes.
 
 const args = process.argv.slice(2);
 const argOf = (name, dflt) => { const i = args.indexOf(name); return i < 0 ? dflt : args[i + 1]; };
@@ -390,7 +403,8 @@ async function standingOverlap(page) {
   await page.waitForTimeout(420);
   const H = await page.evaluate(() => document.body.scrollHeight);
   const step = await page.evaluate(() => Math.round(innerHeight * 0.75));
-  let standing = 0, covered = 0, first = null;
+  let standing = 0, labelled = 0, opaque = 1e9, covered = 0, first = null;
+  let railGap = null, railW = 0, gutter = 1e9, overflow = 0;
   let hudCovered = 0, hudFirst = null, hudStops = 0, hudShown = 0;
   await page.evaluate(() => { document.documentElement.style.scrollBehavior = 'auto'; });
   for (let y = 0; y < H; y += step) {
@@ -409,6 +423,12 @@ async function standingOverlap(page) {
     await markInvisible(page);
     const r = await standingStop(page);
     standing = Math.max(standing, r.standing);
+    labelled = Math.max(labelled, r.labelled);
+    opaque = Math.min(opaque, r.opaque);
+    if (railGap === null) railGap = r.railGap;
+    railW = Math.max(railW, r.railW);
+    if (r.gutter !== null) gutter = Math.min(gutter, r.gutter);
+    overflow = Math.max(overflow, r.overflow);
     covered += r.covered;
     if (r.first && !first) first = r.first;
     hudCovered += r.hudCovered;
@@ -417,7 +437,8 @@ async function standingOverlap(page) {
     if (r.hudFirst && !hudFirst) hudFirst = r.hudFirst;
   }
   await page.evaluate(() => window.scrollTo(0, 0));
-  return { standing, covered, first, hudCovered, hudFirst, hudStops, hudShown };
+  return { standing, labelled, opaque: opaque === 1e9 ? 0 : opaque, covered, first, railGap, railW,
+    gutter: gutter === 1e9 ? null : gutter, overflow, hudCovered, hudFirst, hudStops, hudShown };
 }
 
 /** One stop of the walk: the boxes the rail's and the HUD's own visible parts occupy against every visible text run.
@@ -444,13 +465,22 @@ async function standingStop(page) {
     // the tick — read off the computed max-width the number is clamped to.
     const rail = document.querySelector('.agx-rail');
     const ink = [];
-    let standing = 0;
+    let standing = 0, labelled = 0, opaque = 0;
     for (const a of document.querySelectorAll('a.agx-rail-link')) {
       const lb = a.getBoundingClientRect();
       const s = a.querySelector('span');
       if (s && (s.textContent || '').trim()) {
+        // THE DELIVERABLE ITSELF, MEASURED AT REST: a label that is present in the markup and computes width 0 /
+        // opacity 0 is what r4-r6 shipped and reported as a rail. `labelled` is what the page carries, `standing`
+        // is what has a box, `opaque` is what a reader can actually read — the number's ::before opacity counted
+        // with the label's, because "01 ·" at opacity 0 is half a MAST label.
+        labelled++;
         const sr = s.getBoundingClientRect();
-        if (sr.width > 0) { ink.push(sr); standing++; }
+        if (sr.width > 0) {
+          ink.push(sr); standing++;
+          if (parseFloat(getComputedStyle(s).opacity) >= 0.99
+            && parseFloat(getComputedStyle(a, '::before').opacity) >= 0.99) opaque++;
+        }
       }
       const num = parseFloat(getComputedStyle(a, '::before').maxWidth);
       if (num > 0) ink.push({ left: lb.left, right: lb.right, top: lb.top, bottom: lb.bottom });
@@ -514,8 +544,17 @@ async function standingStop(page) {
         }
       }
     }
+    // The gutter that buys the standing labels, read off the live sections themselves, and the overflow it must
+    // not create. `railGap` is viewport minus the rail's right edge: 24px is the 1.5rem MAST and the live bar
+    // both use, and it is asserted rather than described.
+    const rb = rail ? rail.getBoundingClientRect() : null;
+    const railGap = rb ? Math.round(innerWidth - rb.right) : null;
+    const railW = rb ? Math.round(rb.width) : 0;
+    const pads = [...document.querySelectorAll('.agx-ch > *')].map((e) => parseFloat(getComputedStyle(e).paddingRight));
+    const overflow = document.documentElement.scrollWidth - document.documentElement.clientWidth;
     kill.remove();
-    return { standing, covered, first, hudCovered, hudFirst, hudShown };
+    return { standing, labelled, opaque, covered, first, hudCovered, hudFirst, hudShown,
+      railGap, railW, gutter: pads.length ? Math.min(...pads) : null, overflow };
   });
 }
 
@@ -643,11 +682,13 @@ async function main() {
   let maxScroll = 0, maxScrollText = '', minGap = 1e9, noEllipsis = 0, overlap1440 = 0, maxOverlap = 0;
   const STANDING_WIDTHS = [1800, 1440, 1280, 1025];
   const standing = Object.fromEntries(STANDING_WIDTHS.map((w) =>
-    [w, { standing: 0, covered: 0, hudCovered: 0, hudStops: 0, hudShown: 0 }]));
+    [w, { standing: 0, labelled: 0, opaque: 0, covered: 0, hudCovered: 0, hudStops: 0, hudShown: 0,
+      gutter: 1e9, railGap: null, overflow: 0 }]));
   let iconTotal = 0, iconDrawn = 0, iconLeft = 0, iconBad = 0;
   const iconKept = [];
   let hoverRows = 0, hoverOK = 0, hoverBad = 0, hoverSample = '';
   const railSpends = [];
+  const phoneRows = [];
   let headMin = 1e9, headMax = -1e9;
   // Every HIDDEN_ON_LIVE spend, keyed by (slug, unit), so the summary shows exactly which page spent which key.
   const hiddenSpends = [];
@@ -681,6 +722,26 @@ async function main() {
         for (const u of await renderedUnits(page)) seen.add(u);   // and the page behind it, menus open
         if (SHOTS) {
           await page.screenshot({ path: path.join(SHOTS, `${slug}-${vp.width}x${vp.height}.png`) });
+        }
+        if (!wide) {
+          // THE PHONE DID NOT PAY FOR THE SIDEBAR. The >=1025 gutter is what makes the standing labels possible
+          // and it is exactly the thing that would wreck a 390px column, so the phone is measured for its
+          // ABSENCE: the rail computes display:none (as MAST's does at 390), no live section carries the desktop
+          // gutter, and the page does not scroll sideways. The largest section padding-right actually measured is
+          // printed, so "no gutter on phones" is a number and not a promise.
+          const ph = await page.evaluate(() => {
+            const rail = document.querySelector('.agx-rail');
+            const pads = [...document.querySelectorAll('.agx-ch > *')].map((e) => parseFloat(getComputedStyle(e).paddingRight));
+            return { display: rail ? getComputedStyle(rail).display : 'none',
+              pad: pads.length ? Math.max(...pads) : 0,
+              overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+          });
+          phoneRows.push(`${slug} rail ${ph.display}, widest section padding-right ${ph.pad}px, overflow ${ph.overflow}px`);
+          if (ph.display !== 'none' || ph.pad >= 280 || ph.overflow > 0) {
+            bad++;
+            console.log(`    THE PHONE PAID FOR THE SIDEBAR on ${slug} at 390: rail display ${ph.display}, `
+              + `widest section padding-right ${ph.pad}px (the >=1025 gutter is 280px), horizontal overflow ${ph.overflow}px`);
+          }
         }
         if (wide) {
           await markInvisible(page);
@@ -804,10 +865,31 @@ async function main() {
           await page.waitForTimeout(360);
           const st = await standingOverlap(page);
           standing[w].standing += st.standing;
+          standing[w].labelled += st.labelled;
+          standing[w].opaque += st.opaque;
+          standing[w].gutter = Math.min(standing[w].gutter, st.gutter === null ? 1e9 : st.gutter);
+          standing[w].railGap = st.railGap;
+          standing[w].overflow = Math.max(standing[w].overflow, st.overflow);
           standing[w].covered += st.covered;
           standing[w].hudCovered += st.hudCovered;
           standing[w].hudStops += st.hudStops;
           standing[w].hudShown += st.hudShown;
+          // DELIVERABLE A, ASSERTED WHERE IT WAS ONLY EVER DESCRIBED. Brockmann asked for MAST's standing
+          // sidebar on 2026-09-09 and three rounds shipped labels that computed max-width 0px / opacity 0 and
+          // were revealed by :hover — present in the markup, invisible on the page, and nothing here failed,
+          // because this walk only ever counted what the labels COVERED. It counts what they ARE now: every
+          // label a page carries must have a box and be opaque AT REST, the rail must sit 24px (1.5rem) off the
+          // right edge like MAST's and like the live bar's own controls, and the gutter on the live sections
+          // must clear the rail's own measured width. No constant is restated here — railW and railGap are read
+          // off the rendered page, so a rail that grows past its gutter fails instead of overprinting copy.
+          if (st.standing !== st.labelled || st.opaque !== st.labelled || st.railGap !== 24
+            || !(st.gutter >= st.railW + st.railGap) || st.overflow > 0) {
+            bad++;
+            console.log(`    THE STANDING RAIL IS NOT STANDING on ${slug} at ${w}: ${st.labelled} labelled link(s), `
+              + `${st.standing} with a box at rest, ${st.opaque} opaque at rest; rail ${st.railGap}px off the right `
+              + `edge (want 24), rail ${st.railW}px wide inside a ${st.gutter}px section gutter, horizontal `
+              + `overflow ${st.overflow}px`);
+          }
           if (st.hudCovered) {
             bad++;
             console.log(`    THE HUD COVERS LIVE TEXT on ${slug} at ${w}: ${st.hudCovered} run(s) over the walk; `
@@ -858,9 +940,14 @@ async function main() {
     + `still rendering ANYWHERE inside .agx-content against ${pages.reduce((a, s2) => a + (keepGlyphs[s2] || []).length, 0)} `
     + `ICON_KEEP declares, ${iconBad} page(s) with a delta`);
   if (iconKept.length) console.log(`         the emoji ICON_KEEP declares, as rendered: ${iconKept.join(', ')}`);
-  console.log(`         rail links ${sum.labels + sum.ticks} a page-set, ${sum.labels} carrying a label and ${sum.ticks} label-less ticks; the chapter number and the label both come on hover as NN \u00b7 LABEL (measured: anything standing covers live copy \u2014 see check 7); hovered at 1440 and at 1800: clipped ${sum.clipped1440} at 1440, ${sum.clipped1800} at 1800`);
+  console.log(`         rail links ${sum.labels + sum.ticks} a page-set, ${sum.labels} carrying a label and ${sum.ticks} label-less ticks; every one of them STANDS as NN \u00b7 LABEL at rest at >=1025 (check 7 asserts a box and opacity 1 per label, per width, with no pointer on the page); hovering one opens it past its 9.5rem standing clamp: clipped ${sum.clipped1440} at 1440, ${sum.clipped1800} at 1800`);
   console.log(`         live text runs the UNHOVERED rail covers, walked at 0.75 viewport steps: `
     + STANDING_WIDTHS.map((w) => `${w}px ${standing[w].covered} (${standing[w].standing} standing label(s))`).join(', '));
+  console.log(`         DELIVERABLE A at rest, per width: `
+    + STANDING_WIDTHS.map((w) => `${w}px ${standing[w].opaque}/${standing[w].labelled} labels with a box AND opacity 1`
+      + `, rail ${standing[w].railGap}px off the right edge, section gutter ${standing[w].gutter === 1e9 ? 'n/a' : standing[w].gutter}px`
+      + `, overflow ${standing[w].overflow}px`).join('; '));
+  console.log(`         the phone did not pay for it (390x844): ${phoneRows.join(' | ')}`);
   console.log(`         card hovers driven at 1440: ${hoverRows} (one per skinned class per page), ${hoverOK} `
     + `measuring dy -6px +-0.75 and a 0.45s transition with no rgb(201,168,76) in the computed box-shadow, `
     + `${hoverBad} with a delta${hoverSample ? '; e.g. ' + hoverSample : ''}`);

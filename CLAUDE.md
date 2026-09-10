@@ -293,7 +293,7 @@ units are carried as TEXT and compared both ways; the other 82 are the emoji-as-
 training 12 · technology 0 · cuas-aerodefense 8 · uas 0 · about 0 · careers 0 · contact 1 · ep-app 34). They are
 **withheld from the live side BY POSITION** — every leaf `<span>`/`<div>` inside `.agx-content` whose whole content
 is emoji, **class or no class** — and the build is asserted to stand one `<svg class="agx-icon">` in each place, in
-order, with the emoji still standing anywhere inside `.agx-content` equal to the eleven `ICON_KEEP` declares.
+order, with the emoji still standing anywhere inside `.agx-content` equal to what `ICON_KEEP` declares.
 **Never write "2019/2019 carried": 82 of them are not carried as text.** The line to write is `1937/1937 body units
 carried + 82 icon glyphs swapped = 2019/2019 live units accounted`, which is what the sheet and stdout both print.
 **The 70/1949 split published here on 2026-09-09 was the CLASS-KEYED count** and it is superseded: twelve more
@@ -332,7 +332,7 @@ the presentation half, and it changes **nothing** inside a chapter.
   against the live capture and got EQUAL on 12/12), **no gold literal and no `--gold`** (gold is MAST's; the inverse
   is not true and is not "fixed" — eleven live pages border their own cards in `rgba(201,168,76,.6)` and that is
   the live design, carried), and the card hover is **read out of `cinematic_shell.py:132-133` at build time** by
-  `assert_shared_hover()` rather than re-typed. `validate-live.py` check 3 then measures it in a browser: **137 skin
+  `assert_shared_hover()` rather than re-typed. `validate-live.py` check 3 then measures it in a browser: **138 skin
   selectors and 56 cinema selectors, 0 reaching the chrome, 0 spent by no page** (measured 2026-09-10 across the
   twelve; **this is the ONE place in this file those two counts are written**, because two copies of a number that
   moves with every sheet edit is how 104/55 shipped here on 2026-09-09 against a tree measuring 134/56). Two names an
@@ -482,65 +482,92 @@ the presentation half, and it changes **nothing** inside a chapter.
   `mastsolutions.html`, and 0 elements with an id or class containing "sound" render at either width. There is nothing
   of MAST's to add or to have declined to add; the build reproduces the LIVE site's toggle footprint, 5 of 12 pages,
   and **whether any of those five films carries audio is UNVERIFIABLE FROM HERE** (no egress).
-- **The rail — DELIVERABLE A IS NOT DELIVERED. The labels are hover-only, identical to origin/main.** He asked for
-  MAST's standing sidebar on 2026-09-09 17:12, it was built, and the measurement says it cannot stand over this
-  content without a right gutter on `.agx-content` — **one PENDING question, his, and nothing else blocks it.**
-  Do not read the paragraphs below as a shipped rail; they are the measurement that says why it is not one.** His words, looking at the ep-app preview: *"Menu should be like the
-  mastsolutions menu side bar?  Add more of the teslas style"* — the one-word reversal this file reserved to him
-  of the paragraph that stood here, which read **"THE 1025–1699 px DIVERGENCE FROM MAST IS THE ACCEPTED DEVIATION,
-  not an oversight and not a defect to re-open"**. It was re-opened. The standing rail was implemented, driven in
-  Chromium, **looked at in a screenshot**, and the screenshot is what killed it: on executive-protection the
-  standing labels `01 · DETAILS MATTER` and `03 · OUR SERVICES` sat straight across the "Body Man Duties" card's
-  body copy, and on ep-app `06 · EVERY TIER GETS EVERY TOOL` sat across the ENCRYPTED COMMS card.
-  **Walked down all twelve pages at 1440×900 in 0.75-viewport steps, one line box at a time** (never the range's
-  union box, which spans the whole column and is why an earlier count read high) **and counting only text a reader
-  can see** (the dismissed splash is `visibility:hidden`, not `display:none`, so its boxes are real and had to be
-  excluded — `render-audit.markInvisible()`):
+- **The rail — DELIVERABLE A IS DELIVERED. The labels STAND at ≥1025, and the gutter that pays for them is on the
+  live sections, MAST-style.** His words, looking at the ep-app preview on 2026-09-09 17:12: *"Menu should be like
+  the mastsolutions menu side bar?  Add more of the teslas style"*. **Three rounds (r4, r5, r6) built it, measured
+  it, declared it undeliverable without his answer on a gutter, and carried it as PENDING — a question that was
+  never actually put to him.** ATLAS decided it on 2026-09-10 instead, on the grounds that *"like the MAST sidebar"*
+  already contains the answer: MAST buys its standing rail with `section.panel { padding-right:16.5rem }`
+  (`cinematic_shell.py:229`), so a standing rail and an untouched full-width column were never both available, and
+  he asked for the rail.
+  **WHAT SHIPS, written as a behaviour:** rail `display:none` ≤768 · ticks only 769–1024, no gutter · from 1025
+  every link stands as `NN · LABEL` — chapter number and label both at `opacity:1` with a real `max-width`, no
+  pointer required — at `right:1.5rem`, which is MAST's own inset and the live bar's own right inset (its
+  right-most control ends at viewport−24 px at both 1440 and 1280). The reading position is the blue label plus a
+  30 px tick. **The label clamp at rest is `9.5rem` with `text-overflow:ellipsis`; hovering one link opens it to
+  the full `20.5rem`** — so the rail fits its lane and a long chapter title is still readable on demand.
+  **THE GUTTER, AND WHERE IT IS:** `@media (min-width:1025px) { .agx-ch > * { padding-right:17.5rem !important } }`
+  — the live SECTION, which is what MAST pads, not the `.agx-content` wrapper. It was built on the wrapper first
+  and **the screenshot killed that version**: the live sections carry their own opaque backgrounds, so padding the
+  wrapper stopped every section's background at x=1160 in a 1440 viewport and lit a vertical seam down the rail
+  lane. `17.5rem` and not MAST's `16.5rem` because the rail's own parts add up to **279.4 px** (1.5rem offset +
+  .4rem padding + 3.6rem number clamp + .5rem gap + 9.5rem label + .5rem gap + 17 px tick + .4rem padding), and
+  `atlas_shell.assert_rail_gutter()` **fails the build** if that sum ever exceeds the gutter — three negatives
+  fire-observed 2026-09-10, each by editing the sheet and running `assemble-atlas.py --publish`: a `12rem` label
+  clamp → *"the 17.5rem gutter does not clear the rail: 295.4px of rail + 24px offset = 319.4px"*; the standing
+  label put back to `opacity:0` (the r4–r6 shape) → *"the standing label is not opaque at rest"*; the footer gutter
+  cut to `10rem` → *"the footer gutter is 160px and the section gutter is 280px"*. The positive returns
+  `(280.0, 279.4)`. **The first version of this guard was UNARMED and the negatives are how that was found**: the
+  call had been appended AFTER `return css` in `cinema_css()`, so all three edits built green. Dead code below a
+  return is a guard that exists and never runs — the reason a guard is not "wired" until it has been made to FAIL
+  on purpose.
+  **THREE THINGS THE GUTTER BROKE, ALL FOUND BY MEASUREMENT AND ALL FIXED — none of them by a widened assert:**
+  (1) **Two inline styles beat the sheet.** `index.html:901 <section class="section" id="app" style="…
+  padding-right: 2rem">` and technology's `id="cuas"` computed 32 px while the other eight sections on the page
+  computed 280 px, and the rail printed across their copy. `!important` is taken for exactly that reason and
+  nothing else — the same grounds on which the skin takes it against the live tilt script. Grepped across the
+  twelve: those two sections are the only inline `padding-right`/`padding:` on a `<section>`.
+  (2) **about's team grid could not shrink.** The live rule is `repeat(4, 1fr)` (`about.html:108`) and a `1fr`
+  track cannot go below min-content — here the live `.team-card img { width:240px }` plus 1.5rem of card padding =
+  288 px, so four tracks plus three 2.5rem gaps need 1272 px and the gutter leaves 1088. The fourth card hung
+  192 px into the rail lane. The skin (the one sheet allowed to reach content) reflows it to
+  `repeat(auto-fit, minmax(288px, 1fr))` above 1025 — three cards at 1440/1280, two at 1025. **Walked all twelve
+  pages at 1440/1280/1025 for content crossing its own section's content edge: this grid is the only one.**
+  (3) **The footer is chrome, so the gutter could not reach it** — and the rail is fixed to the middle of the
+  VIEWPORT, so at the foot of every page its labels stood over the footer columns ("2450 Fondren Rd, Suite 255" on
+  executive-protection at 1440; the "Connect" heading at 1025). `CLASSIC_CSS` now cuts `.site-footer` the same
+  17.5rem above 1025, and `assert_rail_gutter()` asserts the two sheets carry the SAME number rather than
+  describing them as equal. MAST never had this to solve: it has no footer, its last panel is the contact panel.
+  **THE MEASUREMENT, before and after** — `render-audit.mjs` check 7, 0.75-viewport walk down all twelve pages,
+  one line box at a time (never the range's union box), counting only text a reader can see:
 
   | rail form | live text runs covered at 1440 |
   |---|---|
-  | every label standing, 20.5 rem | **92** |
-  | every label standing, 9 rem | **74** |
-  | numbered tick, no label | **12** |
-  | tick alone at `right:1.5rem` | **3** (technology 2, cuas-aerodefense 1) |
-  | tick alone at `right:.45rem` | **0** ← what ships |
+  | every label standing, 20.5 rem, no gutter | **92** |
+  | every label standing, 9 rem, no gutter | **74** |
+  | numbered tick, no label, no gutter | **12** |
+  | tick alone at `right:1.5rem`, no gutter | **3** |
+  | hover-only labels at `right:.45rem` (r4–r6) | **0** — and an invisible rail measures 0 too |
+  | **every label standing, 9.5 rem, 17.5 rem gutter** | **0** ← what ships |
 
-  **A SCROLL-0 MEASUREMENT RETURNS 0 FOR ALL FIVE.** The hero band is empty on the right; the grids below it are
-  not. Every earlier "0 covered" figure in this file — including the one under the clamp bullet — was taken at
-  scroll 0 with one label hovered, and it was true of that state and of nothing else.
-  **Why it cannot be fixed inside this build:** MAST cuts itself `section.panel { padding-right:16.5rem }`. An
-  Atlas page's sections are the LIVE page's own centred 1400 px blocks, and the live copy runs out to the rail —
-  index's *"Evil twin WiFi detection…"* ends at x=1378 in a 1440 px viewport, technology's *"Atlas Glinn, in
-  partnership with AeroDef…"* at 1403, about's team bio at 1278 in a 1280 px viewport. **The only way to give him
-  the standing sidebar is a right gutter on `.agx-content`, which shifts the live layout — that is his call and it
-  is a PENDING item, not something this build decides.**
-  **What DID ship, and it is not nothing:** the rail is MAST's in proportion, type and behaviour, repainted in the
-  Atlas blue by the palette repair above — which is what made the active tick visible at all on eleven pages — and
-  the chapter NUMBER now rides with the label on hover as `01 · LABEL`, drawn by a CSS counter. **The behaviour,
-  written as a behaviour: rail hidden ≤768 · ticks 769–1024 · ticks with `NN · LABEL` on hover from 1025, the
-  reading position marked by colour and a longer tick.** MAST for comparison: `display:none` at 390; ticks,
-  0 labelled, at 900 and 1024; 13/13 labelled at 1440 and 1800.
-  **TWO THINGS ORIGIN/MAIN DID THAT THIS DROPS, both for the same measured reason.** (1) `@media (min-width:1700px)
-  { .agx-rail-link.agx-active span { max-width:20.5rem; opacity:1 } }` stood the reading position's label
-  permanently; walked at 1800×1000, uas's *"From launch to landing, The Bee operates…"* has a line box ending at
-  x=1525 and that label's left edge lands on 1525. It had never been measured this way — the only overlap figure
-  this rail ever carried was one hovered label at scroll 0. **No label stands at any width now.** (2) The active
-  tick widened from 17 px to 30 px at every width; at 1025 that put the dash's left edge at 981.6 against uas's
-  *"$4–7/hour"* ending at 993 — eleven pixels of dash over the number — so between 1025 and 1439 the active tick
-  keeps 17 px and marks itself with colour and glow, and the link's right padding drops to `.2rem`, putting the
-  lane at 997.6.
+  **A SCROLL-0 MEASUREMENT RETURNS 0 FOR ALL OF THEM**, which is the trap this table exists to stop: the hero band
+  is empty on the right and the grids below it are not.
+  **THE GATE IS NOW TWO-SIDED, AND THAT IS THE REAL LESSON OF r4–r6.** Check 7 only ever counted what the labels
+  COVERED, so a rail whose every label computed `max-width:0px; opacity:0` passed it three times — zero covered is
+  what an invisible rail measures. The same walk now also counts what the labels ARE: per width, **every label a
+  page carries must have a box AND compute opacity 1 with no pointer on the page**, the rail must sit 24 px off the
+  right edge, and the section gutter must be at least the rail's own measured width plus that offset — no constant
+  is restated in the test, both are read off the rendered page. The 390×844 pass asserts the OPPOSITE for the
+  phone: rail `display:none`, no section carrying the desktop gutter, no horizontal overflow. Fire-observed
+  2026-09-10 on a real defect: `THE STANDING RAIL IS NOT STANDING on index at 1440: 5 labelled link(s), 5 with a
+  box at rest, 5 opaque at rest; rail 24px off the right edge (want 24), rail 238px wide inside a 32px section
+  gutter` — the inline-style miss in (1), caught by the test rather than by a screenshot.
+  **`RAIL_OVERLAP_ON_MAIN` IS NOW EMPTY, AND THAT IS A RESULT, NOT A DELETED GUARD.** Its one key, `about@1280`,
+  excused the team-card bio line box that ended 2 px from the viewport edge on origin/main too. The gutter moved
+  that copy 280 px inboard and the grid reflow stopped the fourth card hanging past it, so nothing spends the key —
+  and an allowance nothing spends is a hole nothing guards, the same rule that fails an unspent `HIDDEN_ON_LIVE`
+  key. The mechanism stays armed at zero keys.
   **THE NUMBER IS A CSS COUNTER, NOT A TEXT NODE** — `counter-increment` plus `counter(agx-ch,
   decimal-leading-zero)` in `::before`. Printing `01 · LABEL` as markup would add a text unit no live page carries
   AND break the rail-label excuse in `compare-atlas.rail_anchors()`, which excuses a label only where
   `clean(anchor text)` **equals** a heading of the chapter it points at — on all 77 labelled anchors at once.
   Generated content is not in the DOM text stream, so text parity is unchanged and render-audit's TreeWalker never
   sees it. Same reasoning for the HUD, below.
-  **`render-audit.mjs` check 7 is the standing gate and it is armed**: it walks 1025 / 1280 / 1440 / 1800 in
-  0.75-viewport steps on every run and fails on any covered run. **One run is allowed BY NAME** —
-  `RAIL_OVERLAP_ON_MAIN['about@1280']`, about's team-card bio line box ending at 1278 against a tick lane at 1249
-  — and it is allowed only because **origin/main's own about.html was driven through the same walk and produced
-  the identical single run**, `["TICK","J. Reneé Renobato serves as Office Manag",1278,1249]`. Unspent keys are
-  printed, because an allowance nothing uses is a hole nothing guards.
+  **WHAT IT COST HIS LAYOUT, stated plainly:** every live section is 280 px narrower above 1025 and its centred
+  content moves left with it; about's team row goes from four cards to three (two at 1025); the footer columns move
+  left by the same 280 px. Nothing else changes — **no copy, no type scale** (`validate-live.py` check 4 still
+  reports the build's `(tag, font-size, font-family, line-height)` sequence EQUAL to the live capture's on 12/12
+  pages), and below 1025 the live layout is untouched.
 - **The rail label clamp is still the measured maximum (R4-9, unchanged).** The page-set carries **79 rail links:
   77 with a label and 2 label-less ticks** (executive-protection ch2 and ep-app ch2, whose chapters carry no
   heading — their `<span>` is present but empty, which is why the test skips on the label TEXT and not on the
@@ -604,9 +631,17 @@ the presentation half, and it changes **nothing** inside a chapter.
   viewport and a card boundary lands either side of a corner depending on where a reveal has settled. Unlike the
   rail-label clip count, this one is NOT a probe defect: the gate genuinely re-decides per frame, and the spread is
   the measurement's own resolution. The rail box, by contrast, IS reproducible to the
-  pixel now (`validate-live.py` freezes transitions for the read; three consecutive `--only index` runs printed
-  `.agx-rail [1372,1433,368,532]` at 1440 byte for byte). It steps aside for roughly half a scroll walk at the
-  middle widths and stands the rest of the time, which is the trade and it is stated rather than implied.
+  pixel (`validate-live.py` freezes transitions for the read; with the standing labels it prints
+  `.agx-rail [1188,1416,368,532]` at 1440 on index, measured 2026-09-10 — it read `[1372,1433,368,532]` while the
+  labels were hover-only, and that number is superseded, not wrong-then). It steps aside for roughly half a scroll
+  walk at the middle widths and stands the rest of the time, which is the trade and it is stated rather than
+  implied. **SAY IT IN THE DELIVERABLE LINE, NOT ONLY IN THE AGGREGATE:** on the pages whose live full-bleed
+  content sits under the bottom-right corner, `SECTION NN / NN` is CLEARED at most desktop scroll positions, so a
+  reader can go a long way without seeing it. That is the gate working as designed and it is accepted as it
+  stands. If it should be reliably legible, the two cheap moves — both measurable with this same corner-stop walk —
+  are lifting `.agx-hud-br` out of the band (`bottom` 1.15rem → ~3.5rem) or giving the corner its own scrim
+  instead of clearing it. **Neither is taken here**; the ask was the standing rail, and the HUD counter is correct,
+  asserted by `validate-live.py` check 5, and covers zero text runs at every width.
   **Compare like with like on the count:** MAST's rail is **13 `.chap-link` plus 2 `.chap-extra`** — `· Blogs`
   (`preview-only`) and `· Sign in` (`chap-always`). Its container is `display:none` at **≤899**
   (`mastsolutions.html:618`, which supersedes the ≤768 rule at :580); the 13 `.chap-link` are `font-size:0` from
@@ -647,20 +682,25 @@ measurement that produced it:
 **THE BROWSER PASS IS A TRACKED SCRIPT NOW: `scripts/render-audit.mjs` (2026-09-09).** Every rendering claim above
 was one session's terminal scrollback and could not be re-run by the next one. It serves the repo with
 `python3 -m http.server` on 127.0.0.1 (≥8900, killed on the way out), drives Chromium through Playwright over
-**12 pages × 1440×900 + 390×844, plus 1800×1000 for the rail = 36 runs**, and exits non-zero on any of four
-assertions: rendered visibility, rail-label clipping, the reveal walk, and page/same-origin-request errors.
+**12 pages × 1440×900 + 390×844, plus 1800×1000 for the rail = 36 runs**, and exits non-zero on any assertion in
+its header block — rendered visibility, rail-label clipping, the STANDING rail (check 7's second half, added
+2026-09-10), the rail/HUD overlap walk, the reveal walk, icon swaps, card hovers, and page/same-origin-request
+errors.
 `node scripts/render-audit.mjs --shots <dir>`.
 
 - **RENDERED VISIBILITY (R4-6).** `compare-atlas.py` proves every live text unit is PRESENT in the markup; presence
   is not visibility. Every live text unit must have a **non-zero box at 1440×900 or at 390×844**, with the bar
   dropdown and the mobile menu open — the two widths together, because the dropdown is `display:none` at 390 and the
   mobile menu is `display:none` at 1440. The units come from `compare-atlas.py --units`, the same extractor the
-  parity sheet reads, so the two passes cannot drift. Measured: **2019 live text units, 2019 rendered, 0 with no box
-  on 12/12 pages.** `HIDDEN_ON_LIVE` is the named list of units allowed to render nowhere and **it is not empty**:
-  six keys covering the seven units that render no box anywhere, **every one of them form-success text that is
-  `display:none` until the form is submitted** — index `#cap-success`, contact `#contact-success`, ep-app
-  `#form-success` — and in each case the live capture carries the same element with the same rule, byte for byte,
-  so the live site hides it too. That evidence is the bar for being on the list.
+  parity sheet reads, so the two passes cannot drift. Measured, and written in the mandated form because the short
+  form is what drifted twice: **1937 live text units rendered + 82 icon glyphs swapped = 2019 accounted, 0 with no
+  box on 12/12 pages.** `HIDDEN_ON_LIVE` is the named list of units allowed to render nowhere and **it is not
+  empty**: five keys, **every one of them form-success text that is `display:none` until the form is submitted** —
+  index `#cap-success`, contact `#contact-success`, ep-app `#form-success` — and in each case the live capture
+  carries the same element with the same rule, byte for byte, so the live site hides it too. That evidence is the
+  bar for being on the list. **The numbers in this bullet are the ones `render-audit.mjs` prints on its SUMMARY
+  line; read them off a run rather than retyping them, which is how "2019 rendered" survived two commits after the
+  swap made it 1937.**
 - **Two measurement bugs were found by the test itself and are written into it**, because either one silently
   produces a confident wrong number. (1) `elementHandle.hover()` after the pointer has touched anything else leaves
   Chromium's hover state stale: `a.agx-rail-link:hover` matched the right anchor while its span still computed

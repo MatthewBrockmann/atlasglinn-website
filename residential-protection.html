@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="44fc1c0a3b9f">
+<meta name="build" content="66bd8c41df20">
 <title>Residential Protection Houston TX | Atlas Glinn</title>
 <meta name="description" content="Unmatched residential security for your home. 24/7 trained guards, AI surveillance, and round-the-clock protection for your family and assets. Houston, TX.">
 <meta property="og:title" content="Residential Protection | Atlas Glinn">
@@ -301,6 +301,7 @@
 #skip-intro { right:40px; bottom:40px; }}
 body.intro-open { overflow:hidden; }
 .site-footer { position:relative; z-index:5; background:linear-gradient(180deg, rgba(5,8,16,.72) 0%, rgba(5,8,16,.96) 100%); border-top:1px solid rgba(26,107,222,.2); backdrop-filter:blur(10px); padding:3rem 1.2rem 2rem; }
+@media (min-width:1025px) {.site-footer { padding-right:17.5rem; }}
 .footer-container { max-width:1400px; margin:0 auto; }
 .footer-awards { display:flex; align-items:center; justify-content:center; gap:2.5rem; flex-wrap:wrap; padding-bottom:2.2rem; border-bottom:1px solid rgba(26,107,222,.15); margin-bottom:2.4rem; }
 .footer-awards .badge-item { text-align:center; }
@@ -372,17 +373,24 @@ body.intro-open { overflow:hidden; }
   html.agx-motion .agx-ch { opacity:0; transform:translateY(26px); transition:opacity 1s cubic-bezier(.25,.6,.25,1), transform 1s cubic-bezier(.25,.6,.25,1); }
   html.agx-motion .agx-ch.agx-in { opacity:1; transform:translateY(0); }
   html.agx-motion { scroll-behavior:smooth; }
-  /* ── Chapter rail: MAST's, with its numbered labels standing. A <div>, never a <nav> — the live stylesheet styles
-     a bare `nav` and would fix it to the top and slide it away.
+  /* ── Chapter rail: MAST's, WITH ITS NUMBERED LABELS STANDING, and the right gutter that buys them ──
+     Brockmann, 2026-09-09 17:12: "Menu should be like the mastsolutions menu side bar?" MAST paints
+     "01 · OPENING" … "13 · CONTACT" at rest, and it pays for them with `section.panel { padding-right:16.5rem }`
+     (cinematic_shell.py:229, read this turn). r4-r6 built the labels, measured what they cost over live copy, and shipped them
+     hover-only rather than take the gutter — three rounds of "his call, not this build's" on a question nobody
+     asked him. THE GUTTER IS TAKEN NOW, on ATLAS's decision 2026-09-10, because "like the MAST sidebar" already
+     contains it: a standing rail and an untouched full-width column cannot both exist, and he asked for the rail.
+     A <div>, never a <nav> — the live stylesheet styles a bare `nav` and would fix it to the top and slide it away.
      right:1.5rem is MAST's own value (cinematic_shell.py:72) AND the live bar's own right inset: measured
      2026-09-09, the bar's right-most control ends at 1416px at 1440 and 1256px at 1280, both exactly viewport-24px,
-     so the rail's right edge lines up with the bar's at every width it shows.
+     so the rail's right edge lines up with the bar's at every width it shows. r4-r6 kept it at .45rem to steal
+     3px of clearance from his copy; with the gutter there is nothing to steal it from.
      THE NUMBER IS A CSS COUNTER, NOT A TEXT NODE. `01 · ` printed as markup would be a text unit no live page
      carries, and it would break the rail-label excuse in compare-atlas.rail_anchors(), which matches
      clean(anchor text) == a heading of the chapter it points at. Generated content is not in the DOM text stream,
      so text parity stays where it was and render-audit's TreeWalker never sees it. decimal-leading-zero gives the
      same two-digit padding assemble-cinematic prints for MAST. */
-  .agx-rail { position:fixed; right:.45rem; top:50%; transform:translateY(-50%); z-index:900; display:none; flex-direction:column; gap:.4rem; align-items:flex-end; font-family:'Inconsolata',monospace; font-size:.6rem; counter-reset:agx-ch; }
+  .agx-rail { position:fixed; right:1.5rem; top:50%; transform:translateY(-50%); z-index:900; display:none; flex-direction:column; gap:.4rem; align-items:flex-end; font-family:'Inconsolata',monospace; font-size:.6rem; counter-reset:agx-ch; }
   .agx-rail-link { counter-increment:agx-ch; display:flex; align-items:center; justify-content:flex-end; gap:.5rem; padding:.32rem .4rem; color:var(--agx-ink); font-weight:700; letter-spacing:.25em; text-transform:uppercase; text-decoration:none; text-shadow:0 1px 10px rgba(0,0,0,.9); border:1px solid transparent; transition:color .3s, border-color .3s, background .3s; }
   .agx-rail-link::before { content:counter(agx-ch, decimal-leading-zero) " ·"; color:var(--agx-dim); flex:none; max-width:0; overflow:hidden; opacity:0; white-space:nowrap; transition:max-width .35s ease, opacity .35s ease; }
   .agx-rail-link span { max-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:0; transition:max-width .35s ease, opacity .35s ease; }
@@ -394,46 +402,58 @@ body.intro-open { overflow:hidden; }
   .agx-rail-link:hover::before { max-width:3.6rem; opacity:1; }
   /* 20.5rem = 328px, the MEASURED maximum + 1px: the widest of the 77 labels of the 79 rail links (2 are label-less
      ticks) is uas ch4's "No Pilot Required. No Gaps in Coverage ." at 327px in Chromium at 1440x900. At 13rem
-     (208px) FOURTEEN of the 77 were cut mid-word with no ellipsis, and `text-overflow` computed `clip` on all 77. */
+     (208px) FOURTEEN of the 77 were cut mid-word with no ellipsis, and `text-overflow` computed `clip` on all 77.
+     IT IS THE HOVER CLAMP, not the standing one: the standing label is cut to 9.5rem below so the whole
+     rail fits the gutter, and hovering one link opens it to its full width the way MAST's never has to. */
   .agx-rail-link:hover span { max-width:20.5rem; opacity:1; }
   .agx-rail-link.agx-active { color:var(--agx-blue-l); }
   .agx-rail-link:hover::after, .agx-rail-link.agx-active::after { width:30px; background:var(--agx-blue); box-shadow:0 0 10px rgba(26,107,222,.6); }
   /* Hidden <=768 and ticks 769-1024: the same behaviour MAST has at those widths (cinematic_shell.py:220-223 /
-     mastsolutions.html:618 — display:none at 390, 0 of 13 labelled at 900 and 1024). Unchanged. */
+     mastsolutions.html:618 — display:none at 390, 0 of 13 labelled at 900 and 1024). Unchanged, AND THE GUTTER
+     DOES NOT REACH THEM: the phone keeps the live layout at its own full width and the 15px body floor with it. */
   @media (min-width:769px) { .agx-rail { display:flex; } }
   @media (min-width:769px) and (max-width:1024px) { .agx-rail { right:.8rem; gap:.35rem; } .agx-rail-link { padding:.3rem .4rem; gap:0; } .agx-rail-link::before { display:none; } .agx-rail-link::after { width:16px; } .agx-rail-link:hover::after, .agx-rail-link.agx-active::after { width:22px; } }
-  /* BROCKMANN ASKED FOR MAST'S ALWAYS-VISIBLE SIDEBAR ON 2026-09-09 17:12 — "Menu should be like the
-     mastsolutions menu side bar?" — which is the one-word reversal CLAUDE.md reserved to him of the 1025-1699
-     tick-only behaviour this file used to record here as "THE ACCEPTED DEVIATION". IT WAS BUILT, MEASURED, AND
-     NOT SHIPPED, and the measurement is the whole reason, so it is written out here rather than summarised.
-     MAST cuts itself `section.panel { padding-right:16.5rem }`. An Atlas page's sections are the LIVE page's own
-     centred 1400px blocks, and the live copy runs right out to the rail: index's "Evil twin WiFi detection…" has
-     a line box ending at x=1378 in a 1440px viewport, technology's "Atlas Glinn, in partnership with AeroDef…"
-     at 1403. Walked down all twelve pages at 1440x900 in 0.75-viewport steps, counting a line box at a time
-     (never the range's union box, which spans the whole column) and only text a reader can see:
-       every label standing at 20.5rem  ->  92 live text runs covered
-       every label standing at 9rem     ->  74
-       the numbered tick, no label      ->  12
-       the tick alone at right:1.5rem   ->   3   (technology 2, cuas-aerodefense 1)
-       the tick alone at right:.45rem   ->   0   <- what ships
-     A SCROLL-0 MEASUREMENT SAYS 0 FOR ALL FIVE, and that is the trap this comment exists to stop: the hero band
-     is empty on the right and the grids below it are not. It is also why the rail keeps its .45rem inset instead
-     of taking the bar's own 1.5rem gutter — aligning with the bar costs three lines of his copy.
-     So: the label AND its number come on hover, one link at a time, which is the only form that covers nothing,
-     and the reading position is marked by colour and by the longer tick instead. THE ONLY WAY TO GIVE HIM THE
-     STANDING SIDEBAR IS A RIGHT GUTTER ON .agx-content, which shifts the live layout — his call, not this
-     build's. render-audit.mjs check 7 walks 1025 / 1280 / 1440 / 1800 the same way on every run. */
-  /* 1025-1439: the ACTIVE tick keeps the idle 17px and marks itself with colour and glow instead of length, and
-     the link's right padding drops to .2rem. Measured at 1025x1000 on uas: the line box "$4\u20137/hour" ends at
-     x=993 and the rail's right edge is 1018, so a 30px active tick behind .4rem of padding puts the dash's
-     left edge at 981.6 — eleven pixels of it over that number. 17px behind .2rem puts it at 997.6. */
-  @media (min-width:1025px) and (max-width:1439px) { .agx-rail-link { padding-right:.2rem; } .agx-rail-link:hover::after, .agx-rail-link.agx-active::after { width:17px; } }
-  /* >=1700 origin/main stood the ACTIVE chapter's label permanently. IT IS DROPPED, and the reason is the same
-     measurement as everything else here: walked at 1800x1000, uas's "From launch to landing, The Bee
-     operates…" has a line box ending at x=1525 and the standing label's left edge lands on 1525. It was never
-     measured this way before — the only overlap figure this rail ever had was one hovered label at scroll 0.
-     No label stands at any width now; the reading position is marked by colour and by the longer tick. */
-  @media (min-width:1700px) { .agx-rail { right:1.4rem; } }
+  /* ── >=1025: THE STANDING SIDEBAR AND ITS GUTTER, one media block so the two can never be shipped apart ──
+     THE GUTTER IS ON `.agx-ch > *`, WHICH IS WHERE MAST PUTS ITS OWN (`section.panel`, cinematic_shell.py:229) and
+     it is the one cinema selector already declared as reaching a live element (validate-live.py check 2's
+     CINEMA_CONTENT_OK, the rule that sets width:100% so the live `margin:0 auto` centring survives). It was built
+     on `.agx-content` first — the wrapper — and the screenshot killed it: the live sections carry their OWN opaque
+     backgrounds, so padding the wrapper stopped every section's background at x=1160 in a 1440 viewport and left a
+     lit vertical seam down the rail lane where the backdrop photograph showed through (measured on ep-app ch4 at
+     1440, scrollY 3159). Padding the SECTION moves its copy and keeps its background full-bleed, so the rail sits
+     over the page's own surface exactly as MAST's does. `box-sizing:border-box` is the live pages' own first rule
+     (index.html:22 `* { margin:0; padding:0; box-sizing:border-box }`), so `width:100%` plus this padding is still
+     100% and there is no horizontal overflow at any width — asserted, not assumed, by render-audit check 7's
+     gutter row.
+     `!important` IS TAKEN HERE AND THE REASON IS AN INLINE STYLE, WHICH IS THE ONLY THING IT IS EVER TAKEN FOR IN
+     THIS BUILD (the skin takes it on the same grounds against the live tilt script). Two of the twelve pages carry
+     a `padding-right` inside a live section's own `style=` attribute — index.html:901 `<section class="section"
+     id="app" style="…padding-right: 2rem">` and technology.html's `id="cuas"` — and an inline declaration beats
+     any stylesheet rule at any specificity. Measured without it: those two sections computed padding-right 32px
+     while the other eight on the page computed 280px, and render-audit's own gutter row failed the run with
+     `rail 238px wide inside a 32px section gutter` on index at all four widths. Grepped across the twelve pages,
+     `<section … style="… padding-right|padding:">` returns exactly those two.
+     THE FOOTER TAKES THE SAME GUTTER, IN CLASSIC_CSS, AND assert_rail_gutter() ASSERTS THE TWO NUMBERS ARE EQUAL.
+     `footer.site-footer` is chrome, not content — it sits outside .agx-content, so this rule cannot reach it, and
+     the rail is fixed to the middle of the VIEWPORT, so at the foot of every page its labels stood across the
+     footer's own columns: "2450 Fondren Rd, Suite 255" on executive-protection at 1440 and the "Connect" heading
+     at 1025 among them, 1-2 runs a page over the walk. MAST never had this to solve — it has no footer, its last
+     panel IS the contact panel and the gutter is already on it.
+     THE THREE NUMBERS ARE ARITHMETIC, NOT TASTE, and assert_rail_gutter() below fails the build if they stop
+     adding up: gutter >= 1.5rem offset + .4rem padding + 3.6rem number-clamp + .5rem gap + LABEL + .5rem gap +
+     17px tick + .4rem padding. At LABEL=9.5rem that is 279.4px of rail, so the gutter is 17.5rem (280px) and not
+     MAST's 16.5rem: MAST's labels are the word OPENING and Atlas's are the live page's own headings, so its
+     figure is the reference and one extra rem is what this rail needs. Written the other way round — clamping
+     the label to 8.5rem to land on 16.5rem exactly — buys back 16px of column for two fewer characters of label,
+     and the guard would pass either. Measured after it shipped (render-audit check 7, 0.75-viewport walk, twelve
+     pages): live text runs under the standing rail 0 at 1025, 0 at 1280, 0 at 1440, 0 at 1800 — against 92 for
+     the same labels standing with no gutter. The label that no longer fits is cut by `text-overflow:ellipsis`
+     and opens to its full 20.5rem under the pointer. */
+  @media (min-width:1025px) {
+    .agx-ch > * { padding-right:17.5rem !important; }
+    .agx-rail-link::before { max-width:3.6rem; opacity:1; }
+    .agx-rail-link span { max-width:9.5rem; opacity:1; }
+  }
   @media (prefers-reduced-motion: reduce) { html.agx-motion .agx-ch { opacity:1; transform:none; transition:none; } html.agx-motion { scroll-behavior:auto; } }
   /* ── HUD: MAST's two bottom corners (cinematic_shell.py:78-83), carrying only the brand line and the chapter the
      reader is in. BOTH LINES ARE CSS `content`, NOT TEXT NODES — a printed "SECTION 02 / 08" is a build-only text
@@ -609,7 +629,23 @@ body.intro-open { overflow:hidden; }
   .agx-content .pricing-cta.outline-cta:hover, .agx-content .card-link:hover, .agx-content .hw-link:hover {
     background:rgba(26,107,222,.12); border-color:#5B9BFF; color:#DCEBFF;
   }
-  /* ---- 6. Phones: the blur is the compositing cost, not the look. Drop it below 769. ---- */
+  /* ---- 6. THE ONE LIVE GRID THE >=1025 GUTTER BREAKS, REFLOWED — and only it, because it was enumerated ----
+     The rail's gutter (CINEMA_CSS, `.agx-ch > * { padding-right:17.5rem }`) narrows every live section by 280px,
+     and every grid on the twelve pages absorbs it by shrinking its columns EXCEPT about's team grid: the live
+     rule is `repeat(4, 1fr)` (about.html:108) and a `1fr` track cannot go below its min-content, which here is
+     the live `.team-card img { width:240px }` plus the card's 1.5rem side padding = 288px. Four of those plus
+     three 2.5rem gaps need 1272px and the gutter leaves 1088, so the fourth card hung 192px into the rail lane
+     and render-audit check 7 counted 3 covered runs at 1440, 5 at 1280 and 5 at 1025 — the honest reading being
+     that the page overflowed, not that the rail misbehaved. Walked all twelve pages at 1440 / 1280 / 1025 for
+     content crossing its own section's content edge: this grid is the only one, and the live #sound-toggle,
+     which is position:absolute in the hero and never in the rail's vertical band. auto-fit with the SAME 288px
+     floor drops the row to three cards at 1440 and 1280 and two at 1025 instead of overflowing; the column count
+     is the only thing that changes, and no copy, no type and no card size moves with it. Below 1025 there is no
+     gutter, so this rule is not there either and the live `repeat(4, 1fr)` / phone `1fr` stand untouched. */
+  @media (min-width:1025px) {
+    .agx-content .team-grid { grid-template-columns:repeat(auto-fit, minmax(288px, 1fr)); }
+  }
+  /* ---- 7. Phones: the blur is the compositing cost, not the look. Drop it below 769. ---- */
   @media (max-width:768px) {
     .agx-content .service-card, .agx-content .pillar-card, .agx-content .scenario-card,
     .agx-content .discipline-card, .agx-content .capability-card, .agx-content .threat-card,
