@@ -872,9 +872,23 @@ assert 'courses-low-light' not in between(html, 'data-for="06"', '>', True), 'th
 # Brockmann picked this design as the page that ships (2026-09-03), so the assembler writes the production
 # mastsolutions.html. The Atlas-frame build lives on as mastsolutions-atlas.html; the old cinematic URL is a stub redirect.
 out = f'{REPO}/mastsolutions.html'
-open(out, 'w', encoding='utf-8').write(html)
+# THE atlasglinn.com COPY BOUNCES TO THE DOMAIN (2026-09-10). Brockmann typed mastsolutions.com and landed on
+# atlasglinn.com/mastsolutions.html?v=... twice, then again on reload — "MAST URL = browser reload = same URL". The
+# runner measures mastsolutions.com -> 301 -> www.mastsolutions.com (pages-mastsolutions.yml, 18:09 UTC), so what his
+# browser replays is the GoDaddy forward from BEFORE 2026-09-08 04:16, which Brave caches as a permanent redirect. No
+# server can clear a browser's cached 301; what a server CAN do is make the destination move on. So this copy, and only
+# this copy, carries a hostname-guarded bounce as the first thing in <head>: on any atlasglinn.com host it replaces
+# itself with https://www.mastsolutions.com/ (hash kept); on the domain itself the guard is false and nothing runs.
+# curl-based probes (wp-upload.sh page_build, the deploy log) read the bytes and never execute it, so the build-id
+# checks are untouched. The domain copy below is cut from `html`, not from this, so it never carries the bounce.
+AG_BOUNCE = ('<script>if(/(^|\\.)atlasglinn\\.com$/.test(location.hostname))'
+             'location.replace("https://www.mastsolutions.com/"+location.hash);</script>\n'
+             '<noscript><meta http-equiv="refresh" content="0;url=https://www.mastsolutions.com/"></noscript>\n')
+assert html.count('<head>\n') == 1
+ag = html.replace('<head>\n', '<head>\n' + AG_BOUNCE, 1)
+open(out, 'w', encoding='utf-8').write(ag)
 import build_manifest; build_manifest.stamp_and_write([out])   # the page's own hash + build-manifest.json (self-refresh against the CDN cache)
-print('wrote', out, len(html.encode('utf-8')), 'bytes')
+print('wrote', out, len(ag.encode('utf-8')), 'bytes (atlasglinn.com copy, carries the bounce)')
 
 # mastsolutions.com's own copy (Brockmann, 2026-09-07: "when I use www.mastsolutions.com it should be that url not - atlasglinn/").
 # Live since 2026-09-08 04:16 UTC at https://www.mastsolutions.com/ from GitHub Pages (.github/workflows/pages-mastsolutions.yml
