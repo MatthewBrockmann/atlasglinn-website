@@ -96,12 +96,29 @@ CANARY_TTL_A = '203.0.113.44'
 # only way the swept row count and the LANDED row count can differ on a run that still goes green, which is what
 # makes the operator's row-count note falsifiable at all.
 CANARY_LEGACY = '203.0.113.22'
+# a prior import holding a TXT whose value differs from the parent's only by CASE (and a trailing dot). Opaque text
+# is case-sensitive: a byte-exact reconcile calls it MISSING and adds the parent's value; a case-folding one calls it
+# a match and never adds the real DKIM/SPF value, which no later gate validates. The miscased form is a canary too —
+# the reconcile prints owner+type only, never a TXT value, and this proves the miscased value never leaks either.
+CANARY_SPF_MISCASE = CANARY_SPF.upper() + '.'
+# a SECOND apex TXT, so the apex carries two TXT rows that collapse to one (name, type) row. It is what makes the
+# collapse-offsets-a-missed-name case (import_offset) and the individual-vs-row landed-count case (landed_multi) real.
+CANARY_APEX_TXT2 = 'apex-txt2-canary-verification-string'
+# an unrelated record the settled zone serves that the sweep never asked about — it inflates the landed COUNT back to
+# the swept count while a real swept record (mail A) is gone, so a cardinality check matches and only a SET check sees
+# the missing name.
+CANARY_OFFSET_FILLER = '203.0.113.111'
+# a NESTED WILDCARD one label below the apex: *.services.<dom>. The apex probe asks a name under the apex, so it still
+# gets NXDOMAIN and the run proceeds; only discovery of the `services` suffix (from a swept name under it) and a query
+# for the literal `*.services` owner can copy this record.
+CANARY_NESTED_WC = '203.0.113.123'
 CANARIES = [CANARY_APEX, CANARY_WWW, CANARY_MX_M365, CANARY_MX_OTHER, CANARY_SPF, CANARY_AUTO, CANARY_TAK_WRONG,
             CANARY_WWW_TXT, CANARY_APEX_TXT, CANARY_IN_ERROR, CANARY_NS1, CANARY_NS2, CANARY_MAIL, CANARY_DKIM,
             CANARY_SRV_HOST, CANARY_CAA_HOST, CANARY_DELEG, CANARY_DMARC, CANARY_DS, CANARY_TXT_TAIL,
             CANARY_OUT_OF_ZONE, CANARY_OUT_OF_ZONE_OWNER, CANARY_APEX_CONFLICT, CANARY_BIGRDATA,
             CANARY_WILDCARD, CANARY_PAGEFILL, CANARY_V6, CANARY_V6_EXPANDED, CANARY_CNAME_CLASH,
-            CANARY_CNAME_CLASH_TXT, CANARY_WILDCARD_TXT, CANARY_TTL_A, CANARY_LEGACY]
+            CANARY_CNAME_CLASH_TXT, CANARY_WILDCARD_TXT, CANARY_TTL_A, CANARY_LEGACY,
+            CANARY_SPF_MISCASE, CANARY_APEX_TXT2, CANARY_OFFSET_FILLER, CANARY_NESTED_WC]
 ERR_CANARY_MSG = ('An identical record already exists: A tak.atlasglinn.com pointing at %s — delete it first'
                   % CANARY_IN_ERROR)
 
@@ -190,6 +207,23 @@ WILDCARD_TYPED_ANSWERS = dict(FULL_ANSWERS, **{'*': [('TXT', 3600, '"%s"' % CANA
 # a TTL of one week, which GoDaddy's UI offers and Cloudflare's non-Enterprise maximum of 86400 does not take. The
 # sweep clamps at both ends, so this row must reach the zone file at 86400 and not at 604800.
 TTL_ANSWERS = dict(FULL_ANSWERS, **{'app': [('A', 604800, CANARY_TTL_A)]})
+# TWO apex TXT rows: the SPF already in FULL_ANSWERS plus a second one. They are two RECORDS but ONE (name, type)
+# row, which is the collapse that fools a name/type row count — and makes the individual-vs-row landed count and the
+# collapse-offsets-a-missed-name cases real.
+OFFSET_ANSWERS = dict(FULL_ANSWERS, **{'@': FULL_ANSWERS['@'] + [('TXT', 3600, '"%s"' % CANARY_APEX_TXT2)]})
+
+
+def txt_case_prefill():
+    """A prior import whose apex SPF TXT differs from the parent's only by CASE and a trailing dot. A byte-exact
+    opaque compare must call it MISSING and add the parent's value; a case-folding compare (the round-3 shape) calls
+    it an exact match and never adds the real SPF/DKIM value, and no later gate validates a TXT before nameservers."""
+    out = []
+    for r in answers_to_records(FULL_ANSWERS):
+        r = dict(r)
+        if r['type'] == 'TXT' and r['name'] == DOM:
+            r['content'] = CANARY_SPF_MISCASE
+        out.append(r)
+    return out
 
 
 TXT_STRINGS = re.compile(r'"((?:[^"\\]|\\.)*)"')
@@ -472,6 +506,26 @@ SCENARIOS = {
     # DNSSEC already on, dispatched in CREATE mode. The DS gate was import-only while the paste block was reachable
     # from create, so a create run against a signed domain printed two nameservers with the DS never measured.
     'ds_present_create':  {'ds': [CANARY_DS]},
+    # ── P1-2. THE ZONE HOLDS A TXT DIFFERING ONLY BY CASE. A prior import left the apex SPF as CANARY_SPF.upper()+'.'
+    # and the parent serves CANARY_SPF. Opaque text is byte-exact: the reconcile must call it MISSING and POST the
+    # parent's value (one record). A case-folding compare calls it a match and posts nothing, leaving a stale SPF
+    # that no later gate validates.
+    'zone_txt_case':      {'exists': True, 'dig': FULL_ANSWERS, 'prefill': txt_case_prefill()},
+    # ── P1-1. TWO apex TXT rows collapse to one (name, type) row, and the importer drops the `mail` A while an
+    # unrelated `extra` A is served — so the LANDED count equals the SWEPT count (a cardinality check matches) while
+    # a real swept name is gone. Only a (name, type, value) SET check sees the missing record. The importer reports
+    # honest full counts (the three-count import check passes); the miss appears only after the zone settles.
+    'import_offset':      {'exists': True, 'empty': True, 'dig': OFFSET_ANSWERS,
+                           'drop_names': ['mail.atlasglinn.com|A'],
+                           'inject': [rec('A', 'extra.' + DOM, CANARY_OFFSET_FILLER, ttl=300)]},
+    # ── P1-1. TWO apex TXT land intact: 14 records but 13 (name, type) rows. The operator note above the paste block
+    # must quote the INDIVIDUAL landed count (14, the way GoDaddy's page counts) and not the collapsed row count (13).
+    'landed_multi':       {'exists': True, 'empty': True, 'dig': OFFSET_ANSWERS},
+    # ── P1-3. A NESTED WILDCARD at *.services.<dom>. The apex probe still gets NXDOMAIN, so the run proceeds; a
+    # concrete name under services (supplied by the repository grep) reveals the `services` suffix, and discovery's
+    # query for the literal *.services owner is the only thing that copies the wildcard record into the import.
+    'nested_wildcard':    {'exists': True, 'empty': True, 'dig': FULL_ANSWERS,
+                           'nested_wc': 'services', 'nested_wc_ip': CANARY_NESTED_WC},
 }
 
 _LOCK = threading.Lock()
@@ -650,6 +704,12 @@ class Handler(BaseHTTPRequestHandler):
                     added = len(recs)                     # parsed 13, created 11 — the two disagree on their own
                 else:
                     parsed = added = len(recs)            # only what it created; the swept count is the witness
+            # drop_names removes specific records from what actually LANDS while the reported counts stay at the full
+            # parse — the importer claims it created them. Paired with `inject` in _records, the settled COUNT is
+            # restored so a cardinality check matches while a swept name is genuinely gone: the SET check's target.
+            dn = set(cfg.get('drop_names') or [])
+            if dn:
+                recs = [r for r in recs if ('%s|%s' % (r['name'], r['type'])) not in dn]
             with _LOCK:
                 st['imported'].extend(recs)
             return self._ok({'recs_added': added, 'total_records_parsed': parsed})
@@ -770,7 +830,16 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 return answer('NXDOMAIN', aa=True)
             wc = cfg.get('wildcard')
+            nwc = cfg.get('nested_wc')
             if lab not in table:
+                if nwc and (lab == '*.' + nwc or lab.endswith('.' + nwc)):
+                    # A NESTED WILDCARD, *.<nwc>.<dom> — an apex wildcard one label down. It synthesises an answer
+                    # owned by the queried name, and the literal '*.<nwc>' owner reveals the record itself; the name
+                    # EXISTS for every type, so a query for a type it does not carry answers NOERROR/NODATA rather
+                    # than NXDOMAIN. The apex probe asks a name directly under the apex, so this leaves it NXDOMAIN
+                    # and the run proceeds — which is exactly why only suffix discovery can reach the record.
+                    rows = [{'name': name + '.', 'ttl': 3600, 'type': 'A', 'rdata': cfg['nested_wc_ip']}] if qtype == 'A' else []
+                    return answer('NOERROR', rows, aa=True)
                 if wc:
                     # A WILDCARD IS SYNTHESISED INTO THE ANSWER. The row that comes back is owned by the name that
                     # was ASKED FOR, never by `*`, and the name EXISTS for every type — so a query for a type the
@@ -809,6 +878,11 @@ class Handler(BaseHTTPRequestHandler):
                                 www=cfg.get('www', True), apex=cfg.get('apex', True),
                                 extra_mx=cfg.get('extra_mx'))
         recs += [dict(r) for r in st['imported']]
+        # `inject` serves records the sweep never asked about, but ONLY after the import has landed — the pre-import
+        # read of an empty zone must stay a genuine zero. It restores the settled COUNT after drop_names removed a
+        # real one, so a cardinality check matches while the SET is wrong (scenario import_offset).
+        if cfg.get('inject') and st['import_calls'] > 0:
+            recs += [dict(r) for r in cfg['inject']]
         if cfg.get('growing'):
             # the import that never settles: three more filler records on every poll, with the gated three always
             # present so the ONLY reason this scenario can fail is instability at the deadline
@@ -820,8 +894,12 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 continue
             nm = b.get('name') or ''
+            # priority rides back on an MX read the way Cloudflare returns it — a separate field, not folded into
+            # content. Dropping it here made a reconcile-posted MX read back without its priority, which the
+            # completeness set gate (MX compared by priority+target) then saw as a value mismatch.
             recs.append(rec(b.get('type', 'A'), nm if nm.endswith(dom) else (nm + '.' + dom),
-                            b.get('content', ''), bool(b.get('proxied')), b.get('ttl', 1)))
+                            b.get('content', ''), bool(b.get('proxied')), b.get('ttl', 1),
+                            priority=b.get('priority')))
         return recs
 
 

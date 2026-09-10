@@ -56,6 +56,12 @@ chmod 755 "$WORK/_h/bin/dig"
 # hostname that is NOT under the domain and must never be queried
 printf '%s\n' '<a href="https://zzcanaryhost.atlasglinn.com/x">x</a> and <a href="https://www.example.org/y">y</a>' \
   > "$WORK/_h/fakerepo/wp-ops/page.html"
+# a second fake repository whose one hostname sits BELOW a label — node.services.atlasglinn.com. It reveals the
+# `services.atlasglinn.com` suffix to the sweep's nested-wildcard discovery, which is the only way a wildcard at
+# *.services.atlasglinn.com can be reached by a candidate-list run (P1-3).
+mkdir -p "$WORK/_h/nestedrepo/wp-ops"
+printf '%s\n' '<a href="https://node.services.atlasglinn.com/x">x</a>' \
+  > "$WORK/_h/nestedrepo/wp-ops/nested.html"
 
 PASS=0; FAIL=0; CASES=0
 ok()   { PASS=$((PASS+1)); CASES=$((CASES+1)); echo "PASS $*"; }
@@ -248,6 +254,54 @@ if [ -n "$NSF" ] && grep -qF "landed = json.load(open(S + '/records.json'))" "$N
 else
   bad "source/landed-rows: the operator note is back on the swept count — it would tell him to expect rows a partial import never landed"
 fi
+# the operator counts against the INDIVIDUAL landed record count (one row per record, as GoDaddy's page shows), not
+# the collapsed (name, type) row count — otherwise two apex TXT read as one row would tell him a smaller number and
+# a missing record would read as a match.
+if [ -n "$NSF" ] && grep -qF "landed_n = len([r for r in landed if isinstance(r, dict)])" "$NSF" \
+   && grep -qF 'record(s) that LANDED in Cloudflare' "$NSF" \
+   && ! grep -qF "len({(r.get('name'), r.get('type'))" "$NSF"; then
+  ok "source/landed-individual: the landed count above the paste block is the individual record count, not the collapsed row count"
+else
+  bad "source/landed-individual: the operator note is back on a collapsed (name,type) row count — two apex TXT would undercount and a missed record would read as a match"
+fi
+# P1-1: the post-settle completeness gate is a SET, not a count. Every swept (name, type, value) must be present in
+# the settled zone; a bare `len(recs) < swept` is fooled by a collapsed row offsetting a missed name.
+if grep -qF 'missing = [k for k in swept_keys if tuple(k) not in settled]' "$WF" \
+   && grep -qF "swept_keys = [tuple(k) for k in json.load(open(S + '/swept_keys.json'))]" "$WF" \
+   && ! grep -qF 'len(recs) < swept' "$WF"; then
+  ok "source/completeness-set: the post-settle gate compares the swept and settled record SETS by (name,type,value), not by count"
+else
+  bad "source/completeness-set: the completeness gate is back on a cardinality compare — a collapsed row can offset an entirely missed name"
+fi
+# P1-1: the sweep WRITES the swept (name,type,value) set the gate consumes. A gate with no producer is a dead guard.
+if grep -qF "json.dump([ckey(o, ty, rd) for (o, ty, rd) in keep], open(S + '/swept_keys.json', 'w'))" "$WF"; then
+  ok "source/swept-set-written: the sweep writes swept_keys.json for the post-settle set gate to read"
+else
+  bad "source/swept-set-written: the sweep no longer writes the swept record set — the completeness gate has nothing to compare against"
+fi
+# P1-2: TXT/SPF rdata is compared BYTE-EXACT in the reconcile. Opaque text is case-sensitive and every byte matters;
+# a DKIM key differing only by case or a trailing '.' is MISSING, not a match. Lower-casing or stripping it (the
+# round-3 shape) let a stale token pass as present with no later gate validating it.
+if grep -qF "if t in ('TXT', 'SPF'):" "$WF" && grep -qF 'return txt_value(c)' "$WF" \
+   && ! grep -qF "txt_value(c).strip().rstrip('.').lower()" "$WF"; then
+  ok "source/txt-byte-exact: the reconcile compares TXT/SPF rdata byte-exact, never case-folded or dot-stripped"
+else
+  bad "source/txt-byte-exact: TXT/SPF rdata is being normalised — a DKIM key differing only by case would be treated as already present"
+fi
+# P1-3(a): nested wildcards below the apex are discovered by asking *.<suffix> for every owner suffix a swept name
+# revealed. Without it, a wildcard at *.services.<dom> is invisible to the apex probe and the candidate list.
+if grep -qF "wname = '*.' + suf" "$WF" && grep -qF 'st, ans = ask(wname, TYPES[0])' "$WF" \
+   && grep -qF "suffixes.add('.'.join(labels[i:]) + '.' + dom)" "$WF"; then
+  ok "source/nested-wildcard-discovery: the sweep probes *.<suffix> for every owner suffix a swept name revealed"
+else
+  bad "source/nested-wildcard-discovery: the nested-wildcard discovery loop is gone — a wildcard one label below the apex would be omitted and go dark on the switch"
+fi
+# P1-3(b): the honest-limit warning about nested wildcards sits ABOVE the paste block, worded as a required step.
+if [ -n "$NSF" ] && grep -qF 'CANNOT be fully auto-' "$NSF" && grep -qF 'Required before you flip the nameservers' "$NSF"; then
+  ok "source/nested-wildcard-warning: a required pre-cutover diff-against-GoDaddy warning is printed for nested wildcards"
+else
+  bad "source/nested-wildcard-warning: the nested-wildcard operator warning is missing — the honest limit is not surfaced above the paste block"
+fi
 
 # ── the emulator ────────────────────────────────────────────────────────────────────────────────────────────────────
 python3 "$EMU" 0 > "$WORK/emu.out" 2>"$WORK/emu.err" &
@@ -332,6 +386,15 @@ expect() {   # $1 case, $2 expected job verdict (pass|fail), $3.. = descriptions
 must()    { if has "$1" "$2"; then ok "$1: says \"$2\""; else bad "$1: never said \"$2\"  --- log: $(tr '\n' '|' < "$WORK/$1/out" | tail -c 700)"; fi; }
 mustnot() { if has "$1" "$2"; then bad "$1: PRINTED \"$2\" — false success"; else ok "$1: never printed \"$2\""; fi; }
 eqn()     { if [ "$2" = "$3" ]; then ok "$1 ($2)"; else bad "$1: got $2, expected $3"; fi; }
+# $2 must appear on an EARLIER line than $3 in the case's own output — an ordering pin, not merely a presence one.
+# The nested-wildcard warning has to sit ABOVE the paste block: below the fold, it is a step he never reads.
+before()  {
+  local f="$WORK/$1/out" a b
+  a=$(grep -nF -- "$2" "$f" 2>/dev/null | head -1 | cut -d: -f1)
+  b=$(grep -nF -- "$3" "$f" 2>/dev/null | head -1 | cut -d: -f1)
+  if [ -n "$a" ] && [ -n "$b" ] && [ "$a" -lt "$b" ]; then ok "$1: \"$2\" is above \"$3\" (lines $a<$b)"
+  else bad "$1: \"$2\" is NOT above \"$3\" (a=$a b=$b)"; fi
+}
 
 NS_BLOCK="Paste these two nameservers at GoDaddy:"
 VERIFIED="### Import verified"
@@ -575,7 +638,10 @@ must   full_import "recs added: 13   total records parsed: 13   swept from the p
 # the one check only he can make, printed ABOVE the irreversible paste rather than under it — and quoting the count
 # that LANDED, not the count the sweep found. Over a partial import those differ, and the swept one told him to
 # expect rows the zone does not hold, so his own row count confirmed the wrong number.
-must   full_import "compare its row count against the 13 name/type row(s) that LANDED in Cloudflare"
+must   full_import "compare its row count against the 13 record(s) that LANDED in Cloudflare"
+# P1-3(b): the nested-wildcard warning sits ABOVE the paste block and is worded as a required pre-cutover step.
+must   full_import "CANNOT be fully auto-discovered"
+before full_import "CANNOT be fully auto-discovered" "$NS_BLOCK"
 # ONE row carrying both halves of the promise: unproxied, and the TTL floored to 300 from the 60 the parent served.
 # It is read back out of the existing assert table, so it also proves import reaches that table at all.
 must   full_import "| A | tak.atlasglinn.com | False | 300 |"
@@ -910,7 +976,7 @@ reset_inputs; MODE=import
 run_job partial_import_settled partial_import_settled
 expect partial_import_settled fail
 must   partial_import_settled "recs added: 13   total records parsed: 13   swept from the parent: 13"
-must   partial_import_settled "the zone has settled at 11, so at least 2 did not land"
+must   partial_import_settled "2 of them are NOT present in the settled Cloudflare zone (which holds 11 row(s))"
 mustnot partial_import_settled "$VERIFIED"
 mustnot partial_import_settled "$NS_BLOCK"
 eqn    "partial_import_settled: the import was attempted exactly once" "$(statn partial_import_settled import_calls)" 1
@@ -1008,7 +1074,7 @@ mustnot ds_present_create "$NS_BLOCK"
 reset_inputs; MODE=import
 run_job zone_extra zone_extra
 expect zone_extra pass
-must   zone_extra "compare its row count against the 14 name/type row(s) that LANDED in Cloudflare"
+must   zone_extra "compare its row count against the 14 record(s) that LANDED in Cloudflare"
 mustnot zone_extra "against the 13 name/type row(s)"
 must   zone_extra "$NS_BLOCK"
 eqn    "zone_extra: exactly the two missing records were posted" "$(statn zone_extra post_records)" 2
@@ -1034,6 +1100,58 @@ expect zone_prefilled_mx pass
 eqn    "zone_prefilled_mx: exactly the one missing MX was posted" "$(statn zone_prefilled_mx post_records)" 1
 eqn    "zone_prefilled_mx: the MX body carries no proxied key" "$(proxied_shape zone_prefilled_mx)" ok
 must   zone_prefilled_mx "$NS_BLOCK"
+
+# ── 47. P1-2. THE ZONE HOLDS A TXT DIFFERING ONLY BY CASE. A prior import left the apex SPF as its uppercase form
+# with a trailing dot; the parent serves the real value. Opaque text is byte-exact, so the reconcile must call it
+# MISSING and POST the parent's value — exactly one record. A case-folding compare (the round-3 shape) calls it an
+# exact match, posts nothing, and leaves a stale SPF/DKIM value no later gate validates. Reverting the byte-exact
+# norm drops post_records to 0 (behavioural), and the settled zone then lacks the authoritative value so the P1-1
+# set gate also refuses — either way the run stops being the clean pass it is here.
+reset_inputs; MODE=import
+run_job zone_txt_case zone_txt_case
+expect zone_txt_case pass
+eqn    "zone_txt_case: the case-differing TXT is MISSING and exactly one record was posted" "$(statn zone_txt_case post_records)" 1
+eqn    "zone_txt_case: nothing was deleted" "$(statn zone_txt_case deletes)" 0
+must   zone_txt_case "$NS_BLOCK"
+
+# ── 48. P1-1. A COLLAPSED ROW OFFSETS A MISSED NAME. The parent serves two apex TXT (two records, one name/type
+# row) and the importer drops the `mail` A while an unrelated `extra` A is served — so the LANDED count equals the
+# SWEPT count and a cardinality check matches, while a real swept name is gone. Only a (name, type, value) SET check
+# sees it. The three-count import check passes on honest full counts; the miss surfaces only after the zone settles.
+reset_inputs; MODE=import
+run_job import_offset import_offset
+expect import_offset fail
+must   import_offset "are NOT present in the settled Cloudflare zone"
+eqn    "import_offset: the zone-file import still ran once" "$(statn import_offset import_calls)" 1
+eqn    "import_offset: nothing was posted one at a time" "$(statn import_offset post_records)" 0
+eqn    "import_offset: nothing was deleted" "$(statn import_offset deletes)" 0
+mustnot import_offset "$VERIFIED"
+mustnot import_offset "$NS_BLOCK"
+
+# ── 49. P1-1. TWO apex TXT land intact: 14 records but 13 (name, type) rows. The operator note above the paste block
+# must quote the INDIVIDUAL landed count (14, the way GoDaddy's page counts), never the collapsed row count (13).
+reset_inputs; MODE=import
+run_job landed_multi landed_multi
+expect landed_multi pass
+must   landed_multi "compare its row count against the 14 record(s) that LANDED in Cloudflare"
+mustnot landed_multi "compare its row count against the 13 record(s) that LANDED in Cloudflare"
+must   landed_multi "$NS_BLOCK"
+
+# ── 50. P1-3. A NESTED WILDCARD at *.services.atlasglinn.com. The apex probe still gets NXDOMAIN, so the run
+# proceeds; the repository grep reveals node.services.atlasglinn.com, discovery derives the `services` suffix, and
+# the query for the literal *.services owner is the ONLY thing that copies the wildcard record into the import.
+# Removing the discovery loop leaves node.services swept but *.services never queried — a behavioural miss.
+reset_inputs; MODE=import; WORKSPACE="$WORK/_h/nestedrepo"
+run_job nested_wildcard nested_wildcard
+expect nested_wildcard pass
+must   nested_wildcard "*.services.atlasglinn.com"
+if stats nested_wildcard | grep -Fq '*.services.atlasglinn.com|A'; then
+  ok "nested_wildcard: the literal *.services owner was actually QUERIED at the parent, not just derived"
+else
+  bad "nested_wildcard: the nested wildcard was never queried — discovery did not reach *.services.atlasglinn.com"
+fi
+eqn    "nested_wildcard: the import ran exactly once" "$(statn nested_wildcard import_calls)" 1
+must   nested_wildcard "$NS_BLOCK"
 
 # ── 39. THE PRIVACY GATE: no record content in any byte this run produced ───────────────────────────────────────────
 # Every value the emulator serves is a canary. This log is public on this repo, and a record's content is the origin
@@ -1063,7 +1181,8 @@ for canary in 203.0.113.77 origin-canary.example.net atlas-canary.mail.protectio
               bigrdata-canary.example.net 203.0.113.66 pagefill-canary.example.net 2001:db8:beef::1 \
               2001:0db8:beef:0000:0000:0000:0000:0001 clash-canary.example.net \
               clash-txt-canary-verification-string wildcard-txt-canary-verification-string 203.0.113.44 \
-              203.0.113.22; do
+              203.0.113.22 apex-txt2-canary-verification-string SPF.PROTECTION.OUTLOOK.COM \
+              203.0.113.111 203.0.113.123; do
   hits="$(grep -lF -- "$canary" $SWEPT 2>/dev/null | tr '\n' ' ')"
   if [ -n "$hits" ]; then bad "privacy: record content \"$canary\" reached the log in: $hits"; LEAK=1; fi
 done
@@ -1085,8 +1204,10 @@ echo "cases: $CASES   passed: $PASS   failed: $FAIL"
 # printed "all green". Measured, never lowered: 118 before import mode, 200 with it, 217 with round 2's
 # conflict, out-of-zone, multi-string-TXT and +norecurse coverage, and 244 with round 3's paged-read, wildcard,
 # one-at-a-time-TXT-body, IPv6-spelling and CNAME-clash coverage, and 313 with round 4's partial-import,
-# TTL-ceiling, typed-wildcard, flaky-nameserver, unmeasurable-size, create-mode-DS and proxied-shape coverage.
-MIN=313
+# TTL-ceiling, typed-wildcard, flaky-nameserver, unmeasurable-size, create-mode-DS and proxied-shape coverage, and
+# 341 with round 5's completeness-SET gate (P1-1), byte-exact TXT/SPF reconcile (P1-2) and nested-wildcard
+# discovery plus its honest-limit warning (P1-3).
+MIN=341
 if [ "$CASES" != "$MIN" ]; then
   echo "FAIL harness: $CASES cases ran, not the $MIN pinned here — a block was dropped, the run stopped early, or a case was added without updating MIN"
   DONE=1; exit 1

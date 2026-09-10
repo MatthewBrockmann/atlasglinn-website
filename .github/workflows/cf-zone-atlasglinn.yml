@@ -471,7 +471,7 @@ jobs:
           command -v dig >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq dnsutils >/dev/null; }
           dig -v 2>&1 | head -1 || true
           python3 - <<'PY'
-          import os, random, re, subprocess, sys, time
+          import ipaddress, json, os, random, re, subprocess, sys, time
 
           S   = os.environ.get('CF_STATE_DIR', '/tmp/cf')
           dom = open(S + '/domain').read().strip()
@@ -649,6 +649,35 @@ jobs:
                       st2, ans2 = ask(qn, qt)
                       for (o, ttl, ty, rd) in (ans2 or []):
                           found.setdefault((o, ty, rd), ttl)
+
+              # 3b. NESTED WILDCARDS BELOW THE APEX. The probe in step 2 and the literal '*' candidate only ever see
+              # a wildcard at *.<apex>: the probe asks a name directly under the apex, so a wildcard one label down —
+              # *.services.<apex> — leaves it answering NXDOMAIN and the run proceeds, while every name that nested
+              # wildcard covers goes dark on the switch. A candidate list of single labels cannot reach it either.
+              # So for every owner suffix that appears in what the sweep ALREADY found (each parent label chain
+              # between a swept name and the apex, e.g. a.b.<apex> yields b.<apex>), ask the authoritative servers
+              # for *.<suffix>; if it answers with data it is a wildcard this run would otherwise omit, so sweep it
+              # in under its literal '*.<suffix>' owner. This can only find wildcards under a name the sweep already
+              # discovered — the honest limit is printed above the paste block, where the operator is required to
+              # diff the imported set against GoDaddy before the cutover.
+              suffixes = set()
+              for (o, ty, rd) in list(found):
+                  if o == dom or not o.endswith('.' + dom):
+                      continue
+                  labels = o[:-(len(dom) + 1)].split('.')
+                  for i in range(1, len(labels)):     # drop leftmost label(s); stop before the bare apex ('*' covers it)
+                      suffixes.add('.'.join(labels[i:]) + '.' + dom)
+              for suf in sorted(suffixes):
+                  wname = '*.' + suf
+                  st, ans = ask(wname, TYPES[0])
+                  if st is None or st == 'NXDOMAIN':
+                      continue
+                  for (o, ttl, ty, rd) in ans:
+                      found.setdefault((o, ty, rd), ttl)
+                  for qt in TYPES[1:]:
+                      st2, ans2 = ask(wname, qt)
+                      for (o, ttl, ty, rd) in (ans2 or []):
+                          found.setdefault((o, ty, rd), ttl)
           except Budget:
               print('::error::The sweep exceeded its %ds sweep budget with %d dig queries made, so the record set it holds is incomplete. NOTHING was imported and nothing at GoDaddy has changed — a partial zone file that passes the gate is worse than no zone file. Re-dispatch; the sweep is read-only and safe to repeat.' % (budget, calls[0]))
               sys.exit(1)
@@ -711,6 +740,34 @@ jobs:
               open(summ, 'a').write('\n'.join(out) + '\n')
           open(S + '/sweep_count', 'w').write(str(len(keep)))
           open(S + '/sweep_rows', 'w').write(str(len(inv)))
+          # THE SWEPT SET, written for the post-settle completeness gate to compare BY MEMBERSHIP, not by count. A
+          # count check passes when a collapsed row (two apex TXT read as one name/type) numerically offsets an
+          # entirely missed name; only a (name, type, value) set can tell that the settled zone actually holds every
+          # record the sweep read. The value is normalised the SAME way the gate normalises Cloudflare's own rows:
+          # opaque text (TXT/SPF) byte-exact, addresses canonicalised, MX by priority+target, and SRV/CAA by
+          # (name, type) only — Cloudflare's content shape for those two was never read from a live response, which
+          # is the same reason the reconcile does not value-compare them.
+          def ckey(o, ty, rd):
+              ty = ty.upper()
+              o = o.rstrip('.').lower()
+              if ty in ('TXT', 'SPF'):
+                  m = re.findall(r'"((?:[^"\\]|\\.)*)"', rd or '')
+                  v = ''.join(x.replace('\\"', '"').replace('\\\\', '\\') for x in m) if m else (rd or '').strip('"')
+                  return [o, ty, v]
+              c = (rd or '').strip()
+              if ty in ('A', 'AAAA'):
+                  try:
+                      c = ipaddress.ip_address(c).compressed
+                  except ValueError:
+                      c = c.lower()
+                  return [o, ty, c]
+              if ty == 'MX':
+                  bits = c.split(None, 1)
+                  return [o, ty, '%s %s' % (bits[0], bits[1].rstrip('.').lower())] if len(bits) == 2 else [o, ty, c.lower()]
+              if ty in ('SRV', 'CAA'):
+                  return [o, ty, '']
+              return [o, ty, c.rstrip('.').lower()]
+          json.dump([ckey(o, ty, rd) for (o, ty, rd) in keep], open(S + '/swept_keys.json', 'w'))
           PY
 
       # IMPORT MODE, 3 OF 3. Empty zone -> one multipart import of the BIND file, proxied=false so NOTHING about how
@@ -832,8 +889,14 @@ jobs:
               # what the parent serves calls them different, and the conflict limb above then REFUSES a run where
               # nothing is wrong. Compare A and AAAA as addresses; fall back to the text compare for anything
               # ipaddress will not parse, because a value this run does not understand must not silently match.
-              if t == 'TXT':
-                  return txt_value(c).strip().rstrip('.').lower()
+              # OPAQUE TEXT RDATA IS BYTE-EXACT. TXT and SPF are case-sensitive and every byte is significant — a
+              # DKIM public key or a verification token that differs from the authoritative value only by case or a
+              # trailing '.' is a DIFFERENT value, not a match. Lower-casing or stripping it here treated a stale
+              # token as already present and never added the real one, and no later gate validates a TXT value
+              # before the nameservers print. Decode the quoted character-strings (a long TXT is several) and
+              # compare the bytes; change nothing else. If the swept value is not byte-present it is MISSING.
+              if t in ('TXT', 'SPF'):
+                  return txt_value(c)
               c = (c or '').strip()
               if t in ('A', 'AAAA'):
                   try:
@@ -948,7 +1011,7 @@ jobs:
           # partial view of the import — so it fails rather than cautioning underneath a green verdict. A size that
           # cannot be MEASURED is the same failure wearing a better face and used to fall straight through.
           python3 - <<'PY'
-          import json, os, sys
+          import ipaddress, json, os, re, sys
           S = os.environ.get('CF_STATE_DIR', '/tmp/cf')
           d = json.load(open(S + '/records_raw.json'))
           recs = [r for r in (d.get('result') or []) if isinstance(r, dict)]
@@ -959,18 +1022,45 @@ jobs:
           if total > len(recs):
               print('::error::The zone holds %d records and this run read the first %d, so every check below would be running against a slice of the import. Nothing at GoDaddy has changed. This needs a paged read before the switch — do not switch nameservers on this run.' % (total, len(recs)))
               sys.exit(1)
-          # THE SECOND, INDEPENDENT COUNT CHECK, and it is deliberately not the same measurement as the import
-          # step's. That one trusts Cloudflare's own recs_added; this one counts the rows the zone actually SERVES
-          # after it settled. An importer that answers 200 with an honest count and then loses a row between the
-          # parse and the zone is caught here and nowhere else. Only import mode sweeps, so only import mode has a
-          # swept count to compare against; create has nothing to compare and this limb does not run for it.
+          # THE SECOND, INDEPENDENT COMPLETENESS CHECK, and it is a SET, not a count. The import step trusts
+          # Cloudflare's own recs_added; this one reads the rows the zone actually SERVES after it settled and asks
+          # whether every record the sweep read is present BY (name, type, value). A count alone is fooled two ways:
+          # multiple apex TXT or MX rows collapse to one (name, type) row so the landed total reads short, AND a
+          # collapsed row or an unrelated leftover can numerically offset an entirely missed name so the totals
+          # match while a record is gone. Membership catches both — every swept (name, type, value) must be byte-
+          # present in the settled zone, with TXT/SPF compared byte-exact (the same opaque rule the reconcile uses)
+          # and SRV/CAA compared by (name, type) because Cloudflare's content shape for them was never read live.
+          # Only import mode sweeps, so only import mode writes swept_keys.json; create has nothing to compare.
+          def cfkey(r):
+              ty = (r.get('type') or '').upper()
+              o = (r.get('name') or '').rstrip('.').lower()
+              c = r.get('content')
+              if ty in ('TXT', 'SPF'):
+                  m = re.findall(r'"((?:[^"\\]|\\.)*)"', c or '')
+                  v = ''.join(x.replace('\\"', '"').replace('\\\\', '\\') for x in m) if m else (c or '').strip('"')
+                  return (o, ty, v)
+              c = (c or '').strip()
+              if ty in ('A', 'AAAA'):
+                  try:
+                      c = ipaddress.ip_address(c).compressed
+                  except ValueError:
+                      c = c.lower()
+                  return (o, ty, c)
+              if ty == 'MX':
+                  return (o, ty, '%s %s' % (r.get('priority'), c.rstrip('.').lower()))
+              if ty in ('SRV', 'CAA'):
+                  return (o, ty, '')
+              return (o, ty, c.rstrip('.').lower())
           try:
-              swept = int(open(S + '/sweep_count').read().strip())
+              swept_keys = [tuple(k) for k in json.load(open(S + '/swept_keys.json'))]
           except Exception:
-              swept = None
-          if swept is not None and len(recs) < swept:
-              print('::error::The sweep read %d record(s) at the parent and the zone has settled at %d, so at least %d did not land. A record the importer declined is skipped silently and every name that did not land goes dark on the switch — for a mail-policy or DKIM row that is a failure nobody sees for days. No nameservers are printed by this run and nothing at GoDaddy has changed. Delete the record set in the Cloudflare dashboard (DNS -> Records) and dispatch import again, or import GoDaddy\'s own zone export by hand. The record names are not printed — this log is public.' % (swept, len(recs), swept - len(recs)))
-              sys.exit(1)
+              swept_keys = None
+          if swept_keys is not None:
+              settled = {cfkey(r) for r in recs}
+              missing = [k for k in swept_keys if tuple(k) not in settled]
+              if missing:
+                  print('::error::The sweep read %d record(s) at the parent and, by (name, type, value), %d of them are NOT present in the settled Cloudflare zone (which holds %d row(s)). A record the importer declined or dropped is skipped silently, and because rows sharing a name and type collapse in a count, a matching total can still hide a missing name — for a mail-policy or DKIM row that goes dark on the switch, unnoticed for days. No nameservers are printed by this run and nothing at GoDaddy has changed. Delete the record set in the Cloudflare dashboard (DNS -> Records) and dispatch import again, or import GoDaddy\'s own zone export by hand. Only the COUNT is reported — the record names and values are not printed, this log is public.' % (len(swept_keys), len(missing), len(recs)))
+                  sys.exit(1)
           json.dump(recs, open(S + '/records.json', 'w'))
           PY
 
@@ -1220,14 +1310,16 @@ jobs:
           # count told him to expect 13 rows over a zone holding 11, so his own row count CONFIRMED the wrong
           # number — the one manual check in R3′, inverted. It is read out of the settled record set the gates just
           # passed. Whether the run swept at all is what decides if this note applies; what it prints is the
-          # landed set.
-          swept_rows = None
+          # landed set. AND IT IS THE INDIVIDUAL RECORD COUNT, not the collapsed (name, type) row count: GoDaddy's
+          # DNS page lists one row per record, so two apex TXT or two MX show as two rows there. Telling him the
+          # collapsed count would have him compare a smaller number and read a match where a record is missing.
+          landed_n = None
           if os.path.exists(S + '/sweep_rows'):
               try:
                   landed = json.load(open(S + '/records.json'))
-                  swept_rows = len({(r.get('name'), r.get('type')) for r in landed if isinstance(r, dict)})
+                  landed_n = len([r for r in landed if isinstance(r, dict)])
               except Exception:
-                  swept_rows = None
+                  landed_n = None
           out = []
 
           def w(line=''):
@@ -1245,13 +1337,25 @@ jobs:
 
           w('## %s is now a zone in your Cloudflare account — one step left, and it is yours' % dom)
           w()
-          if swept_rows is not None:
+          if landed_n is not None:
               w('**Before you paste — count the rows.** Open GoDaddy → Domains → %s → DNS and compare its row count '
-                'against the %d name/type row(s) that LANDED in Cloudflare — the table above is that set, read back '
-                'out of the zone after the import settled. Any name GoDaddy serves that is not in that table will '
+                'against the %d record(s) that LANDED in Cloudflare — the table above is that set, read back '
+                'out of the zone after the import settled, counted one row per record the way GoDaddy\'s page shows '
+                'them. Any name GoDaddy serves that is not in that table will '
                 'stop resolving on the switch: this run enumerates a CANDIDATE list of names and asks the parent '
                 'about each one, it cannot transfer the zone, and a name nobody thought to ask about is a name it '
-                'never saw. This is the one check that is yours, and it is above the paste block on purpose.' % (dom, swept_rows))
+                'never saw. This is the one check that is yours, and it is above the paste block on purpose.' % (dom, landed_n))
+              w()
+              # THE HONEST LIMIT ON NESTED WILDCARDS, stated as a required step and not a footnote. Discovery in the
+              # sweep finds *.<suffix> for every suffix a swept name already revealed, but a wildcard under a name
+              # that appears NOWHERE — not in a candidate label, not in the repository, not under anything the sweep
+              # saw — cannot be enumerated by any candidate list, and its synthesised names would break on the switch.
+              w('**Required before you flip the nameservers — diff against GoDaddy first.** A NESTED WILDCARD below '
+                'the apex (for example `*.services.%s`) under a name this run never saw CANNOT be fully auto-'
+                'discovered — a candidate list cannot enumerate a wildcard nobody named. You MUST open GoDaddy → '
+                'Domains → %s → DNS and diff its record set against the table above BEFORE changing nameservers, so '
+                'any wildcard the sweep could not reach is caught before it goes dark, not after. This is a required '
+                'pre-cutover step, not a footnote.' % (dom, dom))
               w()
           w('Paste these two nameservers at GoDaddy:')
           w()
