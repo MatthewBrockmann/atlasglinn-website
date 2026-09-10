@@ -1,4 +1,4 @@
-captured 2026-09-09T18:08:15Z by capture-live from main dc7b73e
+captured 2026-09-10T06:42:28Z by capture-live from main a07c032
 200 text/html; charset=UTF-8 85111  https://atlasglinn.com/  title=[Atlas Glinn - Elite Security Solutions, Risk Management & Training] wordpress_generator=0
 200 text/html 112688  https://atlasglinn.com/index.html  title=[Atlas Glinn - Elite Security Solutions, Risk Management & Training] wordpress_generator=0
 200 text/html 100535  https://atlasglinn.com/about.html  title=[Atlas Glinn - About Us | Elite Security Leadership] wordpress_generator=0
@@ -11,15 +11,15 @@ captured 2026-09-09T18:08:15Z by capture-live from main dc7b73e
 200 video/mp4 132  https://atlasglinn.com/images/technology-hero.mp4  title=[] wordpress_generator=0
 200 video/mp4 132  https://atlasglinn.com/images/careers-gallery.mp4  title=[] wordpress_generator=0
 404 text/html 548  https://atlasglinn.com/wp-content/uploads/2025/03/IMG_1837-1024x751.jpeg  title=[404 Not Found] wordpress_generator=0
---- cache-busted (?v=1788977299) with caching headers; gear-price / foot-site count the current builds' markers
-200 text/html 265989  https://atlasglinn.com/mastsolutions.html?v=  gear-price=3 foot-site=1  [cache-control: public, max-age=2678400 last-modified: Wed, 09 Sep 2026 18:06:16 GMT server: cloudflare cf-cache-status: MISS ]
-200 text/html 112688  https://atlasglinn.com/index.html?v=  gear-price=0 foot-site=0  [cache-control: public, max-age=2678400 last-modified: Wed, 09 Sep 2026 18:06:17 GMT server: cloudflare cf-cache-status: MISS ]
-200 text/html 100535  https://atlasglinn.com/about.html?v=  gear-price=0 foot-site=0  [cache-control: public, max-age=2678400 last-modified: Wed, 09 Sep 2026 18:06:18 GMT server: cloudflare cf-cache-status: MISS ]
-200 text/plain 38  https://atlasglinn.com/mast-ping.txt?v=  gear-price=0 foot-site=0  [etag: W/"6aa1920d-26" last-modified: Wed, 09 Sep 2026 17:06:21 GMT server: cloudflare cache-control: public, max-age=2678400 cf-cache-status: MISS ]
-   mast-ping.txt body: served by upload 2026-09-09T17:06:21Z
+--- cache-busted (?v=1789022550) with caching headers; gear-price / foot-site count the current builds' markers
+200 text/html 265989  https://atlasglinn.com/mastsolutions.html?v=  gear-price=3 foot-site=1  [cache-control: public, max-age=2678400 last-modified: Thu, 10 Sep 2026 02:47:37 GMT server: cloudflare cf-cache-status: MISS ]
+200 text/html 112688  https://atlasglinn.com/index.html?v=  gear-price=0 foot-site=0  [cache-control: public, max-age=2678400 last-modified: Thu, 10 Sep 2026 02:47:39 GMT server: cloudflare cf-cache-status: MISS ]
+200 text/html 100535  https://atlasglinn.com/about.html?v=  gear-price=0 foot-site=0  [cache-control: public, max-age=2678400 last-modified: Thu, 10 Sep 2026 02:47:47 GMT server: cloudflare cf-cache-status: MISS ]
+200 text/plain 38  https://atlasglinn.com/mast-ping.txt?v=  gear-price=0 foot-site=0  [etag: W/"6aa21a40-26" last-modified: Thu, 10 Sep 2026 02:47:28 GMT server: cloudflare cache-control: public, max-age=2678400 cf-cache-status: MISS ]
+   mast-ping.txt body: served by upload 2026-09-10T02:47:28Z
 --- plain URL caching headers
-   https://atlasglinn.com/mastsolutions.html  cache-control: public, max-age=2678400 last-modified: Wed, 09 Sep 2026 18:06:16 GMT server: cloudflare age: 4 cf-cache-status: HIT 
-   https://atlasglinn.com/index.html  cache-control: public, max-age=2678400 last-modified: Wed, 09 Sep 2026 18:06:17 GMT server: cloudflare age: 4 cf-cache-status: HIT 
+   https://atlasglinn.com/mastsolutions.html  cache-control: public, max-age=2678400 last-modified: Thu, 10 Sep 2026 02:47:37 GMT server: cloudflare age: 10222 cf-cache-status: HIT 
+   https://atlasglinn.com/index.html  cache-control: public, max-age=2678400 last-modified: Thu, 10 Sep 2026 02:47:39 GMT server: cloudflare age: 2 cf-cache-status: HIT 
 --- self-refresh: mastsolutions.html  plain build=[3374d986acf1]  manifest=[3374d986acf1]  fresh
 --- self-refresh: index.html  plain build=[e19a57b37263]  manifest=[e19a57b37263]  fresh
 --- self-refresh: about.html  plain build=[b93b4f949c1d]  manifest=[b93b4f949c1d]  fresh
