@@ -1135,6 +1135,9 @@ def _controls(skin, body):
 
 
 
+# The dropdowns are cut before this runs, so there is no nested </ul> for the non-greedy tail to stop at.
+_SNAV_UL = re.compile(r'<ul class="(agx-sitenav-[a-z]+)">(.*?)</ul>', re.S)
+_SNAV_DROP = re.compile(r'<ul class="agx-sitenav-drop">(.*?)</ul>', re.S)
 _INLINE_GRID = re.compile(r'''\sstyle=["'][^"']*grid-template-columns\s*:\s*([^;"']+)''')
 
 
@@ -1228,9 +1231,24 @@ def build_live(slug):
     #     call was actually about, asserted rather than asserted away. Every one of the twelve Atlas pages, plus
     #     MAST / Privacy / Terms, is one click from here; and every destination the LIVE bar or the LIVE mobile
     #     menu named is still reachable, so the bar's removal took no route with it.
-    snav_hrefs = set(re.findall(r'<a[^>]*\bhref="([^"]*)"', snav))
+    snav_anchor_hrefs = re.findall(r'<a[^>]*\bhref="([^"]*)"', snav)
+    snav_hrefs = set(snav_anchor_hrefs)
     want = set(('index.html' if s == 'index' else s + '.html') for s in live.PAGES) | set(SITENAV_MUST_REACH)
     assert want <= snav_hrefs, '%s: the overlay does not reach %s' % (page, sorted(want - snav_hrefs))
+    #     AND NO LIST REPEATS A DESTINATION. Coverage was measured as a SET, and assert B re-derives its expected
+    #     unit list from the same live.sitenav_items() call that renders the overlay — so a row duplicated inside a
+    #     list satisfied both and would have shipped a doubled entry. This reads the anchors as a LIST, per list:
+    #     the overlay is the live bar, then the live mobile menu, then the third list, and the SAME destination
+    #     across two of those three is the shape assert B requires (index.html is in all three on every page), so
+    #     the uniqueness that means anything is uniqueness WITHIN one <ul>.
+    #     A DROPDOWN'S BANNER ROW IS NOT A DUPLICATE: the live bar prints `Training` and, inside its dropdown, a
+    #     `Training` banner pointing at the same page, on all twelve. So each <ul> is read WITHOUT its nested
+    #     dropdown lists, and each dropdown is read on its own.
+    lists = _SNAV_UL.findall(_SNAV_DROP.sub('', snav)) + [('agx-sitenav-drop', u) for u in _SNAV_DROP.findall(snav)]
+    for _cls, _ul in lists:
+        hs = re.findall(r'<a[^>]*\bhref="([^"]*)"', _ul)
+        assert len(hs) == len(set(hs)), '%s: the overlay\'s %s lists a destination twice: %s' \
+            % (page, _cls, sorted(h for h in set(hs) if hs.count(h) > 1))
     bar_i, mob_i = live.nav_items(slug)
     live_hrefs = set(MAST_HREFS.get(h, h) for h, _l, _k, _d in bar_i)
     live_hrefs |= set(MAST_HREFS.get(h, h) for h, _l, _s in mob_i)

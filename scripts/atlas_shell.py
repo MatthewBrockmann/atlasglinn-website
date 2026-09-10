@@ -183,6 +183,7 @@ CLASSIC_CSS = r"""
     section.hero { padding:5.5rem 1rem 4rem; }
     .scroll-cue { bottom:1.2rem; }
     .footer-awards { gap:1.6rem; } .footer-awards img { height:72px; }
+/* AGX-FOOTER-FLOOR */
   }
 """
 
@@ -567,7 +568,7 @@ CINEMA_CSS = r"""
   .agx-ph.agx-yt iframe.agx-playing { opacity:1; }
   .agx-grain { position:fixed; inset:0; z-index:3; pointer-events:none; opacity:.035; background-image:repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(255,255,255,.3) 2px, rgba(255,255,255,.3) 3px); mix-blend-mode:overlay; }
   .agx-vignette { position:fixed; inset:0; z-index:4; pointer-events:none; background:radial-gradient(ellipse at center, transparent 0%, transparent 55%, rgba(5,8,16,.75) 100%); }
-  /* ── The read-position line, on the bar's top edge rather than behind it ── */
+  /* ── The read-position line, pinned to the viewport top (it drew on the sticky bar's top edge before r8) ── */
   #agx-progress { position:fixed; top:0; left:0; height:2px; width:0; background:linear-gradient(90deg, #D4AF37, #FCF6BA, #B87333); z-index:1001; box-shadow:0 0 14px rgba(201,168,76,.7); transition:width .1s linear; pointer-events:none; }
   /* ── Chapters: each live section, full-bleed over its own backdrop ──
      display:grid with one 100% column and width:100% on the child, NOT flex: the live sections centre themselves with
@@ -702,7 +703,7 @@ CINEMA_CSS = r"""
      right:8.5rem }`) and it is what clears the MENU button; validate-live check 6 measures that pair.
      right:5.2rem on the bottom corners, not 1.5rem: #back-to-top is a fixed 46px button at l:1378 r:1424 t:848 b:894 with z-index:900
      (measured 1440x900), and 1.5rem would put the counter under it. 5.2rem clears it by 21px. Hidden below 1025 —
-     phones and tablets keep the bar and the ticks and nothing else.
+     phones and tablets carry the MENU overlay and the ticks and nothing else (the bar is gone, r8 2026-09-09).
      ── THE LANE GATE, AND THE MEASUREMENT THAT FORCED IT (r5, 2026-09-09) ──
      The rail was walked before it shipped and the HUD was not, and it is FIXED, so the reader's own copy scrolls
      underneath it. render-audit.mjs's walk, pointed at the two corners instead of the rail, measured 33 live text
@@ -1113,6 +1114,26 @@ AGX_SKIN_CSS = r"""
        document itself overflows by 0 on the built page at every width measured, because the shell clips it, and
        the row's 5px is inside a cut the live page already makes. */
     .agx-content .agx-icon-ring { width:40px; height:40px; border-radius:12px; }
+    /* ---- 7b. THE TWO BOXES THAT STILL STOOD PAST THE RIGHT EDGE AT 393, FOUND ONLY AFTER render-audit's check 9
+       WAS REPAIRED (2026-09-10). Its clipped() walked EVERY ancestor, the document body included, and every
+       generated page carries the live sheet's `body { overflow-x:hidden }`, so the check could never report a
+       single element. With the walk bounded at the body, twelve pages at 393x852 report exactly these two:
+
+       (a) cuas-aerodefense .integration-grid. The live sheet already stacks it to one column at <=768
+           (cuas-aerodefense.html:228), and the track STILL measured 398.031px inside a 369px grid box, putting the
+           h3, both paragraphs and the "Learn About UAS Drones" anchor at x=410. The cause is the live theme's
+           own phone rule `.cta-button { width:100% !important }`: a percentage width inside a
+           `1fr` track resolves through the item's automatic minimum size, and the track grows to it. min-width:0
+           on the two grid items is the one declaration that lets the track be the 369px it is told to be — the
+           column count, the copy and the type are untouched. Re-measured: [12,381], width 369.
+
+       (b) index #app's glow. `<div style="…width:600px;height:600px;border-radius:50%;background:radial-gradient(
+           …);pointer-events:none">`, absolutely centred in the section, so it stands 103px past both edges of a
+           393px viewport. max-width beats an inline `width` because they are different properties, so no
+           !important is needed; the circle becomes an ellipse of the same gradient. Re-measured: [0,393]. Above
+           768 it is inside the viewport and this rule is not there. */
+    .agx-content .integration-text, .agx-content .integration-visual { min-width:0; }
+    .agx-content div[style*="width:600px"] { max-width:100%; }
 /* AGX-PHONE-BLOCK */
   }
   @media (prefers-reduced-motion: reduce) {
@@ -1194,8 +1215,8 @@ def _grid_sel(value):
     return '.agx-content div[style*="columns:%s"]' % value.split(',')[0]
 
 
-def _floor_rule(sel, low, high, floor):
-    return '    .agx-content %s { font-size:max(%dpx,%gpx) !important; }' % (sel, floor, high)
+def _floor_rule(sel, low, high, floor, root='.agx-content'):
+    return '    %s %s { font-size:max(%dpx,%gpx) !important; }' % (root, sel, floor, high)
 
 
 def phone_block():
@@ -1217,6 +1238,88 @@ def phone_block():
 # ship. The marker is a comment inside the one @media (max-width:768px) block, so the block count stays 1.
 AGX_SKIN_CSS = AGX_SKIN_CSS.replace('/* AGX-PHONE-BLOCK */', phone_block())
 assert AGX_SKIN_CSS.count('@media (max-width:768px)') == 1, 'the skin grew a second phone block'
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+# THE FOOTER'S PHONE FLOOR — the half of "floor" that was measured inside .agx-content and reported as the page.
+#
+# THE FIRST PASS'S FLOOR WAS TRUE AND ITS CLAIM WAS NOT. Both guards walked '.agx-content *' and the phone floor was
+# reported as "no text under 11px, no p under 15px" full stop. Walked over `body *` at 393x852 on 2026-09-10, the
+# live footer — which sits OUTSIDE .agx-content — still printed <p> at 9.92px on eleven pages ("© 2026 Atlas Glinn,
+# LLC | MAST Solutions.", "Executive Protection • Training • AI Surveillance"), <p> at 11.2px on eleven ("Best of
+# Business 2025", "Chamber of Commerce"), and on ep-app <p> at 14px and 13px, span.cred-tag at 10px and
+# span.footer-badge at 9px. render-audit check 9 walks the whole body minus the chrome now, so the claim and the
+# guard cannot be two different populations again.
+#
+# THESE RULES ARE IN THE CHROME SHEET AND NOT IN THE SKIN, AND THAT IS NOT A CONVENIENCE. `footer.site-footer` is
+# already one of atlas_live.CHROME_ROOTS — CLASSIC_CSS is the sheet that paints the footer (`.footer-bottom {
+# font-size:.62rem }` above IS the 9.92px), and the skin is scoped `.agx-content`, which cannot reach it. Putting a
+# footer rule in the skin would have meant widening the skin's one declared root; putting it here spends a root the
+# build already declares and validate-live already probes.
+#
+# !important on every entry, for the reason the skin takes it: `.footer-awards .badge-item p` carries an INLINE
+# `style="…font-size:0.7rem…"` on all eleven pages, and `.footer-bottom p` is beaten by ep-app's own
+# `.footer-bottom p { font-size:13px }`. assert_footer_floor() bounds it to this table.
+FOOTER_ROOT = '.site-footer'
+# (selector, smallest live px, the px written into the max()). Measured at 393x852 in Chromium on c713dd9.
+FOOTER_P_FLOOR = (
+    ('.footer-bottom p', 9.92, 13),                 # 9.92 on eleven pages, 13 on ep-app's own footer
+    # The two award captions. Keyed by the INLINE style, not by .footer-awards .badge-item: the chrome sheet
+    # carries those classes but the live footer markup is class-less inline-styled <div>s, so the class rule
+    # matched nothing and the caption still measured 11.2px after the first attempt.
+    ('p[style*="font-size:0.7rem"]', 11.2, 11.2),
+    ('.footer-brand p', 14, 14),                    # ep-app only
+)
+FOOTER_LABEL_FLOOR = (
+    ('.footer-bottom a[style*="font-size:10px"]', 10, 10),   # the "✍" link on index and contact
+    ('.footer-badge', 9, 9), ('.cred-tag', 10, 10),          # ep-app only
+)
+
+
+def footer_block():
+    """The rules that go inside CLASSIC_CSS's one @media (max-width:768px) block, generated from the two tables
+    above so the CSS and the numbers assert_footer_floor() checks can never be two different things."""
+    out = ["    /* ---- The footer's body-copy floor: the same 15px / 11px as the skin, on the one live band "
+           "that sits outside .agx-content ---- */"]
+    for table, floor in ((FOOTER_P_FLOOR, P_FLOOR_PX), (FOOTER_LABEL_FLOOR, LABEL_FLOOR_PX)):
+        for sel, low, high in table:
+            out.append(_floor_rule(sel, low, high, floor, FOOTER_ROOT))
+    return '\n'.join(out)
+
+
+CLASSIC_CSS = CLASSIC_CSS.replace('/* AGX-FOOTER-FLOOR */', footer_block())
+assert CLASSIC_CSS.count('@media (max-width:768px)') == 1, 'the chrome sheet grew a second phone block'
+
+
+def assert_footer_floor(css):
+    """The footer floor's bounds, as a build failure: every entry does work, every rule is the one footer_block()
+    generates, every rule sits inside the phone block, and the sheet takes !important NOWHERE ELSE. Returns the
+    number of rules counted. Called from atlas_live.chrome_css() so it fires on the built sheet, not on a constant.
+    """
+    import atlas_live as live
+    body = live._COMMENT.sub('', css)
+    # NORMALISED, because this runs on the BUILT sheet and not on the constant: chrome_css() re-emits every rule
+    # through _filter(), which rebuilds it as `sel {decl}` and loses the source indent. Asserting the constant
+    # instead would assert a sheet the pages do not ship.
+    block = ' '.join(live._block(body, '@media (max-width:768px) {').split())
+    n = 0
+    for table, floor, name in ((FOOTER_P_FLOOR, P_FLOOR_PX, 'FOOTER_P_FLOOR'),
+                               (FOOTER_LABEL_FLOOR, LABEL_FLOOR_PX, 'FOOTER_LABEL_FLOOR')):
+        for sel, low, high in table:
+            assert low < floor, '%s carries %s at %gpx, which already clears the %dpx floor — a rule nothing ' \
+                                'spends is a hole nothing guards' % (name, sel, low, floor)
+            assert high >= low, '%s: %s writes %gpx into a max() over live copy measured at %gpx' % (name, sel, high, low)
+            rule = ' '.join(_floor_rule(sel, low, high, floor, FOOTER_ROOT).split())
+            assert rule in block, 'the chrome sheet no longer carries: ' + rule
+            n += 1
+    floor_sels = set('%s %s' % (FOOTER_ROOT, sel) for table in (FOOTER_P_FLOOR, FOOTER_LABEL_FLOOR)
+                     for sel, _lo, _hi in table)
+    for m in re.finditer(r'([^{}]+)\{([^{}]*)\}', body):
+        if '!important' not in m.group(2):
+            continue
+        parts = set(' '.join(x.split()) for x in m.group(1).split(','))
+        assert parts <= floor_sels and ' '.join(m.group(0).split()) in block, \
+            'the chrome sheet takes !important outside the enumerated footer floor: %s' % m.group(1).strip()[:70]
+    return n
 
 
 def assert_phone_floor(css):
@@ -1258,6 +1361,11 @@ def assert_skin_scope(css):
     sels = live.audit_chrome_css(body)
     loose = [s for s in sels if not s.strip().startswith('.agx-content ')]
     assert not loose, 'skin CSS is not anchored to .agx-content: %s' % loose[:6]
+    # THE LITERAL "<body" MAY NOT APPEAR IN THIS SHEET, INCLUDING IN A COMMENT. compare-atlas.py:263 and :363
+    # and atlas_live.py:444 all slice a page at `index('<body')`, and this sheet ships inside <head> — a comment
+    # that spelled the tag moved the body boundary into the CSS and printed three stylesheet fragments as
+    # build-only text units on all twelve pages (measured 2026-09-10, the run that produced this line).
+    assert '<body' not in css, 'the skin spells the literal "<body"; every page slicer keys on the first one'
     assert_phone_floor(css)
     phone = live._block(body, '@media (max-width:768px) {')
     floor_rules = set(_floor_rule(sel, low, high, floor).strip()
@@ -1385,8 +1493,14 @@ AGX_HERO_CSS = r"""
   @media (prefers-reduced-motion: reduce) {
     .agx-content .agx-ch.agx-hero h1 .gold-text, .agx-content .agx-ch.agx-hero h1 .gold-shimmer { animation:none; }
   }
+  /* THE CUE SHOWS ON A PHONE TOO (2026-09-10). It was display:none below 769 and the reason it came back is
+     Brockmann's own line — "Site should be same as most look mobile first" — plus a measurement: with the cue
+     shown at 393x852 its box is [158,235,674,689] on eleven pages and [158,235,790,806] on ep-app, and a
+     line-box walk of every text run in the opening chapter returns ZERO intersections on all twelve. It takes
+     11px here rather than the .6rem it takes above 768, so the one piece of hero chrome a phone reader meets
+     clears the same 11px label floor the rest of the page does. */
   @media (max-width:768px) {
-    .agx-content .agx-ch.agx-hero .agx-scroll-cue { display:none; }
+    .agx-content .agx-ch.agx-hero .agx-scroll-cue { font-size:11px; bottom:1.6rem; }
   }
 """
 

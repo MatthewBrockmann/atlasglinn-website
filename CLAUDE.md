@@ -652,6 +652,30 @@ three**, each with its own enumerated list in `assert_skin_scope()`: the tilt ov
 **The table is not the assert:** `validate-live.py` check 4c compares build against the live capture at 390 element
 for element and fails on any lowering, and `render-audit.mjs` check 9 walks every rendered leaf at 393×852.
 
+**AND THE FLOOR IS THE PAGE, NOT `.agx-content` — CORRECTED 2026-09-10.** Both guards walked `.agx-content *`, and
+the first pass reported the result as "no text under 11px, no p under 15px" full stop. Walked over `body *` the
+same night, the live **footer** — which sits outside `.agx-content` — still printed `<p>` at **9.92px** on eleven
+pages, `<p>` at **11.2px** on eleven, and on ep-app `<p>` at 14px and 13px, `span.cred-tag` at 10px and
+`span.footer-badge` at 9px. The footer is one of `atlas_live.CHROME_ROOTS`, so its floor is **3 p-rules and 3
+label-rules in the CHROME sheet** (`atlas_shell.FOOTER_P_FLOOR` / `FOOTER_LABEL_FLOOR`, asserted by
+`assert_footer_floor()` on the built sheet and spend-checked by `validate-live.py`), not in the skin — putting it in
+the skin would have meant widening the skin's one declared root. Check 9 walks `body *` minus the named chrome now,
+so the claim and the guard cannot be two populations again. Measured after: **0 leaves under the floor on all
+twelve at 393**. There is no DESKTOP floor and none was asked for — at 1440 the footer's smallest leaf is still
+9.92px (9px on ep-app), which is the live site's own type.
+
+**CHECK 9'S OVERFLOW ROW COULD NOT FAIL, AND "PHONES: NOTHING OFF-SCREEN" WAS FALSE WHEN IT WAS WRITTEN.** Its
+`clipped()` walked EVERY ancestor to the document root, and all twelve pages carry the live sheet's own
+`body { overflow-x:hidden }` — so every element on every page had a "clipping" ancestor and the `over` list was
+structurally incapable of being non-empty. Bounded at the body, and with a clip only excusing an element when the
+clipping box's own right edge is inside the viewport, the first run printed **6 boxes at x=410 in a 393px viewport
+on cuas-aerodefense — the h3, both paragraphs and the CTA of `.integration-text`, plus `.integration-visual`** (and
+the guard exited 1, which it had never done). Two real causes, two real fixes, both in the phone block: the live
+theme's `.cta-button { width:100% !important }` inflating a `1fr` track through the item's automatic minimum size
+(**`min-width:0`** on the two grid items), and index `#app`'s inline-styled 600px decorative glow standing 103px
+past both edges (**`max-width:100%`**, which beats an inline `width` because they are different properties). After:
+**0 unclipped over-edge elements on all twelve at 393 and at 1440**, `scrollWidth == innerWidth` at both.
+
 **PLAYBACK IS NOT PROVEN FROM HERE, AND THE WORKFLOW'S EXISTENCE IS NOT A PASS.** Every atlasglinn.com film 404s in
 the build container, so *"SHould have embedded videos"* ships **proven only structurally** — `autoplay`, `muted`,
 `loop`, `playsinline` present in the DOM, asserted. `.github/workflows/render-audit.yml` (workflow_dispatch) loads

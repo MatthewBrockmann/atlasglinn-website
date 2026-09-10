@@ -56,7 +56,7 @@
  *
  * 4. RAIL LANDINGS. Every rail link is followed and the chapter it lands is measured. `.agx-ch` carried
  *    `scroll-margin-top:72px` — the 60px sticky bar plus twelve — and the bar is GONE since r8 (2026-09-09). The
- *    margin is 24px now, which clears the top HUD row (1.2rem + the safe-area inset), and the floor a landed
+ *    margin is 48px now, which clears the top HUD row (1.2rem + the safe-area inset), and the floor a landed
  *    heading may not go under is HUD_FLOOR below, not the bar's 60. The number and this sentence move together.
  *
  * 5. PAGE ERRORS. No uncaught page error, and no failed request for a page-authored (same-origin) URL. External
@@ -108,7 +108,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // The two numbers check 4 is written against, read off atlas_shell.CINEMA_CSS by eye and asserted here so the
-// sheet and the test cannot drift: `.agx-ch { scroll-margin-top:24px }` is what a rail link lands on, and the top
+// sheet and the test cannot drift: `.agx-ch { scroll-margin-top:48px }` is what a rail link lands on, and the top
 // HUD row's box measures [29,217,19,35] at 1440 (validate-live check 6 prints it), so 40px is the lowest a heading
 // may land and still clear it. It was 60 — the sticky bar's height — until the bar came off (r8, 2026-09-09), and
 // the first pair tried, 24/34, failed here on executive-protection agx-c5 at 30px. The pair moves together.
@@ -201,9 +201,27 @@ async function freePort(from) {
  *  backdrop is a 1515px cover box inside `.agx-ph { overflow:hidden }`. Those are transforms and cover boxes inside
  *  a clip, not layout overflow, and counting them would mean either a false failure or a blanket that hides a real
  *  one. So an element is over the edge only if no ancestor clips it — and the document's own scrollWidth is
- *  asserted separately, which is the reading that cannot be argued with. */
+ *  asserted separately, which is the reading that cannot be argued with.
+ *
+ *  THE CLIP WALK IS BOUNDED AT <body>, AND UNTIL 2026-09-10 IT WAS NOT — WHICH MADE THIS CHECK INCAPABLE OF
+ *  FAILING. Every generated page carries the live sheet's own `body { overflow-x:hidden }` (grep -c on the twelve
+ *  returns 1 each), so a walk that ran to the document root found a clipping ancestor for EVERY element and `over`
+ *  could never be non-empty. It reported "unclipped over-edge 0" on cuas-aerodefense while six boxes stood at
+ *  x=410 in a 393px viewport, four of them live text: the h3, both paragraphs and the CTA of .integration-text.
+ *  Two bounds now, and both are needed: the walk stops at <body>, and a clipping ancestor only excuses an element
+ *  if its OWN right edge is inside the viewport — a clip wider than the screen hides nothing.
+ *
+ *  AND THE WALK IS THE WHOLE BODY, NOT `.agx-content`. Same defect, other axis: the floor was measured inside
+ *  .agx-content and reported as the page. The live footer sits outside it and printed <p> at 9.92px. The chrome
+ *  this layer draws is excluded BY NAME (CHROME_SEL below) because it is mono chrome at chrome sizes and is not
+ *  live copy — the rail's labels, the four HUD corners, the MENU word, the splash. Everything else is walked. The
+ *  GRID row is the one that stays scoped to `.agx-content`: it asks whether a LIVE CONTENT row still stands more
+ *  than two columns wide on a phone, and the footer's own `.footer-grid` is a one-column stack at 393 by the
+ *  chrome sheet's own rule. */
 async function phoneAudit(page) {
   return page.evaluate(([P_FLOOR, LEAF_FLOOR]) => {
+    const CHROME_SEL = '.agx-hud, .agx-rail, .agx-sitenav, .agx-menu-btn, .agx-scroll-cue, #agx-progress, '
+      + '#agx-canvas, .agx-ph, .agx-grain, .agx-vignette, #intro-overlay';
     const path = (el) => {
       const parts = [];
       for (let e = el, i = 0; e && e.tagName && i < 4; e = e.parentElement, i++) {
@@ -214,17 +232,19 @@ async function phoneAudit(page) {
       return parts.join(' > ');
     };
     const clipped = (el) => {
-      for (let e = el.parentElement; e; e = e.parentElement) {
+      for (let e = el.parentElement; e && e !== document.body && e !== document.documentElement; e = e.parentElement) {
         const cs = getComputedStyle(e);
-        if (cs.overflow !== 'visible' || cs.overflowX !== 'visible') return true;
+        if ((cs.overflow !== 'visible' || cs.overflowX !== 'visible')
+          && e.getBoundingClientRect().right <= innerWidth + 1) return true;
       }
       return false;
     };
     const grids = [], over = [], small = [];
-    for (const el of document.querySelectorAll('.agx-content *')) {
+    for (const el of document.querySelectorAll('body *')) {
+      if (el.closest(CHROME_SEL)) continue;
       const cs = getComputedStyle(el);
       const box = el.getBoundingClientRect();
-      if (cs.display.includes('grid')) {
+      if (cs.display.includes('grid') && el.closest('.agx-content')) {
         const kids = [...el.children].filter((c) => {
           const b = c.getBoundingClientRect();
           return b.width > 0 && b.height > 0;
@@ -426,7 +446,7 @@ async function railLabels(page) {
 }
 
 /** Where each rail link LANDS its chapter: the chapter box's top and its first heading's top, after the browser's
- *  own scroll-to-fragment (which honours `.agx-ch { scroll-margin-top:24px }`). With no bar the only fixed thing
+ *  own scroll-to-fragment (which honours `.agx-ch { scroll-margin-top:48px }`). With no bar the only fixed thing
  *  over a landed heading is the top HUD row, so HUD_FLOOR is the assertion. `scroll-behavior` is forced to
  *  auto for the same reason the reveal walk forces it: under the shell's smooth scrolling the box is measured
  *  mid-animation. */
@@ -789,7 +809,7 @@ async function main() {
   let browser = null;
   let bad = 0;
   const sum = { units: 0, unseen: 0, labels: 0, clipped1440: 0, clipped1800: 0, stranded: 0, chapters: 0, pageErrors: 0, localFails: 0, unmeasured: 0, ticks: 0,
-    landings: 0, landingsAt72: 0, landingsFirst: 0, landingsHead: 0, headUnderBar: 0,
+    landings: 0, landingsAtMargin: 0, landingsFirst: 0, landingsHead: 0, headUnderBar: 0,
     phoneGrids: 0, phoneOver: 0, phoneSmall: 0, sitenavLinks: 0 };
   let maxScroll = 0, maxScrollText = '', minGap = 1e9, noEllipsis = 0, overlap1440 = 0, maxOverlap = 0;
   const STANDING_WIDTHS = [1800, 1440, 1280, 1025];
@@ -883,7 +903,7 @@ async function main() {
           for (const L of await railLandings(page)) {
             sum.landings++;
             if (L.first) sum.landingsFirst++;
-            else if (L.box >= SCROLL_MARGIN - 0.5 && L.box <= SCROLL_MARGIN + 0.5) sum.landingsAt72++;
+            else if (L.box >= SCROLL_MARGIN - 0.5 && L.box <= SCROLL_MARGIN + 0.5) sum.landingsAtMargin++;
             if (L.head !== null) {
               sum.landingsHead++;
               if (L.head < headMin) headMin = L.head;
@@ -950,7 +970,7 @@ async function main() {
         for (const L of await railLandings(page)) {
           sum.landings++;
           if (L.first) sum.landingsFirst++;
-          else if (L.box >= SCROLL_MARGIN - 0.5 && L.box <= SCROLL_MARGIN + 0.5) sum.landingsAt72++;
+          else if (L.box >= SCROLL_MARGIN - 0.5 && L.box <= SCROLL_MARGIN + 0.5) sum.landingsAtMargin++;
           if (L.head !== null) {
             sum.landingsHead++;
             if (L.head < headMin) headMin = L.head;
@@ -1137,7 +1157,7 @@ async function main() {
       + (ONLY ? ' — reported, not a failure, because --only narrowed the page set' : ''));
     if (!ONLY) bad++;
   }
-  console.log(`         rail landings ${sum.landings} across 1440 and 1800: ${sum.landingsAt72} put the chapter box at ${SCROLL_MARGIN}+-0.5px, ${sum.landingsFirst} are each page's FIRST link (document top), ${sum.headUnderBar} put a heading under the ${HUD_FLOOR}px top HUD row`);
+  console.log(`         rail landings ${sum.landings} across 1440 and 1800: ${sum.landingsAtMargin} put the chapter box at ${SCROLL_MARGIN}+-0.5px, ${sum.landingsFirst} are each page's FIRST link (document top), ${sum.headUnderBar} put a heading under the ${HUD_FLOOR}px top HUD row`);
   console.log(`         of those, ${sum.landingsHead} land a chapter that carries a heading: ${headMin === 1e9 ? 'n/a' : Math.round(headMin * 10) / 10}px to ${headMax === -1e9 ? 'n/a' : Math.round(headMax * 10) / 10}px from the top`);
   console.log(`         rail labels whose hover state never settled, excluded from the clipped counts: ${sum.unmeasured}`);
   console.log(`         reveal walk at 0.5 viewport / 320 ms + 1400 ms settle: ${sum.stranded} of ${sum.chapters} blocks below opacity 0.99`);

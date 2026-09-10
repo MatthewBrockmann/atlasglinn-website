@@ -752,6 +752,9 @@ def chrome_css(mono_family='Inconsolata'):
     # the "same font" line he drew, and Share Tech Mono is an ep-app font on the live site, not a site-wide one.
     css = css.replace("'Share Tech Mono',monospace", "'%s',monospace" % mono_family)
     assert_chrome_scope(css)
+    # The footer's phone floor, asserted on the sheet the pages actually ship — after the cut, the recolor and the
+    # mono substitution, not on the constant.
+    atlas.assert_footer_floor(css)
     return css
 
 

@@ -107,13 +107,43 @@ WORDMARK_ID = 'intro-title'
 _ID_ELEM = {i: re.compile(r'<(\w+)\b[^>]*\bid="%s"[^>]*>(.*?)</\1>' % re.escape(i), re.S | re.I)
             for i in [e for _u, e in CONTROLS] + [WORDMARK_ID]}
 
-# The shell's own control labels — the only build-only attribute units that are not read off a live page. A tuple and
-# not a set, because "Back to top" is two units: the button carries it as title and as aria-label.
+# The shell's own control labels — the only build-only attribute units that are not read off a live page.
+#
+# EACH ONE IS KEYED TO THE ELEMENT AND THE ATTRIBUTE IT IS EXPECTED ON, as CONTROLS is keyed through _ID_ELEM
+# (2026-09-10). It was a bare tuple of strings until then: a page-wide budget with no positional binding, under
+# which an aria-label="Menu" on ANY element anywhere on the page was excused, and an entry no page spent was
+# invisible — the same "an excuse nothing spends is a hole nothing guards" defect this file fails other allowances
+# for. A unit is excused now only where its span sits inside that element's own open tag, one spend per
+# (element, attribute), and a11y_unspent() fails a FULL run on any entry no page spends.
+# "Back to top" is two entries because the button carries it twice, as title and as aria-label.
 # 'Main' left with the sticky bar (r8, 2026-09-09) — it was `<nav id="main-nav" aria-label="Main">` and there is
 # no bar to label. 'Atlas Glinn, Houston' arrived with it: the HUD's top-left corner is a real <a href="index.html">
-# whose visible line is CSS `content`, so its aria-label is the one unit it adds. An excuse nothing spends is a hole
-# nothing guards, which is why the tuple shrank and grew in the same pass rather than only growing.
-A11Y = ('Menu', 'Site menu', 'Close menu', 'Chapters', 'Atlas Glinn, Houston', 'Back to top', 'Back to top')
+# whose visible line is CSS `content`, so its aria-label is the one unit it adds.
+A11Y = (('Menu', '#agx-menu-btn', 'aria-label'),
+        ('Site menu', '#agx-sitenav', 'aria-label'),
+        ('Close menu', '#agx-sitenav-close', 'aria-label'),
+        ('Chapters', '.agx-rail', 'aria-label'),
+        ('Atlas Glinn, Houston', '.agx-hud-tl', 'aria-label'),
+        ('Back to top', '#back-to-top', 'title'),
+        ('Back to top', '#back-to-top', 'aria-label'))
+_A11Y_TAG = {k: re.compile(r'<\w+\b[^>]*\b%s[^>]*>'
+                           % (r'id="%s"' % re.escape(k[1:]) if k.startswith('#')
+                              else r'class="[^"]*\b%s\b[^"]*"' % re.escape(k[1:])))
+             for _u, k, _a in A11Y}
+
+
+def a11y_slots(markup):
+    """[(unit, key, attr, start, end)] — one slot per A11Y entry the page actually prints, spanning the open tag of
+    the element that must carry it. An entry whose element is absent yields no slot, and the unit it would have
+    excused is then a delta. Offsets agree with attr_spans(): the same blanking, at the same lengths."""
+    src = _STRIP.sub(_blank, markup)
+    out = []
+    for unit, key, attr in A11Y:
+        m = _A11Y_TAG[key].search(src)
+        if not m or ('%s="%s"' % (attr, unit)) not in m.group(0):
+            continue
+        out.append((unit, key, attr, m.start(), m.end()))
+    return out
 
 # The two deliberate redirects (§G-6 / AG-5), and there are only two: the menu's IWA entry and the footer's MAST
 # Solutions entry, both of which the live site points at its own pages. Matched on the label AND on the live
@@ -460,22 +490,28 @@ def excuse(slug, added, rails, chrome, snavs=()):
     return ok, bad
 
 
-def excuse_attrs(added, rails):
-    """The same discipline for attribute text: the shell's control labels, spent one per declared unit, plus the
-    aria-label a heading-less chapter's rail tick carries — excused only where it sits inside that tick's own tag,
-    ONE unit per label-less anchor, and only where the value is "Chapter NN".
+def excuse_attrs(added, rails, slots=()):
+    """The same discipline for attribute text: the shell's control labels, spent one per declared SLOT — the
+    element and the attribute the label is expected on, from a11y_slots() — plus the aria-label a heading-less
+    chapter's rail tick carries, excused only where it sits inside that tick's own tag, ONE unit per label-less
+    anchor, and only where the value is "Chapter NN". Returns (excused, unexplained, slots spent).
 
-    Both bounds are r4 (2026-09-09). The r3 excuse was matched by position and nothing else: any number of attribute
-    units, of any name and any value, printed inside a label-less a.agx-rail-link were excused — a second aria-label,
-    a title, an invented alt, all of them. It is budgeted like excuse() now: a Counter keyed by the anchors
-    themselves, so the second unit inside the same tick has nothing left to spend."""
-    budget = collections.Counter(A11Y)
+    Both rail bounds are r4 (2026-09-09). The r3 excuse was matched by position and nothing else: any number of
+    attribute units, of any name and any value, printed inside a label-less a.agx-rail-link were excused — a second
+    aria-label, a title, an invented alt, all of them. It is budgeted like excuse() now: a Counter keyed by the
+    anchors themselves, so the second unit inside the same tick has nothing left to spend. The control labels got
+    the same treatment on 2026-09-10; before that they were a page-wide string budget with no position at all."""
+    slots = list(slots)
+    left = set(range(len(slots)))
     ticks = collections.Counter(k for k, r in enumerate(rails) if not r[1])
-    ok, bad = [], []
+    ok, bad, spent = [], [], []
     for u, a, b in added:
-        if budget[u]:
-            budget[u] -= 1
-            ok.append((u, 'shell control label'))
+        hit = next((i for i in sorted(left)
+                    if slots[i][0] == u and slots[i][3] <= a and b <= slots[i][4]), None)
+        if hit is not None:
+            left.discard(hit)
+            spent.append((slots[hit][1], slots[hit][2]))
+            ok.append((u, 'shell control label, %s %s' % (slots[hit][1], slots[hit][2])))
             continue
         hit = next((k for k, (_a, lab, s, e, _r) in enumerate(rails)
                     if not lab and ticks[k] and s <= a and b <= e), None)
@@ -485,7 +521,7 @@ def excuse_attrs(added, rails):
             ticks[hit] -= 1
             ok.append((u, 'rail tick aria-label, chapter %s carries no heading and prints no label'
                        % rails[hit][0][-2:].lstrip('c')))
-    return ok, bad
+    return ok, bad, spent
 
 
 def lazy_attr_counts(markup):
@@ -636,6 +672,9 @@ def main():
         return 0
     stamp = open(os.path.join(live.LIVE, '_captured.txt'), encoding='utf-8').read().strip().split('\n')[0]
     secs, menu, off = [], [], 0
+    # One counter per A11Y (element, attribute) slot, summed over the whole page set: an entry no page spends is a
+    # hole nothing guards, and it fails the run below rather than sitting in the tuple unnoticed.
+    a11y_hits = {(k, at): 0 for _u, k, at in A11Y}
     for slug in live.PAGES:
         page = 'index.html' if slug == 'index' else slug + '.html'
         old, new = visible(live._read(slug)), visible(read(page))
@@ -676,7 +715,9 @@ def main():
         order = out_of_order(tlb, tb)
         lost_a, added_a = missing(uo, un), added_spans(an, uo)
         ok_t, bad_t = excuse(slug, added_t, rails, chrome, snavs)
-        ok_a, bad_a = excuse_attrs(added_a, rails)
+        ok_a, bad_a, a11y_spent = excuse_attrs(added_a, rails, a11y_slots(new))
+        for key in a11y_spent:
+            a11y_hits[key] += 1
         extra_m = sorted(mn - mo)
         ok_m, lost_m, bad_m = pair_media(sorted(mo - mn), extra_m, mo)
         bad_h, redirects = href_diff(blank_icons(old, icons), new)
@@ -777,6 +818,13 @@ def main():
            '<p><code>%s</code></p><nav>%s</nav></header>%s</body></html>'
            % (CSS, H.escape(stamp), ''.join(menu), ''.join(secs)))
     open(OUT, 'w', encoding='utf-8').write(doc)
+    dead = [k for k, v in a11y_hits.items() if not v]
+    print('A11Y control labels: %d slot(s), %d spent across the twelve pages (%s)'
+          % (len(a11y_hits), len(a11y_hits) - len(dead),
+             ', '.join('%s %s x%d' % (k, at, n) for (k, at), n in sorted(a11y_hits.items()))))
+    if dead:
+        off += 1
+        print('A11Y ENTRIES NO PAGE SPENDS: %s' % ', '.join('%s %s' % k for k in dead))
     print('wrote atlas-compare.html %d bytes, %d pages, %d with a delta' % (len(doc.encode()), len(live.PAGES), off))
     return 1 if off else 0
 

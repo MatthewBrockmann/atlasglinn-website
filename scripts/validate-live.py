@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
-"""The browser pass on the three stylesheets the twelve Atlas Glinn pages carry, and on the two fixed HUD corners.
+"""The browser pass on the four stylesheets the twelve Atlas Glinn pages carry, and on the two fixed HUD corners.
 
   python3 scripts/validate-live.py [--only <slug>[,<slug>]] [--port <n>]
 
---only narrows the page set for speed. Check 3b (every skin selector spent by some page) is a measurement over ALL
-TWELVE pages, so under --only it is REPORTED and does not fail — a selector only ep-app spends is not dead because
-this run did not load ep-app. A full run is what asserts 3b.
+FOUR SHEETS, NOT THREE, SINCE 2026-09-10. The banner said AGX_SKIN_CSS was "the ONE sheet permitted to match
+content" while AGX_HERO_CSS — declared, scoped to the opening chapter, and shipped on all twelve — was never
+probed in the browser at all. It is the fourth probe now and its count prints on every page row.
+
+--only narrows the page set for speed. Check 3b (every skin selector spent by some page) and the same measurement
+on the chrome sheet's footer phone floor are measurements over ALL TWELVE pages, so under --only they are REPORTED
+and do not fail — a selector only ep-app spends is not dead because this run did not load ep-app. A full run is
+what asserts them.
 
 THIS FILE IS NEW (2026-09-09) AND THAT IS THE FINDING THAT CREATED IT. `scripts/atlas_live.py` has named it since
 the module was written — ":33 … validate-live.py asserts in a real browser that not one of them matches an element
@@ -216,6 +221,10 @@ try {
     const chrome = await page.evaluate(PROBE, [P.chromeSels, P.chromeRoots, P.chromeRoots]);
     const cinema = await page.evaluate(PROBE, [P.cinemaSels, P.cinemaSelf, P.cinemaAnc]);
     const skin = await page.evaluate(PROBE, [P.skinSels, '', '.agx-content']);
+    // THE FOURTH SHEET. AGX_HERO_CSS is the second sheet declared to reach content and until 2026-09-10 nothing
+    // probed it in a browser — assert_hero_scope() reads its selector text at build time, which is not the same
+    // question as "which elements can it reach on the rendered page". Its root is the opening chapter.
+    const hero = await page.evaluate(PROBE, [P.heroSels, '', '.agx-ch.agx-hero']);
     const buildType = await page.evaluate(TYPESCALE, 'body');
     const buildHero = await page.evaluate(TYPESCALE, 'hero');
     const chapters = await page.evaluate(() => document.querySelectorAll('.agx-ch').length);
@@ -285,7 +294,7 @@ try {
     const liveType390 = await page.evaluate(TYPESCALE, 'body');
 
     const shared = new Set(liveErrs);
-    results.push({ slug: P.slug, chrome, cinema, skin, buildType, liveType, buildHero, liveHero,
+    results.push({ slug: P.slug, chrome, cinema, skin, hero, buildType, liveType, buildHero, liveHero,
       buildType390, liveType390, chapters, hud0, hudK, boxes,
       narrow, errs: errs.filter((e) => !shared.has(e)), liveErrs, k });
     await ctx.close();
@@ -371,6 +380,7 @@ def main():
             'cinemaSels': [targets(s) for s in atlas.assert_cinema_scope(atlas.cinema_css(live.mono(slug)))],
             'cinemaRaw': [s.strip() for s in atlas.assert_cinema_scope(atlas.cinema_css(live.mono(slug)))],
             'skinSels': [targets(s) for s in skin_sels],
+            'heroSels': [targets(s) for s in atlas.assert_hero_scope(atlas.hero_css(live.mono(slug)))],
             'chromeRoots': CHROME_ROOTS,
             'cinemaSelf': CINEMA_SELF,
             'cinemaAnc': CINEMA_ANC,
@@ -390,17 +400,30 @@ def main():
         os.unlink(jf.name)
         os.unlink(of.name)
 
-    print('DECLARED EXCEPTION: AGX_SKIN_CSS (atlas_shell.py) — the ONE sheet permitted to match content, scoped '
-          '.agx-content; the chrome sheet is still asserted to match none.')
+    print('DECLARED EXCEPTIONS: TWO sheets are permitted to match content and BOTH are probed here — '
+          'AGX_SKIN_CSS (atlas_shell.py), scoped .agx-content, and AGX_HERO_CSS, scoped '
+          '.agx-content .agx-ch.agx-hero. The chrome sheet is still asserted to match none, and its footer phone '
+          'floor is asserted to be spent.')
     bad = 0
     n_chrome_out = n_cinema_out = 0
     skin_hits = dict.fromkeys(range(len(skin_sels)), 0)
+    # The footer's phone floor lives in the CHROME sheet (the footer is one of its five declared roots), so the
+    # chrome probe already measures it — what was missing is the other half of the skin's 3b: a floor entry no page
+    # spends is a hole nothing guards. Counted off the same probe, failed the same way.
+    foot_hits = dict.fromkeys('%s %s' % (atlas.FOOTER_ROOT, sel)
+                              for table in (atlas.FOOTER_P_FLOOR, atlas.FOOTER_LABEL_FLOOR)
+                              for sel, _lo, _hi in table)
+    foot_hits = {k: 0 for k in foot_hits}
     for P, R in zip(job['pages'], results):
         slug = R['slug']
         chrome_out = [r for r in R['chrome'] if r['outsideN']]
         cinema_out = [r for r, raw in zip(R['cinema'], P['cinemaRaw'])
                       if r['outsideN'] and raw not in CINEMA_CONTENT_OK]
         skin_out = [r for r in R['skin'] if r['outsideN']]
+        hero_out = [r for r in R['hero'] if r['outsideN']]
+        for r in R['chrome']:
+            if r['sel'] in foot_hits:
+                foot_hits[r['sel']] += r['n']
         n_chrome_out += sum(r['outsideN'] for r in chrome_out)
         n_cinema_out += sum(r['outsideN'] for r in cinema_out)
         for i, r in enumerate(R['skin']):
@@ -444,14 +467,15 @@ def main():
                     if a[0] < b[1] and b[0] < a[1] and a[2] < b[3] and b[2] < a[3]:
                         line = '%spx %s %s intersects %s %s' % (w, ks[i], a, ks[j], b)
                         (hits if ('agx' in ks[i] or 'agx' in ks[j]) else pre).append(line)
-        ok = not (chrome_out or cinema_out or skin_out or not type_ok or hero_bad or phone_bad or hud_bad
-                  or hits or R['errs'])
+        ok = not (chrome_out or cinema_out or skin_out or hero_out or not type_ok or hero_bad or phone_bad
+                  or hud_bad or hits or R['errs'])
         bad += 0 if ok else 1
         print('%-24s chrome %2d sel/%d outside  cinema %2d sel/%d outside  skin %3d sel/%d outside  '
-              '4a %d==%d %s  4b hero %d/%d %s  4c 390 %s  hud %s  fixed-chrome hits %d  '
+              'hero %2d sel/%d outside  4a %d==%d %s  4b hero %d/%d %s  4c 390 %s  hud %s  fixed-chrome hits %d  '
               'page errors %d (+%d the capture raises too)  %s'
               % (slug, len(R['chrome']), len(chrome_out), len(R['cinema']), len(cinema_out),
-                 len(R['skin']), len(skin_out), len(R['buildType']), len(R['liveType']),
+                 len(R['skin']), len(skin_out), len(R['hero']), len(hero_out),
+                 len(R['buildType']), len(R['liveType']),
                  'EQUAL' if type_ok else 'DIFFER', len(R['buildHero']), len(R['liveHero']),
                  'OK' if not hero_bad else 'BAD', 'OK' if not phone_bad else 'BAD',
                  'OK' if not hud_bad else 'BAD', len(hits), len(R['errs']),
@@ -495,6 +519,7 @@ def main():
                 print('    fixed-chrome boxes at %spx: %s' % (w, json.dumps(R['boxes'][w], sort_keys=True)))
 
     unspent = [skin_sels[i] for i in skin_hits if not skin_hits[i]]
+    foot_unspent = [k for k, v in foot_hits.items() if not v]
     # The first two sentences used to print their clean form unconditionally, so a FAILING run said "matched 0
     # elements outside the five roots on every one" three lines under the rule that had just been reported reaching
     # content. They are measured now, the way the skin's line already was.
@@ -512,6 +537,14 @@ def main():
               '%s' % ' ; '.join(unspent))
     elif unspent:
         print('         SKIN SELECTORS SPENT BY NO PAGE: %s' % ' ; '.join(unspent))
+        bad += 1
+    print('         The chrome sheet\'s footer phone floor: %d rule(s), %d spent on at least one page.'
+          % (len(foot_hits), len(foot_hits) - len(foot_unspent)))
+    if foot_unspent and only:
+        print('         FOOTER FLOOR RULES NO PAGE IN THIS --only SUBSET SPENDS (not a failure; the check needs '
+              'all twelve): %s' % ' ; '.join(foot_unspent))
+    elif foot_unspent:
+        print('         FOOTER FLOOR RULES SPENT BY NO PAGE: %s' % ' ; '.join(foot_unspent))
         bad += 1
     print('         %s' % ('0 with a delta' if not bad else '%d WITH A DELTA' % bad))
     return bad

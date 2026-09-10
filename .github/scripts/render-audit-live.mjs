@@ -8,8 +8,15 @@
  *
  * For each of chromium and webkit, and each of {393x852 isMobile hasTouch dsf 3} and {1440x900}:
  *   load, dismiss the Enter / Skip Intro splash if it is up, wait 4s, then for every <video> wait a further 3s and
- *   record {src basename, paused, currentTime, readyState, muted, autoplay, playsInline}. A video that is paused or
- *   has not advanced past 0.5s FAILS. The document may not scroll sideways. Two frames per engine per width.
+ *   record {src basename, paused, currentTime, readyState, muted, autoplay, playsInline}.
+ *
+ *   WHAT IS ASSERTED, EXACTLY: a video the page DECLARES autoplay on must be playing — not paused, currentTime past
+ *   0.5s. A video without autoplay is printed with the same numbers and is NOT asserted, because a paused
+ *   non-autoplay <video> is the page behaving correctly: measured on the built pages 2026-09-10, five of the six
+ *   training films and one of the two contact films carry autoplay=false, and they are in-content copies a reader
+ *   presses play on. The honest claim this job proves is "the HERO film has autoplay muted loop playsinline and is
+ *   playing", never "every film on the page plays". A page with NO <video> at all fails: the proof measured nothing.
+ *   The document may not scroll sideways. Two frames per engine per width.
  * Exits 1 on any failure, and writes the frames either way.
  */
 import fs from 'node:fs';
@@ -67,12 +74,18 @@ for (const [engineName, engine] of [['chromium', chromium], ['webkit', webkit]])
       const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       for (const v of vids) {
         const ok = !v.paused && v.currentTime > 0.5;
-        if (!ok) bad++;
-        rows.push(`${tag} ${ok ? 'PLAYING' : 'NOT PLAYING'} ${v.src} paused=${v.paused} `
+        if (!ok && v.autoplay) bad++;
+        rows.push(`${tag} ${ok ? 'PLAYING' : (v.autoplay ? 'NOT PLAYING' : 'paused, autoplay=false, not asserted')} ${v.src} paused=${v.paused} `
           + `currentTime=${v.currentTime} readyState=${v.readyState} muted=${v.muted} `
           + `autoplay=${v.autoplay} playsInline=${v.playsInline} box=${v.w}x${v.h}`);
       }
-      if (!vids.length) rows.push(`${tag} no <video> on the page`);
+      // A PAGE WITH NO <video> IS A FAILED MEASUREMENT, NOT A PASS. This job exists to answer "do the embedded
+      // videos play on a phone"; a run that finds none answered nothing, and printing a neutral line while
+      // exiting 0 is how a broken deploy (or a URL typed one path segment wrong) reads as proof.
+      if (!vids.length) {
+        bad++;
+        rows.push(`${tag} NO <video> ON THE PAGE — the playback proof has nothing to measure`);
+      }
       if (over > 0) {
         bad++;
         rows.push(`${tag} HORIZONTAL OVERFLOW ${over}px (scrollWidth ${over + V.viewport.width} > ${V.viewport.width})`);

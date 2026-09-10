@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="3f92efa54254">
+<meta name="build" content="c5716d8481ea">
 <title>Disaster Recovery & Asset Protection Houston TX | Atlas Glinn</title>
 <meta name="description" content="Disaster recovery and asset protection services by Atlas Glinn. Immediate response, asset safeguarding, and rapid recovery for floods, hurricanes, and crisis events. Houston, TX.">
 <meta property="og:title" content="Disaster Recovery & Asset Protection | Atlas Glinn">
@@ -265,7 +265,13 @@ body.intro-open { overflow:hidden; }
 .footer-bottom a { color:var(--text-mute); text-decoration:none; margin:0 .5rem; }
 .footer-bottom a:hover { color:var(--gold-champagne); }
 @media (max-width:768px) {.footer-awards { gap:1.6rem; }
-.footer-awards img { height:72px; }}
+.footer-awards img { height:72px; }
+.site-footer .footer-bottom p { font-size:max(15px,13px) !important; }
+.site-footer p[style*="font-size:0.7rem"] { font-size:max(15px,11.2px) !important; }
+.site-footer .footer-brand p { font-size:max(15px,14px) !important; }
+.site-footer .footer-bottom a[style*="font-size:10px"] { font-size:max(11px,10px) !important; }
+.site-footer .footer-badge { font-size:max(11px,9px) !important; }
+.site-footer .cred-tag { font-size:max(11px,10px) !important; }}
   #intro-title { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(1.9rem,6.2vw,3.6rem); letter-spacing:.14em; line-height:1.1; text-transform:uppercase; background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; text-shadow:0 0 60px rgba(201,168,76,.35); animation:shimmer 3s linear infinite; }
   @media (prefers-reduced-motion: reduce) { #intro-title { animation:none; } }
 
@@ -298,7 +304,7 @@ body.intro-open { overflow:hidden; }
   .agx-ph.agx-yt iframe.agx-playing { opacity:1; }
   .agx-grain { position:fixed; inset:0; z-index:3; pointer-events:none; opacity:.035; background-image:repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(255,255,255,.3) 2px, rgba(255,255,255,.3) 3px); mix-blend-mode:overlay; }
   .agx-vignette { position:fixed; inset:0; z-index:4; pointer-events:none; background:radial-gradient(ellipse at center, transparent 0%, transparent 55%, rgba(5,8,16,.75) 100%); }
-  /* ── The read-position line, on the bar's top edge rather than behind it ── */
+  /* ── The read-position line, pinned to the viewport top (it drew on the sticky bar's top edge before r8) ── */
   #agx-progress { position:fixed; top:0; left:0; height:2px; width:0; background:linear-gradient(90deg, #2F7BEF, #DCEBFF, #0E3F8C); z-index:1001; box-shadow:0 0 14px rgba(26,107,222,.7); transition:width .1s linear; pointer-events:none; }
   /* ── Chapters: each live section, full-bleed over its own backdrop ──
      display:grid with one 100% column and width:100% on the child, NOT flex: the live sections centre themselves with
@@ -433,7 +439,7 @@ body.intro-open { overflow:hidden; }
      right:8.5rem }`) and it is what clears the MENU button; validate-live check 6 measures that pair.
      right:5.2rem on the bottom corners, not 1.5rem: #back-to-top is a fixed 46px button at l:1378 r:1424 t:848 b:894 with z-index:900
      (measured 1440x900), and 1.5rem would put the counter under it. 5.2rem clears it by 21px. Hidden below 1025 —
-     phones and tablets keep the bar and the ticks and nothing else.
+     phones and tablets carry the MENU overlay and the ticks and nothing else (the bar is gone, r8 2026-09-09).
      ── THE LANE GATE, AND THE MEASUREMENT THAT FORCED IT (r5, 2026-09-09) ──
      The rail was walked before it shipped and the HUD was not, and it is FIXED, so the reader's own copy scrolls
      underneath it. render-audit.mjs's walk, pointed at the two corners instead of the rail, measured 33 live text
@@ -677,6 +683,26 @@ body.intro-open { overflow:hidden; }
        document itself overflows by 0 on the built page at every width measured, because the shell clips it, and
        the row's 5px is inside a cut the live page already makes. */
     .agx-content .agx-icon-ring { width:40px; height:40px; border-radius:12px; }
+    /* ---- 7b. THE TWO BOXES THAT STILL STOOD PAST THE RIGHT EDGE AT 393, FOUND ONLY AFTER render-audit's check 9
+       WAS REPAIRED (2026-09-10). Its clipped() walked EVERY ancestor, the document body included, and every
+       generated page carries the live sheet's `body { overflow-x:hidden }`, so the check could never report a
+       single element. With the walk bounded at the body, twelve pages at 393x852 report exactly these two:
+
+       (a) cuas-aerodefense .integration-grid. The live sheet already stacks it to one column at <=768
+           (cuas-aerodefense.html:228), and the track STILL measured 398.031px inside a 369px grid box, putting the
+           h3, both paragraphs and the "Learn About UAS Drones" anchor at x=410. The cause is the live theme's
+           own phone rule `.cta-button { width:100% !important }`: a percentage width inside a
+           `1fr` track resolves through the item's automatic minimum size, and the track grows to it. min-width:0
+           on the two grid items is the one declaration that lets the track be the 369px it is told to be — the
+           column count, the copy and the type are untouched. Re-measured: [12,381], width 369.
+
+       (b) index #app's glow. `<div style="…width:600px;height:600px;border-radius:50%;background:radial-gradient(
+           …);pointer-events:none">`, absolutely centred in the section, so it stands 103px past both edges of a
+           393px viewport. max-width beats an inline `width` because they are different properties, so no
+           !important is needed; the circle becomes an ellipse of the same gradient. Re-measured: [0,393]. Above
+           768 it is inside the viewport and this rule is not there. */
+    .agx-content .integration-text, .agx-content .integration-visual { min-width:0; }
+    .agx-content div[style*="width:600px"] { max-width:100%; }
     /* ---- 8. THE PHONE BLOCK: the rows that do not collapse, and the body-copy floor ---- */
     .agx-content div[style*="columns:repeat(3"], .agx-content div[style*="columns:repeat(4"] { grid-template-columns:1fr !important; }
     .agx-content div[style*="columns:repeat(5"], .agx-content div[style*="columns:repeat(6"] { grid-template-columns:repeat(2,1fr) !important; }
@@ -742,8 +768,14 @@ body.intro-open { overflow:hidden; }
   @media (prefers-reduced-motion: reduce) {
     .agx-content .agx-ch.agx-hero h1 .gold-text, .agx-content .agx-ch.agx-hero h1 .gold-shimmer { animation:none; }
   }
+  /* THE CUE SHOWS ON A PHONE TOO (2026-09-10). It was display:none below 769 and the reason it came back is
+     Brockmann's own line — "Site should be same as most look mobile first" — plus a measurement: with the cue
+     shown at 393x852 its box is [158,235,674,689] on eleven pages and [158,235,790,806] on ep-app, and a
+     line-box walk of every text run in the opening chapter returns ZERO intersections on all twelve. It takes
+     11px here rather than the .6rem it takes above 768, so the one piece of hero chrome a phone reader meets
+     clears the same 11px label floor the rest of the page does. */
   @media (max-width:768px) {
-    .agx-content .agx-ch.agx-hero .agx-scroll-cue { display:none; }
+    .agx-content .agx-ch.agx-hero .agx-scroll-cue { font-size:11px; bottom:1.6rem; }
   }
 </style>
 </head>

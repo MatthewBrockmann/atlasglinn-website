@@ -29,9 +29,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      # PINNED. An unpinned `npm i -D playwright` at dispatch time means the browser build, and therefore the
+      # autoplay policy this job measures, changes underneath a result nobody re-ran. 1.56.1 is the version the
+      # build container runs (read off /opt/node22/lib/node_modules/playwright/package.json, 2026-09-10), so a
+      # green run here and a green run there are the same measurement.
       - name: Install Playwright with Chromium and WebKit
         run: |
-          npm i -D playwright
+          npm i -D playwright@1.56.1
           npx playwright install --with-deps chromium webkit
       - name: Measure playback
         run: node .github/scripts/render-audit-live.mjs "${{ inputs.url }}"
