@@ -327,10 +327,44 @@ the presentation half, and it changes **nothing** inside a chapter.
   against the live capture and got EQUAL on 12/12), **no gold literal and no `--gold`** (gold is MAST's; the inverse
   is not true and is not "fixed" — eleven live pages border their own cards in `rgba(201,168,76,.6)` and that is
   the live design, carried), and the card hover is **read out of `cinematic_shell.py:132-133` at build time** by
-  `assert_shared_hover()` rather than re-typed. `validate-live.py` check 3 then measures it in a browser: **104 skin
-  selectors, 0 reaching the chrome, 0 spent by no page.** Two names an earlier enumeration carried were dropped for
-  exactly that last reason — `.cred-tag` (3 spans) and `.cta-nav-btn` (1 anchor) sit in ep-app's **footer and nav**,
-  outside `.agx-content`, so a skin rule for them would have matched nothing anywhere.
+  `assert_shared_hover()` rather than re-typed. `validate-live.py` check 3 then measures it in a browser: **134 skin
+  selectors, 0 reaching the chrome, 0 spent by no page** (measured 2026-09-09 across the twelve). Two names an
+  earlier enumeration carried were dropped for exactly that last reason — `.cred-tag` (3 spans) and `.cta-nav-btn`
+  (1 anchor) sit in ep-app's **footer and nav**, outside `.agx-content`, so a skin rule for them would have matched
+  nothing anywhere.
+- **`assert_shared_hover()` PROVES THE TWO SHEETS AGREE AND NOTHING MORE, and reading it as more than that shipped a
+  false claim.** The r4 line "the hover lifts 6px over .45s" was true on **1 of 6** pages measured. The live pages
+  carry a tail script — `// ── UNIVERSAL 3D TILT ON ALL CARDS ──` — that writes `transition`, `transform` and
+  `box-shadow` as **inline styles**, and an inline style beats a stylesheet rule at any specificity. Measured in
+  Chromium after a real hover on the r4 build: `index/.app-tier`, `executive-protection/.service-card`,
+  `technology/.service-card` and `training/.service-card` all computed `transform 0.2s ease-out, box-shadow 0.3s
+  ease`, `translateY(-4px) scale(1.02)`, and a box-shadow of **`rgba(201,168,76,0.25) 0 0 40px` — MAST gold, on the
+  exact card surfaces this skin paints blue** — inside a blue `rgba(26,107,222,0.62)` border, because the script
+  never touches `border-color`. The gold literal is the LIVE page's own and is carried deliberately (bound 3 above);
+  a blue glass card lighting up gold was not. **The repair is a bounded `!important`** on `transform` / `transition`
+  / `box-shadow` for the **thirteen** classes `assert_tilt_override()` measures as actually taking those inline
+  styles, read out of each page's own script — and `assert_skin_scope()` now FAILS on an `!important` anywhere else
+  in the sheet, so the exception cannot spread. Re-measured after the repair, 27 hovers over the twelve pages:
+  **dy -6.00px, `0.45s, 0.45s, 0.45s`, `rgba(26,107,222,0.24) 0 0 44px`, 0 carrying gold.** The check that reads it
+  is `render-audit.mjs` **check 8**, one real pointer hover per skinned class per page, because **no grep of CSS
+  source can see a runtime inline style** — and every static check that passed the r4 build read source.
+- **The `backdrop-filter` cost, measured rather than parked — and bounded honestly.** The skin puts
+  `backdrop-filter:blur(10px)` on 18 elements on index and 35 on ep-app (dropped entirely below 769). First attempt
+  read `window.__agxFrames`, the emblem scene's own counter, and got **3.5 fps with the blur on against 3.3 with it
+  off** — that number is SwiftShader software-rasterising three.js, not the blur, and ±0.2 fps on a 22-frame sample
+  is inside its noise. Re-measured with the WebGL canvas **removed** and the document's own rAF cadence counted
+  through a continuous 5-second scroll at 1440×900, two paired runs a page: index **57.3 / 59.8 fps blurred against
+  59.8 / 60.1 unblurred**, ep-app **57.7 / 58.9 against 58.8 / 58.7** — a spread of −0.2 to +2.5 fps, i.e. **no cost
+  distinguishable from run-to-run variance at 60 fps here**. **UNVERIFIED ON HIS HARDWARE:** this is a headless
+  container compositing in software; the number bounds the claim, it does not transfer to a Mac GPU.
+- **The control enumeration is a build-time listing now, not a screenshot discovery.** ep-app's hero secondary CTA
+  is `class="btn-gold"` and no skin selector named it; its form submit is `class="form-submit"` and neither did.
+  `assemble-atlas.py` assert E used to be `assert '.agx-content .cta-button' in skin` — a substring test on a
+  module-level constant, identical on all twelve pages, which could only ever prove the sheet still *declares* a
+  rule. It now resolves every `<a>`/`<button>` inside `.agx-content` against the skin's own selectors, asserts the
+  per-page count against `CTA_PAGES` — **eleven pages, not twelve: `training` is the one whose body carries no
+  styled control at all, its only classed anchor being `class="reveal"` on an outbound link** — and **prints every
+  unmatched class by name** on every build.
 - **The emoji-as-icon swap (D).** The eleven declared icon classes — `feature-icon`, `audience-icon`,
   `hw-card-icon`, `success-icon`, `card-icon`, `pillar-icon`, `scenario-icon`, `disc-icon`, `threat-icon`,
   `icon-item`, `blog-icon` — carry **70 glyphs across six pages**, and each becomes a 24px, 1.5px-stroke,
@@ -494,6 +528,25 @@ the presentation half, and it changes **nothing** inside a chapter.
   [1360,1408,820,868]) on the five live pages that ship a toggle. `validate-live.py` check 6 prints it as
   pre-existing and fails only on a pair involving an `agx-` element — of which there are **0 at 1440, 1280 and 1025
   on all twelve.**
+  **AND CHECK 6 NEVER LOOKED AT THE CONTENT, WHICH IS WHY IT STAYED GREEN WHILE THE HUD PRINTED ON LIVE COPY.** Its
+  name list is fixed chrome only, so it compares fixed chrome against fixed chrome; it reported `fixed-chrome hits
+  0` on every page while `.agx-hud-bl` and `.agx-hud-br` sat on **33 live text runs** — `.agx-hud-bl [26,213,866,882]`
+  through "Dedicated personal protection officers providing" `[86,288,866,883]` on executive-protection at 1440,
+  `.agx-hud-bl` through the "6-Layer" H2 on ep-app, "ATLAS GLINN · HOUSTON" struck through a training card's body
+  copy at 1280. **The measurement that finds it already existed and was pointed only at the rail**: the same
+  0.75-viewport scroll walk whose "the tick alone at `right:.45rem` → 0" was used to drop the standing sidebar was
+  never pointed at the other fixed element the same commit added. It is now `render-audit.mjs` **check 7**, walking
+  the rail AND the HUD at 1025/1280/1440/1800, and check 6's exception list was deliberately NOT widened to absorb
+  it. **`.agx-content { padding-bottom }` cannot fix this** and is worth writing down: the HUD is fixed to the
+  VIEWPORT, so padding at the end of the document clears only the last screenful while every screenful above it
+  still scrolls under the corner. **The repair is a lane gate** — `CINEMA_JS` measures, per scrolled frame, whether
+  a visible line box is inside a corner's box and sets `.agx-clear` (opacity 0 instantly, fading back after a .2s
+  hold). The gate is what makes the HUD legitimate, so `html.agx-hudgate`, a class the gate adds to itself, is what
+  turns the HUD on: **a page whose script never ran prints no HUD rather than a HUD across a sentence.** Measured
+  after the gate, twelve pages at 1025/1280/1440/1800: **0 covered runs at every width**, with the corners painting
+  at **200 of 256 corner-stops at 1440**, 190/254 at 1280, 179/260 at 1025 and 238/256 at 1800 — it steps aside for
+  roughly a fifth to a third of a scroll walk and stands the rest of the time, which is the trade and it is stated
+  rather than implied.
   **Compare like with like on the count:** MAST's rail is **13 `.chap-link` plus 2 `.chap-extra`** — `· Blogs`
   (`preview-only`) and `· Sign in` (`chap-always`). Its container is `display:none` at **≤899**
   (`mastsolutions.html:618`, which supersedes the ≤768 rule at :580); the 13 `.chap-link` are `font-size:0` from

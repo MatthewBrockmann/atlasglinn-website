@@ -537,17 +537,24 @@ def dump_units(path):
     them. Putting them there would be the excuse-laundering that list exists to stop. They are asserted positively
     instead, by render-audit check 6."""
     import json
-    data, icons = {}, {}
+    data, icons, hover = {}, {}, {}
     for slug in live.PAGES:
         vis = visible(live._read(slug))
         cut = icon_spans(slug, vis)
         data[slug] = [t for t, a, b in text_spans(vis)
                       if not any(s <= a and b <= e for s, e, _c, _g in cut)]
         icons[slug] = len(cut)
-    open(path, 'w', encoding='utf-8').write(json.dumps({'units': data, 'icons': icons}))
+        # 'hover' carries the card classes render-audit check 8 must HOVER on this page: every class in the skin's
+        # tilt override that this page actually declares. Computed here off atlas_shell's own list so the browser
+        # pass cannot drift from the sheet the way a hand-typed list inside the .mjs would.
+        body = atlas.skin_icons(slug, live.content(slug))
+        hover[slug] = [c for c in atlas.SKIN_TILT_CLASSES
+                       if re.search(r'class="[^"]*\b%s\b' % re.escape(c), body)]
+    open(path, 'w', encoding='utf-8').write(json.dumps({'units': data, 'icons': icons, 'hover': hover}))
     print('wrote %s: %d pages, %d live text units, %d glyph units withheld as ICON_SWAPS '
-          '(they render as <svg class="agx-icon">, asserted by render-audit check 6)'
-          % (path, len(data), sum(len(v) for v in data.values()), sum(icons.values())))
+          '(they render as <svg class="agx-icon">, asserted by render-audit check 6), %d card classes to hover '
+          '(check 8)' % (path, len(data), sum(len(v) for v in data.values()), sum(icons.values()),
+                         sum(len(v) for v in hover.values())))
 
 
 def main():

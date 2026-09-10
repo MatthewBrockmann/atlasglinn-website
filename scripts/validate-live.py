@@ -46,6 +46,15 @@ WHAT IT ASSERTS
 
   6. NO FIXED-CHROME COLLISION. At 1440, 1280 and 1025 the boxes of .agx-hud-br, .agx-hud-bl, .agx-rail,
      #back-to-top and #sound-toggle must pairwise not intersect.
+     READ WHAT THIS CHECK DOES NOT COVER, BECAUSE IT WAS READ AS COVERING IT ONCE. That name list is FIXED CHROME
+     ONLY: the check compares fixed chrome against other fixed chrome and never against page content, so it
+     printed "fixed-chrome hits 0" on all twelve pages while .agx-hud-bl and .agx-hud-br sat on 33 live text runs
+     (measured r5, 2026-09-09, by pointing render-audit.mjs's scroll-walk at the HUD). The list is deliberately
+     NOT widened to absorb that. A collision between the HUD and a paragraph is a different measurement — it needs
+     a walk down the page rather than a box at scroll 0 — and it lives in render-audit.mjs check 7, where the walk
+     already is. Likewise the card hover: nothing here reads a runtime INLINE style, which is where the live
+     pages' tilt script was writing -4px/0.2s and an rgba(201,168,76) glow over this build's skin; that is
+     render-audit.mjs check 8.
 
 No network: the atlasglinn.com photographs and films 404 here. That is the sandbox and never a finding — every
 assertion above is about the page's own DOM and its own stylesheets. Exits non-zero on any failure.

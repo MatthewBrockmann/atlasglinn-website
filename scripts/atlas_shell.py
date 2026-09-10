@@ -554,13 +554,26 @@ CINEMA_CSS = r"""
      scripts/validate-live.py check 5.
      right:5.2rem, not 1.5rem: #back-to-top is a fixed 46px button at l:1378 r:1424 t:848 b:894 with z-index:900
      (measured 1440x900), and 1.5rem would put the counter under it. 5.2rem clears it by 21px. Hidden below 1025 —
-     phones and tablets keep the bar and the ticks and nothing else. */
-  .agx-hud { position:fixed; z-index:899; display:none; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; text-transform:uppercase; opacity:.62; pointer-events:none; text-shadow:0 1px 10px rgba(0,0,0,.9); }
+     phones and tablets keep the bar and the ticks and nothing else.
+     ── THE LANE GATE, AND THE MEASUREMENT THAT FORCED IT (r5, 2026-09-09) ──
+     The rail was walked before it shipped and the HUD was not, and it is FIXED, so the reader's own copy scrolls
+     underneath it. render-audit.mjs's walk, pointed at the two corners instead of the rail, measured 33 live text
+     runs covered across the twelve pages — .agx-hud-bl [26,213,866,882] printing through
+     "Dedicated personal protection officers providing" [86,288,866,883] on executive-protection at 1440 among them.
+     A bottom padding on .agx-content cannot fix it: the element is fixed to the VIEWPORT, so padding at the end of
+     the document only clears the last screenful and every screenful above it still passes under the corner.
+     So the HUD gives way instead. CINEMA_JS measures, per frame the page scrolls, whether a visible line box is
+     inside a corner's own box, and adds .agx-clear if one is. The hide is INSTANT and the return is a .3s fade
+     after a .2s hold, which is also what stops it flickering on a fast scroll. The gate is the thing that makes
+     the HUD legitimate, so `html.agx-hudgate` — a class the gate adds to itself — is what turns the HUD on:
+     a page whose script never ran prints no HUD at all rather than printing one across a sentence. */
+  .agx-hud { position:fixed; z-index:899; display:none; font-family:'Share Tech Mono',monospace; font-size:.62rem; letter-spacing:.3em; text-transform:uppercase; opacity:.62; pointer-events:none; text-shadow:0 1px 10px rgba(0,0,0,.9); transition:opacity .3s ease .2s; }
+  .agx-hud.agx-clear { opacity:0; transition:opacity 0s; }
   .agx-hud-bl { bottom:calc(1.15rem + env(safe-area-inset-bottom,0px)); left:calc(1.6rem + env(safe-area-inset-left,0px)); color:var(--agx-dim); }
   .agx-hud-br { bottom:calc(1.15rem + env(safe-area-inset-bottom,0px)); right:calc(5.2rem + env(safe-area-inset-right,0px)); color:var(--agx-blue-l); }
   .agx-hud-bl::before { content:"ATLAS GLINN · HOUSTON"; }
   .agx-hud-br::before { content:"SECTION " attr(data-n) " / " attr(data-of); }
-  @media (min-width:1025px) { .agx-hud { display:block; } }
+  @media (min-width:1025px) { html.agx-hudgate .agx-hud { display:block; } }
   @media (max-width:768px) { .agx-ph.agx-on { opacity:.35; } .agx-ph.agx-film.agx-on { opacity:.5; } .agx-ch { min-height:auto; } }
 """
 
@@ -616,11 +629,56 @@ _SHARED_HOVER_SRC = ('.tile, .tier, .gear-card { %s }' % SHARED_HOVER_TRANSITION
 
 def assert_shared_hover():
     """The skin's hover is MAST's hover. Read it out of cinematic_shell at build time so a change there fails HERE
-    instead of silently forking the two sites' card behaviour."""
+    instead of silently forking the two sites' card behaviour.
+
+    IT PROVES THE TWO SHEETS AGREE AND NOTHING MORE, and saying otherwise is what let the first pass ship
+    "the hover lifts 6px over .45s" while four pages rendered -4px over 0.2s with a gold glow. What the page
+    actually does on hover is measured in a browser — render-audit.mjs check 8 — never grepped out of a source
+    string. See assert_tilt_override() below for the inline-style defect this comment used to hide."""
     src = shell.CSS_A + shell.CSS_B
     for line in _SHARED_HOVER_SRC:
         assert line in src, 'the shared card hover moved in cinematic_shell.py: ' + line
     return _SHARED_HOVER_SRC
+
+
+# The classes the live tail script writes inline transform/transition/box-shadow onto. Read out of the page's own
+# script by assert_tilt_override() rather than typed here, so a capture that grows a class fails the build instead
+# of quietly rendering MAST gold on a surface this sheet paints blue.
+_TILT_MARK = 'UNIVERSAL 3D TILT'
+_TILT_SEL = re.compile(r"querySelectorAll\('([^']+)'\)\.forEach\(\s*card")
+SKIN_TILT_CLASSES = ('service-card', 'testimonial', 'app-tier', 'pillar-card', 'scenario-card', 'discipline-card',
+                     'capability-card', 'threat-card', 'blog-link-card', 'cap-card', 'team-card', 'benefit-card',
+                     'job-card')
+TILT_TRANSITION = 'transform .45s, border-color .45s, box-shadow .45s !important'
+TILT_LIFT = 'transform:translateY(-6px) !important'
+
+
+def tilt_classes(scripts):
+    """Every class the live 3D-tilt script reaches for, as the page writes it. () when the page carries no tilt."""
+    for body in scripts:
+        if _TILT_MARK not in body:
+            continue
+        m = _TILT_SEL.search(body, body.index(_TILT_MARK))
+        assert m, 'the tilt script no longer takes its cards through querySelectorAll(...).forEach(card'
+        return tuple(s.strip().lstrip('.') for s in m.group(1).split(','))
+    return ()
+
+
+def assert_tilt_override(slug, scripts, content_html):
+    """Every tilt class that MATCHES AN ELEMENT on this page must be one the skin overrides with !important.
+
+    Returns (classes the script names, classes that match an element here). A class the script names but that
+    matches nothing is reported and not required — `.tech-partner` and `.position-card` measure 0 on all twelve
+    captures, and a skin rule for them would be a rule validate-live.py check 3b fails as unspent."""
+    named = tilt_classes(scripts)
+    live_here = tuple(c for c in named if re.search(r'class="[^"]*\b%s\b' % re.escape(c), content_html))
+    missed = [c for c in live_here if c not in SKIN_TILT_CLASSES]
+    assert not missed, ('%s: the tilt script writes an inline transform on %s and the skin does not override it — '
+                        'that card renders the script\'s -4px/0.2s hover and its rgba(201,168,76) glow, not this '
+                        'sheet\'s' % (slug, missed))
+    for c in live_here:
+        assert '.agx-content .%s:hover' % c in AGX_SKIN_CSS, '%s: no skin hover rule for .%s' % (slug, c)
+    return named, live_here
 
 
 # Every class below was enumerated from the twelve captures' own <style> blocks and markup, never guessed. Two names
@@ -668,6 +726,50 @@ AGX_SKIN_CSS = r"""
     box-shadow:inset 0 1px 0 rgba(255,255,255,.12), 0 18px 52px rgba(0,0,0,.5), 0 0 44px rgba(26,107,222,.24);
   }
   .agx-content .pricing-card.featured:hover { transform:translateY(-14px); }
+  /* ---- 2b. THE TILT OVERRIDE — the one place this sheet is allowed !important, and the measurement that earned it.
+     Eleven of the twelve live pages carry a tail script the build keeps byte for byte:
+
+       // ── UNIVERSAL 3D TILT ON ALL CARDS ──
+       document.querySelectorAll('.service-card, .testimonial, .benefit-card, .tech-partner, .discipline-card,
+         .app-tier, .position-card').forEach(card => {
+           card.style.transition = 'transform 0.2s ease-out, box-shadow 0.3s ease';
+           ... on mousemove: card.style.transform = `perspective(800px) rotateY(..) rotateX(..) translateY(-4px) scale(1.02)`;
+                             card.style.boxShadow = '0 25px 60px rgba(0,0,0,0.6), 0 0 40px rgba(201,168,76,0.25), ...';
+
+     Those are INLINE styles, and an inline style beats a stylesheet rule at any specificity. So on every page but
+     ep-app the shipped hover was the script's -4px over 0.2s with a 1.02 scale, and the shipped hover GLOW was
+     rgb(201,168,76) — MAST gold — inside this sheet's blue border. Measured in the browser, not read off the CSS:
+     index/.app-tier, executive-protection/.service-card, technology/.service-card and training/.service-card all
+     computed `rgba(201,168,76,0.25) 0 0 40px` after a real hover. The gold is the LIVE page's own and is carried
+     deliberately (bound 3 above); what could not stand is a card this sheet paints blue lighting up gold.
+     THE THIRTEEN CLASSES BELOW ARE THE MEASURED INTERSECTION, and the count is measured because a first pass at
+     this override typed FIVE of them from one page's script and assert_tilt_override() stopped the build on page
+     three with residential-protection's .pillar-card. The selector list is NOT the same on every capture: index,
+     training and contact name seven classes, eight pages name twenty, and ep-app carries no tilt script at all —
+     which is exactly why ep-app/.feature-card was the ONE surface already rendering -6px over .45s. The assert
+     reads each page's own list and requires an override for every class that matches an element there; the hits
+     are index 3, executive-protection 2, residential-protection 3, disaster-recovery 3, training 3, technology 2,
+     cuas-aerodefense 4, uas 2, about 2, careers 3, contact 0, ep-app 0. Seven further classes are NAMED by some
+     script and match nothing on any of the twelve (.feature-card, .position-card, .price-card, .problem-card,
+     .tech-partner, .thermal-card, .video-card), so they need no override, and a rule for them would be one
+     validate-live.py check 3b fails as spent by no page.
+     render-audit.mjs check 8 hovers one card of each class on each page and fails on a measured dy that is not -6,
+     a transition-duration that is not 0.45s, or rgb(201,168,76) anywhere in the computed box-shadow. A grep of
+     this file cannot see any of that — which is exactly how the first pass shipped the claim. ---- */
+  .agx-content .service-card, .agx-content .testimonial, .agx-content .app-tier,
+  .agx-content .pillar-card, .agx-content .scenario-card, .agx-content .discipline-card,
+  .agx-content .capability-card, .agx-content .threat-card, .agx-content .blog-link-card,
+  .agx-content .cap-card, .agx-content .team-card, .agx-content .benefit-card, .agx-content .job-card {
+    transition:transform .45s, border-color .45s, box-shadow .45s !important;
+  }
+  .agx-content .service-card:hover, .agx-content .testimonial:hover, .agx-content .app-tier:hover,
+  .agx-content .pillar-card:hover, .agx-content .scenario-card:hover, .agx-content .discipline-card:hover,
+  .agx-content .capability-card:hover, .agx-content .threat-card:hover, .agx-content .blog-link-card:hover,
+  .agx-content .cap-card:hover, .agx-content .team-card:hover, .agx-content .benefit-card:hover,
+  .agx-content .job-card:hover {
+    transform:translateY(-6px) !important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.12), 0 18px 52px rgba(0,0,0,.5), 0 0 44px rgba(26,107,222,.24) !important;
+  }
   /* ---- 3. ICON RING — the 48px ring the swapped SVGs sit in (see ICON_SWAPS) ----
      No font-size here: the SVG carries width/height, so the live rules' font-size on these elements is inert and
      does not need overriding. #form-success .success-icon is 1,1,0 on the live page and needs the id to be beaten. */
@@ -698,22 +800,25 @@ AGX_SKIN_CSS = r"""
   }
   /* ---- 5. HERO / CTA BUTTONS: gradient primary, ghost secondary, the same .45s transition ---- */
   .agx-content .cta-button, .agx-content .btn-primary, .agx-content .primary-cta,
-  .agx-content .pricing-cta.primary-cta, .agx-content .gold-cta {
+  .agx-content .pricing-cta.primary-cta, .agx-content .gold-cta, .agx-content .form-submit {
     background:linear-gradient(135deg, #1A6BDE 0%, #0F4AA8 100%);
     border:1px solid rgba(91,155,255,.55); color:#fff;
     transition:transform .45s, border-color .45s, box-shadow .45s, background .45s;
   }
   .agx-content .cta-button:hover, .agx-content .btn-primary:hover, .agx-content .primary-cta:hover,
-  .agx-content .pricing-cta.primary-cta:hover, .agx-content .gold-cta:hover {
+  .agx-content .pricing-cta.primary-cta:hover, .agx-content .gold-cta:hover, .agx-content .form-submit:hover {
     transform:translateY(-3px); background:linear-gradient(135deg, #2F7BEF 0%, #1558B8 100%);
     box-shadow:0 12px 34px rgba(26,107,222,.42);
   }
+  /* .btn-gold is ep-app's HERO SECONDARY CTA and the first enumeration missed it — on the one page Brockmann was
+     looking at. It is here because assemble-atlas.py now LISTS every unmatched control class at build time instead
+     of leaving a miss to be found in a screenshot. The class name is the live page's; the paint is this sheet's. */
   .agx-content .secondary-button, .agx-content .outline-cta, .agx-content .pricing-cta.outline-cta,
-  .agx-content .card-link, .agx-content .hw-link {
+  .agx-content .card-link, .agx-content .hw-link, .agx-content .btn-gold {
     background:transparent; border-color:rgba(26,107,222,.55); color:#8FBBFF;
     transition:transform .45s, border-color .45s, box-shadow .45s, color .45s, background .45s;
   }
-  .agx-content .secondary-button:hover, .agx-content .outline-cta:hover,
+  .agx-content .secondary-button:hover, .agx-content .outline-cta:hover, .agx-content .btn-gold:hover,
   .agx-content .pricing-cta.outline-cta:hover, .agx-content .card-link:hover, .agx-content .hw-link:hover {
     background:rgba(26,107,222,.12); border-color:#5B9BFF; color:#DCEBFF;
   }
@@ -754,6 +859,26 @@ def assert_skin_scope(css):
         assert g not in body, 'gold in the Atlas content skin (gold is MAST): ' + g
     assert SHARED_HOVER_LIFT in body and SHARED_HOVER_TRANSITION in body, \
         'the skin no longer carries the shared card hover copied from cinematic_shell.py:132-133'
+    # 5. THE TILT OVERRIDE IS PRESENT FOR EVERY CLASS THAT NEEDS IT. !important is the ONE exception this sheet
+    #    takes and it is bounded here: only these five classes, only transform / transition / box-shadow, and only
+    #    because an inline style cannot be beaten any other way. An !important on any OTHER declaration fails.
+    rules = [(' '.join(m.group(1).split()), m.group(2)) for m in re.finditer(r'([^{}]+)\{([^{}]*)\}', body)]
+    for c in SKIN_TILT_CLASSES:
+        base = [d for s, d in rules if '.agx-content .%s,' % c in s + ',' and '!important' in d and ':hover' not in s]
+        hov = [d for s, d in rules if '.agx-content .%s:hover' % c in s and '!important' in d]
+        assert base and 'transition:%s' % TILT_TRANSITION in base[0], \
+            'the skin no longer forces the .45s transition over the tilt script on .%s' % c
+        assert hov and TILT_LIFT in hov[0] and 'box-shadow:' in hov[0], \
+            'the skin no longer forces the -6px lift and the blue glow over the tilt script on .%s' % c
+    for sel, decl in rules:
+        for d in decl.split(';'):
+            if '!important' not in d:
+                continue
+            prop = d.split(':')[0].strip()
+            assert prop in ('transform', 'transition', 'box-shadow'), \
+                'the skin takes !important on %s in %s — the exception is bounded to the tilt override' % (prop, sel[:70])
+            assert any('.%s' % c in sel for c in SKIN_TILT_CLASSES), \
+                'the skin takes !important outside the tilt override: %s' % sel[:70]
     return sels
 
 
@@ -1089,12 +1214,75 @@ CINEMA_JS = r"""
     });
   }
 
+  // ── The HUD lane ──
+  // The two bottom corners are position:fixed, so every screenful of the page passes underneath them. Walked with
+  // render-audit.mjs's own scroll-walk (check 7) the two corners covered 33 live text runs across the twelve pages
+  // before this gate existed. A corner therefore goes to opacity 0 the moment a visible line box is inside its box
+  // and fades back when the lane clears. The class below is what turns the HUD on at all, so a page whose script
+  // never ran shows no HUD rather than a HUD across a sentence.
+  var huds = [].slice.call(document.querySelectorAll('.agx-hud'));
+  var lines = [];
+  function collectLines() {
+    lines = [].slice.call(document.querySelectorAll('body *')).filter(function (el) {
+      if (el.closest('.agx-hud, .agx-rail, script, style')) return false;
+      for (var i = 0; i < el.childNodes.length; i++) {
+        var n = el.childNodes[i];
+        if (n.nodeType === 3 && n.nodeValue.trim()) return true;
+      }
+      return false;
+    });
+  }
+  // Cheap first, exact second: one getBoundingClientRect rejects an element whose whole box misses the corner, and
+  // only what survives is measured PER LINE BOX with a Range — the same reading render-audit.mjs asserts against,
+  // because a wrapped paragraph's union box spans the column even where its last line stops short.
+  function laneHit(box) {
+    for (var i = 0; i < lines.length; i++) {
+      var el = lines[i], r = el.getBoundingClientRect();
+      if (!(r.width > 0) || r.bottom <= box.top || r.top >= box.bottom || r.right <= box.left || r.left >= box.right) continue;
+      var cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || parseFloat(cs.opacity) === 0) continue;
+      for (var k = 0; k < el.childNodes.length; k++) {
+        var n = el.childNodes[k];
+        if (n.nodeType !== 3 || !n.nodeValue.trim()) continue;
+        var rg = document.createRange();
+        rg.selectNodeContents(n);
+        var rects = rg.getClientRects();
+        for (var j = 0; j < rects.length; j++) {
+          var b = rects[j];
+          if (b.width > 0 && b.height > 0 && b.right > box.left && b.left < box.right
+              && b.bottom > box.top && b.top < box.bottom) return true;
+        }
+      }
+    }
+    return false;
+  }
+  var gateQueued = false;
+  function gateHud() {
+    gateQueued = false;
+    if (!huds.length) return;
+    if (!lines.length) collectLines();
+    huds.forEach(function (el) {
+      if (getComputedStyle(el).display === 'none') { el.classList.remove('agx-clear'); return; }
+      // .agx-clear changes opacity and nothing else, so the box is the same whether or not it is set and the
+      // measurement cannot oscillate with its own result.
+      el.classList.toggle('agx-clear', laneHit(el.getBoundingClientRect()));
+    });
+  }
+  function queueGate() { if (gateQueued) return; gateQueued = true; requestAnimationFrame(gateHud); }
+  if (huds.length) {
+    doc.classList.add('agx-hudgate');
+    addEventListener('resize', function () { collectLines(); queueGate(); }, { passive: true });
+    addEventListener('load', function () { collectLines(); queueGate(); });
+    queueGate();
+  }
+
   // ── Read position and the rail ──
   var active = -1;
   function here() { var mid = innerHeight * .45, idx = 0; chs.forEach(function (s, i) { if (s.getBoundingClientRect().top <= mid) idx = i; }); return idx; }
   function onScroll() {
     var total = document.documentElement.scrollHeight - innerHeight;
     if (bar) bar.style.width = (Math.max(0, Math.min(1, scrollY / Math.max(1, total))) * 100) + '%';
+    queueGate();
     var idx = here();
     if (idx === active) return;
     active = idx;

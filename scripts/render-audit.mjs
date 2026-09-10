@@ -62,10 +62,22 @@
  *    submitted, so that block is force-shown for the box measurement and put back — otherwise the honest count
  *    would be 27 drawn of 28 for a reason that has nothing to do with the swap.
  *
- * 7. THE STANDING RAIL LABEL, AND WHAT IT COVERS. The label now STANDS rather than opening on hover, so the cost is
- *    no longer a hover-only cost. The live text boxes an UNHOVERED label covers are counted at 1025, 1280, 1440 and
- *    1800 and asserted to be ZERO. That is the gate the band in CINEMA_CSS was set from, not a formality: shipping
- *    a label sitting on top of a reader's own sentence is not a trade this rail is allowed to make.
+ * 7. WHAT THE FIXED CHROME COVERS, WALKED DOWN THE PAGE — THE RAIL *AND* THE HUD. The live text boxes the
+ *    unhovered rail covers are counted at 1025, 1280, 1440 and 1800 and asserted to be ZERO. That is the gate the
+ *    band in CINEMA_CSS was set from, not a formality: shipping a label sitting on top of a reader's own sentence
+ *    is not a trade this rail is allowed to make.
+ *    THE HUD IS WALKED BY THE SAME MEASUREMENT SINCE r5, and that is a finding, not a feature. The walk was
+ *    written for the rail, applied to the rail, and its number ("the tick alone at right:.45rem -> 0") was used to
+ *    drop the standing sidebar — while the other fixed element the same commit added was never pointed at it.
+ *    Walked: 30 live text runs covered on training and ep-app alone, .agx-hud-bl [26,213,966,982] printing through
+ *    "Learn to identify, evaluate, and mitigate threat" on training at 1440 among them. The HUD now gives way
+ *    (CINEMA_JS's lane gate, .agx-clear) and this check is what holds it to that. validate-live.py check 6 stayed
+ *    green through all of it because it compares fixed chrome against fixed chrome and never against content; it
+ *    is unchanged, and this is the check that covers the gap rather than that one's exception list being widened.
+ *
+ * 8. WHAT A CARD DOES UNDER THE POINTER (r5). One real hover per skinned card class per page: measured dy -6px,
+ *    computed transition-duration 0.45s, and no rgb(201,168,76) in the computed box-shadow. See cardHovers() for
+ *    why a source grep could not see any of it.
  */
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -362,26 +374,43 @@ async function standingOverlap(page) {
   const H = await page.evaluate(() => document.body.scrollHeight);
   const step = await page.evaluate(() => Math.round(innerHeight * 0.75));
   let standing = 0, covered = 0, first = null;
+  let hudCovered = 0, hudFirst = null, hudStops = 0, hudShown = 0;
   await page.evaluate(() => { document.documentElement.style.scrollBehavior = 'auto'; });
   for (let y = 0; y < H; y += step) {
     await page.evaluate((y) => { window.scrollTo(0, y); window.dispatchEvent(new Event('scroll')); }, y);
     await page.waitForTimeout(200);
+    // The forced reveals put text on screen that the gate has not seen yet, so the scroll event is fired AGAIN
+    // after them and the frame is allowed to land. Without this the walk measures the HUD against a lane the
+    // page's own gate was never told about, which reads as a failure of the gate and is a failure of the test.
     await page.evaluate(() => {
       document.querySelectorAll('.reveal').forEach((e) => e.classList.add('active'));
       document.querySelectorAll('.fade-in').forEach((e) => e.classList.add('visible'));
       document.querySelectorAll('.agx-ch').forEach((e) => e.classList.add('agx-in'));
+      window.dispatchEvent(new Event('scroll'));
     });
+    await page.waitForTimeout(120);
     await markInvisible(page);
     const r = await standingStop(page);
     standing = Math.max(standing, r.standing);
     covered += r.covered;
     if (r.first && !first) first = r.first;
+    hudCovered += r.hudCovered;
+    hudStops++;
+    hudShown += r.hudShown;
+    if (r.hudFirst && !hudFirst) hudFirst = r.hudFirst;
   }
   await page.evaluate(() => window.scrollTo(0, 0));
-  return { standing, covered, first };
+  return { standing, covered, first, hudCovered, hudFirst, hudStops, hudShown };
 }
 
-/** One stop of the walk: the boxes the rail's own visible parts occupy against every visible text run. */
+/** One stop of the walk: the boxes the rail's and the HUD's own visible parts occupy against every visible text run.
+ *
+ *  THE HUD IS WALKED BY THE SAME MEASUREMENT AS THE RAIL, and that is the finding that put it here (r5, 2026-09-09).
+ *  The walk was written for the rail, applied to the rail, and its number was used to drop the standing sidebar —
+ *  and the other fixed element the same commit added was never pointed at. Walked here it measured 33 live text
+ *  runs under the two HUD corners across the twelve pages. validate-live.py check 6 stayed green throughout
+ *  because it compares fixed chrome against fixed chrome and never against content; it is unchanged and this is
+ *  the check that covers the gap, rather than widening that one's exception list to absorb it. */
 async function standingStop(page) {
   return page.evaluate(() => {
     // The label's max-width TRANSITIONS over .35s, so a viewport resize followed by a fixed wait measures the
@@ -414,36 +443,134 @@ async function standingStop(page) {
       const pad = parseFloat(getComputedStyle(a).paddingRight) || 0;
       if (tick > 0) ink.push({ left: lb.right - tick - pad, right: lb.right, top: lb.top, bottom: lb.bottom });
     }
-    let covered = 0, first = null;
-    if (ink.length) {
+    // The HUD's ink is the whole element box — both corners print a single mono line through ::before and have no
+    // padding to discount. A corner the page's own gate has taken to opacity 0 paints nothing, so it carries no
+    // ink; display:none below 1025 likewise. `hudShown` counts the corners that ARE painting at this stop, so a
+    // gate that simply never shows the HUD reads as 0 shown rather than as a pass.
+    const hudInk = [];
+    let hudShown = 0;
+    for (const h of document.querySelectorAll('.agx-hud')) {
+      const cs = getComputedStyle(h);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) < 0.02) continue;
+      const b = h.getBoundingClientRect();
+      if (b.width > 0 && b.height > 0) { hudInk.push({ left: b.left, right: b.right, top: b.top, bottom: b.bottom, name: h.className }); hudShown++; }
+    }
+    let covered = 0, first = null, hudCovered = 0, hudFirst = null;
+    if (ink.length || hudInk.length) {
       const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
       for (let n = w.nextNode(); n; n = w.nextNode()) {
         if (!(n.nodeValue || '').trim()) continue;
         const pe = n.parentElement;
-        if (!pe || pe.closest('script, style, .agx-rail, [data-agx-invis]')) continue;
+        if (!pe || pe.closest('script, style, .agx-rail, .agx-hud, [data-agx-invis]')) continue;
         // PER LINE BOX, not the range's union box. A wrapped paragraph's union box spans the whole column even
         // where its last line stops short, so a union-box test reported about's bio paragraph as covered at 1280
         // with a right edge of 1284 in a 1280px viewport — an artefact of the union, not a glyph under the rail.
         // getClientRects() returns one rect per line, which is as close to the glyphs as the DOM gets.
         const rg = document.createRange();
         rg.selectNodeContents(n);
-        let hit = null;
+        let hit = null, hudHit = null;
         for (const b of rg.getClientRects()) {
           if (!(b.width > 0 && b.height > 0)) continue;
-          for (const r of ink) {
-            if (b.right > r.left && b.left < r.right && b.bottom > r.top && b.top < r.bottom) { hit = [b, r]; break; }
+          if (!hit) {
+            for (const r of ink) {
+              if (b.right > r.left && b.left < r.right && b.bottom > r.top && b.top < r.bottom) { hit = [b, r]; break; }
+            }
           }
-          if (hit) break;
+          if (!hudHit) {
+            for (const r of hudInk) {
+              if (b.right > r.left && b.left < r.right && b.bottom > r.top && b.top < r.bottom) { hudHit = [b, r]; break; }
+            }
+          }
+          if (hit && hudHit) break;
         }
         if (hit) {
           covered++;
           if (!first) first = [(n.nodeValue || '').trim().slice(0, 40), Math.round(hit[0].right), Math.round(hit[1].left)];
         }
+        if (hudHit) {
+          hudCovered++;
+          if (!hudFirst) {
+            hudFirst = [hudHit[1].name, (n.nodeValue || '').trim().slice(0, 48),
+              [hudHit[1].left, hudHit[1].right, hudHit[1].top, hudHit[1].bottom].map(Math.round),
+              [hudHit[0].left, hudHit[0].right, hudHit[0].top, hudHit[0].bottom].map(Math.round)];
+          }
+        }
       }
     }
     kill.remove();
-    return { standing, covered, first };
+    return { standing, covered, first, hudCovered, hudFirst, hudShown };
   });
+}
+
+/** Check 8: WHAT THE CARD ACTUALLY DOES WHEN A POINTER IS ON IT.
+ *
+ *  atlas_shell.assert_shared_hover() reads a string out of cinematic_shell.py. That proves the two sites' SHEETS
+ *  agree and nothing more, and on the strength of it a claim shipped that "the hover lifts 6px over .45s" while
+ *  four pages rendered -4px over 0.2s with a 1.02 scale and an rgba(201,168,76) glow — MAST gold — because the
+ *  live pages' own tail script writes transform, transition and box-shadow as INLINE styles, which beat any
+ *  stylesheet rule at any specificity. Nothing that reads CSS source can see that. This does: it puts the pointer
+ *  on one real card of each class the skin's tilt override names, then asserts on the COMPUTED values.
+ *    dy   — the card's own box, at rest and hovered. Must be -6px (the shared lift), +-0.75px for subpixel.
+ *    dur  — computed transition-duration must contain 0.45s.
+ *    gold — computed box-shadow must not contain rgb(201, 168, 76). This is hard constraint C in the brief
+ *           ("no gold on Atlas content"), and it was passing as a regex over the CSS source while the gold lived
+ *           in an inline style. */
+/** Read an element's box top, its computed transition-duration and its computed box-shadow once they stop moving.
+ *  Runs in the page: 120 ms apart, up to 2.4 s, returning once two consecutive reads agree.
+ *
+ *  THE FLOOR OF SIX READS IS NOT PADDING. "Two consecutive reads agree" is trivially true in the first 120 ms
+ *  after a hover, before the transition has moved anything — measured: index/.service-card and
+ *  training/.service-card both returned `settled after 1 reads` carrying the REST box-shadow and dy 0, which
+ *  reads as "the hover never applied" on a page where it applies perfectly. The floor is 720 ms, longer than the
+ *  .45s transition, and the stability test then decides when to stop after that. */
+const settle = async (e) => {
+  const read = () => {
+    const cs = getComputedStyle(e);
+    return { top: e.getBoundingClientRect().top, dur: cs.transitionDuration, shadow: cs.boxShadow,
+      inline: e.style.transform || '' };
+  };
+  let prev = read();
+  for (let i = 0; i < 20; i++) {
+    await new Promise((r) => setTimeout(r, 120));
+    const now = read();
+    const stable = Math.abs(now.top - prev.top) < 0.02 && now.shadow === prev.shadow;
+    prev = now;
+    if (stable && i >= 5) return { ...now, settled: i + 1 };
+  }
+  return { ...prev, settled: 0 };
+};
+
+async function cardHovers(page, classes) {
+  const out = [];
+  // The entrance motion moves the chapter's own box, so a card measured mid-reveal reports a dy that is the
+  // chapter arriving rather than the card lifting. Everything is turned on first and given time to settle.
+  await page.evaluate(() => {
+    document.querySelectorAll('.reveal').forEach((e) => e.classList.add('active'));
+    document.querySelectorAll('.fade-in').forEach((e) => e.classList.add('visible'));
+    document.querySelectorAll('.agx-ch').forEach((e) => e.classList.add('agx-in'));
+  });
+  await page.waitForTimeout(900);
+  for (const cls of classes) {
+    const el = await page.$(`.agx-content .${cls}`);
+    if (!el) { out.push({ cls, missing: true }); continue; }
+    await page.mouse.move(4, 4);
+    await page.waitForTimeout(220);
+    await el.scrollIntoViewIfNeeded().catch(() => {});
+    await page.waitForTimeout(260);
+    const rest = await el.evaluate(settle);
+    await el.hover({ force: true }).catch(() => {});
+    // SETTLED, NOT TIMED. A fixed wait after the hover measured training/.service-card at dy -5.11px with a
+    // box-shadow 85.2% of the way from the rest value to the hover value — one consistent interpolation factor
+    // across all four numbers, i.e. the test caught the .45s transition in flight and would have reported a
+    // correct page as a delta. The value is read until it stops changing instead.
+    const hov = await el.evaluate(settle);
+    await page.mouse.move(4, 4);
+    await page.waitForTimeout(200);
+    out.push({ cls, dy: Math.round((hov.top - rest.top) * 100) / 100, dur: hov.dur, restDur: rest.dur,
+      shadow: hov.shadow, gold: /rgba?\(\s*201,\s*168,\s*76/.test(hov.shadow), inline: hov.inline,
+      settled: hov.settled });
+  }
+  return out;
 }
 
 /** Check 6: one drawn <svg class="agx-icon"> per declared swap, and no emoji left in an icon-class element. */
@@ -474,7 +601,7 @@ async function main() {
     p.on('exit', (c) => (c === 0 ? res() : rej(new Error('compare-atlas.py --units exit ' + c))));
   });
   const dumped = JSON.parse(fs.readFileSync(unitsFile, 'utf8'));
-  const liveUnits = dumped.units, iconCounts = dumped.icons;
+  const liveUnits = dumped.units, iconCounts = dumped.icons, hoverClasses = dumped.hover;
 
   const port = await freePort(8900);
   const server = spawn('python3', ['-m', 'http.server', String(port), '--bind', '127.0.0.1'],
@@ -491,8 +618,10 @@ async function main() {
     landings: 0, landingsAt72: 0, landingsFirst: 0, landingsHead: 0, headUnderBar: 0 };
   let maxScroll = 0, maxScrollText = '', minGap = 1e9, noEllipsis = 0, overlap1440 = 0, maxOverlap = 0;
   const STANDING_WIDTHS = [1800, 1440, 1280, 1025];
-  const standing = Object.fromEntries(STANDING_WIDTHS.map((w) => [w, { standing: 0, covered: 0 }]));
+  const standing = Object.fromEntries(STANDING_WIDTHS.map((w) =>
+    [w, { standing: 0, covered: 0, hudCovered: 0, hudStops: 0, hudShown: 0 }]));
   let iconTotal = 0, iconDrawn = 0, iconLeft = 0, iconBad = 0;
+  let hoverRows = 0, hoverOK = 0, hoverBad = 0, hoverSample = '';
   const railSpends = [];
   let headMin = 1e9, headMax = -1e9;
   // Every HIDDEN_ON_LIVE spend, keyed by (slug, unit), so the summary shows exactly which page spent which key.
@@ -571,6 +700,30 @@ async function main() {
             console.log(`    ICON SWAPS on ${slug}: ${icons.total} svg / ${icons.drawn} drawn / ${icons.left} emoji left, `
               + `${wantIcons} declared by compare-atlas.py --units`);
           }
+          // Check 8 — the hover a reader actually gets, per skinned card class on this page.
+          for (const h of await cardHovers(page, hoverClasses[slug] || [])) {
+            hoverRows++;
+            if (h.missing) {
+              bad++; hoverBad++;
+              console.log(`    CARD CLASS DECLARED BUT NOT IN .agx-content on ${slug}: .${h.cls}`);
+              continue;
+            }
+            const dyOK = Math.abs(h.dy + 6) <= 0.75;
+            // EVERY component 0.45s, not "0.45s appears somewhere": the defect this check exists for shipped a
+            // computed `transform 0.2s ease-out, box-shadow 0.3s ease`, and a substring test would pass a card
+            // that lifts over .45s while its shadow still runs the script's 0.3s.
+            const durOK = h.dur.split(',').every((d) => d.trim() === '0.45s');
+            if (!dyOK || !durOK || h.gold || !h.settled) {
+              bad++; hoverBad++;
+              console.log(`    HOVER on ${slug} .${h.cls}: dy ${h.dy}px (want -6), transition-duration `
+                + `${JSON.stringify(h.dur)} (want every component 0.45s), gold ${h.gold}, `
+                + `settled after ${h.settled} reads (0 = never settled); box-shadow ${h.shadow}`
+                + (h.inline ? `; inline transform ${JSON.stringify(h.inline)}` : ''));
+            } else {
+              hoverOK++;
+              if (!hoverSample) hoverSample = `${slug} .${h.cls} dy ${h.dy}px, ${h.dur}, ${h.shadow}`;
+            }
+          }
           const walk = await revealWalk(page);
           sum.stranded += walk.stranded;
           sum.chapters += walk.total;
@@ -622,6 +775,14 @@ async function main() {
           const st = await standingOverlap(page);
           standing[w].standing += st.standing;
           standing[w].covered += st.covered;
+          standing[w].hudCovered += st.hudCovered;
+          standing[w].hudStops += st.hudStops;
+          standing[w].hudShown += st.hudShown;
+          if (st.hudCovered) {
+            bad++;
+            console.log(`    THE HUD COVERS LIVE TEXT on ${slug} at ${w}: ${st.hudCovered} run(s) over the walk; `
+              + `first ${JSON.stringify(st.hudFirst)}`);
+          }
           if (st.covered) {
             const key = `${slug}@${w}`;
             if (Object.hasOwn(RAIL_OVERLAP_ON_MAIN, key)) {
@@ -667,6 +828,14 @@ async function main() {
   console.log(`         rail links ${sum.labels + sum.ticks} a page-set, ${sum.labels} carrying a label and ${sum.ticks} label-less ticks; the chapter number and the label both come on hover as NN \u00b7 LABEL (measured: anything standing covers live copy \u2014 see check 7); hovered at 1440 and at 1800: clipped ${sum.clipped1440} at 1440, ${sum.clipped1800} at 1800`);
   console.log(`         live text runs the UNHOVERED rail covers, walked at 0.75 viewport steps: `
     + STANDING_WIDTHS.map((w) => `${w}px ${standing[w].covered} (${standing[w].standing} standing label(s))`).join(', '));
+  console.log(`         card hovers driven at 1440: ${hoverRows} (one per skinned class per page), ${hoverOK} `
+    + `measuring dy -6px +-0.75 and a 0.45s transition with no rgb(201,168,76) in the computed box-shadow, `
+    + `${hoverBad} with a delta${hoverSample ? '; e.g. ' + hoverSample : ''}`);
+  console.log(`         live text runs the HUD covers, the SAME walk pointed at .agx-hud-bl / .agx-hud-br: `
+    + STANDING_WIDTHS.map((w) => `${w}px ${standing[w].hudCovered}`).join(', '));
+  console.log(`         the HUD is painting (opacity >= 0.02, display not none) at `
+    + STANDING_WIDTHS.map((w) => `${w}px ${standing[w].hudShown}/${standing[w].hudStops * 2} corner-stops`).join(', ')
+    + ' — the lane gate takes a corner to opacity 0 for the stops where a line box is under it');
   const railUnspent = Object.keys(RAIL_OVERLAP_ON_MAIN).filter((k) => !railSpends.includes(k));
   console.log(`         of those, ${railSpends.length} allowed by name as present on origin/main too: ${railSpends.join(', ') || 'none'}`);
   if (railUnspent.length && !ONLY) console.log(`         RAIL_OVERLAP_ON_MAIN keys spent by no page this run (an allowance nothing uses): ${railUnspent.join(', ')}`);

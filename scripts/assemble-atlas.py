@@ -1050,6 +1050,47 @@ def live_footer(slug):
     return atlas.footer(inner, container=False)
 
 
+# The eleven pages that carry at least one <a>/<button> inside .agx-content the skin reaches. ELEVEN, measured —
+# training is the one page of the twelve whose body carries no styled control at all: its only classed anchor is
+# `class="reveal"` on an outbound Washington Post link, and its other three anchors carry no class. The number is
+# encoded so a page that LOSES its CTA fails the build instead of passing quietly with zero.
+CTA_PAGES = ('index', 'executive-protection', 'residential-protection', 'disaster-recovery', 'technology',
+             'cuas-aerodefense', 'uas', 'about', 'careers', 'contact', 'ep-app')
+_CONTROL = re.compile(r'<(?:a|button)\b([^>]*)>', re.I)
+_CLASS_ATTR = re.compile(r'\bclass="([^"]*)"', re.I)
+_CLASS_ONLY = re.compile(r'(?:\.[A-Za-z0-9_-]+)+$')
+
+
+def _skin_control_groups(skin):
+    """Each skin selector that targets ONE element by class alone, as a set of class names. `.pricing-cta.primary-cta`
+    becomes {pricing-cta, primary-cta}; a descendant selector like `.service-card:hover .card-icon` is not a control
+    target and is dropped. Pseudo-states are stripped: :hover is a state, not a target."""
+    out = set()
+    for sel in atlas.assert_skin_scope(skin):
+        rest = ' '.join(sel.split())
+        if not rest.startswith('.agx-content '):
+            continue
+        rest = re.sub(r':[a-zA-Z-]+(\([^)]*\))?', '', rest[len('.agx-content '):]).strip()
+        if _CLASS_ONLY.fullmatch(rest):
+            out.add(frozenset(rest.strip('.').split('.')))
+    return out
+
+
+def _controls(skin, body):
+    """(controls the skin reaches, {class list -> count} for the ones it does not) over one page's content markup."""
+    groups = _skin_control_groups(skin)
+    matched, unmatched = 0, {}
+    for m in _CONTROL.finditer(body):
+        c = _CLASS_ATTR.search(m.group(1))
+        classes = set(c.group(1).split()) if c else set()
+        if any(g <= classes for g in groups):
+            matched += 1
+        else:
+            key = ' '.join(sorted(classes)) or '(no class)'
+            unmatched[key] = unmatched.get(key, 0) + 1
+    return matched, unmatched
+
+
 
 
 def build_live(slug):
@@ -1106,8 +1147,23 @@ def build_live(slug):
     for m in atlas.ICON_EL.finditer(html):
         assert not EMOJI_RE.search(H.unescape(m.group(4))), \
             '%s: an emoji code point survives inside .%s' % (page, m.group(3))
-    # E — the skin's button treatment reached this page's own primary CTA class
-    assert '.agx-content .cta-button' in skin
+    # E — the skin's button treatment reaches THIS PAGE'S OWN controls, counted on this page's markup.
+    #     This used to read `assert '.agx-content .cta-button' in skin` — a substring test on a module-level
+    #     constant, identical on all twelve pages, which could only ever prove the skin still DECLARES a rule.
+    #     It could not see that ep-app's hero secondary CTA is class="btn-gold" and that no skin selector named
+    #     it. So the enumeration IS the assert now: every <a>/<button> inside .agx-content is resolved against
+    #     the skin's own selectors, the count is asserted per page, and every class the skin does not reach is
+    #     printed by name — a miss is surfaced at build time instead of found in a screenshot.
+    matched, unmatched = _controls(skin, body)
+    assert bool(matched) == (slug in CTA_PAGES), \
+        ('%s: %d control(s) inside .agx-content match a skin selector, and the page is %sin CTA_PAGES'
+         % (page, matched, '' if slug in CTA_PAGES else 'not '))
+    if unmatched:
+        print('    %-22s skin reaches %2d of %2d controls; UNMATCHED: %s'
+              % (slug, matched, matched + sum(unmatched.values()),
+                 ', '.join('%s x%d' % (k, v) for k, v in sorted(unmatched.items()))))
+    # C — the tilt script's inline transform is beaten on every class it actually reaches on this page
+    tilt_named, tilt_here = atlas.assert_tilt_override(slug, live.scripts(slug), body)
     if not PUBLISH:
         html = _previewize(html)
     out = os.path.join(REPO, OUT_DIR, page)
@@ -1124,6 +1180,8 @@ def build_live(slug):
           % (OUT_DIR + page, len(html.encode('utf-8')), len(chs), len(set(backs)),
              len(live.audit_chrome_css(sheet)), len(atlas.assert_cinema_scope(cinema)),
              (live.hero_media(slug, body) or 'still').split('/')[-1]))
+    print('    %-22s skin-matched controls %2d   tilt classes named by the page %d, matching an element here %d %s'
+          % (slug, matched, len(tilt_named), len(tilt_here), list(tilt_here)))
     return out
 
 
