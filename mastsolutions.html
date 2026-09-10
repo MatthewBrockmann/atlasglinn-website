@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="3374d986acf1">
+<meta name="build" content="baec8aa6b585">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
 <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
@@ -603,6 +603,14 @@
     section.panel > div { padding:1.4rem .6rem; background:radial-gradient(ellipse at center, rgba(5,8,16,.62) 0%, rgba(5,8,16,.38) 55%, rgba(5,8,16,0) 80%); }
   }
   @media (prefers-reduced-motion: reduce) { .eyebrow, h1.mega, h2.section-h, .sub, .rise { transition:none; opacity:1; filter:none; transform:none; } }
+  /* iPHONE, 2026-09-10 (Brockmann's screen recording, 11:22 CDT): every `.gold` word inside h1.mega and h2.section-h was
+     INVISIBLE on his phone — "Details" gone from "Details Matter", "Standard." from "Trained to Standard.", "SWAT." from
+     "Federal. SWAT. Military.", "Disciplines." from "Seven Core Disciplines." Those words are painted with
+     background-clip:text, and WebKit does not paint background-clip:text inside an element that carries a CSS filter —
+     both headings carry filter:blur() for the reveal, and blur(0) at rest is still a filter. iOS is the one engine that
+     exposes -webkit-touch-callout, so the blur leg of the reveal is dropped THERE ONLY; opacity and transform stay. Not
+     verified on a device from the build container (no WebKit here) — Brockmann's phone is the proof. */
+  @supports (-webkit-touch-callout: none) { h1.mega, h2.section-h, h1.mega.in, h2.section-h.in { filter:none; } }
 
   .menu-btn { position:fixed; top:.95rem; right:1.8rem; z-index:9500; font-family:'Share Tech Mono',monospace; font-size:.65rem; letter-spacing:.35em; color:var(--gold-champagne); background:rgba(5,8,16,.55); border:1px solid rgba(201,168,76,.4); padding:.5rem .9rem .5rem 1.1rem; cursor:none; backdrop-filter:blur(8px); text-transform:uppercase; }
   .menu-btn:hover { background:rgba(201,168,76,.12); border-color:var(--gold); }

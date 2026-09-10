@@ -246,6 +246,14 @@ CSS_B = r"""
     section.panel > div { padding:1.4rem .6rem; background:radial-gradient(ellipse at center, rgba(5,8,16,.62) 0%, rgba(5,8,16,.38) 55%, rgba(5,8,16,0) 80%); }
   }
   @media (prefers-reduced-motion: reduce) { .eyebrow, h1.mega, h2.section-h, .sub, .rise { transition:none; opacity:1; filter:none; transform:none; } }
+  /* iPHONE, 2026-09-10 (Brockmann's screen recording, 11:22 CDT): every `.gold` word inside h1.mega and h2.section-h was
+     INVISIBLE on his phone — "Details" gone from "Details Matter", "Standard." from "Trained to Standard.", "SWAT." from
+     "Federal. SWAT. Military.", "Disciplines." from "Seven Core Disciplines." Those words are painted with
+     background-clip:text, and WebKit does not paint background-clip:text inside an element that carries a CSS filter —
+     both headings carry filter:blur() for the reveal, and blur(0) at rest is still a filter. iOS is the one engine that
+     exposes -webkit-touch-callout, so the blur leg of the reveal is dropped THERE ONLY; opacity and transform stay. Not
+     verified on a device from the build container (no WebKit here) — Brockmann's phone is the proof. */
+  @supports (-webkit-touch-callout: none) { h1.mega, h2.section-h, h1.mega.in, h2.section-h.in { filter:none; } }
 """
 
 THREE_JS = r"""
