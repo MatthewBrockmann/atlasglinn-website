@@ -3,6 +3,10 @@
 
   python3 scripts/validate-live.py [--only <slug>[,<slug>]] [--port <n>]
 
+--only narrows the page set for speed. Check 3b (every skin selector spent by some page) is a measurement over ALL
+TWELVE pages, so under --only it is REPORTED and does not fail — a selector only ep-app spends is not dead because
+this run did not load ep-app. A full run is what asserts 3b.
+
 THIS FILE IS NEW (2026-09-09) AND THAT IS THE FINDING THAT CREATED IT. `scripts/atlas_live.py` has named it since
 the module was written — ":33 … validate-live.py asserts in a real browser that not one of them matches an element
 outside the five chrome roots", and again at :437 and :486 — and CLAUDE.md published that assertion as a measurement
@@ -217,14 +221,28 @@ try {
     const hudK = await page.evaluate(() => getComputedStyle(document.querySelector('.agx-hud-br'), '::before').content);
     await page.evaluate(() => window.scrollTo(0, 0));
 
+    // The rail box was not reproducible run to run, and the cause is HERE, in the probe, not on the page: the rail
+    // link's ::before and ::after both carry .3-.35s transitions, so a box read 350ms after a viewport change can
+    // catch a tick mid-animation. Transitions and animations are killed for the duration of the read and restored
+    // after it, and the settle is 600ms, so the printed coordinates can be quoted without a run number.
+    const FREEZE = () => {
+      const st = document.createElement('style');
+      st.id = 'agx-probe-freeze';
+      st.textContent = '*, *::before, *::after { transition:none !important; animation:none !important; }';
+      document.head.appendChild(st);
+    };
+    const THAW = () => { const st = document.getElementById('agx-probe-freeze'); if (st) st.remove(); };
+
     const boxes = {};
     for (const w of job.widths) {
       await page.setViewportSize({ width: w, height: 900 });
-      await page.waitForTimeout(350);
+      await page.evaluate(FREEZE);
+      await page.waitForTimeout(600);
       boxes[w] = await page.evaluate(BOXES);
+      await page.evaluate(THAW);
     }
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.waitForTimeout(350);
+    await page.waitForTimeout(600);
     const narrow = await page.evaluate(() => [
       getComputedStyle(document.querySelector('.agx-hud-bl')).display,
       getComputedStyle(document.querySelector('.agx-hud-br')).display]);
@@ -290,6 +308,7 @@ def main():
     print('DECLARED EXCEPTION: AGX_SKIN_CSS (atlas_shell.py) — the ONE sheet permitted to match content, scoped '
           '.agx-content; the chrome sheet is still asserted to match none.')
     bad = 0
+    n_chrome_out = n_cinema_out = 0
     skin_hits = dict.fromkeys(range(len(skin_sels)), 0)
     for P, R in zip(job['pages'], results):
         slug = R['slug']
@@ -297,6 +316,8 @@ def main():
         cinema_out = [r for r, raw in zip(R['cinema'], P['cinemaRaw'])
                       if r['outsideN'] and raw not in CINEMA_CONTENT_OK]
         skin_out = [r for r in R['skin'] if r['outsideN']]
+        n_chrome_out += sum(r['outsideN'] for r in chrome_out)
+        n_cinema_out += sum(r['outsideN'] for r in cinema_out)
         for i, r in enumerate(R['skin']):
             skin_hits[i] += r['n']
         type_ok = R['buildType'] == R['liveType']
@@ -363,13 +384,22 @@ def main():
                 print('    fixed-chrome boxes at %spx: %s' % (w, json.dumps(R['boxes'][w], sort_keys=True)))
 
     unspent = [skin_sels[i] for i in skin_hits if not skin_hits[i]]
-    print('\nSUMMARY  %d page(s). The chrome sheet matched 0 elements outside %s on every one.'
-          % (len(pages), CHROME_ROOTS))
-    print('         The cinema sheet matched nothing outside its own layers except %s, which is declared above.'
-          % ', '.join(CINEMA_CONTENT_OK))
+    # The first two sentences used to print their clean form unconditionally, so a FAILING run said "matched 0
+    # elements outside the five roots on every one" three lines under the rule that had just been reported reaching
+    # content. They are measured now, the way the skin's line already was.
+    print('\nSUMMARY  %d page(s). The chrome sheet matched %d element(s) outside %s.'
+          % (len(pages), n_chrome_out, CHROME_ROOTS))
+    print('         The cinema sheet matched %d element(s) outside its own layers beyond %s, which is declared above.'
+          % (n_cinema_out, ', '.join(CINEMA_CONTENT_OK)))
     print('         AGX_SKIN_CSS: %d selectors, %d matched an element on at least one page, %d spent by no page.'
           % (len(skin_sels), len(skin_sels) - len(unspent), len(unspent)))
-    if unspent:
+    if unspent and only:
+        # 3b is a WHOLE-PAGE-SET measurement: a selector that only ep-app spends is unspent on any run that does not
+        # load ep-app. Under --only it is reported and does not fail, the way render-audit.mjs already downgrades
+        # RAIL_OVERLAP_ON_MAIN under --only. The usage line says so.
+        print('         SKIN SELECTORS NO PAGE IN THIS --only SUBSET SPENDS (not a failure; 3b needs all twelve): '
+              '%s' % ' ; '.join(unspent))
+    elif unspent:
         print('         SKIN SELECTORS SPENT BY NO PAGE: %s' % ' ; '.join(unspent))
         bad += 1
     print('         %s' % ('0 with a delta' if not bad else '%d WITH A DELTA' % bad))

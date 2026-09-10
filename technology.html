@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="8561ee230f20">
+<meta name="build" content="0418f61425c3">
 <title>Atlas Glinn - Technology & Advanced Security Solutions</title>
 <meta name="description" content="Atlas Glinn technology solutions: AI Surveillance, Counter-Drone (cUAS), and Autonomous UAS platforms for advanced threat detection and security.">
 <meta name="keywords" content="security technology Houston, AI surveillance, Rhombus cameras, Deep Sentinel, LVT surveillance, counter-drone, SafeGuard app, Blue Force Tracking">
@@ -422,8 +422,11 @@ body.intro-open { overflow:hidden; }
      "Dedicated personal protection officers providing" [86,288,866,883] on executive-protection at 1440 among them.
      A bottom padding on .agx-content cannot fix it: the element is fixed to the VIEWPORT, so padding at the end of
      the document only clears the last screenful and every screenful above it still passes under the corner.
-     So the HUD gives way instead. CINEMA_JS measures, per frame the page scrolls, whether a visible line box is
-     inside a corner's own box, and adds .agx-clear if one is. The hide is INSTANT and the return is a .3s fade
+     So the HUD gives way instead. CINEMA_JS measures, per frame the page scrolls, whether a visible line box OR a
+     painted surface that is not a full-bleed band is inside a corner's own box, and adds .agx-clear if one is.
+     The painted-surface pass is r6's: the line-box pass alone printed the brand line across a solid blue PARTNER
+     PAGE button on technology at 1280 (scrollY 1645, button [32,238,730,781], corner [26,213,766,782], agx-clear
+     FALSE) and put both corners inside .feature-card and .discipline-card boxes on ep-app and training. The hide is INSTANT and the return is a .3s fade
      after a .2s hold, which is also what stops it flickering on a fast scroll. The gate is the thing that makes
      the HUD legitimate, so `html.agx-hudgate` — a class the gate adds to itself — is what turns the HUD on:
      a page whose script never ran prints no HUD at all rather than printing one across a sentence. */
@@ -522,11 +525,15 @@ body.intro-open { overflow:hidden; }
   }
   /* ---- 3. ICON RING — the 48px ring the swapped SVGs sit in (see ICON_SWAPS) ----
      No font-size here: the SVG carries width/height, so the live rules' font-size on these elements is inert and
-     does not need overriding. #form-success .success-icon is 1,1,0 on the live page and needs the id to be beaten. */
+     does not need overriding. #form-success .success-icon is 1,1,0 on the live page and needs the id to be beaten.
+     .agx-icon-ring is the ONE class this build adds inside the content, and it is here because the twelve tiles it
+     wraps carry NO class of their own — six on ep-app, five on executive-protection, one on contact — so there is
+     nothing else to hang the ring on. It also sets `color`, which is how executive-protection's five tiles stop
+     painting their inline `color:#C9A84C` into the drawing: gold is MAST's, not Atlas content's. */
   .agx-content .feature-icon, .agx-content .audience-icon, .agx-content .hw-card-icon,
   .agx-content .card-icon, .agx-content .pillar-icon, .agx-content .scenario-icon,
   .agx-content .disc-icon, .agx-content .threat-icon, .agx-content .icon-item,
-  .agx-content .blog-icon, .agx-content #form-success .success-icon {
+  .agx-content .blog-icon, .agx-content #form-success .success-icon, .agx-content .agx-icon-ring {
     width:48px; height:48px; display:inline-flex; align-items:center; justify-content:center;
     border-radius:14px; border:1px solid rgba(26,107,222,.32); color:#1A6BDE;
     background:radial-gradient(120% 120% at 30% 20%, rgba(26,107,222,.20) 0%, rgba(26,107,222,.045) 70%);
@@ -534,6 +541,7 @@ body.intro-open { overflow:hidden; }
     transition:color .45s, border-color .45s, box-shadow .45s, background .45s;
   }
   .agx-content .agx-icon { width:24px; height:24px; display:block; }
+  .agx-content .service-card:hover .agx-icon-ring,
   .agx-content .service-card:hover .card-icon, .agx-content .pillar-card:hover .pillar-icon,
   .agx-content .scenario-card:hover .scenario-icon, .agx-content .discipline-card:hover .disc-icon,
   .agx-content .threat-card:hover .threat-icon, .agx-content .blog-link-card:hover .blog-icon,
@@ -581,6 +589,13 @@ body.intro-open { overflow:hidden; }
     .agx-content .video-card, .agx-content .app-tier, .agx-content .feature-card,
     .agx-content .audience-card, .agx-content .pricing-card, .agx-content .hw-card,
     .agx-content .legal-card { backdrop-filter:none; -webkit-backdrop-filter:none; background:rgba(11,18,33,.78); }
+    /* And the ring for the class-less tiles comes down with it. Measured at 393x852 on ep-app: the live
+       "6-Layer Comms Stack" row is a six-column grid inside a 353px box and ITS OWN CONTENT ALREADY OVERFLOWS ON
+       THE LIVE SITE — row scrollWidth 491 against a 353px box on reference/live/ep-app.html, whose document
+       overflows the viewport by 118px there. With a 48px ring the row read 510; at 40px it reads 496. The
+       document itself overflows by 0 on the built page at every width measured, because the shell clips it, and
+       the row's 5px is inside a cut the live page already makes. */
+    .agx-content .agx-icon-ring { width:40px; height:40px; border-radius:12px; }
   }
   @media (prefers-reduced-motion: reduce) {
     .agx-content .feature-card, .agx-content .service-card, .agx-content .pricing-card { transition:none; }
@@ -1088,9 +1103,10 @@ if (ring && !reduce) {
   // and fades back when the lane clears. The class below is what turns the HUD on at all, so a page whose script
   // never ran shows no HUD rather than a HUD across a sentence.
   var huds = [].slice.call(document.querySelectorAll('.agx-hud'));
-  var lines = [];
+  var lines = [], paints = [];
   function collectLines() {
-    lines = [].slice.call(document.querySelectorAll('body *')).filter(function (el) {
+    var all = [].slice.call(document.querySelectorAll('body *'));
+    lines = all.filter(function (el) {
       if (el.closest('.agx-hud, .agx-rail, script, style')) return false;
       for (var i = 0; i < el.childNodes.length; i++) {
         var n = el.childNodes[i];
@@ -1098,6 +1114,31 @@ if (ring && !reduce) {
       }
       return false;
     });
+    // ── THE SECOND PASS, AND THE SCREENSHOT THAT FORCED IT (r6, 2026-09-10) ──
+    // The first gate intersected TEXT LINE BOXES only, so an opaque painted surface whose label sits a few pixels
+    // higher never tripped it. Deterministic repro: technology.html at 1280x800, scrollY 1645 — the PARTNER PAGE
+    // button box [32,238,730,781] with a linear-gradient(135deg,#1A6BDE,#0F4AA8) fill, .agx-hud-bl at
+    // [26,213,766,782], overlap true, agx-clear FALSE, and "ATLAS GLINN · HOUSTON" printed straight across the
+    // lower third of a solid blue button. The same shape put both corners inside .feature-card and
+    // .discipline-card boxes at 1280 on ep-app and training.
+    // So a PAINTED SURFACE is a lane hit too: any non-fixed element with a background-image or a background-colour
+    // that is not fully transparent. A surface spanning the viewport is NOT one — a full-bleed section band is the
+    // page's backdrop, which is exactly what a HUD corner is meant to sit on, and counting it would leave the HUD
+    // permanently cleared, i.e. hidden. Measured over 234 corner samples at 1440 across the twelve pages:
+    // text-only 42 hits (192 paints), painted-surface incl. bands 146 hits (88 paints), painted-surface excluding
+    // bands 80 hits (154 paints). The middle number is what ships.
+    paints = all.filter(function (el) {
+      if (el.closest('.agx-hud, .agx-rail, #agx-photos, #agx-canvas, script, style')) return false;
+      var cs = getComputedStyle(el);
+      if (cs.position === 'fixed') return false;
+      return (cs.backgroundImage && cs.backgroundImage !== 'none') || bgAlpha(cs.backgroundColor) > 0;
+    });
+  }
+  function bgAlpha(c) {
+    var m = /rgba?\(([^)]+)\)/.exec(c || '');
+    if (!m) return 0;
+    var p = m[1].split(',');
+    return p.length > 3 ? parseFloat(p[3]) : 1;
   }
   // Cheap first, exact second: one getBoundingClientRect rejects an element whose whole box misses the corner, and
   // only what survives is measured PER LINE BOX with a Range — the same reading render-audit.mjs asserts against,
@@ -1120,6 +1161,15 @@ if (ring && !reduce) {
               && b.bottom > box.top && b.top < box.bottom) return true;
         }
       }
+    }
+    for (var q = 0; q < paints.length; q++) {
+      var pe = paints[q], pr = pe.getBoundingClientRect();
+      if (!(pr.width > 0 && pr.height > 0)) continue;
+      if (pr.width >= innerWidth - 2) continue;
+      if (pr.bottom <= box.top || pr.top >= box.bottom || pr.right <= box.left || pr.left >= box.right) continue;
+      var pcs = getComputedStyle(pe);
+      if (pcs.visibility === 'hidden' || parseFloat(pcs.opacity) === 0) continue;
+      return true;
     }
     return false;
   }

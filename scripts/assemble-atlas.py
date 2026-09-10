@@ -25,7 +25,6 @@ a live-content problem by editing it — fix reference/live/ or scripts/atlas_li
 The twelve pages either mode writes: index, executive-protection, residential-protection, disaster-recovery, training,
 technology, cuas-aerodefense, uas, about, careers, contact, ep-app. signup.html is not generated here.
 """
-import html as H
 import os, re, sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PUBLISH = '--publish' in sys.argv
@@ -45,10 +44,11 @@ import atlas_shell as atlas
 import atlas_live as live
 import build_manifest
 
-# Every emoji code point the twelve captures actually carry. U+2300-23FF and U+2B00-2BFF are load-bearing:
-# \u23f1 (APPLE WATCH ULTRA 2) and \u2b50 (Leadership) are both in ICON_SWAPS and both outside the usual
-# U+1F300-1FAFF / U+2600-27BF ranges — without them the 'no emoji remains' assert passes while two survive.
-EMOJI_RE = re.compile('[\U0001F300-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\u2300-\u23FF]')
+# The emoji ranges used to be compiled HERE as well, for an assert that walked icon classes. That assert is gone
+# (see D below) and so is the third copy of the pattern: the ranges live in `atlas_shell._EMOJI_ONLY` and
+# `compare-atlas._EMOJI`, and two copies of a pattern set is already one more than this repo wants. U+2300-23FF and
+# U+2B00-2BFF stay load-bearing in both — ⏱ U+23F1 (APPLE WATCH ULTRA 2) and ⭐ U+2B50 (Leadership) are declared
+# swaps and both sit outside the usual U+1F300-1FAFF / U+2600-27BF ranges.
 
 API = 'https://mast-booking-backend.matthew-221.workers.dev'
 SITE = 'https://atlasglinn.com/'
@@ -1050,12 +1050,36 @@ def live_footer(slug):
     return atlas.footer(inner, container=False)
 
 
-# The eleven pages that carry at least one <a>/<button> inside .agx-content the skin reaches. ELEVEN, measured —
-# training is the one page of the twelve whose body carries no styled control at all: its only classed anchor is
-# `class="reveal"` on an outbound Washington Post link, and its other three anchors carry no class. The number is
-# encoded so a page that LOSES its CTA fails the build instead of passing quietly with zero.
-CTA_PAGES = ('index', 'executive-protection', 'residential-protection', 'disaster-recovery', 'technology',
-             'cuas-aerodefense', 'uas', 'about', 'careers', 'contact', 'ep-app')
+# THE PER-PAGE CONTROL LEDGER. (controls the skin reaches, {class list -> count} for the ones it does not), read
+# off a clean build of a5fd31e + this change and encoded so the numbers are what fails, not a printed line a human
+# has to read.
+#
+# WHAT THIS REPLACES AND WHY. The assert here read `assert bool(matched) == (slug in CTA_PAGES)` — a PRESENCE test
+# against a tuple of page NAMES. Nothing compared a number, so reintroducing the exact defect the assert was
+# written for passed: renaming `.agx-content .btn-gold` and `.agx-content .form-submit` out of the skin left
+# `assemble-atlas.py --publish` exiting 0 while ep-app dropped from 18 reached controls to 16 and printed
+# `UNMATCHED: (no class) x5, btn-gold x1, form-submit x1`. Green build, defect present. CLAUDE.md described the
+# assert as testing the per-page count; it did not, and both are corrected in the same pass.
+#
+# The unmatched map is encoded too, not just the total. `(no class)` is the honest residue — bare <a> anchors the
+# live pages carry inside prose and inside the footer-adjacent blocks, which have no class for a skin selector to
+# name. training's `reveal x1` is its only classed anchor, an outbound Washington Post link, and it is the one page
+# of the twelve the skin reaches zero controls on.
+SKIN_CONTROLS = {
+    'index':                  (7,  {'(no class)': 4}),
+    'executive-protection':   (1,  {'(no class)': 2}),
+    'residential-protection': (2,  {'(no class)': 4}),
+    'disaster-recovery':      (2,  {'(no class)': 3}),
+    'training':               (0,  {'(no class)': 3, 'reveal': 1}),
+    'technology':             (7,  {'(no class)': 2}),
+    'cuas-aerodefense':       (3,  {'(no class)': 4}),
+    'uas':                    (1,  {'(no class)': 3}),
+    'about':                  (7,  {'(no class)': 4}),
+    'careers':                (2,  {'(no class)': 2}),
+    'contact':                (1,  {'(no class)': 5}),
+    'ep-app':                 (18, {'(no class)': 5}),
+}
+CTA_PAGES = tuple(s for s, (m, _u) in SKIN_CONTROLS.items() if m)
 _CONTROL = re.compile(r'<(?:a|button)\b([^>]*)>', re.I)
 _CLASS_ATTR = re.compile(r'\bclass="([^"]*)"', re.I)
 _CLASS_ONLY = re.compile(r'(?:\.[A-Za-z0-9_-]+)+$')
@@ -1140,13 +1164,17 @@ def build_live(slug):
     assert rail_labels == [l for _a, l, _b in marks], '%s: rail labels are not the chapter labels' % page
     # B — the counter's denominator is the chapter count, two-digit padded, as MAST prints it
     assert 'data-of="%02d"' % len(chs) in html, '%s: HUD denominator != chapter count' % page
-    # D — one <svg class="agx-icon"> per declared swap, and no emoji left inside a swapped icon class
+    # D — one <svg class="agx-icon"> per declared swap, and the emoji STILL STANDING ANYWHERE INSIDE .agx-content
+    #     are exactly the ones ICON_KEEP names. The assert this replaces read "no emoji survives inside an icon
+    #     class", which was true, structurally blind and green while eleven emoji tiles rendered: six on ep-app and
+    #     five on executive-protection carry no class, so the class-keyed walk never looked at them. It measures the
+    #     page now instead of the classes the guard already knew about.
     swaps = atlas.ICON_SWAPS.get(slug, ())
     assert html.count('<svg class="agx-icon"') == len(swaps), \
         '%s: %d agx-icon svg, %d declared swaps' % (page, html.count('<svg class="agx-icon"'), len(swaps))
-    for m in atlas.ICON_EL.finditer(html):
-        assert not EMOJI_RE.search(H.unescape(m.group(4))), \
-            '%s: an emoji code point survives inside .%s' % (page, m.group(3))
+    left = atlas.icon_leaves(body)
+    kept = [(c, g) for c, g, _r in atlas.ICON_KEEP.get(slug, ())]
+    assert left == kept, '%s: emoji leaves inside .agx-content are %r; ICON_KEEP declares %r' % (page, left, kept)
     # E — the skin's button treatment reaches THIS PAGE'S OWN controls, counted on this page's markup.
     #     This used to read `assert '.agx-content .cta-button' in skin` — a substring test on a module-level
     #     constant, identical on all twelve pages, which could only ever prove the skin still DECLARES a rule.
@@ -1155,9 +1183,9 @@ def build_live(slug):
     #     the skin's own selectors, the count is asserted per page, and every class the skin does not reach is
     #     printed by name — a miss is surfaced at build time instead of found in a screenshot.
     matched, unmatched = _controls(skin, body)
-    assert bool(matched) == (slug in CTA_PAGES), \
-        ('%s: %d control(s) inside .agx-content match a skin selector, and the page is %sin CTA_PAGES'
-         % (page, matched, '' if slug in CTA_PAGES else 'not '))
+    assert (matched, unmatched) == SKIN_CONTROLS[slug], \
+        ('%s: the skin reaches %d control(s) and misses %r; SKIN_CONTROLS says %r'
+         % (page, matched, unmatched, SKIN_CONTROLS[slug]))
     if unmatched:
         print('    %-22s skin reaches %2d of %2d controls; UNMATCHED: %s'
               % (slug, matched, matched + sum(unmatched.values()),
@@ -1169,12 +1197,6 @@ def build_live(slug):
     out = os.path.join(REPO, OUT_DIR, page)
     os.makedirs(os.path.dirname(out) or '.', exist_ok=True)
     open(out, 'w', encoding='utf-8').write(html)
-    # MAST is not in this change. Byte-identical to origin/main or the build stops.
-    import subprocess
-    _mast = ['scripts/cinematic_shell.py', 'mastsolutions.html', 'mastsolutions-tesla.html',
-             'scripts/assemble-cinematic.py']
-    if subprocess.call(['git', 'diff', '--quiet', 'origin/main', '--'] + _mast, cwd=REPO) != 0:
-        raise SystemExit('MAST paths differ from origin/main: ' + ' '.join(_mast))
     backs = [b for _, _, b in marks if b]
     print('wrote %-30s %7d bytes   %2d chapters, %d backdrops   %2d chrome + %d cinema selectors   hero %s'
           % (OUT_DIR + page, len(html.encode('utf-8')), len(chs), len(set(backs)),
@@ -1196,7 +1218,20 @@ def _chapters_html(chs, body, page):
     return '<div class="agx-content">\n' + ''.join(out) + '</div>'
 
 
+# MAST is not in this change. Byte-identical to origin/main or the build stops — CHECKED BEFORE THE FIRST PAGE IS
+# WRITTEN, not after. It used to run at the end of build_live(), so an assembler that had already rewritten
+# mastsolutions.html would have rewritten it before anything looked.
+def assert_mast_untouched():
+    import subprocess
+    paths = ['scripts/cinematic_shell.py', 'mastsolutions.html', 'mastsolutions-tesla.html',
+             'scripts/assemble-cinematic.py']
+    if subprocess.call(['git', 'diff', '--quiet', 'origin/main', '--'] + paths, cwd=REPO) != 0:
+        raise SystemExit('MAST paths differ from origin/main: ' + ' '.join(paths))
+    print('MAST byte-identical to origin/main: ' + ', '.join(paths))
+
+
 if not AUTHORED:
+    assert_mast_untouched()
     # The theme stylesheet the live pages link, served from the repo: same bytes, same relative path from every page,
     # and the staging workflow's asset resolver follows the <link> and copies it.
     vendor = os.path.join(REPO, live.SHARED_CSS)

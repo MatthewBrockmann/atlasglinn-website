@@ -275,24 +275,29 @@ here as a 2026-09-08 measurement and NOTHING WAS MAKING IT.** `scripts/validate-
 is empty and the three greps for the name are all prose inside `atlas_live.py`. The script exists now, it is run in
 the same pass as `compare-atlas.py`, and **this is its own output, 2026-09-09, all twelve pages: 86 surviving chrome
 selectors resolved against the rendered page, 0 matching an element outside `#intro-overlay` / `#main-nav` /
-`#mobile-nav` / `footer.site-footer` / `#back-to-top`; 55 cinema selectors, 0 outside the cinema layer except the
-one declared `.agx-ch > *`; 104 skin selectors, 0 reaching the chrome and 0 spent by no page; the live type scale
-sequence EQUAL to the capture's on 12/12.** **The two counts this paragraph used to carry — "text parity 1257/1257 units" and
+`#mobile-nav` / `footer.site-footer` / `#back-to-top`; 0 cinema selectors outside the cinema layer except the
+one declared `.agx-ch > *`; the live type scale sequence EQUAL to the capture's on 12/12.** The cinema and skin
+selector counts move with every change to those two sheets, so they are NOT repeated here — **they live in exactly
+one place, the CINEMATIC LAYER section below, and are read off `validate-live.py`'s own output.** This paragraph
+carried `55 cinema` and `104 skin` as its own 2026-09-09 measurement while the tree measured 56 and 134, because a
+later pass corrected the skin number in the other place and left this one; one number in one place is the fix. **The two counts this paragraph used to carry — "text parity 1257/1257 units" and
 "media parity 35/35 URLs" — are STRUCK: they were taken over the content region only, before the comparator was
 widened to the whole `<body>`, and they read as page-set totals.** The page-set totals measured 2026-09-09 by
 `compare-atlas.py` are **2019 live text units across the twelve** (index 183 · executive-protection 227 ·
 residential-protection 146 · disaster-recovery 137 · training 151 · technology 122 · cuas-aerodefense 169 · uas 164 ·
 about 167 · careers 142 · contact 84 · ep-app 327) and **72 live media URLs** (9 · 5 · 5 · 11 · 8 · 7 · 4 · 5 · 9 ·
 4 · 4 · 1), all carried, 0 missing either way.
-**Re-stated 2026-09-09 for the icon swap, and it must be written this way and not the short way: 1949 of those 2019
-units are carried as TEXT and compared both ways; the other 70 are the emoji-as-icon glyphs the build replaces with
-`<svg class="agx-icon">`** (index 0 · executive-protection 6 · residential-protection 10 · disaster-recovery 6 ·
-training 12 · technology 0 · cuas-aerodefense 8 · uas 0 · about 0 · careers 0 · contact 0 · ep-app 28). They are
-**withheld from the live side BY POSITION** — inside an element whose class is one of the eleven declared icon
-classes and whose whole content is that glyph — and the build is asserted to stand one `<svg class="agx-icon">` in
-each place, in order, with no emoji code point left inside any icon class. **Never write "2019/2019 carried": 70 of
-them are not carried as text.** The line to write is `1949/1949 body units carried + 70 icon glyphs swapped =
-2019/2019 live units accounted`, which is what the sheet and stdout both print.
+**Re-stated 2026-09-10 for the icon swap, and it must be written this way and not the short way: 1937 of those 2019
+units are carried as TEXT and compared both ways; the other 82 are the emoji-as-icon glyphs the build replaces with
+`<svg class="agx-icon">`** (index 0 · executive-protection 11 · residential-protection 10 · disaster-recovery 6 ·
+training 12 · technology 0 · cuas-aerodefense 8 · uas 0 · about 0 · careers 0 · contact 1 · ep-app 34). They are
+**withheld from the live side BY POSITION** — every leaf `<span>`/`<div>` inside `.agx-content` whose whole content
+is emoji, **class or no class** — and the build is asserted to stand one `<svg class="agx-icon">` in each place, in
+order, with the emoji still standing anywhere inside `.agx-content` equal to the eleven `ICON_KEEP` declares.
+**Never write "2019/2019 carried": 82 of them are not carried as text.** The line to write is `1937/1937 body units
+carried + 82 icon glyphs swapped = 2019/2019 live units accounted`, which is what the sheet and stdout both print.
+**The 70/1949 split published here on 2026-09-09 was the CLASS-KEYED count** and it is superseded: twelve more
+glyphs are drawn now, eleven of them class-less tiles the old enumeration could not see.
 
 ### THE CINEMATIC LAYER — MAST's front end over that content (2026-09-09)
 
@@ -327,8 +332,10 @@ the presentation half, and it changes **nothing** inside a chapter.
   against the live capture and got EQUAL on 12/12), **no gold literal and no `--gold`** (gold is MAST's; the inverse
   is not true and is not "fixed" — eleven live pages border their own cards in `rgba(201,168,76,.6)` and that is
   the live design, carried), and the card hover is **read out of `cinematic_shell.py:132-133` at build time** by
-  `assert_shared_hover()` rather than re-typed. `validate-live.py` check 3 then measures it in a browser: **134 skin
-  selectors, 0 reaching the chrome, 0 spent by no page** (measured 2026-09-09 across the twelve). Two names an
+  `assert_shared_hover()` rather than re-typed. `validate-live.py` check 3 then measures it in a browser: **137 skin
+  selectors and 56 cinema selectors, 0 reaching the chrome, 0 spent by no page** (measured 2026-09-10 across the
+  twelve; **this is the ONE place in this file those two counts are written**, because two copies of a number that
+  moves with every sheet edit is how 104/55 shipped here on 2026-09-09 against a tree measuring 134/56). Two names an
   earlier enumeration carried were dropped for exactly that last reason — `.cred-tag` (3 spans) and `.cta-nav-btn`
   (1 anchor) sit in ep-app's **footer and nav**, outside `.agx-content`, so a skin rule for them would have matched
   nothing anywhere.
@@ -361,29 +368,59 @@ the presentation half, and it changes **nothing** inside a chapter.
   is `class="btn-gold"` and no skin selector named it; its form submit is `class="form-submit"` and neither did.
   `assemble-atlas.py` assert E used to be `assert '.agx-content .cta-button' in skin` — a substring test on a
   module-level constant, identical on all twelve pages, which could only ever prove the sheet still *declares* a
-  rule. It now resolves every `<a>`/`<button>` inside `.agx-content` against the skin's own selectors, asserts the
-  per-page count against `CTA_PAGES` — **eleven pages, not twelve: `training` is the one whose body carries no
-  styled control at all, its only classed anchor being `class="reveal"` on an outbound link** — and **prints every
-  unmatched class by name** on every build.
-- **The emoji-as-icon swap (D).** The eleven declared icon classes — `feature-icon`, `audience-icon`,
+  rule. **Its first replacement was `assert bool(matched) == (slug in CTA_PAGES)`, and that was published HERE as
+  "asserts the per-page count against `CTA_PAGES`" — which is not what it did.** `CTA_PAGES` was a tuple of page
+  NAMES and nothing compared a number, so renaming `.agx-content .btn-gold` and `.agx-content .form-submit` out of
+  the skin — putting back precisely the defect the assert was written for — left `assemble-atlas.py --publish`
+  exiting 0 while ep-app dropped from 18 reached controls to 16. **It encodes the measurement now:**
+  `SKIN_CONTROLS` holds `(matched, {unmatched class -> count})` per page, read off a clean build
+  (index 7 · executive-protection 1 · residential-protection 2 · disaster-recovery 2 · training 0 · technology 7 ·
+  cuas-aerodefense 3 · uas 1 · about 7 · careers 2 · contact 1 · ep-app 18), and equality is the assert; `CTA_PAGES`
+  is derived from it. `training` is still the one page of the twelve the skin reaches zero controls on, its only
+  classed anchor being `class="reveal"` on an outbound link. Fire-observed 2026-09-10: the two-selector mutation
+  exits 1 with `ep-app.html: the skin reaches 16 control(s) and misses {'btn-gold': 1, 'form-submit': 1,
+  '(no class)': 5}; SKIN_CONTROLS says (18, {'(no class)': 5})`; the unmutated tree exits 0.
+- **The emoji-as-icon swap (D) — ENUMERATED BY POSITION SINCE 2026-09-10, and that correction is the whole point of
+  this bullet.** The first pass enumerated by CLASS: eleven declared icon classes (`feature-icon`, `audience-icon`,
   `hw-card-icon`, `success-icon`, `card-icon`, `pillar-icon`, `scenario-icon`, `disc-icon`, `threat-icon`,
-  `icon-item`, `blog-icon` — carry **70 glyphs across six pages**, and each becomes a 24px, 1.5px-stroke,
-  `currentColor` inline `<svg class="agx-icon">` in a 48px ring. `ICON_SWAPS` is the position table (70 rows) and
-  `ICON_SVG` the drawing table; the build **fails** if the capture and the table disagree, which is the point of
-  writing them out. The SVG carries **no `href`, no `<use>`, no `url()`, no `src`/`poster`** — `check-links.py`
+  `icon-item`, `blog-icon`) carrying 70 glyphs across six pages. **Eleven emoji tiles carry no class at all** — six
+  on ep-app's *6-Layer Comms Stack* (`<div style="font-size:28px">📶</div>` and five like it) and five on
+  executive-protection's *Location Baseline* — so the table never declared them, the swap never reached them, and
+  the assert that read *"no emoji survives inside an icon class"* iterated a set they were not in. **It built green
+  while six full-colour OS emoji rendered at 28px directly above six cards whose icons were already blue monoline
+  SVG, on the exact page he was looking at when he asked for the site to be "clean and vibrant".**
+  The walk is `atlas_shell.icon_walk()` now: **every leaf `<span>`/`<div>` inside the content whose entire text is
+  emoji is a candidate, class or no class**, and each must be declared either in `ICON_SWAPS` (drawn) or in
+  `ICON_KEEP` (left as live text, with the reason). **82 glyphs across eight pages** become a 24px, 1.5px-stroke,
+  `currentColor` inline `<svg class="agx-icon">` in a 48px ring — a class-less tile gets the ring as an
+  `<span class="agx-icon-ring">` wrapper, which is also what stops executive-protection's inline `color:#C9A84C`
+  painting gold into the drawing. `ICON_SVG` is the drawing table; the build **fails** if the capture and the
+  tables disagree, which is the point of writing them out. Fire-observed 2026-09-10: dropping the six ep-app rows
+  exits 1 with `ep-app: emoji leaf 8 is ('', '📶'); ICON_SWAPS expects ('feature-icon', '🏙️') and ICON_KEEP
+  expects None`.
+  **SIXTEEN GLYPHS STAY, DECLARED, EACH WITH ITS REASON** (`ICON_KEEP`): the `★★★★★` rating on ten pages, which is
+  a rating and not an icon; about's `🛡` at 3rem/opacity .3 inside a 240×300 framed box — the stand-in for a
+  portrait the site does not have, where a 24px ringed SVG would read as an icon tile rather than a missing
+  headshot; and the hero's `🔇` mute control on the five pages that ship one, because **the live page's own script
+  rewrites `btn.innerHTML` between `&#128263;` and `&#128266;` on every click** (`reference/live/index.html:407-408`)
+  — an `<svg>` there would be overwritten by the page's handler the first time a reader clicked it. Nothing else
+  renders as an emoji inside `.agx-content` on any of the twelve pages, and `render-audit.mjs` check 6 asserts that
+  set **by value** in a browser rather than asserting a class-keyed zero. **The walk covers every leaf element, not
+  just `<span>`/`<div>`** — the mute control is a `<button>`, and it is the leaf that proved the browser pass and
+  the build pass were walking different sets. The SVG carries **no `href`, no `<use>`, no `url()`, no `src`/`poster`** — `check-links.py`
   reads all four — and its receipt attribute is `data-agx-glyph` holding hex code points, never the glyph (that
   would fail the very assert it exists to prove) and never a `data-src`-like name (`compare-atlas.py` counts
   `\bdata-src\s*=`). **The emoji regex carries `U+2300-23FF` and `U+2B00-2BFF` as well as the usual
   `U+1F300-1FAFF` / `U+2600-27BF`**: `⏱ U+23F1` (APPLE WATCH ULTRA 2) and `⭐ U+2B50` (Leadership) are both in the
   swap set and both outside the usual ranges — without those two extra ranges the "no emoji remains" assert passes
   while two survive.
-  **FOURTEEN CLASS-LESS GLYPHS STAY AS EMOJI AND HE WILL SEE THEM.** Six comms-layer icons in the middle of ep-app
-  (📶 CELLULAR · 📡 WiFi · 🔗 MESH · 🛰️ IRIDIUM · ✨ STARLINK · 📱 SAT PHONE, each a bare
-  `<div style="font-size:28px">`), five in a second executive-protection `.service-card` group (🌎 Terrain · ☁
-  Weather · 📍 Range of Ops · 🔍 Advance Recon · 📅 Schedule Tempo), and the class-less ✅ / 🛡 / ✍ singletons on
-  contact and about. They have no class hook, and matching on the bare glyph inside class-less divs would be a
-  page-wide search-and-replace that can reach body copy — which is why the rule is class-based. **This is a visible
-  inconsistency on the two pages he is most likely to open and it is stated here rather than left for him to find.**
+  **CLOSED 2026-09-10.** This bullet used to read *"FOURTEEN CLASS-LESS GLYPHS STAY AS EMOJI AND HE WILL SEE THEM"*
+  and justified it with *"matching on the bare glyph inside class-less divs would be a page-wide
+  search-and-replace that can reach body copy — which is why the rule is class-based"*. **That justification was
+  wrong**: the match is not on the glyph, it is on a LEAF ELEMENT WHOSE ENTIRE CONTENT IS THE GLYPH, which cannot
+  reach body copy by construction. Twelve of the fourteen are drawn now (six on ep-app, five on
+  executive-protection, contact's `✅`); the count was also wrong — there is no class-less `✍` on about, and the
+  fourteenth was about's portrait-placeholder `🛡`, which is declared in `ICON_KEEP` above.
 - **Chapters.** `atlas_live.chapters(slug)` cuts the live page at its own top-level `<section>` boundaries (ep-app is
   built from top-level `…-wrap` divs and cuts there). A `section-divider` band carries the next section's title, so it
   **opens** that chapter instead of closing the last one; a `<script>` between two sections rides with whatever follows.
@@ -445,8 +482,10 @@ the presentation half, and it changes **nothing** inside a chapter.
   `mastsolutions.html`, and 0 elements with an id or class containing "sound" render at either width. There is nothing
   of MAST's to add or to have declined to add; the build reproduces the LIVE site's toggle footprint, 5 of 12 pages,
   and **whether any of those five films carries audio is UNVERIFIABLE FROM HERE** (no egress).
-- **The rail — HE ASKED FOR MAST'S STANDING SIDEBAR ON 2026-09-09 17:12, IT WAS BUILT, AND THE MEASUREMENT SAYS
-  IT CANNOT STAND OVER THIS CONTENT.** His words, looking at the ep-app preview: *"Menu should be like the
+- **The rail — DELIVERABLE A IS NOT DELIVERED. The labels are hover-only, identical to origin/main.** He asked for
+  MAST's standing sidebar on 2026-09-09 17:12, it was built, and the measurement says it cannot stand over this
+  content without a right gutter on `.agx-content` — **one PENDING question, his, and nothing else blocks it.**
+  Do not read the paragraphs below as a shipped rail; they are the measurement that says why it is not one.** His words, looking at the ep-app preview: *"Menu should be like the
   mastsolutions menu side bar?  Add more of the teslas style"* — the one-word reversal this file reserved to him
   of the paragraph that stood here, which read **"THE 1025–1699 px DIVERGENCE FROM MAST IS THE ACCEPTED DEVIATION,
   not an oversight and not a defect to re-open"**. It was re-opened. The standing rail was implemented, driven in
@@ -540,13 +579,34 @@ the presentation half, and it changes **nothing** inside a chapter.
   it. **`.agx-content { padding-bottom }` cannot fix this** and is worth writing down: the HUD is fixed to the
   VIEWPORT, so padding at the end of the document clears only the last screenful while every screenful above it
   still scrolls under the corner. **The repair is a lane gate** — `CINEMA_JS` measures, per scrolled frame, whether
-  a visible line box is inside a corner's box and sets `.agx-clear` (opacity 0 instantly, fading back after a .2s
-  hold). The gate is what makes the HUD legitimate, so `html.agx-hudgate`, a class the gate adds to itself, is what
-  turns the HUD on: **a page whose script never ran prints no HUD rather than a HUD across a sentence.** Measured
-  after the gate, twelve pages at 1025/1280/1440/1800: **0 covered runs at every width**, with the corners painting
-  at **200 of 256 corner-stops at 1440**, 190/254 at 1280, 179/260 at 1025 and 238/256 at 1800 — it steps aside for
-  roughly a fifth to a third of a scroll walk and stands the rest of the time, which is the trade and it is stated
-  rather than implied.
+  a visible line box **or a painted surface that is not a full-bleed band** is inside a corner's box and sets
+  `.agx-clear` (opacity 0 instantly, fading back after a .2s hold). The gate is what makes the HUD legitimate, so
+  `html.agx-hudgate`, a class the gate adds to itself, is what turns the HUD on: **a page whose script never ran
+  prints no HUD rather than a HUD across a sentence.**
+  **THE PAINTED-SURFACE PASS IS THE 2026-09-10 CORRECTION AND IT WAS FOUND IN A SCREENSHOT, NOT IN THE NUMBERS.**
+  The first gate intersected TEXT LINE BOXES only, so an opaque painted surface whose label sits a few pixels higher
+  never tripped it — and the walk's own summary line, "live text runs the HUD covers … 1280px 0", was true and read
+  as coverage it did not have. Deterministic repro: **technology.html at 1280×800, scrollY 1645** — the PARTNER PAGE
+  button box `[32,238,730,781]` filled `linear-gradient(135deg,#1A6BDE,#0F4AA8)`, `.agx-hud-bl` at
+  `[26,213,766,782]`, overlap true, `agx-clear` **FALSE**, and `ATLAS GLINN · HOUSTON` printed straight across the
+  lower third of a solid blue button. The same shape put both corners inside `.feature-card` and `.discipline-card`
+  boxes at 1280 on ep-app and training.
+  **A full-bleed band is deliberately NOT a hit** — a section spanning the viewport is the page's backdrop, which is
+  exactly what a HUD corner is meant to sit on, and counting it leaves the HUD permanently cleared, i.e. hidden.
+  The three rules were measured over **234 corner samples at 1440 across the twelve pages**: text-only **42 hits /
+  192 paints**, painted-surface *including* bands **146 / 88**, painted-surface *excluding* bands **80 / 154**. The
+  middle rule ships.
+  Measured after the widened gate, twelve pages at 1025/1280/1440/1800: **0 covered text runs at every width**, with
+  the corners painting at **132-139 of 256 corner-stops at 1440** (200/256 under the old text-only gate),
+  **120-126/254 at 1280** (190/254), **128-142/260 at 1025** (179/260) and **237-238/256 at 1800** (238/256). **THE
+  RANGE IS THE HONEST FORM, not a single number**: four `render-audit.mjs` runs on the same tree, 2026-09-10, read
+  139 / 134 / 132 / 132 at 1440 and 120 / 126 / 121 / 124 at 1280 — the walk samples a scroll position every 0.75
+  viewport and a card boundary lands either side of a corner depending on where a reveal has settled. Unlike the
+  rail-label clip count, this one is NOT a probe defect: the gate genuinely re-decides per frame, and the spread is
+  the measurement's own resolution. The rail box, by contrast, IS reproducible to the
+  pixel now (`validate-live.py` freezes transitions for the read; three consecutive `--only index` runs printed
+  `.agx-rail [1372,1433,368,532]` at 1440 byte for byte). It steps aside for roughly half a scroll walk at the
+  middle widths and stands the rest of the time, which is the trade and it is stated rather than implied.
   **Compare like with like on the count:** MAST's rail is **13 `.chap-link` plus 2 `.chap-extra`** — `· Blogs`
   (`preview-only`) and `· Sign in` (`chap-always`). Its container is `display:none` at **≤899**
   (`mastsolutions.html:618`, which supersedes the ≤768 rule at :580); the 13 `.chap-link` are `font-size:0` from

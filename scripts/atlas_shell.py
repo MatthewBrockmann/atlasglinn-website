@@ -562,8 +562,11 @@ CINEMA_CSS = r"""
      "Dedicated personal protection officers providing" [86,288,866,883] on executive-protection at 1440 among them.
      A bottom padding on .agx-content cannot fix it: the element is fixed to the VIEWPORT, so padding at the end of
      the document only clears the last screenful and every screenful above it still passes under the corner.
-     So the HUD gives way instead. CINEMA_JS measures, per frame the page scrolls, whether a visible line box is
-     inside a corner's own box, and adds .agx-clear if one is. The hide is INSTANT and the return is a .3s fade
+     So the HUD gives way instead. CINEMA_JS measures, per frame the page scrolls, whether a visible line box OR a
+     painted surface that is not a full-bleed band is inside a corner's own box, and adds .agx-clear if one is.
+     The painted-surface pass is r6's: the line-box pass alone printed the brand line across a solid blue PARTNER
+     PAGE button on technology at 1280 (scrollY 1645, button [32,238,730,781], corner [26,213,766,782], agx-clear
+     FALSE) and put both corners inside .feature-card and .discipline-card boxes on ep-app and training. The hide is INSTANT and the return is a .3s fade
      after a .2s hold, which is also what stops it flickering on a fast scroll. The gate is the thing that makes
      the HUD legitimate, so `html.agx-hudgate` — a class the gate adds to itself — is what turns the HUD on:
      a page whose script never ran prints no HUD at all rather than printing one across a sentence. */
@@ -772,11 +775,15 @@ AGX_SKIN_CSS = r"""
   }
   /* ---- 3. ICON RING — the 48px ring the swapped SVGs sit in (see ICON_SWAPS) ----
      No font-size here: the SVG carries width/height, so the live rules' font-size on these elements is inert and
-     does not need overriding. #form-success .success-icon is 1,1,0 on the live page and needs the id to be beaten. */
+     does not need overriding. #form-success .success-icon is 1,1,0 on the live page and needs the id to be beaten.
+     .agx-icon-ring is the ONE class this build adds inside the content, and it is here because the twelve tiles it
+     wraps carry NO class of their own — six on ep-app, five on executive-protection, one on contact — so there is
+     nothing else to hang the ring on. It also sets `color`, which is how executive-protection's five tiles stop
+     painting their inline `color:#C9A84C` into the drawing: gold is MAST's, not Atlas content's. */
   .agx-content .feature-icon, .agx-content .audience-icon, .agx-content .hw-card-icon,
   .agx-content .card-icon, .agx-content .pillar-icon, .agx-content .scenario-icon,
   .agx-content .disc-icon, .agx-content .threat-icon, .agx-content .icon-item,
-  .agx-content .blog-icon, .agx-content #form-success .success-icon {
+  .agx-content .blog-icon, .agx-content #form-success .success-icon, .agx-content .agx-icon-ring {
     width:48px; height:48px; display:inline-flex; align-items:center; justify-content:center;
     border-radius:14px; border:1px solid rgba(26,107,222,.32); color:#1A6BDE;
     background:radial-gradient(120% 120% at 30% 20%, rgba(26,107,222,.20) 0%, rgba(26,107,222,.045) 70%);
@@ -784,6 +791,7 @@ AGX_SKIN_CSS = r"""
     transition:color .45s, border-color .45s, box-shadow .45s, background .45s;
   }
   .agx-content .agx-icon { width:24px; height:24px; display:block; }
+  .agx-content .service-card:hover .agx-icon-ring,
   .agx-content .service-card:hover .card-icon, .agx-content .pillar-card:hover .pillar-icon,
   .agx-content .scenario-card:hover .scenario-icon, .agx-content .discipline-card:hover .disc-icon,
   .agx-content .threat-card:hover .threat-icon, .agx-content .blog-link-card:hover .blog-icon,
@@ -831,6 +839,13 @@ AGX_SKIN_CSS = r"""
     .agx-content .video-card, .agx-content .app-tier, .agx-content .feature-card,
     .agx-content .audience-card, .agx-content .pricing-card, .agx-content .hw-card,
     .agx-content .legal-card { backdrop-filter:none; -webkit-backdrop-filter:none; background:rgba(11,18,33,.78); }
+    /* And the ring for the class-less tiles comes down with it. Measured at 393x852 on ep-app: the live
+       "6-Layer Comms Stack" row is a six-column grid inside a 353px box and ITS OWN CONTENT ALREADY OVERFLOWS ON
+       THE LIVE SITE — row scrollWidth 491 against a 353px box on reference/live/ep-app.html, whose document
+       overflows the viewport by 118px there. With a 48px ring the row read 510; at 40px it reads 496. The
+       document itself overflows by 0 on the built page at every width measured, because the shell clips it, and
+       the row's 5px is inside a cut the live page already makes. */
+    .agx-content .agx-icon-ring { width:40px; height:40px; border-radius:12px; }
   }
   @media (prefers-reduced-motion: reduce) {
     .agx-content .feature-card, .agx-content .service-card, .agx-content .pricing-card { transition:none; }
@@ -860,8 +875,9 @@ def assert_skin_scope(css):
     assert SHARED_HOVER_LIFT in body and SHARED_HOVER_TRANSITION in body, \
         'the skin no longer carries the shared card hover copied from cinematic_shell.py:132-133'
     # 5. THE TILT OVERRIDE IS PRESENT FOR EVERY CLASS THAT NEEDS IT. !important is the ONE exception this sheet
-    #    takes and it is bounded here: only these five classes, only transform / transition / box-shadow, and only
-    #    because an inline style cannot be beaten any other way. An !important on any OTHER declaration fails.
+    #    takes and it is bounded here: only the classes in SKIN_TILT_CLASSES, only transform / transition /
+    #    box-shadow, and only because an inline style cannot be beaten any other way. An !important on any
+    #    OTHER declaration fails.
     rules = [(' '.join(m.group(1).split()), m.group(2)) for m in re.finditer(r'([^{}]+)\{([^{}]*)\}', body)]
     for c in SKIN_TILT_CLASSES:
         base = [d for s, d in rules if '.agx-content .%s,' % c in s + ',' and '!important' in d and ':hover' not in s]
@@ -972,6 +988,12 @@ ICON_SVG = {
  '\U0001F4F6': 'M4.4 20.4v-3.6M9.4 20.4v-7.2M14.4 20.4v-10.8M19.4 20.4V6',                             # signal bars
  '\U0001F3A7': 'M4.4 16.4v-3.8a7.6 7.6 0 0 1 15.2 0v3.8M4.4 14.4h1.9a1.6 1.6 0 0 1 1.6 1.6v3a1.6 1.6 0 0 1-1.6 1.6H4.4zM19.6 14.4h-1.9a1.6 1.6 0 0 0-1.6 1.6v3a1.6 1.6 0 0 0 1.6 1.6h1.9z',   # headphones
  '\U00002705': 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM7.8 12.2l2.9 2.9 5.5-5.5',                        # check in a circle
+ '\U0001F517': 'M9.6 14.4l4.8-4.8M10.8 6.9l1.5-1.5a3.9 3.9 0 0 1 5.5 5.5l-1.5 1.5M13.2 17.1l-1.5 1.5a3.9 3.9 0 0 1-5.5-5.5l1.5-1.5',   # chain link
+ '\U00002728': 'M12 3l1.7 4.6L18.3 9.3 13.7 11 12 15.6 10.3 11 5.7 9.3 10.3 7.6zM18.4 15.2l.8 2.1 2.1.8-2.1.8-.8 2.1-.8-2.1-2.1-.8 2.1-.8zM5.6 14.6l.6 1.5 1.5.6-1.5.6-.6 1.5-.6-1.5-1.5-.6 1.5-.6z',   # sparkles
+ '\U0001F4F1': 'M7.6 2.8h8.8a1.6 1.6 0 0 1 1.6 1.6v15.2a1.6 1.6 0 0 1-1.6 1.6H7.6A1.6 1.6 0 0 1 6 19.6V4.4a1.6 1.6 0 0 1 1.6-1.6zM10.6 18.4h2.8',   # mobile handset
+ '\U00002601': 'M7.4 19a4.4 4.4 0 0 1-.5-8.8 5.6 5.6 0 0 1 10.7 1.3A3.8 3.8 0 0 1 16.8 19z',           # cloud
+ '\U0001F4CD': 'M12 21.4s6.4-6.1 6.4-10.4a6.4 6.4 0 1 0-12.8 0C5.6 15.3 12 21.4 12 21.4zM12 8.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8z',   # round pushpin
+ '\U0001F4C5': 'M4.6 6.4h14.8v14H4.6zM4.6 10.6h14.8M8.6 3.6v4M15.4 3.6v4M8.4 14h1.2M13.4 14h1.2M8.4 17.2h1.2M13.4 17.2h1.2',   # calendar
 }
 # The presentation-selector variants draw the same icon. Keys are the exact live strings, so U+FE0F is its own key.
 for _base, _var in (('\U0001F6E1', '\U0001F6E1\U0000FE0F'), ('\U0001F6F0', '\U0001F6F0\U0000FE0F'),
@@ -991,6 +1013,13 @@ ICON_SWAPS = {
     ('card-icon', '\U0001F935', 'Body Man Duties'),
     ('card-icon', '\U000026A0', 'Crisis Management'),
     ('card-icon', '\U0001F3E5', 'Emergency Response'),
+    # Location Baseline: five <div style="color:#C9A84C; font-size:1.8rem"> tiles with NO class at all, which is
+    # why the class-keyed enumeration missed them for two rounds. They render inside .service-card.
+    ('', '\U0001F30E', 'Terrain'),
+    ('', '\U00002601', 'Weather'),
+    ('', '\U0001F4CD', 'Range of Ops'),
+    ('', '\U0001F50D', 'Advance Recon'),
+    ('', '\U0001F4C5', 'Schedule Tempo'),
   ],
   'residential-protection': [                    # 10
     ('pillar-icon', '\U0001F6E1', '24/7 Guard Force'),
@@ -1045,6 +1074,15 @@ ICON_SWAPS = {
     ('feature-icon', '\U0001F6F0', '6-LAYER COMMS STACK'),
     ('feature-icon', '\U0001F6E1\U0000FE0F', 'COUNTER-UAS DETECTION'),
     ('feature-icon', '\U0001F4AA', 'CYBER DEFENSE & AUTO-DISCONNECT'),
+    # 6-Layer Comms Stack: six <div style="font-size:28px"> tiles with NO class. These are the six Brockmann was
+    # looking at on 2026-09-09 when he asked for the page to be "clean and vibrant", and they survived the first
+    # icon pass because that pass enumerated by class name.
+    ('', '\U0001F4F6', 'CELLULAR'),
+    ('', '\U0001F4E1', 'WiFi'),
+    ('', '\U0001F517', 'MESH'),
+    ('', '\U0001F6F0\U0000FE0F', 'IRIDIUM'),
+    ('', '\U00002728', 'STARLINK'),
+    ('', '\U0001F4F1', 'SAT PHONE'),
     ('feature-icon', '\U0001F3D9\U0000FE0F', 'STANDARD EP DETAIL'),
     ('feature-icon', '\U0001F3D4\U0000FE0F', 'RURAL / LOW COVERAGE'),
     ('feature-icon', '\U0001F30D', 'INTERNATIONAL / DENIED'),
@@ -1066,42 +1104,133 @@ ICON_SWAPS = {
     ('hw-card-icon', '\U0001F3A7', 'OTTO COVERT EARPIECE'),
     ('success-icon', '\U00002705', 'ACCESS REQUEST RECEIVED'),
   ],
+  'contact': [                                   # 1, class-less, inside #contact-success (display:none until send)
+    ('', '\U00002705', 'Thank you for your interest in Atlas Glinn.'),
+  ],
 }
 ICON_CLASSES = ('feature-icon', 'audience-icon', 'hw-card-icon', 'success-icon', 'card-icon',
                 'pillar-icon', 'scenario-icon', 'disc-icon', 'threat-icon', 'icon-item', 'blog-icon')
-# The element whose ENTIRE content is one glyph and whose class is one of the eleven above. `[^<]*` is deliberate:
-# an icon element with a child element is not an icon element and must not be swapped.
+# ── THE ENUMERATION IS BY POSITION, NOT BY CLASS, AND THAT IS THE R6 CORRECTION ──
+# ICON_EL below matched only an element carrying one of the eleven classes above. Eleven emoji tiles on the twelve
+# pages carry NO class at all — six on ep-app ("6-Layer Comms Stack", `<div style="font-size:28px">📶</div>`) and
+# five on executive-protection ("Location Baseline", `<div style="color:#C9A84C; font-size:1.8rem">🌎</div>`) —
+# so the table never declared them, the swap never reached them, and the assert that said "no emoji survives"
+# iterated a set they were not in. Six full-colour OS emoji stood directly above six blue monoline cards on the
+# exact page Brockmann was looking at.
+# ICON_ANY_EL is the fix: EVERY leaf <span>/<div> inside the content whose entire text is emoji is a candidate,
+# class or no class, and every candidate must be declared either in ICON_SWAPS (drawn) or in ICON_KEEP (left as
+# live text, with the reason). A tile nothing declares is a build failure now instead of a screenshot finding.
 ICON_EL = re.compile(r'<(span|div)([^>]*\bclass="(?:[^"]*\s)?(%s)(?:\s[^"]*)?"[^>]*)>([^<]*)</\1>'
                      % '|'.join(ICON_CLASSES))
+# EVERY leaf element, not just span/div: the live pages print an emoji inside a <button> too (the hero's
+# #sound-toggle mute control on five pages). render-audit check 6 walks `.agx-content *` in the browser and would
+# otherwise see a leaf this walk cannot, which is how two passes measuring the same thing drift apart.
+ICON_ANY_EL = re.compile(r'<(span|div|button|a|p|li|td|th|h[1-6]|strong|em|b|i|small|figcaption|label)'
+                         r'([^>]*)>([^<]*)</\1>')
+_CLASS_IN_TAG = re.compile(r'\bclass="([^"]*)"')
+# The same code-point ranges assemble-atlas.py and compare-atlas.py compile, plus the two joiners a live glyph may
+# carry: U+FE0F/U+FE0E select a presentation and U+200D joins, and neither is content.
+_EMOJI_ONLY = re.compile('(?:[\U0001F300-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\u2300-\u23FF]'
+                         '[\uFE0F\uFE0E]?\u200D?)+$')
+
+# Glyphs the pages keep as live text, by page, in document order, with the reason. #sound-toggle is the live hero's
+# mute control on five pages and its OWN script rewrites `btn.innerHTML` between 🔇 and 🔊 on every click
+# (reference/live/index.html:407-408) — an <svg> put there would be overwritten by the page's handler the first
+# time a reader clicks it, so it is not a drawing this build gets to own. An entry here is a DEPARTURE
+# FROM THE SWAP, not from the comparison: the text unit stays on both sides and compare-atlas still asserts it.
+ICON_KEEP = {
+  'index':                  [('', '\U0001F507', 'the hero mute control; the live script rewrites its innerHTML'),
+                             ('', '\u2605' * 5, 'a five-star rating, not an icon')],
+  'executive-protection':   [('', '\u2605' * 5, 'a five-star rating, not an icon')],
+  'residential-protection': [('', '\U0001F507', 'the hero mute control; the live script rewrites its innerHTML'),
+                             ('', '\u2605' * 5, 'a five-star rating, not an icon')],
+  'disaster-recovery':      [('', '\U0001F507', 'the hero mute control; the live script rewrites its innerHTML'),
+                             ('', '\u2605' * 5, 'a five-star rating, not an icon')],
+  'training':               [('', '\U0001F507', 'the hero mute control; the live script rewrites its innerHTML'),
+                             ('', '\u2605' * 5, 'a five-star rating, not an icon')],
+  'technology':             [('', '\u2605' * 5, 'a five-star rating, not an icon')],
+  'cuas-aerodefense':       [('', '\U0001F507', 'the hero mute control; the live script rewrites its innerHTML'),
+                             ('', '\u2605' * 5, 'a five-star rating, not an icon')],
+  'uas':                    [('', '\u2605' * 5, 'a five-star rating, not an icon')],
+  'careers':                [('', '\u2605' * 5, 'a five-star rating, not an icon')],
+  'about': [
+    # Not a card icon: it is the stand-in for a portrait the site does not have, inside the same 240x300 framed
+    # box the other three team photographs fill, at 3rem and opacity .3. A 24px ringed SVG in a 300px-tall frame
+    # would read as an icon tile rather than a missing headshot, so it is left and named instead of swapped.
+    ('', '\U0001F6E1', 'J. Reneé Renobato portrait placeholder, a 240x300 frame with no photograph'),
+    ('', '\u2605' * 5, 'a five-star rating, not an icon'),
+  ],
+}
 assert all(g in ICON_SVG for rows in ICON_SWAPS.values() for _c, g, _t in rows), \
     'ICON_SWAPS names a glyph ICON_SVG does not draw'
+# The mechanical bound between the tables and the emoji ranges. Without it two hand-edits could name any leaf
+# element by (class, text) and withhold arbitrary live copy from the comparison by declaring it an "icon".
+for _tbl, _name in ((ICON_SWAPS, 'ICON_SWAPS'), (ICON_KEEP, 'ICON_KEEP')):
+    for _slug, _rows in _tbl.items():
+        for _c, _g, _t in _rows:
+            assert _EMOJI_ONLY.fullmatch(_g), '%s[%s] declares %r, which is not emoji' % (_name, _slug, _g)
+for _slug in set(ICON_SWAPS) | set(ICON_KEEP):
+    _clash = {(c, g) for c, g, _t in ICON_SWAPS.get(_slug, ())} & {(c, g) for c, g, _t in ICON_KEEP.get(_slug, ())}
+    assert not _clash, '%s: %r is both drawn and kept — the walk could not tell them apart' % (_slug, _clash)
+
+
+def icon_leaves(markup, pos=0, endpos=None):
+    """(class, glyph) of every leaf <span>/<div> whose ENTIRE text content is emoji, in document order, class or
+    no class. `[^<]*` is deliberate: an element with a child element is not a leaf and is not a candidate.
+    pos/endpos bound the walk to the content region; offsets stay absolute."""
+    import html as H
+    out = []
+    for m in ICON_ANY_EL.finditer(markup, pos, len(markup) if endpos is None else endpos):
+        t = H.unescape(m.group(3)).strip()
+        if t and _EMOJI_ONLY.fullmatch(t):
+            c = _CLASS_IN_TAG.search(m.group(2))
+            out.append((c.group(1).strip() if c else '', t))
+    return out
+
+
+def icon_walk(slug, markup, pos=0, endpos=None):
+    """Every emoji leaf resolved against the two tables, in document order: [(match, 'svg'|'keep', class, glyph)].
+    Raises on a leaf neither table declares, on one declared out of order, and on a declared row the page no longer
+    carries — the tables are the contract, not a hint. pos/endpos bound the walk to the content region."""
+    import html as H
+    want, keep = list(ICON_SWAPS.get(slug, ())), list(ICON_KEEP.get(slug, ()))
+    out, k, j = [], 0, 0
+    for m in ICON_ANY_EL.finditer(markup, pos, len(markup) if endpos is None else endpos):
+        glyph = H.unescape(m.group(3)).strip()
+        if not glyph or not _EMOJI_ONLY.fullmatch(glyph):
+            continue
+        c = _CLASS_IN_TAG.search(m.group(2))
+        cls = c.group(1).strip() if c else ''
+        if k < len(want) and (cls, glyph) == want[k][:2]:
+            out.append((m, 'svg', cls, glyph)); k += 1
+        elif j < len(keep) and (cls, glyph) == keep[j][:2]:
+            out.append((m, 'keep', cls, glyph)); j += 1
+        else:
+            raise AssertionError(
+                '%s: emoji leaf %d is (%r, %r); ICON_SWAPS expects %r and ICON_KEEP expects %r'
+                % (slug, len(out), cls, glyph, want[k][:2] if k < len(want) else None,
+                   keep[j][:2] if j < len(keep) else None))
+    assert (k, j) == (len(want), len(keep)), \
+        '%s: the capture spends %d of %d ICON_SWAPS rows and %d of %d ICON_KEEP rows' \
+        % (slug, k, len(want), j, len(keep))
+    return out
 
 
 def skin_icons(slug, body):
-    """Every declared emoji-as-icon glyph replaced by its inline monoline SVG, in document order. Raises if the
-    capture and ICON_SWAPS disagree — the table is the contract, not a hint."""
-    import html as H
-    want = list(ICON_SWAPS.get(slug, ()))
-    if not want:
-        assert not [m for m in ICON_EL.finditer(body) if H.unescape(m.group(4)).strip()], \
-            '%s: an icon-class glyph appeared that ICON_SWAPS does not declare' % slug
-        return body
-    out, pos, k = [], 0, 0
-    for m in ICON_EL.finditer(body):
-        glyph = H.unescape(m.group(4)).strip()
-        if not glyph:
+    """Every declared emoji-as-icon glyph replaced by its inline monoline SVG, in document order. A class-less tile
+    gets the 48px ring as a wrapper span, because the ring rule can only be written against a class and these
+    elements have none — the tile's own tag, class and inline style still survive byte for byte."""
+    out, pos = [], 0
+    for m, act, cls, glyph in icon_walk(slug, body):
+        if act != 'svg':
             continue
-        assert k < len(want), '%s: more icon glyphs in the capture than ICON_SWAPS declares' % slug
-        cls, g, _title = want[k]
-        assert (cls, glyph) == (m.group(3), g), \
-            '%s: swap %d is (%s, %r) in ICON_SWAPS and (%s, %r) in the capture' \
-            % (slug, k, cls, g, m.group(3), glyph)
-        # m.start(4)/m.end(4): only the text BETWEEN the tags is replaced, so the icon element's own tag, class and
-        # any inline style survive byte for byte.
-        out.append(body[pos:m.start(4)])
-        out.append((_SVG_OPEN % _glyph_key(g)) + '<path d="' + ICON_SVG[g] + '"/></svg>')
-        pos, k = m.end(4), k + 1
-    assert k == len(want), '%s: ICON_SWAPS declares %d swaps, the capture carries %d' % (slug, len(want), k)
+        svg = (_SVG_OPEN % _glyph_key(glyph)) + '<path d="' + ICON_SVG[glyph] + '"/></svg>'
+        if not cls:
+            svg = '<span class="agx-icon-ring">' + svg + '</span>'
+        # m.start(3)/m.end(3): only the text BETWEEN the tags is replaced.
+        out.append(body[pos:m.start(3)])
+        out.append(svg)
+        pos = m.end(3)
     out.append(body[pos:])
     return ''.join(out)
 
@@ -1221,9 +1350,10 @@ CINEMA_JS = r"""
   // and fades back when the lane clears. The class below is what turns the HUD on at all, so a page whose script
   // never ran shows no HUD rather than a HUD across a sentence.
   var huds = [].slice.call(document.querySelectorAll('.agx-hud'));
-  var lines = [];
+  var lines = [], paints = [];
   function collectLines() {
-    lines = [].slice.call(document.querySelectorAll('body *')).filter(function (el) {
+    var all = [].slice.call(document.querySelectorAll('body *'));
+    lines = all.filter(function (el) {
       if (el.closest('.agx-hud, .agx-rail, script, style')) return false;
       for (var i = 0; i < el.childNodes.length; i++) {
         var n = el.childNodes[i];
@@ -1231,6 +1361,31 @@ CINEMA_JS = r"""
       }
       return false;
     });
+    // ── THE SECOND PASS, AND THE SCREENSHOT THAT FORCED IT (r6, 2026-09-10) ──
+    // The first gate intersected TEXT LINE BOXES only, so an opaque painted surface whose label sits a few pixels
+    // higher never tripped it. Deterministic repro: technology.html at 1280x800, scrollY 1645 — the PARTNER PAGE
+    // button box [32,238,730,781] with a linear-gradient(135deg,#1A6BDE,#0F4AA8) fill, .agx-hud-bl at
+    // [26,213,766,782], overlap true, agx-clear FALSE, and "ATLAS GLINN · HOUSTON" printed straight across the
+    // lower third of a solid blue button. The same shape put both corners inside .feature-card and
+    // .discipline-card boxes at 1280 on ep-app and training.
+    // So a PAINTED SURFACE is a lane hit too: any non-fixed element with a background-image or a background-colour
+    // that is not fully transparent. A surface spanning the viewport is NOT one — a full-bleed section band is the
+    // page's backdrop, which is exactly what a HUD corner is meant to sit on, and counting it would leave the HUD
+    // permanently cleared, i.e. hidden. Measured over 234 corner samples at 1440 across the twelve pages:
+    // text-only 42 hits (192 paints), painted-surface incl. bands 146 hits (88 paints), painted-surface excluding
+    // bands 80 hits (154 paints). The middle number is what ships.
+    paints = all.filter(function (el) {
+      if (el.closest('.agx-hud, .agx-rail, #agx-photos, #agx-canvas, script, style')) return false;
+      var cs = getComputedStyle(el);
+      if (cs.position === 'fixed') return false;
+      return (cs.backgroundImage && cs.backgroundImage !== 'none') || bgAlpha(cs.backgroundColor) > 0;
+    });
+  }
+  function bgAlpha(c) {
+    var m = /rgba?\(([^)]+)\)/.exec(c || '');
+    if (!m) return 0;
+    var p = m[1].split(',');
+    return p.length > 3 ? parseFloat(p[3]) : 1;
   }
   // Cheap first, exact second: one getBoundingClientRect rejects an element whose whole box misses the corner, and
   // only what survives is measured PER LINE BOX with a Range — the same reading render-audit.mjs asserts against,
@@ -1253,6 +1408,15 @@ CINEMA_JS = r"""
               && b.bottom > box.top && b.top < box.bottom) return true;
         }
       }
+    }
+    for (var q = 0; q < paints.length; q++) {
+      var pe = paints[q], pr = pe.getBoundingClientRect();
+      if (!(pr.width > 0 && pr.height > 0)) continue;
+      if (pr.width >= innerWidth - 2) continue;
+      if (pr.bottom <= box.top || pr.top >= box.bottom || pr.right <= box.left || pr.left >= box.right) continue;
+      var pcs = getComputedStyle(pe);
+      if (pcs.visibility === 'hidden' || parseFloat(pcs.opacity) === 0) continue;
+      return true;
     }
     return false;
   }

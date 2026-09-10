@@ -17,10 +17,13 @@
  *    bar dropdown and the mobile menu OPEN — the two widths together, because the dropdown is display:none at 390
  *    and the mobile menu is display:none at 1440, so neither width alone can carry the whole set. The units come
  *    from `compare-atlas.py --units`, the same extractor the parity sheet reads, so the two passes cannot drift.
- *    HIDDEN_ON_LIVE is the named list of units allowed to render nowhere. It is NOT empty: SIX keys covering the
- *    SEVEN units measured with no box on any of the twelve pages, and every one of them is form-success text that is
- *    display:none until the form is submitted — index #cap-success (1), contact #contact-success (3), ep-app
- *    #form-success (3, sharing the tick key with contact). In every case the live capture carries the same element
+ *    HIDDEN_ON_LIVE is the named list of units allowed to render nowhere. It is NOT empty: FIVE keys covering the
+ *    five units measured with no box on any of the twelve pages, and every one of them is form-success text that is
+ *    display:none until the form is submitted — index #cap-success (1), contact #contact-success (2), ep-app
+ *    #form-success (2). Its sixth key, the '✅' tick shared by contact and ep-app, was DELETED on 2026-09-10 when
+ *    both ticks became declared icon swaps: the unit is withheld by compare-atlas now, so nothing spends the
+ *    excuse, and an excuse nothing spends is a hole nothing guards. An unspent key FAILS a full run for that
+ *    reason, the same as an unspent RAIL_OVERLAP_ON_MAIN key. In every case the live capture carries the same element
  *    with the same rule, byte for byte, so the live site hides it too. That is the bar for this list: the reason it
  *    is invisible AND the evidence the live page hides it. Nothing else on the twelve pages renders nowhere.
  *
@@ -55,10 +58,13 @@
  *    atlasglinn.com / YouTube / Google / mast-booking-backend requests are expected to fail here and are counted,
  *    not asserted.
  *
- * 6. ICON SWAPS (2026-09-09). compare-atlas.py withholds the swapped emoji units from the dump because the build
- *    deliberately does not print them; this is the other half of that measurement, in a real browser: one rendered
- *    <svg class="agx-icon"> with a non-zero box per declared swap, and no emoji code point left inside any
- *    icon-class element. ep-app's .success-icon lives inside #form-success, which is display:none until the form is
+ * 6. ICON SWAPS (2026-09-09; the enumeration corrected 2026-09-10). compare-atlas.py withholds the swapped emoji
+ *    units from the dump because the build deliberately does not print them; this is the other half of that
+ *    measurement, in a real browser: one rendered <svg class="agx-icon"> with a non-zero box per declared swap, and
+ *    the emoji STILL RENDERING anywhere inside .agx-content are exactly the ones ICON_KEEP declares, compared by
+ *    value. It read "no emoji left inside an icon-class element" until 2026-09-10 — true, class-keyed, and green
+ *    while six full-colour OS emoji rendered at 28px on ep-app's 6-Layer Comms Stack and five on
+ *    executive-protection's Location Baseline, because those tiles carry no class at all. ep-app's .success-icon lives inside #form-success, which is display:none until the form is
  *    submitted, so that block is force-shown for the box measurement and put back — otherwise the honest count
  *    would be 27 drawn of 28 for a reason that has nothing to do with the swap.
  *
@@ -114,7 +120,6 @@ const SUBMIT_ONLY = 'a form-success block, style="display:none" inline until the
   + 'in the live capture and in the build, so the live site hides it too; it is not something the shell dropped';
 const HIDDEN_ON_LIVE = {
   "Request received. We'll be in touch shortly.": 'index #cap-success (inline display:none): ' + SUBMIT_ONLY,
-  '\u2705': 'the tick in contact #contact-success (inline) and ep-app #form-success (a sheet rule): ' + SUBMIT_ONLY,
   'Thank you for your interest in Atlas Glinn.': 'contact #contact-success (inline display:none): ' + SUBMIT_ONLY,
   'We will respond as soon as possible.': 'contact #contact-success (inline display:none): ' + SUBMIT_ONLY,
   'ACCESS REQUEST RECEIVED': 'ep-app #form-success, display:none in the page\u2019s own sheet: ' + SUBMIT_ONLY,
@@ -220,6 +225,15 @@ async function renderedUnits(page) {
  *  and is an artefact of the test, not of the page. It also counts the live text boxes the open label covers, which
  *  is the cost of a wider clamp and is stated rather than assumed. */
 async function railLabels(page) {
+  // TRANSITIONS OFF FOR THE DURATION OF THIS PASS. The label's max-width animates 0 -> 20.5rem over .35s, and a
+  // 500ms settle is not a guarantee: measured 2026-09-10, three runs of this test on the same tree read `clipped
+  // at 1800` as 0, 0 and 1, the one being uas ch4's "No Pilot Required. No Gaps in Coverage ." at 327 > 303px —
+  // a label caught at 92% of its open width, which is the PROBE mid-animation and not a page a reader ever sees
+  // (the retry above only catches clientWidth 0, so a partially-open label sailed past it and was reported as a
+  // severed word). With transitions killed the hover state applies on the frame it matches and the number is the
+  // open-state number every time. Same defect and same fix as validate-live.py's box read.
+  const FREEZE = '*, *::before, *::after { transition:none !important; animation:none !important; }';
+  await page.addStyleTag({ content: FREEZE });
   const links = await page.$$('a.agx-rail-link');
   const rows = [];
   let ticks = 0;
@@ -280,6 +294,9 @@ async function railLabels(page) {
     row.unmeasured = row.client === 0 && row.scroll > 0;
     rows.push(row);
   }
+  await page.evaluate((f) => {
+    for (const st of document.querySelectorAll('style')) if (st.textContent === f) st.remove();
+  }, FREEZE);
   rows.ticks = ticks;
   return rows;
 }
@@ -573,21 +590,27 @@ async function cardHovers(page, classes) {
   return out;
 }
 
-/** Check 6: one drawn <svg class="agx-icon"> per declared swap, and no emoji left in an icon-class element. */
+/** Check 6: one drawn <svg class="agx-icon"> per declared swap, and the emoji still standing anywhere inside
+ *  .agx-content are exactly the ones ICON_KEEP declares.
+ *  The `left` count used to be `querySelectorAll('.feature-icon, .audience-icon, ...')` filtered for an emoji — the
+ *  same class-keyed enumeration that missed eleven class-less emoji tiles, so it read 0 while six full-colour OS
+ *  emoji rendered on ep-app at 28px. It walks LEAVES now, class or no class, and reports the glyphs by value. */
 async function iconSwaps(page) {
   return page.evaluate(() => {
-    const EM = /[\u{1F300}-\u{1FAFF}☀-➿⬀-⯿⌀-⏿]/u;
-    const CL = ['feature-icon', 'audience-icon', 'hw-card-icon', 'success-icon', 'card-icon',
-      'pillar-icon', 'scenario-icon', 'disc-icon', 'threat-icon', 'icon-item', 'blog-icon'];
-    // #form-success is display:none until the form is submitted; shown for the measurement and put back.
-    const fs = document.getElementById('form-success');
-    const prev = fs ? fs.style.display : null;
-    if (fs) fs.style.display = 'block';
+    const EM = /^(?:[\u{1F300}-\u{1FAFF}☀-➿⬀-⯿⌀-⏿][\uFE0F\uFE0E]?\u200D?)+$/u;
+    // The form-success blocks are display:none until the form is submitted; shown for the measurement and put back.
+    // BOTH ids, by name: ep-app's #form-success carries the .success-icon tick and contact's #contact-success
+    // carries the class-less one, and measuring only the first read 81/82 drawn for a reason that has nothing to
+    // do with the swap.
+    const shown = [...document.querySelectorAll('#form-success, #contact-success, #cap-success')]
+      .map((el) => [el, el.style.display]);
+    for (const [el] of shown) el.style.display = 'block';
     const svgs = [...document.querySelectorAll('.agx-content svg.agx-icon')];
     const drawn = svgs.filter((s) => s.getBoundingClientRect().width > 0).length;
-    const left = [...document.querySelectorAll('.' + CL.join(', .'))]
-      .filter((e) => EM.test(e.textContent || '')).length;
-    if (fs) fs.style.display = prev;
+    const left = [...document.querySelectorAll('.agx-content *')]
+      .filter((e) => !e.firstElementChild && EM.test((e.textContent || '').trim()))
+      .map((e) => (e.textContent || '').trim());
+    for (const [el, prev] of shown) el.style.display = prev;
     return { total: svgs.length, drawn, left };
   });
 }
@@ -602,6 +625,7 @@ async function main() {
   });
   const dumped = JSON.parse(fs.readFileSync(unitsFile, 'utf8'));
   const liveUnits = dumped.units, iconCounts = dumped.icons, hoverClasses = dumped.hover;
+  const keepGlyphs = dumped.keeps;
 
   const port = await freePort(8900);
   const server = spawn('python3', ['-m', 'http.server', String(port), '--bind', '127.0.0.1'],
@@ -621,6 +645,7 @@ async function main() {
   const standing = Object.fromEntries(STANDING_WIDTHS.map((w) =>
     [w, { standing: 0, covered: 0, hudCovered: 0, hudStops: 0, hudShown: 0 }]));
   let iconTotal = 0, iconDrawn = 0, iconLeft = 0, iconBad = 0;
+  const iconKept = [];
   let hoverRows = 0, hoverOK = 0, hoverBad = 0, hoverSample = '';
   const railSpends = [];
   let headMin = 1e9, headMax = -1e9;
@@ -694,11 +719,16 @@ async function main() {
           }
           const icons = await iconSwaps(page);
           const wantIcons = iconCounts[slug];
-          iconTotal += icons.total; iconDrawn += icons.drawn; iconLeft += icons.left;
-          if (icons.total !== wantIcons || icons.drawn !== wantIcons || icons.left !== 0) {
+          const wantKeep = keepGlyphs[slug] || [];
+          const keptOK = icons.left.length === wantKeep.length
+            && icons.left.every((g, i) => g === wantKeep[i]);
+          iconTotal += icons.total; iconDrawn += icons.drawn; iconLeft += icons.left.length;
+          for (const g of icons.left) iconKept.push(`${slug} ${g}`);
+          if (icons.total !== wantIcons || icons.drawn !== wantIcons || !keptOK) {
             iconBad++; bad++;
-            console.log(`    ICON SWAPS on ${slug}: ${icons.total} svg / ${icons.drawn} drawn / ${icons.left} emoji left, `
-              + `${wantIcons} declared by compare-atlas.py --units`);
+            console.log(`    ICON SWAPS on ${slug}: ${icons.total} svg / ${icons.drawn} drawn / emoji still rendering `
+              + `${JSON.stringify(icons.left)}, ${wantIcons} swaps and ${JSON.stringify(wantKeep)} declared by `
+              + 'compare-atlas.py --units');
           }
           // Check 8 — the hover a reader actually gets, per skinned card class on this page.
           for (const h of await cardHovers(page, hoverClasses[slug] || [])) {
@@ -824,7 +854,10 @@ async function main() {
   const iconWant = pages.reduce((a, s) => a + iconCounts[s], 0);
   console.log(`\nSUMMARY  live text units ${sum.units} compared + ${iconWant} swapped to icons = ${sum.units + iconWant} accounted; `
     + `rendered ${sum.units - sum.unseen}, no box at either width ${sum.unseen}`);
-  console.log(`         icon swaps ${iconDrawn}/${iconWant} drawn at 1440 (#form-success force-shown), ${iconLeft} emoji code points left inside an icon class, ${iconBad} page(s) with a delta`);
+  console.log(`         icon swaps ${iconDrawn}/${iconWant} drawn at 1440 (#form-success force-shown), ${iconLeft} emoji `
+    + `still rendering ANYWHERE inside .agx-content against ${pages.reduce((a, s2) => a + (keepGlyphs[s2] || []).length, 0)} `
+    + `ICON_KEEP declares, ${iconBad} page(s) with a delta`);
+  if (iconKept.length) console.log(`         the emoji ICON_KEEP declares, as rendered: ${iconKept.join(', ')}`);
   console.log(`         rail links ${sum.labels + sum.ticks} a page-set, ${sum.labels} carrying a label and ${sum.ticks} label-less ticks; the chapter number and the label both come on hover as NN \u00b7 LABEL (measured: anything standing covers live copy \u2014 see check 7); hovered at 1440 and at 1800: clipped ${sum.clipped1440} at 1440, ${sum.clipped1800} at 1800`);
   console.log(`         live text runs the UNHOVERED rail covers, walked at 0.75 viewport steps: `
     + STANDING_WIDTHS.map((w) => `${w}px ${standing[w].covered} (${standing[w].standing} standing label(s))`).join(', '));
@@ -838,7 +871,14 @@ async function main() {
     + ' — the lane gate takes a corner to opacity 0 for the stops where a line box is under it');
   const railUnspent = Object.keys(RAIL_OVERLAP_ON_MAIN).filter((k) => !railSpends.includes(k));
   console.log(`         of those, ${railSpends.length} allowed by name as present on origin/main too: ${railSpends.join(', ') || 'none'}`);
-  if (railUnspent.length && !ONLY) console.log(`         RAIL_OVERLAP_ON_MAIN keys spent by no page this run (an allowance nothing uses): ${railUnspent.join(', ')}`);
+  // An allowance nothing uses is a hole nothing guards, and printing it was not enough: on a FULL run an unspent
+  // key now FAILS, the same discipline validate-live.py's check 3b applies to an unspent skin selector. Under
+  // --only it is only reported, because a key that only about@1280 spends is unspent on a run without about.
+  if (railUnspent.length) {
+    console.log(`         RAIL_OVERLAP_ON_MAIN keys spent by no page this run (an allowance nothing uses): ${railUnspent.join(', ')}`
+      + (ONLY ? ' — reported, not a failure, because --only narrowed the page set' : ''));
+    if (!ONLY) bad++;
+  }
   console.log(`         rail landings ${sum.landings} across 1440 and 1800: ${sum.landingsAt72} put the chapter box at 71.5-72.5px, ${sum.landingsFirst} are each page's FIRST link (document top), ${sum.headUnderBar} put a heading under the 60px bar`);
   console.log(`         of those, ${sum.landingsHead} land a chapter that carries a heading: ${headMin === 1e9 ? 'n/a' : Math.round(headMin * 10) / 10}px to ${headMax === -1e9 ? 'n/a' : Math.round(headMax * 10) / 10}px from the top`);
   console.log(`         rail labels whose hover state never settled, excluded from the clipped counts: ${sum.unmeasured}`);
@@ -850,7 +890,11 @@ async function main() {
   console.log(`         HIDDEN_ON_LIVE spends ${hiddenSpends.length}, keyed (slug, unit):`);
   for (const [slug, u] of hiddenSpends) console.log(`           ${slug}: ${JSON.stringify(u.slice(0, 80))}`);
   const unspent = Object.keys(HIDDEN_ON_LIVE).filter((k) => !spentKeys.has(k));
-  if (unspent.length) console.log(`         HIDDEN_ON_LIVE keys spent by no page this run (an excuse nothing uses): ${unspent.map((k) => JSON.stringify(k.slice(0, 60))).join(', ')}`);
+  if (unspent.length) {
+    console.log(`         HIDDEN_ON_LIVE keys spent by no page this run (an excuse nothing uses): ${unspent.map((k) => JSON.stringify(k.slice(0, 60))).join(', ')}`
+      + (ONLY ? ' — reported, not a failure, because --only narrowed the page set' : ''));
+    if (!ONLY) bad++;
+  }
   if (sum.unmeasured) bad++;
   if (sum.headUnderBar) bad++;
   // A clipped hover label is a severed word a reader meets; a label without ellipsis is a cut with no visual signal.

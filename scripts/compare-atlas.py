@@ -292,24 +292,40 @@ def rail_anchors(markup):
     return out
 
 
+def _live_content_region(slug, vis):
+    """(start, end) of the live page's own content inside `visible(capture)` — the same cut atlas_live.content()
+    makes, in the capture's own coordinates. The walk is scoped to it because the CHROME carries three emoji of its
+    own on every page: the nav's dropdown banners print ⚙ / 💣 / 🎯 in .ndb-icon spans, on the live page and in this
+    build's nav alike. They are live chrome text, they are identical on both sides, and the comparator compares them
+    as ordinary text units — they are not icons this build draws and must not be declared as either."""
+    raw = live._read(slug)
+    a0 = raw.index('>', raw.index('<body')) + 1
+    a, b = live._content_span(raw)
+    assert 0 <= a - a0 <= b - a0 <= len(vis), '%s: the content span does not sit inside the visible body' % slug
+    return a - a0, b - a0
+
+
+def _build_content_region(slug, vis):
+    """The same cut on the BUILT page: everything the assembler wrapped in .agx-content, which is where the icons
+    are and where the chrome is not."""
+    a = vis.index('<div class="agx-content">')
+    b = vis.index('<footer', a)
+    assert a < b, '%s: the built content region is empty' % slug
+    return a, b
+
+
 def icon_spans(slug, markup):
     """(start, end, class, glyph) of every LIVE glyph run this build swaps for an SVG, in document order.
 
-    Position-anchored like every other excuse in this file: the run must sit inside an element whose class is one of
-    atlas.ICON_CLASSES and whose whole content is that glyph, and the sequence must equal atlas.ICON_SWAPS[slug]
-    element for element. A glyph anywhere ELSE on the live page is compared exactly as it always was, and a glyph
-    dropped from a card the table does not name is still a MISSING FROM BUILD delta."""
+    Position-anchored like every other excuse in this file, and enumerated BY POSITION rather than by class since
+    r6: atlas.icon_walk() walks every leaf <span>/<div> whose whole content is emoji — class or no class — and
+    raises unless the sequence is exactly atlas.ICON_SWAPS[slug] interleaved with atlas.ICON_KEEP[slug]. Only the
+    swapped ones are withheld here; a KEPT glyph is compared exactly as it always was, and a glyph dropped from a
+    card the table does not name is still a MISSING FROM BUILD delta."""
     src = _STRIP.sub(_blank, markup)
-    want, out = list(atlas.ICON_SWAPS.get(slug, ())), []
-    for m in atlas.ICON_EL.finditer(src):
-        g = clean(m.group(4))
-        if g:
-            out.append((m.start(4), m.end(4), m.group(3), g))
-    got = [(c, g) for _s, _e, c, g in out]
-    assert got == [(c, g) for c, g, _t in want], \
-        '%s: the capture no longer matches ICON_SWAPS — %d live icon glyphs, %d declared' \
-        % (slug, len(got), len(want))
-    return out
+    a, b = _live_content_region(slug, markup)
+    return [(m.start(3), m.end(3), cls, glyph)
+            for m, act, cls, glyph in atlas.icon_walk(slug, src, a, b) if act == 'svg']
 
 
 def blank_icons(markup, icons):
@@ -326,15 +342,22 @@ def blank_icons(markup, icons):
 
 def icon_receipts(slug, new_markup):
     """The build's side of the swap: one <svg class="agx-icon" data-agx-glyph="..."> per declared swap, in the same
-    order, and no emoji code point left inside any icon class."""
+    order, and every emoji leaf still standing on the built page is one atlas.ICON_KEEP names.
+
+    The second loop used to run atlas.ICON_EL over the built markup looking for a surviving emoji INSIDE an icon
+    class — an empty set on every build, because the swap it is checking replaces that element's whole text with an
+    <svg> and ICON_EL's `[^<]*` can no longer match it. It measured nothing. It now walks the leaves the way the
+    swap does, so it can actually see a tile the tables never declared."""
     keys = re.findall(r'<svg class="agx-icon"[^>]*data-agx-glyph="([0-9A-F-]+)"', new_markup)
     want = [atlas._glyph_key(g) for _c, g, _t in atlas.ICON_SWAPS.get(slug, ())]
     bad = []
     if keys != want:
         bad.append('svg receipts %r != declared %r' % (keys[:6], want[:6]))
-    for m in atlas.ICON_EL.finditer(new_markup):
-        if _EMOJI.search(H.unescape(m.group(4))):
-            bad.append('emoji survives inside .%s' % m.group(3))
+    ra, rb = _build_content_region(slug, new_markup)
+    left = atlas.icon_leaves(new_markup, ra, rb)
+    kept = [(c, g) for c, g, _r in atlas.ICON_KEEP.get(slug, ())]
+    if left != kept:
+        bad.append('emoji leaves still on the built page are %r, ICON_KEEP declares %r' % (left, kept))
     return keys, bad
 
 
@@ -537,7 +560,7 @@ def dump_units(path):
     them. Putting them there would be the excuse-laundering that list exists to stop. They are asserted positively
     instead, by render-audit check 6."""
     import json
-    data, icons, hover = {}, {}, {}
+    data, icons, hover, keeps = {}, {}, {}, {}
     for slug in live.PAGES:
         vis = visible(live._read(slug))
         cut = icon_spans(slug, vis)
@@ -550,11 +573,16 @@ def dump_units(path):
         body = atlas.skin_icons(slug, live.content(slug))
         hover[slug] = [c for c in atlas.SKIN_TILT_CLASSES
                        if re.search(r'class="[^"]*\b%s\b' % re.escape(c), body)]
-    open(path, 'w', encoding='utf-8').write(json.dumps({'units': data, 'icons': icons, 'hover': hover}))
+        # 'keeps' is the OTHER half of the icon measurement: the emoji this page deliberately still renders, so
+        # render-audit check 6 can assert the surviving set BY VALUE instead of asserting a class-keyed zero.
+        keeps[slug] = [g for _c, g, _r in atlas.ICON_KEEP.get(slug, ())]
+    open(path, 'w', encoding='utf-8').write(
+        json.dumps({'units': data, 'icons': icons, 'hover': hover, 'keeps': keeps}))
     print('wrote %s: %d pages, %d live text units, %d glyph units withheld as ICON_SWAPS '
           '(they render as <svg class="agx-icon">, asserted by render-audit check 6), %d card classes to hover '
-          '(check 8)' % (path, len(data), sum(len(v) for v in data.values()), sum(icons.values()),
-                         sum(len(v) for v in hover.values())))
+          '(check 8), %d emoji ICON_KEEP declares the pages still render (check 6)'
+          % (path, len(data), sum(len(v) for v in data.values()), sum(icons.values()),
+             sum(len(v) for v in hover.values()), sum(len(v) for v in keeps.values())))
 
 
 def main():
