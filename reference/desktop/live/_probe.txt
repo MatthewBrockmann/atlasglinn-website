@@ -1,4 +1,4 @@
-captured 2026-09-12T06:38:14Z by capture-live from main 16b4e38
+captured 2026-09-13T06:43:14Z by capture-live from main 16b4e38
 200 text/html; charset=UTF-8 85111  https://atlasglinn.com/  title=[Atlas Glinn - Elite Security Solutions, Risk Management & Training] wordpress_generator=0
 200 text/html 112688  https://atlasglinn.com/index.html  title=[Atlas Glinn - Elite Security Solutions, Risk Management & Training] wordpress_generator=0
 200 text/html 100535  https://atlasglinn.com/about.html  title=[Atlas Glinn - About Us | Elite Security Leadership] wordpress_generator=0
@@ -11,15 +11,15 @@ captured 2026-09-12T06:38:14Z by capture-live from main 16b4e38
 200 video/mp4 132  https://atlasglinn.com/images/technology-hero.mp4  title=[] wordpress_generator=0
 200 video/mp4 132  https://atlasglinn.com/images/careers-gallery.mp4  title=[] wordpress_generator=0
 404 text/html 548  https://atlasglinn.com/wp-content/uploads/2025/03/IMG_1837-1024x751.jpeg  title=[404 Not Found] wordpress_generator=0
---- cache-busted (?v=1789195097) with caching headers; gear-price / foot-site count the current builds' markers
+--- cache-busted (?v=1789281797) with caching headers; gear-price / foot-site count the current builds' markers
 200 text/html 267159  https://atlasglinn.com/mastsolutions.html?v=  gear-price=3 foot-site=1  [cache-control: public, max-age=2678400 last-modified: Thu, 10 Sep 2026 18:37:18 GMT server: cloudflare cf-cache-status: MISS ]
 200 text/html 112688  https://atlasglinn.com/index.html?v=  gear-price=0 foot-site=0  [cache-control: public, max-age=2678400 last-modified: Thu, 10 Sep 2026 18:37:21 GMT server: cloudflare cf-cache-status: MISS ]
 200 text/html 100535  https://atlasglinn.com/about.html?v=  gear-price=0 foot-site=0  [cache-control: public, max-age=2678400 last-modified: Thu, 10 Sep 2026 18:37:29 GMT server: cloudflare cf-cache-status: MISS ]
 200 text/plain 38  https://atlasglinn.com/mast-ping.txt?v=  gear-price=0 foot-site=0  [etag: W/"6aa2f8d5-26" last-modified: Thu, 10 Sep 2026 18:37:09 GMT server: cloudflare cache-control: public, max-age=2678400 cf-cache-status: MISS ]
    mast-ping.txt body: served by upload 2026-09-10T18:37:09Z
 --- plain URL caching headers
-   https://atlasglinn.com/mastsolutions.html  cache-control: public, max-age=2678400 last-modified: Thu, 10 Sep 2026 18:37:18 GMT server: cloudflare age: 2 cf-cache-status: HIT 
-   https://atlasglinn.com/index.html  cache-control: public, max-age=2678400 last-modified: Thu, 10 Sep 2026 18:37:21 GMT server: cloudflare age: 3 cf-cache-status: HIT 
+   https://atlasglinn.com/mastsolutions.html  cache-control: public, max-age=2678400 last-modified: Thu, 10 Sep 2026 18:37:18 GMT server: cloudflare age: 3 cf-cache-status: HIT 
+   https://atlasglinn.com/index.html  cache-control: public, max-age=2678400 last-modified: Thu, 10 Sep 2026 18:37:21 GMT server: cloudflare age: 4 cf-cache-status: HIT 
 --- self-refresh: mastsolutions.html  plain build=[4139fe96b0a1]  manifest=[4139fe96b0a1]  fresh
 --- self-refresh: index.html  plain build=[e19a57b37263]  manifest=[e19a57b37263]  fresh
 --- self-refresh: about.html  plain build=[b93b4f949c1d]  manifest=[b93b4f949c1d]  fresh
