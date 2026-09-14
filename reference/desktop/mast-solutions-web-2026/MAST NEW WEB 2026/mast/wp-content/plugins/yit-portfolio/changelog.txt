@@ -1,0 +1,16 @@
+=== 1.0.4 ===
+Update: Plugin Core Framework
+Fixed: Support to non YiThemes themes
+
+=== 1.0.3 ===
+Fixed: Bug with long name of portfolios
+
+=== 1.0.2 ===
+Fixed: Portfolio showing posts instead of projects
+
+=== 1.0.1 ===
+Added: Show Excerpt options
+Updated: Core Framework
+
+=== 1.0.0 ===
+Initial Release

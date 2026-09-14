@@ -1,0 +1,1178 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: YITH WooCommerce Ajax Navigation v1.3.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2014-06-13 11:32+0100\n"
+"PO-Revision-Date: 2014-06-13 11:32+0100\n"
+"Last-Translator: Your Inspiration Themes <yithemes@yopmail.com>\n"
+"Language-Team: \n"
+"Language: en_US\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Poedit 1.5.7\n"
+"X-Poedit-SourceCharset: utf-8\n"
+"X-Poedit-KeywordsList: __;_e;__ngettext:1,2;_n:1,2;__ngettext_noop:1,2;"
+"_n_noop:1,2;_c,_nc:4c,1,2;_x:1,2c;_ex:1,2c;_nx:4c,1,2;_nx_noop:4c,1,2\n"
+"X-Poedit-Basepath: ../\n"
+"X-Textdomain-Support: yes\n"
+"X-Poedit-SearchPath-0: .\n"
+
+#: yit-newsletter.php:213 yit-newsletter.php:214 yit-newsletter.php:478
+#: yit-newsletter.php:520 yit-newsletter.php:577 yit-newsletter.widget.php:94
+msgid "Newsletter Form"
+msgstr ""
+
+#: yit-newsletter.php:215
+msgid "Newsletter Forms"
+msgstr ""
+
+#: yit-newsletter.php:216
+msgid "Form"
+msgstr ""
+
+#: yit-newsletter.php:217
+msgid "Forms"
+msgstr ""
+
+#: yit-newsletter.php:218 yit-newsletter.php:219
+msgid "Add New Form"
+msgstr ""
+
+#: yit-newsletter.php:220
+msgid "Edit"
+msgstr ""
+
+#: yit-newsletter.php:221
+msgid "Edit Forms"
+msgstr ""
+
+#: yit-newsletter.php:222
+msgid "New Form"
+msgstr ""
+
+#: yit-newsletter.php:223 yit-newsletter.php:224
+msgid "View Form"
+msgstr ""
+
+#: yit-newsletter.php:225
+msgid "Search Form"
+msgstr ""
+
+#: yit-newsletter.php:226
+msgid "No Forms"
+msgstr ""
+
+#: yit-newsletter.php:227
+msgid "No forms in the Trash"
+msgstr ""
+
+#: yit-newsletter.php:264
+msgid "Shortcode"
+msgstr ""
+
+#: yit-newsletter.php:316
+msgid "Custom Form"
+msgstr ""
+
+#: yit-newsletter.php:323 yit-newsletter.php:329
+msgid "Form specification"
+msgstr ""
+
+#: yit-newsletter.php:332
+msgid "Form integration preset"
+msgstr ""
+
+#: yit-newsletter.php:333
+msgid ""
+"Select what kind of newsletter service you want to use, or set a custom form."
+msgstr ""
+
+#: yit-newsletter.php:339
+msgid "Form action"
+msgstr ""
+
+#: yit-newsletter.php:340
+msgid "The attribute \"action\" of the form."
+msgstr ""
+
+#: yit-newsletter.php:349
+msgid "Request Method"
+msgstr ""
+
+#: yit-newsletter.php:350
+msgid "The attribute \"method\" of the form."
+msgstr ""
+
+#: yit-newsletter.php:353
+msgid "POST"
+msgstr ""
+
+#: yit-newsletter.php:354
+msgid "GET"
+msgstr ""
+
+#: yit-newsletter.php:363
+msgid "Email field label"
+msgstr ""
+
+#: yit-newsletter.php:364
+msgid "The label for \"email\" field"
+msgstr ""
+
+#: yit-newsletter.php:373
+msgid "Email field \"name\" attribute"
+msgstr ""
+
+#: yit-newsletter.php:374
+msgid "The attribute \"name\" of the email address field."
+msgstr ""
+
+#: yit-newsletter.php:383
+msgid "Submit button label"
+msgstr ""
+
+#: yit-newsletter.php:384
+msgid "This field is not always used. Depends on the style of the form."
+msgstr ""
+
+#: yit-newsletter.php:393
+msgid "Hidden fields"
+msgstr ""
+
+#: yit-newsletter.php:394
+msgid ""
+"Type here all hidden fields names and values in serializate way. Example: "
+"name1=value1&name2=value2."
+msgstr ""
+
+#: yit-newsletter.php:479
+msgid ""
+"Show a newsletter form<br/> (If you leave empty a field, it will use the "
+"default value setted in YIT Plugins -> Newsletter)"
+msgstr ""
+
+#: yit-newsletter.php:486 yit-newsletter.php:543
+msgid "Title"
+msgstr ""
+
+#: yit-newsletter.php:491 yit-newsletter.php:548
+msgid "Title size"
+msgstr ""
+
+#: yit-newsletter.php:498 yit-newsletter.php:555
+msgid "Title color"
+msgstr ""
+
+#: yit-newsletter.php:503
+#: plugin-fw/templates/metaboxes/types/contactform.php:284
+msgid "Description"
+msgstr ""
+
+#: yit-newsletter.php:508
+msgid "Description size"
+msgstr ""
+
+#: yit-newsletter.php:515
+msgid "Description color"
+msgstr ""
+
+#: yit-newsletter.php:526 yit-newsletter.php:583 yit-newsletter.widget.php:109
+msgid "Newsletter Form Icon"
+msgstr ""
+
+#: yit-newsletter.php:535
+msgid "Call to action newsletter"
+msgstr ""
+
+#: yit-newsletter.php:536
+msgid "Show a message with newsletter subscription"
+msgstr ""
+
+#: yit-newsletter.php:560
+msgid "Incipit"
+msgstr ""
+
+#: yit-newsletter.php:565
+msgid "Incipit size"
+msgstr ""
+
+#: yit-newsletter.php:572
+msgid "Incipit color"
+msgstr ""
+
+#: yit-newsletter.php:723
+msgid "General"
+msgstr ""
+
+#: yit-newsletter.php:727
+msgid "Woocommerce"
+msgstr ""
+
+#: yit-newsletter.widget.php:43
+msgid "Add a newsletter subscription form"
+msgstr ""
+
+#: yit-newsletter.widget.php:50
+msgid "YIT Newsletter Form"
+msgstr ""
+
+#: yit-newsletter.widget.php:82
+msgid "Widget Title"
+msgstr ""
+
+#: yit-newsletter.widget.php:88
+msgid "Widget Subtitle"
+msgstr ""
+
+#: integration-type/MadMimi.php:83
+msgid "MadMimi"
+msgstr ""
+
+#: integration-type/MadMimi.php:102 integration-type/Mailchimp.php:102
+#: integration-type/Wysija.php:102
+msgid "Select a list"
+msgstr ""
+
+#: integration-type/MadMimi.php:118
+msgid "Mad Mimi Username"
+msgstr ""
+
+#: integration-type/MadMimi.php:119
+msgid "The Mad Mimi username you use to log in"
+msgstr ""
+
+#: integration-type/MadMimi.php:128
+msgid "Mad Mimi API Key"
+msgstr ""
+
+#: integration-type/MadMimi.php:129
+msgid ""
+"The Mad Mimi API Key, used to connect wordpress to mailchimp service. If you "
+"need help to create a valid API Key, refer to this <a href=\"http://help."
+"madmimi.com/where-can-i-find-my-api-key/\">Tutorial</a>"
+msgstr ""
+
+#: integration-type/MadMimi.php:138
+msgid "Madmimi List"
+msgstr ""
+
+#: integration-type/MadMimi.php:139
+msgid ""
+"A valid Mad Mimi list name. You may need to save your configuration before "
+"the correct content displays. If the list is not up to date, click refresh "
+"button"
+msgstr ""
+
+#: integration-type/MadMimi.php:143 integration-type/Mailchimp.php:132
+msgid "Refresh"
+msgstr ""
+
+#: integration-type/MadMimi.php:202 integration-type/Mailchimp.php:191
+msgid "Refreshing..."
+msgstr ""
+
+#: integration-type/MadMimi.php:245 integration-type/Mailchimp.php:291
+#: integration-type/Wysija.php:178
+msgid "Email succesfully registered"
+msgstr ""
+
+#: integration-type/MadMimi.php:249 integration-type/Mailchimp.php:296
+#: integration-type/Wysija.php:182
+msgid "Ops! Something went wrong"
+msgstr ""
+
+#: integration-type/MadMimi.php:254 integration-type/Mailchimp.php:301
+#: integration-type/Wysija.php:187
+msgid "Ops! You have to insert a valid email"
+msgstr ""
+
+#: integration-type/Mailchimp.php:83
+msgid "Mailchimp"
+msgstr ""
+
+#: integration-type/Mailchimp.php:117
+msgid "Mailchimp API Key"
+msgstr ""
+
+#: integration-type/Mailchimp.php:118
+msgid ""
+"The mailchimp API Key, used to connect wordpress to mailchimp service. If "
+"you need help to create a valid API Key, refer to this <a href=\"http://kb."
+"mailchimp.com/article/where-can-i-find-my-api-key\">Tutorial</a>"
+msgstr ""
+
+#: integration-type/Mailchimp.php:127
+msgid "Mailchimp List"
+msgstr ""
+
+#: integration-type/Mailchimp.php:128
+msgid ""
+"A valid mailchimp list name. You may need to save your configuration before "
+"the correct content displays. If the list is not up to date, click refresh "
+"button"
+msgstr ""
+
+#: integration-type/Mailchimp.php:253
+msgid "Mailchimp server error"
+msgstr ""
+
+#: integration-type/Mailchimp.php:256
+msgid "Mailchimp user related error"
+msgstr ""
+
+#: integration-type/Mailchimp.php:259
+msgid "Mailchimp user related error (action)"
+msgstr ""
+
+#: integration-type/Mailchimp.php:262
+msgid "Mailchimp list related error"
+msgstr ""
+
+#: integration-type/Mailchimp.php:265
+msgid "Mailchimp list related error (basic action)"
+msgstr ""
+
+#: integration-type/Mailchimp.php:268
+msgid "Mailchimp list related error (import)"
+msgstr ""
+
+#: integration-type/Mailchimp.php:271
+msgid "Mailchimp list related error (email)"
+msgstr ""
+
+#: integration-type/Mailchimp.php:274
+msgid "Mailchimp list related error (merge)"
+msgstr ""
+
+#: integration-type/Mailchimp.php:277
+msgid "Mailchimp list related error (interest group)"
+msgstr ""
+
+#: integration-type/Mailchimp.php:280
+msgid "Mailchimp general error"
+msgstr ""
+
+#: integration-type/Wysija.php:83
+msgid "Wysija"
+msgstr ""
+
+#: integration-type/Wysija.php:114
+msgid "Wysija List"
+msgstr ""
+
+#: integration-type/Wysija.php:115
+msgid "A valid wysija list name."
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:444
+#: plugin-fw/lib/yit-cpt-unlimited.php:557
+#: plugin-fw/lib/yit-cpt-unlimited.php:697
+#: plugin-fw/lib/yit-cpt-unlimited.php:1518
+#, php-format
+msgid "Add %s"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:445
+#: plugin-fw/lib/yit-cpt-unlimited.php:558
+#, php-format
+msgid "Add New %s"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:446
+#: plugin-fw/lib/yit-cpt-unlimited.php:559
+#: plugin-fw/lib/yit-cpt-unlimited.php:1242
+#: plugin-fw/lib/yit-cpt-unlimited.php:1279
+#, php-format
+msgid "Edit %s"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:447
+#: plugin-fw/lib/yit-cpt-unlimited.php:560
+#, php-format
+msgid "New %s"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:448
+#: plugin-fw/lib/yit-cpt-unlimited.php:561
+#, php-format
+msgid "All %s"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:449
+#: plugin-fw/lib/yit-cpt-unlimited.php:562
+#: plugin-fw/lib/yit-cpt-unlimited.php:1226
+#: plugin-fw/lib/yit-cpt-unlimited.php:1280
+#, php-format
+msgid "View %s"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:450
+#: plugin-fw/lib/yit-cpt-unlimited.php:563
+#, php-format
+msgid "Search %s"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:451
+#: plugin-fw/lib/yit-cpt-unlimited.php:564
+#, php-format
+msgid "No %s found"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:452
+#: plugin-fw/lib/yit-cpt-unlimited.php:565
+#, php-format
+msgid "No %s found in Trash"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:605
+#, php-format
+msgctxt "taxonomy general name"
+msgid "%s Categories"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:606
+msgctxt "taxonomy singular name"
+msgid "Category"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:607
+msgid "Search Categories"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:608
+msgid "All Categories"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:609
+msgid "Parent Category"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:610
+msgid "Parent Category:"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:611
+msgid "Edit Category"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:612
+msgid "Update Category"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:613
+msgid "Add New Category"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:614
+msgid "New Category Name"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:615
+msgid "Category"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:702
+msgid "Categories"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1020
+#, php-format
+msgid "%s Settings"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1026
+#: plugin-fw/lib/yit-cpt-unlimited.php:1171
+#: plugin-fw/lib/yit-cpt-unlimited.php:1177
+#: plugin-fw/lib/yit-plugin-panel.php:184
+msgid "Settings"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1029
+msgid "Type"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1030
+msgid "The layout for this "
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1036
+msgid "Rewrite"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1037
+msgid "The word used for the URL of each project (the slug of post if empty)"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1042
+msgid "Label Singular"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1043
+msgid ""
+"Set the label in singular to use for each label (the title of portfolio if "
+"empty)"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1048
+msgid "Label Plural"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1049
+msgid ""
+"Set the label in plural to use for each label (the title of portfolio if "
+"empty)"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1054
+msgid "Taxonomy"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1055
+msgid ""
+"If you want to use a category section for the portfolio, set the name of "
+"taxonomy. Name should be in slug form (must not contain capital letters or "
+"spaces) and not more than 32 characters long (database structure "
+"restriction)."
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1060
+msgid "Taxonomy Rewrite"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1061
+msgid "Set the word to use in the URL for each category page."
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1066
+msgid "Single layout"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1067
+msgid "The layout for single page of this portfolio"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1107
+msgid "layout settings"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1197
+#: plugin-fw/lib/yit-cpt-unlimited.php:1210
+msgid "Quick links"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1424
+#, php-format
+msgid "Show the frontend of the %s"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1431
+#: plugin-fw/templates/metaboxes/types/customtabs.php:46
+#: plugin-fw/templates/metaboxes/types/customtabs.php:90
+msgid "Name"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1517
+#, php-format
+msgid "Add %s by images"
+msgstr ""
+
+#: plugin-fw/lib/yit-cpt-unlimited.php:1519
+msgid "Add with multiupload"
+msgstr ""
+
+#: plugin-fw/lib/yit-plugin-panel.php:184
+msgid "Plugin Settings"
+msgstr ""
+
+#: plugin-fw/lib/yit-plugin-panel.php:222
+#: plugin-fw/lib/yit-plugin-subpanel.php:132
+msgid "Save Changes"
+msgstr ""
+
+#: plugin-fw/lib/yit-plugin-panel.php:225
+#: plugin-fw/lib/yit-plugin-subpanel.php:135
+msgid ""
+"If you continue with this action, you will reset all options are in this "
+"page."
+msgstr ""
+
+#: plugin-fw/lib/yit-plugin-panel.php:227
+#: plugin-fw/lib/yit-plugin-subpanel.php:137
+msgid "Reset Defaults"
+msgstr ""
+
+#: plugin-fw/lib/yit-plugin-panel.php:227
+#: plugin-fw/lib/yit-plugin-subpanel.php:137
+msgid "Are you sure of it?"
+msgstr ""
+
+#: plugin-fw/lib/yit-plugin-panel.php:336
+msgid ""
+"The element you have written is already exists. Please, add another name."
+msgstr ""
+
+#: plugin-fw/lib/yit-plugin-panel.php:337
+msgid "Settings saved"
+msgstr ""
+
+#: plugin-fw/lib/yit-plugin-panel.php:338
+msgid "Settings reset"
+msgstr ""
+
+#: plugin-fw/lib/yit-plugin-panel.php:339
+msgid "Element deleted correctly."
+msgstr ""
+
+#: plugin-fw/lib/yit-plugin-panel.php:340
+#: plugin-fw/lib/yit-plugin-panel.php:341
+msgid "Element updated correctly."
+msgstr ""
+
+#: plugin-fw/lib/yit-plugin-panel.php:342
+msgid "Database imported correctly."
+msgstr ""
+
+#: plugin-fw/lib/yit-plugin-panel.php:343
+msgid "An error encoured during during import. Please try again."
+msgstr ""
+
+#: plugin-fw/lib/yit-plugin-panel.php:344
+msgid "The file you have insert doesn't valid."
+msgstr ""
+
+#: plugin-fw/lib/yit-plugin-panel.php:345
+msgid "I'm sorry, the import featured is disabled."
+msgstr ""
+
+#: plugin-fw/lib/yit-plugin-panel.php:346
+msgid "Sorting done correctly."
+msgstr ""
+
+#: plugin-fw/lib/yit-plugin-subpanel.php:93
+msgid "YIT Plugins"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/categories.php:36
+msgid "No categories."
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/categories.php:42
+msgid "+ Add New Category"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:5
+msgid "Text Input"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:6
+msgid "Checkbox"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:7
+msgid "Select"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:8
+msgid "Textarea"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:9
+msgid "Radio Input"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:10
+msgid "Password Field"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:11
+msgid "File Upload"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:45
+msgid "Theme Icon"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:46
+msgid "Custom Icon"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:47
+#: plugin-fw/templates/metaboxes/types/responsivesliders.php:24
+msgid "None"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:57
+msgid "Add field"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:66
+#: plugin-fw/templates/metaboxes/types/contactform.php:258
+#: plugin-fw/templates/metaboxes/types/customtabs.php:37
+#: plugin-fw/templates/metaboxes/types/customtabs.php:82
+msgid "Remove"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:67
+#: plugin-fw/templates/metaboxes/types/contactform.php:259
+msgid "Click to toggle"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:74
+#: plugin-fw/templates/metaboxes/types/contactform.php:266
+msgid "Title Field"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:78
+#: plugin-fw/templates/metaboxes/types/contactform.php:270
+msgid "Insert the title of field."
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:83
+#: plugin-fw/templates/metaboxes/types/contactform.php:275
+msgid "Data Name"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:87
+#: plugin-fw/templates/metaboxes/types/contactform.php:279
+msgid ""
+"REQUIRED: The identification name of this field, that you can insert into "
+"body email configuration. <strong>Note:</strong>Use only lowercase "
+"characters and underscores."
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:92
+#: plugin-fw/templates/metaboxes/types/contactform.php:293
+msgid "Type field"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:100
+#: plugin-fw/templates/metaboxes/types/contactform.php:301
+msgid "Select the type of this field."
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:105
+#: plugin-fw/templates/metaboxes/types/contactform.php:306
+msgid "Checked"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:109
+#: plugin-fw/templates/metaboxes/types/contactform.php:310
+msgid "Select this if you want this field already checked."
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:114
+#: plugin-fw/templates/metaboxes/types/contactform.php:315
+msgid "Add options "
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:115
+#: plugin-fw/templates/metaboxes/types/contactform.php:316
+msgid "Add option"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:118
+#: plugin-fw/templates/metaboxes/types/contactform.php:319
+#: plugin-fw/templates/metaboxes/types/contactform.php:408
+msgid "Selected"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:121
+#: plugin-fw/templates/metaboxes/types/contactform.php:322
+#: plugin-fw/templates/metaboxes/types/contactform.php:408
+msgid "Delete option"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:127
+#: plugin-fw/templates/metaboxes/types/contactform.php:328
+msgid "Message Error"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:131
+#: plugin-fw/templates/metaboxes/types/contactform.php:332
+msgid "Insert the error message for validation."
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:136
+#: plugin-fw/templates/metaboxes/types/contactform.php:337
+msgid "Required"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:140
+#: plugin-fw/templates/metaboxes/types/contactform.php:341
+msgid "Select this if it must be required."
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:145
+#: plugin-fw/templates/metaboxes/types/contactform.php:346
+#: templates/newsletter-services/madmimi.php:33
+#: templates/newsletter-services/madmimi.php:38
+#: templates/newsletter-services/mailchimp.php:34
+#: templates/newsletter-services/mailchimp.php:39
+#: templates/newsletter-services/mailpoet.php:34
+#: templates/newsletter-services/mailpoet.php:39
+msgid "Email"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:149
+#: plugin-fw/templates/metaboxes/types/contactform.php:350
+msgid "Select this if it must be a valid email."
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:154
+#: plugin-fw/templates/metaboxes/types/contactform.php:355
+msgid "Reply To"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:158
+#: plugin-fw/templates/metaboxes/types/contactform.php:359
+msgid "Select this if it's the email where you can reply."
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:163
+#: plugin-fw/templates/metaboxes/types/contactform.php:364
+msgid "Class"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:167
+#: plugin-fw/templates/metaboxes/types/contactform.php:368
+msgid ""
+"Insert an additional class(es) (separateb by comma) for more personalization."
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:172
+#: plugin-fw/templates/metaboxes/types/contactform.php:373
+msgid "Icon"
+msgstr ""
+
+# @ yit
+#: plugin-fw/templates/metaboxes/types/contactform.php:200
+#: plugin-fw/templates/metaboxes/types/upload.php:21
+#: plugin-fw/templates/panel/types/upload.php:31
+msgid "Upload"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:206
+msgid "Image preview"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:214
+#: plugin-fw/templates/metaboxes/types/contactform.php:377
+msgid "Insert an icon for more personalization."
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:219
+#: plugin-fw/templates/metaboxes/types/contactform.php:382
+msgid "Width"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:244
+#: plugin-fw/templates/metaboxes/types/contactform.php:394
+msgid "Choose how much long will be the field."
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/contactform.php:288
+msgid "Small description, showed near name title."
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/customtabs.php:28
+msgid "Close all"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/customtabs.php:28
+msgid "Expand all"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/customtabs.php:52
+#: plugin-fw/templates/metaboxes/types/customtabs.php:95
+msgid "Value"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/customtabs.php:53
+#: plugin-fw/templates/metaboxes/types/customtabs.php:96
+msgid "The content of the tab. (HTML is supported)"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/customtabs.php:65
+msgid "Add custom product tab"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/customtabs.php:107
+msgid "Do you want to remove the custom tab?"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/images.php:33
+#: plugin-fw/templates/metaboxes/types/images.php:59
+msgid "Delete image"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/images.php:37
+msgid "Upload new images"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/images.php:70
+msgid "Are you sure you want to remove this image?"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/sidebar-layout.php:25
+#: plugin-fw/templates/metaboxes/types/sidebars.php:36
+msgid "Left sidebar"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/sidebar-layout.php:28
+#: plugin-fw/templates/metaboxes/types/sidebars.php:42
+#: plugin-fw/templates/metaboxes/types/sidebars.php:45
+msgid "No sidebar"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/sidebar-layout.php:28
+msgid "No sideabr"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/sidebar-layout.php:31
+#: plugin-fw/templates/metaboxes/types/sidebars.php:39
+msgid "Right sidebar"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/sidebar-layout.php:34
+#: plugin-fw/templates/metaboxes/types/sidebars.php:53
+#: plugin-fw/templates/metaboxes/types/sidebars.php:64
+msgid "Choose a sidebar"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/sidebars.php:51
+msgid "Sidebar Left"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/sidebars.php:62
+msgid "Sidebar Right"
+msgstr ""
+
+# @ yit
+#: plugin-fw/templates/metaboxes/types/typography.php:42
+msgid "px"
+msgstr ""
+
+# @ yit
+#: plugin-fw/templates/metaboxes/types/typography.php:43
+msgid "em"
+msgstr ""
+
+# @ yit
+#: plugin-fw/templates/metaboxes/types/typography.php:44
+msgid "pt"
+msgstr ""
+
+# @ yit
+#: plugin-fw/templates/metaboxes/types/typography.php:45
+msgid "rem"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/typography.php:59
+#: plugin-fw/templates/metaboxes/types/typography.php:153
+#: plugin-fw/templates/metaboxes/types/typography.php:217
+msgid "Web fonts"
+msgstr ""
+
+#: plugin-fw/templates/metaboxes/types/typography.php:71
+msgid "Google fonts"
+msgstr ""
+
+# @ yit
+#: plugin-fw/templates/metaboxes/types/typography.php:96
+msgid "Regular"
+msgstr ""
+
+# @ yit
+#: plugin-fw/templates/metaboxes/types/typography.php:97
+msgid "Bold"
+msgstr ""
+
+# @ yit
+#: plugin-fw/templates/metaboxes/types/typography.php:98
+msgid "Extra bold"
+msgstr ""
+
+# @ yit
+#: plugin-fw/templates/metaboxes/types/typography.php:99
+msgid "Italic"
+msgstr ""
+
+# @ yit
+#: plugin-fw/templates/metaboxes/types/typography.php:100
+msgid "Italic bold"
+msgstr ""
+
+#: plugin-options/general-options.php:20
+msgid "Newsletter Popup General Settings"
+msgstr ""
+
+#: plugin-options/general-options.php:33
+msgid "Enable Newsletter Popup"
+msgstr ""
+
+#: plugin-options/general-options.php:34
+msgid "Enable the newsletter popup. (Default: Off) "
+msgstr ""
+
+#: plugin-options/general-options.php:39
+msgid "Show on all pages"
+msgstr ""
+
+#: plugin-options/general-options.php:40
+msgid "Enable newsletter popup for all pages. (Default: Off) "
+msgstr ""
+
+#: plugin-options/general-options.php:45
+msgid "Select where you want to show popup"
+msgstr ""
+
+#: plugin-options/general-options.php:46
+msgid "Select pages where you want to show popup. "
+msgstr ""
+
+#: plugin-options/general-options.php:57
+msgid "Hide policy"
+msgstr ""
+
+#: plugin-options/general-options.php:58
+msgid ""
+"Select when popup should hide. (Default: Hide only on hiding checkbox "
+"checked) "
+msgstr ""
+
+#: plugin-options/general-options.php:62
+msgid "Hide only on hiding checkbox checked"
+msgstr ""
+
+#: plugin-options/general-options.php:63
+msgid "Show only one time for session"
+msgstr ""
+
+#: plugin-options/general-options.php:67
+msgid "Enable Form Popup"
+msgstr ""
+
+#: plugin-options/general-options.php:68
+msgid "Enable a newsletter subscription form in the popup. (Default: Off) "
+msgstr ""
+
+#: plugin-options/general-options.php:73
+msgid "Select newsletter form to use in popup"
+msgstr ""
+
+#: plugin-options/general-options.php:74
+msgid ""
+"Select the form you want to use in your popup; if no form is shown, you may "
+"have to create a new one"
+msgstr ""
+
+#: plugin-options/general-options.php:84
+msgid "Cookie Variable"
+msgstr ""
+
+#: plugin-options/general-options.php:85
+msgid ""
+"Write here a name to be given to the cookie generated by the closing link of "
+"the popup, in this way, as soon as you'll change this value all your "
+"visitors will see it again even if they disabled it. Don't abuse of this "
+"function!"
+msgstr ""
+
+#: plugin-options/general-options.php:88
+msgid "yithpopup"
+msgstr ""
+
+#: plugin-options/general-options.php:90
+msgid "Popup Title"
+msgstr ""
+
+#: plugin-options/general-options.php:91
+msgid "The title displayed. You can also use HTML code."
+msgstr ""
+
+#: plugin-options/general-options.php:94
+msgid "Join our faboulous community today!"
+msgstr ""
+
+#: plugin-options/general-options.php:96
+msgid "Popup Image"
+msgstr ""
+
+#: plugin-options/general-options.php:97
+msgid ""
+"Upload an image. (Tip: best viewed with a rectangular image sized like 315px "
+"X 225px)"
+msgstr ""
+
+#: plugin-options/general-options.php:102
+msgid "Popup Message"
+msgstr ""
+
+#: plugin-options/general-options.php:103
+msgid "The message displayed. You can also use HTML code."
+msgstr ""
+
+#: plugin-options/general-options.php:106
+msgid "Write your message here"
+msgstr ""
+
+#: plugin-options/general-options.php:108
+msgid "Hiding text"
+msgstr ""
+
+#: plugin-options/general-options.php:109
+msgid ""
+"The title displayed next to the checkbox that let users hide the popup "
+"forever. You can also use HTML code."
+msgstr ""
+
+#: plugin-options/general-options.php:112
+msgid "Do not show it anymore."
+msgstr ""
+
+#: plugin-options/general-options.php:114
+msgid "Custom style"
+msgstr ""
+
+#: plugin-options/general-options.php:115
+msgid "Insert here your custom CSS style."
+msgstr ""
+
+#: plugin-options/woocommerce-options.php:20
+msgid "Newsletter WooCommerce Settings"
+msgstr ""
+
+#: plugin-options/woocommerce-options.php:31
+msgid "Enable WooCommerce Integration Popup"
+msgstr ""
+
+#: plugin-options/woocommerce-options.php:32
+msgid ""
+"If the option is enabled, the popup shows the informations about the "
+"WooCommerce products selected below. (Default: Off) "
+msgstr ""
+
+#: plugin-options/woocommerce-options.php:37
+msgid "Woocommerce Product"
+msgstr ""
+
+#: plugin-options/woocommerce-options.php:38
+msgid "Select the product that you would like to show in your popup."
+msgstr ""
+
+#: plugin-options/woocommerce-options.php:48
+msgid "Woocommerce add to cart button"
+msgstr ""
+
+#: plugin-options/woocommerce-options.php:49
+msgid ""
+"Write here the text that you would like to display in \"Add to cart\" button"
+msgstr ""
+
+#: templates/newsletter-services/madmimi.php:53
+#: templates/newsletter-services/mailchimp.php:55
+#: templates/newsletter-services/mailpoet.php:54
+msgid "Submit"
+msgstr ""

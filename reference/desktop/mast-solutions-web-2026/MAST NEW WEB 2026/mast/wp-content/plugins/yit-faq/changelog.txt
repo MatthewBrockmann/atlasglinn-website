@@ -1,0 +1,9 @@
+=== 1.0.2===
+Fixed: Support to non YiThemes themes
+
+=== 1.0.1 ===
+
+Fixed: Create db table issue
+
+=== 1.0.0 ===
+Initial Release

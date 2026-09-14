@@ -1,0 +1,7 @@
+=== 1.1.0 ===
+
+Added: Support to WooCommerce 2.1.x
+Fixed: Various bugs
+
+=== 1.0.0 ===
+Initial Release
