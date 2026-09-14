@@ -69,6 +69,12 @@ CSS_A = r"""
   @keyframes shimmer { 0% { background-position:-1000px 0; } 100% { background-position:1000px 0; } }
   .intro-credit.wordmark { font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2rem,6.5vw,4.6rem); letter-spacing:.16em; line-height:1.1; margin-top:1.4rem; padding:0 1rem; background:linear-gradient(90deg, #BF953F 0%, #FCF6BA 25%, #B38728 50%, #FBF5B7 75%, #AA771C 100%); background-size:1000px 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; text-shadow:0 0 60px rgba(201,168,76,.35); animation:introFade 3.4s ease-in-out forwards, shimmer 2.6s linear infinite; animation-delay:1.1s, 1.1s; }
   @keyframes introFade { 0% { opacity:0; transform:translateY(8px); } 18%, 75% { opacity:1; transform:translateY(0); } 100% { opacity:0; transform:translateY(-8px); } }
+  /* THE ENTER BUTTON — the affordance the first splash had and the timed roll dropped. Always present, on every engine and
+     every motion setting; a tap anywhere still works, the button says so to a visitor who would not guess. */
+  .intro-enter { position:relative; z-index:2; margin-top:2.4rem; padding:.85rem 2.2rem; background:transparent; border:1px solid var(--gold); color:var(--gold-champagne); font-family:'Share Tech Mono',monospace; font-size:.7rem; letter-spacing:.45em; text-transform:uppercase; cursor:pointer; opacity:0; animation:introEnter 1.2s ease-out forwards; animation-delay:2.2s; -webkit-tap-highlight-color:transparent; }
+  .intro-enter:hover, .intro-enter:focus-visible { background:rgba(201,168,76,.12); outline:none; }
+  @keyframes introEnter { to { opacity:1; } }
+  @media (prefers-reduced-motion: reduce) { .intro-enter { animation:none; opacity:1; } }
   .chapter-nav { position:fixed; right:1.5rem; top:50%; transform:translateY(-50%); z-index:30; display:flex; flex-direction:column; gap:.5rem; font-family:'Share Tech Mono',monospace; font-size:.62rem; }
   /* Chapter menu: bold and bright (Brockmann, 2026-09-04: "Make the menu bar stronger, bold, to be very visible"). */
   .chap-link { color:var(--text); font-weight:700; text-shadow:0 1px 10px rgba(0,0,0,.9); text-decoration:none; letter-spacing:.25em; padding:.35rem .8rem; border:1px solid transparent; transition:all .3s; text-transform:uppercase; cursor:none; display:flex; align-items:center; gap:.6rem; }
@@ -246,6 +252,12 @@ CSS_B = r"""
     section.panel > div { padding:1.4rem .6rem; background:radial-gradient(ellipse at center, rgba(5,8,16,.62) 0%, rgba(5,8,16,.38) 55%, rgba(5,8,16,0) 80%); }
   }
   @media (prefers-reduced-motion: reduce) { .eyebrow, h1.mega, h2.section-h, .sub, .rise { transition:none; opacity:1; filter:none; transform:none; } }
+  /* REDUCE MOTION KEEPS THE SPLASH (2026-09-14). Brockmann: "mastsolutions first build the splash entry worked = why
+     regression" / "needs to work for customers = NOT just my iPhone". The first page opened on an ENTER button; the
+     cinematic page replaced it with a timed credits roll and SKIPPED the roll entirely under Reduce Motion, so every
+     visitor with that setting on lost the splash. Now the credits stand still at full opacity, the ring stays off, and
+     the ENTER button (always present, see .intro-enter) or a tap opens the hero. Motion is removed; the page is not. */
+  @media (prefers-reduced-motion: reduce) { .intro-credit, .intro-credit.wordmark { animation:none; opacity:1; transform:none; } .intro-ring { display:none; } #intro-seq { transition:none; } }
   /* iPHONE, 2026-09-10 (Brockmann's screen recording, 11:22 CDT): every `.gold` word inside h1.mega and h2.section-h was
      INVISIBLE on his phone — "Details" gone from "Details Matter", "Standard." from "Trained to Standard.", "SWAT." from
      "Federal. SWAT. Military.", "Disciplines." from "Seven Core Disciplines." Those words are painted with
@@ -254,6 +266,18 @@ CSS_B = r"""
      exposes -webkit-touch-callout, so the blur leg of the reveal is dropped THERE ONLY; opacity and transform stay. Not
      verified on a device from the build container (no WebKit here) — Brockmann's phone is the proof. */
   @supports (-webkit-touch-callout: none) { h1.mega, h2.section-h, h1.mega.in, h2.section-h.in { filter:none; } }
+  /* iPHONE, SOLID INK (2026-09-14). The gold and blue words are gradients clipped to the glyphs (background-clip:text with a
+     transparent fill). On his iPhone every one of them was invisible — "Details", "Standard.", "SWAT.", "Disciplines." —
+     and the cause cannot be rendered from the build container (no WebKit here). Dropping the filter (above) was one guess;
+     the inherited phone text-shadow and the animated shimmer are two more. A guess is not a fix a customer can see, so on
+     iOS the words are SOLID: a plain colour cannot fail to paint. The gradient remains on every other engine. */
+  @supports (-webkit-touch-callout: none) {
+    .gold, #s6 .gold, #s7 .gold, h1.mega .gold, .stat-num, .intro-credit.wordmark { background:none; -webkit-background-clip:border-box; background-clip:border-box; text-shadow:none; }
+    .gold, .stat-num { -webkit-text-fill-color:#9CC4FF; color:#9CC4FF; animation:none; }
+    #s6 .gold, #s7 .gold, h1.mega .gold { -webkit-text-fill-color:#E8D27D; color:#E8D27D; animation:none; }
+    .intro-credit.wordmark { -webkit-text-fill-color:#E8D27D; color:#E8D27D; animation:introFade 3.4s ease-in-out forwards; animation-delay:1.1s; }
+    @media (prefers-reduced-motion: reduce) { .intro-credit.wordmark { animation:none; opacity:1; } }
+  }
 """
 
 THREE_JS = r"""
@@ -283,7 +307,12 @@ const openHero = () => {
 // chapter reveals, the text-only page an iPhone with Reduce Motion on showed on 2026-09-09). Deferred one task, it runs
 // after the module body has evaluated. Reduced motion still means no intro, no film autoplay and no letterbox cuts;
 // the photograph and the emblem scene are not motion and they stay.
-if (reduce) { setTimeout(openHero, 0); } else {
+// 2026-09-14: Reduce Motion no longer skips the splash. It stands still (CSS) and opens on ENTER, a tap or a key — the
+// same skip event the timed path listens for. Deferred one task for the same const/let reason as before.
+if (reduce) {
+  if (window.__introSkip) setTimeout(openHero, 0);
+  else intro.addEventListener('introskip', () => setTimeout(openHero, 0), { once: true });
+} else {
   setTimeout(() => { intro.classList.add('done'); setTimeout(openHero, 1000); }, 4800);
   // The splash script in the markup owns the dismissing gesture and has already started the fade; it holds the overlay
   // hit-testable until the tap's click can no longer arrive, so the hero opens no sooner than that.
@@ -597,7 +626,8 @@ def chrome(credits, wordmark, photos, hud_tl, hud_tl_href, hud_bl, hud_br, chapt
     ph = '\n'.join(layer(e) for e in photos)
     nav = '\n'.join('  <a href="#%s" class="chap-link">%s</a>' % (cid, label) for cid, label in chapters)
     return ('<div id="intro-seq">\n  <div class="intro-credit">%s</div>\n  <div class="intro-credit wordmark">%s</div>\n'
-            '  <div class="intro-credit">%s</div>\n  <canvas class="intro-ring" id="intro-ring" aria-hidden="true"></canvas>\n</div>\n'
+            '  <div class="intro-credit">%s</div>\n  <button class="intro-enter" id="intro-enter" type="button">Enter</button>\n'
+            '  <canvas class="intro-ring" id="intro-ring" aria-hidden="true"></canvas>\n</div>\n'
             # The splash dismisses itself here rather than in the module, which cannot run until three.module.js has
             # downloaded; on a phone on cellular that is seconds of black where a tap does nothing. It listens on the
             # overlay's own click, so the overlay is the click target and the gesture cannot reach what sits under it,
