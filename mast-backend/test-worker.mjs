@@ -4924,9 +4924,19 @@ console.log('\n── One trigger, two jobs: the daily work rides the five-minut
      Two things have to be true for that to be a fix rather than a trade: the window has to catch a fire, and the work
      has to happen ONCE A DAY however many fires reach it. Nothing here releases the claim — that is the point of it. */
   const fire = async (cron, scheduledTime, en) => {
-    const q = [];
-    await worker.scheduled({ cron, scheduledTime }, en || taxOnEnv, { waitUntil: (p) => q.push(Promise.resolve(p).catch(() => {})) });
-    await Promise.all(q);
+    // The clock is pinned to the fire for the fire's duration (2026-09-16). The fires below are placed on fixed dates in
+    // September 2026 while the daily work's purge reads the WALL clock (runRetention: new Date(), Date.now()); once the
+    // real date passed those fixed dates by more than the purge window, the purge swept away the claim row the fire had
+    // just written, and every assertion below read "never claimed" — this block passed on 2026-09-09 and failed from
+    // 2026-09-12 on, with nothing in the Worker changed. Under a pinned clock the fire and its purge agree on the day.
+    const RealDate = Date;
+    class FireDate extends RealDate { constructor(...a) { if (a.length === 0) super(scheduledTime); else super(...a); } static now() { return scheduledTime; } }
+    globalThis.Date = FireDate;
+    try {
+      const q = [];
+      await worker.scheduled({ cron, scheduledTime }, en || taxOnEnv, { waitUntil: (p) => q.push(Promise.resolve(p).catch(() => {})) });
+      await Promise.all(q);
+    } finally { globalThis.Date = RealDate; }
   };
   const taxOnEnv = { ...env, STRIPE_TAX: '1' };
   const day1 = (h, m) => Date.UTC(2026, 8, 10, h, m);   // Thursday: no digest is due, so the purge is what is measured
