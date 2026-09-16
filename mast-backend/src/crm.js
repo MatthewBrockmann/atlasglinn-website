@@ -24,7 +24,7 @@ import { directionsAttachment } from './directions.js';
 
 const DAY = 86400000;
 const UTM = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
-export const EVENT_ACTIONS = ['view', 'open_class', 'pick_date', 'start_registration', 'checkout', 'contact', 'gear_request', 'video_play', 'menu', 'cta', 'subscribe', 'account', 'follow'];
+export const EVENT_ACTIONS = ['view', 'open_class', 'pick_date', 'start_registration', 'checkout', 'contact', 'gear_request', 'video_play', 'menu', 'cta', 'subscribe', 'account', 'follow', 'deep_link'];
 
 const lower = (v) => String(v || '').trim().toLowerCase();
 const nonEmpty = (v) => (typeof v === 'string' && v.trim() ? v.trim() : '');
@@ -41,6 +41,18 @@ export function classLevel(sku) {
   return 'other';
 }
 
+/* The MAST News form's two questions (2026-09-16). The lists ARE the Mailchimp dropdown choices of the INTEREST and LEVEL
+   merge fields (the mast-marketing plugin's audience-setup writes them), and that is why they are whitelists: Mailchimp
+   refuses a dropdown value it does not list, and one bad value would fail the whole upsert. Off the list = stored as
+   nothing, the sign-up still succeeds. Keep the two lists and the plugin's MERGE_FIELDS in step. */
+export const INTERESTS = ['Firearms', 'Hand Combat', 'Knife Combat', 'CQB', 'Fitness', 'Medical', 'Leadership', 'Not sure yet'];
+export const LEVELS = ['New to training', 'Some training', 'Experienced', 'LE / Military'];
+const interestOf = (v) => (INTERESTS.includes(v) ? v : '');
+const levelOf = (v) => (LEVELS.includes(v) ? v : '');
+const slug = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+/** 2026-09-26 → 09/26/2026: the audience's LASTDATE field is a date field set to MM/DD/YYYY, and Mailchimp validates the format. */
+const mmddyyyy = (ymd) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(ymd || '')); return m ? m[2] + '/' + m[3] + '/' + m[1] : ''; };
+
 /* ─────────────────────────────── Schema (self-applied) ─────────────────────────────── */
 
 export const CRM_SCHEMA = [
@@ -53,6 +65,7 @@ export const CRM_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS email_log (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL, email TEXT NOT NULL, ref TEXT NOT NULL, kind TEXT NOT NULL, status TEXT, UNIQUE (email, ref, kind))`,
   ...['utm_source', 'utm_medium', 'utm_campaign', 'referrer', 'landing_page', 'first_touch_at', 'visitor'].map((c) => `ALTER TABLE registrations ADD COLUMN ${c} TEXT`),
   ...['utm_source', 'utm_medium', 'utm_campaign', 'first_touch_at'].map((c) => `ALTER TABLE orders ADD COLUMN ${c} TEXT`),
+  ...['interest', 'level'].map((c) => `ALTER TABLE contacts ADD COLUMN ${c} TEXT`),   // migrations/013-subscribe-interest.sql
 ];
 
 let schemaReady = null;
@@ -91,7 +104,7 @@ export function attributionFrom(body, request) {
 
 /* ─────────────────────────────── Collect ─────────────────────────────── */
 
-const CONTACT_COLS = ['id', 'created_at', 'kind', 'name', 'email', 'phone', 'company', 'status', 'request_type', 'message', 'page', 'referrer', 'landing_page', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'visitor', 'newsletter_opt_in', 'consent_text', 'ip', 'user_agent', 'emailed'];
+const CONTACT_COLS = ['id', 'created_at', 'kind', 'name', 'email', 'phone', 'company', 'status', 'request_type', 'message', 'page', 'referrer', 'landing_page', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'visitor', 'newsletter_opt_in', 'consent_text', 'interest', 'level', 'ip', 'user_agent', 'emailed'];
 
 /** Store an inquiry or sign-up. Never throws: a lead that cannot be written is logged, the form still works. */
 export async function recordContact(env, c) {
@@ -105,6 +118,7 @@ export async function recordContact(env, c) {
     landing_page: a.landing_page || null, utm_source: a.utm_source || null, utm_medium: a.utm_medium || null, utm_campaign: a.utm_campaign || null,
     utm_content: a.utm_content || null, utm_term: a.utm_term || null, visitor: a.visitor || null,
     newsletter_opt_in: c.newsletter_opt_in ? 1 : 0, consent_text: c.newsletter_opt_in ? cut(c.consent_text, 300) || null : null,
+    interest: interestOf(c.interest) || null, level: levelOf(c.level) || null,
     ip: a.ip || null, user_agent: a.user_agent || null, emailed: 0,
   };
   try {
@@ -160,9 +174,10 @@ export async function handleSubscribe(request, env, cors, json) {
   const id = await recordContact(env, {
     kind: 'subscribe', name: body.name, email, phone: body.phone, company: body.company, request_type: cut(body.source, 60) || 'newsletter',
     newsletter_opt_in: true, consent_text: body.consent_text || 'Send me MAST Solutions course dates and news. Unsubscribe any time.', attribution,
+    interest: body.interest, level: body.level,   // the form's two questions; whitelisted in recordContact and again in buildProfiles
   });
   await recordEvent(env, { visitor: attribution.visitor, email, page: attribution.page, action: 'subscribe', label: cut(body.source, 60) || 'newsletter', attribution }).catch(() => {});
-  const synced = await syncLead(env, { id, kind: 'subscribe', email, name: body.name || '', phone: body.phone || '', company: body.company || '', newsletter_opt_in: 1 });
+  const synced = await syncLead(env, { id, kind: 'subscribe', email, name: body.name || '', phone: body.phone || '', company: body.company || '', newsletter_opt_in: 1, interest: body.interest, level: body.level });
   return json({ ok: true, stored: !!id, synced: Object.fromEntries(Object.entries(synced).filter(([k]) => k !== 'skipped').map(([k, v]) => [k, v && v.ok ? 'synced' : (v && v.skipped) || 'failed'])) }, 200, cors);
 }
 
@@ -183,6 +198,7 @@ export function buildProfiles({ orders = [], registrations = [], accounts = [], 
         classes: [], abandoned: [], inquiries: [], review: false, eligibility_status: null,
         spend_cents: 0, orders: 0, first_seen: null, last_seen: null,
         utm_source: null, utm_medium: null, utm_campaign: null, first_touch_at: null, referrer: null, landing_page: null,
+        interest: null, level: null,   // the MAST News form's two answers, newest wins
         flags: [],
       });
     }
@@ -207,6 +223,15 @@ export function buildProfiles({ orders = [], registrations = [], accounts = [], 
   const optIn = (p, at, source) => {
     p.opt_in = true;
     if (!p.opted_in_at || (at && at > p.opted_in_at)) { p.opted_in_at = at || p.opted_in_at; p.opt_in_source = source; }
+  };
+  const answeredAt = new Map();   // email → { interest, level }: when each answer was given, so the newest row wins whatever order the rows arrive in
+  const answer = (p, c) => {
+    const at = c.created_at || '';
+    const when = answeredAt.get(p.email) || {};
+    for (const [key, val] of [['interest', interestOf(c.interest)], ['level', levelOf(c.level)]]) {
+      if (val && (when[key] === undefined || at >= when[key])) { p[key] = val; when[key] = at; }
+    }
+    answeredAt.set(p.email, when);
   };
   const addClass = (p, row, source) => {
     const sku = String(row.sku || '');
@@ -239,7 +264,7 @@ export function buildProfiles({ orders = [], registrations = [], accounts = [], 
   }
   for (const c of contacts) {
     const p = get(c.email); if (!p) continue;
-    fill(p, c.name, c.phone, c.company); seen(p, c.created_at); touch(p, c);
+    fill(p, c.name, c.phone, c.company); seen(p, c.created_at); touch(p, c); answer(p, c);
     if (Number(c.newsletter_opt_in) === 1) optIn(p, c.created_at || null, c.kind === 'subscribe' ? 'subscribe' : c.kind);
     if (c.kind !== 'subscribe') p.inquiries.push({ kind: c.kind, request_type: c.request_type || null, at: c.created_at, page: c.page || null });
   }
@@ -331,7 +356,9 @@ export async function crmSnapshot(env, { view = 'full', limit = 5000, now = new 
     `SELECT ${REG_COLS}, utm_source, utm_medium, utm_campaign, referrer, landing_page, first_touch_at FROM registrations ORDER BY created_at DESC LIMIT ${limit}`, [],
     `SELECT ${REG_COLS} FROM registrations ORDER BY created_at DESC LIMIT ${limit}`);
   const accounts = await read(`SELECT id, email, name, phone, organization, standards_passed, created_at, verified_at, last_login_at FROM accounts ORDER BY created_at DESC LIMIT ${limit}`);
-  const contacts = await read(`SELECT id, created_at, kind, name, email, phone, company, status, request_type, page, referrer, landing_page, utm_source, utm_medium, utm_campaign, visitor, newsletter_opt_in, emailed FROM contacts ORDER BY created_at DESC LIMIT ${limit}`);
+  const contacts = await read(
+    `SELECT id, created_at, kind, name, email, phone, company, status, request_type, page, referrer, landing_page, utm_source, utm_medium, utm_campaign, visitor, newsletter_opt_in, emailed, interest, level FROM contacts ORDER BY created_at DESC LIMIT ${limit}`, [],
+    `SELECT id, created_at, kind, name, email, phone, company, status, request_type, page, referrer, landing_page, utm_source, utm_medium, utm_campaign, visitor, newsletter_opt_in, emailed FROM contacts ORDER BY created_at DESC LIMIT ${limit}`);
   const since30 = new Date(now.getTime() - 30 * DAY).toISOString();
   const events = await read(`SELECT created_at, visitor, email, page, action, label, sku, referrer, utm_source, device, country FROM events WHERE created_at >= ? ORDER BY created_at DESC LIMIT 20000`, [since30]);
   const log = await read('SELECT kind, status, created_at FROM email_log ORDER BY created_at DESC LIMIT 5000');
@@ -509,6 +536,7 @@ function tagsFor(p) {
   for (const c of p.classes) { if (c.sku) tags.add(c.sku); tags.add(c.level); }
   for (const f of p.flags) if (f !== 'opted_in') tags.add(f);
   if (p.opt_in_source) tags.add('via_' + p.opt_in_source);
+  if (p.interest) tags.add('interest_' + slug(p.interest));   // interest_firearms, interest_hand_combat … the welcome journey branches on these
   return [...tags];
 }
 
@@ -544,10 +572,16 @@ export async function mailchimpUpsert(env, p) {
   if (!p || !p.opt_in) return { skipped: 'not_opted_in' };
   const { first, last } = splitName(p.name);
   const lastClass = p.classes && p.classes.length ? p.classes[p.classes.length - 1] : null;
+  const merge_fields = { FNAME: first, LNAME: last, PHONE: p.phone || '', SEGMENT: p.segment || '', LASTCLASS: lastClass ? lastClass.name : '' };
+  // The three fields the plugin's audience-setup added (2026-09-16), sent only when there is a value: a dropdown or date field
+  // given '' is a validation error at Mailchimp, and one bad field fails the whole upsert.
+  if (lastClass && mmddyyyy(lastClass.date)) merge_fields.LASTDATE = mmddyyyy(lastClass.date);
+  if (p.interest) merge_fields.INTEREST = p.interest;
+  if (p.level) merge_fields.LEVEL = p.level;
   const body = {
     email_address: p.email,
     status_if_new: 'subscribed',
-    merge_fields: { FNAME: first, LNAME: last, PHONE: p.phone || '', SEGMENT: p.segment || '', LASTCLASS: lastClass ? lastClass.name : '' },
+    merge_fields,
     tags: tagsFor(p),
   };
   const res = await fetch(`https://${cfg.dc}.api.mailchimp.com/3.0/lists/${cfg.list}/members/${md5(p.email)}`, {
