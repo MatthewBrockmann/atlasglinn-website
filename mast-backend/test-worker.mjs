@@ -2616,6 +2616,8 @@ console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect da
   const ev = await post('/event', { action: 'open_class', sku: 'MAST-HG-FUND', label: 'Handgun Fundamentals', attribution });
   const bad = await post('/event', { action: 'drop table', attribution });
   ok('POST /event stores a known action and rejects an unknown one', ev.status === 200 && bad.status === 400 && events.some(e => e.action === 'open_class' && e.sku === 'MAST-HG-FUND'));
+  const deep = await post('/event', { action: 'deep_link', sku: 'MAST-HG-FUND', label: 'Handgun Fundamentals', attribution });
+  ok('deep_link is a known action (the ?course= link the MAST News emails carry, 2026-09-16), so the arrival is measurable', deep.status === 200 && events.some(e => e.action === 'deep_link' && e.sku === 'MAST-HG-FUND' && e.utm_source === 'instagram'), JSON.stringify(events.filter(e => e.action === 'deep_link')));
 
   // Newsletter: consent is the tick.
   const noConsent = await post('/subscribe', { email: 'news@example.com', name: 'Newsy Person' });
@@ -2661,6 +2663,11 @@ console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect da
   const sync = await (await worker.fetch(new Request('https://api.test/admin/sync', { method: 'POST', headers: { 'X-Admin-Key': 'super-secret-admin-key' } }), envMc, ctx)).json();
   const annCall = mailchimpCalls.find(c => c.url.endsWith('/' + createHash('md5').update('ann@example.com').digest('hex')));
   ok('sync → PUT per opted-in profile at us21.api.mailchimp.com/3.0/lists/list9/members/<md5>, FNAME/LNAME/SEGMENT/LASTCLASS + tags, none for Lee', sync.configured && sync.ok === 2 && annCall && /us21\.api\.mailchimp\.com\/3\.0\/lists\/list9\/members\//.test(annCall.url) && annCall.method === 'PUT' && annCall.body.merge_fields.FNAME === 'Ann' && annCall.body.merge_fields.LASTCLASS === 'Handgun Fundamentals' && annCall.body.tags.includes('MAST-HG-FUND') && !mailchimpCalls.some(c => c.url.endsWith('/' + createHash('md5').update('lee@example.com').digest('hex'))), JSON.stringify(sync) + ' ' + JSON.stringify(annCall || {}).slice(0, 200));
+  const sdUs = sd.slice(5, 7) + '/' + sd.slice(8, 10) + '/' + sd.slice(0, 4);
+  const newsCall = mailchimpCalls.find(c => c.url.endsWith('/' + createHash('md5').update('news@example.com').digest('hex')));
+  ok('… Ann carries LASTDATE as MM/DD/YYYY (the audience date field\'s format); Newsy, no class and no answers, carries no LASTDATE / INTEREST / LEVEL key at all — a blank dropdown or date is a Mailchimp validation error',
+     annCall && annCall.body.merge_fields.LASTDATE === sdUs && newsCall && !('LASTDATE' in newsCall.body.merge_fields) && !('INTEREST' in newsCall.body.merge_fields) && !('LEVEL' in newsCall.body.merge_fields),
+     JSON.stringify((annCall || {}).body && annCall.body.merge_fields) + ' ' + JSON.stringify((newsCall || {}).body && newsCall.body.merge_fields));
   mailchimpCalls.length = 0;
   ok('syncOnPayment: opted-in → one Mailchimp upsert; not opted-in → lists skipped', (await mailchimpOnPayment(envMc, { ...annReg, newsletter_opt_in: 1 }, { customer_email: 'ann@example.com', amount_total: 22500 })).mailchimp.ok && mailchimpCalls.length === 1 && (await mailchimpOnPayment(envMc, { ...annReg, newsletter_opt_in: 0 }, {})).lists === 'not_opted_in' && mailchimpCalls.length === 1);
   ok('md5 matches Node for the member id', md5('Ann@Example.com') === createHash('md5').update('Ann@Example.com').digest('hex'));
@@ -2678,6 +2685,25 @@ console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect da
   const subNow = await worker.fetch(new Request('https://api.test/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com' }, body: JSON.stringify({ email: 'sub2@example.com', name: 'Sub Two', consent: true, source: 'footer' }) }), envAll, ctx);
   const subBody = await subNow.json();
   ok('a consented sign-up reaches HubSpot, Brevo and Mailchimp; the response names what synced', subNow.status === 200 && subBody.synced.hubspot === 'synced' && subBody.synced.brevo === 'synced' && subBody.synced.mailchimp === 'synced' && brevoCalls.length === 1 && hubspotCalls.length === 1, JSON.stringify(subBody));
+
+  // The MAST News form's two questions (2026-09-16): whitelisted, stored on the lead, carried to the profile, and sent to Mailchimp
+  // as the INTEREST / LEVEL merge fields plus the interest_<x> tag the welcome journey branches on.
+  mailchimpCalls.length = 0;
+  const subQ = await worker.fetch(new Request('https://api.test/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com' }, body: JSON.stringify({ email: 'quiz@example.com', name: 'Quinn Ask', consent: true, source: 'site-contact', interest: 'Firearms', level: 'New to training', attribution }) }), envAll, ctx);
+  const quiz = contacts.find(c => c.email === 'quiz@example.com');
+  const quizCall = mailchimpCalls.find(c => c.url.endsWith('/' + createHash('md5').update('quiz@example.com').digest('hex')));
+  ok('the form\'s interest + level are stored on the lead row (request_type site-contact, the UTM alongside)', subQ.status === 200 && quiz && quiz.interest === 'Firearms' && quiz.level === 'New to training' && quiz.request_type === 'site-contact' && quiz.utm_source === 'instagram', JSON.stringify(quiz || {}).slice(0, 240));
+  ok('… and the Mailchimp upsert carries INTEREST / LEVEL and the tags mast, lead, via_subscribe, interest_firearms — no LASTDATE for a lead with no class', quizCall && quizCall.body.merge_fields.INTEREST === 'Firearms' && quizCall.body.merge_fields.LEVEL === 'New to training' && !('LASTDATE' in quizCall.body.merge_fields) && ['mast', 'lead', 'via_subscribe', 'interest_firearms'].every(t => quizCall.body.tags.includes(t)), JSON.stringify(quizCall || {}).slice(0, 300));
+  mailchimpCalls.length = 0;
+  const subOff = await worker.fetch(new Request('https://api.test/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com' }, body: JSON.stringify({ email: 'off@example.com', consent: true, interest: 'Hacking', level: "'; DROP TABLE contacts;--" }) }), envAll, ctx);
+  const off = contacts.find(c => c.email === 'off@example.com');
+  const offCall = mailchimpCalls.find(c => c.url.endsWith('/' + createHash('md5').update('off@example.com').digest('hex')));
+  ok('an answer off either list is stored as nothing and sent as nothing (Mailchimp refuses an unlisted dropdown value); the sign-up itself still succeeds', subOff.status === 200 && off && off.interest === null && off.level === null && offCall && !('INTEREST' in offCall.body.merge_fields) && !('LEVEL' in offCall.body.merge_fields) && !offCall.body.tags.some(t => t.startsWith('interest_')), JSON.stringify(off || {}).slice(0, 200) + ' ' + JSON.stringify(offCall || {}).slice(0, 200));
+  const [quizProfile] = buildProfiles({ contacts: [
+    { created_at: '2026-09-10T00:00:00Z', kind: 'subscribe', email: 'quiz@example.com', newsletter_opt_in: 1, interest: 'Firearms', level: '' },
+    { created_at: '2026-09-01T00:00:00Z', kind: 'subscribe', email: 'quiz@example.com', newsletter_opt_in: 1, interest: 'Fitness', level: 'Some training' },
+  ] });
+  ok('the profile carries the NEWEST answer to each question whatever order the rows arrive in (interest from 09-10; level from 09-01, the only row that answered it)', quizProfile.interest === 'Firearms' && quizProfile.level === 'Some training' && !('_interest_at' in quizProfile), JSON.stringify({ i: quizProfile.interest, l: quizProfile.level }));
 
   // Journeys: T−7 / T−1 / T+1 from the daily cron, one per participant, class and kind. Only Ann's registration stays paid here.
   for (const [id, r] of [...registrations]) if (r.customer_email !== 'ann@example.com' && (r.status === 'paid' || r.status === 'completed')) r.status = 'completed_elsewhere';
