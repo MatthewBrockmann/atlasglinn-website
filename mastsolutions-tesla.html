@@ -1443,6 +1443,21 @@ function closePolicy(){ $('policy-bd').classList.remove('open'); $('policy').cla
 function openQuals(){ lastFocus = document.activeElement; $('quals-bd').classList.add('open'); $('quals').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeQuals(){ $('quals-bd').classList.remove('open'); $('quals').classList.remove('open'); document.body.style.overflow = ''; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('policy').classList.contains('open')) { closePolicy(); return; } closeSheet(); closeCal(); closeQuals(); } });
+/* ?course=<SKU> (2026-09-16): the deep link the MAST News emails carry — https://www.mastsolutions.com/?course=MAST-HG-FUND&utm_source=mailchimp…#s6
+   opens the discipline, scrolls to Classes and opens that course exactly as a tap on its row would (the prerequisite gate included).
+   On the cinematic page it waits for the splash to end first, so the calendar never opens under the intro; the UTM in the same
+   URL was already read by the tracker at load. The URL is left as it is: the link stays shareable and a refresh reopens the course. */
+(function(){
+  const sku = String(new URLSearchParams(location.search).get('course') || '').trim().toUpperCase(); if (!sku) return;
+  const i = COURSES.findIndex(c => String(c.sku).toUpperCase() === sku); if (i < 0) return;
+  const go = () => { const ci = CATS.indexOf(COURSES[i].cat), cat = $('cat-' + ci); if (cat && !cat.classList.contains('open')) toggleCat(ci);
+    const s6 = document.getElementById('s6'); if (s6) s6.scrollIntoView({ block: 'start' });
+    if (window.mastTrack) mastTrack('deep_link', COURSES[i].name, COURSES[i].sku);
+    selectCourse(i); };
+  const splashOn = () => { const el = document.getElementById('intro-seq'); return !!(el && el.isConnected && !el.classList.contains('done')); };
+  const wait = () => { if (splashOn()) { setTimeout(wait, 300); return; } setTimeout(go, 1200); };
+  wait();
+})();
 (function(){ const p = new URLSearchParams(location.search); const s = p.get('checkout'); if (!s) return; const b = $('banner'); b.textContent = s === 'success' ? "You're booked" + (p.get('course') ? ' — ' + p.get('course') : '') + (p.get('date') ? ' · ' + p.get('date') : '') + '. Check your email for the receipt; gear list and range directions follow.' : 'Checkout cancelled — your card was not charged.'; b.classList.add('show'); setTimeout(() => b.classList.remove('show'), 9000); history.replaceState(null, '', location.pathname); })();
 
 /* Hero film + volume */

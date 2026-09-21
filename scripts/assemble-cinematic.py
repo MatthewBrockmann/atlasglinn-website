@@ -533,6 +533,24 @@ SECTIONS = f"""
       <p class="sub">Individual seats, team blocks, and agency instruction.</p>
       <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div>
       <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a><a href="https://atlasglinn.com/" class="secondary-cta">Atlas Glinn &rarr;</a></div>
+      <!-- MAST News (2026-09-16): the site's own sign-up — the first caller the Worker's POST /subscribe has had. Consent is the tick,
+           recorded with its wording; the two questions feed the INTEREST / LEVEL merge fields the welcome journey branches on. -->
+      <form id="news" class="news rise" novalidate>
+        <div class="news-eyebrow">MAST News</div>
+        <p class="news-sub">Course dates and news, about once a month. Reply to any of it and a person answers.</p>
+        <input class="news-hp" name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <div class="news-row">
+          <input id="news-name" name="name" type="text" placeholder="First name" autocomplete="given-name" aria-label="First name">
+          <input id="news-email" name="email" type="email" placeholder="Email" autocomplete="email" required aria-label="Email">
+        </div>
+        <div class="news-row">
+          <select id="news-interest" name="interest" aria-label="What are you here for"><option value="">What are you here for</option><option>Firearms</option><option>Hand Combat</option><option>Knife Combat</option><option>CQB</option><option>Fitness</option><option>Medical</option><option>Leadership</option><option>Not sure yet</option></select>
+          <select id="news-level" name="level" aria-label="Where you are today"><option value="">Where you are today</option><option>New to training</option><option>Some training</option><option>Experienced</option><option>LE / Military</option></select>
+        </div>
+        <label class="news-tick"><input id="news-consent" type="checkbox"><span>Send me MAST Solutions course dates and news. Unsubscribe any time.</span></label>
+        <div class="news-actions"><button class="cta-button" id="news-go" type="submit">Get the dates</button></div>
+        <p class="news-msg" id="news-msg" role="status" aria-live="polite"></p>
+      </form>
       <div class="foot site rise">{FOOT_SITE}</div>
     </div>
   </section>
@@ -591,8 +609,35 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('join').
 (function(){ const p = new URLSearchParams(location.search); const s = p.get('membership'); if (!s) return; const b = $('banner'); b.textContent = s === 'success' ? 'Welcome to the team \u2014 your membership is set up. The team will be in touch.' : 'Membership checkout cancelled \u2014 your card was not charged.'; b.classList.add('show'); setTimeout(() => b.classList.remove('show'), 9000); history.replaceState(null, '', location.pathname); })();
 """
 
+NEWS_JS = r"""
+/* MAST News (2026-09-16): the site's own sign-up. Consent is the tick, recorded with its wording; POST /subscribe stores the lead with
+   its attribution and, when the Worker's Mailchimp secrets are set, upserts the address with INTEREST / LEVEL and the interest_<x> tag.
+   The Worker records the subscribe event itself, so nothing is beaconed from here. A whitelisted select cannot send an off-list value;
+   the Worker whitelists again regardless. */
+const NEWS_CONSENT = 'Send me MAST Solutions course dates and news. Unsubscribe any time.';
+async function newsSubmit(e){
+  e.preventDefault();
+  const email = $('news-email').value.trim().toLowerCase(), msg = $('news-msg'), btn = $('news-go');
+  const say = (t, err) => { msg.textContent = t; msg.classList.toggle('err', !!err); };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { say('Enter a valid email address.', true); $('news-email').focus(); return; }
+  if (!$('news-consent').checked) { say('Tick the box to receive MAST news.', true); $('news-consent').focus(); return; }
+  btn.disabled = true; say('One moment\u2026');
+  const body = { email, name: $('news-name').value.trim(), interest: $('news-interest').value, level: $('news-level').value, consent: true, consent_text: NEWS_CONSENT, source: 'site-contact', website: document.querySelector('#news [name=website]').value };
+  if (window.mastAttribution) body.attribution = mastAttribution();   // first touch, UTM, referrer, landing page, visitor id → the lead row
+  try {
+    const r = await fetch(API + '/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'Try again in a moment.');
+    say('You are on the list. The next dates email is the first thing you get.');
+    $('news-email').value = ''; $('news-consent').checked = false;
+  } catch (err) { say(err.message + ' Or email atlasglinn.hq@atlasglinn.com.', true); }
+  btn.disabled = false;
+}
+$('news').addEventListener('submit', newsSubmit);
+"""
+
 BODY = '\n' + CHROME + MOBILE_NAV + '\n' + banner + '\n\n<div class="content">\n' + SECTIONS + '</div>\n\n' + CATALOG_MODAL + modals + JOIN_MODAL + LIGHTBOX + '\n'
-js = js + JOIN_JS + CATALOG_JS + LIGHTBOX_JS + shell.SITENAV_JS
+js = js + JOIN_JS + NEWS_JS + CATALOG_JS + LIGHTBOX_JS + shell.SITENAV_JS
 
 META = """<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
@@ -741,6 +786,21 @@ GOLD_KEEP = """
   .modal.join .gate-actions { margin-top:1.3rem; }
   .modal.join .join-err { color:#ff8a80; font-size:.9rem; line-height:1.45; margin-top:.8rem; min-height:1.2em; }
   .modal.join .join-err a { color:#E8D27D; }
+  /* MAST News (2026-09-16): the sign-up form in the Contact chapter, on the page's dark surface with the gold field rule of the join dialog. */
+  .news { max-width:560px; margin:0 auto 2.4rem; text-align:left; }
+  .news .news-eyebrow { font-family:'Share Tech Mono',monospace; font-size:.66rem; letter-spacing:.3em; text-transform:uppercase; color:#C9A84C; margin-bottom:.5rem; text-align:center; }
+  .news .news-sub { font-family:'Cormorant Garamond',Georgia,serif; font-size:1.08rem; line-height:1.45; color:#F0F4FF; margin:0 0 .4rem; text-align:center; text-shadow:0 1px 3px rgba(5,8,16,.95); }
+  .news .news-hp { position:absolute; left:-9999px; width:1px; height:1px; opacity:0; }
+  .news .news-row { display:grid; grid-template-columns:1fr 1fr; gap:.6rem; margin-top:.6rem; }
+  .news input:not([type=checkbox]), .news select { display:block; width:100%; min-height:44px; padding:.7rem .9rem; background:#0B1221; border:1px solid rgba(201,168,76,.35); border-radius:0; color:#F0F4FF; font:1rem 'Rajdhani',sans-serif; letter-spacing:.02em; }
+  .news input:focus, .news select:focus { outline:none; border-color:#C9A84C; }
+  .news input::placeholder { color:#8B95A8; }
+  .news .news-tick { display:flex; gap:.6rem; align-items:flex-start; margin-top:.9rem; font-family:'Rajdhani',sans-serif; font-size:.95rem; line-height:1.4; color:#F0F4FF; cursor:pointer; text-shadow:0 1px 3px rgba(5,8,16,.95); }
+  .news .news-tick input { margin:.15rem 0 0; width:18px; height:18px; flex:none; accent-color:#C9A84C; }
+  .news .news-actions { margin-top:1rem; text-align:center; }
+  .news .news-msg { font-family:'Rajdhani',sans-serif; font-size:.95rem; line-height:1.45; color:#E8D27D; margin:.7rem 0 0; min-height:1.3em; text-align:center; }
+  .news .news-msg.err { color:#ff8a80; }
+  @media (max-width:600px) { .news .news-row { grid-template-columns:1fr; } }
   @media (max-width:900px) { .teams { grid-template-columns:1fr 1fr; } }
   @media (max-width:600px) { .teams { grid-template-columns:1fr; } .tier-fee { font-size:2.2rem; } }
 """
@@ -796,6 +856,8 @@ assert ('const SECTIONS = %d;' % len(CHAPTERS)) in html and html.count('SECTION 
 assert 'classes run on every training weekend' in html, 'the calendar reads a class count against one date again'
 assert 'The <span class="gold">Classes.</span>' not in html and "images/mast/courses-instructor.jpg');background-position:50% 15%" in html, \
     'the Classes chapter title is back or the Courses backdrop is not his photo (owner, 2026-09-08)'
+assert 'id="news-consent"' in html and "fetch(API + '/subscribe'" in html and "get('course')" in html and "mastTrack('deep_link'" in html, \
+    'the MAST News form or the ?course= deep link is missing (2026-09-16): /subscribe has no caller on the page again'
 assert '#intro-seq.gone' in html and 'i.classList.add("gone")' in html, \
     'the splash releases the pointer on dismissal again: its tap lands on the CTA underneath'
 assert 'if(done||!i.isConnected||i.classList.contains("done")){document.removeEventListener("keydown",onKey);return}' in html, \

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="1ba1ea6a22d3">
+<meta name="build" content="a3591bc431e7">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
 <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
@@ -527,6 +527,21 @@
   .modal.join .gate-actions { margin-top:1.3rem; }
   .modal.join .join-err { color:#ff8a80; font-size:.9rem; line-height:1.45; margin-top:.8rem; min-height:1.2em; }
   .modal.join .join-err a { color:#E8D27D; }
+  /* MAST News (2026-09-16): the sign-up form in the Contact chapter, on the page's dark surface with the gold field rule of the join dialog. */
+  .news { max-width:560px; margin:0 auto 2.4rem; text-align:left; }
+  .news .news-eyebrow { font-family:'Share Tech Mono',monospace; font-size:.66rem; letter-spacing:.3em; text-transform:uppercase; color:#C9A84C; margin-bottom:.5rem; text-align:center; }
+  .news .news-sub { font-family:'Cormorant Garamond',Georgia,serif; font-size:1.08rem; line-height:1.45; color:#F0F4FF; margin:0 0 .4rem; text-align:center; text-shadow:0 1px 3px rgba(5,8,16,.95); }
+  .news .news-hp { position:absolute; left:-9999px; width:1px; height:1px; opacity:0; }
+  .news .news-row { display:grid; grid-template-columns:1fr 1fr; gap:.6rem; margin-top:.6rem; }
+  .news input:not([type=checkbox]), .news select { display:block; width:100%; min-height:44px; padding:.7rem .9rem; background:#0B1221; border:1px solid rgba(201,168,76,.35); border-radius:0; color:#F0F4FF; font:1rem 'Rajdhani',sans-serif; letter-spacing:.02em; }
+  .news input:focus, .news select:focus { outline:none; border-color:#C9A84C; }
+  .news input::placeholder { color:#8B95A8; }
+  .news .news-tick { display:flex; gap:.6rem; align-items:flex-start; margin-top:.9rem; font-family:'Rajdhani',sans-serif; font-size:.95rem; line-height:1.4; color:#F0F4FF; cursor:pointer; text-shadow:0 1px 3px rgba(5,8,16,.95); }
+  .news .news-tick input { margin:.15rem 0 0; width:18px; height:18px; flex:none; accent-color:#C9A84C; }
+  .news .news-actions { margin-top:1rem; text-align:center; }
+  .news .news-msg { font-family:'Rajdhani',sans-serif; font-size:.95rem; line-height:1.45; color:#E8D27D; margin:.7rem 0 0; min-height:1.3em; text-align:center; }
+  .news .news-msg.err { color:#ff8a80; }
+  @media (max-width:600px) { .news .news-row { grid-template-columns:1fr; } }
   @media (max-width:900px) { .teams { grid-template-columns:1fr 1fr; } }
   @media (max-width:600px) { .teams { grid-template-columns:1fr; } .tier-fee { font-size:2.2rem; } }
 
@@ -959,6 +974,24 @@
       <p class="sub">Individual seats, team blocks, and agency instruction.</p>
       <div class="contact-lines rise">2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063<br><a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a></div>
       <div class="ctas rise"><a href="#s6" class="cta" onclick="openDCal();return false;">Book a Class</a><a href="https://atlasglinn.com/" class="secondary-cta">Atlas Glinn &rarr;</a></div>
+      <!-- MAST News (2026-09-16): the site's own sign-up — the first caller the Worker's POST /subscribe has had. Consent is the tick,
+           recorded with its wording; the two questions feed the INTEREST / LEVEL merge fields the welcome journey branches on. -->
+      <form id="news" class="news rise" novalidate>
+        <div class="news-eyebrow">MAST News</div>
+        <p class="news-sub">Course dates and news, about once a month. Reply to any of it and a person answers.</p>
+        <input class="news-hp" name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <div class="news-row">
+          <input id="news-name" name="name" type="text" placeholder="First name" autocomplete="given-name" aria-label="First name">
+          <input id="news-email" name="email" type="email" placeholder="Email" autocomplete="email" required aria-label="Email">
+        </div>
+        <div class="news-row">
+          <select id="news-interest" name="interest" aria-label="What are you here for"><option value="">What are you here for</option><option>Firearms</option><option>Hand Combat</option><option>Knife Combat</option><option>CQB</option><option>Fitness</option><option>Medical</option><option>Leadership</option><option>Not sure yet</option></select>
+          <select id="news-level" name="level" aria-label="Where you are today"><option value="">Where you are today</option><option>New to training</option><option>Some training</option><option>Experienced</option><option>LE / Military</option></select>
+        </div>
+        <label class="news-tick"><input id="news-consent" type="checkbox"><span>Send me MAST Solutions course dates and news. Unsubscribe any time.</span></label>
+        <div class="news-actions"><button class="cta-button" id="news-go" type="submit">Get the dates</button></div>
+        <p class="news-msg" id="news-msg" role="status" aria-live="polite"></p>
+      </form>
       <div class="foot site rise"><span class="fg">Atlas Glinn</span><a href="https://atlasglinn.com/">Home</a> &middot; <a href="https://atlasglinn.com/executive-protection/">Executive Protection</a> &middot; <a href="https://atlasglinn.com/residential-protection/">Residential Protection</a> &middot; <a href="https://atlasglinn.com/disaster-recovery/">Disaster Recovery</a> &middot; <a href="https://atlasglinn.com/technology/">Technology</a> &middot; <a href="https://atlasglinn.com/ep-app/">Atlas EP App</a><br><span class="fg">MAST Solutions</span><a href="https://atlasglinn.com/training/">Training Programs</a> &middot; <a href="https://atlasglinn.com/ep-app/">Atlas EP Platform</a> &middot; <a href="https://atlasglinn.com/cuas-aerodefense/">Counter-Drone Solutions</a> &middot; <a href="#s1">MAST Solutions</a><br><span class="fg">Company</span><a href="https://atlasglinn.com/about/">About Us</a> &middot; <a href="https://atlasglinn.com/careers/">Careers</a> &middot; <a href="https://atlasglinn.com/about/#s5">Resources</a> &middot; <a href="#s13">Contact</a><br><span class="fg">Connect</span>2450 Fondren Rd, Suite 255 &middot; Houston, TX 77063 &middot; <a href="tel:+12816548100">(281) 654-8100</a> &middot; <a href="mailto:atlasglinn.hq@atlasglinn.com">atlasglinn.hq@atlasglinn.com</a><br><a href="https://www.instagram.com/atlasglinn_mastsolutions/" target="_blank" rel="noopener">Instagram</a>&middot;<a href="https://www.linkedin.com/in/mastsolutions1/" target="_blank" rel="noopener">LinkedIn</a>&middot;<a href="https://www.youtube.com/@mastsolutions" target="_blank" rel="noopener">YouTube</a>&middot;<a href="https://www.facebook.com/mastsolutions" target="_blank" rel="noopener">Facebook</a>&middot;<a href="https://www.yelp.com/biz/atlas-glinn-houston" target="_blank" rel="noopener">Yelp</a>&middot;<a href="https://www.google.com/maps/search/?api=1&query=Atlas+Glinn%2C+2450+Fondren+Rd+Suite+255%2C+Houston%2C+TX+77063" target="_blank" rel="noopener" data-track="review">Google Reviews</a><div class="badges"><div class="badge-item"><img src="images/atlas/BEST_OF_BusinessRate_2025_Atlas_Glinn.png" alt="Best of Business 2025" loading="lazy"><p>Best of Business 2025</p></div><div class="badge-item"><img src="images/chamber-badge.png" alt="Chamber of Commerce Verified Member" loading="lazy"><p>Chamber of Commerce</p></div></div><a href="https://atlasglinn-site.matthew-221.workers.dev/portal" style="color:inherit;text-decoration:none">&copy;</a> 2026 Atlas Glinn, LLC | MAST Solutions. All Rights Reserved. Executive Protection &bull; Training &bull; AI Surveillance &bull; Counter-Drone Solutions &bull; Risk Management<br><a href="https://atlasglinn.com/privacy/">Privacy Policy</a>&middot;<a href="https://atlasglinn.com/terms/">Terms of Service</a>&middot;<a href="#s1" class="to-top">Back to top &uarr;</a></div>
     </div>
   </section>
@@ -2072,6 +2105,21 @@ function closePolicy(){ $('policy-bd').classList.remove('open'); $('policy').cla
 function openQuals(){ lastFocus = document.activeElement; $('quals-bd').classList.add('open'); $('quals').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeQuals(){ $('quals-bd').classList.remove('open'); $('quals').classList.remove('open'); document.body.style.overflow = ''; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('policy').classList.contains('open')) { closePolicy(); return; } closeSheet(); closeCal(); closeQuals(); } });
+/* ?course=<SKU> (2026-09-16): the deep link the MAST News emails carry — https://www.mastsolutions.com/?course=MAST-HG-FUND&utm_source=mailchimp…#s6
+   opens the discipline, scrolls to Classes and opens that course exactly as a tap on its row would (the prerequisite gate included).
+   On the cinematic page it waits for the splash to end first, so the calendar never opens under the intro; the UTM in the same
+   URL was already read by the tracker at load. The URL is left as it is: the link stays shareable and a refresh reopens the course. */
+(function(){
+  const sku = String(new URLSearchParams(location.search).get('course') || '').trim().toUpperCase(); if (!sku) return;
+  const i = COURSES.findIndex(c => String(c.sku).toUpperCase() === sku); if (i < 0) return;
+  const go = () => { const ci = CATS.indexOf(COURSES[i].cat), cat = $('cat-' + ci); if (cat && !cat.classList.contains('open')) toggleCat(ci);
+    const s6 = document.getElementById('s6'); if (s6) s6.scrollIntoView({ block: 'start' });
+    if (window.mastTrack) mastTrack('deep_link', COURSES[i].name, COURSES[i].sku);
+    selectCourse(i); };
+  const splashOn = () => { const el = document.getElementById('intro-seq'); return !!(el && el.isConnected && !el.classList.contains('done')); };
+  const wait = () => { if (splashOn()) { setTimeout(wait, 300); return; } setTimeout(go, 1200); };
+  wait();
+})();
 (function(){ const p = new URLSearchParams(location.search); const s = p.get('checkout'); if (!s) return; const b = $('banner'); b.textContent = s === 'success' ? "You're booked" + (p.get('course') ? ' — ' + p.get('course') : '') + (p.get('date') ? ' · ' + p.get('date') : '') + '. Check your email for the receipt; gear list and range directions follow.' : 'Checkout cancelled — your card was not charged.'; b.classList.add('show'); setTimeout(() => b.classList.remove('show'), 9000); history.replaceState(null, '', location.pathname); })();
 
 /* Hero film + volume */
@@ -2149,6 +2197,31 @@ async function joinGo(){
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('join').classList.contains('open')) closeJoin(); });
 (function(){ const p = new URLSearchParams(location.search); const s = p.get('membership'); if (!s) return; const b = $('banner'); b.textContent = s === 'success' ? 'Welcome to the team — your membership is set up. The team will be in touch.' : 'Membership checkout cancelled — your card was not charged.'; b.classList.add('show'); setTimeout(() => b.classList.remove('show'), 9000); history.replaceState(null, '', location.pathname); })();
+
+/* MAST News (2026-09-16): the site's own sign-up. Consent is the tick, recorded with its wording; POST /subscribe stores the lead with
+   its attribution and, when the Worker's Mailchimp secrets are set, upserts the address with INTEREST / LEVEL and the interest_<x> tag.
+   The Worker records the subscribe event itself, so nothing is beaconed from here. A whitelisted select cannot send an off-list value;
+   the Worker whitelists again regardless. */
+const NEWS_CONSENT = 'Send me MAST Solutions course dates and news. Unsubscribe any time.';
+async function newsSubmit(e){
+  e.preventDefault();
+  const email = $('news-email').value.trim().toLowerCase(), msg = $('news-msg'), btn = $('news-go');
+  const say = (t, err) => { msg.textContent = t; msg.classList.toggle('err', !!err); };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { say('Enter a valid email address.', true); $('news-email').focus(); return; }
+  if (!$('news-consent').checked) { say('Tick the box to receive MAST news.', true); $('news-consent').focus(); return; }
+  btn.disabled = true; say('One moment\u2026');
+  const body = { email, name: $('news-name').value.trim(), interest: $('news-interest').value, level: $('news-level').value, consent: true, consent_text: NEWS_CONSENT, source: 'site-contact', website: document.querySelector('#news [name=website]').value };
+  if (window.mastAttribution) body.attribution = mastAttribution();   // first touch, UTM, referrer, landing page, visitor id → the lead row
+  try {
+    const r = await fetch(API + '/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'Try again in a moment.');
+    say('You are on the list. The next dates email is the first thing you get.');
+    $('news-email').value = ''; $('news-consent').checked = false;
+  } catch (err) { say(err.message + ' Or email atlasglinn.hq@atlasglinn.com.', true); }
+  btn.disabled = false;
+}
+$('news').addEventListener('submit', newsSubmit);
 
 function openCatalog(){ lastFocus = document.activeElement; $('catalog-bd').classList.add('open'); $('catalog-modal').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeCatalog(){ $('catalog-bd').classList.remove('open'); $('catalog-modal').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
