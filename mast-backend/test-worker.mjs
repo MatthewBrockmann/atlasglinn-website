@@ -2675,15 +2675,23 @@ console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect da
      have nothing to do with the code. This repo has already been bitten by exactly that (main's
      daily-window block was red from ~09-12 on wall-clock-vs-fixed-date drift, fixed in #114).
 
-     So this asserts what is true on EVERY date: LASTCLASS and LASTDATE move together — both present
-     or both absent, never one without the other — and LASTCLASS is never the empty string, because
-     '' OVERWRITES a stored value at Mailchimp while an omitted key leaves it alone. The precise
-     attended-vs-booked semantics are pinned by the two clock-free profiles below, which set
-     last_class_date explicitly instead of inferring it from today. */
+     So this asserts what is true on EVERY date, for the AUTHORITATIVE path these two profiles come
+     down (/admin/sync → syncAudience, which builds from every order, registration and contact):
+     LASTCLASS is ALWAYS stated — the attended class when there is one, '' to clear when there is
+     not — and LASTDATE is present exactly when LASTCLASS names a class. Whichever side of
+     2026-10-10 the suite runs on, one of those two shapes holds.
+
+     The '' is deliberate here and forbidden on the payment path, which is the distinction Codex
+     raised as the P2 on #117: an authoritative sync that finds no attendance is reporting a fact
+     and must clear a stale value, while syncOnPayment merely did not load the history and must say
+     nothing. The precise attended-vs-booked semantics are pinned by the clock-free profiles below,
+     which set last_class_date explicitly instead of inferring it from today. */
   const annMF = (annCall && annCall.body.merge_fields) || {};
-  ok('… LASTCLASS and LASTDATE always travel together for Ann (both present or both absent, and never an empty LASTCLASS, which would erase a stored value); Newsy, no class and no answers, carries no LASTDATE / INTEREST / LEVEL key at all — a blank dropdown or date is a Mailchimp validation error',
-     annCall && ('LASTDATE' in annMF) === ('LASTCLASS' in annMF) && annMF.LASTCLASS !== '' && newsCall && !('LASTDATE' in newsCall.body.merge_fields) && !('LASTCLASS' in newsCall.body.merge_fields) && !('INTEREST' in newsCall.body.merge_fields) && !('LEVEL' in newsCall.body.merge_fields),
-     JSON.stringify(annMF) + ' ' + JSON.stringify((newsCall || {}).body && newsCall.body.merge_fields));
+  const newsMF = (newsCall && newsCall.body.merge_fields) || {};
+  const authoritativeShape = (mf) => 'LASTCLASS' in mf && (('LASTDATE' in mf) === (mf.LASTCLASS !== ''));
+  ok('… on the authoritative /admin/sync path LASTCLASS is always stated (the attended class, or \'\' to clear a stale one) and LASTDATE is present exactly when LASTCLASS names a class — true on either side of the fixture date; Newsy, no class and no answers, carries no INTEREST / LEVEL key at all — a blank dropdown is a Mailchimp validation error',
+     annCall && authoritativeShape(annMF) && newsCall && authoritativeShape(newsMF) && !('INTEREST' in newsMF) && !('LEVEL' in newsMF),
+     JSON.stringify(annMF) + ' ' + JSON.stringify(newsMF));
 
   /* LASTCLASS/LASTDATE are the last class ATTENDED, never the next one BOOKED (Codex P2 on PR #114,
      fixed 2026-09-21). `p.classes` is sorted chronologically and holds future bookings too, so both
@@ -2717,6 +2725,25 @@ console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect da
   ok('… and someone with no attended class carries NEITHER key — an omitted merge field preserves what Mailchimp holds, an empty one erases it, and the payment path routinely sends partial profiles',
      soonCall && !('LASTDATE' in soonCall.body.merge_fields) && !('LASTCLASS' in soonCall.body.merge_fields),
      JSON.stringify((soonCall || {}).body && soonCall.body.merge_fields));
+
+  /* The P2 Codex raised on #117, pinned as one assertion: the SAME profile must produce OPPOSITE
+     output depending on who is asking. Omitting globally fixed the payment path and broke the full
+     sync — a customer whose attendance record was corrected or refunded could never have the stale
+     value cleared. Neither behaviour is right on its own; the caller is what decides, so the test
+     exercises both with identical input. */
+  mailchimpCalls.length = 0;
+  await mailchimpUpsert(envMc, bookedOnly);                            // partial — must stay silent
+  await mailchimpUpsert(envMc, bookedOnly, { authoritative: true });   // full sync — must clear
+  const [partialCall, fullCall] = mailchimpCalls;
+  ok('the same never-attended profile sends NO LASTCLASS from a partial sync and LASTCLASS:\'\' from an authoritative one — silence preserves, empty clears, and only a full sync has standing to say a customer has not attended',
+     partialCall && fullCall && !('LASTCLASS' in partialCall.body.merge_fields) && fullCall.body.merge_fields.LASTCLASS === '',
+     JSON.stringify((partialCall || {}).body && partialCall.body.merge_fields) + ' vs ' + JSON.stringify((fullCall || {}).body && fullCall.body.merge_fields));
+
+  ok('… and an authoritative sync for a customer who HAS attended still names the class, so clearing never costs a real value',
+     await mailchimpUpsert(envMc, trainedThenBooked, { authoritative: true }) &&
+     mailchimpCalls.slice(-1)[0].body.merge_fields.LASTCLASS === 'Handgun Fundamentals' &&
+     mailchimpCalls.slice(-1)[0].body.merge_fields.LASTDATE === '01/15/2026',
+     JSON.stringify(mailchimpCalls.slice(-1)[0].body.merge_fields));
 
   ok('… and Brevo, which carried the identical bug, agrees: LASTCLASS is the attended class',
      (await brevoUpsert({ ...envMc, BREVO_API_KEY: 'xkeysib-test', BREVO_LIST_ID: '7' }, trainedThenBooked)) &&

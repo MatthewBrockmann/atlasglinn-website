@@ -585,24 +585,47 @@ function lastAttendedClass(p) {
   return (p.classes || []).filter((c) => c.date === p.last_class_date).slice(-1)[0] || null;
 }
 
-/** Upsert one opted-in profile. Returns { ok, status } or { skipped: reason }. Never called for a profile without opt-in. */
-export async function mailchimpUpsert(env, p) {
+/** Upsert one opted-in profile. Returns { ok, status } or { skipped: reason }. Never called for a profile without opt-in.
+ *
+ * `opts.authoritative` says whether `p` is the WHOLE truth about this customer or
+ * only a fragment of it, and the two callers differ:
+ *
+ *   syncAudience   — profiles built from every order, registration and contact.
+ *                    Authoritative. If it reports no attended class, that IS the
+ *                    state, so a stale value at the provider must be CLEARED.
+ *   syncOnPayment  — a profile built from the ONE registration being paid for, and
+ *   syncLead         syncLead from a single contact. Partial. "No attended class"
+ *                    here means "not loaded", never "did not attend", so these must
+ *                    stay SILENT rather than assert emptiness.
+ *
+ * Collapsing the two is what produced the P1 on #116 (every payment erased real
+ * attendance) and then the P2 on #117 (no full sync could clear a corrected one).
+ * One default cannot serve both; the caller knows which it is.
+ */
+export async function mailchimpUpsert(env, p, opts = {}) {
   const cfg = mailchimpConfig(env);
   if (!cfg) return { skipped: 'not_configured' };
   if (!p || !p.opt_in) return { skipped: 'not_opted_in' };
   const { first, last } = splitName(p.name);
   const lastClass = lastAttendedClass(p);
   const merge_fields = { FNAME: first, LNAME: last, PHONE: p.phone || '', SEGMENT: p.segment || '' };
-  // LASTCLASS is OMITTED, never sent as '', when there is no attended class to report.
   // An omitted merge field leaves whatever Mailchimp already holds; an empty one
-  // OVERWRITES it. That distinction is load-bearing here because `syncOnPayment`
-  // builds its profile from the single registration being paid for, not from the
-  // customer's history — so a returning customer paying for a future booking arrives
-  // with last_class_date null, and sending '' would erase a real attendance record
-  // that the full /admin/sync had correctly published earlier. Omitting also keeps
-  // LASTCLASS and LASTDATE consistent: they are now both present or both absent,
-  // never one without the other.
+  // OVERWRITES it. So with no attended class the correct action depends on whether
+  // this profile is authoritative (see the doc comment above): a full sync CLEARS a
+  // value that is no longer true, a partial sync stays SILENT about what it did not
+  // load.
+  //
+  // ⚠ LASTDATE is NOT cleared alongside it, and that asymmetry is deliberate rather
+  // than an oversight: the line below records that a date field given '' is a
+  // Mailchimp validation error which fails the WHOLE upsert, so blanking it would
+  // trade a stale date for a dropped profile. UNVERIFIED FROM HERE — this container
+  // has no Mailchimp egress and no key, so whether the v3 API accepts some other
+  // clearing form for a date merge field was not tested. Until it is, a corrected
+  // record leaves a stale LASTDATE behind; LASTCLASS at least stops naming a class
+  // the customer did not attend. Resolve by trying a date-field clear against the
+  // real audience and, if one works, applying it on the authoritative path only.
   if (lastClass) merge_fields.LASTCLASS = lastClass.name;
+  else if (opts.authoritative) merge_fields.LASTCLASS = '';
   // The three fields the plugin's audience-setup added (2026-09-16), sent only when there is a value: a dropdown or date field
   // given '' is a validation error at Mailchimp, and one bad field fails the whole upsert.
   if (lastClass && mmddyyyy(lastClass.date)) merge_fields.LASTDATE = mmddyyyy(lastClass.date);
@@ -632,17 +655,18 @@ export function brevoConfig(env) {
   return { key, list: Number.isFinite(list) ? list : null };
 }
 
-export async function brevoUpsert(env, p) {
+export async function brevoUpsert(env, p, opts = {}) {
   const cfg = brevoConfig(env);
   if (!cfg) return { skipped: 'not_configured' };
   if (!p || !p.opt_in) return { skipped: 'not_opted_in' };
   const { first, last } = splitName(p.name);
   const lastClass = lastAttendedClass(p);
-  // LASTCLASS omitted rather than '' for the same reason as the Mailchimp upsert above:
-  // updateEnabled:true means an empty attribute ERASES the stored value, and
-  // `syncOnPayment` hands both providers a profile built from one registration.
+  // Same rule as the Mailchimp upsert above, and for the same reason: `updateEnabled:
+  // true` means an empty attribute ERASES the stored value, so only an authoritative
+  // profile may send one. A partial profile from syncOnPayment/syncLead stays silent.
   const attributes = { FIRSTNAME: first, LASTNAME: last, SEGMENT: p.segment || '', TAGS: tagsFor(p).join(',') };
   if (lastClass) attributes.LASTCLASS = lastClass.name;
+  else if (opts.authoritative) attributes.LASTCLASS = '';
   const body = { email: p.email, updateEnabled: true, attributes };
   if (cfg.list) body.listIds = [cfg.list];
   const res = await fetch('https://api.brevo.com/v3/contacts', { method: 'POST', headers: { 'api-key': cfg.key, 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) });
@@ -681,9 +705,12 @@ export function providers(env) {
 export async function syncAudience(env, customers) {
   const on = providers(env);
   const out = { configured: on, mailchimp: { attempted: 0, ok: 0, failed: 0 }, brevo: { attempted: 0, ok: 0, failed: 0 }, hubspot: { attempted: 0, ok: 0, failed: 0 }, not_opted_in: 0 };
+  // `authoritative: true` — these profiles are built from every order, registration
+  // and contact, so "no attended class" here is a fact about the customer and not a
+  // gap in what was loaded. This is the one path allowed to CLEAR a stale value.
   const push = async (name, fn, p) => {
     out[name].attempted += 1;
-    const r = await fn(env, p).catch((e) => { console.error('[' + name + '] failed:', e.message); return { ok: false }; });
+    const r = await fn(env, p, { authoritative: true }).catch((e) => { console.error('[' + name + '] failed:', e.message); return { ok: false }; });
     if (r.ok) out[name].ok += 1; else out[name].failed += 1;
   };
   for (const p of customers) {
