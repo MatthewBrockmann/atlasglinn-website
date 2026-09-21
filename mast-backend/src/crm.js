@@ -592,7 +592,17 @@ export async function mailchimpUpsert(env, p) {
   if (!p || !p.opt_in) return { skipped: 'not_opted_in' };
   const { first, last } = splitName(p.name);
   const lastClass = lastAttendedClass(p);
-  const merge_fields = { FNAME: first, LNAME: last, PHONE: p.phone || '', SEGMENT: p.segment || '', LASTCLASS: lastClass ? lastClass.name : '' };
+  const merge_fields = { FNAME: first, LNAME: last, PHONE: p.phone || '', SEGMENT: p.segment || '' };
+  // LASTCLASS is OMITTED, never sent as '', when there is no attended class to report.
+  // An omitted merge field leaves whatever Mailchimp already holds; an empty one
+  // OVERWRITES it. That distinction is load-bearing here because `syncOnPayment`
+  // builds its profile from the single registration being paid for, not from the
+  // customer's history — so a returning customer paying for a future booking arrives
+  // with last_class_date null, and sending '' would erase a real attendance record
+  // that the full /admin/sync had correctly published earlier. Omitting also keeps
+  // LASTCLASS and LASTDATE consistent: they are now both present or both absent,
+  // never one without the other.
+  if (lastClass) merge_fields.LASTCLASS = lastClass.name;
   // The three fields the plugin's audience-setup added (2026-09-16), sent only when there is a value: a dropdown or date field
   // given '' is a validation error at Mailchimp, and one bad field fails the whole upsert.
   if (lastClass && mmddyyyy(lastClass.date)) merge_fields.LASTDATE = mmddyyyy(lastClass.date);
@@ -628,7 +638,12 @@ export async function brevoUpsert(env, p) {
   if (!p || !p.opt_in) return { skipped: 'not_opted_in' };
   const { first, last } = splitName(p.name);
   const lastClass = lastAttendedClass(p);
-  const body = { email: p.email, updateEnabled: true, attributes: { FIRSTNAME: first, LASTNAME: last, SEGMENT: p.segment || '', LASTCLASS: lastClass ? lastClass.name : '', TAGS: tagsFor(p).join(',') } };
+  // LASTCLASS omitted rather than '' for the same reason as the Mailchimp upsert above:
+  // updateEnabled:true means an empty attribute ERASES the stored value, and
+  // `syncOnPayment` hands both providers a profile built from one registration.
+  const attributes = { FIRSTNAME: first, LASTNAME: last, SEGMENT: p.segment || '', TAGS: tagsFor(p).join(',') };
+  if (lastClass) attributes.LASTCLASS = lastClass.name;
+  const body = { email: p.email, updateEnabled: true, attributes };
   if (cfg.list) body.listIds = [cfg.list];
   const res = await fetch('https://api.brevo.com/v3/contacts', { method: 'POST', headers: { 'api-key': cfg.key, 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) });
   if (!res.ok) { const t = await res.text().catch(() => ''); console.error('[Brevo] ' + res.status + ' for ' + p.email + ': ' + t.slice(0, 200)); return { ok: false, status: res.status }; }
