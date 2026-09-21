@@ -60,12 +60,19 @@ jobs:
     steps:
       - name: Read the zone, decide, and (in apply mode) repair www
         env:
-          CF_TOKEN: ${{ secrets.CF_ZONE_TOKEN || secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN || secrets.CLOUDFLARE_TOKEN }}
+          # EVERY candidate, separately. Taking the first NON-EMPTY secret is what failed on 2026-09-21: CF_ZONE_TOKEN
+          # was present and Cloudflare answered verify with status "expired", so the run never reached the other
+          # token in the repo. Presence is not liveness. The step below asks Cloudflare which of these can actually
+          # read THIS zone and uses that one, reporting the secret's NAME and never any part of its value.
+          TOK_CF_ZONE_TOKEN: ${{ secrets.CF_ZONE_TOKEN }}
+          TOK_CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TOK_CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          TOK_CLOUDFLARE_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
           DOMAIN: ${{ inputs.domain }}
           MODE: ${{ inputs.mode }}
         run: |
           set -eu
-          if [ -z "${CF_TOKEN:-}" ]; then
+          if [ -z "${TOK_CF_ZONE_TOKEN:-}${TOK_CLOUDFLARE_API_TOKEN:-}${TOK_CF_API_TOKEN:-}${TOK_CLOUDFLARE_TOKEN:-}" ]; then
             echo "::error::No Cloudflare token reached this job. Settings -> Secrets and variables -> Actions -> Repository secrets, named CF_ZONE_TOKEN, carrying Zone:DNS:Edit for the account. The zone token minted for the R3' import was meant to be deleted at Cloudflare after the cutover, so it is expected to be gone; mint a fresh one scoped to THIS ZONE ONLY (Zone:DNS:Edit on atlasglinn.com), which is a far narrower token than the import needed, and delete it again when this run is green."
             exit 1
           fi
@@ -73,7 +80,8 @@ jobs:
           import ipaddress, json, os, sys, urllib.error, urllib.request
 
           API = os.environ.get('CF_API_BASE', 'https://api.cloudflare.com/client/v4')
-          TOKEN, DOMAIN, MODE = os.environ['CF_TOKEN'], os.environ['DOMAIN'], os.environ['MODE']
+          DOMAIN, MODE = os.environ['DOMAIN'], os.environ['MODE']
+          TOKEN = None  # chosen below, by asking Cloudflare rather than by which secret exists
           summary = open(os.environ.get('GITHUB_STEP_SUMMARY', '/dev/null'), 'a')
 
           def say(line):
@@ -113,10 +121,31 @@ jobs:
                   out.append(str(c))
               return ', '.join(out) if out else 'no error code in the body'
 
+          # ---- which secret is a LIVE token for this zone -----------------------------------------------------
+          # Asked, not assumed. Each candidate gets one request; the first that answers 200 for this zone is the one
+          # used for everything after. Only the secret's NAME is ever printed.
+          candidates = [(n[4:], v) for n, v in sorted(os.environ.items())
+                        if n.startswith('TOK_') and v.strip()]
+          if not candidates:
+              die('No Cloudflare token secret reached this job.')
+          say('token secrets present: %s' % ', '.join(n for n, _ in candidates))
+          chosen, body, code = None, {}, 0
+          for name, value in candidates:
+              TOKEN = value.strip()
+              code, body = call('GET', '/zones?name=%s&per_page=5' % DOMAIN)
+              say('  %s -> HTTP %s%s' % (name, code, '' if code == 200 else ' (%s)' % codes(body)))
+              if code == 200:
+                  chosen = name
+                  break
+          if not chosen:
+              die('None of the %d token secret(s) in this repository can read the zone %s. CF_ZONE_TOKEN was measured '
+                  'EXPIRED on 2026-09-21, which is expected — it was minted for the import and meant to be deleted '
+                  'afterwards. A fresh token is needed, and it can be far narrower than the import one: Zone:DNS:Edit '
+                  'on THIS ZONE ONLY. Nothing was changed.' % (len(candidates), DOMAIN))
+          TOKEN = dict(candidates)[chosen].strip()
+          say('using the token in secret %s' % chosen)
+
           # ---- the zone -------------------------------------------------------------------------------------
-          code, body = call('GET', '/zones?name=%s&per_page=5' % DOMAIN)
-          if code != 200:
-              die('Could not list zones (HTTP %s; %s). If this is 403 the token lacks Zone:Read for this account.' % (code, codes(body)))
           zones = body.get('result') or []
           if len(zones) != 1:
               die('Expected exactly one zone named %s, the account returned %d. Refusing to guess which one to edit.' % (DOMAIN, len(zones)))
