@@ -565,13 +565,33 @@ export function mailchimpConfig(env) {
   return { key, list, dc };
 }
 
+/** The last class a profile ATTENDED, or null.
+ *
+ * `p.classes` is sorted chronologically and includes FUTURE bookings, so its
+ * final element is the UPCOMING class for anyone who has one booked. Both
+ * provider upserts used to take that element, which overwrote a customer's
+ * attendance history with a date they have not reached yet — so every segment
+ * built on "last attended" targeted the wrong people, and a win-back campaign
+ * would skip exactly the lapsed customers it exists to reach.
+ *
+ * `buildProfiles` already separates the two (`last_class_date` from past
+ * sessions, `next_class_date` from future ones) and `audienceCsv` already read
+ * it correctly; the two upserts did not. One helper so a third copy cannot
+ * drift again. A profile with only a future booking has no last class, so the
+ * caller omits the field rather than guessing.
+ */
+function lastAttendedClass(p) {
+  if (!p || !p.last_class_date) return null;
+  return (p.classes || []).filter((c) => c.date === p.last_class_date).slice(-1)[0] || null;
+}
+
 /** Upsert one opted-in profile. Returns { ok, status } or { skipped: reason }. Never called for a profile without opt-in. */
 export async function mailchimpUpsert(env, p) {
   const cfg = mailchimpConfig(env);
   if (!cfg) return { skipped: 'not_configured' };
   if (!p || !p.opt_in) return { skipped: 'not_opted_in' };
   const { first, last } = splitName(p.name);
-  const lastClass = p.classes && p.classes.length ? p.classes[p.classes.length - 1] : null;
+  const lastClass = lastAttendedClass(p);
   const merge_fields = { FNAME: first, LNAME: last, PHONE: p.phone || '', SEGMENT: p.segment || '', LASTCLASS: lastClass ? lastClass.name : '' };
   // The three fields the plugin's audience-setup added (2026-09-16), sent only when there is a value: a dropdown or date field
   // given '' is a validation error at Mailchimp, and one bad field fails the whole upsert.
@@ -607,7 +627,7 @@ export async function brevoUpsert(env, p) {
   if (!cfg) return { skipped: 'not_configured' };
   if (!p || !p.opt_in) return { skipped: 'not_opted_in' };
   const { first, last } = splitName(p.name);
-  const lastClass = p.classes && p.classes.length ? p.classes[p.classes.length - 1] : null;
+  const lastClass = lastAttendedClass(p);
   const body = { email: p.email, updateEnabled: true, attributes: { FIRSTNAME: first, LASTNAME: last, SEGMENT: p.segment || '', LASTCLASS: lastClass ? lastClass.name : '', TAGS: tagsFor(p).join(',') } };
   if (cfg.list) body.listIds = [cfg.list];
   const res = await fetch('https://api.brevo.com/v3/contacts', { method: 'POST', headers: { 'api-key': cfg.key, 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) });
