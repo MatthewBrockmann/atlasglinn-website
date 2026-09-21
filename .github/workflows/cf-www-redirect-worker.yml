@@ -1,0 +1,233 @@
+# Fix www.atlasglinn.com WITHOUT asking Brockmann to touch a dashboard, and without a new credential.
+#
+# THE PROBLEM, MEASURED (origin-sni-probe, private repo, 2026-09-21 22:43:56 UTC): connecting straight to the
+# origin, with Cloudflare bypassed, the apex answers 200 with the real page and www answers 403 carrying
+# Cloudflare's error-1000 interstitial, on both 443 and 80, with a valid certificate on both. The error comes
+# from the ORIGIN. The origin is the hosting provider's own Cloudflare-fronted edge; it holds a mapping for the
+# apex and none for www, so for www it resolves the name in public DNS, gets this zone's anycast addresses back,
+# sees a request about to re-enter a proxy it just left, and refuses. Double proxy. NOTHING IN THE ZONE IS
+# WRONG — www is already a proxied CNAME at the apex, which is correct, and an earlier session wasted his time
+# telling him to set what was already set.
+#
+# THE FIX IS TO ANSWER www AT THE EDGE so the request never reaches the origin at all. A Worker bound to a route
+# runs in the request pipeline BEFORE any origin connection is attempted, so the loop cannot occur. A Redirect
+# Rule would do the same thing, and Brockmann reports he cannot add one; this needs nothing from him.
+#
+# WHY A WORKER ROUTE AND NOT A NEW TOKEN: the zone token minted for the import is measured EXPIRED, and minting
+# another is an account credential that is his alone to create. But the repository already holds a Workers token
+# that deploy-worker.yml uses, and a Workers token very often carries Workers Routes: Edit on the zone, because
+# wrangler needs exactly that to publish a routed Worker. PLAN MODE MEASURES WHETHER IT DOES rather than
+# assuming — it asks the API and reports the HTTP status of each capability the apply step would use. If the
+# answer is no, nothing is attempted and the run says so in one sentence.
+#
+# BLAST RADIUS, stated because this writes to a live zone: the route pattern is www.atlasglinn.com/* and nothing
+# else. The apex is untouched, every other hostname is untouched, no DNS record is created, changed or deleted,
+# and nothing about mail goes near this. www is measurably 100% broken right now, so the worst case is that it
+# stays broken. It is reversible by deleting one route.
+#
+# NO ORIGIN ADDRESS APPEARS HERE. This repository is public and its Actions logs are world-readable; the origin
+# address is what proxying the site exists to hide. This workflow never needs it — a redirect at the edge is
+# built from hostnames only — so it never reads one and never prints one. Cloudflare error strings are not
+# echoed either (they can quote record content); only numeric codes are.
+name: cf-www-redirect-worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "plan = measure whether the available token can do this, change nothing. apply = upload the redirect Worker, bind it to www, then probe all three hostnames."
+        required: false
+        default: plan
+        type: choice
+        options:
+          - plan
+          - apply
+      apex:
+        description: The apex hostname that www should redirect to
+        required: false
+        default: atlasglinn.com
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cf-www-redirect-worker
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Measure the token, then (in apply mode) bind the redirect
+        env:
+          # Every candidate separately. Taking the first NON-EMPTY secret is the bug that wasted a run earlier
+          # tonight: the zone token is present and Cloudflare answers its verify call "expired", so the search
+          # ended on a dead credential. Presence is not liveness; the step asks the API which one works.
+          TOK_CF_ZONE_TOKEN: ${{ secrets.CF_ZONE_TOKEN }}
+          TOK_CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TOK_CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          TOK_CLOUDFLARE_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CF_ACCOUNT_ID }}
+          APEX: ${{ inputs.apex }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -eu
+          python3 - <<'PY'
+          import json, os, sys, urllib.error, urllib.request, uuid
+
+          API = os.environ.get('CF_API_BASE', 'https://api.cloudflare.com/client/v4')
+          APEX, MODE = os.environ['APEX'], os.environ['MODE']
+          WWW = 'www.' + APEX
+          SCRIPT = 'www-redirect'
+          TOKEN = None
+          summary = open(os.environ.get('GITHUB_STEP_SUMMARY', '/dev/null'), 'a')
+
+          def say(line):
+              print(line)
+              summary.write(line.replace('::error::', '**ERROR** ') + '\n\n')
+
+          def die(line):
+              say('::error::' + line)
+              sys.exit(1)
+
+          def call(method, path, payload=None, raw=None, ctype=None):
+              req = urllib.request.Request(API + path, method=method)
+              req.add_header('Authorization', 'Bearer ' + TOKEN)
+              data = raw
+              if payload is not None:
+                  data = json.dumps(payload).encode()
+                  req.add_header('Content-Type', 'application/json')
+              elif ctype:
+                  req.add_header('Content-Type', ctype)
+              try:
+                  with urllib.request.urlopen(req, data, timeout=45) as r:
+                      return r.status, json.loads(r.read().decode('utf-8', 'replace'))
+              except urllib.error.HTTPError as e:
+                  try:
+                      return e.code, json.loads(e.read().decode('utf-8', 'replace'))
+                  except Exception:
+                      return e.code, {}
+              except Exception as e:
+                  return 0, {'errors': [{'code': 'transport:' + type(e).__name__}]}
+
+          def codes(body):
+              # The only place a Cloudflare failure reaches this PUBLIC log. Message strings can quote record
+              # content, so only numeric codes survive; codes are what the docs are indexed by anyway.
+              out = [str(e.get('code')) for e in (body.get('errors') or []) if isinstance(e, dict)]
+              return ', '.join(out) if out else 'no error code in the body'
+
+          # ---- which secret is a live token for this zone ---------------------------------------------------
+          cands = [(n[4:], v) for n, v in sorted(os.environ.items()) if n.startswith('TOK_') and v.strip()]
+          if not cands:
+              die('No Cloudflare token secret reached this job.')
+          say('token secrets present: %s' % ', '.join(n for n, _ in cands))
+          zone_id, chosen = None, None
+          for name, value in cands:
+              TOKEN = value.strip()
+              code, body = call('GET', '/zones?name=%s&per_page=5' % APEX)
+              say('  %s -> GET /zones HTTP %s%s' % (name, code, '' if code == 200 else ' (%s)' % codes(body)))
+              if code == 200 and len(body.get('result') or []) == 1:
+                  chosen, zone_id = name, body['result'][0]['id']
+                  break
+          if not chosen:
+              die('No token in this repository can read the zone %s. Nothing was attempted.' % APEX)
+          TOKEN = dict(cands)[chosen].strip()
+          say('using the token in secret %s' % chosen)
+
+          # ---- the account that owns the Worker script ------------------------------------------------------
+          acct = (os.environ.get('CF_ACCOUNT') or '').strip()
+          if acct:
+              say('account id: from a repository secret')
+          else:
+              code, body = call('GET', '/accounts?per_page=50')
+              rows = [r for r in (body.get('result') or []) if isinstance(r, dict)]
+              say('  GET /accounts HTTP %s, %d account(s) visible' % (code, len(rows)))
+              if code != 200 or len(rows) != 1:
+                  die('This token sees %d account(s), not exactly one, so the Worker script has no unambiguous '
+                      'home. Nothing was attempted.' % len(rows))
+              acct = rows[0]['id']
+          print('::add-mask::' + acct)
+
+          # ---- CAN this token do the two things apply would do? Asked, not assumed. --------------------------
+          rcode, rbody = call('GET', '/zones/%s/workers/routes' % zone_id)
+          existing = rbody.get('result') or [] if rcode == 200 else []
+          say('  GET /zones/{zone}/workers/routes HTTP %s%s' % (rcode, '' if rcode == 200 else ' (%s)' % codes(rbody)))
+          scode, sbody = call('GET', '/accounts/{a}/workers/scripts'.format(a=acct))
+          say('  GET /accounts/{account}/workers/scripts HTTP %s%s' % (scode, '' if scode == 200 else ' (%s)' % codes(sbody)))
+
+          if rcode != 200:
+              die('This token cannot read Workers routes on the zone (HTTP %s). It therefore cannot create one, '
+                  'and this route to a fix is closed. Nothing was attempted. The remaining automated path needs '
+                  'a token with Workers Routes: Edit on this zone, which is an account credential.' % rcode)
+
+          clash = [r for r in existing if isinstance(r, dict) and r.get('pattern', '').startswith(WWW)]
+          say('routes already on %s: %d' % (WWW, len(clash)))
+          for r in clash:
+              say('  existing route -> script %r' % (r.get('script') or '<none>'))
+
+          if MODE != 'apply':
+              say('plan mode: nothing was changed. The token can read routes, so apply is worth attempting; '
+                  'whether it can WRITE one is only answerable by the write itself, and apply reports it.')
+              sys.exit(0)
+
+          # ---- apply: the Worker ----------------------------------------------------------------------------
+          # Hostname-only. It never contacts the origin, which is the entire point: the origin is what refuses
+          # this hostname. URL() carries the path and the query string across untouched.
+          worker = (
+              'export default {\n'
+              '  fetch(request) {\n'
+              '    const url = new URL(request.url);\n'
+              '    url.protocol = "https:";\n'
+              '    url.hostname = %s;\n'
+              '    url.port = "";\n'
+              '    return Response.redirect(url.toString(), 301);\n'
+              '  }\n'
+              '};\n' % json.dumps(APEX)
+          )
+          boundary = uuid.uuid4().hex
+          meta = json.dumps({'main_module': 'index.js',
+                             'compatibility_date': '2026-09-01'})
+          parts = (
+              '--%s\r\nContent-Disposition: form-data; name="metadata"\r\n'
+              'Content-Type: application/json\r\n\r\n%s\r\n'
+              '--%s\r\nContent-Disposition: form-data; name="index.js"; filename="index.js"\r\n'
+              'Content-Type: application/javascript+module\r\n\r\n%s\r\n'
+              '--%s--\r\n' % (boundary, meta, boundary, worker, boundary)
+          ).encode()
+          code, body = call('PUT', '/accounts/%s/workers/scripts/%s' % (acct, SCRIPT),
+                            raw=parts, ctype='multipart/form-data; boundary=' + boundary)
+          if code not in (200, 201):
+              die('Uploading the redirect Worker failed (HTTP %s; %s). Nothing is bound; the zone is unchanged.'
+                  % (code, codes(body)))
+          say('uploaded the redirect Worker (%d bytes of script)' % len(worker))
+
+          # ---- apply: the route -----------------------------------------------------------------------------
+          if clash:
+              say('a route already covers %s; not adding a second one beside it. Two routes on one pattern is '
+                  'ambiguous and this workflow will not create that.' % WWW)
+          else:
+              code, body = call('POST', '/zones/%s/workers/routes' % zone_id,
+                                {'pattern': WWW + '/*', 'script': SCRIPT})
+              if code not in (200, 201):
+                  die('Binding the route failed (HTTP %s; %s). The Worker exists but nothing routes to it, so '
+                      'the zone behaves exactly as before. A 403 here means the token can read routes but not '
+                      'write them, which closes this path.' % (code, codes(body)))
+              say('bound route %s/* -> %s' % (WWW, SCRIPT))
+          PY
+
+      # The fix is only real if the hostname serves. Same probes the smoke workflow runs, same vantage point.
+      - name: Probe what the hostnames serve now
+        if: ${{ inputs.mode == 'apply' }}
+        env:
+          APEX: ${{ inputs.apex }}
+        run: |
+          set -eu
+          sleep 12
+          fail=0
+          for h in "https://$APEX/" "https://www.$APEX/" "http://www.$APEX/" "https://www.$APEX/training/"; do
+            line=$(curl -sS -m 25 -o /tmp/h -w 'HTTP %{http_code} redirect=[%{redirect_url}] tls_verify=%{ssl_verify_result} bytes=%{size_download}' -A 'Mozilla/5.0 (compatible; cf-www-redirect)' "$h" 2>&1 | tail -1)
+            echo "   $h -> $line  title=[$(grep -o '<title>[^<]*' /tmp/h 2>/dev/null | head -1 | sed 's/<title>//')]"
+            case "$line" in HTTP\ 2*|HTTP\ 3*) ;; *) fail=1 ;; esac
+          done
+          [ "$fail" = 0 ] || { echo "::error::A hostname still does not serve. Do not report this as fixed."; exit 1; }
+          echo "every probed hostname serves"
