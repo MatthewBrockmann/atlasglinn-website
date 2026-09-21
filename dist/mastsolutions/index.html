@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="a3591bc431e7">
+<meta name="build" content="cd658a5c36be">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
 <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
@@ -2115,7 +2115,17 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('pol
   const go = () => { const ci = CATS.indexOf(COURSES[i].cat), cat = $('cat-' + ci); if (cat && !cat.classList.contains('open')) toggleCat(ci);
     const s6 = document.getElementById('s6'); if (s6) s6.scrollIntoView({ block: 'start' });
     if (window.mastTrack) mastTrack('deep_link', COURSES[i].name, COURSES[i].sku);
-    selectCourse(i); };
+    /* Dispatch exactly as the catalog row does. The renderer routes a row THREE ways —
+       request:true → requestPrivate, priced → selectCourse, zero-priced → a phone link —
+       and this used to call selectCourse for all of them. So ?course=MAST-PVT-2H opened
+       the waiting list for a course sold BY ARRANGEMENT with no seat price, and with
+       WAITLIST_ALL_DATES off it would have reached the date-and-price flow for a course
+       that has neither. A deep link must not offer a booking the catalog does not. */
+    const c = COURSES[i];
+    if (c.request) requestPrivate(i);
+    else if (c.price_cents) selectCourse(i);
+    /* zero-priced = CALL FOR PRICING: the category is open and the row is on screen,
+       which is the whole of what that row offers. Opening a dialog would invent one. */ };
   const splashOn = () => { const el = document.getElementById('intro-seq'); return !!(el && el.isConnected && !el.classList.contains('done')); };
   const wait = () => { if (splashOn()) { setTimeout(wait, 300); return; } setTimeout(go, 1200); };
   wait();
@@ -2216,6 +2226,15 @@ async function newsSubmit(e){
     const r = await fetch(API + '/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || 'Try again in a moment.');
+    /* A 2xx is NOT proof the address was kept. /subscribe deliberately answers 200 with
+       stored:false when the D1 insert fails, and reports each provider separately in
+       `synced`, so a partial success is kept rather than the whole request lost.
+       Treating every 2xx as success meant that when the insert failed AND no provider
+       took it, the form cleared itself and told the visitor they were on the list while
+       the address was saved nowhere — a lead lost silently, which is the one failure
+       this form cannot afford. Require at least one real destination. */
+    const synced = d.synced && typeof d.synced === 'object' ? Object.values(d.synced) : [];
+    if (!d.stored && !synced.some(v => v === 'synced')) throw new Error('We could not save that address.');
     say('You are on the list. The next dates email is the first thing you get.');
     $('news-email').value = ''; $('news-consent').checked = false;
   } catch (err) { say(err.message + ' Or email atlasglinn.hq@atlasglinn.com.', true); }

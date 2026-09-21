@@ -2597,7 +2597,7 @@ console.log('\n── The pending-sign-up statements against a real SQL engine (
 
 console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect data - and much more") ──');
 {
-  const { buildProfiles, audienceCsv, md5, nextCourse, mailchimpOnPayment, runJourneys, journeyText, participantLines, _resetSchemaMemo } = await import('./src/crm.js');
+  const { buildProfiles, audienceCsv, md5, nextCourse, mailchimpOnPayment, mailchimpUpsert, brevoUpsert, runJourneys, journeyText, participantLines, _resetSchemaMemo } = await import('./src/crm.js');
   const { directionsAttachment, directionsPdf, DIRECTIONS_FILENAME } = await import('./src/directions.js');
   const { createHash } = await import('node:crypto');
   _resetSchemaMemo();
@@ -2662,12 +2662,53 @@ console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect da
   const envMc = { ...env, MAILCHIMP_API_KEY: 'abc123-us21', MAILCHIMP_AUDIENCE_ID: 'list9' };
   const sync = await (await worker.fetch(new Request('https://api.test/admin/sync', { method: 'POST', headers: { 'X-Admin-Key': 'super-secret-admin-key' } }), envMc, ctx)).json();
   const annCall = mailchimpCalls.find(c => c.url.endsWith('/' + createHash('md5').update('ann@example.com').digest('hex')));
-  ok('sync → PUT per opted-in profile at us21.api.mailchimp.com/3.0/lists/list9/members/<md5>, FNAME/LNAME/SEGMENT/LASTCLASS + tags, none for Lee', sync.configured && sync.ok === 2 && annCall && /us21\.api\.mailchimp\.com\/3\.0\/lists\/list9\/members\//.test(annCall.url) && annCall.method === 'PUT' && annCall.body.merge_fields.FNAME === 'Ann' && annCall.body.merge_fields.LASTCLASS === 'Handgun Fundamentals' && annCall.body.tags.includes('MAST-HG-FUND') && !mailchimpCalls.some(c => c.url.endsWith('/' + createHash('md5').update('lee@example.com').digest('hex'))), JSON.stringify(sync) + ' ' + JSON.stringify(annCall || {}).slice(0, 200));
-  const sdUs = sd.slice(5, 7) + '/' + sd.slice(8, 10) + '/' + sd.slice(0, 4);
+  ok('sync → PUT per opted-in profile at us21.api.mailchimp.com/3.0/lists/list9/members/<md5>, FNAME/LNAME/SEGMENT + tags, none for Lee', sync.configured && sync.ok === 2 && annCall && /us21\.api\.mailchimp\.com\/3\.0\/lists\/list9\/members\//.test(annCall.url) && annCall.method === 'PUT' && annCall.body.merge_fields.FNAME === 'Ann' && annCall.body.tags.includes('MAST-HG-FUND') && !mailchimpCalls.some(c => c.url.endsWith('/' + createHash('md5').update('lee@example.com').digest('hex'))), JSON.stringify(sync) + ' ' + JSON.stringify(annCall || {}).slice(0, 200));
   const newsCall = mailchimpCalls.find(c => c.url.endsWith('/' + createHash('md5').update('news@example.com').digest('hex')));
-  ok('… Ann carries LASTDATE as MM/DD/YYYY (the audience date field\'s format); Newsy, no class and no answers, carries no LASTDATE / INTEREST / LEVEL key at all — a blank dropdown or date is a Mailchimp validation error',
-     annCall && annCall.body.merge_fields.LASTDATE === sdUs && newsCall && !('LASTDATE' in newsCall.body.merge_fields) && !('INTEREST' in newsCall.body.merge_fields) && !('LEVEL' in newsCall.body.merge_fields),
+  /* CHANGED 2026-09-21 — this assertion used to require Ann's LASTDATE to equal `sd`, and that was
+     asserting a BUG rather than a behaviour. `sd` is 2026-09-26: a date in the FUTURE that Ann has
+     BOOKED and has not attended. The old code took the final element of the chronologically sorted
+     `classes` array, so it published a future session as her last attended class, and this test
+     locked that in. Codex flagged it on PR #114 and it is real: LASTDATE is the field every
+     "last attended" segment and every win-back campaign reads. Ann has attended nothing, so she
+     must carry NO LASTDATE and an EMPTY LASTCLASS — her MAST-HG-FUND tag still comes from the
+     booking, which is correct, because a tag records registration and LASTDATE records attendance. */
+  ok('… Ann has only BOOKED (session_date is in the future), so she carries no LASTDATE key and an empty LASTCLASS; Newsy, no class and no answers, carries no LASTDATE / INTEREST / LEVEL key at all — a blank dropdown or date is a Mailchimp validation error',
+     annCall && !('LASTDATE' in annCall.body.merge_fields) && annCall.body.merge_fields.LASTCLASS === '' && Date.parse(sd) > Date.now() && newsCall && !('LASTDATE' in newsCall.body.merge_fields) && !('INTEREST' in newsCall.body.merge_fields) && !('LEVEL' in newsCall.body.merge_fields),
      JSON.stringify((annCall || {}).body && annCall.body.merge_fields) + ' ' + JSON.stringify((newsCall || {}).body && newsCall.body.merge_fields));
+
+  /* LASTCLASS/LASTDATE are the last class ATTENDED, never the next one BOOKED (Codex P2 on PR #114,
+     fixed 2026-09-21). `p.classes` is sorted chronologically and holds future bookings too, so both
+     upserts used to take its final element: a customer who had trained once and booked again had
+     their attendance date overwritten with a session they had not attended yet. Everything built on
+     "last attended" then aimed at the wrong people — a win-back campaign would skip precisely the
+     lapsed customers it exists to reach. The bug was in mailchimpUpsert AND brevoUpsert; audienceCsv
+     always had it right, which is what made the inconsistency findable. */
+  mailchimpCalls.length = 0;
+  const trainedThenBooked = { email: 'both@example.com', name: 'Both Ways', opt_in: 1, segment: 'customer',
+    last_class_date: '2026-01-15', next_class_date: '2099-06-01', flags: [],
+    classes: [{ sku: 'MAST-HG-FUND', name: 'Handgun Fundamentals', date: '2026-01-15' },
+              { sku: 'MAST-CQB-1', name: 'CQB P1', date: '2099-06-01' }] };
+  await mailchimpUpsert(envMc, trainedThenBooked);
+  const bothCall = mailchimpCalls.find(c => c.url.endsWith('/' + createHash('md5').update('both@example.com').digest('hex')));
+  ok('a customer who trained once and has booked again carries the ATTENDED class, not the upcoming one (LASTDATE 01/15/2026, LASTCLASS Handgun Fundamentals — never CQB P1)',
+     bothCall && bothCall.body.merge_fields.LASTDATE === '01/15/2026' && bothCall.body.merge_fields.LASTCLASS === 'Handgun Fundamentals',
+     JSON.stringify((bothCall || {}).body && bothCall.body.merge_fields));
+
+  mailchimpCalls.length = 0;
+  const bookedOnly = { email: 'soon@example.com', name: 'Not Yet', opt_in: 1, segment: 'lead',
+    last_class_date: null, next_class_date: '2099-06-01', flags: [],
+    classes: [{ sku: 'MAST-CQB-1', name: 'CQB P1', date: '2099-06-01' }] };
+  await mailchimpUpsert(envMc, bookedOnly);
+  const soonCall = mailchimpCalls.find(c => c.url.endsWith('/' + createHash('md5').update('soon@example.com').digest('hex')));
+  ok('… and someone who has only booked, never attended, carries no LASTDATE key and an empty LASTCLASS — a future date here would read as attendance that never happened',
+     soonCall && !('LASTDATE' in soonCall.body.merge_fields) && soonCall.body.merge_fields.LASTCLASS === '',
+     JSON.stringify((soonCall || {}).body && soonCall.body.merge_fields));
+
+  ok('… and Brevo, which carried the identical bug, agrees: LASTCLASS is the attended class',
+     (await brevoUpsert({ ...envMc, BREVO_API_KEY: 'xkeysib-test', BREVO_LIST_ID: '7' }, trainedThenBooked)) &&
+     brevoCalls.some(c => c.body && c.body.attributes && c.body.attributes.LASTCLASS === 'Handgun Fundamentals' && c.body.email === 'both@example.com'),
+     JSON.stringify(brevoCalls.slice(-1)).slice(0, 240));
+
   mailchimpCalls.length = 0;
   ok('syncOnPayment: opted-in → one Mailchimp upsert; not opted-in → lists skipped', (await mailchimpOnPayment(envMc, { ...annReg, newsletter_opt_in: 1 }, { customer_email: 'ann@example.com', amount_total: 22500 })).mailchimp.ok && mailchimpCalls.length === 1 && (await mailchimpOnPayment(envMc, { ...annReg, newsletter_opt_in: 0 }, {})).lists === 'not_opted_in' && mailchimpCalls.length === 1);
   ok('md5 matches Node for the member id', md5('Ann@Example.com') === createHash('md5').update('Ann@Example.com').digest('hex'));

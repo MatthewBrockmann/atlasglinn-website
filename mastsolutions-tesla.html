@@ -1453,7 +1453,17 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('pol
   const go = () => { const ci = CATS.indexOf(COURSES[i].cat), cat = $('cat-' + ci); if (cat && !cat.classList.contains('open')) toggleCat(ci);
     const s6 = document.getElementById('s6'); if (s6) s6.scrollIntoView({ block: 'start' });
     if (window.mastTrack) mastTrack('deep_link', COURSES[i].name, COURSES[i].sku);
-    selectCourse(i); };
+    /* Dispatch exactly as the catalog row does. The renderer routes a row THREE ways —
+       request:true → requestPrivate, priced → selectCourse, zero-priced → a phone link —
+       and this used to call selectCourse for all of them. So ?course=MAST-PVT-2H opened
+       the waiting list for a course sold BY ARRANGEMENT with no seat price, and with
+       WAITLIST_ALL_DATES off it would have reached the date-and-price flow for a course
+       that has neither. A deep link must not offer a booking the catalog does not. */
+    const c = COURSES[i];
+    if (c.request) requestPrivate(i);
+    else if (c.price_cents) selectCourse(i);
+    /* zero-priced = CALL FOR PRICING: the category is open and the row is on screen,
+       which is the whole of what that row offers. Opening a dialog would invent one. */ };
   const splashOn = () => { const el = document.getElementById('intro-seq'); return !!(el && el.isConnected && !el.classList.contains('done')); };
   const wait = () => { if (splashOn()) { setTimeout(wait, 300); return; } setTimeout(go, 1200); };
   wait();

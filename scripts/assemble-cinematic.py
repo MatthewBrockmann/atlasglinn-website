@@ -628,6 +628,15 @@ async function newsSubmit(e){
     const r = await fetch(API + '/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || 'Try again in a moment.');
+    /* A 2xx is NOT proof the address was kept. /subscribe deliberately answers 200 with
+       stored:false when the D1 insert fails, and reports each provider separately in
+       `synced`, so a partial success is kept rather than the whole request lost.
+       Treating every 2xx as success meant that when the insert failed AND no provider
+       took it, the form cleared itself and told the visitor they were on the list while
+       the address was saved nowhere — a lead lost silently, which is the one failure
+       this form cannot afford. Require at least one real destination. */
+    const synced = d.synced && typeof d.synced === 'object' ? Object.values(d.synced) : [];
+    if (!d.stored && !synced.some(v => v === 'synced')) throw new Error('We could not save that address.');
     say('You are on the list. The next dates email is the first thing you get.');
     $('news-email').value = ''; $('news-consent').checked = false;
   } catch (err) { say(err.message + ' Or email atlasglinn.hq@atlasglinn.com.', true); }
