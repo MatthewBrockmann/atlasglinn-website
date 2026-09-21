@@ -1,0 +1,248 @@
+# R3″ — repair www.atlasglinn.com after the nameserver cutover.
+#
+# WHAT BROKE, MEASURED 2026-09-21 22:13 UTC from a GitHub runner (this is the only vantage point that can reach the
+# domain; the agent sandbox's egress proxy answers 000/403 for it, so every claim here comes from smoke-worker):
+#   https://atlasglinn.com/      -> HTTP 200, a real WordPress page, TLS verified
+#   https://www.atlasglinn.com/  -> HTTP 403, title "DNS points to prohibited IP | www.atlasglinn.com | Cloudflare"
+#   http://www.atlasglinn.com/   -> HTTP 403, same
+#
+# "DNS points to prohibited IP" is Cloudflare error 1000: a record in the zone points at an address inside
+# Cloudflare's OWN published ranges. The import that moved this zone into Brockmann's account swept the records from
+# the domain's authoritative nameservers at GoDaddy — and GoDaddy's edge in front of this site WAS ITSELF Cloudflare,
+# so what the sweep read back at www was a Cloudflare anycast address, not an origin. That value is legitimate inside
+# GoDaddy's Cloudflare account and refused inside his. The apex escaped it because the apex row carried the real
+# origin address, which is why one hostname serves and the other 403s.
+#
+# THE FIX IS ONE RECORD: www becomes a PROXIED CNAME to the apex, so it inherits whatever the apex points at and
+# cannot drift from it again. A grey-cloud CNAME would resolve straight back to the apex's Cloudflare address and
+# reproduce error 1000, so proxied is not a preference here.
+#
+# THIS LOG IS PUBLIC — MatthewBrockmann/atlasglinn-website is a public repository, and the Actions log and step
+# summary of a public repo are world-readable with no account. NO RECORD CONTENT IS EVER PRINTED: not the origin
+# address the apex carries (hiding it is the entire point of the WAF work this unblocks), not the value being
+# deleted, not a Cloudflare error message string, which is vendor text that can quote a record. Every line is built
+# from names, types, counts, booleans and Cloudflare's NUMERIC error codes.
+#
+# NOTHING IS DELETED THAT WAS NOT PROVEN TO BE THE FAULT. apply refuses to remove an A or AAAA at www unless its
+# content parses as an address AND falls inside the ranges Cloudflare publishes at /client/v4/ips, fetched live in
+# the same run. A www record pointing at a real origin is not this bug and is left alone — the run fails instead, so
+# a wrong diagnosis cannot take a working record with it.
+#
+# plan writes nothing. Dispatch plan, read it, then dispatch apply.
+name: cf-fix-www
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: The zone whose www record is being repaired
+        required: false
+        default: atlasglinn.com
+      mode:
+        description: "plan = read the zone and report what is wrong, change nothing. apply = delete the Cloudflare-space A/AAAA rows at www and create a proxied CNAME www -> apex, then re-probe the site."
+        required: false
+        default: plan
+        type: choice
+        options:
+          - plan
+          - apply
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cf-fix-www
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read the zone, decide, and (in apply mode) repair www
+        env:
+          CF_TOKEN: ${{ secrets.CF_ZONE_TOKEN || secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN || secrets.CLOUDFLARE_TOKEN }}
+          DOMAIN: ${{ inputs.domain }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -eu
+          if [ -z "${CF_TOKEN:-}" ]; then
+            echo "::error::No Cloudflare token reached this job. Settings -> Secrets and variables -> Actions -> Repository secrets, named CF_ZONE_TOKEN, carrying Zone:DNS:Edit for the account. The zone token minted for the R3' import was meant to be deleted at Cloudflare after the cutover, so it is expected to be gone; mint a fresh one scoped to THIS ZONE ONLY (Zone:DNS:Edit on atlasglinn.com), which is a far narrower token than the import needed, and delete it again when this run is green."
+            exit 1
+          fi
+          python3 - <<'PY'
+          import ipaddress, json, os, sys, urllib.error, urllib.request
+
+          API = os.environ.get('CF_API_BASE', 'https://api.cloudflare.com/client/v4')
+          TOKEN, DOMAIN, MODE = os.environ['CF_TOKEN'], os.environ['DOMAIN'], os.environ['MODE']
+          summary = open(os.environ.get('GITHUB_STEP_SUMMARY', '/dev/null'), 'a')
+
+          def say(line):
+              print(line)
+              summary.write(line.replace('::error::', '**ERROR** ') + '\n\n')
+
+          def die(line):
+              say('::error::' + line)
+              sys.exit(1)
+
+          def call(method, path, payload=None, auth=True):
+              """Returns (http_code, parsed_body). Never raises on an HTTP error status."""
+              req = urllib.request.Request(API + path, method=method)
+              if auth:
+                  req.add_header('Authorization', 'Bearer ' + TOKEN)
+              data = None
+              if payload is not None:
+                  data = json.dumps(payload).encode()
+                  req.add_header('Content-Type', 'application/json')
+              try:
+                  with urllib.request.urlopen(req, data, timeout=30) as r:
+                      return r.status, json.loads(r.read().decode('utf-8', 'replace'))
+              except urllib.error.HTTPError as e:
+                  try:
+                      return e.code, json.loads(e.read().decode('utf-8', 'replace'))
+                  except Exception:
+                      return e.code, {}
+              except Exception as e:
+                  return 0, {'errors': [{'code': 'transport: %s' % type(e).__name__}]}
+
+          def codes(body):
+              # The ONLY place a Cloudflare failure reaches this public log. Message strings can quote record content,
+              # so only the numeric codes survive; the codes are what the docs are indexed by.
+              out = []
+              for e in (body.get('errors') or []) if isinstance(body, dict) else []:
+                  c = e.get('code') if isinstance(e, dict) else None
+                  out.append(str(c))
+              return ', '.join(out) if out else 'no error code in the body'
+
+          # ---- the zone -------------------------------------------------------------------------------------
+          code, body = call('GET', '/zones?name=%s&per_page=5' % DOMAIN)
+          if code != 200:
+              die('Could not list zones (HTTP %s; %s). If this is 403 the token lacks Zone:Read for this account.' % (code, codes(body)))
+          zones = body.get('result') or []
+          if len(zones) != 1:
+              die('Expected exactly one zone named %s, the account returned %d. Refusing to guess which one to edit.' % (DOMAIN, len(zones)))
+          zone_id, zone_status = zones[0]['id'], zones[0].get('status')
+          say('zone %s: status=%s' % (DOMAIN, zone_status))
+
+          # ---- every record, read WHOLE (a page is not a zone) ----------------------------------------------
+          code, body = call('GET', '/zones/%s/dns_records?per_page=100' % zone_id)
+          if code != 200:
+              die('Could not read the zone records (HTTP %s; %s). A 403 here means the token has no DNS permission on this zone.' % (code, codes(body)))
+          records = body.get('result') or []
+          total = ((body.get('result_info') or {}).get('total_count'))
+          if not isinstance(total, int):
+              die('Cloudflare did not report result_info.total_count, so this read cannot be shown to have covered the whole zone. Nothing was changed.')
+          if total > len(records):
+              die('The zone holds %d records and one page returned %d. A record judged "absent" might merely be on page two, and this workflow writes. Nothing was changed.' % (total, len(records)))
+          say('records read: %d of %d reported' % (len(records), total))
+
+          # ---- Cloudflare's own address space, fetched live -------------------------------------------------
+          code, body = call('GET', '/ips', auth=False)
+          if code != 200:
+              die('Could not fetch Cloudflare\'s published IP ranges (HTTP %s). Without them this run cannot PROVE a record points into Cloudflare space, and it will not delete a record on a guess.' % code)
+          res = body.get('result') or {}
+          nets = []
+          for cidr in (res.get('ipv4_cidrs') or []) + (res.get('ipv6_cidrs') or []):
+              try:
+                  nets.append(ipaddress.ip_network(cidr))
+              except ValueError:
+                  pass
+          if len(nets) < 10:
+              die('Cloudflare returned only %d usable CIDRs, which is not a plausible answer. Refusing to classify records against it.' % len(nets))
+          say('Cloudflare published ranges: %d CIDRs' % len(nets))
+
+          def in_cf(content):
+              try:
+                  addr = ipaddress.ip_address(content)
+              except ValueError:
+                  return False
+              return any(addr in n for n in nets)
+
+          www, apex = 'www.' + DOMAIN, DOMAIN
+          www_recs = [r for r in records if r.get('name') == www]
+          apex_recs = [r for r in records if r.get('name') == apex]
+
+          def describe(rs, label):
+              if not rs:
+                  say('%s: no records' % label)
+              for r in rs:
+                  t = r.get('type')
+                  bit = ''
+                  if t in ('A', 'AAAA'):
+                      bit = '  in-cloudflare-space=%s' % ('YES' if in_cf(r.get('content') or '') else 'no')
+                  say('%s: %s  proxied=%s  ttl=%s%s' % (label, t, r.get('proxied'), r.get('ttl'), bit))
+
+          describe(apex_recs, 'apex')
+          describe(www_recs, 'www ')
+
+          # ---- the apex must be a working origin before www is pointed at it --------------------------------
+          apex_origin = [r for r in apex_recs if r.get('type') in ('A', 'AAAA') and not in_cf(r.get('content') or '')]
+          if not apex_origin:
+              die('The apex carries no A/AAAA record pointing OUTSIDE Cloudflare space, so it is not a usable CNAME target and pointing www at it would move the fault rather than fix it. Nothing was changed.')
+          say('apex origin rows (outside Cloudflare space): %d' % len(apex_origin))
+
+          # ---- the fault ------------------------------------------------------------------------------------
+          faulty = [r for r in www_recs if r.get('type') in ('A', 'AAAA') and in_cf(r.get('content') or '')]
+          healthy_addr = [r for r in www_recs if r.get('type') in ('A', 'AAAA') and not in_cf(r.get('content') or '')]
+          cname = [r for r in www_recs if r.get('type') == 'CNAME']
+
+          if healthy_addr:
+              die('www carries %d A/AAAA record(s) pointing outside Cloudflare space. That is not the error-1000 shape this workflow repairs, and deleting it could take down a hostname that is working for a reason nobody here measured. Nothing was changed.' % len(healthy_addr))
+          if not faulty and not cname:
+              die('www carries no A, AAAA or CNAME record at all. The 403 has some other cause; this workflow will not invent a record. Nothing was changed.')
+          if not faulty:
+              say('www is already a CNAME and no Cloudflare-space address rows remain. Nothing to delete.')
+
+          say('diagnosis: %d www address row(s) point into Cloudflare space -> Cloudflare error 1000 "DNS points to prohibited IP"' % len(faulty))
+
+          if MODE != 'apply':
+              say('plan mode: nothing was changed. Re-dispatch with mode=apply to delete those %d row(s) and create a proxied CNAME www -> apex.' % len(faulty))
+              sys.exit(0)
+
+          # ---- apply ----------------------------------------------------------------------------------------
+          # Delete first: Cloudflare refuses a CNAME that would sit beside other data at the same name.
+          for r in faulty:
+              code, body = call('DELETE', '/zones/%s/dns_records/%s' % (zone_id, r['id']))
+              if code != 200:
+                  die('Deleting the %s row at www failed (HTTP %s; %s). Stopping before the CNAME so the zone is not left half-changed.' % (r.get('type'), code, codes(body)))
+              say('deleted: %s at www' % r.get('type'))
+
+          if cname:
+              target_ok = (cname[0].get('content') == apex)
+              if not target_ok:
+                  die('www already has a CNAME pointing at a name that is not the apex. Not overwriting someone else\'s intent. The Cloudflare-space rows above were removed; re-run plan to see the zone as it now stands.')
+              if not cname[0].get('proxied'):
+                  code, body = call('PATCH', '/zones/%s/dns_records/%s' % (zone_id, cname[0]['id']), {'proxied': True})
+                  if code != 200:
+                      die('Could not turn the proxy on for the existing www CNAME (HTTP %s; %s). Grey-cloud it resolves to the apex\'s Cloudflare address and reproduces error 1000.' % (code, codes(body)))
+                  say('existing www CNAME: proxy turned on')
+              else:
+                  say('existing www CNAME already proxied at the apex; nothing more to do')
+          else:
+              code, body = call('POST', '/zones/%s/dns_records' % zone_id,
+                                {'type': 'CNAME', 'name': www, 'content': apex, 'proxied': True, 'ttl': 1,
+                                 'comment': 'www follows the apex; set by cf-fix-www after the R3 cutover'})
+              if code not in (200, 201):
+                  die('Creating the www CNAME failed (HTTP %s; %s). The Cloudflare-space rows above WERE deleted, so www has no record right now — re-run apply once the cause is clear.' % (code, codes(body)))
+              say('created: CNAME www -> apex, proxied')
+
+          say('www repaired in the zone. DNS at the edge is immediate for a proxied record; the check below is the proof.')
+          PY
+
+      # The repair is only real if the hostname serves. Same three probes smoke-worker runs, from the same vantage
+      # point, so this run's answer is comparable to the measurement that opened the case.
+      - name: Probe what both hostnames serve now
+        if: ${{ inputs.mode == 'apply' }}
+        env:
+          DOMAIN: ${{ inputs.domain }}
+        run: |
+          set -eu
+          sleep 10
+          fail=0
+          for h in "https://$DOMAIN/" "https://www.$DOMAIN/" "http://www.$DOMAIN/"; do
+            line=$(curl -sS -m 25 -o /tmp/h -w 'HTTP %{http_code} redirect=[%{redirect_url}] tls_verify=%{ssl_verify_result} bytes=%{size_download}' -A 'Mozilla/5.0 (compatible; cf-fix-www)' "$h" 2>&1 | tail -1)
+            title=$(grep -o '<title>[^<]*' /tmp/h 2>/dev/null | head -1 | sed 's/<title>//')
+            echo "   $h -> $line  title=[$title]"
+            case "$line" in HTTP\ 2*|HTTP\ 3*) ;; *) fail=1 ;; esac
+          done
+          [ "$fail" = 0 ] || { echo "::error::A hostname still does not serve. The zone edit landed but the site did not come back; do not close this out."; exit 1; }
+          echo "both hostnames serve"
