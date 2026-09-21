@@ -2664,17 +2664,34 @@ console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect da
   const annCall = mailchimpCalls.find(c => c.url.endsWith('/' + createHash('md5').update('ann@example.com').digest('hex')));
   ok('sync → PUT per opted-in profile at us21.api.mailchimp.com/3.0/lists/list9/members/<md5>, FNAME/LNAME/SEGMENT + tags, none for Lee', sync.configured && sync.ok === 2 && annCall && /us21\.api\.mailchimp\.com\/3\.0\/lists\/list9\/members\//.test(annCall.url) && annCall.method === 'PUT' && annCall.body.merge_fields.FNAME === 'Ann' && annCall.body.tags.includes('MAST-HG-FUND') && !mailchimpCalls.some(c => c.url.endsWith('/' + createHash('md5').update('lee@example.com').digest('hex'))), JSON.stringify(sync) + ' ' + JSON.stringify(annCall || {}).slice(0, 200));
   const newsCall = mailchimpCalls.find(c => c.url.endsWith('/' + createHash('md5').update('news@example.com').digest('hex')));
-  /* CHANGED 2026-09-21 — this assertion used to require Ann's LASTDATE to equal `sd`, and that was
-     asserting a BUG rather than a behaviour. `sd` is 2026-09-26: a date in the FUTURE that Ann has
-     BOOKED and has not attended. The old code took the final element of the chronologically sorted
-     `classes` array, so it published a future session as her last attended class, and this test
-     locked that in. Codex flagged it on PR #114 and it is real: LASTDATE is the field every
-     "last attended" segment and every win-back campaign reads. Ann has attended nothing, so she
-     must carry NO LASTDATE and an EMPTY LASTCLASS — her MAST-HG-FUND tag still comes from the
-     booking, which is correct, because a tag records registration and LASTDATE records attendance. */
-  ok('… Ann has only BOOKED (session_date is in the future), so she carries no LASTDATE key and an empty LASTCLASS; Newsy, no class and no answers, carries no LASTDATE / INTEREST / LEVEL key at all — a blank dropdown or date is a Mailchimp validation error',
-     annCall && !('LASTDATE' in annCall.body.merge_fields) && annCall.body.merge_fields.LASTCLASS === '' && Date.parse(sd) > Date.now() && newsCall && !('LASTDATE' in newsCall.body.merge_fields) && !('INTEREST' in newsCall.body.merge_fields) && !('LEVEL' in newsCall.body.merge_fields),
-     JSON.stringify((annCall || {}).body && annCall.body.merge_fields) + ' ' + JSON.stringify((newsCall || {}).body && newsCall.body.merge_fields));
+  /* CHANGED 2026-09-21 — this assertion used to require Ann's LASTDATE to equal `sd`, which asserted
+     a BUG rather than a behaviour: `sd` is a date Ann has BOOKED and not attended, and the old code
+     published it as her last attended class. Codex flagged it on PR #114.
+
+     It is now written as an INVARIANT rather than an expectation, because the obvious rewrite —
+     "Ann has no attendance, so assert no LASTDATE" — is itself a time bomb. Ann's fixture date is
+     FIRST_WEEKEND = 2026-10-10; on that date `buildProfiles` starts classifying her booking as PAST,
+     she acquires a last_class_date, and any assertion pinned to "absent" goes red for reasons that
+     have nothing to do with the code. This repo has already been bitten by exactly that (main's
+     daily-window block was red from ~09-12 on wall-clock-vs-fixed-date drift, fixed in #114).
+
+     So this asserts what is true on EVERY date, for the AUTHORITATIVE path these two profiles come
+     down (/admin/sync → syncAudience, which builds from every order, registration and contact):
+     LASTCLASS is ALWAYS stated — the attended class when there is one, '' to clear when there is
+     not — and LASTDATE is present exactly when LASTCLASS names a class. Whichever side of
+     2026-10-10 the suite runs on, one of those two shapes holds.
+
+     The '' is deliberate here and forbidden on the payment path, which is the distinction Codex
+     raised as the P2 on #117: an authoritative sync that finds no attendance is reporting a fact
+     and must clear a stale value, while syncOnPayment merely did not load the history and must say
+     nothing. The precise attended-vs-booked semantics are pinned by the clock-free profiles below,
+     which set last_class_date explicitly instead of inferring it from today. */
+  const annMF = (annCall && annCall.body.merge_fields) || {};
+  const newsMF = (newsCall && newsCall.body.merge_fields) || {};
+  const authoritativeShape = (mf) => 'LASTCLASS' in mf && (('LASTDATE' in mf) === (mf.LASTCLASS !== ''));
+  ok('… on the authoritative /admin/sync path LASTCLASS is always stated (the attended class, or \'\' to clear a stale one) and LASTDATE is present exactly when LASTCLASS names a class — true on either side of the fixture date; Newsy, no class and no answers, carries no INTEREST / LEVEL key at all — a blank dropdown is a Mailchimp validation error',
+     annCall && authoritativeShape(annMF) && newsCall && authoritativeShape(newsMF) && !('INTEREST' in newsMF) && !('LEVEL' in newsMF),
+     JSON.stringify(annMF) + ' ' + JSON.stringify(newsMF));
 
   /* LASTCLASS/LASTDATE are the last class ATTENDED, never the next one BOOKED (Codex P2 on PR #114,
      fixed 2026-09-21). `p.classes` is sorted chronologically and holds future bookings too, so both
@@ -2700,9 +2717,33 @@ console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect da
     classes: [{ sku: 'MAST-CQB-1', name: 'CQB P1', date: '2099-06-01' }] };
   await mailchimpUpsert(envMc, bookedOnly);
   const soonCall = mailchimpCalls.find(c => c.url.endsWith('/' + createHash('md5').update('soon@example.com').digest('hex')));
-  ok('… and someone who has only booked, never attended, carries no LASTDATE key and an empty LASTCLASS — a future date here would read as attendance that never happened',
-     soonCall && !('LASTDATE' in soonCall.body.merge_fields) && soonCall.body.merge_fields.LASTCLASS === '',
+  /* Both keys ABSENT, not empty. Codex P1 on #116: `syncOnPayment` builds its profile from the one
+     registration being paid for, never the customer's history, so a RETURNING customer paying for a
+     future booking arrives here with last_class_date null. Sending LASTCLASS:'' would then erase the
+     real attendance record that /admin/sync had published — a destructive write dressed as a sync.
+     An omitted merge field leaves the stored value alone; that difference is the whole fix. */
+  ok('… and someone with no attended class carries NEITHER key — an omitted merge field preserves what Mailchimp holds, an empty one erases it, and the payment path routinely sends partial profiles',
+     soonCall && !('LASTDATE' in soonCall.body.merge_fields) && !('LASTCLASS' in soonCall.body.merge_fields),
      JSON.stringify((soonCall || {}).body && soonCall.body.merge_fields));
+
+  /* The P2 Codex raised on #117, pinned as one assertion: the SAME profile must produce OPPOSITE
+     output depending on who is asking. Omitting globally fixed the payment path and broke the full
+     sync — a customer whose attendance record was corrected or refunded could never have the stale
+     value cleared. Neither behaviour is right on its own; the caller is what decides, so the test
+     exercises both with identical input. */
+  mailchimpCalls.length = 0;
+  await mailchimpUpsert(envMc, bookedOnly);                            // partial — must stay silent
+  await mailchimpUpsert(envMc, bookedOnly, { authoritative: true });   // full sync — must clear
+  const [partialCall, fullCall] = mailchimpCalls;
+  ok('the same never-attended profile sends NO LASTCLASS from a partial sync and LASTCLASS:\'\' from an authoritative one — silence preserves, empty clears, and only a full sync has standing to say a customer has not attended',
+     partialCall && fullCall && !('LASTCLASS' in partialCall.body.merge_fields) && fullCall.body.merge_fields.LASTCLASS === '',
+     JSON.stringify((partialCall || {}).body && partialCall.body.merge_fields) + ' vs ' + JSON.stringify((fullCall || {}).body && fullCall.body.merge_fields));
+
+  ok('… and an authoritative sync for a customer who HAS attended still names the class, so clearing never costs a real value',
+     await mailchimpUpsert(envMc, trainedThenBooked, { authoritative: true }) &&
+     mailchimpCalls.slice(-1)[0].body.merge_fields.LASTCLASS === 'Handgun Fundamentals' &&
+     mailchimpCalls.slice(-1)[0].body.merge_fields.LASTDATE === '01/15/2026',
+     JSON.stringify(mailchimpCalls.slice(-1)[0].body.merge_fields));
 
   ok('… and Brevo, which carried the identical bug, agrees: LASTCLASS is the attended class',
      (await brevoUpsert({ ...envMc, BREVO_API_KEY: 'xkeysib-test', BREVO_LIST_ID: '7' }, trainedThenBooked)) &&
@@ -2711,6 +2752,25 @@ console.log('\n── CRM + marketing (owner, 2026-09-06: "CRM should collect da
 
   mailchimpCalls.length = 0;
   ok('syncOnPayment: opted-in → one Mailchimp upsert; not opted-in → lists skipped', (await mailchimpOnPayment(envMc, { ...annReg, newsletter_opt_in: 1 }, { customer_email: 'ann@example.com', amount_total: 22500 })).mailchimp.ok && mailchimpCalls.length === 1 && (await mailchimpOnPayment(envMc, { ...annReg, newsletter_opt_in: 0 }, {})).lists === 'not_opted_in' && mailchimpCalls.length === 1);
+  /* The exact path Codex's P1 named. `syncOnPayment` builds its profile from the ONE registration
+     being paid for — never the customer's history — so a returning customer's attendance is simply
+     absent here, not contradicted. The upsert must therefore stay SILENT about attendance rather
+     than assert emptiness: sending LASTCLASS:'' on a real payment would erase, at Mailchimp, the
+     attendance record that /admin/sync had correctly published. A destructive write disguised as a
+     routine sync, fired by every paid booking. */
+  /* The fixture date is 2099 ON PURPOSE. My first attempt at this assertion reused Ann's booking and
+     asserted "no LASTCLASS" — which is only true while her fixture date is still in the future. Run
+     the suite after it passes and `buildProfiles` correctly reclassifies the booking as attended, the
+     upsert correctly sends LASTCLASS, and the assertion fails for no reason at all. That is precisely
+     the wall-clock defect Codex raised about the assertion above, reproduced by me one screen later.
+     A date no run will ever reach makes "this customer has not attended" true on every date. */
+  mailchimpCalls.length = 0;
+  await mailchimpOnPayment(envMc, { ...annReg, customer_email: 'future@example.com', session_date: '2099-06-01', newsletter_opt_in: 1 },
+                           { customer_email: 'future@example.com', amount_total: 22500 });
+  const payCall = mailchimpCalls[0];
+  ok('a payment-path upsert for a not-yet-attended booking sends NO LASTCLASS and NO LASTDATE — syncOnPayment builds its profile from the one registration being paid, never the history, so silence preserves what Mailchimp holds while emptiness would erase it',
+     payCall && !('LASTCLASS' in payCall.body.merge_fields) && !('LASTDATE' in payCall.body.merge_fields),
+     JSON.stringify((payCall || {}).body && payCall.body.merge_fields));
   ok('md5 matches Node for the member id', md5('Ann@Example.com') === createHash('md5').update('Ann@Example.com').digest('hex'));
   // Brevo (opted-in only) and HubSpot (every profile: a CRM record is a business record; consent is a separate matter)
   hubspotCalls.length = 0; brevoCalls.length = 0; mailchimpCalls.length = 0;
