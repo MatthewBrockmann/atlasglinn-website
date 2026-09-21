@@ -166,6 +166,15 @@ jobs:
             # R3′ cutover watch (2026-09-21): which nameservers the world sees for atlasglinn.com, at the parent (Verisign, no cache)
             # and at 1.1.1.1 (what a customer's resolver holds). "domaincontrol.com" = still GoDaddy; "ns.cloudflare.com" = switched.
             echo "--- nameservers (atlasglinn.com): parent=$(dig +short +time=5 +tries=1 NS atlasglinn.com @a.gtld-servers.net 2>/dev/null | sort | tr '\n' ' ') resolver=$(dig +short NS atlasglinn.com @1.1.1.1 2>/dev/null | sort | tr '\n' ' ')"
+            # Both public hostnames over HTTP, with the TLS verify result — added 2026-09-21 after a site alert on
+            # www hours after the Cloudflare nameserver cutover. The DNS lines above say where a name POINTS; they
+            # cannot say whether it SERVES. ssl_verify_result is non-zero when the certificate does not cover the
+            # host, which is the failure mode a nameserver move can expose on a host whose cert was renewed by the
+            # old provider's DNS validation.
+            echo "--- what the two public hostnames actually serve"
+            for h in https://atlasglinn.com/ https://www.atlasglinn.com/ http://www.atlasglinn.com/; do
+              echo "   $h -> $(curl -sS -m 25 -o /tmp/h -w 'HTTP %{http_code} redirect=[%{redirect_url}] tls_verify=%{ssl_verify_result} bytes=%{size_download}' -A 'Mozilla/5.0 (compatible; smoke-worker)' "$h" 2>&1 | tail -1)  title=[$(grep -o '<title>[^<]*' /tmp/h 2>/dev/null | head -1 | sed 's/<title>//')]"
+            done
             NS1="$(dig +short NS mastsolutions.com @1.1.1.1 | head -1)"; NS1="${NS1:-ns27.domaincontrol.com}"
             echo "--- mail DNS (mastsolutions.com), asked at $NS1 (authoritative)"
             # A / CNAME rows first (2026-09-07, "when I use www.mastsolutions.com it should be that url"): where the two hosts point today.
