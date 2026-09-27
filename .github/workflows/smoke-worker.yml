@@ -208,7 +208,63 @@ jobs:
                 done
               fi
             done
-            echo "   (no v=spf1 … include:spf.protection.outlook.com on the apex TXT = Microsoft 365 mail from @mastsolutions.com is unauthenticated; two v=spf1 rows on send. = SPF permerror for Resend's envelope)"
+            # MAIL AUTHENTICATION, MEASURED — replaced 2026-09-27. The line that used to sit here was a FIXED echo that
+            # printed "no include:spf.protection.outlook.com … unauthenticated" on every run whatever the DNS said. It was
+            # never a measurement, and it was read back as one twice: a 09-06 session told the owner to rewrite a correct
+            # SPF, and a 09-22 reply quoted it as a finding. Both domains run Microsoft 365 bought through GoDaddy, so
+            # GoDaddy's include:secureserver.net carries Microsoft's range and GoDaddy's own DKIM selectors sign the mail.
+            # The block above probes Microsoft's selector1/2 names, which is why it reported "not published" for
+            # selectors these tenants never use. What follows asks the questions that decide deliverability: does the SPF
+            # include chain reach Microsoft's range, and do the selectors that actually sign resolve IN THE DOMAIN'S OWN
+            # DNS. The second is what the 2026-09-21 zone import broke for atlasglinn.com without anything noticing.
+            python3 - <<'PY'
+          import subprocess
+          def dig(name, t):
+              try:
+                  out = subprocess.run(['dig', '+short', '+time=5', '+tries=2', t, name, '@1.1.1.1'],
+                                       capture_output=True, text=True, timeout=30).stdout
+              except Exception:
+                  return None
+              return [l.strip().strip('"') for l in out.splitlines() if l.strip()]
+          def spf_reaches(domain, target, depth=0, seen=None):
+              """Walk the include: chain; True if target is reachable, None if a lookup did not answer."""
+              seen = seen if seen is not None else set()
+              if depth > 6 or domain in seen:
+                  return False
+              seen.add(domain)
+              rows = dig(domain, 'TXT')
+              if rows is None:
+                  return None
+              rec = ' '.join(r.replace('" "', '') for r in rows if 'v=spf1' in r)
+              incs = [w.split(':', 1)[1] for w in rec.split() if w.startswith('include:')]
+              if target in incs:
+                  return True
+              unknown = False
+              for inc in incs:
+                  r = spf_reaches(inc, target, depth + 1, seen)
+                  if r:
+                      return True
+                  if r is None:
+                      unknown = True
+              return None if unknown else False
+          print('--- mail authentication, measured at 1.1.1.1')
+          for d in ('atlasglinn.com', 'mastsolutions.com'):
+              r = spf_reaches(d, 'spf.protection.outlook.com')
+              print('   SPF %-18s Microsoft 365 reachable through the include chain: %s'
+                    % (d, {True: 'YES', False: 'NO - Microsoft 365 mail from this domain is not SPF-authorised',
+                           None: 'UNKNOWN - a lookup in the chain did not answer'}[r]))
+              for sel in ('secureserver1', 'secureserver2'):
+                  cname = dig('%s._domainkey.%s' % (sel, d), 'CNAME')
+                  if cname is None:
+                      print('   DKIM %-17s %s._domainkey: lookup did not answer' % (d, sel)); continue
+                  if not cname:
+                      print('   DKIM %-17s %s._domainkey: MISSING from the domain\'s DNS - mail signed with this selector '
+                            'fails DKIM' % (d, sel)); continue
+                  key = dig(cname[0], 'TXT') or []
+                  ok = any('v=DKIM1' in k or 'p=' in k for k in key)
+                  print('   DKIM %-17s %s._domainkey -> %s  key: %s'
+                        % (d, sel, cname[0], 'published' if ok else 'NOT published at the target'))
+          PY
           } | tee out/_worker-smoke.txt
           { echo '```'; cat out/_worker-smoke.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           # The fallback for a body Python could not parse — a Cloudflare 1101, a WAF block page, an HTML 502. It used to
