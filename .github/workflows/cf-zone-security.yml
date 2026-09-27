@@ -1,0 +1,214 @@
+# Turn on the free-plan protections for atlasglinn.com, and land R3 — the wp-login rate limit that has been listed
+# as "a two-minute job" since 2026-06-06 and was never executable until the zone moved into Brockmann's own
+# Cloudflare account on 2026-09-21.
+#
+# AUTHORISED: Brockmann, 2026-09-27, "security go" — his answer to queue row G-42, which set out each change and
+# its risk before he gave it. He also said, 2026-09-21, "i dont have time" and "RULES - cannot add", so nothing here
+# is a dashboard walkthrough. Same approach that fixed the www hostname: measure what the token in this repository
+# can actually write, then write it. Plan mode asks and changes nothing; apply does only what the API accepts and
+# reports every status. Whatever the token cannot do is named in one sentence, not handed back as a click-path.
+#
+# WHAT IT SETS, and why each was decided rather than offered:
+#   leaked credential detection  ON   Detection only. /wp-login.php is reachable, and this flags requests carrying
+#                                     known-breached credentials. No blocking, so no lockout path.
+#   bot fight mode               ON   Challenges simple bots. Verified search crawlers stay exempt, and nothing
+#                                     programmatic lives on this zone (the booking Worker is on workers.dev).
+#   page shield                  ON   Watches third-party scripts on the pages. Observational; no traffic path.
+#   rate limit on the login and  NEW  THE R3 ITEM. The FREE plan fixes this rule's shape, per Cloudflare's rate
+#   xmlrpc paths                      limiting docs read 2026-09-27: one rule, match on Path only, count per IP,
+#                                     a 10-second counting window and a 10-second block. The only free choice is
+#                                     the threshold: 8 requests per 10 seconds. A person signing in makes two or
+#                                     three; a brute-force script at even one attempt a second trips it. And the
+#                                     worst it can do to the owner is make him wait ten seconds — the midnight
+#                                     lockout this row was once gated on cannot happen on this plan's settings.
+#
+# NOTHING HERE CAN TAKE THE SITE DOWN. No DNS record is read or written; nothing touches mail. The rate limit
+# matches two exact paths, so normal page traffic never evaluates against it. Every change reverses with one call,
+# and apply ends by re-probing the apex and both www schemes and FAILS if any stops serving.
+#
+# THIS LOG IS PUBLIC — MatthewBrockmann/atlasglinn-website is a public repository and its Actions logs are
+# world-readable. No DNS record, address or vendor error string is printed; vendor strings can quote record
+# content, so only numeric error codes survive. The two paths in the rule are public knowledge for any WordPress
+# site and are the point of the rule, not a disclosure.
+name: cf-zone-security
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "plan = read each protection's current state and report what this token may do, change nothing. apply = set what the API accepts, then re-probe the site."
+        required: false
+        default: plan
+        type: choice
+        options:
+          - plan
+          - apply
+      apex:
+        description: The zone to protect
+        required: false
+        default: atlasglinn.com
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cf-zone-security
+  cancel-in-progress: false
+
+jobs:
+  secure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Measure each protection, then (in apply mode) set it
+        env:
+          TOK_CF_ZONE_TOKEN: ${{ secrets.CF_ZONE_TOKEN }}
+          TOK_CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TOK_CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          TOK_CLOUDFLARE_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
+          APEX: ${{ inputs.apex }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -eu
+          python3 - <<'PY'
+          import json, os, sys, urllib.error, urllib.request
+
+          API = os.environ.get('CF_API_BASE', 'https://api.cloudflare.com/client/v4')
+          APEX, MODE = os.environ['APEX'], os.environ['MODE']
+          TOKEN = None
+          summary = open(os.environ.get('GITHUB_STEP_SUMMARY', '/dev/null'), 'a')
+
+          def say(line):
+              print(line)
+              summary.write(line.replace('::error::', '**ERROR** ') + '\n\n')
+
+          def call(method, path, payload=None):
+              req = urllib.request.Request(API + path, method=method)
+              req.add_header('Authorization', 'Bearer ' + TOKEN)
+              data = None
+              if payload is not None:
+                  data = json.dumps(payload).encode()
+                  req.add_header('Content-Type', 'application/json')
+              try:
+                  with urllib.request.urlopen(req, data, timeout=45) as r:
+                      return r.status, json.loads(r.read().decode('utf-8', 'replace'))
+              except urllib.error.HTTPError as e:
+                  try:
+                      return e.code, json.loads(e.read().decode('utf-8', 'replace'))
+                  except Exception:
+                      return e.code, {}
+              except Exception as e:
+                  return 0, {'errors': [{'code': 'transport:' + type(e).__name__}]}
+
+          def codes(body):
+              out = [str(e.get('code')) for e in (body.get('errors') or []) if isinstance(e, dict)]
+              return ', '.join(out) if out else 'no error code in the body'
+
+          # ---- a token that is alive for THIS zone, chosen by asking rather than by which secret exists ----
+          cands = [(n[4:], v) for n, v in sorted(os.environ.items()) if n.startswith('TOK_') and v.strip()]
+          if not cands:
+              say('::error::No Cloudflare token secret reached this job.'); sys.exit(1)
+          zone_id, chosen = None, None
+          for name, value in cands:
+              TOKEN = value.strip()
+              code, body = call('GET', '/zones?name=%s&per_page=5' % APEX)
+              say('token %s -> GET /zones HTTP %s%s' % (name, code, '' if code == 200 else ' (%s)' % codes(body)))
+              if code == 200 and len(body.get('result') or []) == 1:
+                  chosen, zone_id = name, body['result'][0]['id']
+                  break
+          if not chosen:
+              say('::error::No token here can read the zone %s. Nothing was attempted.' % APEX); sys.exit(1)
+          TOKEN = dict(cands)[chosen].strip()
+          say('using the token in secret %s' % chosen)
+          say('')
+
+          # ---- the three toggles ----------------------------------------------------------------------------
+          # (path, label, write method, write body, reader of the current value)
+          TOGGLES = [
+              ('/zones/%s/leaked-credential-checks' % zone_id, 'leaked credential detection',
+               'POST', {'enabled': True}, lambda r: (r or {}).get('enabled')),
+              ('/zones/%s/bot_management' % zone_id, 'bot fight mode',
+               'PUT', {'fight_mode': True}, lambda r: (r or {}).get('fight_mode')),
+              ('/zones/%s/page_shield' % zone_id, 'page shield',
+               'PUT', {'enabled': True}, lambda r: (r or {}).get('enabled')),
+          ]
+          did, could_not = [], []
+          for path, label, wmethod, wbody, reader in TOGGLES:
+              rcode, rbody = call('GET', path)
+              current = reader(rbody.get('result')) if rcode == 200 else None
+              say('%-30s read HTTP %-3s currently: %s' % (label, rcode, current if rcode == 200 else codes(rbody)))
+              if current is True:
+                  say('%-30s already on' % ''); continue
+              if MODE != 'apply':
+                  continue
+              wcode, wresp = call(wmethod, path, wbody)
+              if wcode in (200, 201):
+                  say('%-30s -> TURNED ON' % label); did.append(label)
+              else:
+                  say('%-30s -> write HTTP %s (%s)' % (label, wcode, codes(wresp)))
+                  could_not.append('%s (HTTP %s)' % (label, wcode))
+          say('')
+
+          # ---- R3: the rate limit on the login paths --------------------------------------------------------
+          # The free plan allows ONE rate-limiting rule, so the phase entrypoint is written whole. It is READ FIRST:
+          # replacing a ruleset that already holds someone else's rule would delete it silently, so an existing
+          # rule stops this step instead.
+          RL = '/zones/%s/rulesets/phases/http_ratelimit/entrypoint' % zone_id
+          rcode, rbody = call('GET', RL)
+          have = ((rbody.get('result') or {}).get('rules') or []) if rcode == 200 else []
+          say('rate-limit ruleset             read HTTP %-3s rules present: %s'
+              % (rcode, len(have) if rcode == 200 else ('none (404 = no ruleset yet)' if rcode == 404 else codes(rbody))))
+          if MODE == 'apply':
+              if have:
+                  say('a rate-limiting rule already exists; NOT replacing it (the free plan allows one, and '
+                      'overwriting a rule someone else created would delete it).')
+                  could_not.append('rate limit (a rule already exists)')
+              elif rcode in (200, 404):
+                  rule = {
+                      'description': 'R3 - throttle the WordPress login and xmlrpc paths',
+                      'expression': '(http.request.uri.path eq "/wp-login.php") or '
+                                    '(http.request.uri.path eq "/xmlrpc.php")',
+                      'action': 'block',
+                      'ratelimit': {
+                          'characteristics': ['ip.src', 'cf.colo.id'],
+                          'period': 10,
+                          'requests_per_period': 8,
+                          'mitigation_timeout': 10,
+                      },
+                  }
+                  wcode, wresp = call('PUT', RL, {'rules': [rule]})
+                  if wcode in (200, 201):
+                      say('rate limit on the login paths -> CREATED (8 requests per 10s per IP, 10s block)')
+                      did.append('rate limit on the login and xmlrpc paths (R3)')
+                  else:
+                      say('rate limit -> write HTTP %s (%s)' % (wcode, codes(wresp)))
+                      could_not.append('rate limit (HTTP %s)' % wcode)
+              else:
+                  could_not.append('rate limit (read HTTP %s)' % rcode)
+
+          say('')
+          if MODE != 'apply':
+              say('plan mode: nothing was changed.')
+          else:
+              say('CHANGED: %s' % (', '.join(did) if did else 'nothing'))
+              if could_not:
+                  say('NOT DONE: %s. A 403 means this token lacks that permission; those need a token carrying '
+                      'zone settings and WAF edit rights, which is an account credential and Brockmann\'s alone.'
+                      % '; '.join(could_not))
+          PY
+
+      # A security change that breaks the site is not a security improvement.
+      - name: Prove the site still serves
+        if: ${{ inputs.mode == 'apply' }}
+        env:
+          APEX: ${{ inputs.apex }}
+        run: |
+          set -eu
+          sleep 10
+          fail=0
+          for h in "https://$APEX/" "https://www.$APEX/" "http://www.$APEX/"; do
+            line=$(curl -sS -m 25 -o /tmp/h -w 'HTTP %{http_code} redirect=[%{redirect_url}] bytes=%{size_download}' -A 'Mozilla/5.0 (compatible; cf-zone-security)' "$h" 2>&1 | tail -1)
+            echo "   $h -> $line"
+            case "$line" in HTTP\ 2*|HTTP\ 3*) ;; *) fail=1 ;; esac
+          done
+          [ "$fail" = 0 ] || { echo "::error::The site stopped serving after a security change. Turn the last one back off."; exit 1; }
+          echo "the site still serves"
