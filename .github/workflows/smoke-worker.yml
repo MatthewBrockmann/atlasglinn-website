@@ -193,7 +193,7 @@ jobs:
               code="$(curl -sS -m 30 -o /tmp/fed.xml -w '%{http_code}' -X POST https://autodiscover-s.outlook.com/autodiscover/autodiscover.svc -H 'Content-Type: text/xml; charset=utf-8' -H 'SOAPAction: "http://schemas.microsoft.com/exchange/2010/Autodiscover/Autodiscover/GetFederationInformation"' -H 'User-Agent: AutodiscoverClient' -H 'Expect:' --data-binary "$body" 2>/tmp/fed.err || echo ERR)"
               tenant="$(grep -o '[A-Za-z0-9-]*\.onmicrosoft\.com' /tmp/fed.xml 2>/dev/null | grep -v '^mail\.' | grep -v '\.mail\.' | head -1)"
               dd="$(printf '%s' "$d" | tr . -)"
-              echo "--- Microsoft 365 DKIM rows for $d (tenant: ${tenant:-not found via autodiscover}; http $code$( [ -z "$tenant" ] && printf '; response: %s %s' "$(head -c 300 /tmp/fed.xml 2>/dev/null | tr '\n' ' ')" "$(head -c 120 /tmp/fed.err 2>/dev/null)"))"
+              echo "--- Microsoft-native DKIM selectors for $d, INFORMATIONAL ONLY: these tenants are bought through GoDaddy and sign with secureserver1/2, measured further down (tenant: ${tenant:-not found via autodiscover}; http $code$( [ -z "$tenant" ] && printf '; response: %s %s' "$(head -c 300 /tmp/fed.xml 2>/dev/null | tr '\n' ' ')" "$(head -c 120 /tmp/fed.err 2>/dev/null)"))"
               # Fallback when autodiscover gives nothing: the common initial-domain guesses, confirmed only by a published key.
               if [ -z "$tenant" ]; then
                 for g in "${dd%-com}.onmicrosoft.com" "${dd%-com}llc.onmicrosoft.com" "${dd%-com}com.onmicrosoft.com"; do
@@ -204,7 +204,7 @@ jobs:
                 for s in selector1 selector2; do
                   tgt="$s-$dd._domainkey.$tenant"
                   key="$(dig +short TXT "$tgt" @1.1.1.1 2>/dev/null | head -c 30)"
-                  echo "   CNAME  $s._domainkey  ->  $tgt   [key published by Microsoft: $([ -n "$key" ] && echo yes || echo "NO - Defender > DKIM > $d > Create DKIM keys first")]"
+                  echo "   CNAME  $s._domainkey  ->  $tgt   [Microsoft key at target: $([ -n "$key" ] && echo yes || echo "no - EXPECTED for a GoDaddy-resold tenant; do NOT create keys in Defender, it would move signing off the selectors that work")]"
                 done
               fi
             done
