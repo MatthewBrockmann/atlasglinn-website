@@ -107,18 +107,38 @@ jobs:
           cands = [(n[4:], v) for n, v in sorted(os.environ.items()) if n.startswith('TOK_') and v.strip()]
           if not cands:
               say('::error::No Cloudflare token secret reached this job.'); sys.exit(1)
-          zone_id, chosen = None, None
+          # ZONE ID FROM ANY TOKEN THAT CAN SEE IT; THE WORK FROM WHICHEVER TOKEN MAY DO IT. Run 36644575479 proved
+          # why these are separate questions: the purpose-built token carries Zone WAF + Bot Management and nothing
+          # else, so listing zones answers 200 with an EMPTY result, and the old one-token selection fell through to
+          # the Workers token -- which sees the zone and may change nothing. A least-privilege token is exactly the
+          # one that cannot list zones, so zone visibility must never be the test for who does the work.
+          zone_id = None
           for name, value in cands:
               TOKEN = value.strip()
               code, body = call('GET', '/zones?name=%s&per_page=5' % APEX)
-              say('token %s -> GET /zones HTTP %s%s' % (name, code, '' if code == 200 else ' (%s)' % codes(body)))
-              if code == 200 and len(body.get('result') or []) == 1:
-                  chosen, zone_id = name, body['result'][0]['id']
-                  break
-          if not chosen:
-              say('::error::No token here can read the zone %s. Nothing was attempted.' % APEX); sys.exit(1)
-          TOKEN = dict(cands)[chosen].strip()
-          say('using the token in secret %s' % chosen)
+              n = len(body.get('result') or []) if code == 200 else 0
+              say('token %s -> GET /zones HTTP %s, zones visible: %s' % (name, code, n if code == 200 else codes(body)))
+              if code == 200 and n == 1 and not zone_id:
+                  zone_id = body['result'][0]['id']
+          if not zone_id:
+              say('::error::No token here can see the zone %s, so its id is unknown. Nothing was attempted.' % APEX)
+              sys.exit(1)
+
+          def token_for(path):
+              """First candidate whose READ of this exact endpoint answers 200. Returns (name, http, body)."""
+              global TOKEN
+              last = (None, 0, {})
+              for name, value in cands:
+                  TOKEN = value.strip()
+                  code, body = call('GET', path)
+                  if code == 200:
+                      return name, code, body
+                  # A 404 is an answer ("nothing here yet") from a token that may look; a 403 is a refusal. Keep the
+                  # most informative one, so a later token's 403 cannot hide an earlier token's 404 -- which is what
+                  # makes the don't-overwrite-an-existing-rule check below trustworthy.
+                  if code == 404 or last[1] != 404:
+                      last = (name if code == 404 else None, code, body)
+              return last
           say('')
 
           # ---- the three toggles ----------------------------------------------------------------------------
@@ -133,9 +153,14 @@ jobs:
           ]
           did, could_not = [], []
           for path, label, wmethod, wbody, reader in TOGGLES:
-              rcode, rbody = call('GET', path)
+              who, rcode, rbody = token_for(path)
               current = reader(rbody.get('result')) if rcode == 200 else None
-              say('%-30s read HTTP %-3s currently: %s' % (label, rcode, current if rcode == 200 else codes(rbody)))
+              say('%-30s read HTTP %-3s via %-22s currently: %s'
+                  % (label, rcode, who or 'no token', current if rcode == 200 else codes(rbody)))
+              if rcode != 200:
+                  if MODE == 'apply':
+                      could_not.append('%s (no token may read it)' % label)
+                  continue
               if current is True:
                   say('%-30s already on' % ''); continue
               if MODE != 'apply':
@@ -153,16 +178,20 @@ jobs:
           # replacing a ruleset that already holds someone else's rule would delete it silently, so an existing
           # rule stops this step instead.
           RL = '/zones/%s/rulesets/phases/http_ratelimit/entrypoint' % zone_id
-          rcode, rbody = call('GET', RL)
+          who, rcode, rbody = token_for(RL)
+          if rcode != 200:
+              # A zone with no rate-limit ruleset yet answers 404 even to a token that may create one, so on a
+              # non-200 the write is attempted with each token in turn below rather than giving up on the read.
+              pass
           have = ((rbody.get('result') or {}).get('rules') or []) if rcode == 200 else []
-          say('rate-limit ruleset             read HTTP %-3s rules present: %s'
-              % (rcode, len(have) if rcode == 200 else ('none (404 = no ruleset yet)' if rcode == 404 else codes(rbody))))
+          say('rate-limit ruleset             read HTTP %-3s via %-22s rules present: %s'
+              % (rcode, who or 'no token', len(have) if rcode == 200 else ('none (404 = no ruleset yet)' if rcode == 404 else codes(rbody))))
           if MODE == 'apply':
               if have:
                   say('a rate-limiting rule already exists; NOT replacing it (the free plan allows one, and '
                       'overwriting a rule someone else created would delete it).')
                   could_not.append('rate limit (a rule already exists)')
-              elif rcode in (200, 404):
+              elif rcode in (200, 404, 403):
                   rule = {
                       'description': 'R3 - throttle the WordPress login and xmlrpc paths',
                       'expression': '(http.request.uri.path eq "/wp-login.php") or '
@@ -175,7 +204,17 @@ jobs:
                           'mitigation_timeout': 10,
                       },
                   }
-                  wcode, wresp = call('PUT', RL, {'rules': [rule]})
+                  wcode, wresp = 0, {}
+                  if who:
+                      TOKEN = dict(cands)[who].strip()
+                      wcode, wresp = call('PUT', RL, {'rules': [rule]})
+                  else:
+                      for name, value in cands:
+                          TOKEN = value.strip()
+                          wcode, wresp = call('PUT', RL, {'rules': [rule]})
+                          if wcode in (200, 201):
+                              who = name
+                              break
                   if wcode in (200, 201):
                       say('rate limit on the login paths -> CREATED (8 requests per 10s per IP, 10s block)')
                       did.append('rate limit on the login and xmlrpc paths (R3)')
