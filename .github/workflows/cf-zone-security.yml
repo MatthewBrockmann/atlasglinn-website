@@ -11,8 +11,8 @@
 # WHAT IT SETS, and why each was decided rather than offered:
 #   leaked credential detection  ON   Detection only. /wp-login.php is reachable, and this flags requests carrying
 #                                     known-breached credentials. No blocking, so no lockout path.
-#   bot fight mode               ON   Challenges simple bots. Verified search crawlers stay exempt, and nothing
-#                                     programmatic lives on this zone (the booking Worker is on workers.dev).
+#   bot fight mode               OFF  Deliberately. Cannot be bypassed on the free plan, so it would challenge
+#                                     the owner's monitors, these probes and WordPress's own loopback calls.
 #   page shield                  ON   Watches third-party scripts on the pages. Observational; no traffic path.
 #   rate limit on the login and  NEW  THE R3 ITEM. The FREE plan fixes this rule's shape, per Cloudflare's rate
 #   xmlrpc paths                      limiting docs read 2026-09-27: one rule, match on Path only, count per IP,
@@ -146,8 +146,12 @@ jobs:
           TOGGLES = [
               ('/zones/%s/leaked-credential-checks' % zone_id, 'leaked credential detection',
                'POST', {'enabled': True}, lambda r: (r or {}).get('enabled')),
-              ('/zones/%s/bot_management' % zone_id, 'bot fight mode',
-               'PUT', {'fight_mode': True}, lambda r: (r or {}).get('fight_mode')),
+              # BOT FIGHT MODE IS DELIBERATELY ABSENT (decided 2026-09-29). On the free plan it cannot be bypassed by
+              # any WAF or page rule (Cloudflare's Bot Fight Mode docs, "Limitations"), so it would challenge the
+              # owner's own uptime monitor, this repository's smoke probes, and WordPress's loopback calls to itself
+              # -- trading a modest bot defence for false "site down" alerts and a misbehaving CMS. The login rate
+              # limit and leaked-credential detection below cover the threat that matters here. The first apply
+              # (run 36644965320) happened to be refused with a 400; do not "fix" that by re-adding the toggle.
               ('/zones/%s/page_shield' % zone_id, 'page shield',
                'PUT', {'enabled': True}, lambda r: (r or {}).get('enabled')),
           ]
