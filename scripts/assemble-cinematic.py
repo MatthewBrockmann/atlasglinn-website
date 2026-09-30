@@ -890,7 +890,7 @@ assert 'BOOKING_ENDPOINT' not in html and 'offeredOn(wi)' not in html, 'dead boo
 assert ('const SECTIONS = %d;' % len(CHAPTERS)) in html and html.count('SECTION 01 / %02d' % len(CHAPTERS)) == 1, \
     'the HUD counter and the camera path must both count the chapters in CHAPTERS'
 assert 'no class is scheduled on this weekend yet &middot; join the waiting list for any class' in html and \
-    "open.map(s => `${esc(slotSpan(s))}: ${esc(s.c.name)}`)" in html and 'classes run on every training weekend' not in html, \
+    "live.map(s => `${esc(slotSpan(s))}: ${esc(s.c.name)}${s.open ? '' : ' (in session)'}`)" in html and 'classes run on every training weekend' not in html, \
     'the Book a Class calendar implies every class runs every weekend again, or a scheduled weekend stopped naming the class on each day'
 # The class ON its day (owner, 2026-09-30: "The calendar needs to have the Classes Scheduled ON those dates"). Both grids
 # write the class into the day cell itself — not only into a hover title or the buttons under the grid — through the one
@@ -904,9 +904,23 @@ for _cell in ("inner = dayInner(d, on.map(s => s.c.name).join(' · '), on.map(s 
 # Every day a scheduled class OCCUPIES carries it, not only its start (Codex on #130): a two-day class is named on both
 # days and either day books it — from the SCHEDULE start, the session_date the Worker checks, because the seat is for
 # the whole class. `on` is built from classDates(), the one function that decides which days a class takes.
-assert "days: c ? classDates(w, c).map(keyOf) : [day]" in html and "on = open.filter(s => s.days.includes(key))" in html \
-    and "slotsOpen(w).forEach(s => s.days.forEach(k => { dayMap[k] = wi; }))" in html, \
+assert "days: c ? classDates(w, c).map(keyOf) : [day]" in html and "on = live.filter(s => s.days.includes(key))" in html \
+    and "slotsLive(w).forEach(s => s.days.forEach(k => { dayMap[k] = wi; }))" in html, \
     'the Book a Class grid names a multi-day class on its first day only again'
+# A class under way stays named until its last day (Codex on #130): opened on the Sunday of a Saturday–Sunday class, both
+# days still carry it, read In session and take no tap — booking closed with the start day, as slotOpen and the Worker's
+# date_passed have it, and a running class is neither sold nor offered as a waiting list. A one-day class's last day is
+# its start, so it is bookable through its day and gone the next exactly as before.
+_ins_dcal = "if (on.length && !on.some(s => s.open)) { cls += ' ins'; inner = dayInner(d, on.map(s => s.c.name).join(' · '), on.map(s => shortName(s.c.name)).join(' · '), 'In session'); attrs = ` title="
+_ins_cal = "else if (slotLive(w, calCourse)) { cls += ' ins'; inner = dayInner(d, calCourse.name, shortName(calCourse.name), 'In session'); attrs = ` title="
+assert "const slotOpen = (w, c) => { const d = slotDate(w, c); return !!d && bookable(w) && d >= todayCT(); };" in html \
+    and "const slotLive = (w, c) => { const d = slotDate(w, c); return !!d && bookable(w) && keyOf(classDates(w, c).slice(-1)[0]) >= todayCT(); };" in html \
+    and ".filter(({ c }) => c && slotLive(w, c)); }" in html and "open: !!c && slotOpen(w, c)" in html \
+    and _ins_dcal in html and _ins_cal in html \
+    and 'onclick' not in html.split(_ins_dcal, 1)[-1].split('\n', 1)[0] and 'onclick' not in html.split(_ins_cal, 1)[-1].split('\n', 1)[0] \
+    and "items = live.length ? open : offeredOn()" in html and ": live.length ? '' : `<button" in html \
+    and "(open.length || !live.length)" in html and '.day.ins {' in html and '<span class="ds">${esc(state)}</span>' in html, \
+    'a class already under way dropped off the calendar, turned bookable, or fell through to the waiting list on its later days'
 assert html.count('html += `<div class="${cls}"${attrs}>${inner}</div>`; }') == 2, \
     'both calendars must write each day cell from the dayInner() result, not the bare day number'
 assert '.day.wl:not(.sel) {' in html and '<i class="lg-sch"></i>Class scheduled' in html and '<i class="lg-wl"></i>Waiting list weekend' in html \
