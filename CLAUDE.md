@@ -129,24 +129,25 @@ Every other course and date reads **Join waiting list** and goes through `bookCo
 a Class calendar names the class on each day of a scheduled weekend (chips, day titles, the weekend line, a "Class
 scheduled" marker); an unscheduled weekend lists every class as a waiting list. A weekend whose Sunday has passed in
 America/Chicago is dropped client-side, from the seeded list and from the Worker's (live D1 still carries 2026-09-26).
-**The Worker holds the same rows** — `CLASS_SCHEDULE` in `mast-backend/src/worker.js` — and `/register` and
-`/create-booking` refuse any other pair with `409 not_scheduled`, and a listed pair whose day is before today in Houston
-with `409 date_passed` (`todayCT()`, the page's rule: a class stays bookable through its own day), before anything is
-written or sent. `/create-booking` without a `session_date` is `400 date_required`: nothing sold there is undated —
-private instruction, gear, Experiences and the capability statement are `/contact` requests, memberships are
-`/create-membership` — so no undated path is left open. Its callers send the day: the WP theme's `checkout.js` reads the
-next scheduled day from `/weekends` (or files a waiting-list request through `/contact` when there is none), and
-`smoke-worker.yml`'s checkout probe books the next scheduled pair from the same list and asserts an undated booking is
-refused. The assembler and
+**The Worker holds the same rows** — `CLASS_SCHEDULE` in `mast-backend/src/worker.js` — and `/register` refuses any
+other pair with `409 not_scheduled`, and a listed pair whose day is before today in Houston with `409 date_passed`
+(`todayCT()`, the page's rule: a class stays bookable through its own day), before anything is written or sent.
+**`/register` is the only door that sells a class (ATLAS, 2026-09-30).** `/create-booking` sold a live-fire seat with no
+eligibility screening, no participation agreement and no seat-capacity claim; it now answers `410 use_register` to every
+request, after the per-IP rate-limit tick and before its body is read, a row is written or Stripe is called. Nothing
+that is not a class was ever sold there (private instruction, gear, Experiences and the capability statement are
+`/contact` requests; memberships are `/create-membership`), so nothing is kept open on it. Its two callers moved: the WP
+theme's `checkout.js` links a class with an upcoming day (from `/weekends`) to `https://www.mastsolutions.com/?course=<SKU>#s6`,
+the page's own flow, and files a waiting-list request through `/contact` for a class with none; `smoke-worker.yml`'s
+checkout probe creates no session and asserts `410 use_register` for the next scheduled pair and for an undated class.
+The tax tests and the tax fuzz check out through `/register` (the same `applyTax()`). The assembler and
 `test-worker.mjs` both fail when the two lists differ, so **a schedule change is both files in one commit**, and the Worker
 must deploy with the page (a Sunday day is refused as "not a MAST training weekend" by a Worker older than this). The
 assembler also fails on a row naming an undated or by-arrangement course or a day that is not the Saturday or Sunday of an
 open weekend, and asserts "Select Date" appears exactly once in the built page (inside `dateAction()`); an empty `SCHEDULE`
 folds the label to the waiting list and asserts the words appear nowhere. The Worker files an unknown `request_type` as
 `leadKind 'contact'` with the "Website contact:" subject, so `'experience'` and `'waitlist'` are stored and emailed today;
-the nicer subject lines are a Worker follow-up. **Named gap:** `/create-booking` still sells a scheduled seat with no
-eligibility screening, no participation agreement and no capacity claim — those three live in `/register` only. The page
-never calls it; the WP theme and the smoke probe do.
+the nicer subject lines are a Worker follow-up.
 
 **Classes chapter, Range-style (Brockmann, 2026-09-08, over a screenshot of this chapter's heading and one of the Range
 chapter's CLICK TO VIEW button: "Delete this + add like the range + CLICK TO VIEW = gets rid of scrolling + Book Course =
@@ -1381,9 +1382,8 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   probes the deployed Worker from a runner: `/health`, `/catalog` (SKUs, prices, D1 or seed), `/weekends`, the CORS
   preflight, `/account/me` (503 `accounts_off` = `ACCOUNT_SECRET` not set), the mail DNS of mastsolutions.com; with
   `contact=true` (default) one labelled test message goes through `/contact` so the Resend → `NOTIFY_EMAIL` path is
-  exercised for real; with `checkout=true` one unpaid Stripe Checkout Session is created for the next scheduled class
-  day in `/weekends`' schedule, and an undated booking must answer `400 date_required` (nothing charged; the abandoned
-  registration is dropped by the daily cron). Report:
+  exercised for real; with `checkout=true` the retired `/create-booking` must answer `410 use_register` for the next
+  scheduled class day in `/weekends`' schedule and for an undated class (no Stripe session is created). Report:
   `claude/desktop-assets:reference/desktop/live/_worker-smoke.txt` and the job summary. **First run, 2026-09-06 18:03
   UTC:** everything answered as designed except `/contact`, which returned 502 (the Resend call failed) — the one blocker
   for every Worker email; ledger item B00. **18:32 UTC:** the hint reads `resend_422:validation_error field=to`: the

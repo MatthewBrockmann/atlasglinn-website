@@ -19,6 +19,14 @@ if ( ! defined( 'MAST_CHECKOUT_BASE' ) ) {
 	define( 'MAST_CHECKOUT_BASE', 'https://mast-booking-backend.matthew-221.workers.dev' );
 }
 
+/**
+ * Where a class is booked. The Worker sells class seats through /register only (its /create-booking answers 410), and
+ * the MAST page is the flow that runs the eligibility questions, the participation agreement and the seat count.
+ */
+if ( ! defined( 'MAST_BOOK_URL' ) ) {
+	define( 'MAST_BOOK_URL', 'https://www.mastsolutions.com/' );
+}
+
 require_once get_template_directory() . '/inc/catalog.php';
 
 /** Theme supports. */
@@ -41,7 +49,7 @@ function mast_assets() {
 		'mast-checkout',
 		'MAST',
 		array(
-			'storeEndpoint'    => trailingslashit( MAST_CHECKOUT_BASE ) . 'create-booking',
+			'bookUrl'          => MAST_BOOK_URL,
 			'subEndpoint'      => trailingslashit( MAST_CHECKOUT_BASE ) . 'create-membership',
 			'weekendsEndpoint' => trailingslashit( MAST_CHECKOUT_BASE ) . 'weekends',
 			'contactEndpoint'  => trailingslashit( MAST_CHECKOUT_BASE ) . 'contact',
@@ -51,6 +59,7 @@ function mast_assets() {
 				'badEmail'  => __( 'Enter a valid email address to receive your booking confirmation.', 'mast' ),
 				'preparing' => __( 'Preparing secure checkout…', 'mast' ),
 				'continue'  => __( 'Continue to Secure Checkout', 'mast' ),
+				'book'      => __( 'Book on mastsolutions.com', 'mast' ),
 				'waitlist'  => __( 'Join waiting list', 'mast' ),
 				'waitName'  => __( 'Enter your name to join the waiting list.', 'mast' ),
 				'waited'    => __( "You're on the waiting list — we email you as soon as dates are set.", 'mast' ),

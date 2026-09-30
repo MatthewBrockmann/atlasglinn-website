@@ -3,7 +3,7 @@
  *
  * Cloudflare Worker handling Stripe Checkout for:
  *   - registration              POST /register   screening → agreement → refund consent → Stripe
- *   - one-time class seats      POST /create-booking   (legacy path, no screening; kept for the WP theme; scheduled days only)
+ *   - retired class checkout    POST /create-booking   410 use_register — classes are sold through /register only
  *   - recurring memberships     POST /create-membership
  *   - Stripe webhooks           POST /webhook
  *   - admin roster              GET  /roster   (X-Admin-Key header)[?view=registrations]
@@ -93,7 +93,7 @@ export default {
         return await handleContact(request, env, cors);
       }
       if (url.pathname === '/create-booking' && request.method === 'POST') {
-        return await handleBooking(request, env, ctx, cors);
+        return handleRetiredBooking(cors);
       }
       if (url.pathname === '/create-membership' && request.method === 'POST') {
         return await handleMembership(request, env, ctx, cors);
@@ -1174,7 +1174,7 @@ function baseCors(origin) {
  * if the table is empty or D1 is unbound, these seeds are used.
  *
  * Prices confirmed by the owner 2026-09-01. A price_cents of 0 means "call for
- * pricing" and makes handleBooking() return 409 rather than charging anything.
+ * pricing" and makes handleRegister() return 409 rather than charging anything.
  *
  * SKUs must match schema.sql, mastsolutions.html, and the WP theme exactly —
  * a mismatch returns 404 on Enroll.
@@ -1285,8 +1285,8 @@ async function handleWeekends(env, cors) {
  * Which course runs on which day (owner, 2026-09-30: "10/10: Handgun Fundamentals, 10/11: Carbine Fundamentals"). One row
  * per class on a day, [the day it runs, SKU]; the day is the Saturday or Sunday of a training weekend and is the
  * session_date the registration stores, so the T−7 / T−1 journeys count from the day the class actually runs. /register
- * and /create-booking sell a seat only for a listed pair whose day has not passed in Houston; every other course and date
- * is the page's waiting list. SCHEDULE in mastsolutions-tesla.html carries the same rows: scripts/assemble-cinematic.py
+ * sells a seat only for a listed pair whose day has not passed in Houston; every other course and date is the page's
+ * waiting list. SCHEDULE in mastsolutions-tesla.html carries the same rows: scripts/assemble-cinematic.py
  * fails the build and test-worker.mjs fails the suite when the two differ.
  */
 export const CLASS_SCHEDULE = [
@@ -1325,84 +1325,20 @@ const weekendOf = (weekends, day) => weekends.find((w) => w.saturday === day || 
 
 const NOT_SCHEDULED = 'That class is not scheduled on that date. Join the waiting list on the page, or call (281) 654-8100.';
 const DATE_PASSED = 'That class date has passed. Choose another date or join the waiting list on the page, or call (281) 654-8100.';
-const DATE_REQUIRED = 'Choose a class date. Classes are booked for a scheduled day; anything else goes through the waiting list on the page, or call (281) 654-8100.';
+const USE_REGISTER = 'Class seats are booked on the MAST page, where the eligibility questions, the participation agreement and the seat count run: https://www.mastsolutions.com/#s6';
 
-/* ──────────────────────── Class booking (one-time) ──────────────────────── */
+/* ─────────────────── One-time class seats: retired (410 use_register) ─────────────────── */
 
-async function handleBooking(request, env, ctx, cors) {
-  const body = await request.json().catch(() => null);
-  if (!body || !body.sku || !body.customer_email) {
-    return json({ error: 'Missing required fields: sku, customer_email' }, 400, cors);
-  }
-  if (!isEmail(body.customer_email)) {
-    return json({ error: 'Invalid email address' }, 400, cors);
-  }
-  // What was VALIDATED is what is SENT. isEmail trims before it tests, so a body of " a@b.com " passed the check and
-  // then went to Stripe with its whitespace on — a different string from the one that was approved. The register and
-  // contact paths already normalise into a local before validating; these two checked a copy and sent the original.
-  const email = String(body.customer_email).trim();
-
-  const qty = clampInt(body.qty, 1, 10);
-  const offering = await lookupClass(env, String(body.sku));
-  if (!offering) {
-    return json({ error: 'Unknown class: ' + body.sku }, 404, cors);
-  }
-  if (!offering.price_cents || offering.price_cents < 100) {
-    return json({ error: 'This class is not available for online booking. Please call to enroll.' }, 409, cors);
-  }
-
-  // A class day, always. Everything this route can sell is a dated class: private instruction, gear, Experiences and
-  // the capability statement are /contact requests and memberships are /create-membership, so no undated product is
-  // sold here and an undated request is refused before a weekend, a registration or Stripe is touched. It used to skip
-  // every check below and open a Checkout Session for any priced course (review, 2026-09-30).
-  const day = body.session_date === undefined || body.session_date === null ? '' : String(body.session_date);
-  if (!day) return json({ error: DATE_REQUIRED, field: 'date', code: 'date_required' }, 400, cors);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
-    return json({ error: 'session_date must be YYYY-MM-DD' }, 400, cors);
-  }
-  const { weekends } = await listWeekends(env);
-  const weekend = weekendOf(weekends, day);
-  if (!weekend) {
-    return json({ error: 'That date is not a MAST training weekend.' }, 404, cors);
-  }
-  if (weekend.status !== 'available' && weekend.status !== 'scheduled') {
-    return json({ error: 'That weekend is not available for booking.' }, 409, cors);
-  }
-  const refusal = classDayRefusal(day, offering.sku);
-  if (refusal) return json(refusal, 409, cors);
-  const sessionLabel = str(body.session_label) || weekend.label || '';
-
-  const payload = new URLSearchParams({
-    mode: 'payment',
-    customer_email: email,
-    'line_items[0][price_data][currency]': 'usd',
-    'line_items[0][price_data][product_data][name]': 'MAST Solutions — ' + offering.name,
-    'line_items[0][price_data][product_data][description]':
-      'SKU: ' + offering.sku + ' · ' + (sessionLabel || day),
-    'line_items[0][price_data][unit_amount]': String(offering.price_cents),
-    'line_items[0][quantity]': String(qty),
-    success_url: safeUrl(body.success_url, env) || defaultUrl(env, '?checkout=success'),
-    cancel_url: safeUrl(body.cancel_url, env) || defaultUrl(env, '?checkout=cancelled'),
-    'payment_method_types[0]': 'card',
-    billing_address_collection: 'required',
-    'phone_number_collection[enabled]': 'true',
-    'metadata[kind]': 'class_booking',
-    'metadata[sku]': offering.sku,
-    'metadata[class_name]': offering.name,
-    'metadata[qty]': String(qty),
-    'metadata[session_date]': day,
-    'metadata[session_label]': sessionLabel,
-    'metadata[customer_name]': str(body.customer_name),
-    'metadata[organization]': str(body.organization),
-    'metadata[notes]': str(body.notes),
-    'metadata[source]': 'mastsolutions',
-    'metadata[utm_source]': attributionFrom(body, request).utm_source || '', 'metadata[utm_medium]': attributionFrom(body, request).utm_medium || '',
-    'metadata[utm_campaign]': attributionFrom(body, request).utm_campaign || '', 'metadata[first_touch_at]': attributionFrom(body, request).first_touch_at || '',
-  });
-
-  await applyAccountCustomer(env, payload, body.account_token, 'Booking');
-  await applyTax(payload, env, ctx);
-  return await createSession(payload, env, cors, 'Booking', ctx);
+/**
+ * POST /create-booking no longer sells anything (ATLAS, 2026-09-30). It sold a live-fire seat with no eligibility
+ * screening, no participation agreement and no seat-capacity claim, and /register is the only door that has all three.
+ * Everything in the catalog is a class, and nothing that is not a class was ever sold here — private instruction, gear,
+ * Experiences and the capability statement are /contact requests, memberships are /create-membership — so every request
+ * is refused, before its body is read, a row is written or Stripe is called. The per-IP limit in src/ratelimit.js has
+ * already counted it by then, as it counts every request on the route.
+ */
+function handleRetiredBooking(cors) {
+  return json({ error: 'use_register', message: USE_REGISTER, register: '/register' }, 410, cors);
 }
 
 /** A signed-in student checks out against their Stripe Customer: Checkout offers the saved card, a new card can be saved, and
@@ -1997,7 +1933,7 @@ async function handleMembership(request, env, ctx, cors) {
   if (!isEmail(body.email)) {
     return json({ error: 'Invalid email address' }, 400, cors);
   }
-  const email = String(body.email).trim();   // validated trimmed, so sent trimmed — see handleBooking
+  const email = String(body.email).trim();   // validated trimmed, so sent trimmed: isEmail() trims before it tests
 
   const plan = await lookupPlan(env, body.plan);
   if (!plan) {

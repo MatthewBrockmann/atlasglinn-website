@@ -42,7 +42,7 @@ The old Worker is left untouched — it still serves SafeGuard.
 | `GET` | `/catalog` | Classes and prices the server considers authoritative |
 | `GET` | `/weekends` | Training weekends the calendar may offer |
 | `POST` | `/register` | **The registration flow**: details → two eligibility questions → agreement → refund consent → Stripe Checkout |
-| `POST` | `/create-booking` | Legacy one-time seat with no screening (kept for the WordPress theme). A scheduled class day only: no `session_date` → `400 date_required`; a pair not in `CLASS_SCHEDULE` → `409 not_scheduled`; a day before today in Houston → `409 date_passed` |
+| `POST` | `/create-booking` | **Retired (2026-09-30): `410 use_register` to every request.** It sold a class seat with no eligibility screening, no agreement and no capacity claim; classes are sold through `/register` only. Still counted by the per-IP seat limit |
 | `POST` | `/create-membership` | Recurring tier → Stripe Checkout |
 | `POST` | `/contact` | Site contact form and capability-statement requests (honeypot, validation, one email to `NOTIFY_EMAIL` with reply-to the sender) |
 | `POST` | `/webhook` | Stripe events; persists orders, links registrations, sends the documents |
@@ -987,7 +987,7 @@ limit below. A request without the Cloudflare header shares the single `unknown`
 | the three routes that MAIL a code — `forgot`, `resend`, `register` — **per (connection, posted address)** | 3 an hour (round 5) — see below |
 | the same three, **per connection, across every address** | 30 an hour (round 5) — see below |
 | `POST /account/verify` | 20 |
-| `POST /register` + `POST /create-booking` + `POST /create-membership` | 10 **shared** — all three open a Stripe Checkout Session, which costs money; the two legacy routes were unlimited until round 2 |
+| `POST /register` + `POST /create-booking` + `POST /create-membership` | 10 **shared** — `/register` and `/create-membership` open a Stripe Checkout Session, which costs money; the retired `/create-booking` (410) still spends the same budget; the two legacy routes were unlimited until round 2 |
 | `POST /contact` | 30 |
 | `POST /subscribe` | 10 |
 | `GET /roster` + **every** `/admin` route | 60 **shared** — matched by path PREFIX, so a route added under `/admin` is limited the day it is added rather than the day someone remembers to list it |
