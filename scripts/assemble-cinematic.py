@@ -50,7 +50,6 @@ assert '.modal.req .err:not([hidden])' in booking_css, 'the request dialog error
 banner = between(tesla, '<div id="banner"', '</div>', True)
 modals = between(tesla, '<!-- CALENDAR -->', '</ol>\n</div>', True)
 modals = modals.replace('style="color:#1A6BDE;text-decoration:none;"', 'style="color:#E8D27D;text-decoration:none;"')
-modals = modals.replace('<i style="background:#1A6BDE"></i>Selected', '<i style="background:#E8D27D"></i>Selected')
 
 # ── 3. Booking JS from the Tesla page: everything up to the hero loader, then MEDIA + the media strip renderer ──
 js = between(tesla, '<script>', '</script>')[len('<script>'):]
@@ -891,8 +890,42 @@ assert 'BOOKING_ENDPOINT' not in html and 'offeredOn(wi)' not in html, 'dead boo
 assert ('const SECTIONS = %d;' % len(CHAPTERS)) in html and html.count('SECTION 01 / %02d' % len(CHAPTERS)) == 1, \
     'the HUD counter and the camera path must both count the chapters in CHAPTERS'
 assert 'no class is scheduled on this weekend yet &middot; join the waiting list for any class' in html and \
-    "open.map(({ c, day }) => `${esc(dayName(day))}: ${esc(c.name)}`)" in html and 'classes run on every training weekend' not in html, \
+    "live.map(s => `${esc(slotSpan(s))}: ${esc(s.c.name)}${s.open ? '' : ' (in session)'}`)" in html and 'classes run on every training weekend' not in html, \
     'the Book a Class calendar implies every class runs every weekend again, or a scheduled weekend stopped naming the class on each day'
+# The class ON its day (owner, 2026-09-30: "The calendar needs to have the Classes Scheduled ON those dates"). Both grids
+# write the class into the day cell itself — not only into a hover title or the buttons under the grid — through the one
+# dayInner(), and a training weekend with nothing scheduled reads Waitlist in its own style. The legend names both, and
+# its swatches are classes, so the palette recolor that turns inline colours blue cannot make them disagree with a cell.
+for _cell in ("inner = dayInner(d, on.map(s => s.c.name).join(' · '), on.map(s => shortName(s.c.name)).join(' · '));",
+              "inner = dayInner(d, calCourse.name, shortName(calCourse.name));",
+              "inner = dayInner(d, 'Waitlist');",
+              '<span class="dc"><span class="dc-full">${esc(full)}</span><span class="dc-short">${esc(short || full)}</span></span>'):
+    assert _cell in html, 'a calendar day stopped carrying its class (or Waitlist) in its cell: ' + _cell
+# Every day a scheduled class OCCUPIES carries it, not only its start (Codex on #130): a two-day class is named on both
+# days and either day books it — from the SCHEDULE start, the session_date the Worker checks, because the seat is for
+# the whole class. `on` is built from classDates(), the one function that decides which days a class takes.
+assert "days: c ? classDates(w, c).map(keyOf) : [day]" in html and "on = live.filter(s => s.days.includes(key))" in html \
+    and "slotsLive(w).forEach(s => s.days.forEach(k => { dayMap[k] = wi; }))" in html, \
+    'the Book a Class grid names a multi-day class on its first day only again'
+# A class under way stays named until its last day (Codex on #130): opened on the Sunday of a Saturday–Sunday class, both
+# days still carry it, read In session and take no tap — booking closed with the start day, as slotOpen and the Worker's
+# date_passed have it, and a running class is neither sold nor offered as a waiting list. A one-day class's last day is
+# its start, so it is bookable through its day and gone the next exactly as before.
+_ins_dcal = "if (on.length && !on.some(s => s.open)) { cls += ' ins'; inner = dayInner(d, on.map(s => s.c.name).join(' · '), on.map(s => shortName(s.c.name)).join(' · '), 'In session'); attrs = ` title="
+_ins_cal = "else if (slotLive(w, calCourse)) { cls += ' ins'; inner = dayInner(d, calCourse.name, shortName(calCourse.name), 'In session'); attrs = ` title="
+assert "const slotOpen = (w, c) => { const d = slotDate(w, c); return !!d && bookable(w) && d >= todayCT(); };" in html \
+    and "const slotLive = (w, c) => { const d = slotDate(w, c); return !!d && (w.status === 'available' || w.status === 'scheduled') && keyOf(classDates(w, c).slice(-1)[0]) >= todayCT(); };" in html \
+    and ".filter(({ c }) => c && slotLive(w, c)); }" in html and "open: !!c && slotOpen(w, c)" in html \
+    and _ins_dcal in html and _ins_cal in html \
+    and 'onclick' not in html.split(_ins_dcal, 1)[-1].split('\n', 1)[0] and 'onclick' not in html.split(_ins_cal, 1)[-1].split('\n', 1)[0] \
+    and "items = live.length ? open : offeredOn()" in html and ": live.length ? '' : `<button" in html \
+    and "(open.length || !live.length)" in html and '.day.ins {' in html and '<span class="ds">${esc(state)}</span>' in html, \
+    'a class already under way dropped off the calendar, turned bookable, or fell through to the waiting list on its later days'
+assert html.count('html += `<div class="${cls}"${attrs}>${inner}</div>`; }') == 2, \
+    'both calendars must write each day cell from the dayInner() result, not the bare day number'
+assert '.day.wl:not(.sel) {' in html and '<i class="lg-sch"></i>Class scheduled' in html and '<i class="lg-wl"></i>Waiting list weekend' in html \
+    and html.count('<i class="lg-sel"></i>Selected') == 2 and 'Hover a date for what runs' not in html, \
+    'waitlist days lost their own style, the legend no longer says Class scheduled / Waiting list weekend, or the subtitle says hover again'
 assert 'The <span class="gold">Classes.</span>' not in html and "images/mast/courses-instructor.jpg');background-position:50% 15%" in html, \
     'the Classes chapter title is back or the Courses backdrop is not his photo (owner, 2026-09-08)'
 assert 'id="news-consent"' in html and "fetch(API + '/subscribe'" in html and "get('course')" in html and "mastTrack('deep_link'" in html, \
@@ -964,9 +997,14 @@ else:
 assert 'session_date: slotDate(w, calCourse), session_label: slotLabel(w, calCourse),' in html and 'session_date: w.saturday' not in html, \
     'checkout sends the weekend key again instead of the scheduled day'
 # Past weekends are dropped in Houston time, from the seeded list and from the Worker's, so a weekend that has gone is
-# never offered again without an edit.
-assert 'function todayCT()' in html and "timeZone: 'America/Chicago'" in html and html.count('.filter(w => !weekendOver(w))') == 2, \
-    'the page no longer drops past weekends (America/Chicago) from both the seeded and the fetched list'
+# never offered again without an edit — except while a class scheduled on it is still running (Codex on #130: a
+# three-day class that starts Saturday runs through Monday and reads In session that day). weekendGone keeps it listed;
+# bookable() still reads weekendOver, so nothing on it can be booked after its Sunday.
+assert 'function todayCT()' in html and "timeZone: 'America/Chicago'" in html and html.count('.filter(w => !weekendGone(w))') == 2 \
+    and '.filter(w => !weekendOver(w))' not in html and "return weekendOver(w) && !SCHEDULE.some(([day, sku]) =>" in html \
+    and "isoPlus(day, Math.max(1, (c && c.days) || 1) - 1) >= t" in html \
+    and "function bookable(w){ return (w.status === 'available' || w.status === 'scheduled') && !isPast(w); }" in html, \
+    'the page no longer drops past weekends (America/Chicago) from both lists, or drops one while its class is still running'
 _s6 = between(html, '<section class="panel" id="s6"', '</section>', True)
 assert '<div class="eyebrow">Course Catalog</div>' in _s6, 'the Classes chapter lost its COURSE CATALOG eyebrow'
 assert 'The <span class="gold">Classes.</span>' not in html, "the Classes chapter's deleted heading is back"
