@@ -39,7 +39,7 @@ defined( 'ABSPATH' ) || exit;
 	<label for="mast-email"><?php esc_html_e( 'Email', 'mast' ); ?></label>
 	<input type="email" id="mast-email" placeholder="you@example.com" autocomplete="email" inputmode="email" required>
 
-	<label for="mast-name"><?php esc_html_e( 'Name', 'mast' ); ?> <span style="color:var(--ink-2);font-weight:400;"><?php esc_html_e( '(optional)', 'mast' ); ?></span></label>
+	<label for="mast-name"><?php esc_html_e( 'Name', 'mast' ); ?> <span id="mast-name-opt" style="color:var(--ink-2);font-weight:400;"><?php esc_html_e( '(optional)', 'mast' ); ?></span></label>
 	<input type="text" id="mast-name" placeholder="First Last" autocomplete="name">
 
 	<div data-mast-qty-wrap>

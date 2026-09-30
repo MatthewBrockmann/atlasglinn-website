@@ -39,6 +39,16 @@
 	var unitEl = sheet.querySelector('[data-mast-unit]');
 	var emailEl = sheet.querySelector('#mast-email');
 	var nameEl = sheet.querySelector('#mast-name');
+	var nameOptEl = sheet.querySelector('#mast-name-opt');
+
+	// The waiting list goes to /contact, which requires a name; checkout does not. The label and the
+	// required state follow the mode so the form never calls a field optional that the server refuses without.
+	function setNameRequired(req) {
+		nameEl.required = req;
+		if (nameOptEl) {
+			nameOptEl.style.display = req ? 'none' : '';
+		}
+	}
 	var qtyWrap = sheet.querySelector('[data-mast-qty-wrap]');
 	var qtyEl = sheet.querySelector('[data-mast-qty]');
 	var totalEl = sheet.querySelector('[data-mast-total]');
@@ -126,6 +136,7 @@
 
 		clearError();
 		updateTotal();
+		setNameRequired(false);
 
 		payBtn.textContent = i18n.continue || 'Continue to Secure Checkout';
 		payBtn.disabled = false;
@@ -143,6 +154,7 @@
 					qtyWrap.style.display = 'none';   // seats are chosen on the MAST page
 				} else {
 					payBtn.textContent = i18n.waitlist || 'Join waiting list';
+					setNameRequired(true);
 				}
 				payBtn.disabled = false;
 			});

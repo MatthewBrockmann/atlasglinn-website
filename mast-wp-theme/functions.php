@@ -7,7 +7,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'MAST_VERSION', '1.0.0' );
+define( 'MAST_VERSION', '1.1.0' );   // bumped with the checkout.js contract change (storeEndpoint removed), so cached 1.0.0 scripts are not reused
 
 /**
  * Default checkout Worker base URL.
