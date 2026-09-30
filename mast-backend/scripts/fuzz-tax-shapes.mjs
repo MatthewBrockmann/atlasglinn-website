@@ -29,6 +29,8 @@
  * a thing somebody remembered to run.
  */
 
+import { QUESTIONS_VERSION, AGREEMENT_VERSION, REFUND_POLICY_VERSION } from '../src/worker.js';
+
 const BASE_SETTINGS = { object: 'tax.settings', status: 'active', livemode: true,
   head_office: { address: { line1: '2450 Fondren Rd', line2: 'Suite 255', city: 'Houston', state: 'TX', postal_code: '77063', country: 'US' } },
   defaults: { tax_behavior: 'exclusive', tax_code: 'txcd_20030000' } };
@@ -255,7 +257,10 @@ function makeD1() {
       };
     },
   });
-  return { DB: { prepare }, rows };
+  // /register claims its seat in one batch; nothing here keeps registrations, so every statement answers empty and the
+  // claim reads back the status it wrote.
+  const batch = async (list) => { const out = []; for (const st of list) out.push(await st.all()); return out; };
+  return { DB: { prepare, batch }, rows };
 }
 
 function makeStripe(settings, registrations) {
@@ -274,6 +279,13 @@ function makeStripe(settings, registrations) {
     },
   };
 }
+
+const ORDER = { sku: 'MAST-HG-FUND', qty: 1, session_date: '2026-10-10',
+  customer: { name: 'Fuzz Buyer', email: 'buyer@example.com', phone: '(713) 555-0100', organization: '' },
+  eligibility: { us_citizen: true, felony_prohibited: false, attested: true, questions_version: QUESTIONS_VERSION },
+  agreement: { version: AGREEMENT_VERSION, signed_name: 'Fuzz Buyer', initials: 'FB', address1: '1 Main St', address2: 'Houston, TX 77002',
+    emergency_name: 'E C', emergency_phone: '(713) 555-0199', emergency_relationship: 'Spouse', scrolled: true, agreed: true },
+  refund: { accepted: true, version: REFUND_POLICY_VERSION }, newsletter_opt_in: false };
 
 /** The standalone driver: one Worker, one virtual "two hours ago" ready row inside the grace, one cron tick, one order. */
 export async function standaloneTrial(worker, settings, registrations) {
@@ -294,9 +306,11 @@ export async function standaloneTrial(worker, settings, registrations) {
     await worker.scheduled({ cron: '*/5 * * * *', scheduledTime: Date.now() }, env, ctx);
     await Promise.all(queued.splice(0));
     const n = s.calls.length;
-    await worker.fetch(new Request('https://api.test/create-booking', { method: 'POST',
+    // The order is a full registration: /register is the only door that sells a class (2026-09-30), and it runs the same
+    // applyTax() the retired /create-booking did.
+    await worker.fetch(new Request('https://api.test/register', { method: 'POST',
       headers: { 'Content-Type': 'application/json', Origin: 'https://atlasglinn.com', 'CF-Connecting-IP': '198.51.100.7' },
-      body: JSON.stringify({ sku: 'MAST-HG-FUND', customer_email: 'buyer@example.com', qty: 1 }) }), env, ctx);
+      body: JSON.stringify(ORDER) }), env, ctx);
     await Promise.all(queued.splice(0));
     taxed = s.calls.slice(n).some((c) => c.url.includes('/v1/checkout/sessions')) ? null : null;
   } finally {
@@ -316,7 +330,10 @@ export async function standaloneTrial(worker, settings, registrations) {
 }
 
 if (import.meta.url === 'file://' + process.argv[1]) {
-  const worker = (await import('../src/worker.js')).default;
+  const { default: worker, setClassSchedule } = await import('../src/worker.js');
+  // The order each trial places is a dated booking of a fixed 2026 Saturday; the class schedule and its Houston date check
+  // are not what this fuzz measures, so every pair is open here, exactly as the suite opens them around its own trials.
+  setClassSchedule(() => true);
   const { mutations, violations } = await runTaxShapeFuzz((set, regs) => standaloneTrial(worker, set, regs), (l) => console.log(l));
   console.log(violations.length ? 'FUZZ FAILED' : 'FUZZ CLEAN');
   process.exit(violations.length ? 1 : 0);

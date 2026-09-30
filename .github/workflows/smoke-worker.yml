@@ -2,9 +2,9 @@
 # Read-only by default: /health, /catalog, /weekends, the CORS preflight, /account/me (503 accounts_off = ACCOUNT_SECRET
 # not set on the Worker; 401 = accounts on) and the mail DNS of mastsolutions.com. With contact=true it posts one clearly
 # labelled test message through /contact — the Worker emails it to NOTIFY_EMAIL through Resend, so the owner can confirm
-# the mail path end to end. With checkout=true it creates one unpaid Stripe Checkout Session for the first bookable SKU
-# and prints the host of the URL it gets back (nothing is charged; the session expires on its own and the daily cron
-# drops the abandoned registration). Results go to the job summary and to
+# the mail path end to end. With checkout=true it asserts the retired /create-booking answers 410 use_register — for the
+# next scheduled class day in the Worker's /weekends schedule and for an undated class — and creates no Stripe session.
+# Results go to the job summary and to
 # claude/desktop-assets:reference/desktop/live/_worker-smoke.txt, readable from any session with
 #   git fetch origin claude/desktop-assets:refs/remotes/origin/claude/desktop-assets
 #   git show origin/claude/desktop-assets:reference/desktop/live/_worker-smoke.txt
@@ -17,7 +17,7 @@ on:
         type: boolean
         default: true
       checkout:
-        description: "Create one unpaid Stripe Checkout Session through /create-booking"
+        description: "Assert the retired /create-booking answers 410 use_register, for the next scheduled class day (from /weekends) and for an undated class. No Stripe session is created"
         type: boolean
         default: false
       account:
@@ -110,8 +110,8 @@ jobs:
           d = json.load(open(sys.argv[1])); w = d.get('weekends', [])
           print('   weekends=%d first=%s last=%s statuses=%s' % (len(w), w[0].get('saturday') if w else None, w[-1].get('saturday') if w else None, sorted(set(str(x.get('status')) for x in w))))
           PY
-            echo "--- CORS preflight (Origin $ORIGIN → POST /create-booking)"
-            curl -sS -m 40 -o /dev/null -D - -X OPTIONS -H "Origin: $ORIGIN" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type" "$WORKER/create-booking" | tr -d '\r' | grep -iE '^(HTTP|access-control-)' | sed 's/^/   /' || true
+            echo "--- CORS preflight (Origin $ORIGIN → POST /register)"
+            curl -sS -m 40 -o /dev/null -D - -X OPTIONS -H "Origin: $ORIGIN" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type" "$WORKER/register" | tr -d '\r' | grep -iE '^(HTTP|access-control-)' | sed 's/^/   /' || true
             echo "--- accounts (GET /account/me without a token: 503 accounts_off = ACCOUNT_SECRET not set; 401 = accounts on)"; req GET /account/me
             if [ -n "$ADMIN_KEY" ]; then
               # Counts, revenue and the funnel are the owner's business figures. They go to the JOB SUMMARY ONLY, which is
@@ -124,9 +124,20 @@ jobs:
               req POST /contact "{\"name\":\"Smoke test (GitHub Actions)\",\"email\":\"atlasglinn.hq@atlasglinn.com\",\"message\":\"Automated smoke test of the MAST Worker, run $GITHUB_RUN_ID at $(date -u +%FT%TZ). If you read this, the /contact route, Resend and the NOTIFY_EMAIL mailbox all work. No reply needed.\",\"request_type\":\"smoke\",\"page\":\"github-actions\"}"
             else echo "--- contact: skipped (input contact=false)"; fi
             if [ "$DO_CHECKOUT" = "true" ]; then
-              sku=$(curl -sS -m 40 "$WORKER/catalog" | python3 -c 'import json,sys; cl=[c for c in json.load(sys.stdin).get("classes",[]) if (c.get("price_cents") or 0)>=100]; print(cl[0]["sku"] if cl else "")')
-              echo "--- checkout (one unpaid Stripe Checkout Session for $sku; nothing is charged)"
-              req POST /create-booking "{\"sku\":\"$sku\",\"qty\":1,\"customer_email\":\"atlasglinn.hq@atlasglinn.com\",\"customer_name\":\"SMOKE TEST - ignore\",\"notes\":\"GitHub Actions smoke test run $GITHUB_RUN_ID; not a real booking\"}"
+              # /create-booking is retired for classes (2026-09-30): it sold a live-fire seat with no eligibility screening, no
+              # participation agreement and no seat-capacity claim, and /register is the only door with all three. So this
+              # probe opens no Stripe session; it proves the door is shut. Both requests must answer 410 carrying use_register:
+              # the next scheduled class on its own day (read from /weekends at run time, so a pair /register would sell), and
+              # a class with no date at all.
+              pair=$(curl -sS -m 40 "$WORKER/weekends" | python3 -c 'import json,sys,datetime,zoneinfo; t=datetime.datetime.now(zoneinfo.ZoneInfo("America/Chicago")).date().isoformat(); s=sorted(r for r in json.load(sys.stdin).get("schedule",[]) if len(r)==2 and r[0]>=t); print(" ".join(s[0]) if s else "")' || true)
+              if [ -n "$pair" ]; then
+                day="${pair%% *}"; sku="${pair##* }"
+                echo "--- retired checkout: $sku on $day, the next scheduled class day (the contract: 410 use_register, no session)"
+                req POST /create-booking "{\"sku\":\"$sku\",\"qty\":1,\"session_date\":\"$day\",\"customer_email\":\"atlasglinn.hq@atlasglinn.com\",\"customer_name\":\"SMOKE TEST - ignore\"}" 410 use_register
+              else echo "--- retired checkout, dated: skipped (the Worker's /weekends lists no scheduled class day from today on)"; fi
+              undated=$(curl -sS -m 40 "$WORKER/catalog" | python3 -c 'import json,sys; cl=[c for c in json.load(sys.stdin).get("classes",[]) if (c.get("price_cents") or 0)>=100]; print(cl[0]["sku"] if cl else "")' || true)
+              echo "--- retired checkout without a date for $undated (the contract: 410 use_register, no session)"
+              req POST /create-booking "{\"sku\":\"$undated\",\"qty\":1,\"customer_email\":\"atlasglinn.hq@atlasglinn.com\",\"customer_name\":\"SMOKE TEST - ignore\"}" 410 use_register
             else echo "--- checkout: skipped (input checkout=false)"; fi
             if [ "$DO_ACCOUNT" = "true" ]; then
               # 2026-09-08, owner: "Sign in / ADD ACCOUNT does not work — check all sign up capability + email". The page's

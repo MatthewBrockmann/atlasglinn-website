@@ -1,4 +1,4 @@
-import worker, { taxTimeoutMs, checkoutTimeoutMs, stripeApiVersion, setTaxReadGuard, setClassSchedule, CLASS_SCHEDULE, TAX_SCHEMAS, DAILY_GUARD_KEY, DAILY_WINDOW_HOUR, DAILY_WINDOW_FIRST_MINUTE, DAILY_WINDOW_LAST_MINUTE } from './src/worker.js';
+import worker, { taxTimeoutMs, checkoutTimeoutMs, stripeApiVersion, setTaxReadGuard, setClassSchedule, CLASS_SCHEDULE, todayCT, TAX_SCHEMAS, DAILY_GUARD_KEY, DAILY_WINDOW_HOUR, DAILY_WINDOW_FIRST_MINUTE, DAILY_WINDOW_LAST_MINUTE } from './src/worker.js';
 import { runTaxShapeFuzz, taxShapeMutations } from './scripts/fuzz-tax-shapes.mjs';
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -520,12 +520,62 @@ const pendingFor = async (email) => (await pendingsFor(email))[0] || null;
 // seeded weekends to test pricing, capacity, holds, prerequisites and tax. They run with every pair open — the rule
 // before the schedule — and the "Class schedule" block puts CLASS_SCHEDULE back to test the schedule itself.
 setClassSchedule(() => true);
+// Those blocks book this seeded weekend Saturday; the seam above is what lets them sell there whatever today's date is.
+const LEGACY_DAY = '2026-10-10';
+// A class is sold through /register only (2026-09-30: /create-booking answers 410 use_register for everything), so every
+// checkout below is a full registration. TAX_SKU is a seeded course this fake catalog gives no seat cap, so the hundreds
+// of orders the tax blocks place on one day never sell it out; bodyOf() takes the registration id — a fresh UUID on every
+// order — out of a Checkout Session body, so two orders can still be compared byte for byte.
+const { QUESTIONS_VERSION: QV, AGREEMENT_VERSION: AV, REFUND_POLICY_VERSION: RV } = await import('./src/worker.js');
+const TAX_SKU = 'MAST-SG-FUND';
+const classOrder = (over = {}) => ({
+  sku: TAX_SKU, qty: 1, session_date: LEGACY_DAY,
+  customer: { name: 'Tax Buyer', email: 'a@b.com', phone: '(713) 555-0100', organization: '' },
+  eligibility: { us_citizen: true, felony_prohibited: false, attested: true, questions_version: QV },
+  agreement: { version: AV, signed_name: 'Tax Buyer', initials: 'TB', address1: '1 Main St', address2: 'Houston, TX 77002', emergency_name: 'E C', emergency_phone: '(713) 555-0199', emergency_relationship: 'Spouse', scrolled: true, agreed: true },
+  refund: { accepted: true, version: RV },
+  newsletter_opt_in: false,
+  ...over,
+});
+const bodyOf = (p) => (p ? p.toString() : '').replace(/(metadata%5Bregistration_id%5D=)reg_[0-9a-f-]+/, '$1reg_X');
+// The blocks up to the registration section book through /register too; what they write is taken back after them, so
+// that section starts from the empty tables its counts were written against.
+const undoEarlyWrites = (() => { const keep = new Set(registrations.keys()), o = outcomes.length, a = answers.length, ev = events.length;
+  return () => { for (const k of [...registrations.keys()]) if (!keep.has(k)) registrations.delete(k); outcomes.length = o; answers.length = a; events.length = ev; }; })();
+// A pinned clock for the blocks whose answer depends on today's date. atInstant() swaps Date for the call and puts it
+// back, as the daily-window blocks do with their FireDate. Without it the suite deploy-worker.yml runs goes red on a date:
+// the class-schedule blocks after 2026-10-11, and the two purge-date blocks after 2026-10-17 12:00 UTC, when the fixture
+// weekend's answers (purged 7 days after the class) fall due.
+const RealDateSched = Date;
+const atInstant = async (iso, fn) => {
+  const t = RealDateSched.parse(iso);
+  class PinnedDate extends RealDateSched { constructor(...a) { if (a.length === 0) super(t); else super(...a); } static now() { return t; } }
+  globalThis.Date = PinnedDate;
+  try { return await fn(); } finally { globalThis.Date = RealDateSched; }
+};
+const BEFORE_WEEKEND = '2026-10-01T17:00:00Z';   // Thursday 2026-10-01, noon in Houston
+
+console.log('\n── /create-booking is retired: 410 use_register ──');
+{
+  // It sold a live-fire seat with no eligibility screening, no agreement and no seat-capacity claim. Nothing is read,
+  // written or sent: whatever the body, the answer is 410 and a pointer to /register.
+  stripeCalls.length = 0; const before = registrations.size;
+  for (const [n, body] of [['a scheduled class on its day', { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1, session_date: '2026-10-10' }],
+    ['a class with no date', { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 }],
+    ['a priced fixture course', { sku: 'MAST-DA', customer_email: 'a@b.com', session_date: LEGACY_DAY }],
+    ['an unknown SKU', { sku: 'NOT-A-CLASS', customer_email: 'a@b.com' }],
+    ['an empty body', {}]]) {
+    const res = await post('/create-booking', body); const b = await res.json();
+    ok('/create-booking with ' + n + ' → 410 use_register, pointing at /register', res.status === 410 && b.error === 'use_register' && b.register === '/register', res.status + ' ' + JSON.stringify(b));
+  }
+  ok('… and not one Stripe session or registration row came of it', stripeCalls.length === 0 && registrations.size === before, stripeCalls.length + ' sessions');
+}
 
 console.log('\n── Server-side pricing (client cannot set the amount) ──');
 {
   stripeCalls.length = 0;
   // Client tries to buy a $695 class for $1 by sending its own price.
-  const res = await post('/create-booking', { sku: 'MAST-DA', customer_email: 'a@b.com', qty: 1, price_cents: 100 });
+  const res = await post('/register', classOrder({ sku: 'MAST-DA', price_cents: 100 }));
   const sent = stripeCalls[0];
   ok('checkout succeeds', res.status === 200, await res.clone().text());
   ok('charges the SERVER price ($695), not the injected $1',
@@ -534,26 +584,23 @@ console.log('\n── Server-side pricing (client cannot set the amount) ──'
   ok('uses D1 class name', sent.get('line_items[0][price_data][product_data][name]') === 'MAST Solutions — Direct Action');
 }
 {
-  const res = await post('/create-booking', { sku: 'NOT-A-CLASS', customer_email: 'a@b.com' });
+  const res = await post('/register', classOrder({ sku: 'NOT-A-CLASS' }));
   ok('unknown SKU is rejected (404)', res.status === 404);
 }
 {
-  const res = await post('/create-booking', { sku: 'MAST-DA', customer_email: 'not-an-email' });
+  const res = await post('/register', classOrder({ customer: { name: 'Tax Buyer', email: 'not-an-email', phone: '(713) 555-0100', organization: '' } }));
   ok('bad email rejected (400)', res.status === 400);
 }
 {
   stripeCalls.length = 0;
-  await post('/create-booking', { sku: 'MAST-DA', customer_email: 'a@b.com', qty: 9999 });
+  await post('/register', classOrder({ qty: 9999 }));
   ok('qty clamped to 10', stripeCalls[0].get('line_items[0][quantity]') === '10');
 }
 
 console.log('\n── Redirect allowlist ──');
 {
   stripeCalls.length = 0;
-  await post('/create-booking', {
-    sku: 'MAST-DA', customer_email: 'a@b.com',
-    success_url: 'https://evil.example.com/steal',
-  });
+  await post('/register', classOrder({ success_url: 'https://evil.example.com/steal' }));
   const s = stripeCalls[0].get('success_url');
   ok('off-origin success_url rejected', !s.includes('evil.example.com'), 'got ' + s);
   ok('falls back to allowlisted origin', s.startsWith('https://mastsolutions.com'), 'got ' + s);
@@ -565,19 +612,16 @@ console.log('\n── Redirect allowlist ──');
   // No SITE_URL configured: the fallback still names the page on the first allowed origin.
   stripeCalls.length = 0;
   const { SITE_URL, ...noSite } = env;
-  await worker.fetch(new Request('https://mast-booking-backend.matthew-221.workers.dev/create-booking', {
-    method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://mastsolutions.com' },
-    body: JSON.stringify({ sku: 'MAST-DA', customer_email: 'a@b.com' }),
+  await worker.fetch(new Request('https://mast-booking-backend.matthew-221.workers.dev/register', {
+    method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() },
+    body: JSON.stringify(classOrder()),
   }), noSite, ctx);
   const s = stripeCalls[0] && stripeCalls[0].get('success_url');
   ok('without SITE_URL the fallback is <first origin>/mastsolutions.html', s === 'https://mastsolutions.com/mastsolutions.html?checkout=success', 'got ' + s);
 }
 {
   stripeCalls.length = 0;
-  await post('/create-booking', {
-    sku: 'MAST-DA', customer_email: 'a@b.com',
-    success_url: 'https://mastsolutions.com/?checkout=success',
-  });
+  await post('/register', classOrder({ success_url: 'https://mastsolutions.com/?checkout=success' }));
   ok('on-origin success_url accepted',
      stripeCalls[0].get('success_url').includes('mastsolutions.com/?checkout=success'));
 }
@@ -594,9 +638,7 @@ console.log('\n── Training weekends (calendar) ──');
 }
 {
   stripeCalls.length = 0;
-  const res = await post('/create-booking', {
-    sku: 'MAST-DA', customer_email: 'a@b.com', session_date: '2026-10-10', session_label: 'Sat–Sun, Oct 10–11, 2026',
-  });
+  const res = await post('/register', classOrder({ session_date: '2026-10-10', session_label: 'Sat–Sun, Oct 10–11, 2026' }));
   const sent = stripeCalls[0];
   ok('valid weekend accepted', res.status === 200, await res.clone().text());
   ok('session_date carried in Stripe metadata', sent && sent.get('metadata[session_date]') === '2026-10-10');
@@ -604,17 +646,18 @@ console.log('\n── Training weekends (calendar) ──');
      sent && sent.get('line_items[0][price_data][product_data][description]').includes('Oct 10'));
 }
 {
-  const res = await post('/create-booking', { sku: 'MAST-DA', customer_email: 'a@b.com', session_date: '2026-10-31' });
+  const res = await post('/register', classOrder({ session_date: '2026-10-31' }));
   ok('blocked weekend (Oct 31) rejected (409)', res.status === 409, 'got ' + res.status);
 }
 {
-  const res = await post('/create-booking', { sku: 'MAST-DA', customer_email: 'a@b.com', session_date: '2026-10-17' });
+  const res = await post('/register', classOrder({ session_date: '2026-10-17' }));
   ok('non-training Saturday rejected (404)', res.status === 404, 'got ' + res.status);
 }
 {
-  const res = await post('/create-booking', { sku: 'MAST-DA', customer_email: 'a@b.com', session_date: 'next saturday' });
+  const res = await post('/register', classOrder({ session_date: 'next saturday' }));
   ok('malformed date rejected (400)', res.status === 400, 'got ' + res.status);
 }
+undoEarlyWrites();
 
 console.log('\n── Membership plan resolution ──');
 {
@@ -744,7 +787,8 @@ const reg = (body) => post('/register', body);
 // One person per seat. Two live holds per address is the cap (SEAT_HOLD_MS / MAX_HOLDS_PER_EMAIL), so a block that books
 // three or more times books them for three or more people, which is what filling a class actually looks like.
 const party = (n, over = {}) => goodReg({ customer: { name: 'Cap ' + n, email: 'cap' + n + '@example.com', phone: '(713) 555-0100', organization: '' }, ...over });
-{
+// Pinned: the answers' purge date is the class date + 7 days, so on the real clock this block fails from 2026-10-17 12:00 UTC.
+await atInstant(BEFORE_WEEKEND, async () => {
   stripeCalls.length = 0; emails.length = 0;
   const res = await reg(goodReg()); const body = await res.json();
   ok('cleared participant reaches Stripe (200 + checkoutUrl)', res.status === 200 && body.checkoutUrl && body.registration_id.startsWith('reg_'), JSON.stringify(body));
@@ -762,11 +806,15 @@ const party = (n, over = {}) => goodReg({ customer: { name: 'Cap ' + n, email: '
   ok('answers row written separately with a purge date', answers.length === 1 && answers[0][4] > row.created_at);
   ok('stripe session id written back to the registration', row.stripe_session_id === 'cs_test_123');
   ok('no email sent for a cleared registration before payment', emails.length === 0);
-}
+});
 {
   // Capacity: MAST-DA is a 10-seat course in the fake catalog. Fill the first weekend, then the 11th seat is refused.
   stripeCalls.length = 0;
-  const already = [...registrations.values()].filter((r) => r.sku === 'MAST-DA' && r.session_date === FIRST_WEEKEND && r.status === 'pending').reduce((s, r) => s + Number(r.qty || 1), 0);
+  // The seats the Worker counts: paid, or a pending row still inside its hold (15 minutes with a Stripe session, 2 without).
+  // Counting every pending row agreed with it only while each row was minutes old; the block above now registers at a
+  // pinned 2026-10-01, which on a later clock is a lapsed hold the Worker rightly ignores.
+  const holdNow = Date.now(), live = new Date(holdNow - 15 * 60000).toISOString(), fresh = new Date(holdNow - 2 * 60000).toISOString();
+  const already = [...registrations.values()].filter((r) => r.sku === 'MAST-DA' && r.session_date === FIRST_WEEKEND && (r.status === 'paid' || holdsASeat(r, live, fresh))).reduce((s, r) => s + Number(r.qty || 1), 0);
   const SECOND_WEEKEND = '2026-10-24';   // seeded fortnightly: 10-10, 10-24 …
   const upTo9 = await reg(party(1, { qty: 9 - already })); const r9 = await upTo9.json();
   ok('capacity: booking up to one seat short still reaches Stripe', upTo9.status === 200, String(upTo9.status));
@@ -872,8 +920,70 @@ const party = (n, over = {}) => goodReg({ customer: { name: 'Cap ' + n, email: '
   ok('no email carries eligibility answers', emails.every(e => !/us_citizen|felony_prohibited|citizen of the United States/i.test(e.text)));
   ok('documents_sent_at recorded', !!row.documents_sent_at);
 }
+
+console.log('\n── Gear lists (owner, 2026-09-30) ──');
 {
-  // Retention cron: answers past purge_after go, pending registrations older than a day are abandoned.
+  // His text, as he sent it; only whitespace is normalised on either side of the comparison. The confirmation, the T−7
+  // and the T−1 all read src/gear-lists.js, and a course without a list gets the fallback line, never a promise.
+  const HIS = {
+    'MAST-HG-FUND': `1. Handgun.
+2. Eye and ear protection (electronic ears recommended)
+3. Ammunition: 300 rounds of factory ammunition
+4. Proper holster for secondary (holster should be snug to your waistline), molded to fit the pistol.
+5. 3-4 magazines and a magazine carrier if you have one.
+We also recommend packing a cleaning kit for weapons maintenance and wearing comfortable clothes. Bring lunch and enough water for the day; or, if you prefer, we will break for lunch, and there are BBQ joints, Subway, and other options. Sunscreen, wet wipes, and other comfort items are your friends. Pen and paper for notes`,
+    'MAST-CAR-FUND': `1. Primary (rifle)
+2. Secondary (handgun)
+3. Eye protection and hearing protection (electronic preferred)
+4. Proper holster for secondary (holster should be snug to your waistline), molded to fit the pistol.
+5. Ammunition: 450 rds primary and 250 rounds secondary, if you're bringing a pistol.
+6. 4 magazines for primary and 3 mags for secondary
+7. Magazine carrier, can be a chest rig, belt setup, cargo pockets, or other pockets.
+We also recommend packing a cleaning kit for weapons maintenance and wearing comfortable clothes. Bring lunch and enough water for the day; or, if you prefer, we will break for lunch, and there are BBQ joints, Subway, and other options. Sunscreen, wet wipes, and other comfort items are your friends. Pen and paper for notes.`,
+  };
+  const ws = (t) => String(t).replace(/\s+/g, ' ').trim();
+  // The block an email carries: from its GEAR LIST heading to the line before the next section.
+  const gearBlock = (text, course) => { const i = text.indexOf('GEAR LIST — ' + course + '\n'); if (i < 0) return null; const rest = text.slice(i).split('\n').slice(1); const out = []; for (const l of rest) { if (/^(CANCELLATION AND REFUND POLICY|Questions:|Running late)/.test(l)) break; out.push(l); } return out.join('\n'); };
+  const PROMISE = /arrives by separate email/i, FALLBACK = 'Your instructor will confirm the gear list before class.';
+
+  // Three paid registrations through the real webhook: the two courses with a list and one without.
+  const paidConfirmation = async (n, sku, name, day) => {
+    const r = await (await reg(party(n, { sku, session_date: day, prerequisite: { required: true, attested: true } }))).json();
+    const evt = JSON.stringify({ id: 'evt_gear_' + n, type: 'checkout.session.completed', data: { object: { id: 'cs_test_gear_' + n, mode: 'payment', amount_total: 22500, currency: 'usd',
+      customer_email: 'cap' + n + '@example.com', customer_details: { name: 'Cap ' + n, phone: '' },
+      metadata: { kind: 'class_booking', registration_id: r.registration_id, sku, class_name: name, qty: '1', customer_name: 'Cap ' + n, session_date: day, session_label: day } } } });
+    const now = Math.floor(Date.now() / 1000); emails.length = 0;
+    const res = await hook(evt, `t=${now},v1=${await sign(evt, now)}`);
+    await new Promise((done) => setTimeout(done, 300));
+    return { status: res.status, conf: emails.find((e) => e.subject.startsWith("You're booked") && e.to[0] === 'cap' + n + '@example.com') };
+  };
+  for (const [n, sku, name, day] of [[41, 'MAST-HG-FUND', 'Handgun Fundamentals', '2026-10-10'], [42, 'MAST-CAR-FUND', 'Carbine Fundamentals', '2026-10-11']]) {
+    const { status, conf } = await paidConfirmation(n, sku, name, day);
+    const block = conf ? gearBlock(conf.text, name) : null;
+    ok('gear: the paid ' + name + ' confirmation says the list is below and carries it, word for word as he wrote it',
+      status === 200 && !!conf && conf.text.includes('- Your gear list is below.') && block !== null && ws(block) === ws(HIS[sku]), conf ? JSON.stringify(block) : 'no confirmation');
+    ok('gear: … and no longer promises a separate email', !!conf && !PROMISE.test(conf.text));
+  }
+  const none = await paidConfirmation(43, 'MAST-HG-OP', 'Handgun Operator', '2026-10-10');
+  ok('gear: a course with no list (Handgun Operator) gets the fallback line, no list and no promise of one',
+    none.status === 200 && !!none.conf && none.conf.text.includes('- ' + FALLBACK) && !/GEAR LIST/.test(none.conf.text) && !none.conf.text.includes('gear list is below') && !PROMISE.test(none.conf.text), none.conf && none.conf.text);
+
+  const { journeyText } = await import('./src/crm.js');
+  const jr = (sku, item_name) => ({ id: 'reg_j', sku, item_name, session_date: '2026-10-10', customer_name: 'Ann Lee', customer_email: 'ann@example.com', qty: 1 });
+  for (const [sku, name] of [['MAST-HG-FUND', 'Handgun Fundamentals'], ['MAST-CAR-FUND', 'Carbine Fundamentals']]) {
+    const t7 = journeyText('t7', jr(sku, name), env, []).text, t1 = journeyText('t1', jr(sku, name), env, []).text;
+    ok('gear: the T−7 for ' + name + ' carries the list, so its "came by email" line is true', ws(gearBlock(t7, name) || '') === ws(HIS[sku]) && /the gear list for your course came by email/.test(t7), t7);
+    ok('gear: … and the T−1 carries it too', ws(gearBlock(t1, name) || '') === ws(HIS[sku]), t1);
+  }
+  const t7none = journeyText('t7', jr('MAST-HG-OP', 'Handgun Operator'), env, []).text, t1none = journeyText('t1', jr('MAST-HG-OP', 'Handgun Operator'), env, []).text;
+  ok('gear: the T−7 for a course with no list says the instructor will confirm it, and never that a list came by email',
+    t7none.includes(FALLBACK) && !/came by email/.test(t7none) && !/GEAR LIST/.test(t7none) && /BRING: eye and ear protection/.test(t7none), t7none);
+  ok('gear: … and the T−1 adds nothing it cannot keep', !/GEAR LIST|came by email/.test(t1none), t1none);
+  for (const n of [41, 42, 43]) for (const row of registrations.values()) if (row.customer_email === 'cap' + n + '@example.com') row.status = 'abandoned';
+}
+await atInstant(BEFORE_WEEKEND, async () => {
+  // Retention cron: answers past purge_after go, pending registrations older than a day are abandoned. Pinned: the purge
+  // runs at "now", and on the real clock the fixture weekend's own answers fall due from 2026-10-17 12:00 UTC too.
   answers.push([99, '{}', '', '2020-01-01T00:00:00Z', '2020-01-08T00:00:00Z']);
   const keep = answers.length - 1;
   registrations.set('reg_old', { id: 'reg_old', status: 'pending', created_at: '2020-01-01T00:00:00Z' });
@@ -882,7 +992,7 @@ const party = (n, over = {}) => goodReg({ customer: { name: 'Cap ' + n, email: '
   ok('expired answers purged, current ones kept', answers.length === keep && !answers.some(a => a[4] < '2021'));
   ok('stale pending registration marked abandoned', registrations.get('reg_old').status === 'abandoned');
   ok('outcomes untouched by the purge', outcomes.length >= 2);
-}
+});
 {
   const res = await worker.fetch(new Request('https://api.test/roster?view=registrations', { headers: { 'X-Admin-Key': 'super-secret-admin-key' } }), env, ctx); const body = await res.json();
   ok('roster view=registrations lists registrations', res.status === 200 && Array.isArray(body.registrations) && body.registrations.length >= 2);
@@ -902,7 +1012,7 @@ setClassSchedule(null);
   const wk = await (await worker.fetch(new Request('https://api.test/weekends', { headers: { Origin: 'https://mastsolutions.com' } }), env, ctx)).json();
   ok('GET /weekends publishes the schedule beside the weekends', JSON.stringify(wk.schedule) === JSON.stringify(CLASS_SCHEDULE), JSON.stringify(wk.schedule));
 }
-{
+await atInstant(BEFORE_WEEKEND, async () => {
   stripeCalls.length = 0;
   const hg = await reg(party(31, { sku: 'MAST-HG-FUND', session_date: '2026-10-10', session_label: 'Sat, Oct 10, 2026', prerequisite: undefined })); const hb = await hg.json();
   ok('schedule: Handgun Fundamentals on Sat 2026-10-10 reaches Stripe (200)', hg.status === 200 && !!hb.checkoutUrl, String(hg.status) + ' ' + JSON.stringify(hb));
@@ -913,8 +1023,8 @@ setClassSchedule(null);
   ok('schedule: … the SUNDAY is the session_date stored and sent, so T−7 / T−1 count from the day the class runs', cs && cs.get('metadata[session_date]') === '2026-10-11' && registrations.get(cb.registration_id).session_date === '2026-10-11', cs && cs.get('metadata[session_date]'));
   ok('schedule: … and the Stripe line item names the Sunday', cs && cs.get('line_items[0][price_data][product_data][description]') === 'SKU: MAST-CAR-FUND · Sun, Oct 11, 2026', cs && cs.get('line_items[0][price_data][product_data][description]'));
   for (const id of [hb.registration_id, cb.registration_id]) { const row = registrations.get(id); if (row) row.status = 'abandoned'; }
-}
-{
+});
+await atInstant(BEFORE_WEEKEND, async () => {
   // Every pair the owner did not schedule is refused before anything is written or sent.
   const before = registrations.size; stripeCalls.length = 0;
   const refused = [
@@ -934,14 +1044,68 @@ setClassSchedule(null);
   ok('schedule: a blocked weekend still answers as blocked (409, not not_scheduled)', blocked.status === 409 && (await blocked.json()).code !== 'not_scheduled');
   const offDay = await reg(party(35, { sku: 'MAST-HG-FUND', session_date: '2026-10-17' }));
   ok('schedule: a day that is no training weekend still answers 404', offDay.status === 404, String(offDay.status));
+});
+await atInstant(BEFORE_WEEKEND, async () => {
+  // A class is sold for a day or not at all. The only door is /register, and an undated registration is refused before
+  // a weekend is read, a row is written or Stripe is called (the retired /create-booking answers 410 to everything).
+  const before = registrations.size; stripeCalls.length = 0;
+  for (const [n, over] of [['no session_date', { session_date: undefined }], ['an empty session_date', { session_date: '' }], ['a null session_date', { session_date: null }]]) {
+    const res = await reg(party(36, { sku: 'MAST-HG-FUND', prerequisite: undefined, ...over })); const b = await res.json();
+    ok('undated: /register with ' + n + ' → 400 on the date field', res.status === 400 && b.field === 'date', String(res.status) + ' ' + JSON.stringify(b));
+  }
+  ok('undated: … no Stripe session and no registration row for any of them', stripeCalls.length === 0 && registrations.size === before, stripeCalls.length + ' sessions');
+  setClassSchedule(() => true);
+  const open = await reg(party(36, { sku: 'MAST-HG-FUND', prerequisite: undefined, session_date: undefined }));
+  ok('undated: … refused even with every pair open — the date requirement is not the schedule and no seam lifts it', open.status === 400 && stripeCalls.length === 0, String(open.status));
+  setClassSchedule(null);
+});
+{
+  // Houston's date, read the way the page reads it. The page's own todayCT() is lifted out of mastsolutions-tesla.html
+  // and run beside the Worker's at the same instants, so "the same rule as the page" is a measurement, not a claim.
+  const src = (/^function todayCT\(\)\{[^\n]*\}$/m.exec(repoFile('mastsolutions-tesla.html')) || [])[0];
+  const pageTodayCT = src ? new Function(src + '; return todayCT;')() : null;
+  ok("the page's todayCT() is found in mastsolutions-tesla.html", typeof pageTodayCT === 'function');
+  const instants = [
+    ['2026-10-11T04:59:59Z', '2026-10-10', 'Sat 23:59:59 CDT — UTC has already turned the day'],
+    ['2026-10-11T05:00:00Z', '2026-10-11', 'Sun 00:00 CDT'],
+    ['2026-11-01T04:59:59Z', '2026-10-31', 'the last second of Oct 31, CDT'],
+    ['2026-11-01T05:00:00Z', '2026-11-01', 'midnight Nov 1, still CDT'],
+    ['2026-11-01T07:30:00Z', '2026-11-01', '01:30 CST, the repeated hour after fall-back'],
+    ['2026-11-02T05:59:59Z', '2026-11-01', 'Nov 1 23:59:59 CST — an hour later in UTC than the day before'],
+    ['2026-11-02T06:00:00Z', '2026-11-02', 'midnight Nov 2, CST'],
+    ['2027-03-14T05:59:59Z', '2027-03-13', 'Mar 13 23:59:59 CST'],
+    ['2027-03-14T08:30:00Z', '2027-03-14', '03:30 CDT, just past the skipped hour'],
+    ['2027-03-15T04:59:59Z', '2027-03-14', 'Mar 14 23:59:59 CDT — an hour earlier in UTC than the day before'],
+    ['2027-03-15T05:00:00Z', '2027-03-15', 'midnight Mar 15, CDT'],
+  ];
+  for (const [iso, want, why] of instants) {
+    const onWorker = todayCT(Date.parse(iso));
+    const onPage = pageTodayCT ? await atInstant(iso, async () => pageTodayCT()) : null;
+    ok('todayCT at ' + iso + ' is ' + want + ' (' + why + '), on the Worker and on the page', onWorker === want && onPage === want, 'worker=' + onWorker + ' page=' + onPage);
+  }
 }
 {
-  // The legacy door (/create-booking) is gated the same way whenever it is given a date.
-  stripeCalls.length = 0;
-  const yes = await post('/create-booking', { sku: 'MAST-CAR-FUND', customer_email: 'a@b.com', session_date: '2026-10-11', session_label: 'Sun, Oct 11, 2026' });
-  ok('schedule: /create-booking sells Carbine Fundamentals on Sun 2026-10-11 and sends the Sunday', yes.status === 200 && stripeCalls[0] && stripeCalls[0].get('metadata[session_date]') === '2026-10-11', String(yes.status));
-  const no = await post('/create-booking', { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', session_date: '2026-10-24' }); const nb = await no.json();
-  ok('schedule: /create-booking refuses Handgun Fundamentals on 2026-10-24 — 409 not_scheduled, no session', no.status === 409 && nb.code === 'not_scheduled' && stripeCalls.length === 1, String(no.status) + ' ' + JSON.stringify(nb));
+  // A class day is sellable through the end of that day in Houston and refused from the next.
+  const book = (sku, day) => reg(party(37, { sku, session_date: day, prerequisite: undefined }));
+  const made = [];
+  const cases = [
+    ['2026-10-09T17:00:00Z', 'MAST-HG-FUND', '2026-10-10', 200, 'the day before (tomorrow is the class)'],
+    ['2026-10-10T17:00:00Z', 'MAST-HG-FUND', '2026-10-10', 200, 'the class day itself'],
+    ['2026-10-11T04:30:00Z', 'MAST-HG-FUND', '2026-10-10', 200, '23:30 in Houston on the class day, already the 11th in UTC'],
+    ['2026-10-11T05:30:00Z', 'MAST-HG-FUND', '2026-10-10', 409, '00:30 in Houston the next day (yesterday was the class)'],
+    ['2026-10-11T17:00:00Z', 'MAST-CAR-FUND', '2026-10-11', 200, 'Sunday: the Sunday class is today'],
+    ['2026-10-12T17:00:00Z', 'MAST-CAR-FUND', '2026-10-11', 409, 'Monday: the Sunday class was yesterday'],
+  ];
+  for (const [iso, sku, day, want, why] of cases) {
+    await atInstant(iso, async () => {
+      stripeCalls.length = 0; const before = registrations.size;
+      const r = await book(sku, day); const rb = await r.json(); if (rb.registration_id) made.push(rb.registration_id);
+      const refusedRight = want === 409 ? rb.code === 'date_passed' && rb.field === 'date' && stripeCalls.length === 0 && registrations.size === before : stripeCalls.length === 1;
+      ok('past day: ' + sku + ' on ' + day + ' at ' + iso + ' (' + why + ') → ' + want + ' on /register',
+        r.status === want && refusedRight, 'register ' + r.status + ' ' + (rb.code || '') + ' · sessions ' + stripeCalls.length);
+    });
+  }
+  for (const id of made) { const row = registrations.get(id); if (row) row.status = 'abandoned'; }
 }
 setClassSchedule(() => true);
 
@@ -1568,10 +1732,13 @@ console.log('\n── Account oracles, limiter coverage and schema retry (securi
   ok('/subscribe is 10 per window from one address, then 429', subs.slice(0, 10).every((s) => s === 200) && subs[10] === 429, subs[9] + ',' + subs[10]);
   resetLimits();
   const paid = [];
-  for (let i = 0; i < 10; i++) paid.push((await from('/create-booking', { sku: 'MAST-DA', customer_email: 'b@example.com' }, '198.51.100.103')).status);
-  const eleventh = await from('/create-booking', { sku: 'MAST-DA', customer_email: 'b@example.com' }, '198.51.100.103');
+  stripeCalls.length = 0;
+  for (let i = 0; i < 10; i++) paid.push((await from('/create-booking', { sku: 'MAST-DA', customer_email: 'b@example.com', session_date: LEGACY_DAY }, '198.51.100.103')).status);
+  const eleventh = await from('/create-booking', { sku: 'MAST-DA', customer_email: 'b@example.com', session_date: LEGACY_DAY }, '198.51.100.103');
   const membership = await from('/create-membership', { email: 'b@example.com', plan: 'range_member' }, '198.51.100.103');
-  ok('/create-booking is 10 Stripe sessions per window from one address, then 429 — it was unlimited and it costs money', paid.every((s) => s === 200) && eleventh.status === 429 && (await eleventh.clone().json()).code === 'rate_limited', paid.join() + ' then ' + eleventh.status);
+  // Retired (410 use_register) but still counted: the limit runs before the route answers, so the retired door cannot be
+  // used to hammer the Worker, and it spends the budget the live doors share.
+  ok('/create-booking is counted in the seat budget before it answers 410: ten 410s from one address, then 429, and no Stripe session', paid.every((s) => s === 410) && eleventh.status === 429 && (await eleventh.clone().json()).code === 'rate_limited' && stripeCalls.length === 0, paid.join() + ' then ' + eleventh.status);
   ok('… and /create-membership shares that one budget rather than doubling it', membership.status === 429, String(membership.status));
   ok('… while /register shares it too', (await from('/register', goodReg({ customer: { name: 'Seat Spray', email: 'seatspray@example.com', phone: '(713) 555-0100', organization: '' } }), '198.51.100.103')).status === 429);
 
@@ -3237,24 +3404,29 @@ console.log('\n── Stripe Tax: Houston, Texas (owner 2026-09-08; Texas Sales 
 
 console.log('\n── Stripe Tax: the switch, and the bodies on either side of it ──');
 {
-  // The exact body the pre-change Worker sent for this request, MEASURED by replaying it against the worker.js at HEAD
-  // (mast-backend-hardening, df05ff3) — not recalled. If a future edit moves a parameter, reorders one, or lets a tax
-  // field leak in with the switch off, this string stops matching and the build fails. That is the whole job of it.
-  const PRE_BOOKING = 'mode=payment&customer_email=a%40b.com&line_items%5B0%5D%5Bprice_data%5D%5Bcurrency%5D=usd&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Bname%5D=MAST+Solutions+%E2%80%94+Handgun+Fundamentals&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Bdescription%5D=SKU%3A+MAST-HG-FUND&line_items%5B0%5D%5Bprice_data%5D%5Bunit_amount%5D=22500&line_items%5B0%5D%5Bquantity%5D=1&success_url=https%3A%2F%2Fmastsolutions.com%2Fmastsolutions.html%3Fcheckout%3Dsuccess&cancel_url=https%3A%2F%2Fmastsolutions.com%2Fmastsolutions.html%3Fcheckout%3Dcancelled&payment_method_types%5B0%5D=card&billing_address_collection=required&phone_number_collection%5Benabled%5D=true&metadata%5Bkind%5D=class_booking&metadata%5Bsku%5D=MAST-HG-FUND&metadata%5Bclass_name%5D=Handgun+Fundamentals&metadata%5Bqty%5D=1&metadata%5Bsession_date%5D=&metadata%5Bsession_label%5D=&metadata%5Bcustomer_name%5D=&metadata%5Borganization%5D=&metadata%5Bnotes%5D=&metadata%5Bsource%5D=mastsolutions&metadata%5Butm_source%5D=&metadata%5Butm_medium%5D=&metadata%5Butm_campaign%5D=&metadata%5Bfirst_touch_at%5D=';
+  // The tax-off body of one /register checkout, pinned. It was first pinned on /create-booking, MEASURED by replaying the
+  // request against the pre-tax worker.js (mast-backend-hardening, df05ff3), and moved here when that door was retired
+  // for classes (2026-09-30): measured again at that commit through /register, and compared field by field with the old
+  // pin — the 25 fields the two doors share are in the same order, the only differences being each door's own field
+  // (/create-booking's phone_number_collection, /register's registration_id, masked to reg_X by bodyOf()), the course
+  // (TAX_SKU, which has no seat cap here) and the customer's name, which /register carries. If a future edit moves a
+  // parameter, reorders one, or lets a tax field leak in with the switch off, this string stops matching and the build
+  // fails. That is the whole job of it.
+  const PRE_BOOKING = 'mode=payment&customer_email=a%40b.com&line_items%5B0%5D%5Bprice_data%5D%5Bcurrency%5D=usd&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Bname%5D=MAST+Solutions+%E2%80%94+Shotgun+Fundamentals&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Bdescription%5D=SKU%3A+MAST-SG-FUND+%C2%B7+October+%E2%80%94+2nd+weekend&line_items%5B0%5D%5Bprice_data%5D%5Bunit_amount%5D=22500&line_items%5B0%5D%5Bquantity%5D=1&success_url=https%3A%2F%2Fmastsolutions.com%2Fmastsolutions.html%3Fcheckout%3Dsuccess&cancel_url=https%3A%2F%2Fmastsolutions.com%2Fmastsolutions.html%3Fcheckout%3Dcancelled&payment_method_types%5B0%5D=card&billing_address_collection=required&metadata%5Bkind%5D=class_booking&metadata%5Bregistration_id%5D=reg_X&metadata%5Bsku%5D=MAST-SG-FUND&metadata%5Bclass_name%5D=Shotgun+Fundamentals&metadata%5Bqty%5D=1&metadata%5Bsession_date%5D=2026-10-10&metadata%5Bsession_label%5D=October+%E2%80%94+2nd+weekend&metadata%5Bcustomer_name%5D=Tax+Buyer&metadata%5Borganization%5D=&metadata%5Bnotes%5D=&metadata%5Bsource%5D=mastsolutions&metadata%5Butm_source%5D=&metadata%5Butm_medium%5D=&metadata%5Butm_campaign%5D=&metadata%5Bfirst_touch_at%5D=';
   // The same body with the two tax fields appended, which is all applyTax adds. Named once so the tax-fallback retry
   // can be pinned as "exactly PRE_BOOKING again" rather than "something without automatic_tax in it".
   const TAXED_BOOKING = PRE_BOOKING + '&automatic_tax%5Benabled%5D=true&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Btax_code%5D=txcd_20030000';
-  const booking = { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 };
+  const booking = classOrder();
 
   stripeCalls.length = 0;
-  await post('/create-booking', booking);
-  ok('STRIPE_TAX unset: the booking body is BYTE-IDENTICAL to the pre-change one', stripeCalls[0].toString() === PRE_BOOKING, stripeCalls[0].toString());
-  ok('… no automatic_tax and no tax_code anywhere in it', !/automatic_tax|tax_code/.test(stripeCalls[0].toString()));
+  await post('/register', booking);
+  ok('STRIPE_TAX unset: the booking body is BYTE-IDENTICAL to the pre-change one', bodyOf(stripeCalls[0]) === PRE_BOOKING, bodyOf(stripeCalls[0]));
+  ok('… no automatic_tax and no tax_code anywhere in it', !/automatic_tax|tax_code/.test(bodyOf(stripeCalls[0])));
 
   stripeCalls.length = 0;
   const off = { ...env, STRIPE_TAX: '0' };
-  await worker.fetch(new Request('https://api.test/create-booking', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() }, body: JSON.stringify(booking) }), off, ctx);
-  ok('STRIPE_TAX="0" is the same byte-identical body — "off" is anything that is not "1"', stripeCalls[0].toString() === PRE_BOOKING, stripeCalls[0].toString());
+  await worker.fetch(new Request('https://api.test/register', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() }, body: JSON.stringify(booking) }), off, ctx);
+  ok('STRIPE_TAX="0" is the same byte-identical body — "off" is anything that is not "1"', bodyOf(stripeCalls[0]) === PRE_BOOKING, bodyOf(stripeCalls[0]));
 
   stripeCalls.length = 0;
   const on = { ...env, STRIPE_TAX: '1' };
@@ -3263,8 +3435,8 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
   // block below, and the row is seeded rather than measured because a checkout never measures anything.
   taxAccountReady(); forgetTaxState(); cacheTaxReady();
   const taxPost = (p, b) => worker.fetch(new Request('https://api.test' + p, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() }, body: JSON.stringify(b) }), on, ctx);
-  await taxPost('/create-booking', booking);
-  const sent = stripeCalls[0].toString();
+  await taxPost('/register', booking);
+  const sent = bodyOf(stripeCalls[0]);
   ok('STRIPE_TAX="1": the body is the pre-change one PLUS the two tax fields, appended, nothing else moved',
      sent === TAXED_BOOKING, sent);
   ok('… Stripe is asked to compute the tax', stripeCalls[0].get('automatic_tax[enabled]') === 'true');
@@ -3279,10 +3451,10 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
   await post('/account/register', { email: 'tax-card@example.com', password: 'correct horse battery', name: 'Tax Card' });
   const taxToken = (await (await post('/account/verify', { email: 'tax-card@example.com', code: codeIn(emails[0]), password: 'correct horse battery' })).json()).token;
   stripeCalls.length = 0;
-  await taxPost('/create-booking', { ...booking, account_token: taxToken });
-  ok('a signed-in, tax-enabled booking goes through the Stripe Customer', stripeCalls[0].get('customer') === 'cus_test_1' && !stripeCalls[0].has('customer_email'), stripeCalls[0].toString().slice(0, 160));
+  await taxPost('/register', { ...booking, account_token: taxToken });
+  ok('a signed-in, tax-enabled booking goes through the Stripe Customer', stripeCalls[0].get('customer') === 'cus_test_1' && !stripeCalls[0].has('customer_email'), bodyOf(stripeCalls[0]).slice(0, 160));
   ok('… and carries customer_update[address]=auto, which Stripe requires before it will compute tax on a Customer session',
-     stripeCalls[0].get('customer_update[address]') === 'auto' && stripeCalls[0].get('automatic_tax[enabled]') === 'true', stripeCalls[0].toString());
+     stripeCalls[0].get('customer_update[address]') === 'auto' && stripeCalls[0].get('automatic_tax[enabled]') === 'true', bodyOf(stripeCalls[0]));
 
   // Registration is the second creator, and the one that reaches Stripe after screening and the agreement.
   stripeCalls.length = 0;
@@ -3291,14 +3463,14 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
   await taxPost('/register', goodReg({ session_date: '2027-04-24', customer: { name: 'Tax Test', email: 'tax-test@example.com', phone: '(713) 555-0177', organization: '' } }));
   await drain();
   ok('/register carries automatic_tax and the tax code too', stripeCalls.length === 1 && stripeCalls[0].get('automatic_tax[enabled]') === 'true'
-     && stripeCalls[0].get('line_items[0][price_data][product_data][tax_code]') === 'txcd_20030000', stripeCalls.length + ' ' + (stripeCalls[0] && stripeCalls[0].toString().slice(0, 200)));
+     && stripeCalls[0].get('line_items[0][price_data][product_data][tax_code]') === 'txcd_20030000', stripeCalls.length + ' ' + (stripeCalls[0] && bodyOf(stripeCalls[0]).slice(0, 200)));
 
   // Membership is the third: a SAVED price, so the code cannot ride on the session — it is on the Price.
   stripeCalls.length = 0;
   await taxPost('/create-membership', { plan: 'range_member', email: 'a@b.com', seats: 1 });
   ok('/create-membership carries automatic_tax', stripeCalls[0].get('automatic_tax[enabled]') === 'true');
   ok('… and NO line-item tax code: a Session cannot override a saved Price, so setting one there would be a lie',
-     !stripeCalls[0].toString().includes('tax_code'), stripeCalls[0].toString());
+     !bodyOf(stripeCalls[0]).includes('tax_code'), bodyOf(stripeCalls[0]));
 
   // The membership Price provisions itself on first join; that is the one moment its tax code can be set.
   stripePriceCalls.length = 0; fakePrices.length = 0;
@@ -3322,9 +3494,9 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
 
   // ── the switch is ON and the account is NOT collecting: the checkout must be the tax-off checkout, byte for byte ──
   taxAccountBlank(); forgetTaxState(); stripeCalls.length = 0; stripeTaxCalls.length = 0;
-  const skipLines = await captureLogs(() => taxPost('/create-booking', booking));
+  const skipLines = await captureLogs(() => taxPost('/register', booking));
   ok('STRIPE_TAX="1" but the account is not collecting: the body is BYTE-IDENTICAL to the tax-off one',
-     stripeCalls[0].toString() === PRE_BOOKING, stripeCalls[0].toString());
+     bodyOf(stripeCalls[0]) === PRE_BOOKING, bodyOf(stripeCalls[0]));
   const skipped = skipLines.filter((l) => l.includes('tax_skipped'));
   ok('… and exactly ONE structured line says why — no measurement has been made, and making one is not this request\'s job',
      skipped.length === 1 && JSON.parse(skipped[0]).tax_skipped === 'never_measured', JSON.stringify(skipped));
@@ -3332,11 +3504,11 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
   // Everything Stripe-facing on this path lives in the enqueued half. Hand the same request a ctx with no waitUntil
   // and the Stripe calls do not merely move — there are none, because applyTax itself makes none.
   taxAccountBlank(); forgetTaxState(); stripeCalls.length = 0; stripeTaxCalls.length = 0;
-  await worker.fetch(new Request('https://api.test/create-booking', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() }, body: JSON.stringify(booking) }), on, {});
+  await worker.fetch(new Request('https://api.test/register', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() }, body: JSON.stringify(booking) }), on, {});
   ok('… with the background hook removed the checkout still completes tax-off and asks Stripe about tax ZERO times: applyTax itself never calls it',
-     stripeCalls[0].toString() === PRE_BOOKING && stripeTaxCalls.length === 0, JSON.stringify(stripeTaxCalls.map((c) => c.url)));
+     bodyOf(stripeCalls[0]) === PRE_BOOKING && stripeTaxCalls.length === 0, JSON.stringify(stripeTaxCalls.map((c) => c.url)));
   taxAccountBlank(); forgetTaxState(); witnessTaxAbsence(); stripeCalls.length = 0; stripeTaxCalls.length = 0;
-  await taxPost('/create-booking', booking);
+  await taxPost('/register', booking);
   ok('… the customer did not wait for the repair: nothing had been written to Stripe when the response came back',
      fakeTaxRegistrations.length === 0, 'registrations=' + fakeTaxRegistrations.length);
   await drain();
@@ -3344,9 +3516,9 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
      stripeTaxCalls.filter((c) => c.method === 'POST').length === 2 && fakeTaxRegistrations.length === 1,
      'POSTs=' + stripeTaxCalls.filter((c) => c.method === 'POST').length + ' registrations=' + fakeTaxRegistrations.length);
   stripeCalls.length = 0;
-  await taxPost('/create-booking', booking);
+  await taxPost('/register', booking);
   ok('… so the NEXT checkout carries the tax fields — the Worker repaired the account with no CI and no ADMIN_KEY',
-     stripeCalls[0].get('automatic_tax[enabled]') === 'true' && stripeCalls[0].get('line_items[0][price_data][product_data][tax_code]') === 'txcd_20030000', stripeCalls[0].toString());
+     stripeCalls[0].get('automatic_tax[enabled]') === 'true' && stripeCalls[0].get('line_items[0][price_data][product_data][tax_code]') === 'txcd_20030000', bodyOf(stripeCalls[0]));
   await drain();
 
   // ── two runs at once: the D1 lock decides, and the Idempotency-Keys are the belt to its braces ──
@@ -3395,8 +3567,8 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
   ok('… and the read-only report hands back that measurement from D1, without asking Stripe again',
      schedReport.tax_ready === false && schedReport.tax_ready_reason === 'no_active_tx_state_sales_tax' && schedReport.tax_ready_cache.cached === true, JSON.stringify({ ready: schedReport.tax_ready, cache: schedReport.tax_ready_cache }));
   forgetTaxState(); stripeCalls.length = 0;
-  await taxPost('/create-booking', booking);
-  ok('… a checkout against it sends the tax-off body', stripeCalls[0].toString() === PRE_BOOKING, stripeCalls[0].toString());
+  await taxPost('/register', booking);
+  ok('… a checkout against it sends the tax-off body', bodyOf(stripeCalls[0]) === PRE_BOOKING, bodyOf(stripeCalls[0]));
   stripeTaxCalls.length = 0;
   await drain();
   ok('… and the setup it kicks off creates NO second Texas registration — a duplicate is not undoable',
@@ -3469,21 +3641,21 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
 
   // ── the cache IS the readiness: it is written off-path, it is the only thing a checkout reads, and it expires ──
   taxAccountReady(); forgetTaxState(); stripeCalls.length = 0; stripeTaxCalls.length = 0;
-  await taxPost('/create-booking', booking);
+  await taxPost('/register', booking);
   ok('the FIRST checkout against an empty cache is tax-off even though the account IS collecting — measuring is not on the customer\'s path',
-     stripeCalls[0].toString() === PRE_BOOKING, stripeCalls[0].toString());
+     bodyOf(stripeCalls[0]) === PRE_BOOKING, bodyOf(stripeCalls[0]));
   await drain();
   ok('… and the refresh it enqueued behind the response is what caches the account ready', (taxStateRow('tax:ready') || {}).count === 1, JSON.stringify(taxStateRow('tax:ready')));
   taxFail = { on: '/tax/settings', method: 'GET', status: 500, body: { error: { message: 'Stripe is having a moment' } } };
   stripeCalls.length = 0; stripeTaxCalls.length = 0;
-  await taxPost('/create-booking', booking);
+  await taxPost('/register', booking);
   ok('… the next checkout reads that row and asks Stripe nothing at all — a Stripe outage cannot touch it',
      stripeTaxCalls.length === 0 && stripeCalls[0].get('automatic_tax[enabled]') === 'true', 'taxCalls=' + stripeTaxCalls.length);
   ageTaxState('tax:ready', 11 * 60000); expireTaxWindow();
   stripeCalls.length = 0;
-  await taxPost('/create-booking', booking);
+  await taxPost('/register', booking);
   ok('… past the 10-minute TTL the measurement is DUE, not void: it said ready, so the order is taxed on it and the re-measurement runs behind the response',
-     stripeCalls[0].toString() === TAXED_BOOKING, stripeCalls[0].toString());
+     bodyOf(stripeCalls[0]) === TAXED_BOOKING, bodyOf(stripeCalls[0]));
   const rowBefore = JSON.stringify(taxStateRow('tax:ready'));
   await drain();
   // ROUND 5, R5-1. This assertion used to read the other way — "a Stripe error is cached as UNMEASURED (count 2)" —
@@ -3492,24 +3664,24 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
   ok('… and a re-measurement that FAILS leaves the ready row exactly as it was: silence is not evidence, so the grace survives the outage',
      JSON.stringify(taxStateRow('tax:ready')) === rowBefore && (taxStateRow('tax:ready') || {}).count === 1, JSON.stringify(taxStateRow('tax:ready')));
   stripeCalls.length = 0; stripeTaxCalls.length = 0;
-  await taxPost('/create-booking', booking); await drain();
+  await taxPost('/register', booking); await drain();
   ok('… so the NEXT checkout through the same outage is still taxed, and the held window means it costs no Stripe call',
-     stripeTaxCalls.length === 0 && stripeCalls[0].toString() === TAXED_BOOKING, 'taxCalls=' + stripeTaxCalls.length + ' body=' + stripeCalls[0].toString());
+     stripeTaxCalls.length === 0 && bodyOf(stripeCalls[0]) === TAXED_BOOKING, 'taxCalls=' + stripeTaxCalls.length + ' body=' + bodyOf(stripeCalls[0]));
 
   // The other half of the same rule: with NO ready measurement to protect, a failure still writes UNMEASURED on the
   // short negative TTL — which is what stops the next checkout re-triggering it, and what fails closed.
   forgetTaxState(); expireTaxWindow();
   stripeCalls.length = 0; stripeTaxCalls.length = 0;
-  await taxPost('/create-booking', booking); await drain();
+  await taxPost('/register', booking); await drain();
   ok('… while a failure with no ready row behind it IS cached as UNMEASURED (count 2): fail-closed is unchanged where there is nothing to grace',
      (taxStateRow('tax:ready') || {}).count === 2 && /\|settings_read_failed$/.test(String((taxStateRow('tax:ready') || {}).window_start)), JSON.stringify(taxStateRow('tax:ready')));
   stripeCalls.length = 0; stripeTaxCalls.length = 0;
-  await taxPost('/create-booking', booking); await drain();
+  await taxPost('/register', booking); await drain();
   ok('… and that negative cache is what stops the NEXT checkout re-triggering it: zero Stripe calls inside the 60-second retry TTL',
-     stripeTaxCalls.length === 0 && stripeCalls[0].toString() === PRE_BOOKING, 'taxCalls=' + stripeTaxCalls.length);
+     stripeTaxCalls.length === 0 && bodyOf(stripeCalls[0]) === PRE_BOOKING, 'taxCalls=' + stripeTaxCalls.length);
   ageTaxState('tax:ready', 61000); expireTaxWindow();
   stripeCalls.length = 0; stripeTaxCalls.length = 0;
-  await taxPost('/create-booking', booking); await drain();
+  await taxPost('/register', booking); await drain();
   ok('… but only for a minute: past the retry TTL the refresh is allowed again, so a Stripe outage costs ten minutes of tax, not one',
      stripeTaxCalls.length > 0, 'taxCalls=' + stripeTaxCalls.length);
   taxFail = null;
@@ -3525,7 +3697,7 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
     taxFail = { on: '/tax/registrations', method: 'POST', status: 402, body: { error: { type: 'invalid_request_error',
       code: 'tax_registration_invalid', message: 'You must accept the Stripe Tax terms before creating a registration.' } } };
   };
-  const burstPost = (i) => worker.fetch(new Request('https://api.test/create-booking', { method: 'POST',
+  const burstPost = (i) => worker.fetch(new Request('https://api.test/register', { method: 'POST',
     headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': '192.0.2.' + ((i % 250) + 1) },
     body: JSON.stringify(booking) }), on, ctx);
 
@@ -3542,7 +3714,7 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
      stripeTaxCalls.filter((c) => c.method === 'POST').length === onePosts && onePosts === 2,
      'POSTs=' + JSON.stringify(stripeTaxCalls.filter((c) => c.method === 'POST').map((c) => c.url)));
   ok('… and all 100 got the tax-off body, byte for byte, not one of them a slower one',
-     stripeCalls.length === 100 && stripeCalls.every((b) => b.toString() === PRE_BOOKING), 'bodies=' + stripeCalls.length);
+     stripeCalls.length === 100 && stripeCalls.every((b) => bodyOf(b) === PRE_BOOKING), 'bodies=' + stripeCalls.length);
   ok('… with one structured tax_skipped line each — 100 of them, none silent',
      burst.filter((l) => l.includes('tax_skipped')).length === 100, 'lines=' + burst.filter((l) => l.includes('tax_skipped')).length);
 
@@ -3550,9 +3722,9 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
   stuckAccount(); forgetTaxState(); stripeCalls.length = 0; stripeTaxCalls.length = 0;
   cacheTaxReady(0, 'settings_status:pending'); ageTaxState('tax:ready', 11 * 60000);
   rateLimits.set('tax:lock', { key: 'tax:lock', window_start: new Date(Date.now() + 60000).toISOString(), count: 1 });
-  await taxPost('/create-booking', booking); await drain();
+  await taxPost('/register', booking); await drain();
   ok('a stale measurement plus a held window = ZERO Stripe calls: somebody else is already measuring, so this request does not',
-     stripeTaxCalls.length === 0 && stripeCalls[0].toString() === PRE_BOOKING, JSON.stringify(stripeTaxCalls.map((c) => c.url)));
+     stripeTaxCalls.length === 0 && bodyOf(stripeCalls[0]) === PRE_BOOKING, JSON.stringify(stripeTaxCalls.map((c) => c.url)));
   taxFail = null;
 
   // ── Stripe hangs: the customer never feels it, and the measurement dies on the Worker's own clock ──
@@ -3560,12 +3732,12 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
   taxAccountBlank(); forgetTaxState(); stripeCalls.length = 0; stripeTaxCalls.length = 0;
   taxHang = new Promise(() => {});   // Stripe accepts the tax call and never answers it
   const startedAt = Date.now();
-  await worker.fetch(new Request('https://api.test/create-booking', { method: 'POST',
+  await worker.fetch(new Request('https://api.test/register', { method: 'POST',
     headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() },
     body: JSON.stringify(booking) }), hangEnv, ctx);
   const elapsed = Date.now() - startedAt;
   ok('with Stripe\'s tax endpoint hung the checkout still completes immediately and tax-off — round 2 measured it blocked past 1500ms',
-     elapsed < 50 && stripeCalls[0].toString() === PRE_BOOKING, 'elapsed=' + elapsed + 'ms');
+     elapsed < 50 && bodyOf(stripeCalls[0]) === PRE_BOOKING, 'elapsed=' + elapsed + 'ms');
   await drain();
   ok('… the measurement behind it dies on the Worker\'s clock instead of hanging forever',
      (taxStateRow('tax:ready') || {}).count === 2 && /\|timeout$/.test(String((taxStateRow('tax:ready') || {}).window_start)), JSON.stringify(taxStateRow('tax:ready')));
@@ -3674,8 +3846,8 @@ console.log('\n── Stripe Tax kept warm: the five-minute trigger, the 24-hour
   // both are pinned here: a trigger that fires more often than the measurement expires, and a measurement that said
   // READY still counting for 24 hours while nothing re-measures.
   const on = { ...env, STRIPE_TAX: '1' };
-  const booking = { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 };
-  const bookWith = (c, e = on) => worker.fetch(new Request('https://api.test/create-booking', {
+  const booking = classOrder();
+  const bookWith = (c, e = on) => worker.fetch(new Request('https://api.test/register', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() },
     body: JSON.stringify(booking) }), e, c);
   // NO ctx.waitUntil: a checkout that cannot enqueue anything cannot be the thing keeping the cache warm, so what these
@@ -3686,7 +3858,7 @@ console.log('\n── Stripe Tax kept warm: the five-minute trigger, the 24-hour
   // taxed one is that string plus the two fields applyTax appends.
   stripeCalls.length = 0;
   await bookWith({}, { ...env, STRIPE_TAX: '0' });
-  const OFF_BODY = stripeCalls[0].toString();
+  const OFF_BODY = bodyOf(stripeCalls[0]);
   const TAXED_BODY = OFF_BODY + '&automatic_tax%5Benabled%5D=true&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Btax_code%5D=txcd_20030000';
 
   // The clock the Worker reads. Everything in the tax design is an age — a TTL, a grace, a lock window — and none of it
@@ -3715,7 +3887,7 @@ console.log('\n── Stripe Tax kept warm: the five-minute trigger, the 24-hour
       await tick();
       stripeCalls.length = 0;
       await bookAlone();
-      if (stripeCalls[0].toString() === TAXED_BODY) taxed++; else untaxed++;
+      if (bodyOf(stripeCalls[0]) === TAXED_BODY) taxed++; else untaxed++;
       advance(5 * 60000);
     }
     ok('a trigger every five minutes keeps the measurement warm: 36 orders across three simulated hours, EVERY one taxed',
@@ -3739,21 +3911,21 @@ console.log('\n── Stripe Tax kept warm: the five-minute trigger, the 24-hour
     advance(23 * 3600000);
     await bookAlone();
     ok('nothing re-measured for 23 hours and the order is STILL taxed — a stale measurement that said ready is not a measurement that says no',
-       stripeCalls[0].toString() === TAXED_BODY, stripeCalls[0].toString());
+       bodyOf(stripeCalls[0]) === TAXED_BODY, bodyOf(stripeCalls[0]));
     ok('… and it cost the customer nothing: zero Stripe tax calls on that path', stripeTaxCalls.length === 0, JSON.stringify(stripeTaxCalls.map((c) => c.url)));
 
     taxAccountReady(); forgetTaxState(); cacheTaxReady(); stripeTaxCalls.length = 0; stripeCalls.length = 0;
     advance(25 * 3600000);
     const expired = await captureLogs(() => bookWith(ctx));
     ok('at 25 hours it fails CLOSED: tax comes off rather than trusting a day-old reading of somebody else\'s account',
-       stripeCalls[0].toString() === OFF_BODY, stripeCalls[0].toString());
+       bodyOf(stripeCalls[0]) === OFF_BODY, bodyOf(stripeCalls[0]));
     ok('… and the log names which kind of no it is', expired.some((l) => l.includes('"tax_skipped":"measurement_expired"')), JSON.stringify(expired.filter((l) => l.includes('tax_skipped'))));
     await drain();
     ok('… while that same first checkout re-triggered the measurement behind its own response',
        stripeTaxCalls.length > 0 && (taxStateRow('tax:ready') || {}).count === 1, 'tax calls=' + stripeTaxCalls.length + ' row=' + JSON.stringify(taxStateRow('tax:ready')));
     stripeCalls.length = 0;
     await bookAlone();
-    ok('… so the one after it is taxed again, with no cron run in between', stripeCalls[0].toString() === TAXED_BODY, stripeCalls[0].toString());
+    ok('… so the one after it is taxed again, with no cron run in between', bodyOf(stripeCalls[0]) === TAXED_BODY, bodyOf(stripeCalls[0]));
 
     // ── the price of trusting a stale measurement: Stripe refuses the Session, and the customer must not feel it ──
     // ROUND 5, R5-2. The refusal keeps the checkout alive and buys ONE thing beyond that: a measurement, behind the
@@ -3775,7 +3947,7 @@ console.log('\n── Stripe Tax kept warm: the five-minute trigger, the 24-hour
     ok('Stripe refuses a Session for a TAX reason and the customer still gets a checkout URL: one retry, without the tax fields',
        fallbackRes.status === 200 && stripeCalls.length === 2, fallbackRes.status + ' attempts=' + stripeCalls.length);
     ok('… the first attempt carried tax and the retry is the tax-off body, byte for byte',
-       stripeCalls[0].toString() === TAXED_BODY && stripeCalls[1].toString() === OFF_BODY, stripeCalls[1].toString());
+       bodyOf(stripeCalls[0]) === TAXED_BODY && bodyOf(stripeCalls[1]) === OFF_BODY, bodyOf(stripeCalls[1]));
     const fb = fbLines.filter((l) => l.includes('tax_fallback'));
     ok('… exactly one tax_fallback line, carrying Stripe\'s own code and neither the planted key nor the string the caller chose',
        fb.length === 1 && !fb[0].includes(KEY_SHAPE) && !fb[0].includes(ECHOED) && JSON.parse(fb[0]).fields_dropped === 2 && JSON.parse(fb[0]).retried === true, JSON.stringify(fb));
@@ -3792,7 +3964,7 @@ console.log('\n── Stripe Tax kept warm: the five-minute trigger, the 24-hour
     stripeCalls.length = 0;
     for (let i = 0; i < 5; i++) await bookAlone();
     ok('… and the five buyers behind that one are ALL taxed: round 4 sold every one of them untaxed on a string a stranger chose',
-       stripeCalls.length === 5 && stripeCalls.every((b) => b.toString() === TAXED_BODY), 'bodies=' + stripeCalls.length + ' taxed=' + stripeCalls.filter((b) => b.toString() === TAXED_BODY).length);
+       stripeCalls.length === 5 && stripeCalls.every((b) => bodyOf(b) === TAXED_BODY), 'bodies=' + stripeCalls.length + ' taxed=' + stripeCalls.filter((b) => bodyOf(b) === TAXED_BODY).length);
 
     // ── a 5xx is not a refusal: Stripe did not read the body and say no, it failed to answer about it ──
     taxAccountReady(); forgetTaxState(); cacheTaxReady(); stripeCalls.length = 0; stripeTaxCalls.length = 0;
@@ -3871,7 +4043,7 @@ console.log('\n── Stripe Tax kept warm: the five-minute trigger, the 24-hour
       await tick();
       stripeCalls.length = 0;
       await bookAlone();
-      if (stripeCalls[0].toString() === TAXED_BODY) outageTaxed++; else outageUntaxed++;
+      if (bodyOf(stripeCalls[0]) === TAXED_BODY) outageTaxed++; else outageUntaxed++;
       advance(5 * 60000);
     }
     ok('an hour of Stripe 500s with the tick firing every five minutes: 12 orders, ZERO untaxed — reverting this fix sells 10 of the 12 untaxed, measured',
@@ -3890,7 +4062,7 @@ console.log('\n── Stripe Tax kept warm: the five-minute trigger, the 24-hour
        'taxCalls=' + stripeTaxCalls.length + ' beat=' + JSON.stringify(taxStateRow('tax:last_run')));
     taxFail = null;
     let burstTaxed = 0;
-    for (let i = 0; i < 6; i++) { stripeCalls.length = 0; await bookAlone(); if (stripeCalls[0].toString() === TAXED_BODY) burstTaxed++; advance(12000); }
+    for (let i = 0; i < 6; i++) { stripeCalls.length = 0; await bookAlone(); if (bodyOf(stripeCalls[0]) === TAXED_BODY) burstTaxed++; advance(12000); }
     ok('one failed tick, then six buyers over the next seventy seconds: all six taxed — reverting this fix sells all six untaxed',
        burstTaxed === 6, 'taxed=' + burstTaxed + '/6');
 
@@ -3905,7 +4077,7 @@ console.log('\n── Stripe Tax kept warm: the five-minute trigger, the 24-hour
     stripeCalls.length = 0;
     await bookAlone();
     ok('… so the very next order is the tax-off body, with no grace at all',
-       stripeCalls[0].toString() === OFF_BODY, stripeCalls[0].toString());
+       bodyOf(stripeCalls[0]) === OFF_BODY, bodyOf(stripeCalls[0]));
 
     // And past the grace, a failure DOES overwrite — the grace protects a measurement, not a memory.
     taxAccountReady(); forgetTaxState(); cacheTaxReady(); expireTaxWindow();
@@ -3918,7 +4090,7 @@ console.log('\n── Stripe Tax kept warm: the five-minute trigger, the 24-hour
     stripeCalls.length = 0;
     await bookAlone();
     ok('… and 25 hours of silence still fails CLOSED, exactly as it did before',
-       stripeCalls[0].toString() === OFF_BODY, stripeCalls[0].toString());
+       bodyOf(stripeCalls[0]) === OFF_BODY, bodyOf(stripeCalls[0]));
 
     // ── ROUND 5, R5-4: an unrecognised trigger runs the TICK, never the daily work ──
     // scheduled() branched on the tick string and treated everything else as the daily cron, so the fail direction was
@@ -3956,7 +4128,7 @@ console.log('\n── Stripe Tax kept warm: the five-minute trigger, the 24-hour
 console.log('\n── Round 5: what is validated is what is sent, an allow-list on the enum fields, and a clock on the calls a customer waits behind ──');
 {
   const on = { ...env, STRIPE_TAX: '1' };
-  const bookRaw = (body, e = on, c = ctx) => worker.fetch(new Request('https://api.test/create-booking', {
+  const bookRaw = (body, e = on, c = ctx) => worker.fetch(new Request('https://api.test/register', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() },
     body: JSON.stringify(body) }), e, c);
 
@@ -3964,7 +4136,7 @@ console.log('\n── Round 5: what is validated is what is sent, an allow-list 
      isEmail() trims before it tests, so " a@b.com " passed the check and then went to Stripe with its whitespace on.
      The approved string and the transmitted string have to be the same string. */
   taxAccountReady(); forgetTaxState(); stripeCalls.length = 0;
-  await bookRaw({ sku: 'MAST-HG-FUND', customer_email: '  spaced@example.com  ', qty: 1 });
+  await bookRaw(classOrder({ customer: { name: 'Tax Buyer', email: '  spaced@example.com  ', phone: '(713) 555-0100', organization: '' } }));
   ok('a booking email that passed validation TRIMMED is transmitted trimmed: what was approved is what Stripe receives',
      stripeCalls[0].get('customer_email') === 'spaced@example.com', JSON.stringify(stripeCalls[0].get('customer_email')));
   stripeCalls.length = 0;
@@ -3993,14 +4165,14 @@ console.log('\n── Round 5: what is validated is what is sent, an allow-list 
   taxAccountReady(); forgetTaxState(); cacheTaxReady(); stripeCalls.length = 0;
   sessionFail = { n: 1, status: 400, body: { error: { type: 'invalid_request_error',
     message: 'automatic_tax registration refused: ' + planted + FILLER } } };
-  const taxShapeLines = await captureAll(async () => { await bookRaw({ sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 }, on, { waitUntil: () => {} }); });
+  const taxShapeLines = await captureAll(async () => { await bookRaw(classOrder(), on, { waitUntil: () => {} }); });
   ok('every planted credential shape is scrubbed out of a TAX refusal before any line is written',
      echoes(taxShapeLines).length === 0, 'echoed: ' + echoes(taxShapeLines).join(', '));
 
   taxAccountReady(); forgetTaxState(); cacheTaxReady(); stripeCalls.length = 0;
   sessionFail = { n: 1, status: 400, body: { error: { type: 'card_error', code: 'card_declined',
     message: 'Your card was declined: ' + planted + FILLER } } };
-  const plainShapeLines = await captureAll(async () => { await bookRaw({ sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 }, on, { waitUntil: () => {} }); });
+  const plainShapeLines = await captureAll(async () => { await bookRaw(classOrder(), on, { waitUntil: () => {} }); });
   ok('… and out of the ORDINARY error path too, which is where the whole Stripe body is printed and nobody had looked',
      echoes(plainShapeLines).length === 0, 'echoed: ' + echoes(plainShapeLines).join(', '));
   const rawLine = plainShapeLines.find((l) => l.includes('Stripe error:'));
@@ -4076,7 +4248,7 @@ console.log('\n── Round 5: what is validated is what is sent, an allow-list 
   stripeGate = (n) => (n === 1 ? new Promise((r) => setTimeout(r, 700)) : new Promise(() => {}));
   sessionFail = { n: 1, status: 400, body: { error: { type: 'invalid_request_error', message: 'Stripe Tax is not active on this account (automatic_tax).' } } };
   const budgetStart = Date.now();
-  const budgetRes = await bookRaw({ sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 }, { ...on, STRIPE_CHECKOUT_TIMEOUT_MS: '1000' }, { waitUntil: () => {} });
+  const budgetRes = await bookRaw(classOrder(), { ...on, STRIPE_CHECKOUT_TIMEOUT_MS: '1000' }, { waitUntil: () => {} });
   const budgetMs = Date.now() - budgetStart;
   ok('both Session attempts live inside ONE ceiling: a 700ms refusal plus a retry that never answers costs the customer one second, not two',
      budgetMs >= 850 && budgetMs < 1500 && stripeCalls.length === 2 && budgetRes.status === 502,
@@ -4086,7 +4258,7 @@ console.log('\n── Round 5: what is validated is what is sent, an allow-list 
   taxAccountReady(); forgetTaxState(); cacheTaxReady(); stripeCalls.length = 0;
   stripeGate = (n) => (n === 1 ? new Promise((r) => setTimeout(r, 300)) : new Promise(() => {}));
   sessionFail = { n: 1, status: 400, body: { error: { type: 'invalid_request_error', message: 'Stripe Tax is not active on this account (automatic_tax).' } } };
-  const noBudget = await captureAll(async () => { await bookRaw({ sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 }, { ...on, STRIPE_CHECKOUT_TIMEOUT_MS: '500' }, { waitUntil: () => {} }); });
+  const noBudget = await captureAll(async () => { await bookRaw(classOrder(), { ...on, STRIPE_CHECKOUT_TIMEOUT_MS: '500' }, { waitUntil: () => {} }); });
   const fbSkipped = noBudget.filter((l) => l.includes('tax_fallback'));
   ok('… and when the first attempt has spent the budget the retry is skipped rather than started without a clock',
      stripeCalls.length === 1 && (fbSkipped.length === 0 || JSON.parse(fbSkipped[0]).retried === false),
@@ -4098,8 +4270,8 @@ console.log('\n── Round 5: what is validated is what is sent, an allow-list 
 console.log('\n── Round 6: an unparseable 200 is not a measurement, the cap the allow-list dropped, and the streak that names the double fault ──');
 {
   const on = { ...env, STRIPE_TAX: '1' };
-  const booking = { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 };
-  const bookWith = (c, e = on) => worker.fetch(new Request('https://api.test/create-booking', {
+  const booking = classOrder();
+  const bookWith = (c, e = on) => worker.fetch(new Request('https://api.test/register', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() },
     body: JSON.stringify(booking) }), e, c);
   const bookAlone = () => bookWith({});
@@ -4110,7 +4282,7 @@ console.log('\n── Round 6: an unparseable 200 is not a measurement, the cap 
   // fields applyTax appends.
   stripeCalls.length = 0;
   await bookWith({}, { ...env, STRIPE_TAX: '0' });
-  const OFF_BODY = stripeCalls[0].toString();
+  const OFF_BODY = bodyOf(stripeCalls[0]);
   const TAXED_BODY = OFF_BODY + '&automatic_tax%5Benabled%5D=true&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Btax_code%5D=txcd_20030000';
 
   const RealDate = Date;
@@ -4149,7 +4321,7 @@ console.log('\n── Round 6: an unparseable 200 is not a measurement, the cap 
         await tick();
         stripeCalls.length = 0;
         await bookAlone();
-        if (stripeCalls[0].toString() === TAXED_BODY) taxed++; else untaxed++;
+        if (bodyOf(stripeCalls[0]) === TAXED_BODY) taxed++; else untaxed++;
         advance(5 * 60000);
       }
       taxFail = null;
@@ -4169,7 +4341,7 @@ console.log('\n── Round 6: an unparseable 200 is not a measurement, the cap 
       stripeCalls.length = 0;
       await bookAlone();
       ok('… so that order is the tax-off body, byte for byte: fail-closed is unchanged where there is nothing to grace',
-         stripeCalls[0].toString() === OFF_BODY, stripeCalls[0].toString());
+         bodyOf(stripeCalls[0]) === OFF_BODY, bodyOf(stripeCalls[0]));
     }
 
     // 200-empty and 200-garbage are the same decision and NOT the same event, and the log line has to be able to say so.
@@ -4216,7 +4388,7 @@ console.log('\n── Round 6: an unparseable 200 is not a measurement, the cap 
     stripeCalls.length = 0;
     await bookAlone();
     ok('… and the order behind it is still TAXED: a 100,000-character lowercase status can no longer destroy a ready row and sell the next sale untaxed',
-       stripeCalls[0].toString() === TAXED_BODY, stripeCalls[0].toString());
+       bodyOf(stripeCalls[0]) === TAXED_BODY, bodyOf(stripeCalls[0]));
 
     taxAccountReady(); forgetTaxState(); cacheTaxReady(); ageTaxState('tax:ready', 11 * 60000); expireTaxWindow();
     fakeTaxSettings = { status: enumStatus(100000), head_office: { address: { line1: '2450 Fondren Rd' } }, defaults: {} };
@@ -4248,7 +4420,7 @@ console.log('\n── Round 6: an unparseable 200 is not a measurement, the cap 
     stripeCalls.length = 0;
     await bookAlone();
     ok('… so an account whose Texas registration is on page two still taxes the order instead of silently not collecting',
-       stripeCalls[0].toString() === TAXED_BODY, stripeCalls[0].toString());
+       bodyOf(stripeCalls[0]) === TAXED_BODY, bodyOf(stripeCalls[0]));
 
     taxAccountReady(); forgetTaxState(); cacheTaxReady(); ageTaxState('tax:ready', 11 * 60000); expireTaxWindow();
     fakeTaxHasMore = true;   // Texas IS on this page, and there are more pages after it
@@ -4280,7 +4452,7 @@ console.log('\n── Round 6: an unparseable 200 is not a measurement, the cap 
       stripeCalls.length = 0;
       const r = await bookWith(dctx);
       if (r.status === 200) sold++;
-      if (stripeCalls.length === 2 && stripeCalls[0].toString() === TAXED_BODY && stripeCalls[1].toString() === OFF_BODY) soldUntaxed++;
+      if (stripeCalls.length === 2 && bodyOf(stripeCalls[0]) === TAXED_BODY && bodyOf(stripeCalls[1]) === OFF_BODY) soldUntaxed++;
       await Promise.all(dq.splice(0));
       expireTaxWindow();
       advance(11 * 60000);
@@ -4305,7 +4477,7 @@ console.log('\n── Round 6: an unparseable 200 is not a measurement, the cap 
     await Promise.all(dq.splice(0));
     const afterSession = await (await adminTax6('?dry=1', 'GET')).json();
     ok('one tax-carrying Session that Stripe ACCEPTS clears the streak — and with the window held, no measurement ran at all, so that is what cleared it',
-       afterSession.tax_fallback_streak === 0 && stripeTaxCalls.length === 0 && stripeCalls.length === 1 && stripeCalls[0].toString() === TAXED_BODY,
+       afterSession.tax_fallback_streak === 0 && stripeTaxCalls.length === 0 && stripeCalls.length === 1 && bodyOf(stripeCalls[0]) === TAXED_BODY,
        'streak=' + afterSession.tax_fallback_streak + ' taxCalls=' + stripeTaxCalls.length + ' attempts=' + stripeCalls.length);
 
     // What clears it, half two: a measurement Stripe actually answers. Two more refusals with the tax reads still at
@@ -4385,8 +4557,8 @@ console.log('\n── Round 6: an unparseable 200 is not a measurement, the cap 
 console.log('\n── Round 7: a shape is checked at every level, every Stripe string is capped, and a redactor has no anchors ──');
 {
   const on = { ...env, STRIPE_TAX: '1' };
-  const booking = { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 };
-  const bookWith = (c, e = on) => worker.fetch(new Request('https://api.test/create-booking', {
+  const booking = classOrder();
+  const bookWith = (c, e = on) => worker.fetch(new Request('https://api.test/register', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() },
     body: JSON.stringify(booking) }), e, c);
   const bookAlone = () => bookWith({});
@@ -4395,7 +4567,7 @@ console.log('\n── Round 7: a shape is checked at every level, every Stripe s
 
   stripeCalls.length = 0;
   await bookWith({}, { ...env, STRIPE_TAX: '0' });
-  const OFF_BODY = stripeCalls[0].toString();
+  const OFF_BODY = bodyOf(stripeCalls[0]);
   const TAXED_BODY = OFF_BODY + '&automatic_tax%5Benabled%5D=true&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Btax_code%5D=txcd_20030000';
 
   const RealDate = Date;
@@ -4440,7 +4612,7 @@ console.log('\n── Round 7: a shape is checked at every level, every Stripe s
     stripeCalls.length = 0;
     await bookAlone();
     ok('… so the next order is TAXED on the grace — reverting the row validator sells it untaxed instead',
-       stripeCalls[0].toString() === TAXED_BODY, stripeCalls[0].toString());
+       bodyOf(stripeCalls[0]) === TAXED_BODY, bodyOf(stripeCalls[0]));
 
     forgetTaxState(); expireTaxWindow();
     await tick();
@@ -4492,7 +4664,7 @@ console.log('\n── Round 7: a shape is checked at every level, every Stripe s
       stripeCalls.length = 0;
       await bookAlone();
       ok('… so the order is still taxed: drift in how the field is WRITTEN is not evidence the account stopped collecting',
-         stripeCalls[0].toString() === TAXED_BODY, stripeCalls[0].toString());
+         bodyOf(stripeCalls[0]) === TAXED_BODY, bodyOf(stripeCalls[0]));
       forgetTaxState(); expireTaxWindow();
       await tick();
       ok('… while with nothing to grace it fails CLOSED as unmeasured (count 2), which is the only direction fail-closed may go',
@@ -4780,8 +4952,8 @@ console.log('\n── Round 6: the numbers in the comments are the numbers this 
 console.log('\n── Round 8: an unlisted field cannot be READ, an absence needs two witnesses, and the fuzz is part of the suite ──');
 {
   const on = { ...env, STRIPE_TAX: '1' };
-  const booking = { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 };
-  const bookWith = (c, e = on) => worker.fetch(new Request('https://api.test/create-booking', {
+  const booking = classOrder();
+  const bookWith = (c, e = on) => worker.fetch(new Request('https://api.test/register', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() },
     body: JSON.stringify(booking) }), e, c);
   const bookAlone = () => bookWith({});
@@ -4790,7 +4962,7 @@ console.log('\n── Round 8: an unlisted field cannot be READ, an absence need
 
   stripeCalls.length = 0;
   await bookWith({}, { ...env, STRIPE_TAX: '0' });
-  const OFF_BODY = stripeCalls[0].toString();
+  const OFF_BODY = bodyOf(stripeCalls[0]);
   const TAXED_BODY = OFF_BODY + '&automatic_tax%5Benabled%5D=true&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Btax_code%5D=txcd_20030000';
 
   const RealDate = Date;
@@ -4834,7 +5006,7 @@ console.log('\n── Round 8: an unlisted field cannot be READ, an absence need
     await bookAlone();
     const guardedReport = await (await adminTax8('?dry=1', 'GET')).json();
     ok('with the read guard ARMED, a cron tick, a checkout and the report all behave exactly as they do without it — and not one predicate reached for a field the schema does not list',
-       guardHits.length === 0 && (readyRow() || {}).count === 1 && stripeCalls[0].toString() === TAXED_BODY && guardedReport.tax_ready === true,
+       guardHits.length === 0 && (readyRow() || {}).count === 1 && bodyOf(stripeCalls[0]) === TAXED_BODY && guardedReport.tax_ready === true,
        'hits: ' + JSON.stringify(guardHits.slice(0, 4)) + ' row=' + JSON.stringify(readyRow()));
 
     // The setup path, which is the one that WRITES: taxRun's decision code reads settings.head_office.address.line1,
@@ -5057,7 +5229,7 @@ console.log('\n── Round 8: an unlisted field cannot be READ, an absence need
       const posts = taxPosts();
       stripeCalls.length = 0;
       await bookAlone();
-      const body = stripeCalls[0] ? stripeCalls[0].toString() : '';
+      const body = stripeCalls[0] ? bodyOf(stripeCalls[0]) : '';
       return { measured: before !== after, rowBefore: before, rowAfter: after, taxedNext: body === TAXED_BODY, registrationPosts: posts };
     };
     const fuzz = await runTaxShapeFuzz(fuzzTrial);
