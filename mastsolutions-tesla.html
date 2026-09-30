@@ -247,6 +247,7 @@
         .day.wk { color: #fff; border-color: rgba(201,168,76,.55); background: rgba(201,168,76,.08); cursor: pointer; font-weight: 700; }
         .day.wk::after { content: ''; position: absolute; bottom: 4px; width: 4px; height: 4px; border-radius: 50%; background: #C9A84C; }
         .day.wk:hover { background: rgba(26,107,222,.25); border-color: #1A6BDE; }
+        .day.sch { background: rgba(201,168,76,.32); border-color: #C9A84C; }
         .day.sel { background: #1A6BDE; border-color: #1A6BDE; color: #fff; }
         .day.sel::after { background: #fff; }
         .day.blk { color: #555; text-decoration: line-through; border-color: rgba(255,255,255,.08); cursor: not-allowed; }
@@ -639,7 +640,7 @@
     <div class="cal-grid" id="cal-grid"></div>
     <div class="cal-legend"><span><i style="background:rgba(201,168,76,.5)"></i>Training weekend</span><span><i style="background:#1A6BDE"></i>Selected</span><span><i style="background:#333"></i>Unavailable</span></div>
     <div class="cal-quick" id="cal-quick"></div>
-    <div class="cal-hint" style="margin-top:1rem;">One-day courses run Saturday, two-day courses Saturday and Sunday. Range directions and gear list follow by email after booking.</div>
+    <div class="cal-hint" style="margin-top:1rem;">Highlighted dates are the days this course is scheduled. Range directions and gear list follow by email after booking.</div>
     <div class="cal-foot"><div class="cal-sel" id="cal-sel">Tap a highlighted date.</div><button class="cta-button" id="cal-go" disabled onclick="calContinue()">Continue &rarr;</button></div>
 </div>
 
@@ -675,7 +676,7 @@
 
 <!-- BOOK A CLASS, date first (owner, 2026-09-05: "Click Book Class = calendar open; each has tab; choose tab; class offerings; all dates; hover class shows").
      Every training weekend; hover or tap a date for what runs; tabs by discipline ("All" opens every tab); Select hands the class to the
-     normal gate → calendar (date preselected) → registration. Until the course→weekend map exists, every bookable course runs every weekend. -->
+     normal gate → calendar (date preselected) → registration. A scheduled weekend names the class on each day; an unscheduled one lists every class as a waiting list. -->
 <div id="dcal-bd" class="modal-bd" onclick="closeDCal()"></div>
 <div id="dcal" class="modal wide" role="dialog" aria-modal="true" aria-labelledby="dcal-title">
     <button class="modal-x" aria-label="Close" onclick="closeDCal()">&times;</button>
@@ -685,7 +686,7 @@
     <div class="cal-nav"><button id="dcal-prev" aria-label="Previous month" onclick="dcalShift(-1)">&#8249;</button><div class="cal-month" id="dcal-month"></div><button id="dcal-next" aria-label="Next month" onclick="dcalShift(1)">&#8250;</button></div>
     <div class="cal-dow"><div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div></div>
     <div class="cal-grid" id="dcal-grid"></div>
-    <div class="cal-legend"><span><i style="background:rgba(201,168,76,.5)"></i>Training weekend</span><span><i style="background:#1A6BDE"></i>Selected</span><span><i style="background:#333"></i>Unavailable</span></div>
+    <div class="cal-legend"><span><i style="background:rgba(201,168,76,.5)"></i>Training weekend</span><span><i style="background:rgba(201,168,76,.32);box-shadow:inset 0 0 0 1px #C9A84C"></i>Class scheduled</span><span><i style="background:#1A6BDE"></i>Selected</span><span><i style="background:#333"></i>Unavailable</span></div>
     <div class="cal-quick" id="dcal-quick"></div>
     <div class="cal-classes" id="dcal-classes" hidden>
         <div class="cal-sel" id="dcal-sel"></div>
@@ -932,16 +933,19 @@
 'use strict';
 const API = 'https://mast-booking-backend.matthew-221.workers.dev';
 const CATALOG_ENDPOINT = API + '/catalog', WEEKENDS_ENDPOINT = API + '/weekends';
-/* Every date is a waiting list (owner, 2026-09-08: "ALL DATES for now ... until i get the info to you", where his first
-   wording was a filled-class notice and his correction minutes later was "Join waiting list" — the words he settled on are
-   quoted whole in CLAUDE.md; the superseded ones are not on this page, and the assembler's guard is a byte search that a
-   comment would satisfy falsely). While this is true, every path into checkout reads Join waiting list and hands
-   the course — and the weekend, when one was chosen in the Book a Class calendar — to the request dialog as request_type
-   'waitlist'; the prerequisite gate still runs first. Set it to false and the calendar → checkout path is what it was.
-   A Worker-side BOOKINGS_PAUSED flag replaces this constant when the schedule is real, so the pause is one deploy, not a
-   rebuild of both pages. */
-const WAITLIST_ALL_DATES = true;
-const DATE_ACTION = WAITLIST_ALL_DATES ? 'Join waiting list' : 'Select Date';
+/* The schedule (owner, 2026-09-30: "10/10: Handgun Fundamentals, 10/11: Carbine Fundamentals"). One row per class on a day:
+   [the day it runs, SKU], the day being the Saturday or Sunday of a training weekend below. A pair listed here is bookable —
+   the date button, the calendar, checkout. Every other course and date is a waiting list, as every date was from 2026-09-08
+   ("ALL DATES for now ... until i get the info to you", where his first wording was a filled-class notice and his correction
+   minutes later was "Join waiting list" — the words he settled on are quoted whole in CLAUDE.md; the superseded ones are not
+   on this page, and the assembler's guard is a byte search that a comment would satisfy falsely): Join waiting list hands the
+   course — and the weekend, when one was chosen in the Book a Class calendar — to the request dialog as request_type
+   'waitlist'; the prerequisite gate still runs first. The Worker holds the same rows (CLASS_SCHEDULE in
+   mast-backend/src/worker.js) and refuses a checkout for any other pair; the assembler fails the build if the two differ. */
+const SCHEDULE = [
+  ['2026-10-10', 'MAST-HG-FUND'],
+  ['2026-10-11', 'MAST-CAR-FUND'],
+];
 
 const COURSES = [
   /* Private instruction — listed first (owner, 2026-09-04). No price and no dates on the page; the sheet PDF is linked when supplied — by arrangement, not on the weekend calendar. Priced per the owner's 2026-09 progression sheet. */
@@ -973,11 +977,24 @@ const COURSES = [
   { sku:'MAST-GEAR',     cat:'Gear',            img:'images/mast/class/MAST-GEAR.jpg', name:'Gear & Kit Considerations',       hours:24, days:3, price_cents:75000, seats:10 },
 ];
 
+/* A weekend is offered until its Sunday has passed in Houston, whatever the visitor's own clock zone says (2026-09-30: the
+   September weekend was still in this list after it had gone); the Worker's list goes through the same filter when it arrives. */
+function todayCT(){ const p = {}; new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).forEach(x => { p[x.type] = x.value; }); return p.year + '-' + p.month + '-' + p.day; }
+function isoPlus(iso, n){ const [y, m, d] = iso.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); }
+function weekendOver(w){ return isoPlus(w.saturday, 1) < todayCT(); }
 let WEEKENDS = [
-  ['2026-09-26','September — last weekend'],['2026-10-10','October — 2nd weekend'],['2026-10-24','October — 4th weekend'],['2026-10-31','October — 5th weekend','blocked'],
+  ['2026-10-10','October — 2nd weekend'],['2026-10-24','October — 4th weekend'],['2026-10-31','October — 5th weekend','blocked'],
   ['2026-11-14','November — 2nd weekend'],['2026-12-12','December — 2nd weekend'],['2027-01-09','January — 2nd weekend'],['2027-01-23','January — 4th weekend'],['2027-01-30','January — 5th weekend'],
   ['2027-02-13','February — 2nd weekend'],['2027-02-27','February — 4th weekend'],['2027-03-13','March — 2nd weekend'],['2027-03-27','March — 4th weekend'],['2027-04-10','April — 2nd weekend'],['2027-04-24','April — 4th weekend'],
-].map(([saturday, label, status]) => ({ saturday, label, status: status || 'available' }));
+].map(([saturday, label, status]) => ({ saturday, label, status: status || 'available' })).filter(w => !weekendOver(w));
+/* Which course runs on which day of a weekend, and the one rule every label and every booking path reads: a course can be
+   booked on a weekend only when SCHEDULE puts it there, the weekend is open and the day has not passed. dateAction() is the
+   label, bookCourse() the destination, and both ask canBook(), so they cannot disagree. */
+const slotsOf = w => { const sun = isoPlus(w.saturday, 1); return SCHEDULE.filter(([d]) => d === w.saturday || d === sun).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0); };
+const slotDate = (w, c) => { const s = w ? slotsOf(w).find(([, sku]) => sku === c.sku) : null; return s ? s[0] : null; };
+const slotOpen = (w, c) => { const d = slotDate(w, c); return !!d && bookable(w) && d >= todayCT(); };
+const canBook = (c, wi) => wi !== null && wi !== undefined ? slotOpen(WEEKENDS[wi], c) : WEEKENDS.some(w => slotOpen(w, c));
+const dateAction = (c, wi) => canBook(c, wi) ? 'Select Date' : 'Join waiting list';
 
 const $ = id => document.getElementById(id);
 const money = c => '$' + (c/100).toLocaleString('en-US', { minimumFractionDigits: c % 100 ? 2 : 0 });
@@ -1013,12 +1030,13 @@ $('catalog').innerHTML = CATS.map((cat, ci) => {
     items.map(({ c, i }) => c.request
       ? `<div class="course-row call">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div>${c.pdf ? `<a class="cr-pdf" href="${esc(c.pdf)}" target="_blank" rel="noopener">Private instruction sheet (PDF) &rarr;</a>` : ''}</div><div class="cr-side"><div class="cr-price">BY<small>ARRANGEMENT</small></div><button class="cta-button cr-btn" type="button" onclick="requestPrivate(${i})">Request</button></div></div>`
       : c.price_cents
-      ? `<div class="course-row" role="button" tabindex="0" onclick="selectCourse(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectCourse(${i});}">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price" data-sku="${c.sku}">${money(c.price_cents)}<small>PER SEAT</small></div><span class="cta-button cr-btn">${DATE_ACTION}</span></div></div>`
+      ? `<div class="course-row" role="button" tabindex="0" onclick="selectCourse(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectCourse(${i});}">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price" data-sku="${c.sku}">${money(c.price_cents)}<small>PER SEAT</small></div><span class="cta-button cr-btn" data-act="${i}">${dateAction(c, null)}</span></div></div>`
       : `<div class="course-row call">${pic(c)}<div><div class="cr-name">${esc(c.name)}</div><div class="cr-meta">${metaHtml(c)}</div></div><div class="cr-side"><div class="cr-price">CALL<small>FOR PRICING</small></div><a class="cta-button ghost-button cr-btn" href="tel:+12816548100">Call</a></div></div>`).join('') + `</div></div>`;
 }).join('');
 function toggleCat(ci){ const el = $('cat-' + ci); const open = el.classList.toggle('open'); el.querySelector('.cat-btn').setAttribute('aria-expanded', open); }
 fetch(CATALOG_ENDPOINT).then(r => r.ok ? r.json() : null).then(d => { if (!d || !d.classes) return; const by = Object.fromEntries(d.classes.map(c => [c.sku, c.price_cents])); COURSES.forEach(c => { if (by[c.sku]) { c.price_cents = by[c.sku]; const el = document.querySelector(`.cr-price[data-sku="${c.sku}"]`); if (el) el.innerHTML = money(c.price_cents) + '<small>PER SEAT</small>'; } }); }).catch(() => {});
-fetch(WEEKENDS_ENDPOINT).then(r => r.ok ? r.json() : null).then(d => { if (d && Array.isArray(d.weekends) && d.weekends.length) WEEKENDS = d.weekends.map(w => ({ saturday: w.saturday, label: w.label || '', status: w.status || 'available' })); }).catch(() => {});
+function paintActions(){ document.querySelectorAll('.cr-btn[data-act]').forEach(el => { el.textContent = dateAction(COURSES[+el.dataset.act], null); }); }
+fetch(WEEKENDS_ENDPOINT).then(r => r.ok ? r.json() : null).then(d => { if (d && Array.isArray(d.weekends) && d.weekends.length) { const list = d.weekends.map(w => ({ saturday: w.saturday, label: w.label || '', status: w.status || 'available' })).filter(w => !weekendOver(w)); if (list.length) { WEEKENDS = list; paintActions(); } } }).catch(() => {});
 
 /* Calendar */
 const parseISO = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
@@ -1026,8 +1044,13 @@ const keyOf = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 let calCourse = null, calMonth = null, chosen = null, lastFocus = null;
 function weekendDates(w, days){ const sat = parseISO(w.saturday), out = []; const start = days === 3 ? -1 : 0, n = days === 1 ? 1 : (days === 3 ? 3 : 2); for (let k = 0; k < n; k++) { const d = new Date(sat); d.setDate(sat.getDate() + start + k); out.push(d); } return out; }
-function labelFor(w, days){ const ds = weekendDates(w, days), a = ds[0], b = ds[ds.length - 1]; const mo = d => d.toLocaleDateString('en-US', { month: 'short' }); if (ds.length === 1) return a.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }); const wd = ds.length === 2 ? 'Sat–Sun' : 'Fri–Sun'; const range = a.getMonth() === b.getMonth() ? `${mo(a)} ${a.getDate()}–${b.getDate()}` : `${mo(a)} ${a.getDate()} – ${mo(b)} ${b.getDate()}`; return `${wd}, ${range}, ${b.getFullYear()}`; }
-function isPast(w){ const t = new Date(); t.setHours(0,0,0,0); return parseISO(w.saturday) < t; }
+function labelFor(w, days){ return datesLabel(weekendDates(w, days)); }
+function datesLabel(ds){ const a = ds[0], b = ds[ds.length - 1]; const mo = d => d.toLocaleDateString('en-US', { month: 'short' }); if (ds.length === 1) return a.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }); const wd = ds.length === 2 ? 'Sat–Sun' : 'Fri–Sun'; const range = a.getMonth() === b.getMonth() ? `${mo(a)} ${a.getDate()}–${b.getDate()}` : `${mo(a)} ${a.getDate()} – ${mo(b)} ${b.getDate()}`; return `${wd}, ${range}, ${b.getFullYear()}`; }
+/* The days a course occupies on a weekend: from its SCHEDULE day when it has one (Carbine Fundamentals on the Sunday), else the
+   weekend's own shape. slotLabel is what the calendar, the sheet, the receipt URL and the Worker's session_label all read. */
+function classDates(w, c){ const d = slotDate(w, c); if (!d) return weekendDates(w, c.days); const s = parseISO(d), out = []; for (let k = 0; k < Math.max(1, c.days); k++) { const x = new Date(s); x.setDate(s.getDate() + k); out.push(x); } return out; }
+function slotLabel(w, c){ return datesLabel(classDates(w, c)); }
+function isPast(w){ return weekendOver(w); }
 function bookable(w){ return (w.status === 'available' || w.status === 'scheduled') && !isPast(w); }
 /* The gate (owner, 2026-09-04: "Still no gate to make sure that first-time students HAVE to take Fundamentals ... first"): before the
    calendar opens for a course with a prerequisite, the student answers whether they have completed it. "Yes" opens the calendar and
@@ -1040,33 +1063,38 @@ function closeGate(){ $('gate-bd').classList.remove('open'); $('gate').classList
 function gateYes(){ const c = COURSES[gateIdx]; attested[c.sku] = true; closeGate(); bookCourse(gateIdx); }
 function gateNo(){ const f = levelOf(COURSES[gateIdx]).fund, fi = COURSES.indexOf(f), ci = CATS.indexOf(f.cat); closeGate(); const cat = $('cat-' + ci); if (cat && !cat.classList.contains('open')) toggleCat(ci); const row = document.querySelector(`.cr-price[data-sku="${f.sku}"]`); const rowEl = row && row.closest('.course-row'); if (rowEl) { rowEl.scrollIntoView({ block: 'center' }); rowEl.classList.add('flash'); setTimeout(() => rowEl.classList.remove('flash'), 2400); } bookCourse(fi); }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('gate').classList.contains('open')) closeGate(); });
-/* The one door to a booking, so the waiting list and the calendar cannot drift apart: with WAITLIST_ALL_DATES off this is
-   openCal and nothing else about the checkout changes. The gate has already been answered by the time either runs. */
-function bookCourse(i){ return WAITLIST_ALL_DATES ? waitlistCourse(i) : openCal(i); }
-function openCal(i){ calCourse = COURSES[i]; chosen = (preChosen !== null && bookable(WEEKENDS[preChosen])) ? preChosen : null; preChosen = null; lastFocus = document.activeElement; $('cal-title').textContent = calCourse.name; $('cal-meta').textContent = metaFor(calCourse); $('cal-price').textContent = money(calCourse.price_cents) + ' per seat'; const first = chosen !== null ? WEEKENDS[chosen] : (WEEKENDS.find(bookable) || WEEKENDS[0]); const fd = parseISO(first.saturday); calMonth = new Date(fd.getFullYear(), fd.getMonth(), 1); renderCal(); $('cal-bd').classList.add('open'); $('cal').classList.add('open'); document.body.style.overflow = 'hidden'; }
+/* The one door to a booking, so the waiting list and the calendar cannot drift apart: a course on a scheduled day opens the
+   calendar and checkout, anything else joins the waiting list. The weekend chosen in the Book a Class calendar, if any, is
+   the one asked about. The gate has already been answered by the time either runs. */
+function bookCourse(i){ return canBook(COURSES[i], preChosen) ? openCal(i) : waitlistCourse(i); }
+function openCal(i){ calCourse = COURSES[i]; chosen = (preChosen !== null && slotOpen(WEEKENDS[preChosen], calCourse)) ? preChosen : null; preChosen = null; lastFocus = document.activeElement; $('cal-title').textContent = calCourse.name; $('cal-meta').textContent = metaFor(calCourse); $('cal-price').textContent = money(calCourse.price_cents) + ' per seat'; const first = chosen !== null ? WEEKENDS[chosen] : WEEKENDS.find(w => slotOpen(w, calCourse)); const fd = first ? classDates(first, calCourse)[0] : new Date(); calMonth = new Date(fd.getFullYear(), fd.getMonth(), 1); renderCal(); $('cal-bd').classList.add('open'); $('cal').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeCal(){ $('cal-bd').classList.remove('open'); $('cal').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
-function calBounds(){ const a = parseISO(WEEKENDS[0].saturday), b = parseISO(WEEKENDS[WEEKENDS.length - 1].saturday); return { min: new Date(a.getFullYear(), a.getMonth(), 1), max: new Date(b.getFullYear(), b.getMonth(), 1) }; }
+function calBounds(){ if (!WEEKENDS.length) { const t = parseISO(todayCT()); return { min: new Date(t.getFullYear(), t.getMonth(), 1), max: new Date(t.getFullYear(), t.getMonth(), 1) }; } const a = parseISO(WEEKENDS[0].saturday), b = parseISO(WEEKENDS[WEEKENDS.length - 1].saturday); return { min: new Date(a.getFullYear(), a.getMonth(), 1), max: new Date(b.getFullYear(), b.getMonth(), 1) }; }
 function calShift(n){ const { min, max } = calBounds(); const next = new Date(calMonth.getFullYear(), calMonth.getMonth() + n, 1); if (next < min || next > max) return; calMonth = next; renderCal(); }
 function renderCal(){
   const { min, max } = calBounds(); $('cal-month').textContent = MONTHS[calMonth.getMonth()] + ' ' + calMonth.getFullYear(); $('cal-prev').disabled = calMonth <= min; $('cal-next').disabled = calMonth >= max;
-  const dayMap = {}; WEEKENDS.forEach((w, wi) => weekendDates(w, calCourse.days).forEach(d => { dayMap[keyOf(d)] = wi; }));
+  const dayMap = {}; WEEKENDS.forEach((w, wi) => { if (slotDate(w, calCourse)) classDates(w, calCourse).forEach(d => { dayMap[keyOf(d)] = wi; }); });
   const y = calMonth.getFullYear(), m = calMonth.getMonth(); const gridStart = new Date(y, m, 1 - new Date(y, m, 1).getDay()); let html = '';
   for (let k = 0; k < 42; k++) { const d = new Date(gridStart); d.setDate(gridStart.getDate() + k); const wi = dayMap[keyOf(d)]; const other = d.getMonth() !== m; let cls = 'day' + (other ? ' other' : ''), attrs = '';
-    if (wi !== undefined && !other) { const w = WEEKENDS[wi]; if (bookable(w)) { cls += ' wk' + (chosen === wi ? ' sel' : ''); attrs = ` onclick="pick(${wi})" title="${esc(w.label)}"`; } else { cls += ' blk' + (isPast(w) ? ' past' : ''); attrs = ' title="Unavailable"'; } }
+    if (wi !== undefined && !other) { const w = WEEKENDS[wi]; if (slotOpen(w, calCourse)) { cls += ' wk' + (chosen === wi ? ' sel' : ''); attrs = ` onclick="pick(${wi})" title="${esc(slotLabel(w, calCourse) + ' · ' + calCourse.name)}"`; } else { cls += ' blk' + (keyOf(d) < todayCT() ? ' past' : ''); attrs = ' title="Unavailable"'; } }
     html += `<div class="${cls}"${attrs}>${d.getDate()}</div>`; }
   $('cal-grid').innerHTML = html;
-  $('cal-quick').innerHTML = WEEKENDS.map((w, wi) => bookable(w) ? `<button type="button" class="chip${chosen === wi ? ' sel' : ''}" onclick="pick(${wi})">${labelFor(w, calCourse.days).replace(/, \d{4}$/, '')}</button>` : '').join('');
-  $('cal-sel').innerHTML = chosen === null ? 'Tap a highlighted date.' : `<b>${labelFor(WEEKENDS[chosen], calCourse.days)}</b>`; $('cal-go').disabled = chosen === null;
+  $('cal-quick').innerHTML = WEEKENDS.map((w, wi) => slotOpen(w, calCourse) ? `<button type="button" class="chip${chosen === wi ? ' sel' : ''}" onclick="pick(${wi})">${slotLabel(w, calCourse).replace(/, \d{4}$/, '')}</button>` : '').join('');
+  $('cal-sel').innerHTML = chosen === null ? 'Tap a highlighted date.' : `<b>${slotLabel(WEEKENDS[chosen], calCourse)}</b>`; $('cal-go').disabled = chosen === null;
 }
-function pick(wi){ if (window.mastTrack && calCourse) mastTrack('pick_date', WEEKENDS[wi] && WEEKENDS[wi].saturday, calCourse.sku); chosen = wi; const d = parseISO(WEEKENDS[wi].saturday); calMonth = new Date(d.getFullYear(), d.getMonth(), 1); renderCal(); }
+function pick(wi){ if (!slotOpen(WEEKENDS[wi], calCourse)) return; if (window.mastTrack && calCourse) mastTrack('pick_date', slotDate(WEEKENDS[wi], calCourse), calCourse.sku); chosen = wi; const d = parseISO(slotDate(WEEKENDS[wi], calCourse)); calMonth = new Date(d.getFullYear(), d.getMonth(), 1); renderCal(); }
 function calContinue(){ if (chosen === null) return; $('cal-bd').classList.remove('open'); $('cal').classList.remove('open'); openSheet(); }
 
 // ── Book a Class, date first (owner, 2026-09-05). Every training weekend on one calendar; hover shows what runs; pick a weekend, then a
 //    class from tabs by discipline ("All" opens every tab); Select hands the class to the normal gate → calendar (the weekend already
-//    chosen) → registration. Until the course→weekend map exists every bookable course runs every weekend (his accepted hole).
+//    chosen) → registration. A weekend with SCHEDULE rows shows each day's class and only those; a weekend with none lists every
+//    class as a waiting list, which is what the whole calendar was until the owner set the first weekend (2026-09-30).
 let dcalMonth = null, dcalPick = null, dcalTab = 'All', preChosen = null;
 function offeredOn(){ return COURSES.map((c, i) => ({ c, i })).filter(({ c }) => !c.request && c.price_cents > 0 && c.days > 0); }
-function openDCal(){ dcalPick = null; dcalTab = 'All'; lastFocus = document.activeElement; const first = WEEKENDS.find(bookable) || WEEKENDS[0]; const fd = parseISO(first.saturday); dcalMonth = new Date(fd.getFullYear(), fd.getMonth(), 1); renderDCal(); $('dcal-bd').classList.add('open'); $('dcal').classList.add('open'); document.body.style.overflow = 'hidden'; }
+/* The classes that can still be booked on a weekend, in day order: [{ c, i, day }]. Empty = an unscheduled weekend. */
+function slotsOpen(w){ return slotsOf(w).map(([day, sku]) => { const i = COURSES.findIndex(c => c.sku === sku); return { c: COURSES[i], i, day }; }).filter(({ c }) => c && slotOpen(w, c)); }
+const dayName = day => parseISO(day).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+function openDCal(){ dcalPick = null; dcalTab = 'All'; lastFocus = document.activeElement; const first = WEEKENDS.find(bookable) || WEEKENDS[0]; const fd = first ? parseISO(first.saturday) : parseISO(todayCT()); dcalMonth = new Date(fd.getFullYear(), fd.getMonth(), 1); renderDCal(); $('dcal-bd').classList.add('open'); $('dcal').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeDCal(){ $('dcal-bd').classList.remove('open'); $('dcal').classList.remove('open'); document.body.style.overflow = ''; }
 function dcalShift(n){ const { min, max } = calBounds(); const next = new Date(dcalMonth.getFullYear(), dcalMonth.getMonth() + n, 1); if (next < min || next > max) return; dcalMonth = next; renderDCal(); }
 function renderDCal(){
@@ -1074,15 +1102,21 @@ function renderDCal(){
   const dayMap = {}; WEEKENDS.forEach((w, wi) => weekendDates(w, 2).forEach(d => { dayMap[keyOf(d)] = wi; }));
   const y = dcalMonth.getFullYear(), m = dcalMonth.getMonth(); const gridStart = new Date(y, m, 1 - new Date(y, m, 1).getDay()); let html = '';
   for (let k = 0; k < 42; k++) { const d = new Date(gridStart); d.setDate(gridStart.getDate() + k); const wi = dayMap[keyOf(d)]; const other = d.getMonth() !== m; let cls = 'day' + (other ? ' other' : ''), attrs = '';
-    if (wi !== undefined && !other) { const w = WEEKENDS[wi]; if (bookable(w)) { cls += ' wk' + (dcalPick === wi ? ' sel' : ''); attrs = ` onclick="dcalPickDay(${wi})" title="${esc(w.label)} · ${offeredOn().length} classes run on training weekends · tap to choose"`; } else { cls += ' blk' + (isPast(w) ? ' past' : ''); attrs = ' title="Unavailable"'; } }
+    if (wi !== undefined && !other) { const w = WEEKENDS[wi], key = keyOf(d);
+      if (bookable(w) && key >= todayCT()) { const open = slotsOpen(w), on = open.filter(s => s.day === key); cls += ' wk' + (on.length ? ' sch' : '') + (dcalPick === wi ? ' sel' : '');
+        const tip = on.length ? dayName(key) + ' · ' + on.map(s => s.c.name).join(' · ') + ' · tap to book' : open.length ? dayName(key) + ' · no class this day · tap for the weekend' : w.label + ' · no class scheduled yet · tap to join a waiting list';
+        attrs = ` onclick="dcalPickDay(${wi})" title="${esc(tip)}"`; }
+      else { cls += ' blk' + (key < todayCT() ? ' past' : ''); attrs = ' title="Unavailable"'; } }
     html += `<div class="${cls}"${attrs}>${d.getDate()}</div>`; }
   $('dcal-grid').innerHTML = html;
-  $('dcal-quick').innerHTML = WEEKENDS.map((w, wi) => bookable(w) ? `<button type="button" class="chip${dcalPick === wi ? ' sel' : ''}" onclick="dcalPickDay(${wi})">${labelFor(w, 2).replace(/, \d{4}$/, '')}</button>` : '').join('');
+  $('dcal-quick').innerHTML = WEEKENDS.map((w, wi) => { if (!bookable(w)) return ''; const open = slotsOpen(w), sel = dcalPick === wi ? ' sel' : '';
+    return open.length ? open.map(({ c, day }) => `<button type="button" class="chip${sel}" onclick="dcalPickDay(${wi})">${esc(dayName(day) + ' · ' + c.name)}</button>`).join('') : `<button type="button" class="chip${sel}" onclick="dcalPickDay(${wi})">${labelFor(w, 2).replace(/, \d{4}$/, '')}</button>`; }).join('');
   const box = $('dcal-classes'); box.hidden = dcalPick === null; if (dcalPick === null) return;
-  const items = offeredOn(); $('dcal-sel').innerHTML = `<b>${labelFor(WEEKENDS[dcalPick], 2)}</b> &middot; the same ${items.length} classes run on every training weekend &middot; choose one`;
-  const cats = ['All', ...CATS.filter(cat => items.some(({ c }) => c.cat === cat))];
+  const pw = WEEKENDS[dcalPick], open = slotsOpen(pw), items = open.length ? open : offeredOn();
+  $('dcal-sel').innerHTML = `<b>${labelFor(pw, 2)}</b> &middot; ` + (open.length ? open.map(({ c, day }) => `${esc(dayName(day))}: ${esc(c.name)}`).join(' &middot; ') : 'no class is scheduled on this weekend yet &middot; join the waiting list for any class');
+  const cats = ['All', ...CATS.filter(cat => items.some(({ c }) => c.cat === cat))]; if (!cats.includes(dcalTab)) dcalTab = 'All';
   $('dcal-tabs').innerHTML = cats.map(cat => `<button type="button" class="chip${dcalTab === cat ? ' sel' : ''}" onclick="dcalTabSet(this.dataset.cat)" data-cat="${esc(cat)}">${esc(cat === 'All' ? 'All classes' : (CAT_LABELS[cat] || cat))}</button>`).join('');
-  $('dcal-list').innerHTML = items.filter(({ c }) => dcalTab === 'All' || c.cat === dcalTab).map(({ c, i }) => `<div class="cal-item"><div><b class="cal-name">${esc(c.name)}</b><small>${metaHtml(c)}</small></div><div class="cal-item-price">${money(c.price_cents)}</div><button type="button" class="cta-button small" onclick="dcalChoose(${i})">${WAITLIST_ALL_DATES ? DATE_ACTION : 'Select'}</button></div>`).join('');
+  $('dcal-list').innerHTML = items.filter(({ c }) => dcalTab === 'All' || c.cat === dcalTab).map(({ c, i, day }) => `<div class="cal-item"><div><b class="cal-name">${esc(c.name)}</b><small>${day ? esc(dayName(day)) + ' &middot; ' : ''}${metaHtml(c)}</small></div><div class="cal-item-price">${money(c.price_cents)}</div><button type="button" class="cta-button small" onclick="dcalChoose(${i})">${dateAction(c, dcalPick)}</button></div>`).join('');
 }
 function dcalPickDay(wi){ dcalPick = wi; const d = parseISO(WEEKENDS[wi].saturday); dcalMonth = new Date(d.getFullYear(), d.getMonth(), 1); renderDCal(); setTimeout(() => { const b = $('dcal-classes'); if (b && !b.hidden) b.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 60); }
 function dcalTabSet(cat){ dcalTab = cat; renderDCal(); }
@@ -1377,7 +1411,7 @@ function openSheet(){ qty = 1; docScrolled = false; acctPrefill(); if (window.ma
   // The attestation (owner, 2026-09-04): the discipline's Fundamentals gates every other course in it; P2 also needs the P1. Pre-ticked when the student answered yes at the gate.
   const lv = levelOf(calCourse), gate = !!(lv && lv.n >= 2); $('co-prereq-wrap').hidden = !gate; $('co-prereq').checked = gate && !!attested[calCourse.sku];
   if (gate) $('co-prereq-text').textContent = 'I have completed MAST ' + fundLabel(lv.fund) + (lv.n === 3 ? ' and a MAST P1 course' : '') + ', or an instructor-approved equivalent, before this course.';
-  $('sheet-title').textContent = calCourse.name; $('sheet-meta').textContent = metaFor(calCourse); $('sheet-date-label').innerHTML = '&#128197; ' + labelFor(WEEKENDS[chosen], calCourse.days); $('co-qty').textContent = '1'; $('reg-review').hidden = true; $('reg-sign').hidden = true; $('reg-3-go').disabled = true; const h = $('reg-doc-hint'); h.textContent = 'Scroll to the end of page 3 to continue.'; h.classList.remove('ok'); $('reg-doc').scrollTop = 0; showStep(1); updateTotal(); $('sheet-bd').classList.add('open'); $('sheet').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('co-name').focus(), 250); }
+  $('sheet-title').textContent = calCourse.name; $('sheet-meta').textContent = metaFor(calCourse); $('sheet-date-label').innerHTML = '&#128197; ' + slotLabel(WEEKENDS[chosen], calCourse); $('co-qty').textContent = '1'; $('reg-review').hidden = true; $('reg-sign').hidden = true; $('reg-3-go').disabled = true; const h = $('reg-doc-hint'); h.textContent = 'Scroll to the end of page 3 to continue.'; h.classList.remove('ok'); $('reg-doc').scrollTop = 0; showStep(1); updateTotal(); $('sheet-bd').classList.add('open'); $('sheet').classList.add('open'); document.body.style.overflow = 'hidden'; setTimeout(() => $('co-name').focus(), 250); }
 function showStep(n){ regStep = n; for (let i = 1; i <= 4; i++) $('reg-' + i).hidden = i !== n; document.querySelectorAll('.reg-steps li').forEach(li => { const s = +li.dataset.step; li.classList.toggle('on', s === n); li.classList.toggle('done', s < n); }); $('co-err').classList.remove('show'); $('sheet').scrollTop = 0; }
 function fail(msg, el){ const err = $('co-err'); err.textContent = msg; err.classList.add('show'); if (el && el.focus) el.focus(); }
 function regBack(n){ showStep(n - 1); }
@@ -1402,7 +1436,7 @@ function regNext(n){
     const ini = $('ag-initials').value.replace(/[^A-Za-z]/g, ''); if (ini.length < 2 || ini.length > 4) return fail('Enter your initials (2 to 4 letters).', $('ag-initials'));
     if ($('ag-name').value.trim().length < 2) return fail('Type your full name to sign.', $('ag-name'));
     if (!$('ag-agree').checked) return fail('Tick the box to accept the agreement.', $('ag-agree'));
-    $('reg-summary').innerHTML = `<b>${esc(calCourse.name)}</b> &middot; ${esc(labelFor(WEEKENDS[chosen], calCourse.days))}<br>${qty} seat${qty > 1 ? 's' : ''} &middot; ${esc($('co-name').value.trim())} &middot; ${esc($('co-email').value.trim())}<br>Eligibility answered &middot; Agreement signed as <b>${esc($('ag-name').value.trim())}</b>`;
+    $('reg-summary').innerHTML = `<b>${esc(calCourse.name)}</b> &middot; ${esc(slotLabel(WEEKENDS[chosen], calCourse))}<br>${qty} seat${qty > 1 ? 's' : ''} &middot; ${esc($('co-name').value.trim())} &middot; ${esc($('co-email').value.trim())}<br>Eligibility answered &middot; Agreement signed as <b>${esc($('ag-name').value.trim())}</b>`;
     return showStep(4);
   }
 }
@@ -1416,10 +1450,10 @@ async function startCheckout(){
   if (!$('rf-accept').checked) return fail('Tick the box to accept the Cancellation and Refund Policy.', $('rf-accept'));
   const btn = $('co-pay'); btn.disabled = true; btn.textContent = 'Preparing secure checkout…';
   const w = WEEKENDS[chosen]; const onPreview = location.hostname === 'htmlpreview.github.io'; const base = location.origin + location.pathname;
-  const returns = onPreview ? {} : { success_url: base + '?checkout=success&course=' + encodeURIComponent(calCourse.name) + '&date=' + encodeURIComponent(labelFor(w, calCourse.days)), cancel_url: base + '?checkout=cancelled' };
+  const returns = onPreview ? {} : { success_url: base + '?checkout=success&course=' + encodeURIComponent(calCourse.name) + '&date=' + encodeURIComponent(slotLabel(w, calCourse)), cancel_url: base + '?checkout=cancelled' };
   const q1 = (document.querySelector('input[name=q1]:checked') || {}).value, q2 = (document.querySelector('input[name=q2]:checked') || {}).value;
   const payload = Object.assign({
-    sku: calCourse.sku, qty, session_date: w.saturday, session_label: labelFor(w, calCourse.days),
+    sku: calCourse.sku, qty, session_date: slotDate(w, calCourse), session_label: slotLabel(w, calCourse),
     customer: { name: $('co-name').value.trim(), email: $('co-email').value.trim(), phone: $('co-phone').value.trim(), organization: $('co-org').value.trim() },
     eligibility: { us_citizen: q1 === 'yes', felony_prohibited: q2 === 'yes', attested: $('q-attest').checked, questions_version: QUESTIONS_VERSION },
     agreement: { version: AGREEMENT_VERSION, signed_name: $('ag-name').value.trim(), initials: $('ag-initials').value.trim(), address1: $('ag-address1').value.trim(), address2: $('ag-address2').value.trim(), emergency_name: $('ag-em-name').value.trim(), emergency_phone: $('ag-em-phone').value.trim(), emergency_relationship: $('ag-em-rel').value.trim(), scrolled: docScrolled, agreed: $('ag-agree').checked },
@@ -1456,9 +1490,9 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('pol
     /* Dispatch exactly as the catalog row does. The renderer routes a row THREE ways —
        request:true → requestPrivate, priced → selectCourse, zero-priced → a phone link —
        and this used to call selectCourse for all of them. So ?course=MAST-PVT-2H opened
-       the waiting list for a course sold BY ARRANGEMENT with no seat price, and with
-       WAITLIST_ALL_DATES off it would have reached the date-and-price flow for a course
-       that has neither. A deep link must not offer a booking the catalog does not. */
+       the waiting list for a course sold BY ARRANGEMENT with no seat price, and with a
+       date open it would have reached the date-and-price flow for a course that has
+       neither. A deep link must not offer a booking the catalog does not. */
     const c = COURSES[i];
     if (c.request) requestPrivate(i);
     else if (c.price_cents) selectCourse(i);

@@ -1238,13 +1238,14 @@ async function handleCatalog(env, cors) {
 
 /**
  * Owner's schedule (2026-09-01): Sep last · Oct 2nd+4th · Nov 2nd · Dec 2nd ·
- * Jan–Apr 2nd+4th, plus any 5th weekend. Oct 31 blocked by owner.
+ * Jan–Apr 2nd+4th, plus any 5th weekend. Oct 31 blocked by owner. The September
+ * weekend is gone from the seeds now that it has passed (2026-09-30); the page drops
+ * any weekend whose Sunday has passed in Houston, whichever list it came from.
  *
  * Mirrors schema.sql `training_weekends`. D1 wins when bound so the owner can
  * block or open a weekend without a redeploy; these seeds are the fallback.
  */
 const SEED_WEEKENDS = [
-  { saturday: '2026-09-26', sunday: '2026-09-27', label: 'September — last weekend', status: 'available' },
   { saturday: '2026-10-10', sunday: '2026-10-11', label: 'October — 2nd weekend',    status: 'available' },
   { saturday: '2026-10-24', sunday: '2026-10-25', label: 'October — 4th weekend',    status: 'available' },
   { saturday: '2026-10-31', sunday: '2026-11-01', label: 'October — 5th weekend',    status: 'blocked' },
@@ -1277,8 +1278,34 @@ async function listWeekends(env) {
 
 async function handleWeekends(env, cors) {
   const { weekends, source } = await listWeekends(env);
-  return json({ weekends, source }, 200, cors);
+  return json({ weekends, source, schedule: CLASS_SCHEDULE }, 200, cors);
 }
+
+/**
+ * Which course runs on which day (owner, 2026-09-30: "10/10: Handgun Fundamentals, 10/11: Carbine Fundamentals"). One row
+ * per class on a day, [the day it runs, SKU]; the day is the Saturday or Sunday of a training weekend and is the
+ * session_date the registration stores, so the T−7 / T−1 journeys count from the day the class actually runs. /register
+ * and a dated /create-booking sell a seat only for a listed pair; every other course and date is the page's waiting list.
+ * SCHEDULE in mastsolutions-tesla.html carries the same rows: scripts/assemble-cinematic.py fails the build and
+ * test-worker.mjs fails the suite when the two differ.
+ */
+export const CLASS_SCHEDULE = [
+  ['2026-10-10', 'MAST-HG-FUND'],
+  ['2026-10-11', 'MAST-CAR-FUND'],
+];
+CLASS_SCHEDULE.forEach((row) => Object.freeze(row)); Object.freeze(CLASS_SCHEDULE);
+const inClassSchedule = (day, sku) => CLASS_SCHEDULE.some(([d, s]) => d === day && s === sku);
+let isScheduled = inClassSchedule;
+/** The second test seam in this module (setTaxReadGuard is the first). The suite predates the schedule: its capacity, hold,
+ *  prerequisite and tax blocks book a fixture course on any seeded weekend, so it opens every pair with `() => true` — the
+ *  rule before 2026-09-30 — and passes null to put CLASS_SCHEDULE back for the blocks that test the schedule itself.
+ *  Nothing in production calls it. */
+export function setClassSchedule(fn) { isScheduled = typeof fn === 'function' ? fn : inClassSchedule; }
+
+/** The training weekend a class day belongs to: its Saturday or its Sunday. */
+const weekendOf = (weekends, day) => weekends.find((w) => w.saturday === day || w.sunday === day) || null;
+
+const NOT_SCHEDULED = 'That class is not scheduled on that date. Join the waiting list on the page, or call (281) 654-8100.';
 
 /* ──────────────────────── Class booking (one-time) ──────────────────────── */
 
@@ -1306,20 +1333,24 @@ async function handleBooking(request, env, ctx, cors) {
 
   // Training weekend. The page always sends one; validate it server-side so a
   // crafted request cannot book a blocked or invented date.
-  let weekend = null;
+  let weekend = null, day = '';
   if (body.session_date !== undefined && body.session_date !== null && body.session_date !== '') {
     const wanted = String(body.session_date);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(wanted)) {
       return json({ error: 'session_date must be YYYY-MM-DD' }, 400, cors);
     }
     const { weekends } = await listWeekends(env);
-    weekend = weekends.find((w) => w.saturday === wanted) || null;
+    weekend = weekendOf(weekends, wanted);
     if (!weekend) {
       return json({ error: 'That date is not a MAST training weekend.' }, 404, cors);
     }
     if (weekend.status !== 'available' && weekend.status !== 'scheduled') {
       return json({ error: 'That weekend is not available for booking.' }, 409, cors);
     }
+    if (!isScheduled(wanted, offering.sku)) {
+      return json({ error: NOT_SCHEDULED, code: 'not_scheduled' }, 409, cors);
+    }
+    day = wanted;
   }
   const sessionLabel = str(body.session_label) || (weekend ? weekend.label : '');
 
@@ -1329,7 +1360,7 @@ async function handleBooking(request, env, ctx, cors) {
     'line_items[0][price_data][currency]': 'usd',
     'line_items[0][price_data][product_data][name]': 'MAST Solutions — ' + offering.name,
     'line_items[0][price_data][product_data][description]':
-      'SKU: ' + offering.sku + (weekend ? ' · ' + (sessionLabel || weekend.saturday) : ''),
+      'SKU: ' + offering.sku + (weekend ? ' · ' + (sessionLabel || day) : ''),
     'line_items[0][price_data][unit_amount]': String(offering.price_cents),
     'line_items[0][quantity]': String(qty),
     success_url: safeUrl(body.success_url, env) || defaultUrl(env, '?checkout=success'),
@@ -1341,7 +1372,7 @@ async function handleBooking(request, env, ctx, cors) {
     'metadata[sku]': offering.sku,
     'metadata[class_name]': offering.name,
     'metadata[qty]': String(qty),
-    'metadata[session_date]': weekend ? weekend.saturday : '',
+    'metadata[session_date]': day,
     'metadata[session_label]': sessionLabel,
     'metadata[customer_name]': str(body.customer_name),
     'metadata[organization]': str(body.organization),
@@ -1474,11 +1505,12 @@ async function handleRegister(request, env, ctx, cors) {
   const wanted = String(body.session_date || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(wanted)) return json({ error: 'Choose a training weekend.', field: 'date' }, 400, cors);
   const { weekends } = await listWeekends(env);
-  const weekend = weekends.find((w) => w.saturday === wanted) || null;
+  const weekend = weekendOf(weekends, wanted);
   if (!weekend) return json({ error: 'That date is not a MAST training weekend.', field: 'date' }, 404, cors);
   if (weekend.status !== 'available' && weekend.status !== 'scheduled') {
     return json({ error: 'That weekend is not available for booking.', field: 'date' }, 409, cors);
   }
+  if (!isScheduled(wanted, offering.sku)) return json({ error: NOT_SCHEDULED, field: 'date', code: 'not_scheduled' }, 409, cors);
   // 1b. Capacity (owner: 16 on one-day fundamentals, 10 on two-day operator courses). A course stops selling on a
   // weekend at offerings.capacity: paid seats count, and a pending registration holds its seats while its Stripe
   // Checkout is open. A live-fire class oversold is a safety problem, so this is checked before Stripe.
@@ -1562,7 +1594,7 @@ async function handleRegister(request, env, ctx, cors) {
   const optIn = body.newsletter_opt_in === true;
   const reg = {
     id, created_at: now, status: cleared ? 'pending' : 'review',
-    sku: offering.sku, item_name: offering.name, qty, session_date: weekend.saturday, session_label: sessionLabel,
+    sku: offering.sku, item_name: offering.name, qty, session_date: wanted, session_label: sessionLabel,
     customer_name: name, customer_email: email, customer_phone: phone, organization: str(cust.organization).trim(),
     address1, address2, emergency_name: emName, emergency_phone: emPhone, emergency_relationship: emRel,
     eligibility_outcome_id: null, eligibility_status: cleared ? 'cleared' : 'flagged', questions_version: QUESTIONS_VERSION,
@@ -1613,7 +1645,7 @@ async function handleRegister(request, env, ctx, cors) {
     customer_email: email,
     'line_items[0][price_data][currency]': 'usd',
     'line_items[0][price_data][product_data][name]': 'MAST Solutions — ' + offering.name,
-    'line_items[0][price_data][product_data][description]': 'SKU: ' + offering.sku + ' · ' + (sessionLabel || weekend.saturday),
+    'line_items[0][price_data][product_data][description]': 'SKU: ' + offering.sku + ' · ' + (sessionLabel || wanted),
     'line_items[0][price_data][unit_amount]': String(offering.price_cents),
     'line_items[0][quantity]': String(qty),
     success_url: safeUrl(body.success_url, env) || defaultUrl(env, '?checkout=success'),
@@ -1625,7 +1657,7 @@ async function handleRegister(request, env, ctx, cors) {
     'metadata[sku]': offering.sku,
     'metadata[class_name]': offering.name,
     'metadata[qty]': String(qty),
-    'metadata[session_date]': weekend.saturday,
+    'metadata[session_date]': wanted,
     'metadata[session_label]': sessionLabel,
     'metadata[customer_name]': name,
     'metadata[organization]': reg.organization,
@@ -3385,10 +3417,11 @@ const TAX_SETTINGS_KEYS = taxSchemaKeys(TAX_SETTINGS_SCHEMA);
 const TAX_REGISTRATION_ROW_KEYS = taxSchemaKeys(TAX_REGISTRATION_ROW_SCHEMA);
 const TAX_LIST_KEYS = taxSchemaKeys(TAX_LIST_SCHEMA);
 
-/** THE ONE TEST SEAM IN THIS MODULE, and it is the whole of R8-1's enforcement. In production it is the identity: the
- *  validators hand every object they return through it and nothing happens. The suite replaces it with a Proxy factory
- *  whose get trap throws on any key the schema does not list, and then drives isTexasSalesTax, measureTaxReady and
- *  taxRun through the result — so a predicate reading a field the schema forgot fails the suite instead of shipping.
+/** ONE OF TWO TEST SEAMS IN THIS MODULE (setClassSchedule is the other), and it is the whole of R8-1's enforcement.
+ *  In production it is the identity: the validators hand every object they return through it and nothing happens. The
+ *  suite replaces it with a Proxy factory whose get trap throws on any key the schema does not list, and then drives
+ *  isTexasSalesTax, measureTaxReady and taxRun through the result — so a predicate reading a field the schema forgot
+ *  fails the suite instead of shipping.
  *  A guard nothing fires is not a guard; this one fires on every validated object in every tax test. */
 let taxReadGuard = (value) => value;
 export function setTaxReadGuard(fn) { taxReadGuard = IS.fn(fn) ? fn : (value) => value; }

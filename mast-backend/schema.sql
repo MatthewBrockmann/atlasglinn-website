@@ -116,7 +116,9 @@ CREATE INDEX IF NOT EXISTS idx_sessions_start  ON sessions (starts_at);
 -- Only two months in this window have five Saturdays: October 2026 and
 -- January 2027. Every other month has exactly four.
 --
--- Courses are not yet assigned to weekends — the owner is organising that.
+-- The September weekend is left out now that it has passed (2026-09-30).
+-- Which course runs on which day is CLASS_SCHEDULE in src/worker.js (owner,
+-- 2026-09-30: "10/10: Handgun Fundamentals, 10/11: Carbine Fundamentals").
 CREATE TABLE IF NOT EXISTS training_weekends (
   saturday TEXT PRIMARY KEY,
   sunday   TEXT NOT NULL,
@@ -125,7 +127,6 @@ CREATE TABLE IF NOT EXISTS training_weekends (
   note     TEXT
 );
 INSERT OR IGNORE INTO training_weekends (saturday, sunday, label, note) VALUES
-  ('2026-09-26','2026-09-27','September — last weekend', NULL),
   ('2026-10-10','2026-10-11','October — 2nd weekend', NULL),
   ('2026-10-24','2026-10-25','October — 4th weekend', NULL),
   ('2026-10-31','2026-11-01','October — 5th weekend',

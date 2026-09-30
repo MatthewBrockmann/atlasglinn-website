@@ -1,4 +1,4 @@
-import worker, { taxTimeoutMs, checkoutTimeoutMs, stripeApiVersion, setTaxReadGuard, TAX_SCHEMAS, DAILY_GUARD_KEY, DAILY_WINDOW_HOUR, DAILY_WINDOW_FIRST_MINUTE, DAILY_WINDOW_LAST_MINUTE } from './src/worker.js';
+import worker, { taxTimeoutMs, checkoutTimeoutMs, stripeApiVersion, setTaxReadGuard, setClassSchedule, CLASS_SCHEDULE, TAX_SCHEMAS, DAILY_GUARD_KEY, DAILY_WINDOW_HOUR, DAILY_WINDOW_FIRST_MINUTE, DAILY_WINDOW_LAST_MINUTE } from './src/worker.js';
 import { runTaxShapeFuzz, taxShapeMutations } from './scripts/fuzz-tax-shapes.mjs';
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -516,6 +516,10 @@ const { addressDigest } = await import('./src/ratelimit.js');
    sign-up — so 'the pending row for this address' is a question with more than one answer and the tests say which. */
 const pendingsFor = async (email) => { const d = await addressDigest(email); return [...pendingSignups.values()].filter((r) => r.address_digest === d).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)) || b.__seq - a.__seq); };
 const pendingFor = async (email) => (await pendingsFor(email))[0] || null;
+// Every block below was written before the schedule (2026-09-30) and books the fixture course MAST-DA, among others, on
+// seeded weekends to test pricing, capacity, holds, prerequisites and tax. They run with every pair open — the rule
+// before the schedule — and the "Class schedule" block puts CLASS_SCHEDULE back to test the schedule itself.
+setClassSchedule(() => true);
 
 console.log('\n── Server-side pricing (client cannot set the amount) ──');
 {
@@ -583,7 +587,8 @@ console.log('\n── Training weekends (calendar) ──');
   const res = await worker.fetch(new Request('https://api.test/weekends', { headers: { Origin: 'https://mastsolutions.com' } }), env, ctx);
   const body = await res.json();
   ok('GET /weekends answers 200', res.status === 200);
-  ok('lists all 15 owner weekends', Array.isArray(body.weekends) && body.weekends.length === 15, 'got ' + (body.weekends || []).length);
+  ok('lists the 14 owner weekends still to come', Array.isArray(body.weekends) && body.weekends.length === 14, 'got ' + (body.weekends || []).length);
+  ok('the September weekend (2026-09-26) is gone from the seeds now that it has passed', !body.weekends.some((w) => w.saturday === '2026-09-26'));
   ok('Oct 31 is blocked', body.weekends.some((w) => w.saturday === '2026-10-31' && w.status === 'blocked'));
   ok('Jan 30 (5th weekend) is present', body.weekends.some((w) => w.saturday === '2027-01-30'));
 }
@@ -762,7 +767,7 @@ const party = (n, over = {}) => goodReg({ customer: { name: 'Cap ' + n, email: '
   // Capacity: MAST-DA is a 10-seat course in the fake catalog. Fill the first weekend, then the 11th seat is refused.
   stripeCalls.length = 0;
   const already = [...registrations.values()].filter((r) => r.sku === 'MAST-DA' && r.session_date === FIRST_WEEKEND && r.status === 'pending').reduce((s, r) => s + Number(r.qty || 1), 0);
-  const SECOND_WEEKEND = '2026-10-24';   // seeded fortnightly: 09-26, 10-10, 10-24 …
+  const SECOND_WEEKEND = '2026-10-24';   // seeded fortnightly: 10-10, 10-24 …
   const upTo9 = await reg(party(1, { qty: 9 - already })); const r9 = await upTo9.json();
   ok('capacity: booking up to one seat short still reaches Stripe', upTo9.status === 200, String(upTo9.status));
   const tenth = await reg(party(2, { qty: 1 })); const r10 = await tenth.json();
@@ -882,6 +887,63 @@ const party = (n, over = {}) => goodReg({ customer: { name: 'Cap ' + n, email: '
   const res = await worker.fetch(new Request('https://api.test/roster?view=registrations', { headers: { 'X-Admin-Key': 'super-secret-admin-key' } }), env, ctx); const body = await res.json();
   ok('roster view=registrations lists registrations', res.status === 200 && Array.isArray(body.registrations) && body.registrations.length >= 2);
 }
+
+console.log('\n── Class schedule (owner, 2026-09-30: "10/10: Handgun Fundamentals, 10/11: Carbine Fundamentals") ──');
+setClassSchedule(null);
+{
+  ok('CLASS_SCHEDULE is the two rows the owner gave', JSON.stringify(CLASS_SCHEDULE) === JSON.stringify([['2026-10-10', 'MAST-HG-FUND'], ['2026-10-11', 'MAST-CAR-FUND']]), JSON.stringify(CLASS_SCHEDULE));
+  ok('CLASS_SCHEDULE and its rows are frozen — setClassSchedule is the only way to change what a request is checked against', Object.isFrozen(CLASS_SCHEDULE) && CLASS_SCHEDULE.every((r) => Object.isFrozen(r)));
+  // The page offers what its own SCHEDULE says; this is what refuses everything else. The assembler compares the two as
+  // well, but this suite is what deploy-worker.yml runs before `wrangler deploy`, so a Worker cannot ship out of step.
+  const block = (/^const SCHEDULE = \[\n?((?: {2}.*\n)*?)\];$/m.exec(repoFile('mastsolutions-tesla.html')) || [])[1];
+  const rows = block === undefined ? null : [...block.matchAll(/\['(\d{4}-\d{2}-\d{2})', '(MAST-[A-Z0-9-]+)'\]/g)].map((m) => [m[1], m[2]]);
+  const key = (list) => JSON.stringify(list.map((r) => r.join(' ')).sort());
+  ok("the page's SCHEDULE (mastsolutions-tesla.html) carries exactly the Worker's rows", rows !== null && key(rows) === key(CLASS_SCHEDULE), JSON.stringify(rows));
+  const wk = await (await worker.fetch(new Request('https://api.test/weekends', { headers: { Origin: 'https://mastsolutions.com' } }), env, ctx)).json();
+  ok('GET /weekends publishes the schedule beside the weekends', JSON.stringify(wk.schedule) === JSON.stringify(CLASS_SCHEDULE), JSON.stringify(wk.schedule));
+}
+{
+  stripeCalls.length = 0;
+  const hg = await reg(party(31, { sku: 'MAST-HG-FUND', session_date: '2026-10-10', session_label: 'Sat, Oct 10, 2026', prerequisite: undefined })); const hb = await hg.json();
+  ok('schedule: Handgun Fundamentals on Sat 2026-10-10 reaches Stripe (200)', hg.status === 200 && !!hb.checkoutUrl, String(hg.status) + ' ' + JSON.stringify(hb));
+  ok('schedule: … the Saturday is the session_date in Stripe metadata and on the registration', stripeCalls[0] && stripeCalls[0].get('metadata[session_date]') === '2026-10-10' && registrations.get(hb.registration_id).session_date === '2026-10-10');
+  const car = await reg(party(32, { sku: 'MAST-CAR-FUND', session_date: '2026-10-11', session_label: 'Sun, Oct 11, 2026', prerequisite: undefined })); const cb = await car.json();
+  ok('schedule: Carbine Fundamentals on Sun 2026-10-11 reaches Stripe (200) — a Sunday is a class day of its weekend', car.status === 200 && !!cb.checkoutUrl, String(car.status) + ' ' + JSON.stringify(cb));
+  const cs = stripeCalls[1];
+  ok('schedule: … the SUNDAY is the session_date stored and sent, so T−7 / T−1 count from the day the class runs', cs && cs.get('metadata[session_date]') === '2026-10-11' && registrations.get(cb.registration_id).session_date === '2026-10-11', cs && cs.get('metadata[session_date]'));
+  ok('schedule: … and the Stripe line item names the Sunday', cs && cs.get('line_items[0][price_data][product_data][description]') === 'SKU: MAST-CAR-FUND · Sun, Oct 11, 2026', cs && cs.get('line_items[0][price_data][product_data][description]'));
+  for (const id of [hb.registration_id, cb.registration_id]) { const row = registrations.get(id); if (row) row.status = 'abandoned'; }
+}
+{
+  // Every pair the owner did not schedule is refused before anything is written or sent.
+  const before = registrations.size; stripeCalls.length = 0;
+  const refused = [
+    ['Handgun Fundamentals on the Sunday', { sku: 'MAST-HG-FUND', session_date: '2026-10-11' }],
+    ['Carbine Fundamentals on the Saturday', { sku: 'MAST-CAR-FUND', session_date: '2026-10-10' }],
+    ['Handgun Fundamentals on the next weekend', { sku: 'MAST-HG-FUND', session_date: '2026-10-24' }],
+    ['Handgun Operator on the scheduled Saturday', { sku: 'MAST-HG-OP', session_date: '2026-10-10' }],
+    ['Ladies Only Handgun on the scheduled Saturday', { sku: 'MAST-HG-LADIES', session_date: '2026-10-10' }],
+    ['the fixture course that sold on 2026-10-10 a block ago', { sku: 'MAST-DA', session_date: '2026-10-10' }],
+  ];
+  for (const [n, over] of refused) {
+    const res = await reg(party(33, over)); const b = await res.json();
+    ok('schedule: /register refuses ' + n + ' — 409 not_scheduled', res.status === 409 && b.code === 'not_scheduled' && b.field === 'date', String(res.status) + ' ' + JSON.stringify(b));
+  }
+  ok('schedule: … no registration row written and no Stripe session for any of them', registrations.size === before && stripeCalls.length === 0, registrations.size - before + ' rows, ' + stripeCalls.length + ' sessions');
+  const blocked = await reg(party(34, { sku: 'MAST-HG-FUND', session_date: BLOCKED_WEEKEND }));
+  ok('schedule: a blocked weekend still answers as blocked (409, not not_scheduled)', blocked.status === 409 && (await blocked.json()).code !== 'not_scheduled');
+  const offDay = await reg(party(35, { sku: 'MAST-HG-FUND', session_date: '2026-10-17' }));
+  ok('schedule: a day that is no training weekend still answers 404', offDay.status === 404, String(offDay.status));
+}
+{
+  // The legacy door (/create-booking) is gated the same way whenever it is given a date.
+  stripeCalls.length = 0;
+  const yes = await post('/create-booking', { sku: 'MAST-CAR-FUND', customer_email: 'a@b.com', session_date: '2026-10-11', session_label: 'Sun, Oct 11, 2026' });
+  ok('schedule: /create-booking sells Carbine Fundamentals on Sun 2026-10-11 and sends the Sunday', yes.status === 200 && stripeCalls[0] && stripeCalls[0].get('metadata[session_date]') === '2026-10-11', String(yes.status));
+  const no = await post('/create-booking', { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', session_date: '2026-10-24' }); const nb = await no.json();
+  ok('schedule: /create-booking refuses Handgun Fundamentals on 2026-10-24 — 409 not_scheduled, no session', no.status === 409 && nb.code === 'not_scheduled' && stripeCalls.length === 1, String(no.status) + ' ' + JSON.stringify(nb));
+}
+setClassSchedule(() => true);
 
 console.log('\n── Site contact + capability requests ──');
 {
