@@ -1,14 +1,14 @@
-smoke 2026-09-27T18:44:01Z from main 3bb262f run 36341728274 (contact=true checkout=false account=false)
+smoke 2026-09-30T20:03:25Z from main 073cdfd run 36769930686 (contact=false checkout=false account=false)
 --- health
-HTTP 200 501ms  GET /health
-{"status":"MAST booking backend — ONLINE","version":"1.2.0","build":"6b96a7b","crm":true,"directions":"sealed","daily_last_run":"2026-09-27"}
-   build: 6b96a7b
+HTTP 200 1633ms  GET /health
+{"status":"MAST booking backend — ONLINE","version":"1.2.0","build":"073cdfd","crm":true,"directions":"sealed","daily_last_run":"2026-09-30"}
+   build: 073cdfd
    CRM routes live: yes (GET /admin/crm → 401 without a key)
    range directions: sealed   [sealed = the owner's PDF decrypts on the Worker; secrets = rendered from RANGE_*; none = nothing attached; sealed-key-mismatch = re-seal with the key below]
 --- directions key (the public half of the Worker's sealing key; feeds mast-backend/seal-directions.mjs; saved beside this report as _directions-key.json)
 HTTP 200  key_id=b9104a7374d4c1d9
 --- catalog
-HTTP 200 137ms  GET /catalog
+HTTP 200 278ms  GET /catalog
    source=d1 classes=22
    MAST-HG-FUND     Handgun Fundamentals                         $225.00
    MAST-HG-LADIES   Ladies Only Handgun Fundamentals             $225.00
@@ -33,7 +33,7 @@ HTTP 200 137ms  GET /catalog
    MAST-MOTOR-P2    Motorcade P2                                 $0.00
    MAST-GEAR        Gear & Kit Considerations                    $750.00
 --- weekends
-HTTP 200 194ms  GET /weekends
+HTTP 200 732ms  GET /weekends
    weekends=15 first=2026-09-26 last=2027-04-24 statuses=['available', 'blocked']
 --- CORS preflight (Origin https://atlasglinn.com → POST /create-booking)
    HTTP/2 204 
@@ -42,12 +42,10 @@ HTTP 200 194ms  GET /weekends
    access-control-allow-methods: GET, POST, OPTIONS
    access-control-max-age: 86400
 --- accounts (GET /account/me without a token: 503 accounts_off = ACCOUNT_SECRET not set; 401 = accounts on)
-HTTP 401 77ms  GET /account/me
+HTTP 401 149ms  GET /account/me
 {"error":"Please sign in again.","code":"unauthorized"}
    [redacted by the smoke report guard]
---- contact (one labelled test message; the Worker emails NOTIFY_EMAIL through Resend)
-HTTP 200 1499ms  POST /contact
-{"ok":true}
+--- contact: skipped (input contact=false)
 --- checkout: skipped (input checkout=false)
 --- account: skipped (input account=false)
 --- sitemaps and robots (what Search Console can fetch)
@@ -63,7 +61,7 @@ HTTP 200 1499ms  POST /contact
       # START YOAST BLOCK # --------------------------- User-agent: * Disallow:  Sitemap: https://atlasglinn.com/sitemap_index.xml # --------------------------- # END
 --- nameservers (atlasglinn.com): parent= resolver=hans.ns.cloudflare.com. millie.ns.cloudflare.com. 
 --- what the two public hostnames actually serve
-   https://atlasglinn.com/ -> HTTP 200 redirect=[] tls_verify=0 bytes=85111  title=[Atlas Glinn - Elite Security Solutions, Risk Management & Training]
+   https://atlasglinn.com/ -> HTTP 200 redirect=[] tls_verify=0 bytes=85263  title=[Atlas Glinn - Elite Security Solutions, Risk Management & Training]
    https://www.atlasglinn.com/ -> HTTP 301 redirect=[https://atlasglinn.com/] tls_verify=0 bytes=0  title=[]
    http://www.atlasglinn.com/ -> HTTP 301 redirect=[https://atlasglinn.com/] tls_verify=0 bytes=0  title=[]
 --- mail DNS (mastsolutions.com), asked at ns27.domaincontrol.com. (authoritative)
@@ -83,19 +81,19 @@ HTTP 200 1499ms  POST /contact
    CNAME autodiscover.mastsolutions.com [auth]: autodiscover.outlook.com.
    TXT atlasglinn.com [fallback]: "brevo-code:57cd18b6f64db536cc14e8293306b804"|"google-site-verification=8ndz0nAQFFs0_kFld2vZ4e3E0wnDR9LbP6bai5HK-g0"|"v=spf1 include:servers.mcsv.net include:spf.brevo.com include:secureserver.net ~all"|"v=verifydomain MS=3406305"
    TXT _dmarc.atlasglinn.com [fallback]: "v=DMARC1; p=none; rua=mailto:rua@dmarc.brevo.com"
-   CNAME selector1._domainkey.atlasglinn.com [fallback]: 
-   CNAME selector2._domainkey.atlasglinn.com [fallback]: 
+   CNAME selector1._domainkey.atlasglinn.com [fallback]: selector1-atlasglinn-com._domainkey.atlasglinncom.onmicrosoft.com.
+   CNAME selector2._domainkey.atlasglinn.com [fallback]: selector2-atlasglinn-com._domainkey.atlasglinncom.onmicrosoft.com.
    (wrong-domain check) TXT mastsolutionssearch.com: "v=spf1 include:spf.protection.outlook.com -all"|
 --- Microsoft-native DKIM selectors for mastsolutions.com, INFORMATIONAL ONLY: these tenants are bought through GoDaddy and sign with secureserver1/2, measured further down (tenant: NETORG6840646.onmicrosoft.com; http 200)
    CNAME  selector1._domainkey  ->  selector1-mastsolutions-com._domainkey.NETORG6840646.onmicrosoft.com   [Microsoft key at target: no - EXPECTED for a GoDaddy-resold tenant; do NOT create keys in Defender, it would move signing off the selectors that work]
    CNAME  selector2._domainkey  ->  selector2-mastsolutions-com._domainkey.NETORG6840646.onmicrosoft.com   [Microsoft key at target: no - EXPECTED for a GoDaddy-resold tenant; do NOT create keys in Defender, it would move signing off the selectors that work]
 --- Microsoft-native DKIM selectors for atlasglinn.com, INFORMATIONAL ONLY: these tenants are bought through GoDaddy and sign with secureserver1/2, measured further down (tenant: atlasglinncom.onmicrosoft.com; http 200)
    CNAME  selector1._domainkey  ->  selector1-atlasglinn-com._domainkey.atlasglinncom.onmicrosoft.com   [Microsoft key at target: yes]
-   CNAME  selector2._domainkey  ->  selector2-atlasglinn-com._domainkey.atlasglinncom.onmicrosoft.com   [Microsoft key at target: no - EXPECTED for a GoDaddy-resold tenant; do NOT create keys in Defender, it would move signing off the selectors that work]
+   CNAME  selector2._domainkey  ->  selector2-atlasglinn-com._domainkey.atlasglinncom.onmicrosoft.com   [Microsoft key at target: yes]
 --- mail authentication, measured at 1.1.1.1
    SPF atlasglinn.com     Microsoft 365 reachable through the include chain: YES
    DKIM atlasglinn.com    secureserver1._domainkey -> s1.dkim.atlasglinn_com.66c.onsecureserver.net.  key: published
    DKIM atlasglinn.com    secureserver2._domainkey -> s2.dkim.atlasglinn_com.66c.onsecureserver.net.  key: published
    SPF mastsolutions.com  Microsoft 365 reachable through the include chain: YES
    DKIM mastsolutions.com secureserver1._domainkey -> s1.dkim.mastsolutions_com.1a2.onsecureserver.net.  key: published
-   DKIM mastsolutions.com secureserver2._domainkey -> s2.dkim.mastsolutions_com.1a2.onsecureserver.net.  key: published
+   DKIM mastsolutions.com secureserver2._domainkey: MISSING from the domain's DNS - mail signed with this selector fails DKIM
