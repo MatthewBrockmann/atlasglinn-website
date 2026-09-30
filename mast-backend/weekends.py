@@ -2,7 +2,8 @@
 """Generate MAST training weekends.
 
 The owner's rule: 2nd and 4th weekends of each month, plus the 5th when one
-exists. September 2026 uses the last weekend. Emits SQL for training_weekends.
+exists. September 2026 (the last weekend) has passed and is left out. Emits SQL
+for training_weekends.
 
     python3 weekends.py                 # the current schedule
     python3 weekends.py 2027 5 2028 4   # a new range, 2nd/4th/5th throughout
@@ -54,6 +55,6 @@ if __name__ == "__main__":
             plan.append((y, m, (2, 4)))
             y, m = (y + 1, 1) if m == 12 else (y, m + 1)
     else:
-        plan = [(2026, 9, (-1,)), (2026, 10, (2, 4)), (2026, 11, (2,)), (2026, 12, (2,)),
+        plan = [(2026, 10, (2, 4)), (2026, 11, (2,)), (2026, 12, (2,)),
                 (2027, 1, (2, 4)), (2027, 2, (2, 4)), (2027, 3, (2, 4)), (2027, 4, (2, 4))]
     emit(plan)

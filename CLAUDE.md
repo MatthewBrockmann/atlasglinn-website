@@ -116,19 +116,30 @@ announced soon") and a How to book button that opens the same Request dialog the
 no date and no package contents until he supplies them** — `EXPERIENCES_HIDDEN` is `false` now, and the two earlier
 placeholder entries (Couples, Groups) are gone. Pricing or booking would need a catalog row and a SKU — his call.
 
-**Every date is a waiting list (Brockmann, 2026-09-08: "Every Page should have BOOK CLASS + link to Calendar + ALL DATES
-for now CLASS FILLED until i get the info to you", corrected minutes later to "Not class filled-. Join waiting list"):**
-`WAITLIST_ALL_DATES` is one constant at the top of the booking script in `mastsolutions-tesla.html`. While it is `true`,
-every path into checkout — the catalog row, the weekend calendar's per-class action, and both answers to the prerequisite
-gate — reads **Join waiting list** and goes through `bookCourse()` to the Request dialog as `request_type: 'waitlist'`,
-carrying the course name and, when a weekend was chosen in the Book a Class calendar, that weekend. **The prerequisite gate
-still runs first.** `bookCourse()` is the single door, so the label and the destination cannot drift apart; the assembler
-folds the action label at build time and then asserts the words "Select Date" appear nowhere in the built page. Set the
-constant to `false` and the calendar → checkout path is exactly what it was (verified by diffing the built booking script
-against `main`). A Worker-side `BOOKINGS_PAUSED` flag is what should replace this constant once the schedule is real — the
-pause is then one deploy, not a rebuild of both pages. The Worker files an unknown `request_type` as `leadKind 'contact'`
-with the "Website contact:" subject, so `'experience'` and `'waitlist'` are stored and emailed today; the nicer subject
-lines are a Worker follow-up, not part of this.
+**The schedule, and the waiting list around it (Brockmann, 2026-09-08: "Every Page should have BOOK CLASS + link to
+Calendar + ALL DATES for now CLASS FILLED until i get the info to you", corrected minutes later to "Not class filled-. Join
+waiting list"; then 2026-09-30: "10/10: Handgun Fundamentals, 10/11: Carbine Fundamentals"):** `SCHEDULE` at the top of the
+booking script in `mastsolutions-tesla.html` is one `[day, SKU]` row per class, the day being the Saturday or Sunday of a
+training weekend. A listed pair is bookable: **Select Date** → the calendar with only that day highlighted → checkout, which
+sends that day as `session_date` (Carbine Fundamentals posts `2026-10-11`, so the T−7 / T−1 emails count from the Sunday).
+Every other course and date reads **Join waiting list** and goes through `bookCourse()` to the Request dialog as
+`request_type: 'waitlist'`, carrying the course and, when a weekend was chosen in the Book a Class calendar, that weekend.
+**The prerequisite gate still runs first.** `dateAction()` is every action label and `bookCourse()` the only door; both ask
+`canBook()`, so label and destination cannot drift, and the catalog labels are repainted when `/weekends` answers. The Book
+a Class calendar names the class on each day of a scheduled weekend (chips, day titles, the weekend line, a "Class
+scheduled" marker); an unscheduled weekend lists every class as a waiting list. A weekend whose Sunday has passed in
+America/Chicago is dropped client-side, from the seeded list and from the Worker's (live D1 still carries 2026-09-26).
+**The Worker holds the same rows** — `CLASS_SCHEDULE` in `mast-backend/src/worker.js` — and `/register` and a dated
+`/create-booking` refuse any other pair with `409 not_scheduled` before anything is written or sent. The assembler and
+`test-worker.mjs` both fail when the two lists differ, so **a schedule change is both files in one commit**, and the Worker
+must deploy with the page (a Sunday day is refused as "not a MAST training weekend" by a Worker older than this). The
+assembler also fails on a row naming an undated or by-arrangement course or a day that is not the Saturday or Sunday of an
+open weekend, and asserts "Select Date" appears exactly once in the built page (inside `dateAction()`); an empty `SCHEDULE`
+folds the label to the waiting list and asserts the words appear nowhere. The Worker files an unknown `request_type` as
+`leadKind 'contact'` with the "Website contact:" subject, so `'experience'` and `'waitlist'` are stored and emailed today;
+the nicer subject lines are a Worker follow-up. **Named gap:** a `/create-booking` with no `session_date` (the legacy
+WP-theme path; the page never calls it, `smoke-worker.yml`'s checkout probe does) is not a pair, is not gated, and still
+opens a Stripe session for any priced course with no date.
 
 **Classes chapter, Range-style (Brockmann, 2026-09-08, over a screenshot of this chapter's heading and one of the Range
 chapter's CLICK TO VIEW button: "Delete this + add like the range + CLICK TO VIEW = gets rid of scrolling + Book Course =
@@ -1408,6 +1419,13 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   a hit). A new PDF = he hands it to a session, the session re-seals and merges. **Do not ask him for the PDF
   again**; if the upload is gone, the sealed file on main is the copy the Worker uses (the Worker's D1 key opens it;
   no one else can).
+- **What a booking actually sends (read 2026-09-30):** the paid confirmation (`sendRegistrationDocuments`, called from
+  the webhook) carries the signed agreement and the range-directions PDF, and the T−7 / T−1 journeys (`runJourneys` in
+  `src/crm.js`, the daily work, `JOURNEYS_ENABLED = "1"`) send the week-out and day-before reminders with the PDF again.
+  **No code sends a gear list.** The confirmation says "Gear list arrives by separate email before the class", the T−7
+  says "the gear list for your course came by email", and the page (calendar hint, sheet fine print, success banner) and
+  `privacy.html` promise one; there is no gear-list content and no sender anywhere in this repo. The words stay until he
+  supplies the lists or says to cut them.
 - **Google review link (Brockmann, 2026-09-06: "add to email as click + link + add to website"):** derived from the
   Business Profile link he pasted (its `stick=` token decodes to feature id `0x8640c3cb2d0755df:0x3e9cfce1d8a7b9f7`,
   CID 4511758973651106295): `REVIEW_URL` in `wrangler.toml` (T+1 email), `GOOGLE_REVIEW_URL` / `REVIEW_LINK` in

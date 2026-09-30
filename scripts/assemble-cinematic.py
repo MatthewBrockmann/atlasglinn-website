@@ -105,16 +105,44 @@ _store_page = {k: {f: v[f] for f in ('name', 'html', 'specs', 'images')} for k, 
 _store_js = _sj.dumps(_store_page, sort_keys=True, ensure_ascii=False, separators=(',', ':')).replace('<', '\\u003c')
 assert js.count('const STORE_PRODUCTS = {};') == 1, 'tesla page lost its STORE_PRODUCTS hook'
 js = js.replace('const STORE_PRODUCTS = {};', 'const STORE_PRODUCTS = ' + _store_js + ';', 1)
-# Waiting list (owner, 2026-09-08: "Not class filled-. Join waiting list"). The state lives in mastsolutions-tesla.html;
-# this reads it so the chapter text and the guards below follow the one constant.
-_wl = re.search(r"^const WAITLIST_ALL_DATES = (true|false);$", tesla, re.M)
-assert _wl, 'WAITLIST_ALL_DATES not found in mastsolutions-tesla.html'
-WAITLIST_ALL_DATES = _wl.group(1) == 'true'
-# The action is folded here rather than left a ternary: while the waiting list is on, the words "Select Date" must not
-# survive anywhere in the page, and the guard for that is a string search a dead branch would satisfy falsely.
-_action = "WAITLIST_ALL_DATES ? 'Join waiting list' : 'Select Date'"
-assert js.count(_action) == 1, 'the date-action constant moved in the booking source'
-js = js.replace(_action, "'Join waiting list'" if WAITLIST_ALL_DATES else "'Select Date'", 1)
+# The schedule (owner, 2026-09-30: "10/10: Handgun Fundamentals, 10/11: Carbine Fundamentals"), and before it the waiting
+# list (owner, 2026-09-08: "Not class filled-. Join waiting list"). SCHEDULE in mastsolutions-tesla.html is what the page
+# offers; CLASS_SCHEDULE in mast-backend/src/worker.js is what checkout is refused against. They are read here and must be
+# the same rows: a pair the page sells and the Worker refuses is a customer at a failed checkout, and the reverse is a
+# booking the page never offered.
+_SCHED_ROW = re.compile(r"\['(\d{4}-\d{2}-\d{2})', '(MAST-[A-Z0-9-]+)'\],?")
+def _schedule(src, name):
+    m = re.search(r'^(?:export )?const %s = \[\n?((?:  .*\n)*?)\];$' % name, src, re.M)
+    assert m, name + ' not found as one row per line'
+    lines = [l.strip() for l in m.group(1).splitlines() if l.strip()]
+    rows = [_SCHED_ROW.fullmatch(l) for l in lines]
+    assert all(rows), name + " has a row that is not ['YYYY-MM-DD', 'MAST-…']: " + repr([l for l, r in zip(lines, rows) if not r])
+    return [(r.group(1), r.group(2)) for r in rows]
+SCHEDULE = _schedule(tesla, 'SCHEDULE')
+_worker_schedule = _schedule(open(f'{REPO}/mast-backend/src/worker.js', encoding='utf-8').read(), 'CLASS_SCHEDULE')
+assert sorted(SCHEDULE) == sorted(_worker_schedule), \
+    'the page and the Worker schedule differ: page-only %r, Worker-only %r' % (sorted(set(SCHEDULE) - set(_worker_schedule)), sorted(set(_worker_schedule) - set(SCHEDULE)))
+assert len(set(SCHEDULE)) == len(SCHEDULE), 'a SCHEDULE row is listed twice'
+# Every row names a course the calendar can sell and a day of an open training weekend: a row for a by-arrangement or
+# call-for-pricing course, or for a Friday, a blocked weekend or a weekend that is not in the list, would label a course
+# bookable that the calendar has no date for.
+_weekends = {sat: status for sat, status in re.findall(r"\['(\d{4}-\d{2}-\d{2})','[^']*'(?:,'(\w+)')?\]", between(tesla, 'let WEEKENDS = [', '].map('))}
+import datetime as _dt
+for _day, _sku in SCHEDULE:
+    _row = re.search(r"\{ sku:'%s',[^\n]*\}" % re.escape(_sku), tesla)
+    assert _row and 'request:true' not in _row.group(0) and re.search(r'price_cents:[1-9]', _row.group(0)) and re.search(r'days:[1-9]', _row.group(0)), \
+        'SCHEDULE names %s, which is not a priced, dated course in COURSES' % _sku
+    _sat = _day if _dt.date.fromisoformat(_day).weekday() == 5 else (_dt.date.fromisoformat(_day) - _dt.timedelta(days=1)).isoformat()
+    assert _dt.date.fromisoformat(_day).weekday() in (5, 6) and _sat in _weekends and _weekends[_sat] != 'blocked', \
+        'SCHEDULE puts %s on %s, which is not the Saturday or Sunday of an open weekend in WEEKENDS' % (_sku, _day)
+WAITLIST_ALL_DATES = not SCHEDULE
+# With nothing scheduled the action is folded to the waiting list, so the words "Select Date" cannot survive anywhere in
+# the page — the guard for that is a string search a dead branch would satisfy falsely. With rows, the words live in
+# exactly one place, dateAction(), behind the same canBook() that bookCourse() takes the door on.
+_action = "const dateAction = (c, wi) => canBook(c, wi) ? 'Select Date' : 'Join waiting list';"
+assert js.count(_action) == 1, 'the date-action rule moved in the booking source'
+if WAITLIST_ALL_DATES:
+    js = js.replace(_action, "const dateAction = () => 'Join waiting list';", 1)
 assert 'function openCal' in js and 'function startCheckout' in js and "['testimonial-strip', TESTIMONIALS]" in js, 'booking js missing pieces'
 assert 'hero-yt' not in js and 'REVIEWS' not in js, 'hero/reviews code leaked into booking js'
 
@@ -286,7 +314,7 @@ RANGE_SECTION = f"""
 CLASSES_LINE = ('Open a discipline, pick a course, pick your weekend. <b style="color:#F0F4FF;">Fundamentals first, unless you have taken it before. '
                 + ('Each discipline&rsquo;s Fundamentals course opens its other courses, and the waiting list asks before you join it.'
                    if WAITLIST_ALL_DATES else
-                   'Each discipline&rsquo;s Fundamentals course opens its other courses, and Select Date asks before the calendar opens.')
+                   'Each discipline&rsquo;s Fundamentals course opens its other courses, and it asks before you pick a date or join a waiting list.')
                 + '</b> P2 follows P1. Private instruction by arrangement. Ammunition, rentals and UTM rounds are added later.')
 CLASSES_SECTION = f"""
   <section class="panel" id="s6" data-section="06">
@@ -862,7 +890,9 @@ assert 'id="menu-btn"' in html and 'class="sitenav"' in html and 'const nav = do
 assert 'BOOKING_ENDPOINT' not in html and 'offeredOn(wi)' not in html, 'dead booking code is back'
 assert ('const SECTIONS = %d;' % len(CHAPTERS)) in html and html.count('SECTION 01 / %02d' % len(CHAPTERS)) == 1, \
     'the HUD counter and the camera path must both count the chapters in CHAPTERS'
-assert 'classes run on every training weekend' in html, 'the calendar reads a class count against one date again'
+assert 'no class is scheduled on this weekend yet &middot; join the waiting list for any class' in html and \
+    "open.map(({ c, day }) => `${esc(dayName(day))}: ${esc(c.name)}`)" in html and 'classes run on every training weekend' not in html, \
+    'the Book a Class calendar implies every class runs every weekend again, or a scheduled weekend stopped naming the class on each day'
 assert 'The <span class="gold">Classes.</span>' not in html and "images/mast/courses-instructor.jpg');background-position:50% 15%" in html, \
     'the Classes chapter title is back or the Courses backdrop is not his photo (owner, 2026-09-08)'
 assert 'id="news-consent"' in html and "fetch(API + '/subscribe'" in html and "get('course')" in html and "mastTrack('deep_link'" in html, \
@@ -912,19 +942,31 @@ assert 'const EXPERIENCES_HIDDEN = false;' in html, 'the Experiences cards are h
 assert 'Package details and pricing are being finalized.' in html and 'Dates announced soon' in html, \
     'an Experiences card lost its placeholder line or its calendar placeholder'
 assert '>How to book<' in html, 'the Experiences cards lost their How to book button'
-_action_now = 'Join waiting list' if WAITLIST_ALL_DATES else 'Select Date'
-assert ("const DATE_ACTION = '%s';" % _action_now) in html, 'the date action did not fold to: ' + _action_now
-assert "WAITLIST_ALL_DATES ? DATE_ACTION : 'Select'" in html, 'the weekend calendar per-class action stopped following the constant'
-assert 'function bookCourse(i){ return WAITLIST_ALL_DATES ? waitlistCourse(i) : openCal(i); }' in html, \
-    'the one door into a booking stopped following the constant: a row could read Join waiting list and open the calendar'
+# The label and the door read one rule. Every action label on the page is dateAction(); bookCourse() takes the calendar
+# exactly when canBook() says so, for the weekend chosen in Book a Class or, from the catalog, for any open weekend.
+assert 'function bookCourse(i){ return canBook(COURSES[i], preChosen) ? openCal(i) : waitlistCourse(i); }' in html, \
+    'the one door into a booking stopped following the schedule: a row could read Join waiting list and open the calendar'
+assert '${dateAction(c, null)}</span>' in html and '${dateAction(c, dcalPick)}</button>' in html and 'el.textContent = dateAction(COURSES[+el.dataset.act], null)' in html, \
+    'a catalog row, the Book a Class list or the relabel after /weekends stopped taking its label from dateAction()'
+assert 'DATE_ACTION' not in html and 'WAITLIST_ALL_DATES' not in html and ">Select</button>" not in html, \
+    'a second label source is back beside dateAction(): label and destination can drift apart again'
+assert 'class filled' not in html.lower(), 'a date carries the notice the owner corrected to Join waiting list'
+assert "openReqDialog('waitlist'" in html and "wait = reqKind === 'waitlist'" in html and 'waitWeekend' in html, \
+    'Join waiting list no longer opens the request dialog as request_type waitlist with the weekend'
 if WAITLIST_ALL_DATES:
     assert html.count('Select Date') == 0, 'a date still reads Select Date while every date is a waiting list'
-    assert 'class filled' not in html.lower(), 'a date carries the notice the owner corrected to Join waiting list'
-    assert "openReqDialog('waitlist'" in html and "wait = reqKind === 'waitlist'" in html and 'waitWeekend' in html, \
-        'Join waiting list no longer opens the request dialog as request_type waitlist with the weekend'
+    assert "const dateAction = () => 'Join waiting list';" in html, 'the date action did not fold to the waiting list'
 else:
-    assert html.count('Select Date') >= 1 and "openReqDialog('waitlist'" in html, \
-        'WAITLIST_ALL_DATES is off: the rows read Select Date again and the waiting-list path stays there to switch back on'
+    assert html.count('Select Date') == 1 and _action in html, \
+        'Select Date must appear once, in dateAction() behind canBook(), and nowhere a scheduled pair does not decide it'
+# The day a scheduled class runs is the day checkout sends: Carbine Fundamentals on the Sunday is 2026-10-11, not its
+# weekend's Saturday, and the Worker refuses any other pair (CLASS_SCHEDULE).
+assert 'session_date: slotDate(w, calCourse), session_label: slotLabel(w, calCourse),' in html and 'session_date: w.saturday' not in html, \
+    'checkout sends the weekend key again instead of the scheduled day'
+# Past weekends are dropped in Houston time, from the seeded list and from the Worker's, so a weekend that has gone is
+# never offered again without an edit.
+assert 'function todayCT()' in html and "timeZone: 'America/Chicago'" in html and html.count('.filter(w => !weekendOver(w))') == 2, \
+    'the page no longer drops past weekends (America/Chicago) from both the seeded and the fetched list'
 _s6 = between(html, '<section class="panel" id="s6"', '</section>', True)
 assert '<div class="eyebrow">Course Catalog</div>' in _s6, 'the Classes chapter lost its COURSE CATALOG eyebrow'
 assert 'The <span class="gold">Classes.</span>' not in html, "the Classes chapter's deleted heading is back"
