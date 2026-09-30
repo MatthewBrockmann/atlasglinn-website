@@ -890,7 +890,7 @@ assert 'BOOKING_ENDPOINT' not in html and 'offeredOn(wi)' not in html, 'dead boo
 assert ('const SECTIONS = %d;' % len(CHAPTERS)) in html and html.count('SECTION 01 / %02d' % len(CHAPTERS)) == 1, \
     'the HUD counter and the camera path must both count the chapters in CHAPTERS'
 assert 'no class is scheduled on this weekend yet &middot; join the waiting list for any class' in html and \
-    "open.map(({ c, day }) => `${esc(dayName(day))}: ${esc(c.name)}`)" in html and 'classes run on every training weekend' not in html, \
+    "open.map(s => `${esc(slotSpan(s))}: ${esc(s.c.name)}`)" in html and 'classes run on every training weekend' not in html, \
     'the Book a Class calendar implies every class runs every weekend again, or a scheduled weekend stopped naming the class on each day'
 # The class ON its day (owner, 2026-09-30: "The calendar needs to have the Classes Scheduled ON those dates"). Both grids
 # write the class into the day cell itself — not only into a hover title or the buttons under the grid — through the one
@@ -901,6 +901,12 @@ for _cell in ("inner = dayInner(d, on.map(s => s.c.name).join(' · '), on.map(s 
               "inner = dayInner(d, 'Waitlist');",
               '<span class="dc"><span class="dc-full">${esc(full)}</span><span class="dc-short">${esc(short || full)}</span></span>'):
     assert _cell in html, 'a calendar day stopped carrying its class (or Waitlist) in its cell: ' + _cell
+# Every day a scheduled class OCCUPIES carries it, not only its start (Codex on #130): a two-day class is named on both
+# days and either day books it — from the SCHEDULE start, the session_date the Worker checks, because the seat is for
+# the whole class. `on` is built from classDates(), the one function that decides which days a class takes.
+assert "days: c ? classDates(w, c).map(keyOf) : [day]" in html and "on = open.filter(s => s.days.includes(key))" in html \
+    and "slotsOpen(w).forEach(s => s.days.forEach(k => { dayMap[k] = wi; }))" in html, \
+    'the Book a Class grid names a multi-day class on its first day only again'
 assert html.count('html += `<div class="${cls}"${attrs}>${inner}</div>`; }') == 2, \
     'both calendars must write each day cell from the dayInner() result, not the bare day number'
 assert '.day.wl:not(.sel) {' in html and '<i class="lg-sch"></i>Class scheduled' in html and '<i class="lg-wl"></i>Waiting list weekend' in html \

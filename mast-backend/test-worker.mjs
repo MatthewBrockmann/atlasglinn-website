@@ -1107,6 +1107,20 @@ await atInstant(BEFORE_WEEKEND, async () => {
   }
   for (const id of made) { const row = registrations.get(id); if (row) row.status = 'abandoned'; }
 }
+await atInstant(BEFORE_WEEKEND, async () => {
+  // A two-day class is one session keyed by its first day, as its SCHEDULE row lists it: the page names both days and
+  // books either from the start (Codex on #130), and the Worker takes the start and refuses the second day as a session.
+  // No two-day class is scheduled today, so the seam stands in for the one row [2026-10-24, MAST-HG-OP] — nothing ships.
+  setClassSchedule((day, sku) => day === '2026-10-24' && sku === 'MAST-HG-OP');
+  stripeCalls.length = 0;
+  const start = await reg(party(38, { sku: 'MAST-HG-OP', session_date: '2026-10-24', session_label: 'Sat–Sun, Oct 24–25, 2026' })); const sb = await start.json();
+  const row = sb.registration_id && registrations.get(sb.registration_id);
+  ok('two-day class: /register books Handgun Operator from its start, Sat 2026-10-24, and stores that as the session_date', start.status === 200 && row && row.session_date === '2026-10-24' && stripeCalls[0] && stripeCalls[0].get('metadata[session_date]') === '2026-10-24', start.status + ' ' + JSON.stringify(sb));
+  const second = await reg(party(39, { sku: 'MAST-HG-OP', session_date: '2026-10-25' })); const b2 = await second.json();
+  ok('two-day class: … and refuses its second day as a session of its own (409 not_scheduled)', second.status === 409 && b2.code === 'not_scheduled', second.status + ' ' + JSON.stringify(b2));
+  if (row) row.status = 'abandoned';
+  setClassSchedule(null);
+});
 setClassSchedule(() => true);
 
 console.log('\n── Site contact + capability requests ──');

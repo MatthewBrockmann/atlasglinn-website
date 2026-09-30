@@ -1115,21 +1115,27 @@ function calContinue(){ if (chosen === null) return; $('cal-bd').classList.remov
 //    class as a waiting list, which is what the whole calendar was until the owner set the first weekend (2026-09-30).
 let dcalMonth = null, dcalPick = null, dcalTab = 'All', preChosen = null;
 function offeredOn(){ return COURSES.map((c, i) => ({ c, i })).filter(({ c }) => !c.request && c.price_cents > 0 && c.days > 0); }
-/* The classes that can still be booked on a weekend, in day order: [{ c, i, day }]. Empty = an unscheduled weekend. */
-function slotsOpen(w){ return slotsOf(w).map(([day, sku]) => { const i = COURSES.findIndex(c => c.sku === sku); return { c: COURSES[i], i, day }; }).filter(({ c }) => c && slotOpen(w, c)); }
+/* The classes that can still be booked on a weekend, in day order: [{ c, i, day, days }]. `day` is the SCHEDULE start —
+   the session_date a booking carries — and `days` every date the class occupies (classDates), so a two-day class is named
+   and bookable on both. Empty = an unscheduled weekend. */
+function slotsOpen(w){ return slotsOf(w).map(([day, sku]) => { const i = COURSES.findIndex(c => c.sku === sku), c = COURSES[i]; return { c, i, day, days: c ? classDates(w, c).map(keyOf) : [day] }; }).filter(({ c }) => c && slotOpen(w, c)); }
 const dayName = day => parseISO(day).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+/* The days a slot covers, as a label: "Sat, Oct 10" for one day, "Sat–Sun, Oct 24–25" for two. */
+const slotSpan = s => s.days.length > 1 ? datesLabel(s.days.map(parseISO)).replace(/, \d{4}$/, '') : dayName(s.day);
 function openDCal(){ dcalPick = null; dcalTab = 'All'; lastFocus = document.activeElement; const first = WEEKENDS.find(bookable) || WEEKENDS[0]; const fd = first ? parseISO(first.saturday) : parseISO(todayCT()); dcalMonth = new Date(fd.getFullYear(), fd.getMonth(), 1); renderDCal(); $('dcal-bd').classList.add('open'); $('dcal').classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeDCal(){ $('dcal-bd').classList.remove('open'); $('dcal').classList.remove('open'); document.body.style.overflow = ''; }
 function dcalShift(n){ const { min, max } = calBounds(); const next = new Date(dcalMonth.getFullYear(), dcalMonth.getMonth() + n, 1); if (next < min || next > max) return; dcalMonth = next; renderDCal(); }
 function renderDCal(){
   const { min, max } = calBounds(); $('dcal-month').textContent = MONTHS[dcalMonth.getMonth()] + ' ' + dcalMonth.getFullYear(); $('dcal-prev').disabled = dcalMonth <= min; $('dcal-next').disabled = dcalMonth >= max;
-  const dayMap = {}; WEEKENDS.forEach((w, wi) => weekendDates(w, 2).forEach(d => { dayMap[keyOf(d)] = wi; }));
+  const dayMap = {}; WEEKENDS.forEach((w, wi) => { weekendDates(w, 2).forEach(d => { dayMap[keyOf(d)] = wi; }); slotsOpen(w).forEach(s => s.days.forEach(k => { dayMap[k] = wi; })); });
   const y = dcalMonth.getFullYear(), m = dcalMonth.getMonth(); const gridStart = new Date(y, m, 1 - new Date(y, m, 1).getDay()); let html = '';
   for (let k = 0; k < 42; k++) { const d = new Date(gridStart); d.setDate(gridStart.getDate() + k); const wi = dayMap[keyOf(d)]; const other = d.getMonth() !== m; let cls = 'day' + (other ? ' other' : ''), attrs = '', inner = String(d.getDate());
     if (wi !== undefined && !other) { const w = WEEKENDS[wi], key = keyOf(d);
-      if (bookable(w) && key >= todayCT()) { const open = slotsOpen(w), on = open.filter(s => s.day === key), sel = dcalPick === wi ? ' sel' : '';
-        const tip = on.length ? dayName(key) + ' · ' + on.map(s => s.c.name).join(' · ') + ' · tap to book' : open.length ? dayName(key) + ' · no class this day · tap for the weekend' : w.label + ' · no class scheduled yet · tap to join a waiting list';
-        // A day with one class opens that class, its date already chosen; anything else opens the weekend below the grid.
+      if (bookable(w) && key >= todayCT()) { const open = slotsOpen(w), on = open.filter(s => s.days.includes(key)), sel = dcalPick === wi ? ' sel' : '';
+        const tip = on.length ? dayName(key) + ' · ' + on.map(s => s.c.name + (s.days.length > 1 ? ' (day ' + (s.days.indexOf(key) + 1) + ' of ' + s.days.length + ')' : '')).join(' · ') + ' · tap to book' : open.length ? dayName(key) + ' · no class this day · tap for the weekend' : w.label + ' · no class scheduled yet · tap to join a waiting list';
+        // A day with one class — any day that class occupies — opens that class with its date already chosen. The seat is
+        // for the whole class, so the second day of a two-day class books from its first, the SCHEDULE start the Worker
+        // checks; anything else opens the weekend below the grid.
         const tap = on.length === 1 ? `dcalOpenDay(${wi}, ${on[0].i})` : `dcalPickDay(${wi})`;
         if (on.length) { cls += ' wk sch' + sel; inner = dayInner(d, on.map(s => s.c.name).join(' · '), on.map(s => shortName(s.c.name)).join(' · ')); }
         else if (open.length) cls += ' wk' + sel;
@@ -1139,13 +1145,13 @@ function renderDCal(){
     html += `<div class="${cls}"${attrs}>${inner}</div>`; }
   $('dcal-grid').innerHTML = html;
   $('dcal-quick').innerHTML = WEEKENDS.map((w, wi) => { if (!bookable(w)) return ''; const open = slotsOpen(w), sel = dcalPick === wi ? ' sel' : '';
-    return open.length ? open.map(({ c, day }) => `<button type="button" class="chip${sel}" onclick="dcalPickDay(${wi})">${esc(dayName(day) + ' · ' + c.name)}</button>`).join('') : `<button type="button" class="chip${sel}" onclick="dcalPickDay(${wi})">${labelFor(w, 2).replace(/, \d{4}$/, '')}</button>`; }).join('');
+    return open.length ? open.map(s => `<button type="button" class="chip${sel}" onclick="dcalPickDay(${wi})">${esc(slotSpan(s) + ' · ' + s.c.name)}</button>`).join('') : `<button type="button" class="chip${sel}" onclick="dcalPickDay(${wi})">${labelFor(w, 2).replace(/, \d{4}$/, '')}</button>`; }).join('');
   const box = $('dcal-classes'); box.hidden = dcalPick === null; if (dcalPick === null) return;
   const pw = WEEKENDS[dcalPick], open = slotsOpen(pw), items = open.length ? open : offeredOn();
-  $('dcal-sel').innerHTML = `<b>${labelFor(pw, 2)}</b> &middot; ` + (open.length ? open.map(({ c, day }) => `${esc(dayName(day))}: ${esc(c.name)}`).join(' &middot; ') : 'no class is scheduled on this weekend yet &middot; join the waiting list for any class');
+  $('dcal-sel').innerHTML = `<b>${labelFor(pw, 2)}</b> &middot; ` + (open.length ? open.map(s => `${esc(slotSpan(s))}: ${esc(s.c.name)}`).join(' &middot; ') : 'no class is scheduled on this weekend yet &middot; join the waiting list for any class');
   const cats = ['All', ...CATS.filter(cat => items.some(({ c }) => c.cat === cat))]; if (!cats.includes(dcalTab)) dcalTab = 'All';
   $('dcal-tabs').innerHTML = cats.map(cat => `<button type="button" class="chip${dcalTab === cat ? ' sel' : ''}" onclick="dcalTabSet(this.dataset.cat)" data-cat="${esc(cat)}">${esc(cat === 'All' ? 'All classes' : (CAT_LABELS[cat] || cat))}</button>`).join('');
-  $('dcal-list').innerHTML = items.filter(({ c }) => dcalTab === 'All' || c.cat === dcalTab).map(({ c, i, day }) => `<div class="cal-item"><div><b class="cal-name">${esc(c.name)}</b><small>${day ? esc(dayName(day)) + ' &middot; ' : ''}${metaHtml(c)}</small></div><div class="cal-item-price">${money(c.price_cents)}</div><button type="button" class="cta-button small" onclick="dcalChoose(${i})">${dateAction(c, dcalPick)}</button></div>`).join('');
+  $('dcal-list').innerHTML = items.filter(({ c }) => dcalTab === 'All' || c.cat === dcalTab).map(({ c, i, day, days }) => `<div class="cal-item"><div><b class="cal-name">${esc(c.name)}</b><small>${day ? esc(slotSpan({ day, days })) + ' &middot; ' : ''}${metaHtml(c)}</small></div><div class="cal-item-price">${money(c.price_cents)}</div><button type="button" class="cta-button small" onclick="dcalChoose(${i})">${dateAction(c, dcalPick)}</button></div>`).join('');
 }
 function dcalPickDay(wi){ dcalPick = wi; const d = parseISO(WEEKENDS[wi].saturday); dcalMonth = new Date(d.getFullYear(), d.getMonth(), 1); renderDCal(); setTimeout(() => { const b = $('dcal-classes'); if (b && !b.hidden) b.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 60); }
 function dcalOpenDay(wi, i){ dcalPick = wi; dcalChoose(i); }
