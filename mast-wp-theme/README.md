@@ -1,7 +1,11 @@
 # MAST Solutions — WordPress theme
 
 Tactical training site for MAST Solutions (Houston, TX) with a 3-click Stripe
-checkout for both **one-time class seats** and **recurring memberships**.
+checkout for **recurring memberships**. **Class seats are not checked out here**
+(2026-09-30): a class with an upcoming day links to the MAST page's own flow,
+`MAST_BOOK_URL?course=<SKU>#s6` — the only one that runs the eligibility questions,
+the participation agreement and the seat count — and a class with no upcoming day
+joins the waiting list through the Worker's `POST /contact`.
 
 **No WooCommerce, no Subscriptions plugin, no plugin licenses.** Payments run
 through the existing `safeguard-stripe-backend` Cloudflare Worker, which already
@@ -89,8 +93,9 @@ Return lands back on the homepage with a success or cancelled banner.
 
 | Mode | Endpoint | Payload |
 |---|---|---|
-| One-time class | `POST /create-store-checkout` | `product_name`, `price_cents`, `qty`, `customer_email`, `sku` |
-| Membership | `POST /create-checkout` | `email`, `plan`, `seats` |
+| Class, upcoming day in `GET /weekends`' schedule | link to `MAST_BOOK_URL?course=<SKU>#s6` | — |
+| Class, no upcoming day | `POST /contact` | `request_type: 'waitlist'`, `name`, `email`, `message` |
+| Membership | `POST /create-membership` | `email`, `plan`, `seats` |
 
 Point the theme at a different Worker in `wp-config.php`:
 

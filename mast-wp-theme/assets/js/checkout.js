@@ -2,12 +2,17 @@
  * MAST Solutions — 3-click checkout.
  *
  * Click 1: "Enroll" / "Join" on a card  -> opens the sheet
- * Click 2: "Continue to Secure Checkout" -> creates a Stripe Checkout Session
+ * Click 2: "Continue to Secure Checkout" -> creates a Stripe Checkout Session (memberships)
  * Click 3: "Pay" on Stripe's hosted page
  *
- * Two modes, both handled by the same Cloudflare Worker:
- *   payment      -> POST {storeEndpoint} (one-time class seats)
- *   subscription -> POST {subEndpoint}   (recurring membership tiers)
+ * Memberships (subscription mode) -> POST {subEndpoint}.
+ *
+ * Classes are not checked out here. The Worker's /create-booking answers 410: it sold a live-fire
+ * seat with no eligibility screening, no participation agreement and no seat-capacity claim, and
+ * the MAST page's registration is the only flow that runs all three. A class with an upcoming day
+ * in the schedule {weekendsEndpoint} publishes (not before today in Houston) links to
+ * {bookUrl}?course=<SKU>#s6, which opens that course there; a class with no such day joins the
+ * waiting list as a request_type 'waitlist' to {contactEndpoint}.
  *
  * Config is injected from PHP via wp_localize_script as `window.MAST`.
  */
@@ -34,6 +39,16 @@
 	var unitEl = sheet.querySelector('[data-mast-unit]');
 	var emailEl = sheet.querySelector('#mast-email');
 	var nameEl = sheet.querySelector('#mast-name');
+	var nameOptEl = sheet.querySelector('#mast-name-opt');
+
+	// The waiting list goes to /contact, which requires a name; checkout does not. The label and the
+	// required state follow the mode so the form never calls a field optional that the server refuses without.
+	function setNameRequired(req) {
+		nameEl.required = req;
+		if (nameOptEl) {
+			nameOptEl.style.display = req ? 'none' : '';
+		}
+	}
 	var qtyWrap = sheet.querySelector('[data-mast-qty-wrap]');
 	var qtyEl = sheet.querySelector('[data-mast-qty]');
 	var totalEl = sheet.querySelector('[data-mast-total]');
@@ -44,6 +59,59 @@
 	var current = null;
 	var qty = 1;
 	var lastFocused = null;
+	var schedule = null;
+
+	// Today in Houston as YYYY-MM-DD, the rule the MAST page and the Worker both use.
+	function todayCT() {
+		var p = {};
+		new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' })
+			.formatToParts(new Date()).forEach(function (x) { p[x.type] = x.value; });
+		return p.year + '-' + p.month + '-' + p.day;
+	}
+
+	// A weekend's Sunday, when the row carries only its Saturday.
+	function sundayOf(sat) {
+		var d = new Date(sat + 'T12:00:00Z');
+		d.setUTCDate(d.getUTCDate() + 1);
+		return d.toISOString().slice(0, 10);
+	}
+
+	// [[day, sku], ...] from the Worker, fetched once; [] when it cannot be read, which sends every class to the waiting list.
+	// A row counts only while the weekend holding its day is still open (available / scheduled): the same test /register
+	// applies (weekendOf + status), so a weekend removed or blocked in D1 never shows "Book" for a seat /register refuses.
+	function loadSchedule() {
+		if (!schedule) {
+			schedule = fetch(cfg.weekendsEndpoint)
+				.then(function (res) { return res.ok ? res.json() : {}; })
+				.then(function (d) {
+					var rows = Array.isArray(d.schedule) ? d.schedule : [];
+					var open = (Array.isArray(d.weekends) ? d.weekends : []).filter(function (w) {
+						return w && (w.status === 'available' || w.status === 'scheduled');
+					});
+					return rows.filter(function (r) {
+						return open.some(function (w) { return w.saturday === r[0] || (w.sunday || sundayOf(w.saturday)) === r[0]; });
+					});
+				})
+				.catch(function () { return []; });
+		}
+		return schedule;
+	}
+
+	function nextDay(rows, sku) {
+		var today = todayCT();
+		var days = rows.filter(function (r) { return r[1] === sku && r[0] >= today; }).map(function (r) { return r[0]; }).sort();
+		return days.length ? days[0] : null;
+	}
+
+	// The MAST page opens a ?course= deep link exactly as a tap on that course's row would: gate, calendar, registration.
+	function bookingUrl(sku) {
+		return (cfg.bookUrl || 'https://www.mastsolutions.com/') + '?course=' + encodeURIComponent(sku) + '#s6';
+	}
+
+	function dayLabel(day) {
+		var p = day.split('-');
+		return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+	}
 
 	function money(cents) {
 		var n = cents / 100;
@@ -85,6 +153,29 @@
 
 		clearError();
 		updateTotal();
+		setNameRequired(false);
+
+		payBtn.textContent = i18n.continue || 'Continue to Secure Checkout';
+		payBtn.disabled = false;
+		if (!isSub) {
+			// The label is decided by the same lookup that decides where the button goes, so the two cannot disagree.
+			payBtn.disabled = true;
+			loadSchedule().then(function (rows) {
+				if (current !== data) {
+					return;
+				}
+				data.day = nextDay(rows, data.sku);
+				if (data.day) {
+					metaEl.textContent = (data.meta ? data.meta + ' · ' : '') + dayLabel(data.day);
+					payBtn.textContent = (i18n.book || 'Book on mastsolutions.com') + ' →';
+					qtyWrap.style.display = 'none';   // seats are chosen on the MAST page
+				} else {
+					payBtn.textContent = i18n.waitlist || 'Join waiting list';
+					setNameRequired(true);
+				}
+				payBtn.disabled = false;
+			});
+		}
 
 		backdrop.classList.add('open');
 		sheet.classList.add('open');
@@ -109,7 +200,13 @@
 
 	function startCheckout() {
 		var email = emailEl.value.trim();
+		var isSub = current.mode === 'subscription';
 		clearError();
+
+		if (!isSub && current.day) {
+			location.href = bookingUrl(current.sku);
+			return;
+		}
 
 		if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
 			showError(i18n.badEmail || 'Enter a valid email address.');
@@ -117,32 +214,23 @@
 			return;
 		}
 
-		var isSub = current.mode === 'subscription';
+		if (!isSub) {
+			joinWaitlist(email);
+			return;
+		}
 		var base = cfg.returnUrl || (location.origin + location.pathname);
 		var joiner = base.indexOf('?') === -1 ? '?' : '&';
 		var successUrl = base + joiner + 'checkout=success&item=' + encodeURIComponent(current.name);
 		var cancelUrl = base + joiner + 'checkout=cancelled';
 
-		var endpoint = isSub ? cfg.subEndpoint : cfg.storeEndpoint;
-		var body = isSub
-			? {
-				email: email,
-				plan: current.plan,
-				seats: 1,
-				successUrl: successUrl,
-				cancelUrl: cancelUrl
-			}
-			: {
-				// The SKU is the only product identity sent. The Worker looks up
-				// the price server-side, so a tampered request cannot set its own
-				// amount. `current.price` is display-only.
-				sku: current.sku || '',
-				qty: qty,
-				customer_email: email,
-				customer_name: nameEl.value.trim(),
-				success_url: successUrl,
-				cancel_url: cancelUrl
-			};
+		var endpoint = cfg.subEndpoint;
+		var body = {
+			email: email,
+			plan: current.plan,
+			seats: 1,
+			successUrl: successUrl,
+			cancelUrl: cancelUrl
+		};
 
 		payBtn.disabled = true;
 		payBtn.textContent = i18n.preparing || 'Preparing secure checkout…';
@@ -171,6 +259,48 @@
 					' (' + e.message + '). ' +
 					(cfg.phone ? 'Please try again or call ' + cfg.phone + '.' : 'Please try again.')
 				);
+			});
+	}
+
+	function joinWaitlist(email) {
+		var name = nameEl.value.trim();
+		if (name.length < 2) {
+			showError(i18n.waitName || 'Enter your name to join the waiting list.');
+			nameEl.focus();
+			return;
+		}
+		var item = current.name;
+		payBtn.disabled = true;
+		fetch(cfg.contactEndpoint, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				kind: 'contact',
+				request_type: 'waitlist',
+				name: name,
+				email: email,
+				message: 'Waiting list — ' + item + (qty > 1 ? '\nSeats: ' + qty : ''),
+				page: location.href.split('#')[0]
+			})
+		})
+			.then(function (res) {
+				return res.json().then(function (data) {
+					if (!res.ok) {
+						throw new Error(data.error || 'Request failed');
+					}
+				});
+			})
+			.then(function () {
+				closeSheet();
+				if (banner) {
+					banner.textContent = (i18n.waited || "You're on the waiting list — we email you as soon as dates are set.") + ' (' + item + ')';
+					banner.classList.add('ok', 'show');
+					setTimeout(function () { banner.classList.remove('show'); }, 9000);
+				}
+			})
+			.catch(function (e) {
+				payBtn.disabled = false;
+				showError(e.message + (cfg.phone ? ' Please try again or call ' + cfg.phone + '.' : ''));
 			});
 	}
 

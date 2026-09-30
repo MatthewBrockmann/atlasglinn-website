@@ -129,17 +129,25 @@ Every other course and date reads **Join waiting list** and goes through `bookCo
 a Class calendar names the class on each day of a scheduled weekend (chips, day titles, the weekend line, a "Class
 scheduled" marker); an unscheduled weekend lists every class as a waiting list. A weekend whose Sunday has passed in
 America/Chicago is dropped client-side, from the seeded list and from the Worker's (live D1 still carries 2026-09-26).
-**The Worker holds the same rows** — `CLASS_SCHEDULE` in `mast-backend/src/worker.js` — and `/register` and a dated
-`/create-booking` refuse any other pair with `409 not_scheduled` before anything is written or sent. The assembler and
+**The Worker holds the same rows** — `CLASS_SCHEDULE` in `mast-backend/src/worker.js` — and `/register` refuses any
+other pair with `409 not_scheduled`, and a listed pair whose day is before today in Houston with `409 date_passed`
+(`todayCT()`, the page's rule: a class stays bookable through its own day), before anything is written or sent.
+**`/register` is the only door that sells a class (ATLAS, 2026-09-30).** `/create-booking` sold a live-fire seat with no
+eligibility screening, no participation agreement and no seat-capacity claim; it now answers `410 use_register` to every
+request, after the per-IP rate-limit tick and before its body is read, a row is written or Stripe is called. Nothing
+that is not a class was ever sold there (private instruction, gear, Experiences and the capability statement are
+`/contact` requests; memberships are `/create-membership`), so nothing is kept open on it. Its two callers moved: the WP
+theme's `checkout.js` links a class with an upcoming day (from `/weekends`) to `https://www.mastsolutions.com/?course=<SKU>#s6`,
+the page's own flow, and files a waiting-list request through `/contact` for a class with none; `smoke-worker.yml`'s
+checkout probe creates no session and asserts `410 use_register` for the next scheduled pair and for an undated class.
+The tax tests and the tax fuzz check out through `/register` (the same `applyTax()`). The assembler and
 `test-worker.mjs` both fail when the two lists differ, so **a schedule change is both files in one commit**, and the Worker
 must deploy with the page (a Sunday day is refused as "not a MAST training weekend" by a Worker older than this). The
 assembler also fails on a row naming an undated or by-arrangement course or a day that is not the Saturday or Sunday of an
 open weekend, and asserts "Select Date" appears exactly once in the built page (inside `dateAction()`); an empty `SCHEDULE`
 folds the label to the waiting list and asserts the words appear nowhere. The Worker files an unknown `request_type` as
 `leadKind 'contact'` with the "Website contact:" subject, so `'experience'` and `'waitlist'` are stored and emailed today;
-the nicer subject lines are a Worker follow-up. **Named gap:** a `/create-booking` with no `session_date` (the legacy
-WP-theme path; the page never calls it, `smoke-worker.yml`'s checkout probe does) is not a pair, is not gated, and still
-opens a Stripe session for any priced course with no date.
+the nicer subject lines are a Worker follow-up.
 
 **Classes chapter, Range-style (Brockmann, 2026-09-08, over a screenshot of this chapter's heading and one of the Range
 chapter's CLICK TO VIEW button: "Delete this + add like the range + CLICK TO VIEW = gets rid of scrolling + Book Course =
@@ -1374,8 +1382,8 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   probes the deployed Worker from a runner: `/health`, `/catalog` (SKUs, prices, D1 or seed), `/weekends`, the CORS
   preflight, `/account/me` (503 `accounts_off` = `ACCOUNT_SECRET` not set), the mail DNS of mastsolutions.com; with
   `contact=true` (default) one labelled test message goes through `/contact` so the Resend → `NOTIFY_EMAIL` path is
-  exercised for real; with `checkout=true` one unpaid Stripe Checkout Session is created for the first bookable SKU
-  (nothing charged; the abandoned registration is dropped by the daily cron). Report:
+  exercised for real; with `checkout=true` the retired `/create-booking` must answer `410 use_register` for the next
+  scheduled class day in `/weekends`' schedule and for an undated class (no Stripe session is created). Report:
   `claude/desktop-assets:reference/desktop/live/_worker-smoke.txt` and the job summary. **First run, 2026-09-06 18:03
   UTC:** everything answered as designed except `/contact`, which returned 502 (the Resend call failed) — the one blocker
   for every Worker email; ledger item B00. **18:32 UTC:** the hint reads `resend_422:validation_error field=to`: the
@@ -1419,13 +1427,15 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   a hit). A new PDF = he hands it to a session, the session re-seals and merges. **Do not ask him for the PDF
   again**; if the upload is gone, the sealed file on main is the copy the Worker uses (the Worker's D1 key opens it;
   no one else can).
-- **What a booking actually sends (read 2026-09-30):** the paid confirmation (`sendRegistrationDocuments`, called from
-  the webhook) carries the signed agreement and the range-directions PDF, and the T−7 / T−1 journeys (`runJourneys` in
-  `src/crm.js`, the daily work, `JOURNEYS_ENABLED = "1"`) send the week-out and day-before reminders with the PDF again.
-  **No code sends a gear list.** The confirmation says "Gear list arrives by separate email before the class", the T−7
-  says "the gear list for your course came by email", and the page (calendar hint, sheet fine print, success banner) and
-  `privacy.html` promise one; there is no gear-list content and no sender anywhere in this repo. The words stay until he
-  supplies the lists or says to cut them.
+- **What a booking actually sends (2026-09-30):** the paid confirmation (`sendRegistrationDocuments`, called from the
+  webhook) carries the signed agreement, the range-directions PDF and **the gear list for the booked course**, and the
+  T−7 / T−1 journeys (`runJourneys` in `src/crm.js`, the daily work, `JOURNEYS_ENABLED = "1"`) send the week-out and
+  day-before reminders with the PDF and the list again. **The lists are Brockmann's, verbatim (2026-09-30), in one table:
+  `GEAR_LISTS` in `mast-backend/src/gear-lists.js`**, read by all three emails; today only `MAST-HG-FUND` and
+  `MAST-CAR-FUND` have one. A course without a list gets "Your instructor will confirm the gear list before class." —
+  never the old "arrives by separate email" promise, which no code ever kept. The emails are plain text (no HTML part).
+  Adding a course to `CLASS_SCHEDULE` without a list is allowed and gets that fallback line, but the page's own copy
+  (calendar hint, sheet fine print, success banner) still says a gear list follows by email, so add the list with it.
 - **Google review link (Brockmann, 2026-09-06: "add to email as click + link + add to website"):** derived from the
   Business Profile link he pasted (its `stick=` token decodes to feature id `0x8640c3cb2d0755df:0x3e9cfce1d8a7b9f7`,
   CID 4511758973651106295): `REVIEW_URL` in `wrangler.toml` (T+1 email), `GOOGLE_REVIEW_URL` / `REVIEW_LINK` in
