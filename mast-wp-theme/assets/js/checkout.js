@@ -69,12 +69,29 @@
 		return p.year + '-' + p.month + '-' + p.day;
 	}
 
+	// A weekend's Sunday, when the row carries only its Saturday.
+	function sundayOf(sat) {
+		var d = new Date(sat + 'T12:00:00Z');
+		d.setUTCDate(d.getUTCDate() + 1);
+		return d.toISOString().slice(0, 10);
+	}
+
 	// [[day, sku], ...] from the Worker, fetched once; [] when it cannot be read, which sends every class to the waiting list.
+	// A row counts only while the weekend holding its day is still open (available / scheduled): the same test /register
+	// applies (weekendOf + status), so a weekend removed or blocked in D1 never shows "Book" for a seat /register refuses.
 	function loadSchedule() {
 		if (!schedule) {
 			schedule = fetch(cfg.weekendsEndpoint)
 				.then(function (res) { return res.ok ? res.json() : {}; })
-				.then(function (d) { return Array.isArray(d.schedule) ? d.schedule : []; })
+				.then(function (d) {
+					var rows = Array.isArray(d.schedule) ? d.schedule : [];
+					var open = (Array.isArray(d.weekends) ? d.weekends : []).filter(function (w) {
+						return w && (w.status === 'available' || w.status === 'scheduled');
+					});
+					return rows.filter(function (r) {
+						return open.some(function (w) { return w.saturday === r[0] || (w.sunday || sundayOf(w.saturday)) === r[0]; });
+					});
+				})
 				.catch(function () { return []; });
 		}
 		return schedule;
