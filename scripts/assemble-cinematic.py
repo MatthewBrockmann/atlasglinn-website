@@ -50,7 +50,6 @@ assert '.modal.req .err:not([hidden])' in booking_css, 'the request dialog error
 banner = between(tesla, '<div id="banner"', '</div>', True)
 modals = between(tesla, '<!-- CALENDAR -->', '</ol>\n</div>', True)
 modals = modals.replace('style="color:#1A6BDE;text-decoration:none;"', 'style="color:#E8D27D;text-decoration:none;"')
-modals = modals.replace('<i style="background:#1A6BDE"></i>Selected', '<i style="background:#E8D27D"></i>Selected')
 
 # ── 3. Booking JS from the Tesla page: everything up to the hero loader, then MEDIA + the media strip renderer ──
 js = between(tesla, '<script>', '</script>')[len('<script>'):]
@@ -893,6 +892,20 @@ assert ('const SECTIONS = %d;' % len(CHAPTERS)) in html and html.count('SECTION 
 assert 'no class is scheduled on this weekend yet &middot; join the waiting list for any class' in html and \
     "open.map(({ c, day }) => `${esc(dayName(day))}: ${esc(c.name)}`)" in html and 'classes run on every training weekend' not in html, \
     'the Book a Class calendar implies every class runs every weekend again, or a scheduled weekend stopped naming the class on each day'
+# The class ON its day (owner, 2026-09-30: "The calendar needs to have the Classes Scheduled ON those dates"). Both grids
+# write the class into the day cell itself — not only into a hover title or the buttons under the grid — through the one
+# dayInner(), and a training weekend with nothing scheduled reads Waitlist in its own style. The legend names both, and
+# its swatches are classes, so the palette recolor that turns inline colours blue cannot make them disagree with a cell.
+for _cell in ("inner = dayInner(d, on.map(s => s.c.name).join(' · '), on.map(s => shortName(s.c.name)).join(' · '));",
+              "inner = dayInner(d, calCourse.name, shortName(calCourse.name));",
+              "inner = dayInner(d, 'Waitlist');",
+              '<span class="dc"><span class="dc-full">${esc(full)}</span><span class="dc-short">${esc(short || full)}</span></span>'):
+    assert _cell in html, 'a calendar day stopped carrying its class (or Waitlist) in its cell: ' + _cell
+assert html.count('html += `<div class="${cls}"${attrs}>${inner}</div>`; }') == 2, \
+    'both calendars must write each day cell from the dayInner() result, not the bare day number'
+assert '.day.wl:not(.sel) {' in html and '<i class="lg-sch"></i>Class scheduled' in html and '<i class="lg-wl"></i>Waiting list weekend' in html \
+    and html.count('<i class="lg-sel"></i>Selected') == 2 and 'Hover a date for what runs' not in html, \
+    'waitlist days lost their own style, the legend no longer says Class scheduled / Waiting list weekend, or the subtitle says hover again'
 assert 'The <span class="gold">Classes.</span>' not in html and "images/mast/courses-instructor.jpg');background-position:50% 15%" in html, \
     'the Classes chapter title is back or the Courses backdrop is not his photo (owner, 2026-09-08)'
 assert 'id="news-consent"' in html and "fetch(API + '/subscribe'" in html and "get('course')" in html and "mastTrack('deep_link'" in html, \

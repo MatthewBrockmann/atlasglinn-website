@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="74f4b4bc6fee">
+<meta name="build" content="a4e0cf805ae9">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
 <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
@@ -349,6 +349,20 @@
 .day.sel::after { background: #fff; }
 .day.blk { color: #555; text-decoration: line-through; border-color: rgba(255,255,255,.08); cursor: not-allowed; }
 .day.past { opacity: .35; cursor: not-allowed; }
+.cal-grid .day { height: auto; min-height: 40px; align-content: center; row-gap: 3px; padding: 4px 2px; }
+.day .dn { line-height: 1; }
+.day .dc { max-width: 100%; font-family: 'Share Tech Mono', monospace; font-size: .64rem; font-weight: 700; letter-spacing: .02em; line-height: 1.2; text-align: center; color: inherit; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.day .dc-short { display: none; }
+.modal:not(.wide) .day .dc-full { display: none; }
+.modal:not(.wide) .day .dc-short { display: inline; }
+.day.sch::after, .day.wl::after { display: none; }
+.day.wl:not(.sel) { background: transparent; border-style: dashed; border-color: rgba(201,168,76,.4); color: #8b93a1; font-weight: 600; }
+.day.wl:not(.sel):hover { background: rgba(201,168,76,.18); border-color: #C9A84C; }
+.day.wl .dc { font-size: .54rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.day.wl:not(.sel) .dc { color: #737b89; }
+.cal-legend i.lg-sch { background: rgba(201,168,76,.32); box-shadow: inset 0 0 0 1px #C9A84C; }
+.cal-legend i.lg-wl { background: transparent; box-shadow: inset 0 0 0 1px rgba(201,168,76,.4); }
+.cal-legend i.lg-sel { background: #C9A84C; }
 .cal-legend { display: flex; gap: 1.2rem; flex-wrap: wrap; font-family: 'Share Tech Mono', monospace; font-size: .68rem; letter-spacing: .1em; color: #888; margin-top: .8rem; text-transform: uppercase; }
 .cal-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
 .cal-quick { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
@@ -473,6 +487,11 @@
 .cal-foot { bottom: calc(-1.4rem - env(safe-area-inset-bottom)); margin: 1.2rem -1.2rem calc(-1.4rem - env(safe-area-inset-bottom)); padding: .9rem 1.2rem calc(1rem + env(safe-area-inset-bottom)); }
 .cal-foot .cta-button { width: 100%; text-align: center; }
 .day { height: 44px; }
+.cal-grid .day { min-height: 44px; padding: 4px 1px; }
+.day .dc { font-size: .56rem; letter-spacing: 0; }
+.day.wl .dc { font-size: .5rem; letter-spacing: .04em; }
+.day .dc-full { display: none; }
+.day .dc-short { display: inline; }
 }
 @media (max-width: 900px) {
 .catalog-panel { max-height: none; }
@@ -1023,7 +1042,7 @@
     <div class="cal-nav"><button id="cal-prev" aria-label="Previous month" onclick="calShift(-1)">&#8249;</button><div class="cal-month" id="cal-month"></div><button id="cal-next" aria-label="Next month" onclick="calShift(1)">&#8250;</button></div>
     <div class="cal-dow"><div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div></div>
     <div class="cal-grid" id="cal-grid"></div>
-    <div class="cal-legend"><span><i style="background:rgba(26,107,222,.5)"></i>Training weekend</span><span><i style="background:#5B9BFF"></i>Selected</span><span><i style="background:#333"></i>Unavailable</span></div>
+    <div class="cal-legend"><span><i class="lg-sch"></i>Class scheduled</span><span><i class="lg-sel"></i>Selected</span><span><i style="background:#333"></i>Unavailable</span></div>
     <div class="cal-quick" id="cal-quick"></div>
     <div class="cal-hint" style="margin-top:1rem;">Highlighted dates are the days this course is scheduled. Range directions and gear list follow by email after booking.</div>
     <div class="cal-foot"><div class="cal-sel" id="cal-sel">Tap a highlighted date.</div><button class="cta-button" id="cal-go" disabled onclick="calContinue()">Continue &rarr;</button></div>
@@ -1060,18 +1079,18 @@
 </div>
 
 <!-- BOOK A CLASS, date first (owner, 2026-09-05: "Click Book Class = calendar open; each has tab; choose tab; class offerings; all dates; hover class shows").
-     Every training weekend; hover or tap a date for what runs; tabs by discipline ("All" opens every tab); Select hands the class to the
+     Every training weekend; a scheduled day names its class in the cell and opens it; tabs by discipline ("All" opens every tab); Select hands the class to the
      normal gate → calendar (date preselected) → registration. A scheduled weekend names the class on each day; an unscheduled one lists every class as a waiting list. -->
 <div id="dcal-bd" class="modal-bd" onclick="closeDCal()"></div>
 <div id="dcal" class="modal wide" role="dialog" aria-modal="true" aria-labelledby="dcal-title">
     <button class="modal-x" aria-label="Close" onclick="closeDCal()">&times;</button>
     <div class="eyebrow">Book a Class</div>
     <h3 id="dcal-title">Choose a training weekend</h3>
-    <div class="modal-meta">Every training weekend on one calendar. Hover a date for what runs; tap it to choose a class.</div>
+    <div class="modal-meta">Every training weekend on one calendar. A scheduled day names its class; tap it to book. Tap a waitlist weekend to join a waiting list.</div>
     <div class="cal-nav"><button id="dcal-prev" aria-label="Previous month" onclick="dcalShift(-1)">&#8249;</button><div class="cal-month" id="dcal-month"></div><button id="dcal-next" aria-label="Next month" onclick="dcalShift(1)">&#8250;</button></div>
     <div class="cal-dow"><div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div></div>
     <div class="cal-grid" id="dcal-grid"></div>
-    <div class="cal-legend"><span><i style="background:rgba(26,107,222,.5)"></i>Training weekend</span><span><i style="background:rgba(26,107,222,.32);box-shadow:inset 0 0 0 1px #1A6BDE"></i>Class scheduled</span><span><i style="background:#5B9BFF"></i>Selected</span><span><i style="background:#333"></i>Unavailable</span></div>
+    <div class="cal-legend"><span><i class="lg-sch"></i>Class scheduled</span><span><i class="lg-wl"></i>Waiting list weekend</span><span><i class="lg-sel"></i>Selected</span><span><i style="background:#333"></i>Unavailable</span></div>
     <div class="cal-quick" id="dcal-quick"></div>
     <div class="cal-classes" id="dcal-classes" hidden>
         <div class="cal-sel" id="dcal-sel"></div>
@@ -1733,13 +1752,18 @@ function openCal(i){ calCourse = COURSES[i]; chosen = (preChosen !== null && slo
 function closeCal(){ $('cal-bd').classList.remove('open'); $('cal').classList.remove('open'); document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
 function calBounds(){ if (!WEEKENDS.length) { const t = parseISO(todayCT()); return { min: new Date(t.getFullYear(), t.getMonth(), 1), max: new Date(t.getFullYear(), t.getMonth(), 1) }; } const a = parseISO(WEEKENDS[0].saturday), b = parseISO(WEEKENDS[WEEKENDS.length - 1].saturday); return { min: new Date(a.getFullYear(), a.getMonth(), 1), max: new Date(b.getFullYear(), b.getMonth(), 1) }; }
 function calShift(n){ const { min, max } = calBounds(); const next = new Date(calMonth.getFullYear(), calMonth.getMonth() + n, 1); if (next < min || next > max) return; calMonth = next; renderCal(); }
+/* What a day cell reads (owner, 2026-09-30: "The calendar needs to have the Classes Scheduled ON those dates"): its number,
+   and under it the class that runs that day — the full name, and a short one the per-course dialog and phones switch to
+   in CSS — or "Waitlist" on a training weekend nothing is scheduled on yet. */
+const shortName = n => String(n).replace(/ Fundamentals$/, ' Fund.');
+const dayInner = (d, full, short) => `<span class="dn">${d.getDate()}</span>` + (full ? `<span class="dc"><span class="dc-full">${esc(full)}</span><span class="dc-short">${esc(short || full)}</span></span>` : '');
 function renderCal(){
   const { min, max } = calBounds(); $('cal-month').textContent = MONTHS[calMonth.getMonth()] + ' ' + calMonth.getFullYear(); $('cal-prev').disabled = calMonth <= min; $('cal-next').disabled = calMonth >= max;
   const dayMap = {}; WEEKENDS.forEach((w, wi) => { if (slotDate(w, calCourse)) classDates(w, calCourse).forEach(d => { dayMap[keyOf(d)] = wi; }); });
   const y = calMonth.getFullYear(), m = calMonth.getMonth(); const gridStart = new Date(y, m, 1 - new Date(y, m, 1).getDay()); let html = '';
-  for (let k = 0; k < 42; k++) { const d = new Date(gridStart); d.setDate(gridStart.getDate() + k); const wi = dayMap[keyOf(d)]; const other = d.getMonth() !== m; let cls = 'day' + (other ? ' other' : ''), attrs = '';
-    if (wi !== undefined && !other) { const w = WEEKENDS[wi]; if (slotOpen(w, calCourse)) { cls += ' wk' + (chosen === wi ? ' sel' : ''); attrs = ` onclick="pick(${wi})" title="${esc(slotLabel(w, calCourse) + ' · ' + calCourse.name)}"`; } else { cls += ' blk' + (keyOf(d) < todayCT() ? ' past' : ''); attrs = ' title="Unavailable"'; } }
-    html += `<div class="${cls}"${attrs}>${d.getDate()}</div>`; }
+  for (let k = 0; k < 42; k++) { const d = new Date(gridStart); d.setDate(gridStart.getDate() + k); const wi = dayMap[keyOf(d)]; const other = d.getMonth() !== m; let cls = 'day' + (other ? ' other' : ''), attrs = '', inner = String(d.getDate());
+    if (wi !== undefined && !other) { const w = WEEKENDS[wi]; if (slotOpen(w, calCourse)) { cls += ' wk sch' + (chosen === wi ? ' sel' : ''); inner = dayInner(d, calCourse.name, shortName(calCourse.name)); attrs = ` onclick="pick(${wi})" title="${esc(slotLabel(w, calCourse) + ' · ' + calCourse.name)}"`; } else { cls += ' blk' + (keyOf(d) < todayCT() ? ' past' : ''); attrs = ' title="Unavailable"'; } }
+    html += `<div class="${cls}"${attrs}>${inner}</div>`; }
   $('cal-grid').innerHTML = html;
   $('cal-quick').innerHTML = WEEKENDS.map((w, wi) => slotOpen(w, calCourse) ? `<button type="button" class="chip${chosen === wi ? ' sel' : ''}" onclick="pick(${wi})">${slotLabel(w, calCourse).replace(/, \d{4}$/, '')}</button>` : '').join('');
   $('cal-sel').innerHTML = chosen === null ? 'Tap a highlighted date.' : `<b>${slotLabel(WEEKENDS[chosen], calCourse)}</b>`; $('cal-go').disabled = chosen === null;
@@ -1763,13 +1787,18 @@ function renderDCal(){
   const { min, max } = calBounds(); $('dcal-month').textContent = MONTHS[dcalMonth.getMonth()] + ' ' + dcalMonth.getFullYear(); $('dcal-prev').disabled = dcalMonth <= min; $('dcal-next').disabled = dcalMonth >= max;
   const dayMap = {}; WEEKENDS.forEach((w, wi) => weekendDates(w, 2).forEach(d => { dayMap[keyOf(d)] = wi; }));
   const y = dcalMonth.getFullYear(), m = dcalMonth.getMonth(); const gridStart = new Date(y, m, 1 - new Date(y, m, 1).getDay()); let html = '';
-  for (let k = 0; k < 42; k++) { const d = new Date(gridStart); d.setDate(gridStart.getDate() + k); const wi = dayMap[keyOf(d)]; const other = d.getMonth() !== m; let cls = 'day' + (other ? ' other' : ''), attrs = '';
+  for (let k = 0; k < 42; k++) { const d = new Date(gridStart); d.setDate(gridStart.getDate() + k); const wi = dayMap[keyOf(d)]; const other = d.getMonth() !== m; let cls = 'day' + (other ? ' other' : ''), attrs = '', inner = String(d.getDate());
     if (wi !== undefined && !other) { const w = WEEKENDS[wi], key = keyOf(d);
-      if (bookable(w) && key >= todayCT()) { const open = slotsOpen(w), on = open.filter(s => s.day === key); cls += ' wk' + (on.length ? ' sch' : '') + (dcalPick === wi ? ' sel' : '');
+      if (bookable(w) && key >= todayCT()) { const open = slotsOpen(w), on = open.filter(s => s.day === key), sel = dcalPick === wi ? ' sel' : '';
         const tip = on.length ? dayName(key) + ' · ' + on.map(s => s.c.name).join(' · ') + ' · tap to book' : open.length ? dayName(key) + ' · no class this day · tap for the weekend' : w.label + ' · no class scheduled yet · tap to join a waiting list';
-        attrs = ` onclick="dcalPickDay(${wi})" title="${esc(tip)}"`; }
+        // A day with one class opens that class, its date already chosen; anything else opens the weekend below the grid.
+        const tap = on.length === 1 ? `dcalOpenDay(${wi}, ${on[0].i})` : `dcalPickDay(${wi})`;
+        if (on.length) { cls += ' wk sch' + sel; inner = dayInner(d, on.map(s => s.c.name).join(' · '), on.map(s => shortName(s.c.name)).join(' · ')); }
+        else if (open.length) cls += ' wk' + sel;
+        else { cls += ' wk wl' + sel; inner = dayInner(d, 'Waitlist'); }
+        attrs = ` onclick="${tap}" title="${esc(tip)}"`; }
       else { cls += ' blk' + (key < todayCT() ? ' past' : ''); attrs = ' title="Unavailable"'; } }
-    html += `<div class="${cls}"${attrs}>${d.getDate()}</div>`; }
+    html += `<div class="${cls}"${attrs}>${inner}</div>`; }
   $('dcal-grid').innerHTML = html;
   $('dcal-quick').innerHTML = WEEKENDS.map((w, wi) => { if (!bookable(w)) return ''; const open = slotsOpen(w), sel = dcalPick === wi ? ' sel' : '';
     return open.length ? open.map(({ c, day }) => `<button type="button" class="chip${sel}" onclick="dcalPickDay(${wi})">${esc(dayName(day) + ' · ' + c.name)}</button>`).join('') : `<button type="button" class="chip${sel}" onclick="dcalPickDay(${wi})">${labelFor(w, 2).replace(/, \d{4}$/, '')}</button>`; }).join('');
@@ -1781,6 +1810,7 @@ function renderDCal(){
   $('dcal-list').innerHTML = items.filter(({ c }) => dcalTab === 'All' || c.cat === dcalTab).map(({ c, i, day }) => `<div class="cal-item"><div><b class="cal-name">${esc(c.name)}</b><small>${day ? esc(dayName(day)) + ' &middot; ' : ''}${metaHtml(c)}</small></div><div class="cal-item-price">${money(c.price_cents)}</div><button type="button" class="cta-button small" onclick="dcalChoose(${i})">${dateAction(c, dcalPick)}</button></div>`).join('');
 }
 function dcalPickDay(wi){ dcalPick = wi; const d = parseISO(WEEKENDS[wi].saturday); dcalMonth = new Date(d.getFullYear(), d.getMonth(), 1); renderDCal(); setTimeout(() => { const b = $('dcal-classes'); if (b && !b.hidden) b.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 60); }
+function dcalOpenDay(wi, i){ dcalPick = wi; dcalChoose(i); }
 function dcalTabSet(cat){ dcalTab = cat; renderDCal(); }
 function dcalChoose(i){ preChosen = dcalPick; closeDCal(); selectCourse(i); }
 
