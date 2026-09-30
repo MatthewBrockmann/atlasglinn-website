@@ -3,7 +3,7 @@
  *
  * Cloudflare Worker handling Stripe Checkout for:
  *   - registration              POST /register   screening → agreement → refund consent → Stripe
- *   - one-time class seats      POST /create-booking   (legacy path, no screening; kept for the WP theme)
+ *   - one-time class seats      POST /create-booking   (legacy path, no screening; kept for the WP theme; scheduled days only)
  *   - recurring memberships     POST /create-membership
  *   - Stripe webhooks           POST /webhook
  *   - admin roster              GET  /roster   (X-Admin-Key header)[?view=registrations]
@@ -1285,27 +1285,47 @@ async function handleWeekends(env, cors) {
  * Which course runs on which day (owner, 2026-09-30: "10/10: Handgun Fundamentals, 10/11: Carbine Fundamentals"). One row
  * per class on a day, [the day it runs, SKU]; the day is the Saturday or Sunday of a training weekend and is the
  * session_date the registration stores, so the T−7 / T−1 journeys count from the day the class actually runs. /register
- * and a dated /create-booking sell a seat only for a listed pair; every other course and date is the page's waiting list.
- * SCHEDULE in mastsolutions-tesla.html carries the same rows: scripts/assemble-cinematic.py fails the build and
- * test-worker.mjs fails the suite when the two differ.
+ * and /create-booking sell a seat only for a listed pair whose day has not passed in Houston; every other course and date
+ * is the page's waiting list. SCHEDULE in mastsolutions-tesla.html carries the same rows: scripts/assemble-cinematic.py
+ * fails the build and test-worker.mjs fails the suite when the two differ.
  */
 export const CLASS_SCHEDULE = [
   ['2026-10-10', 'MAST-HG-FUND'],
   ['2026-10-11', 'MAST-CAR-FUND'],
 ];
 CLASS_SCHEDULE.forEach((row) => Object.freeze(row)); Object.freeze(CLASS_SCHEDULE);
-const inClassSchedule = (day, sku) => CLASS_SCHEDULE.some(([d, s]) => d === day && s === sku);
-let isScheduled = inClassSchedule;
+
+/** Today in Houston as YYYY-MM-DD — the page's todayCT(), so the page and the Worker close a class on the same day. A class
+ *  day is sellable through the end of that day in America/Chicago, whatever UTC says and across both DST changes. */
+const CT_DAY = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' });
+export function todayCT(now = Date.now()) {
+  const p = {};
+  CT_DAY.formatToParts(new Date(now)).forEach((x) => { p[x.type] = x.value; });
+  return p.year + '-' + p.month + '-' + p.day;
+}
+
+let scheduleOverride = null;
 /** The second test seam in this module (setTaxReadGuard is the first). The suite predates the schedule: its capacity, hold,
- *  prerequisite and tax blocks book a fixture course on any seeded weekend, so it opens every pair with `() => true` — the
- *  rule before 2026-09-30 — and passes null to put CLASS_SCHEDULE back for the blocks that test the schedule itself.
- *  Nothing in production calls it. */
-export function setClassSchedule(fn) { isScheduled = typeof fn === 'function' ? fn : inClassSchedule; }
+ *  prerequisite and tax blocks book a fixture course on fixed 2026 weekends, so it replaces the whole decision with
+ *  `() => true` — the rule before 2026-09-30, which had neither a schedule nor a date check — and passes null to put the
+ *  real rule back for the blocks that test it, under a pinned clock. Nothing in production calls it. */
+export function setClassSchedule(fn) { scheduleOverride = typeof fn === 'function' ? fn : null; }
+
+/** Why a class day cannot be sold, or null when it can: the pair must be in CLASS_SCHEDULE and its day must not be before
+ *  today in Houston. The caller has already matched the day to an open training weekend. */
+function classDayRefusal(day, sku) {
+  if (scheduleOverride) return scheduleOverride(day, sku) ? null : { error: NOT_SCHEDULED, code: 'not_scheduled' };
+  if (!CLASS_SCHEDULE.some(([d, s]) => d === day && s === sku)) return { error: NOT_SCHEDULED, code: 'not_scheduled' };
+  if (day < todayCT()) return { error: DATE_PASSED, code: 'date_passed' };
+  return null;
+}
 
 /** The training weekend a class day belongs to: its Saturday or its Sunday. */
 const weekendOf = (weekends, day) => weekends.find((w) => w.saturday === day || w.sunday === day) || null;
 
 const NOT_SCHEDULED = 'That class is not scheduled on that date. Join the waiting list on the page, or call (281) 654-8100.';
+const DATE_PASSED = 'That class date has passed. Choose another date or join the waiting list on the page, or call (281) 654-8100.';
+const DATE_REQUIRED = 'Choose a class date. Classes are booked for a scheduled day; anything else goes through the waiting list on the page, or call (281) 654-8100.';
 
 /* ──────────────────────── Class booking (one-time) ──────────────────────── */
 
@@ -1331,28 +1351,26 @@ async function handleBooking(request, env, ctx, cors) {
     return json({ error: 'This class is not available for online booking. Please call to enroll.' }, 409, cors);
   }
 
-  // Training weekend. The page always sends one; validate it server-side so a
-  // crafted request cannot book a blocked or invented date.
-  let weekend = null, day = '';
-  if (body.session_date !== undefined && body.session_date !== null && body.session_date !== '') {
-    const wanted = String(body.session_date);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(wanted)) {
-      return json({ error: 'session_date must be YYYY-MM-DD' }, 400, cors);
-    }
-    const { weekends } = await listWeekends(env);
-    weekend = weekendOf(weekends, wanted);
-    if (!weekend) {
-      return json({ error: 'That date is not a MAST training weekend.' }, 404, cors);
-    }
-    if (weekend.status !== 'available' && weekend.status !== 'scheduled') {
-      return json({ error: 'That weekend is not available for booking.' }, 409, cors);
-    }
-    if (!isScheduled(wanted, offering.sku)) {
-      return json({ error: NOT_SCHEDULED, code: 'not_scheduled' }, 409, cors);
-    }
-    day = wanted;
+  // A class day, always. Everything this route can sell is a dated class: private instruction, gear, Experiences and
+  // the capability statement are /contact requests and memberships are /create-membership, so no undated product is
+  // sold here and an undated request is refused before a weekend, a registration or Stripe is touched. It used to skip
+  // every check below and open a Checkout Session for any priced course (review, 2026-09-30).
+  const day = body.session_date === undefined || body.session_date === null ? '' : String(body.session_date);
+  if (!day) return json({ error: DATE_REQUIRED, field: 'date', code: 'date_required' }, 400, cors);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    return json({ error: 'session_date must be YYYY-MM-DD' }, 400, cors);
   }
-  const sessionLabel = str(body.session_label) || (weekend ? weekend.label : '');
+  const { weekends } = await listWeekends(env);
+  const weekend = weekendOf(weekends, day);
+  if (!weekend) {
+    return json({ error: 'That date is not a MAST training weekend.' }, 404, cors);
+  }
+  if (weekend.status !== 'available' && weekend.status !== 'scheduled') {
+    return json({ error: 'That weekend is not available for booking.' }, 409, cors);
+  }
+  const refusal = classDayRefusal(day, offering.sku);
+  if (refusal) return json(refusal, 409, cors);
+  const sessionLabel = str(body.session_label) || weekend.label || '';
 
   const payload = new URLSearchParams({
     mode: 'payment',
@@ -1360,7 +1378,7 @@ async function handleBooking(request, env, ctx, cors) {
     'line_items[0][price_data][currency]': 'usd',
     'line_items[0][price_data][product_data][name]': 'MAST Solutions — ' + offering.name,
     'line_items[0][price_data][product_data][description]':
-      'SKU: ' + offering.sku + (weekend ? ' · ' + (sessionLabel || day) : ''),
+      'SKU: ' + offering.sku + ' · ' + (sessionLabel || day),
     'line_items[0][price_data][unit_amount]': String(offering.price_cents),
     'line_items[0][quantity]': String(qty),
     success_url: safeUrl(body.success_url, env) || defaultUrl(env, '?checkout=success'),
@@ -1510,7 +1528,8 @@ async function handleRegister(request, env, ctx, cors) {
   if (weekend.status !== 'available' && weekend.status !== 'scheduled') {
     return json({ error: 'That weekend is not available for booking.', field: 'date' }, 409, cors);
   }
-  if (!isScheduled(wanted, offering.sku)) return json({ error: NOT_SCHEDULED, field: 'date', code: 'not_scheduled' }, 409, cors);
+  const refusal = classDayRefusal(wanted, offering.sku);
+  if (refusal) return json({ ...refusal, field: 'date' }, 409, cors);
   // 1b. Capacity (owner: 16 on one-day fundamentals, 10 on two-day operator courses). A course stops selling on a
   // weekend at offerings.capacity: paid seats count, and a pending registration holds its seats while its Stripe
   // Checkout is open. A live-fire class oversold is a safety problem, so this is checked before Stripe.

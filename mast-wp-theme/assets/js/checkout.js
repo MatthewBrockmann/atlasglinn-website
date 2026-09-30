@@ -6,8 +6,13 @@
  * Click 3: "Pay" on Stripe's hosted page
  *
  * Two modes, both handled by the same Cloudflare Worker:
- *   payment      -> POST {storeEndpoint} (one-time class seats)
+ *   payment      -> POST {storeEndpoint} (one-time class seats, for a scheduled day)
  *   subscription -> POST {subEndpoint}   (recurring membership tiers)
+ *
+ * A class seat is sold for a day or not at all: the Worker refuses a /create-booking without a
+ * session_date. The day comes from the schedule {weekendsEndpoint} publishes — the next day that
+ * class runs, not before today in Houston. A class with no such day is not sold here; the same
+ * sheet sends it to the waiting list as a request_type 'waitlist' to {contactEndpoint}.
  *
  * Config is injected from PHP via wp_localize_script as `window.MAST`.
  */
@@ -44,6 +49,37 @@
 	var current = null;
 	var qty = 1;
 	var lastFocused = null;
+	var schedule = null;
+
+	// Today in Houston as YYYY-MM-DD, the rule the MAST page and the Worker both use.
+	function todayCT() {
+		var p = {};
+		new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' })
+			.formatToParts(new Date()).forEach(function (x) { p[x.type] = x.value; });
+		return p.year + '-' + p.month + '-' + p.day;
+	}
+
+	// [[day, sku], ...] from the Worker, fetched once; [] when it cannot be read, which sends every class to the waiting list.
+	function loadSchedule() {
+		if (!schedule) {
+			schedule = fetch(cfg.weekendsEndpoint)
+				.then(function (res) { return res.ok ? res.json() : {}; })
+				.then(function (d) { return Array.isArray(d.schedule) ? d.schedule : []; })
+				.catch(function () { return []; });
+		}
+		return schedule;
+	}
+
+	function nextDay(rows, sku) {
+		var today = todayCT();
+		var days = rows.filter(function (r) { return r[1] === sku && r[0] >= today; }).map(function (r) { return r[0]; }).sort();
+		return days.length ? days[0] : null;
+	}
+
+	function dayLabel(day) {
+		var p = day.split('-');
+		return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+	}
 
 	function money(cents) {
 		var n = cents / 100;
@@ -86,6 +122,25 @@
 		clearError();
 		updateTotal();
 
+		payBtn.textContent = i18n.continue || 'Continue to Secure Checkout';
+		payBtn.disabled = false;
+		if (!isSub) {
+			// The label is decided by the same lookup that decides the request, so it cannot promise a checkout the Worker refuses.
+			payBtn.disabled = true;
+			loadSchedule().then(function (rows) {
+				if (current !== data) {
+					return;
+				}
+				data.day = nextDay(rows, data.sku);
+				if (data.day) {
+					metaEl.textContent = (data.meta ? data.meta + ' · ' : '') + dayLabel(data.day);
+				} else {
+					payBtn.textContent = i18n.waitlist || 'Join waiting list';
+				}
+				payBtn.disabled = false;
+			});
+		}
+
 		backdrop.classList.add('open');
 		sheet.classList.add('open');
 		setTimeout(function () {
@@ -118,6 +173,10 @@
 		}
 
 		var isSub = current.mode === 'subscription';
+		if (!isSub && !current.day) {
+			joinWaitlist(email);
+			return;
+		}
 		var base = cfg.returnUrl || (location.origin + location.pathname);
 		var joiner = base.indexOf('?') === -1 ? '?' : '&';
 		var successUrl = base + joiner + 'checkout=success&item=' + encodeURIComponent(current.name);
@@ -138,6 +197,8 @@
 				// amount. `current.price` is display-only.
 				sku: current.sku || '',
 				qty: qty,
+				session_date: current.day,
+				session_label: dayLabel(current.day),
 				customer_email: email,
 				customer_name: nameEl.value.trim(),
 				success_url: successUrl,
@@ -171,6 +232,48 @@
 					' (' + e.message + '). ' +
 					(cfg.phone ? 'Please try again or call ' + cfg.phone + '.' : 'Please try again.')
 				);
+			});
+	}
+
+	function joinWaitlist(email) {
+		var name = nameEl.value.trim();
+		if (name.length < 2) {
+			showError(i18n.waitName || 'Enter your name to join the waiting list.');
+			nameEl.focus();
+			return;
+		}
+		var item = current.name;
+		payBtn.disabled = true;
+		fetch(cfg.contactEndpoint, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				kind: 'contact',
+				request_type: 'waitlist',
+				name: name,
+				email: email,
+				message: 'Waiting list — ' + item + (qty > 1 ? '\nSeats: ' + qty : ''),
+				page: location.href.split('#')[0]
+			})
+		})
+			.then(function (res) {
+				return res.json().then(function (data) {
+					if (!res.ok) {
+						throw new Error(data.error || 'Request failed');
+					}
+				});
+			})
+			.then(function () {
+				closeSheet();
+				if (banner) {
+					banner.textContent = (i18n.waited || "You're on the waiting list — we email you as soon as dates are set.") + ' (' + item + ')';
+					banner.classList.add('ok', 'show');
+					setTimeout(function () { banner.classList.remove('show'); }, 9000);
+				}
+			})
+			.catch(function (e) {
+				payBtn.disabled = false;
+				showError(e.message + (cfg.phone ? ' Please try again or call ' + cfg.phone + '.' : ''));
 			});
 	}
 

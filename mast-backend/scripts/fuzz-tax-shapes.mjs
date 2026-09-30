@@ -296,7 +296,7 @@ export async function standaloneTrial(worker, settings, registrations) {
     const n = s.calls.length;
     await worker.fetch(new Request('https://api.test/create-booking', { method: 'POST',
       headers: { 'Content-Type': 'application/json', Origin: 'https://atlasglinn.com', 'CF-Connecting-IP': '198.51.100.7' },
-      body: JSON.stringify({ sku: 'MAST-HG-FUND', customer_email: 'buyer@example.com', qty: 1 }) }), env, ctx);
+      body: JSON.stringify({ sku: 'MAST-HG-FUND', customer_email: 'buyer@example.com', qty: 1, session_date: '2026-10-10' }) }), env, ctx);
     await Promise.all(queued.splice(0));
     taxed = s.calls.slice(n).some((c) => c.url.includes('/v1/checkout/sessions')) ? null : null;
   } finally {
@@ -316,7 +316,10 @@ export async function standaloneTrial(worker, settings, registrations) {
 }
 
 if (import.meta.url === 'file://' + process.argv[1]) {
-  const worker = (await import('../src/worker.js')).default;
+  const { default: worker, setClassSchedule } = await import('../src/worker.js');
+  // The order each trial places is a dated booking of a fixed 2026 Saturday; the class schedule and its Houston date check
+  // are not what this fuzz measures, so every pair is open here, exactly as the suite opens them around its own trials.
+  setClassSchedule(() => true);
   const { mutations, violations } = await runTaxShapeFuzz((set, regs) => standaloneTrial(worker, set, regs), (l) => console.log(l));
   console.log(violations.length ? 'FUZZ FAILED' : 'FUZZ CLEAN');
   process.exit(violations.length ? 1 : 0);

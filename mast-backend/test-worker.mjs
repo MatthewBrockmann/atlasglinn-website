@@ -1,4 +1,4 @@
-import worker, { taxTimeoutMs, checkoutTimeoutMs, stripeApiVersion, setTaxReadGuard, setClassSchedule, CLASS_SCHEDULE, TAX_SCHEMAS, DAILY_GUARD_KEY, DAILY_WINDOW_HOUR, DAILY_WINDOW_FIRST_MINUTE, DAILY_WINDOW_LAST_MINUTE } from './src/worker.js';
+import worker, { taxTimeoutMs, checkoutTimeoutMs, stripeApiVersion, setTaxReadGuard, setClassSchedule, CLASS_SCHEDULE, todayCT, TAX_SCHEMAS, DAILY_GUARD_KEY, DAILY_WINDOW_HOUR, DAILY_WINDOW_FIRST_MINUTE, DAILY_WINDOW_LAST_MINUTE } from './src/worker.js';
 import { runTaxShapeFuzz, taxShapeMutations } from './scripts/fuzz-tax-shapes.mjs';
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -520,12 +520,15 @@ const pendingFor = async (email) => (await pendingsFor(email))[0] || null;
 // seeded weekends to test pricing, capacity, holds, prerequisites and tax. They run with every pair open — the rule
 // before the schedule — and the "Class schedule" block puts CLASS_SCHEDULE back to test the schedule itself.
 setClassSchedule(() => true);
+// /create-booking sells a class for a day or not at all (2026-09-30), so every one of those blocks books this seeded
+// weekend Saturday; the seam above is what lets it sell there whatever today's date is.
+const LEGACY_DAY = '2026-10-10';
 
 console.log('\n── Server-side pricing (client cannot set the amount) ──');
 {
   stripeCalls.length = 0;
   // Client tries to buy a $695 class for $1 by sending its own price.
-  const res = await post('/create-booking', { sku: 'MAST-DA', customer_email: 'a@b.com', qty: 1, price_cents: 100 });
+  const res = await post('/create-booking', { sku: 'MAST-DA', customer_email: 'a@b.com', qty: 1, price_cents: 100, session_date: LEGACY_DAY });
   const sent = stripeCalls[0];
   ok('checkout succeeds', res.status === 200, await res.clone().text());
   ok('charges the SERVER price ($695), not the injected $1',
@@ -543,7 +546,7 @@ console.log('\n── Server-side pricing (client cannot set the amount) ──'
 }
 {
   stripeCalls.length = 0;
-  await post('/create-booking', { sku: 'MAST-DA', customer_email: 'a@b.com', qty: 9999 });
+  await post('/create-booking', { sku: 'MAST-DA', customer_email: 'a@b.com', qty: 9999, session_date: LEGACY_DAY });
   ok('qty clamped to 10', stripeCalls[0].get('line_items[0][quantity]') === '10');
 }
 
@@ -551,7 +554,7 @@ console.log('\n── Redirect allowlist ──');
 {
   stripeCalls.length = 0;
   await post('/create-booking', {
-    sku: 'MAST-DA', customer_email: 'a@b.com',
+    sku: 'MAST-DA', customer_email: 'a@b.com', session_date: LEGACY_DAY,
     success_url: 'https://evil.example.com/steal',
   });
   const s = stripeCalls[0].get('success_url');
@@ -567,7 +570,7 @@ console.log('\n── Redirect allowlist ──');
   const { SITE_URL, ...noSite } = env;
   await worker.fetch(new Request('https://mast-booking-backend.matthew-221.workers.dev/create-booking', {
     method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://mastsolutions.com' },
-    body: JSON.stringify({ sku: 'MAST-DA', customer_email: 'a@b.com' }),
+    body: JSON.stringify({ sku: 'MAST-DA', customer_email: 'a@b.com', session_date: LEGACY_DAY }),
   }), noSite, ctx);
   const s = stripeCalls[0] && stripeCalls[0].get('success_url');
   ok('without SITE_URL the fallback is <first origin>/mastsolutions.html', s === 'https://mastsolutions.com/mastsolutions.html?checkout=success', 'got ' + s);
@@ -575,7 +578,7 @@ console.log('\n── Redirect allowlist ──');
 {
   stripeCalls.length = 0;
   await post('/create-booking', {
-    sku: 'MAST-DA', customer_email: 'a@b.com',
+    sku: 'MAST-DA', customer_email: 'a@b.com', session_date: LEGACY_DAY,
     success_url: 'https://mastsolutions.com/?checkout=success',
   });
   ok('on-origin success_url accepted',
@@ -890,6 +893,17 @@ const party = (n, over = {}) => goodReg({ customer: { name: 'Cap ' + n, email: '
 
 console.log('\n── Class schedule (owner, 2026-09-30: "10/10: Handgun Fundamentals, 10/11: Carbine Fundamentals") ──');
 setClassSchedule(null);
+// The real rule refuses a day before today in Houston, so every request below runs under a pinned clock — on the real
+// one these blocks would start failing after 2026-10-11 and deploy-worker.yml, which runs this suite, would go red on a
+// date. atInstant() swaps Date for the call and puts it back, as the daily-window blocks do with their FireDate.
+const RealDateSched = Date;
+const atInstant = async (iso, fn) => {
+  const t = RealDateSched.parse(iso);
+  class PinnedDate extends RealDateSched { constructor(...a) { if (a.length === 0) super(t); else super(...a); } static now() { return t; } }
+  globalThis.Date = PinnedDate;
+  try { return await fn(); } finally { globalThis.Date = RealDateSched; }
+};
+const BEFORE_WEEKEND = '2026-10-01T17:00:00Z';   // Thursday 2026-10-01, noon in Houston
 {
   ok('CLASS_SCHEDULE is the two rows the owner gave', JSON.stringify(CLASS_SCHEDULE) === JSON.stringify([['2026-10-10', 'MAST-HG-FUND'], ['2026-10-11', 'MAST-CAR-FUND']]), JSON.stringify(CLASS_SCHEDULE));
   ok('CLASS_SCHEDULE and its rows are frozen — setClassSchedule is the only way to change what a request is checked against', Object.isFrozen(CLASS_SCHEDULE) && CLASS_SCHEDULE.every((r) => Object.isFrozen(r)));
@@ -902,7 +916,7 @@ setClassSchedule(null);
   const wk = await (await worker.fetch(new Request('https://api.test/weekends', { headers: { Origin: 'https://mastsolutions.com' } }), env, ctx)).json();
   ok('GET /weekends publishes the schedule beside the weekends', JSON.stringify(wk.schedule) === JSON.stringify(CLASS_SCHEDULE), JSON.stringify(wk.schedule));
 }
-{
+await atInstant(BEFORE_WEEKEND, async () => {
   stripeCalls.length = 0;
   const hg = await reg(party(31, { sku: 'MAST-HG-FUND', session_date: '2026-10-10', session_label: 'Sat, Oct 10, 2026', prerequisite: undefined })); const hb = await hg.json();
   ok('schedule: Handgun Fundamentals on Sat 2026-10-10 reaches Stripe (200)', hg.status === 200 && !!hb.checkoutUrl, String(hg.status) + ' ' + JSON.stringify(hb));
@@ -913,8 +927,8 @@ setClassSchedule(null);
   ok('schedule: … the SUNDAY is the session_date stored and sent, so T−7 / T−1 count from the day the class runs', cs && cs.get('metadata[session_date]') === '2026-10-11' && registrations.get(cb.registration_id).session_date === '2026-10-11', cs && cs.get('metadata[session_date]'));
   ok('schedule: … and the Stripe line item names the Sunday', cs && cs.get('line_items[0][price_data][product_data][description]') === 'SKU: MAST-CAR-FUND · Sun, Oct 11, 2026', cs && cs.get('line_items[0][price_data][product_data][description]'));
   for (const id of [hb.registration_id, cb.registration_id]) { const row = registrations.get(id); if (row) row.status = 'abandoned'; }
-}
-{
+});
+await atInstant(BEFORE_WEEKEND, async () => {
   // Every pair the owner did not schedule is refused before anything is written or sent.
   const before = registrations.size; stripeCalls.length = 0;
   const refused = [
@@ -934,14 +948,81 @@ setClassSchedule(null);
   ok('schedule: a blocked weekend still answers as blocked (409, not not_scheduled)', blocked.status === 409 && (await blocked.json()).code !== 'not_scheduled');
   const offDay = await reg(party(35, { sku: 'MAST-HG-FUND', session_date: '2026-10-17' }));
   ok('schedule: a day that is no training weekend still answers 404', offDay.status === 404, String(offDay.status));
-}
-{
+});
+await atInstant(BEFORE_WEEKEND, async () => {
   // The legacy door (/create-booking) is gated the same way whenever it is given a date.
   stripeCalls.length = 0;
   const yes = await post('/create-booking', { sku: 'MAST-CAR-FUND', customer_email: 'a@b.com', session_date: '2026-10-11', session_label: 'Sun, Oct 11, 2026' });
   ok('schedule: /create-booking sells Carbine Fundamentals on Sun 2026-10-11 and sends the Sunday', yes.status === 200 && stripeCalls[0] && stripeCalls[0].get('metadata[session_date]') === '2026-10-11', String(yes.status));
   const no = await post('/create-booking', { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', session_date: '2026-10-24' }); const nb = await no.json();
   ok('schedule: /create-booking refuses Handgun Fundamentals on 2026-10-24 — 409 not_scheduled, no session', no.status === 409 && nb.code === 'not_scheduled' && stripeCalls.length === 1, String(no.status) + ' ' + JSON.stringify(nb));
+});
+
+await atInstant(BEFORE_WEEKEND, async () => {
+  // A class is sold for a day or not at all: an undated /create-booking used to skip the weekend, the schedule and Stripe
+  // was asked for a session for any priced course. Refused before a weekend is read, a row is written or Stripe is called.
+  const before = registrations.size; stripeCalls.length = 0;
+  for (const [n, over] of [['no session_date', {}], ['an empty session_date', { session_date: '' }], ['a null session_date', { session_date: null }]]) {
+    const res = await post('/create-booking', { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1, ...over }); const b = await res.json();
+    ok('undated: /create-booking with ' + n + ' → 400 date_required', res.status === 400 && b.code === 'date_required' && b.field === 'date', String(res.status) + ' ' + JSON.stringify(b));
+  }
+  ok('undated: … no Stripe session and no registration row for any of them', stripeCalls.length === 0 && registrations.size === before, stripeCalls.length + ' sessions');
+  setClassSchedule(() => true);
+  const open = await post('/create-booking', { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 }); const ob = await open.json();
+  ok('undated: … refused even with every pair open — the date requirement is not the schedule and no seam lifts it', open.status === 400 && ob.code === 'date_required' && stripeCalls.length === 0, String(open.status));
+  setClassSchedule(null);
+  const reg0 = await reg(party(36, { sku: 'MAST-HG-FUND', session_date: undefined })); const rb = await reg0.json();
+  ok('undated: /register without a date → 400 on the date field', reg0.status === 400 && rb.field === 'date', String(reg0.status) + ' ' + JSON.stringify(rb));
+});
+{
+  // Houston's date, read the way the page reads it. The page's own todayCT() is lifted out of mastsolutions-tesla.html
+  // and run beside the Worker's at the same instants, so "the same rule as the page" is a measurement, not a claim.
+  const src = (/^function todayCT\(\)\{[^\n]*\}$/m.exec(repoFile('mastsolutions-tesla.html')) || [])[0];
+  const pageTodayCT = src ? new Function(src + '; return todayCT;')() : null;
+  ok("the page's todayCT() is found in mastsolutions-tesla.html", typeof pageTodayCT === 'function');
+  const instants = [
+    ['2026-10-11T04:59:59Z', '2026-10-10', 'Sat 23:59:59 CDT — UTC has already turned the day'],
+    ['2026-10-11T05:00:00Z', '2026-10-11', 'Sun 00:00 CDT'],
+    ['2026-11-01T04:59:59Z', '2026-10-31', 'the last second of Oct 31, CDT'],
+    ['2026-11-01T05:00:00Z', '2026-11-01', 'midnight Nov 1, still CDT'],
+    ['2026-11-01T07:30:00Z', '2026-11-01', '01:30 CST, the repeated hour after fall-back'],
+    ['2026-11-02T05:59:59Z', '2026-11-01', 'Nov 1 23:59:59 CST — an hour later in UTC than the day before'],
+    ['2026-11-02T06:00:00Z', '2026-11-02', 'midnight Nov 2, CST'],
+    ['2027-03-14T05:59:59Z', '2027-03-13', 'Mar 13 23:59:59 CST'],
+    ['2027-03-14T08:30:00Z', '2027-03-14', '03:30 CDT, just past the skipped hour'],
+    ['2027-03-15T04:59:59Z', '2027-03-14', 'Mar 14 23:59:59 CDT — an hour earlier in UTC than the day before'],
+    ['2027-03-15T05:00:00Z', '2027-03-15', 'midnight Mar 15, CDT'],
+  ];
+  for (const [iso, want, why] of instants) {
+    const onWorker = todayCT(Date.parse(iso));
+    const onPage = pageTodayCT ? await atInstant(iso, async () => pageTodayCT()) : null;
+    ok('todayCT at ' + iso + ' is ' + want + ' (' + why + '), on the Worker and on the page', onWorker === want && onPage === want, 'worker=' + onWorker + ' page=' + onPage);
+  }
+}
+{
+  // A class day is sellable through the end of that day in Houston and refused from the next, on both doors.
+  const book = (sku, day) => reg(party(37, { sku, session_date: day, prerequisite: undefined }));
+  const door = (sku, day) => post('/create-booking', { sku, customer_email: 'a@b.com', qty: 1, session_date: day });
+  const made = [];
+  const cases = [
+    ['2026-10-09T17:00:00Z', 'MAST-HG-FUND', '2026-10-10', 200, 'the day before (tomorrow is the class)'],
+    ['2026-10-10T17:00:00Z', 'MAST-HG-FUND', '2026-10-10', 200, 'the class day itself'],
+    ['2026-10-11T04:30:00Z', 'MAST-HG-FUND', '2026-10-10', 200, '23:30 in Houston on the class day, already the 11th in UTC'],
+    ['2026-10-11T05:30:00Z', 'MAST-HG-FUND', '2026-10-10', 409, '00:30 in Houston the next day (yesterday was the class)'],
+    ['2026-10-11T17:00:00Z', 'MAST-CAR-FUND', '2026-10-11', 200, 'Sunday: the Sunday class is today'],
+    ['2026-10-12T17:00:00Z', 'MAST-CAR-FUND', '2026-10-11', 409, 'Monday: the Sunday class was yesterday'],
+  ];
+  for (const [iso, sku, day, want, why] of cases) {
+    await atInstant(iso, async () => {
+      stripeCalls.length = 0; const before = registrations.size;
+      const r = await book(sku, day); const rb = await r.json(); if (rb.registration_id) made.push(rb.registration_id);
+      const d = await door(sku, day); const db = await d.json();
+      const refusedRight = want === 409 ? rb.code === 'date_passed' && rb.field === 'date' && db.code === 'date_passed' && stripeCalls.length === 0 && registrations.size === before : stripeCalls.length === 2;
+      ok('past day: ' + sku + ' on ' + day + ' at ' + iso + ' (' + why + ') → ' + want + ' on /register and /create-booking',
+        r.status === want && d.status === want && refusedRight, 'register ' + r.status + ' ' + (rb.code || '') + ' · create-booking ' + d.status + ' ' + (db.code || '') + ' · sessions ' + stripeCalls.length);
+    });
+  }
+  for (const id of made) { const row = registrations.get(id); if (row) row.status = 'abandoned'; }
 }
 setClassSchedule(() => true);
 
@@ -1568,8 +1649,8 @@ console.log('\n── Account oracles, limiter coverage and schema retry (securi
   ok('/subscribe is 10 per window from one address, then 429', subs.slice(0, 10).every((s) => s === 200) && subs[10] === 429, subs[9] + ',' + subs[10]);
   resetLimits();
   const paid = [];
-  for (let i = 0; i < 10; i++) paid.push((await from('/create-booking', { sku: 'MAST-DA', customer_email: 'b@example.com' }, '198.51.100.103')).status);
-  const eleventh = await from('/create-booking', { sku: 'MAST-DA', customer_email: 'b@example.com' }, '198.51.100.103');
+  for (let i = 0; i < 10; i++) paid.push((await from('/create-booking', { sku: 'MAST-DA', customer_email: 'b@example.com', session_date: LEGACY_DAY }, '198.51.100.103')).status);
+  const eleventh = await from('/create-booking', { sku: 'MAST-DA', customer_email: 'b@example.com', session_date: LEGACY_DAY }, '198.51.100.103');
   const membership = await from('/create-membership', { email: 'b@example.com', plan: 'range_member' }, '198.51.100.103');
   ok('/create-booking is 10 Stripe sessions per window from one address, then 429 — it was unlimited and it costs money', paid.every((s) => s === 200) && eleventh.status === 429 && (await eleventh.clone().json()).code === 'rate_limited', paid.join() + ' then ' + eleventh.status);
   ok('… and /create-membership shares that one budget rather than doubling it', membership.status === 429, String(membership.status));
@@ -3240,11 +3321,13 @@ console.log('\n── Stripe Tax: the switch, and the bodies on either side of i
   // The exact body the pre-change Worker sent for this request, MEASURED by replaying it against the worker.js at HEAD
   // (mast-backend-hardening, df05ff3) — not recalled. If a future edit moves a parameter, reorders one, or lets a tax
   // field leak in with the switch off, this string stops matching and the build fails. That is the whole job of it.
-  const PRE_BOOKING = 'mode=payment&customer_email=a%40b.com&line_items%5B0%5D%5Bprice_data%5D%5Bcurrency%5D=usd&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Bname%5D=MAST+Solutions+%E2%80%94+Handgun+Fundamentals&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Bdescription%5D=SKU%3A+MAST-HG-FUND&line_items%5B0%5D%5Bprice_data%5D%5Bunit_amount%5D=22500&line_items%5B0%5D%5Bquantity%5D=1&success_url=https%3A%2F%2Fmastsolutions.com%2Fmastsolutions.html%3Fcheckout%3Dsuccess&cancel_url=https%3A%2F%2Fmastsolutions.com%2Fmastsolutions.html%3Fcheckout%3Dcancelled&payment_method_types%5B0%5D=card&billing_address_collection=required&phone_number_collection%5Benabled%5D=true&metadata%5Bkind%5D=class_booking&metadata%5Bsku%5D=MAST-HG-FUND&metadata%5Bclass_name%5D=Handgun+Fundamentals&metadata%5Bqty%5D=1&metadata%5Bsession_date%5D=&metadata%5Bsession_label%5D=&metadata%5Bcustomer_name%5D=&metadata%5Borganization%5D=&metadata%5Bnotes%5D=&metadata%5Bsource%5D=mastsolutions&metadata%5Butm_source%5D=&metadata%5Butm_medium%5D=&metadata%5Butm_campaign%5D=&metadata%5Bfirst_touch_at%5D=';
+  // Since 2026-09-30 the request carries a class day, so the three fields that hold it — the line item's description,
+  // metadata[session_date] and metadata[session_label] — were edited in place in that measured string; no other byte moved.
+  const PRE_BOOKING = 'mode=payment&customer_email=a%40b.com&line_items%5B0%5D%5Bprice_data%5D%5Bcurrency%5D=usd&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Bname%5D=MAST+Solutions+%E2%80%94+Handgun+Fundamentals&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Bdescription%5D=SKU%3A+MAST-HG-FUND+%C2%B7+October+%E2%80%94+2nd+weekend&line_items%5B0%5D%5Bprice_data%5D%5Bunit_amount%5D=22500&line_items%5B0%5D%5Bquantity%5D=1&success_url=https%3A%2F%2Fmastsolutions.com%2Fmastsolutions.html%3Fcheckout%3Dsuccess&cancel_url=https%3A%2F%2Fmastsolutions.com%2Fmastsolutions.html%3Fcheckout%3Dcancelled&payment_method_types%5B0%5D=card&billing_address_collection=required&phone_number_collection%5Benabled%5D=true&metadata%5Bkind%5D=class_booking&metadata%5Bsku%5D=MAST-HG-FUND&metadata%5Bclass_name%5D=Handgun+Fundamentals&metadata%5Bqty%5D=1&metadata%5Bsession_date%5D=2026-10-10&metadata%5Bsession_label%5D=October+%E2%80%94+2nd+weekend&metadata%5Bcustomer_name%5D=&metadata%5Borganization%5D=&metadata%5Bnotes%5D=&metadata%5Bsource%5D=mastsolutions&metadata%5Butm_source%5D=&metadata%5Butm_medium%5D=&metadata%5Butm_campaign%5D=&metadata%5Bfirst_touch_at%5D=';
   // The same body with the two tax fields appended, which is all applyTax adds. Named once so the tax-fallback retry
   // can be pinned as "exactly PRE_BOOKING again" rather than "something without automatic_tax in it".
   const TAXED_BOOKING = PRE_BOOKING + '&automatic_tax%5Benabled%5D=true&line_items%5B0%5D%5Bprice_data%5D%5Bproduct_data%5D%5Btax_code%5D=txcd_20030000';
-  const booking = { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 };
+  const booking = { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1, session_date: LEGACY_DAY };
 
   stripeCalls.length = 0;
   await post('/create-booking', booking);
@@ -3674,7 +3757,7 @@ console.log('\n── Stripe Tax kept warm: the five-minute trigger, the 24-hour
   // both are pinned here: a trigger that fires more often than the measurement expires, and a measurement that said
   // READY still counting for 24 hours while nothing re-measures.
   const on = { ...env, STRIPE_TAX: '1' };
-  const booking = { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 };
+  const booking = { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1, session_date: LEGACY_DAY };
   const bookWith = (c, e = on) => worker.fetch(new Request('https://api.test/create-booking', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() },
     body: JSON.stringify(booking) }), e, c);
@@ -3964,7 +4047,7 @@ console.log('\n── Round 5: what is validated is what is sent, an allow-list 
      isEmail() trims before it tests, so " a@b.com " passed the check and then went to Stripe with its whitespace on.
      The approved string and the transmitted string have to be the same string. */
   taxAccountReady(); forgetTaxState(); stripeCalls.length = 0;
-  await bookRaw({ sku: 'MAST-HG-FUND', customer_email: '  spaced@example.com  ', qty: 1 });
+  await bookRaw({ sku: 'MAST-HG-FUND', customer_email: '  spaced@example.com  ', qty: 1, session_date: LEGACY_DAY });
   ok('a booking email that passed validation TRIMMED is transmitted trimmed: what was approved is what Stripe receives',
      stripeCalls[0].get('customer_email') === 'spaced@example.com', JSON.stringify(stripeCalls[0].get('customer_email')));
   stripeCalls.length = 0;
@@ -3993,14 +4076,14 @@ console.log('\n── Round 5: what is validated is what is sent, an allow-list 
   taxAccountReady(); forgetTaxState(); cacheTaxReady(); stripeCalls.length = 0;
   sessionFail = { n: 1, status: 400, body: { error: { type: 'invalid_request_error',
     message: 'automatic_tax registration refused: ' + planted + FILLER } } };
-  const taxShapeLines = await captureAll(async () => { await bookRaw({ sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 }, on, { waitUntil: () => {} }); });
+  const taxShapeLines = await captureAll(async () => { await bookRaw({ sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1, session_date: LEGACY_DAY }, on, { waitUntil: () => {} }); });
   ok('every planted credential shape is scrubbed out of a TAX refusal before any line is written',
      echoes(taxShapeLines).length === 0, 'echoed: ' + echoes(taxShapeLines).join(', '));
 
   taxAccountReady(); forgetTaxState(); cacheTaxReady(); stripeCalls.length = 0;
   sessionFail = { n: 1, status: 400, body: { error: { type: 'card_error', code: 'card_declined',
     message: 'Your card was declined: ' + planted + FILLER } } };
-  const plainShapeLines = await captureAll(async () => { await bookRaw({ sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 }, on, { waitUntil: () => {} }); });
+  const plainShapeLines = await captureAll(async () => { await bookRaw({ sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1, session_date: LEGACY_DAY }, on, { waitUntil: () => {} }); });
   ok('… and out of the ORDINARY error path too, which is where the whole Stripe body is printed and nobody had looked',
      echoes(plainShapeLines).length === 0, 'echoed: ' + echoes(plainShapeLines).join(', '));
   const rawLine = plainShapeLines.find((l) => l.includes('Stripe error:'));
@@ -4076,7 +4159,7 @@ console.log('\n── Round 5: what is validated is what is sent, an allow-list 
   stripeGate = (n) => (n === 1 ? new Promise((r) => setTimeout(r, 700)) : new Promise(() => {}));
   sessionFail = { n: 1, status: 400, body: { error: { type: 'invalid_request_error', message: 'Stripe Tax is not active on this account (automatic_tax).' } } };
   const budgetStart = Date.now();
-  const budgetRes = await bookRaw({ sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 }, { ...on, STRIPE_CHECKOUT_TIMEOUT_MS: '1000' }, { waitUntil: () => {} });
+  const budgetRes = await bookRaw({ sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1, session_date: LEGACY_DAY }, { ...on, STRIPE_CHECKOUT_TIMEOUT_MS: '1000' }, { waitUntil: () => {} });
   const budgetMs = Date.now() - budgetStart;
   ok('both Session attempts live inside ONE ceiling: a 700ms refusal plus a retry that never answers costs the customer one second, not two',
      budgetMs >= 850 && budgetMs < 1500 && stripeCalls.length === 2 && budgetRes.status === 502,
@@ -4086,7 +4169,7 @@ console.log('\n── Round 5: what is validated is what is sent, an allow-list 
   taxAccountReady(); forgetTaxState(); cacheTaxReady(); stripeCalls.length = 0;
   stripeGate = (n) => (n === 1 ? new Promise((r) => setTimeout(r, 300)) : new Promise(() => {}));
   sessionFail = { n: 1, status: 400, body: { error: { type: 'invalid_request_error', message: 'Stripe Tax is not active on this account (automatic_tax).' } } };
-  const noBudget = await captureAll(async () => { await bookRaw({ sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 }, { ...on, STRIPE_CHECKOUT_TIMEOUT_MS: '500' }, { waitUntil: () => {} }); });
+  const noBudget = await captureAll(async () => { await bookRaw({ sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1, session_date: LEGACY_DAY }, { ...on, STRIPE_CHECKOUT_TIMEOUT_MS: '500' }, { waitUntil: () => {} }); });
   const fbSkipped = noBudget.filter((l) => l.includes('tax_fallback'));
   ok('… and when the first attempt has spent the budget the retry is skipped rather than started without a clock',
      stripeCalls.length === 1 && (fbSkipped.length === 0 || JSON.parse(fbSkipped[0]).retried === false),
@@ -4098,7 +4181,7 @@ console.log('\n── Round 5: what is validated is what is sent, an allow-list 
 console.log('\n── Round 6: an unparseable 200 is not a measurement, the cap the allow-list dropped, and the streak that names the double fault ──');
 {
   const on = { ...env, STRIPE_TAX: '1' };
-  const booking = { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 };
+  const booking = { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1, session_date: LEGACY_DAY };
   const bookWith = (c, e = on) => worker.fetch(new Request('https://api.test/create-booking', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() },
     body: JSON.stringify(booking) }), e, c);
@@ -4385,7 +4468,7 @@ console.log('\n── Round 6: an unparseable 200 is not a measurement, the cap 
 console.log('\n── Round 7: a shape is checked at every level, every Stripe string is capped, and a redactor has no anchors ──');
 {
   const on = { ...env, STRIPE_TAX: '1' };
-  const booking = { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 };
+  const booking = { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1, session_date: LEGACY_DAY };
   const bookWith = (c, e = on) => worker.fetch(new Request('https://api.test/create-booking', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() },
     body: JSON.stringify(booking) }), e, c);
@@ -4780,7 +4863,7 @@ console.log('\n── Round 6: the numbers in the comments are the numbers this 
 console.log('\n── Round 8: an unlisted field cannot be READ, an absence needs two witnesses, and the fuzz is part of the suite ──');
 {
   const on = { ...env, STRIPE_TAX: '1' };
-  const booking = { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1 };
+  const booking = { sku: 'MAST-HG-FUND', customer_email: 'a@b.com', qty: 1, session_date: LEGACY_DAY };
   const bookWith = (c, e = on) => worker.fetch(new Request('https://api.test/create-booking', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mastsolutions.com', 'CF-Connecting-IP': nextIp() },
     body: JSON.stringify(booking) }), e, c);

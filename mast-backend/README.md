@@ -42,7 +42,7 @@ The old Worker is left untouched — it still serves SafeGuard.
 | `GET` | `/catalog` | Classes and prices the server considers authoritative |
 | `GET` | `/weekends` | Training weekends the calendar may offer |
 | `POST` | `/register` | **The registration flow**: details → two eligibility questions → agreement → refund consent → Stripe Checkout |
-| `POST` | `/create-booking` | Legacy one-time seat with no screening (kept for the WordPress theme) |
+| `POST` | `/create-booking` | Legacy one-time seat with no screening (kept for the WordPress theme). A scheduled class day only: no `session_date` → `400 date_required`; a pair not in `CLASS_SCHEDULE` → `409 not_scheduled`; a day before today in Houston → `409 date_passed` |
 | `POST` | `/create-membership` | Recurring tier → Stripe Checkout |
 | `POST` | `/contact` | Site contact form and capability-statement requests (honeypot, validation, one email to `NOTIFY_EMAIL` with reply-to the sender) |
 | `POST` | `/webhook` | Stripe events; persists orders, links registrations, sends the documents |
