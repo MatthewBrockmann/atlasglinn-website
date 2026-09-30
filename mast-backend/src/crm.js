@@ -21,6 +21,7 @@
  *     2026-09-09: a key in a URL lands in history, in a Referer and in every log on the way); /admin is noindex, no-store.
  */
 import { directionsAttachment } from './directions.js';
+import { gearListLines, GEAR_LIST_FALLBACK } from './gear-lists.js';
 
 const DAY = 86400000;
 const UTM = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
@@ -800,6 +801,10 @@ export function journeyText(kind, reg, env, catalog, { attached = false } = {}) 
     attached ? 'Directions: the PDF attached to this email. Rural range: your GPS will stop you short of it; follow the PDF.' : 'Directions: in your booking confirmation.',
   ];
   const instagram = 'https://www.instagram.com/atlasglinn_mastsolutions/';
+  // The course's gear list (src/gear-lists.js), shown in the T−7 and the T−1. Without one, the T−7 does not claim a list
+  // came by email: it says the instructor will confirm it.
+  const gear = gearListLines(reg.sku);
+  const bring = 'BRING: eye and ear protection, a hat, closed-toe boots, water, and a packed lunch, or eat at restaurants 20 minutes away';
   if (kind === 't7') return {
     subject: 'One week out: ' + reg.item_name + ' on ' + when,
     text: [
@@ -808,10 +813,11 @@ export function journeyText(kind, reg, env, catalog, { attached = false } = {}) 
       'Course: ' + reg.item_name, 'Date: ' + when, '',
       'PARTICIPANTS', ...participantLines(reg), '',
       ...range, '',
-      'BRING: eye and ear protection, a hat, closed-toe boots, water, and a packed lunch, or eat at restaurants 20 minutes away; the gear list for your course came by email; reply if you need it again.',
+      gear ? bring + '; the gear list for your course came by email; reply if you need it again.' : bring + '. ' + GEAR_LIST_FALLBACK,
       'Arrive 15 minutes early; live-fire classes open with a mandatory safety brief; a student who misses it cannot be admitted to the range.',
       'Bring photo ID; if anything on your registration changed, reply now.',
       'Weather: we train in it; dress for the forecast; only lightning stops a range.', '',
+      ...(gear ? [...gear, ''] : []),
       'Questions: ' + office + ' · ' + OFFICE_PHONES, '', 'MAST Solutions · Details matter.',
     ].join('\n'),
   };
@@ -826,6 +832,7 @@ export function journeyText(kind, reg, env, catalog, { attached = false } = {}) 
       // The owner's T−1 text (2026-09-06): "Course, date, and range address are as above."
       'Be at the gate 15 minutes before the start time on your confirmation; the safety brief starts on time.',
       'Photo ID, eye and ear protection, water, lunch, weather layers.',
+      ...(gear ? ['', ...gear, ''] : []),
       'Running late or unable to make it? Call ' + OFFICE_PHONES_OR + ' before the start; the refund and transfer terms you accepted are in your confirmation email.', '',
       'See you on the range.', '', 'MAST Solutions · Details matter.',
     ].join('\n'),

@@ -1427,13 +1427,15 @@ Decided by Brockmann 2026-09-03. Mirrored to the brain vault as
   a hit). A new PDF = he hands it to a session, the session re-seals and merges. **Do not ask him for the PDF
   again**; if the upload is gone, the sealed file on main is the copy the Worker uses (the Worker's D1 key opens it;
   no one else can).
-- **What a booking actually sends (read 2026-09-30):** the paid confirmation (`sendRegistrationDocuments`, called from
-  the webhook) carries the signed agreement and the range-directions PDF, and the T−7 / T−1 journeys (`runJourneys` in
-  `src/crm.js`, the daily work, `JOURNEYS_ENABLED = "1"`) send the week-out and day-before reminders with the PDF again.
-  **No code sends a gear list.** The confirmation says "Gear list arrives by separate email before the class", the T−7
-  says "the gear list for your course came by email", and the page (calendar hint, sheet fine print, success banner) and
-  `privacy.html` promise one; there is no gear-list content and no sender anywhere in this repo. The words stay until he
-  supplies the lists or says to cut them.
+- **What a booking actually sends (2026-09-30):** the paid confirmation (`sendRegistrationDocuments`, called from the
+  webhook) carries the signed agreement, the range-directions PDF and **the gear list for the booked course**, and the
+  T−7 / T−1 journeys (`runJourneys` in `src/crm.js`, the daily work, `JOURNEYS_ENABLED = "1"`) send the week-out and
+  day-before reminders with the PDF and the list again. **The lists are Brockmann's, verbatim (2026-09-30), in one table:
+  `GEAR_LISTS` in `mast-backend/src/gear-lists.js`**, read by all three emails; today only `MAST-HG-FUND` and
+  `MAST-CAR-FUND` have one. A course without a list gets "Your instructor will confirm the gear list before class." —
+  never the old "arrives by separate email" promise, which no code ever kept. The emails are plain text (no HTML part).
+  Adding a course to `CLASS_SCHEDULE` without a list is allowed and gets that fallback line, but the page's own copy
+  (calendar hint, sheet fine print, success banner) still says a gear list follows by email, so add the list with it.
 - **Google review link (Brockmann, 2026-09-06: "add to email as click + link + add to website"):** derived from the
   Business Profile link he pasted (its `stick=` token decodes to feature id `0x8640c3cb2d0755df:0x3e9cfce1d8a7b9f7`,
   CID 4511758973651106295): `REVIEW_URL` in `wrangler.toml` (T+1 email), `GOOGLE_REVIEW_URL` / `REVIEW_LINK` in

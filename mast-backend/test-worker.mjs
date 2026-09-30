@@ -920,6 +920,67 @@ await atInstant(BEFORE_WEEKEND, async () => {
   ok('no email carries eligibility answers', emails.every(e => !/us_citizen|felony_prohibited|citizen of the United States/i.test(e.text)));
   ok('documents_sent_at recorded', !!row.documents_sent_at);
 }
+
+console.log('\n── Gear lists (owner, 2026-09-30) ──');
+{
+  // His text, as he sent it; only whitespace is normalised on either side of the comparison. The confirmation, the T−7
+  // and the T−1 all read src/gear-lists.js, and a course without a list gets the fallback line, never a promise.
+  const HIS = {
+    'MAST-HG-FUND': `1. Handgun.
+2. Eye and ear protection (electronic ears recommended)
+3. Ammunition: 300 rounds of factory ammunition
+4. Proper holster for secondary (holster should be snug to your waistline), molded to fit the pistol.
+5. 3-4 magazines and a magazine carrier if you have one.
+We also recommend packing a cleaning kit for weapons maintenance and wearing comfortable clothes. Bring lunch and enough water for the day; or, if you prefer, we will break for lunch, and there are BBQ joints, Subway, and other options. Sunscreen, wet wipes, and other comfort items are your friends. Pen and paper for notes`,
+    'MAST-CAR-FUND': `1. Primary (rifle)
+2. Secondary (handgun)
+3. Eye protection and hearing protection (electronic preferred)
+4. Proper holster for secondary (holster should be snug to your waistline), molded to fit the pistol.
+5. Ammunition: 450 rds primary and 250 rounds secondary, if you're bringing a pistol.
+6. 4 magazines for primary and 3 mags for secondary
+7. Magazine carrier, can be a chest rig, belt setup, cargo pockets, or other pockets.
+We also recommend packing a cleaning kit for weapons maintenance and wearing comfortable clothes. Bring lunch and enough water for the day; or, if you prefer, we will break for lunch, and there are BBQ joints, Subway, and other options. Sunscreen, wet wipes, and other comfort items are your friends. Pen and paper for notes.`,
+  };
+  const ws = (t) => String(t).replace(/\s+/g, ' ').trim();
+  // The block an email carries: from its GEAR LIST heading to the line before the next section.
+  const gearBlock = (text, course) => { const i = text.indexOf('GEAR LIST — ' + course + '\n'); if (i < 0) return null; const rest = text.slice(i).split('\n').slice(1); const out = []; for (const l of rest) { if (/^(CANCELLATION AND REFUND POLICY|Questions:|Running late)/.test(l)) break; out.push(l); } return out.join('\n'); };
+  const PROMISE = /arrives by separate email/i, FALLBACK = 'Your instructor will confirm the gear list before class.';
+
+  // Three paid registrations through the real webhook: the two courses with a list and one without.
+  const paidConfirmation = async (n, sku, name, day) => {
+    const r = await (await reg(party(n, { sku, session_date: day, prerequisite: { required: true, attested: true } }))).json();
+    const evt = JSON.stringify({ id: 'evt_gear_' + n, type: 'checkout.session.completed', data: { object: { id: 'cs_test_gear_' + n, mode: 'payment', amount_total: 22500, currency: 'usd',
+      customer_email: 'cap' + n + '@example.com', customer_details: { name: 'Cap ' + n, phone: '' },
+      metadata: { kind: 'class_booking', registration_id: r.registration_id, sku, class_name: name, qty: '1', customer_name: 'Cap ' + n, session_date: day, session_label: day } } } });
+    const now = Math.floor(Date.now() / 1000); emails.length = 0;
+    const res = await hook(evt, `t=${now},v1=${await sign(evt, now)}`);
+    await new Promise((done) => setTimeout(done, 300));
+    return { status: res.status, conf: emails.find((e) => e.subject.startsWith("You're booked") && e.to[0] === 'cap' + n + '@example.com') };
+  };
+  for (const [n, sku, name, day] of [[41, 'MAST-HG-FUND', 'Handgun Fundamentals', '2026-10-10'], [42, 'MAST-CAR-FUND', 'Carbine Fundamentals', '2026-10-11']]) {
+    const { status, conf } = await paidConfirmation(n, sku, name, day);
+    const block = conf ? gearBlock(conf.text, name) : null;
+    ok('gear: the paid ' + name + ' confirmation says the list is below and carries it, word for word as he wrote it',
+      status === 200 && !!conf && conf.text.includes('- Your gear list is below.') && block !== null && ws(block) === ws(HIS[sku]), conf ? JSON.stringify(block) : 'no confirmation');
+    ok('gear: … and no longer promises a separate email', !!conf && !PROMISE.test(conf.text));
+  }
+  const none = await paidConfirmation(43, 'MAST-HG-OP', 'Handgun Operator', '2026-10-10');
+  ok('gear: a course with no list (Handgun Operator) gets the fallback line, no list and no promise of one',
+    none.status === 200 && !!none.conf && none.conf.text.includes('- ' + FALLBACK) && !/GEAR LIST/.test(none.conf.text) && !none.conf.text.includes('gear list is below') && !PROMISE.test(none.conf.text), none.conf && none.conf.text);
+
+  const { journeyText } = await import('./src/crm.js');
+  const jr = (sku, item_name) => ({ id: 'reg_j', sku, item_name, session_date: '2026-10-10', customer_name: 'Ann Lee', customer_email: 'ann@example.com', qty: 1 });
+  for (const [sku, name] of [['MAST-HG-FUND', 'Handgun Fundamentals'], ['MAST-CAR-FUND', 'Carbine Fundamentals']]) {
+    const t7 = journeyText('t7', jr(sku, name), env, []).text, t1 = journeyText('t1', jr(sku, name), env, []).text;
+    ok('gear: the T−7 for ' + name + ' carries the list, so its "came by email" line is true', ws(gearBlock(t7, name) || '') === ws(HIS[sku]) && /the gear list for your course came by email/.test(t7), t7);
+    ok('gear: … and the T−1 carries it too', ws(gearBlock(t1, name) || '') === ws(HIS[sku]), t1);
+  }
+  const t7none = journeyText('t7', jr('MAST-HG-OP', 'Handgun Operator'), env, []).text, t1none = journeyText('t1', jr('MAST-HG-OP', 'Handgun Operator'), env, []).text;
+  ok('gear: the T−7 for a course with no list says the instructor will confirm it, and never that a list came by email',
+    t7none.includes(FALLBACK) && !/came by email/.test(t7none) && !/GEAR LIST/.test(t7none) && /BRING: eye and ear protection/.test(t7none), t7none);
+  ok('gear: … and the T−1 adds nothing it cannot keep', !/GEAR LIST|came by email/.test(t1none), t1none);
+  for (const n of [41, 42, 43]) for (const row of registrations.values()) if (row.customer_email === 'cap' + n + '@example.com') row.status = 'abandoned';
+}
 await atInstant(BEFORE_WEEKEND, async () => {
   // Retention cron: answers past purge_after go, pending registrations older than a day are abandoned. Pinned: the purge
   // runs at "now", and on the real clock the fixture weekend's own answers fall due from 2026-10-17 12:00 UTC too.

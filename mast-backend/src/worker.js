@@ -26,6 +26,7 @@
 import { AGREEMENT_VERSION, fillAgreement } from './agreement.js';
 import { directionsAttachment, directionsStatus } from './directions.js';
 import { publicKeyInfo } from './sealed.js';
+import { gearListLines, GEAR_LIST_FALLBACK } from './gear-lists.js';
 import { checkRate, ensureRateSchema, purgeRateLimits, clientIp, lockedFor, noteFailedLogin, dummyFailedLogin, clearFailedLogins, identityLockedFor, noteFailedIdentity, clearFailedIdentity, codeGuessesSpent, noteCodeGuess, clearCodeGuesses, absentGuessId, pendingGuessId, addressDigest, noteCodeMail, CODE_GUESSES_PER_IP } from './ratelimit.js';
 import { ensureCrmSchema, crmSnapshot, audienceCsv, syncAudience, syncOnPayment, syncLead, adminPage, attributionFrom, recordContact, markContactEmailed, recordEvent, handleEvent, handleSubscribe, runJourneys, weeklyDigest, weeklyDigestPeriod } from './crm.js';
 
@@ -2497,6 +2498,9 @@ async function sendRegistrationDocuments(env, reg, record) {
   const directions = await directionsAttachment(env);
   const when = reg.session_label || reg.session_date;
   const seats = Number(reg.qty || 1);
+  // The gear list for the booked course rides in this email (the page, the welcome series and privacy.html all say the
+  // confirmation carries it); a course with no list gets the fallback line, never a promise of another email.
+  const gear = gearListLines(reg.sku);
 
   const rangeLines = env.RANGE_ADDRESS
     ? ['Range:       ' + env.RANGE_ADDRESS + (env.RANGE_COORDS ? ' (' + env.RANGE_COORDS + ')' : ''),
@@ -2514,13 +2518,14 @@ async function sendRegistrationDocuments(env, reg, record) {
     '',
     'WHAT HAPPENS NEXT',
     '- Your signed Class Participation and Use of Property Agreement is attached. Keep a copy.',
-    '- Gear list arrives by separate email before the class.',
+    gear ? '- Your gear list is below.' : '- ' + GEAR_LIST_FALLBACK,
     ...rangeLines,
     '- Arrive 15 minutes early. Live-fire classes open with a mandatory safety brief; a student who misses it cannot be admitted to the range.',
     seats > 1
       ? '- Each additional attendee must complete the eligibility screening and sign the agreement before class. Reply with their names and emails and we will send each of them their own copy to complete.'
       : '',
     '',
+    ...(gear ? [...gear, ''] : []),
     'CANCELLATION AND REFUND POLICY (accepted ' + reg.refund_policy_accepted_at + ', version ' + reg.refund_policy_version + ')',
     '- 15 or more days before class: full refund, or transfer to any future class at no charge.',
     '- 7 to 14 days: transfer at no charge, or refund less 25%.',
