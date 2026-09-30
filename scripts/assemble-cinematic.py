@@ -914,7 +914,7 @@ assert "days: c ? classDates(w, c).map(keyOf) : [day]" in html and "on = live.fi
 _ins_dcal = "if (on.length && !on.some(s => s.open)) { cls += ' ins'; inner = dayInner(d, on.map(s => s.c.name).join(' · '), on.map(s => shortName(s.c.name)).join(' · '), 'In session'); attrs = ` title="
 _ins_cal = "else if (slotLive(w, calCourse)) { cls += ' ins'; inner = dayInner(d, calCourse.name, shortName(calCourse.name), 'In session'); attrs = ` title="
 assert "const slotOpen = (w, c) => { const d = slotDate(w, c); return !!d && bookable(w) && d >= todayCT(); };" in html \
-    and "const slotLive = (w, c) => { const d = slotDate(w, c); return !!d && bookable(w) && keyOf(classDates(w, c).slice(-1)[0]) >= todayCT(); };" in html \
+    and "const slotLive = (w, c) => { const d = slotDate(w, c); return !!d && (w.status === 'available' || w.status === 'scheduled') && keyOf(classDates(w, c).slice(-1)[0]) >= todayCT(); };" in html \
     and ".filter(({ c }) => c && slotLive(w, c)); }" in html and "open: !!c && slotOpen(w, c)" in html \
     and _ins_dcal in html and _ins_cal in html \
     and 'onclick' not in html.split(_ins_dcal, 1)[-1].split('\n', 1)[0] and 'onclick' not in html.split(_ins_cal, 1)[-1].split('\n', 1)[0] \
@@ -997,9 +997,14 @@ else:
 assert 'session_date: slotDate(w, calCourse), session_label: slotLabel(w, calCourse),' in html and 'session_date: w.saturday' not in html, \
     'checkout sends the weekend key again instead of the scheduled day'
 # Past weekends are dropped in Houston time, from the seeded list and from the Worker's, so a weekend that has gone is
-# never offered again without an edit.
-assert 'function todayCT()' in html and "timeZone: 'America/Chicago'" in html and html.count('.filter(w => !weekendOver(w))') == 2, \
-    'the page no longer drops past weekends (America/Chicago) from both the seeded and the fetched list'
+# never offered again without an edit — except while a class scheduled on it is still running (Codex on #130: a
+# three-day class that starts Saturday runs through Monday and reads In session that day). weekendGone keeps it listed;
+# bookable() still reads weekendOver, so nothing on it can be booked after its Sunday.
+assert 'function todayCT()' in html and "timeZone: 'America/Chicago'" in html and html.count('.filter(w => !weekendGone(w))') == 2 \
+    and '.filter(w => !weekendOver(w))' not in html and "return weekendOver(w) && !SCHEDULE.some(([day, sku]) =>" in html \
+    and "isoPlus(day, Math.max(1, (c && c.days) || 1) - 1) >= t" in html \
+    and "function bookable(w){ return (w.status === 'available' || w.status === 'scheduled') && !isPast(w); }" in html, \
+    'the page no longer drops past weekends (America/Chicago) from both lists, or drops one while its class is still running'
 _s6 = between(html, '<section class="panel" id="s6"', '</section>', True)
 assert '<div class="eyebrow">Course Catalog</div>' in _s6, 'the Classes chapter lost its COURSE CATALOG eyebrow'
 assert 'The <span class="gold">Classes.</span>' not in html, "the Classes chapter's deleted heading is back"

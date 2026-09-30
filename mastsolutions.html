@@ -5,7 +5,7 @@
 <noscript><meta http-equiv="refresh" content="0;url=https://www.mastsolutions.com/"></noscript>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="535eb5825108">
+<meta name="build" content="ad9fdd546a34">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
 <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
@@ -1667,11 +1667,14 @@ const COURSES = [
 function todayCT(){ const p = {}; new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).forEach(x => { p[x.type] = x.value; }); return p.year + '-' + p.month + '-' + p.day; }
 function isoPlus(iso, n){ const [y, m, d] = iso.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); }
 function weekendOver(w){ return isoPlus(w.saturday, 1) < todayCT(); }
+/* A weekend leaves the lists when its Sunday has passed AND no class scheduled on it is still running (Codex on #130: the
+   three-day Gear & Kit class that starts on a Saturday runs through Monday, and must read In session that day, not vanish). */
+function weekendGone(w){ const t = todayCT(), sun = isoPlus(w.saturday, 1); return weekendOver(w) && !SCHEDULE.some(([day, sku]) => { const c = COURSES.find(x => x.sku === sku); return day >= w.saturday && day <= sun && isoPlus(day, Math.max(1, (c && c.days) || 1) - 1) >= t; }); }
 let WEEKENDS = [
   ['2026-10-10','October — 2nd weekend'],['2026-10-24','October — 4th weekend'],['2026-10-31','October — 5th weekend','blocked'],
   ['2026-11-14','November — 2nd weekend'],['2026-12-12','December — 2nd weekend'],['2027-01-09','January — 2nd weekend'],['2027-01-23','January — 4th weekend'],['2027-01-30','January — 5th weekend'],
   ['2027-02-13','February — 2nd weekend'],['2027-02-27','February — 4th weekend'],['2027-03-13','March — 2nd weekend'],['2027-03-27','March — 4th weekend'],['2027-04-10','April — 2nd weekend'],['2027-04-24','April — 4th weekend'],
-].map(([saturday, label, status]) => ({ saturday, label, status: status || 'available' })).filter(w => !weekendOver(w));
+].map(([saturday, label, status]) => ({ saturday, label, status: status || 'available' })).filter(w => !weekendGone(w));
 /* Which course runs on which day of a weekend, and the one rule every label and every booking path reads: a course can be
    booked on a weekend only when SCHEDULE puts it there, the weekend is open and the day has not passed. dateAction() is the
    label, bookCourse() the destination, and both ask canBook(), so they cannot disagree. */
@@ -1721,7 +1724,7 @@ $('catalog').innerHTML = CATS.map((cat, ci) => {
 function toggleCat(ci){ const el = $('cat-' + ci); const open = el.classList.toggle('open'); el.querySelector('.cat-btn').setAttribute('aria-expanded', open); }
 fetch(CATALOG_ENDPOINT).then(r => r.ok ? r.json() : null).then(d => { if (!d || !d.classes) return; const by = Object.fromEntries(d.classes.map(c => [c.sku, c.price_cents])); COURSES.forEach(c => { if (by[c.sku]) { c.price_cents = by[c.sku]; const el = document.querySelector(`.cr-price[data-sku="${c.sku}"]`); if (el) el.innerHTML = money(c.price_cents) + '<small>PER SEAT</small>'; } }); }).catch(() => {});
 function paintActions(){ document.querySelectorAll('.cr-btn[data-act]').forEach(el => { el.textContent = dateAction(COURSES[+el.dataset.act], null); }); }
-fetch(WEEKENDS_ENDPOINT).then(r => r.ok ? r.json() : null).then(d => { if (d && Array.isArray(d.weekends) && d.weekends.length) { const list = d.weekends.map(w => ({ saturday: w.saturday, label: w.label || '', status: w.status || 'available' })).filter(w => !weekendOver(w)); if (list.length) { WEEKENDS = list; paintActions(); } } }).catch(() => {});
+fetch(WEEKENDS_ENDPOINT).then(r => r.ok ? r.json() : null).then(d => { if (d && Array.isArray(d.weekends) && d.weekends.length) { const list = d.weekends.map(w => ({ saturday: w.saturday, label: w.label || '', status: w.status || 'available' })).filter(w => !weekendGone(w)); if (list.length) { WEEKENDS = list; paintActions(); } } }).catch(() => {});
 
 /* Calendar */
 const parseISO = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
@@ -1737,8 +1740,9 @@ function classDates(w, c){ const d = slotDate(w, c); if (!d) return weekendDates
 function slotLabel(w, c){ return datesLabel(classDates(w, c)); }
 /* A class stays on both calendars while any day it occupies is today or later: bookable until its start day has passed
    (slotOpen — the Worker's date_passed reads the same start, the session_date), then named and closed, In session,
-   through its last day. A one-day class has one day, so for it the two are the same. */
-const slotLive = (w, c) => { const d = slotDate(w, c); return !!d && bookable(w) && keyOf(classDates(w, c).slice(-1)[0]) >= todayCT(); };
+   through its last day — even a Monday after its weekend has closed (weekendGone keeps that weekend listed). A one-day
+   class has one day, so for it the two are the same. */
+const slotLive = (w, c) => { const d = slotDate(w, c); return !!d && (w.status === 'available' || w.status === 'scheduled') && keyOf(classDates(w, c).slice(-1)[0]) >= todayCT(); };
 function isPast(w){ return weekendOver(w); }
 function bookable(w){ return (w.status === 'available' || w.status === 'scheduled') && !isPast(w); }
 /* The gate (owner, 2026-09-04: "Still no gate to make sure that first-time students HAVE to take Fundamentals ... first"): before the
