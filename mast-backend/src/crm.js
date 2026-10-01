@@ -756,30 +756,59 @@ export async function syncLead(env, lead) {
 
 /* MAST News sends, driven by .github/workflows/mast-campaign.yml so the owner can test and send from his phone. A campaign is
    the one in the audience whose settings.title is the request's title. `test` builds or refreshes its draft and test-sends
-   it to CAMPAIGN_TEST_TO, never to an address from the request; `send` sends that draft exactly as it was last test-sent
-   and never writes content or settings; `status` reads back what carries the title. CAMPAIGN_BRAND is the owner's
-   2026-10-01 rule: every MAST email uses the site brand system. */
+   it to CAMPAIGN_TEST_TO, never to an address from the request, and answers its `revision`; `send` sends that draft only
+   while Mailchimp still holds that revision, and never writes content or settings; `status` reads back what carries the
+   title. CAMPAIGN_BRAND is the owner's 2026-10-01 rule: every MAST email uses the site brand system. */
 export const CAMPAIGN_BRAND = ['#080C14', '#C9A84C', '#1A6BDE', 'Orbitron', 'Rajdhani'];
 const CAMPAIGN_ACTIONS = ['test', 'send', 'status'];
 const CAMPAIGN_REPLY_DOMAINS = ['@mastsolutions.com', '@atlasglinn.com'];
 const CAMPAIGN_HTML_MAX = 200 * 1024;
 const CAMPAIGN_LOCKED = ['sent', 'sending', 'schedule', 'paused'];
+const CAMPAIGN_PAGE = 1000;          // Mailchimp's maximum count
+const CAMPAIGN_PAGES_MAX = 20;
+const CAMPAIGN_LIST_FIELDS = 'campaigns.id,campaigns.web_id,campaigns.status,campaigns.settings.title,campaigns.emails_sent,campaigns.send_time,total_items';
+
+function mcFail(status, text) { const e = new Error('mailchimp ' + status); e.mailchimp = { status, text: String(text || '') }; return e; }
 
 async function mcCall(cfg, method, path, payload) {
-  const fail = (status, text) => { const e = new Error('mailchimp ' + status); e.mailchimp = { status, text: String(text || '') }; return e; };
   const res = await fetch(`https://${cfg.dc}.api.mailchimp.com/3.0${path}`, {
     method,
     headers: { Authorization: 'Basic ' + btoa('mast:' + cfg.key), 'Content-Type': 'application/json' },
     body: payload === undefined ? undefined : JSON.stringify(payload),
-  }).catch((e) => { throw fail(0, e.message); });
+  }).catch((e) => { throw mcFail(0, e.message); });
   const text = await res.text().catch(() => '');
-  if (!res.ok) throw fail(res.status, text);
+  if (!res.ok) throw mcFail(res.status, text);
   try { return text ? JSON.parse(text) : {}; } catch (_) { return {}; }
 }
 
+/** Every campaign in the audience carrying the title. A search that has not covered total_items after CAMPAIGN_PAGES_MAX
+ *  pages fails closed: a send must never miss a campaign already sent under the same title. */
 async function campaignsTitled(cfg, title) {
-  const r = await mcCall(cfg, 'GET', `/campaigns?list_id=${encodeURIComponent(cfg.list)}&count=100&sort_field=create_time&sort_dir=DESC`);
-  return (r.campaigns || []).filter((c) => c && c.settings && c.settings.title === title);
+  const out = [];
+  for (let page = 0; page < CAMPAIGN_PAGES_MAX; page++) {
+    const offset = page * CAMPAIGN_PAGE;
+    const r = await mcCall(cfg, 'GET', `/campaigns?list_id=${encodeURIComponent(cfg.list)}&count=${CAMPAIGN_PAGE}&offset=${offset}&sort_field=create_time&sort_dir=DESC&fields=${encodeURIComponent(CAMPAIGN_LIST_FIELDS)}`);
+    const batch = Array.isArray(r.campaigns) ? r.campaigns : [];
+    out.push(...batch.filter((c) => c && c.settings && c.settings.title === title));
+    if (!batch.length || offset + CAMPAIGN_PAGE >= (Number(r.total_items) || 0)) return out;
+  }
+  throw mcFail(0, `campaign search stopped after ${CAMPAIGN_PAGES_MAX} pages of ${CAMPAIGN_PAGE} without covering total_items`);
+}
+
+const canonicalJson = (v) => (Array.isArray(v) ? '[' + v.map(canonicalJson).join(',') + ']'
+  : v && typeof v === 'object' ? '{' + Object.keys(v).sort().map((k) => JSON.stringify(k) + ':' + canonicalJson(v[k])).join(',') + '}'
+  : JSON.stringify(v ?? null));
+
+/** What a send of campaign `id` would deliver, read back from Mailchimp: what the reader sees, who receives it, the html.
+ *  The first 16 hex of its SHA-256. `test` answers it; `send` recomputes it and refuses on any difference. */
+async function campaignRevision(cfg, id) {
+  const c = await mcCall(cfg, 'GET', `/campaigns/${id}`);
+  const content = await mcCall(cfg, 'GET', `/campaigns/${id}/content`);
+  const s = c.settings || {}, r = c.recipients || {};
+  const canon = canonicalJson({ subject_line: s.subject_line, preview_text: s.preview_text, title: s.title, from_name: s.from_name, reply_to: s.reply_to,
+    list_id: r.list_id, segment_opts: r.segment_opts, html: content.html });
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canon)));
+  return [...digest].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
 }
 
 async function sendChecklist(cfg, id) {
@@ -820,6 +849,7 @@ export async function mailchimpCampaign(env, body, { scrub = (t) => t } = {}) {
 
     if (action === 'send') {
       if (b.confirm !== 'SEND') return done(400, { ok: false, error: 'confirm_required', detail: 'confirm must be "SEND"' });
+      if (typeof b.revision !== 'string' || !/^[0-9a-f]{16}$/.test(b.revision)) return invalid('revision', 'the 16-hex revision the approved test answered');
       const found = await campaignsTitled(cfg, title);
       const locked = found.find((c) => CAMPAIGN_LOCKED.includes(c.status));
       if (locked) return done(409, { ok: false, error: 'already_sent', id: locked.id, status: locked.status }, locked.id);
@@ -828,6 +858,8 @@ export async function mailchimpCampaign(env, body, { scrub = (t) => t } = {}) {
       id = draft.id;
       const checklist = await sendChecklist(cfg, id);
       if (!checklist.is_ready) return done(409, { ok: false, error: 'not_ready', id, problems: checklist.problems }, id);
+      const current = await campaignRevision(cfg, id);
+      if (current !== b.revision) return done(409, { ok: false, error: 'revision_mismatch', id, expected: b.revision, current }, id);
       await mcCall(cfg, 'POST', `/campaigns/${id}/actions/send`);
       const c = await mcCall(cfg, 'GET', `/campaigns/${id}`);
       return done(200, { ok: true, action, id, status: c.status, send_time: c.send_time || null, emails_sent: c.emails_sent ?? 0 }, id);
@@ -860,12 +892,13 @@ export async function mailchimpCampaign(env, body, { scrub = (t) => t } = {}) {
     else { c = await mcCall(cfg, 'POST', '/campaigns', { type: 'regular', recipients: { list_id: cfg.list }, settings, tracking }); id = c.id; }
     const webId = c.web_id || (draft && draft.web_id);
     await mcCall(cfg, 'PUT', `/campaigns/${id}/content`, { html });
+    const revision = await campaignRevision(cfg, id);
     const testTo = nonEmpty(env.CAMPAIGN_TEST_TO) || 'matthew@atlasglinn.com';
     await mcCall(cfg, 'POST', `/campaigns/${id}/actions/test`, { test_emails: [testTo], send_type: 'html' });
     const checklist = await sendChecklist(cfg, id);
     const list = await mcCall(cfg, 'GET', `/lists/${encodeURIComponent(cfg.list)}`);
     return done(200, {
-      ok: true, action, id, web_id: webId, status: c.status || 'save',
+      ok: true, action, id, revision, web_id: webId, status: c.status || 'save',
       edit_url: `https://${cfg.dc}.admin.mailchimp.com/campaigns/edit?id=${webId}`,
       test_sent_to: testTo, checklist, audience_members: list.stats?.member_count ?? null,
     }, id);
