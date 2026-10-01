@@ -1,0 +1,144 @@
+# MAST News campaigns from a GitHub runner, so the owner can test and send from his phone: the Mailchimp key lives only on
+# the Worker (and his Mac Keychain), and the cloud container reaches neither Mailchimp nor the Worker. Each run reads
+# reference/mailchimp/<campaign>/campaign.json ({title, subject, preview, from_name, reply_to, ga}) and, for test,
+# email.html, and calls the Worker's POST /admin/mailchimp/campaign with the X-Admin-Key header. The campaign is the one
+# in the MAST audience whose Mailchimp title is campaign.json's title.
+#   test    builds the Mailchimp draft (or refreshes the draft already carrying the title), test-sends it to the Worker's
+#           fixed address (CAMPAIGN_TEST_TO, default matthew@atlasglinn.com; never an address from this run) and reports
+#           Mailchimp's send checklist and the audience size. The Worker refuses html off the site brand system (422
+#           off_brand: #080C14, #C9A84C, #1A6BDE, Orbitron, Rajdhani; the owner's 2026-10-01 rule), html without
+#           *|UNSUB|*, and a reply-to outside @mastsolutions.com / @atlasglinn.com. Nothing reaches the audience.
+#   send    sends THAT draft to the whole audience exactly as it was last test-sent: no content or settings are written.
+#           SEND IS THE OWNER'S DECISION. It is dispatched only after he has read the test email and approved it. The
+#           Worker requires confirm "SEND", refuses a title already sent (409 already_sent), a title with no draft (404)
+#           and a draft Mailchimp's checklist does not pass (409 not_ready).
+#   status  lists the campaigns carrying the title and, for a sent one, opens and clicks.
+# Every field of the answer is a ::notice:: annotation (a cloud session can read annotations but not job logs; at most ten
+# per step, so the overflow steps below carry the rest) and a row in the job summary. A non-2xx answer is an ::error::
+# annotation and fails the run.
+name: MAST News campaign
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "test = draft + test email to the fixed address · send = send the approved draft to the audience (owner's decision) · status = read back"
+        type: choice
+        options: [test, send, status]
+        default: test
+      campaign:
+        description: "Folder under reference/mailchimp/ holding campaign.json and email.html (lowercase letters, digits, dashes)"
+        type: string
+        required: true
+permissions:
+  contents: read
+# One run per campaign at a time, never cancelled: a test and a send for the same title must not interleave.
+concurrency:
+  group: mast-campaign-${{ inputs.campaign }}
+  cancel-in-progress: false
+env:
+  WORKER: https://mast-booking-backend.matthew-221.workers.dev
+jobs:
+  campaign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Call the Worker
+        env:
+          ACTION: ${{ inputs.action }}
+          CAMPAIGN: ${{ inputs.campaign }}
+          ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
+        run: |
+          set -euo pipefail
+          case "$ACTION" in test|send|status) ;; *) echo "::error::action must be test, send or status (got '$ACTION')"; exit 1;; esac
+          # Checked BEFORE it is used in a path: no slash, no dot, so it can only name a folder directly under reference/mailchimp/.
+          if ! [[ "$CAMPAIGN" =~ ^[a-z0-9-]{3,60}$ ]]; then
+            echo "::error::campaign must match ^[a-z0-9-]{3,60}\$ (a folder name under reference/mailchimp/)"; exit 1
+          fi
+          [ -n "$ADMIN_KEY" ] || { echo "::error::no ADMIN_KEY repository secret; add it under Settings → Secrets → Actions"; exit 1; }
+          export DIR="reference/mailchimp/$CAMPAIGN" BODY="$RUNNER_TEMP/body.json" RESP="$RUNNER_TEMP/resp.json" NOTICES="$RUNNER_TEMP/notices.txt"
+          : > "$NOTICES"
+          python3 - <<'PY'
+          import json, os, sys
+          d, action = os.environ['DIR'], os.environ['ACTION']
+          def die(msg):
+              print('::error::' + msg); sys.exit(1)
+          try:
+              meta = json.load(open(os.path.join(d, 'campaign.json'), encoding='utf-8'))
+          except FileNotFoundError:
+              die('%s/campaign.json not found' % d)
+          except ValueError as e:
+              die('%s/campaign.json is not valid JSON: %s' % (d, e))
+          title = meta.get('title') if isinstance(meta, dict) else None
+          if not isinstance(title, str) or not title.strip():
+              die('%s/campaign.json has no title' % d)
+          if action == 'send':
+              body = {'action': 'send', 'title': title, 'confirm': 'SEND'}
+          elif action == 'status':
+              body = {'action': 'status', 'title': title}
+          else:
+              try:
+                  html = open(os.path.join(d, 'email.html'), encoding='utf-8').read()
+              except FileNotFoundError:
+                  die('%s/email.html not found' % d)
+              body = {'action': 'test', 'title': title, 'html': html}
+              for k in ('subject', 'preview', 'from_name', 'reply_to', 'ga'):
+                  if meta.get(k) is not None: body[k] = meta[k]
+          json.dump(body, open(os.environ['BODY'], 'w', encoding='utf-8'))
+          print('request: %s "%s" (%d bytes)' % (action, title, os.path.getsize(os.environ['BODY'])))
+          PY
+          code=$(curl -sS -m 120 -o "$RESP" -w '%{http_code}' -X POST "$WORKER/admin/mailchimp/campaign" \
+            -H "Content-Type: application/json" -H "X-Admin-Key: $ADMIN_KEY" --data-binary @"$BODY") || code=000
+          export CODE="$code"
+          rc=0
+          python3 - <<'PY' || rc=$?
+          import json, os, sys
+          code, key = os.environ['CODE'], os.environ.get('ADMIN_KEY') or '\0'
+          raw = open(os.environ['RESP'], encoding='utf-8', errors='replace').read() if os.path.exists(os.environ['RESP']) else ''
+          raw = raw.replace(key, '[redacted]')
+          msg = lambda v: str(v).replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          prop = lambda v: msg(v).replace(':', '%3A').replace(',', '%2C')
+          val = lambda v: v if isinstance(v, str) else json.dumps(v, ensure_ascii=False)
+          fields = []
+          try:
+              data = json.loads(raw)
+          except ValueError:
+              data = None
+          if isinstance(data, dict):
+              for k, v in data.items():
+                  if k == 'checklist' and isinstance(v, dict):
+                      fields.append(('checklist.is_ready', v.get('is_ready')))
+                      for i, p in enumerate(v.get('problems') or []): fields.append(('checklist.problems[%d]' % i, p))
+                  elif k in ('problems', 'campaigns') and isinstance(v, list):
+                      if not v: fields.append((k, []))
+                      for i, p in enumerate(v): fields.append(('%s[%d]' % (k, i), p))
+                  else:
+                      fields.append((k, v))
+          else:
+              fields.append(('body', raw[:300] or '(empty)'))
+          fields.insert(0, ('http_status', code))
+          with open(os.environ['NOTICES'], 'w', encoding='utf-8') as f:
+              for k, v in fields: f.write('::notice title=%s::%s\n' % (prop(k), msg(val(v))))
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as s:
+              s.write('### MAST News campaign: %s `%s`\n\n| field | value |\n|---|---|\n' % (os.environ['ACTION'], os.environ['CAMPAIGN']))
+              for k, v in fields: s.write('| `%s` | %s |\n' % (k, val(v).replace('|', '\\|').replace('\n', ' ')))
+          if not code.startswith('2'):
+              err = data.get('error') if isinstance(data, dict) else None
+              detail = (data.get('detail') or data.get('missing') or data.get('problems') or '') if isinstance(data, dict) else raw[:300]
+              print('::error title=HTTP %s::%s' % (prop(code), msg(('%s %s' % (err or 'no JSON answer', val(detail))).strip())))
+              sys.exit(1)
+          PY
+          head -n 10 "$NOTICES"
+          [ "$(wc -l < "$NOTICES")" -le 10 ] || echo "($(( $(wc -l < "$NOTICES") - 10 )) more fields in the next steps)"
+          exit "$rc"
+      - name: Fields 11-20
+        if: always()
+        run: sed -n '11,20p' "$RUNNER_TEMP/notices.txt" 2>/dev/null || true
+      - name: Fields 21-30
+        if: always()
+        run: sed -n '21,30p' "$RUNNER_TEMP/notices.txt" 2>/dev/null || true
+      - name: Fields 31-40
+        if: always()
+        run: |
+          sed -n '31,40p' "$RUNNER_TEMP/notices.txt" 2>/dev/null || true
+          n=$(wc -l 2>/dev/null < "$RUNNER_TEMP/notices.txt" || echo 0)
+          [ "$n" -le 40 ] || echo "::notice title=truncated::$(( n - 40 )) more fields; the job summary lists every one"
