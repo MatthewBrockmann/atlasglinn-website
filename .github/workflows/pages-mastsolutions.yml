@@ -107,6 +107,9 @@ jobs:
           print('\n'.join(seen))
           PY
           python3 "$RESOLVER" stage dist/mastsolutions/index.html > assets.txt
+          # Email images (owner, 2026-10-01): MAST News campaigns load their photos from this host, and no page
+          # references them, so the resolver above never stages them. The folder is published whole, as-is.
+          if [ -d images/mast/email ]; then mkdir -p stage/images/mast/email && cp -R images/mast/email/. stage/images/mast/email/; fi
           echo "$(find stage -type f | wc -l) files staged ($(du -sh stage | cut -f1))"
       - name: Stage the Atlas Glinn preview (noindex)
         run: |

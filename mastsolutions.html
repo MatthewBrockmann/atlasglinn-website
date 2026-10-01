@@ -5,7 +5,7 @@
 <noscript><meta http-equiv="refresh" content="0;url=https://www.mastsolutions.com/"></noscript>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="build" content="ad9fdd546a34">
+<meta name="build" content="2454e2cc7aee">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
 <title>MAST Solutions | Details Matter | Tactical Training, Houston TX</title>
 <meta name="description" content="MAST Solutions, the training division of Atlas Glinn. Firearms, CQB, combatives, medical and leadership training in Houston since 2005. Twenty-one courses, training weekends on the calendar, book online.">
@@ -2210,8 +2210,16 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('pol
        date open it would have reached the date-and-price flow for a course that has
        neither. A deep link must not offer a booking the catalog does not. */
     const c = COURSES[i];
+    /* &date=YYYY-MM-DD (owner, 2026-10-01: "One click linked to the class sign up"): an email's Reserve
+       button names the class AND its day, so the visitor lands on registration, not on a calendar to tap
+       again. The day is honoured only when SCHEDULE puts this class on it and it is still open (slotOpen);
+       otherwise the calendar opens as before, so a stale or mistyped date can never book a day that does
+       not run. The prerequisite gate still comes first — auto-continue fires only once the calendar is up. */
+    const day = String(new URLSearchParams(location.search).get('date') || '').trim();
+    if (day && !c.request && c.price_cents) { const wi = WEEKENDS.findIndex(w => slotDate(w, c) === day && slotOpen(w, c)); if (wi >= 0) preChosen = wi; }
     if (c.request) requestPrivate(i);
     else if (c.price_cents) selectCourse(i);
+    if (day && calCourse === c && chosen !== null && $('cal').classList.contains('open')) calContinue();
     /* zero-priced = CALL FOR PRICING: the category is open and the row is on screen,
        which is the whole of what that row offers. Opening a dialog would invent one. */ };
   const splashOn = () => { const el = document.getElementById('intro-seq'); return !!(el && el.isConnected && !el.classList.contains('done')); };
