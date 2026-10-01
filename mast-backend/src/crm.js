@@ -758,8 +758,9 @@ export async function syncLead(env, lead) {
    the one in the audience whose settings.title is the request's title. `test` builds or refreshes its draft and test-sends
    it to CAMPAIGN_TEST_TO, never to an address from the request, and answers its `revision`; `send` sends that draft only
    while Mailchimp still holds that revision, and never writes content or settings; `status` reads back what carries the
-   title. CAMPAIGN_BRAND is the owner's 2026-10-01 rule: every MAST email uses the site brand system. */
-export const CAMPAIGN_BRAND = ['#080C14', '#C9A84C', '#1A6BDE', 'Orbitron', 'Rajdhani'];
+   title. CAMPAIGN_BRAND is the owner's 2026-10-01 rule: every MAST email uses the site brand system and links
+   the Instagram ("always add a visit our Instagram ... to all Mailchimp"). Keep equal to brand_check.py REQUIRED (brain). */
+export const CAMPAIGN_BRAND = ['#080C14', '#C9A84C', '#1A6BDE', 'Orbitron', 'Rajdhani', 'instagram.com/atlasglinn_mastsolutions'];
 const CAMPAIGN_ACTIONS = ['test', 'send', 'status'];
 const CAMPAIGN_REPLY_DOMAINS = ['@mastsolutions.com', '@atlasglinn.com'];
 const CAMPAIGN_HTML_MAX = 200 * 1024;
