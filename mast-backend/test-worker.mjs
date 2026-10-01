@@ -5483,6 +5483,21 @@ console.log('\n── MAST News campaigns: POST /admin/mailchimp/campaign (mast-
 
   ok('no X-Admin-Key → 401 and Mailchimp is never called', (await camp(draftBody(), { key: '' })).status === 401 && mcCampaignCalls.length === 0);
   ok('… and a wrong key is 401 too', (await camp(draftBody(), { key: 'not-the-key' })).status === 401 && mcCampaignCalls.length === 0);
+
+  // The per-run key mast-campaign.yml sets with wrangler (CAMPAIGN_RUN_KEY, header X-Campaign-Key) opens THIS route only.
+  const runKey = 'r'.repeat(64);
+  const envRun = { ...envC, CAMPAIGN_RUN_KEY: runKey };
+  const viaRun = (path, method, key, on = envRun, body) => worker.fetch(new Request('https://api.test' + path,
+    { method, headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': nextIp(), 'X-Campaign-Key': key }, body }), on, ctx);
+  reset();
+  const runStatus = await viaRun('/admin/mailchimp/campaign', 'POST', runKey, envRun, JSON.stringify({ action: 'status', title: 'MAST News 2026-10 dates' }));
+  ok('X-Campaign-Key with the run key opens /admin/mailchimp/campaign', runStatus.status === 200, String(runStatus.status));
+  ok('… a wrong run key is 401 and Mailchimp is not called', (await viaRun('/admin/mailchimp/campaign', 'POST', 'x'.repeat(64), envRun, JSON.stringify({ action: 'status', title: 't' }))).status === 401);
+  ok('… with no CAMPAIGN_RUN_KEY on the Worker any X-Campaign-Key is 401', (await viaRun('/admin/mailchimp/campaign', 'POST', runKey, envC, JSON.stringify({ action: 'status', title: 't' }))).status === 401);
+  ok('… the run key opens nothing else under /admin: /admin/crm is 401', (await viaRun('/admin/crm', 'GET', runKey)).status === 401);
+  ok('… nor /admin/tax/setup', (await viaRun('/admin/tax/setup', 'POST', runKey)).status === 401);
+  ok('… nor a GET of the campaign route', (await viaRun('/admin/mailchimp/campaign', 'GET', runKey)).status === 401);
+  reset();
   const noCfg = await callJson(draftBody(), { on: env });
   ok('Mailchimp not configured → 503 mailchimp_not_configured', noCfg.status === 503 && noCfg.body.error === 'mailchimp_not_configured', JSON.stringify(noCfg));
   const badAction = await callJson({ action: 'delete', title: 'x' });

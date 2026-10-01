@@ -2753,6 +2753,17 @@ function adminKeyOk(request, env) {
   return !!(env.ADMIN_KEY && key && timingSafeEqual(key, env.ADMIN_KEY));
 }
 
+/**
+ * mast-campaign.yml's key for ONE route, /admin/mailchimp/campaign. The repository holds no copy of ADMIN_KEY (it lives
+ * only on this Worker), so each run of that workflow puts a fresh random CAMPAIGN_RUN_KEY here with wrangler, calls the
+ * route with it in X-Campaign-Key, and overwrites it with another random value nobody keeps when the run ends (owner
+ * 2026-10-01: remote, no Terminal; "anything Claude can do = do"). It opens nothing else under /admin.
+ */
+function campaignKeyOk(request, env) {
+  const key = request.headers.get('X-Campaign-Key') || '';
+  return !!(env.CAMPAIGN_RUN_KEY && key && timingSafeEqual(key, env.CAMPAIGN_RUN_KEY));
+}
+
 /** The catalog as rows (D1 offerings when present, else the seed) for the journeys' next-course line. */
 async function catalogRows(env) {
   if (env.DB) {
@@ -2765,7 +2776,8 @@ async function catalogRows(env) {
 }
 
 async function handleAdmin(request, env, cors, url) {
-  if (!adminKeyOk(request, env)) return json({ error: 'Unauthorized' }, 401, cors);
+  const campaignRoute = url.pathname === '/admin/mailchimp/campaign' && request.method === 'POST';
+  if (!adminKeyOk(request, env) && !(campaignRoute && campaignKeyOk(request, env))) return json({ error: 'Unauthorized' }, 401, cors);
   // Stripe Tax sits above the database check because it still ANSWERS without D1 — but only as a REPORT. This comment
   // used to claim the writes still happen; they do not. takeTaxLock returns false with no DB, and a run that cannot
   // take the lock writes nothing to Stripe and leaves no heartbeat, which a round-2 probe demonstrated. So the
@@ -2990,7 +3002,7 @@ export function taxTimeoutMs(env) {
 /** Anything key-shaped, gone — before it leaves the Worker, not in the workflow that happens to print it. */
 function taxRedact(env, value) {
   let t = value == null ? '' : String(value);
-  for (const secret of [env && env.ADMIN_KEY, env && env.STRIPE_SECRET_KEY, env && env.STRIPE_WEBHOOK_SECRET, env && env.RESEND_API_KEY, env && env.MAILCHIMP_API_KEY]) {
+  for (const secret of [env && env.ADMIN_KEY, env && env.CAMPAIGN_RUN_KEY, env && env.STRIPE_SECRET_KEY, env && env.STRIPE_WEBHOOK_SECRET, env && env.RESEND_API_KEY, env && env.MAILCHIMP_API_KEY]) {
     if (secret && String(secret).length >= 8) t = t.split(String(secret)).join('[redacted]');
   }
   return t
