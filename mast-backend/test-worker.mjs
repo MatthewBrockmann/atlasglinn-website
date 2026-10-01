@@ -5475,7 +5475,7 @@ console.log('\n── MAST News campaigns: POST /admin/mailchimp/campaign (mast-
   const camp = (body, { key = 'super-secret-admin-key', on = envC } = {}) => worker.fetch(new Request('https://api.test/admin/mailchimp/campaign',
     { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json', 'CF-Connecting-IP': nextIp() }, key ? { 'X-Admin-Key': key } : {}), body: JSON.stringify(body) }), on, ctx);
   const callJson = async (body, opts) => { const r = await camp(body, opts); return { status: r.status, body: await r.json() }; };
-  const HTML = '<html><head><style>body{background:#080c14;color:#C9A84C;font-family:Rajdhani,sans-serif}h1{font-family:Orbitron}a{color:#1A6BDE}</style></head><body><h1>October dates</h1><a href="*|UNSUB|*">Unsubscribe</a></body></html>';
+  const HTML = '<html><head><style>body{background:#080c14;color:#C9A84C;font-family:Rajdhani,sans-serif}h1{font-family:Orbitron}a{color:#1A6BDE}</style></head><body><h1>October dates</h1><a href="https://www.instagram.com/atlasglinn_mastsolutions/">Visit our Instagram</a> <a href="*|UNSUB|*">Unsubscribe</a></body></html>';
   const draftBody = (over = {}) => ({ action: 'test', title: 'MAST News 2026-10 dates', subject: 'October class dates', preview: 'Handgun 10/10 · Carbine 10/11', from_name: 'MAST Solutions', reply_to: 'info@mastsolutions.com', html: HTML, ga: 'mast-news-2026-10', ...over });
   const reset = () => { mcCampaigns.length = 0; mcCampaignCalls.length = 0; mcSeq = 0; mcCampaignFail = null; mcListOverride = null; mcChecklist = { is_ready: true, items: [{ type: 'success', id: 'ok', heading: 'Ready', details: '' }] }; };
   const writes = () => mcCampaignCalls.filter((c) => c.method !== 'GET');
@@ -5510,6 +5510,9 @@ console.log('\n── MAST News campaigns: POST /admin/mailchimp/campaign (mast-
   const offBrand = await callJson(draftBody({ html: HTML.replace(/Rajdhani/g, 'Arial').replace(/Orbitron/g, 'Impact') }));
   ok('off-brand html → 422 off_brand naming exactly what is missing (Orbitron, Rajdhani), and nothing is written to Mailchimp',
      offBrand.status === 422 && offBrand.body.error === 'off_brand' && JSON.stringify(offBrand.body.missing) === '["Orbitron","Rajdhani"]' && mcCampaignCalls.length === 0, JSON.stringify(offBrand));
+  const noInsta = await callJson(draftBody({ html: HTML.replace(/instagram\.com\/atlasglinn_mastsolutions/g, 'example.com/') }));
+  ok('an email without the Instagram link (owner 2026-10-01: on every Mailchimp email) is 422 off_brand naming it, and nothing is written',
+     noInsta.status === 422 && JSON.stringify(noInsta.body.missing) === '["instagram.com/atlasglinn_mastsolutions"]' && mcCampaignCalls.length === 0, JSON.stringify(noInsta));
   const offColour = await callJson(draftBody({ html: HTML.replace(/#1A6BDE/g, '#0000FF') }));
   ok('… the colours are checked case-insensitively (#080c14 in the fixture passes) and a missing one is named', offColour.status === 422 && JSON.stringify(offColour.body.missing) === '["#1A6BDE"]', JSON.stringify(offColour));
   const noUnsub = await callJson(draftBody({ html: HTML.replace('*|UNSUB|*', 'https://mastsolutions.com/') }));
