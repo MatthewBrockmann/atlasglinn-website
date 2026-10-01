@@ -38,6 +38,12 @@ const emails = [];
 let resendStatus = 200;      // flip to 500 to make the next Resend call fail (the digest retry test)
 let resendGate = null;       // set to a promise to park the Resend call (the "the response never waits for the mail" probe)
 const mailchimpCalls = [];   // PUT /3.0/lists/<list>/members/<md5>
+const mcCampaigns = [];      // campaigns "in Mailchimp" (POST /admin/mailchimp/campaign)
+const mcCampaignCalls = [];  // every /3.0/campaigns, /reports, /lists/<id> call: { method, path, url, auth, body }
+let mcChecklist = { is_ready: true, items: [{ type: 'success', id: 'ok', heading: 'Ready', details: '' }] };
+let mcCampaignFail = null;   // { on: <substring of the path>, status, body }: make that Mailchimp call refuse
+let mcListOverride = null;   // (offset, count) => the GET /campaigns answer, for the page-cap test
+let mcSeq = 0;
 const hubspotCalls = [];     // POST crm/v3/objects/contacts/batch/upsert
 const brevoCalls = [];       // POST /v3/contacts
 const orderRows = [];        // INSERT INTO orders as objects (the CRM reads them back)
@@ -140,6 +146,39 @@ globalThis.fetch = async (url, init) => {
   }
   if (u.includes('api.hubapi.com')) { hubspotCalls.push({ url: u, auth: (init && init.headers && init.headers.Authorization) || '', body: JSON.parse(init.body) }); return new Response('{"status":"COMPLETE"}', { status: 200 }); }
   if (u.includes('api.brevo.com')) { brevoCalls.push({ url: u, key: (init && init.headers && init.headers['api-key']) || '', body: JSON.parse(init.body) }); return new Response('{"id":1}', { status: 201 }); }
+  if (u.includes('api.mailchimp.com') && /^\/3\.0\/(?:campaigns|reports\/|lists\/[^/]+$)/.test(new URL(u).pathname)) {
+    const p = new URL(u).pathname.slice(4), method = (init && init.method) || 'GET';
+    const body = init && init.body ? JSON.parse(init.body) : null;
+    mcCampaignCalls.push({ method, path: p, url: u, auth: (init && init.headers && init.headers.Authorization) || '', body });
+    if (mcCampaignFail && p.includes(mcCampaignFail.on)) return new Response(mcCampaignFail.body, { status: mcCampaignFail.status });
+    const reply = (o, status = 200) => new Response(JSON.stringify(o), { status });
+    const camp = (id) => mcCampaigns.find((c) => c.id === id);
+    let m;
+    if (p === '/campaigns' && method === 'GET') {
+      const q = new URL(u).searchParams, offset = Number(q.get('offset') || 0), count = Number(q.get('count') || 10);
+      if (mcListOverride) return reply(mcListOverride(offset, count));
+      return reply({ campaigns: [...mcCampaigns].reverse().slice(offset, offset + count), total_items: mcCampaigns.length });
+    }
+    if (p === '/campaigns' && method === 'POST') {
+      const c = { id: 'cmp' + (++mcSeq), web_id: 9000 + mcSeq, type: body.type, status: 'save', emails_sent: 0, send_time: '', recipients: body.recipients, settings: { ...body.settings }, tracking: { ...body.tracking } };
+      mcCampaigns.push(c); return reply(c);
+    }
+    if ((m = /^\/campaigns\/([^/]+)$/.exec(p))) {
+      const c = camp(m[1]); if (!c) return reply({ title: 'Resource Not Found', status: 404 }, 404);
+      if (method === 'PATCH') { Object.assign(c.settings, body.settings || {}); if (body.tracking) c.tracking = { ...body.tracking }; }
+      return reply(c);
+    }
+    if ((m = /^\/campaigns\/([^/]+)\/content$/.exec(p))) {
+      if (method === 'GET') return reply({ html: camp(m[1]).html, plain_text: '' });
+      camp(m[1]).html = body.html; return reply({ html: body.html });
+    }
+    if ((m = /^\/campaigns\/([^/]+)\/actions\/test$/.exec(p))) return new Response(null, { status: 204 });
+    if ((m = /^\/campaigns\/([^/]+)\/actions\/send$/.exec(p))) { Object.assign(camp(m[1]), { status: 'sent', emails_sent: 42, send_time: '2026-10-01T15:00:00+00:00' }); return new Response(null, { status: 204 }); }
+    if (/^\/campaigns\/[^/]+\/send-checklist$/.test(p)) return reply(mcChecklist);
+    if (p.startsWith('/reports/')) return reply({ id: p.split('/')[2], opens: { unique_opens: 20, open_rate: 0.476 }, clicks: { unique_clicks: 5, click_rate: 0.119 } });
+    if (p.startsWith('/lists/')) return reply({ id: p.split('/')[2], stats: { member_count: 42 } });
+    return reply({ title: 'Resource Not Found', status: 404 }, 404);
+  }
   if (u.includes('api.mailchimp.com')) {
     mailchimpCalls.push({ url: u, method: (init && init.method) || 'GET', auth: (init && init.headers && init.headers.Authorization) || '', body: JSON.parse(init.body) });
     return new Response('{"id":"x"}', { status: 200 });
@@ -5426,6 +5465,188 @@ console.log('\n── The daily claim against a real SQL engine ──');
        purged === 1 && !!db.prepare('SELECT key FROM rate_limits WHERE key = ?').get('daily:last_run'), 'purged=' + purged);
     db.close();
   }
+}
+
+console.log('\n── MAST News campaigns: POST /admin/mailchimp/campaign (mast-campaign.yml; owner 2026-10-01: every MAST email on brand) ──');
+{
+  resetLimits();
+  const mcKey = 'f'.repeat(32) + '-us21';   // built here so no key-shaped literal sits in the file for cred-scan to find
+  const envC = { ...env, MAILCHIMP_API_KEY: mcKey, MAILCHIMP_AUDIENCE_ID: 'list9' };
+  const camp = (body, { key = 'super-secret-admin-key', on = envC } = {}) => worker.fetch(new Request('https://api.test/admin/mailchimp/campaign',
+    { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json', 'CF-Connecting-IP': nextIp() }, key ? { 'X-Admin-Key': key } : {}), body: JSON.stringify(body) }), on, ctx);
+  const callJson = async (body, opts) => { const r = await camp(body, opts); return { status: r.status, body: await r.json() }; };
+  const HTML = '<html><head><style>body{background:#080c14;color:#C9A84C;font-family:Rajdhani,sans-serif}h1{font-family:Orbitron}a{color:#1A6BDE}</style></head><body><h1>October dates</h1><a href="*|UNSUB|*">Unsubscribe</a></body></html>';
+  const draftBody = (over = {}) => ({ action: 'test', title: 'MAST News 2026-10 dates', subject: 'October class dates', preview: 'Handgun 10/10 · Carbine 10/11', from_name: 'MAST Solutions', reply_to: 'info@mastsolutions.com', html: HTML, ga: 'mast-news-2026-10', ...over });
+  const reset = () => { mcCampaigns.length = 0; mcCampaignCalls.length = 0; mcSeq = 0; mcCampaignFail = null; mcListOverride = null; mcChecklist = { is_ready: true, items: [{ type: 'success', id: 'ok', heading: 'Ready', details: '' }] }; };
+  const writes = () => mcCampaignCalls.filter((c) => c.method !== 'GET');
+  reset();
+
+  ok('no X-Admin-Key → 401 and Mailchimp is never called', (await camp(draftBody(), { key: '' })).status === 401 && mcCampaignCalls.length === 0);
+  ok('… and a wrong key is 401 too', (await camp(draftBody(), { key: 'not-the-key' })).status === 401 && mcCampaignCalls.length === 0);
+  const noCfg = await callJson(draftBody(), { on: env });
+  ok('Mailchimp not configured → 503 mailchimp_not_configured', noCfg.status === 503 && noCfg.body.error === 'mailchimp_not_configured', JSON.stringify(noCfg));
+  const badAction = await callJson({ action: 'delete', title: 'x' });
+  const noTitle = await callJson({ action: 'status', title: '' });
+  const longTitle = await callJson({ action: 'status', title: 'x'.repeat(101) });
+  ok('an unknown action, an empty title and a 101-character title are each 400 invalid, naming the field',
+     badAction.status === 400 && badAction.body.field === 'action' && noTitle.status === 400 && noTitle.body.field === 'title' && longTitle.status === 400 && longTitle.body.field === 'title' && mcCampaignCalls.length === 0,
+     JSON.stringify([badAction, noTitle, longTitle]));
+
+  const offBrand = await callJson(draftBody({ html: HTML.replace(/Rajdhani/g, 'Arial').replace(/Orbitron/g, 'Impact') }));
+  ok('off-brand html → 422 off_brand naming exactly what is missing (Orbitron, Rajdhani), and nothing is written to Mailchimp',
+     offBrand.status === 422 && offBrand.body.error === 'off_brand' && JSON.stringify(offBrand.body.missing) === '["Orbitron","Rajdhani"]' && mcCampaignCalls.length === 0, JSON.stringify(offBrand));
+  const offColour = await callJson(draftBody({ html: HTML.replace(/#1A6BDE/g, '#0000FF') }));
+  ok('… the colours are checked case-insensitively (#080c14 in the fixture passes) and a missing one is named', offColour.status === 422 && JSON.stringify(offColour.body.missing) === '["#1A6BDE"]', JSON.stringify(offColour));
+  const noUnsub = await callJson(draftBody({ html: HTML.replace('*|UNSUB|*', 'https://mastsolutions.com/') }));
+  ok('html without *|UNSUB|* → 400, field html', noUnsub.status === 400 && noUnsub.body.field === 'html' && /UNSUB/.test(noUnsub.body.detail) && mcCampaignCalls.length === 0, JSON.stringify(noUnsub));
+  const tooBig = await callJson(draftBody({ html: HTML + ' '.repeat(200 * 1024) }));
+  ok('html over 200 KB → 400, field html', tooBig.status === 400 && tooBig.body.field === 'html' && mcCampaignCalls.length === 0, JSON.stringify(tooBig.body));
+  const badReply = await callJson(draftBody({ reply_to: 'news@gmail.com' }));
+  const lookalike = await callJson(draftBody({ reply_to: 'news@notmastsolutions.com' }));
+  ok('reply_to outside @mastsolutions.com / @atlasglinn.com → 400, field reply_to — a look-alike domain included',
+     badReply.status === 400 && badReply.body.field === 'reply_to' && lookalike.status === 400 && lookalike.body.field === 'reply_to' && mcCampaignCalls.length === 0, JSON.stringify([badReply, lookalike]));
+
+  const logs = []; const realLog = console.log;
+  console.log = (...a) => { logs.push(a.join(' ')); };
+  let first;
+  try { first = await callJson(draftBody({ test_to: 'attacker@example.com', test_emails: ['attacker@example.com'] })); } finally { console.log = realLog; }
+  const created = mcCampaignCalls.filter((c) => c.method === 'POST' && c.path === '/campaigns');
+  const testCall = mcCampaignCalls.find((c) => /\/actions\/test$/.test(c.path));
+  const contentCall = mcCampaignCalls.find((c) => c.method === 'PUT' && /\/content$/.test(c.path));
+  ok('test with no draft: POSTs ONE regular campaign to the audience with the settings, to_name *|FNAME|*, auto_footer false, inline_css true and the tracking',
+     first.status === 200 && created.length === 1 && created[0].body.type === 'regular' && created[0].body.recipients.list_id === 'list9' &&
+     created[0].body.settings.title === 'MAST News 2026-10 dates' && created[0].body.settings.subject_line === 'October class dates' && created[0].body.settings.preview_text === 'Handgun 10/10 · Carbine 10/11' &&
+     created[0].body.settings.from_name === 'MAST Solutions' && created[0].body.settings.reply_to === 'info@mastsolutions.com' && created[0].body.settings.to_name === '*|FNAME|*' &&
+     created[0].body.settings.auto_footer === false && created[0].body.settings.inline_css === true &&
+     JSON.stringify(created[0].body.tracking) === JSON.stringify({ opens: true, html_clicks: true, text_clicks: false, google_analytics: 'mast-news-2026-10' }),
+     JSON.stringify(created[0] || first).slice(0, 400));
+  ok('… PUTs the html as the content, then test-sends to the FIXED address — the body\'s test_to / test_emails are ignored',
+     contentCall && contentCall.body.html === HTML && testCall && JSON.stringify(testCall.body) === JSON.stringify({ test_emails: ['matthew@atlasglinn.com'], send_type: 'html' }) && first.body.test_sent_to === 'matthew@atlasglinn.com',
+     JSON.stringify(testCall || {}));
+  ok('… and answers id, web_id, status save, the edit URL on the key\'s data centre, the checklist and the audience size',
+     first.body.ok === true && first.body.action === 'test' && first.body.id === 'cmp1' && first.body.web_id === 9001 && first.body.status === 'save' &&
+     first.body.edit_url === 'https://us21.admin.mailchimp.com/campaigns/edit?id=9001' && first.body.checklist.is_ready === true && first.body.checklist.problems.length === 0 && first.body.audience_members === 42,
+     JSON.stringify(first.body));
+  const revAt = (i) => mcCampaignCalls.findIndex((c, j) => j >= i && c.method === 'GET' && c.path === '/campaigns/cmp1/content');
+  ok('… and a 16-hex revision, digested from what Mailchimp holds AFTER the content PUT (a GET of the content) and before the test send',
+     /^[0-9a-f]{16}$/.test(first.body.revision || '') && revAt(0) > mcCampaignCalls.indexOf(contentCall) && revAt(0) < mcCampaignCalls.indexOf(testCall), JSON.stringify(first.body));
+  ok('the campaign search pages at count=1000 from offset 0 and asks only for the fields it reads',
+     mcCampaignCalls.some((c) => c.method === 'GET' && c.path === '/campaigns' && /[?&]count=1000(&|$)/.test(c.url) && /[?&]offset=0(&|$)/.test(c.url) &&
+       new URL(c.url).searchParams.get('fields') === 'campaigns.id,campaigns.web_id,campaigns.status,campaigns.settings.title,campaigns.emails_sent,campaigns.send_time,total_items'));
+  ok('every Mailchimp call went to the key\'s data centre with Basic auth, never to anywhere the request named',
+     mcCampaignCalls.length > 0 && mcCampaignCalls.every((c) => c.url.startsWith('https://us21.api.mailchimp.com/3.0/') && c.auth === 'Basic ' + btoa('mast:' + mcKey)));
+  const campLog = logs.map((l) => { try { return JSON.parse(l); } catch (_) { return null; } }).filter((o) => o && 'outcome' in o && 'campaign_id' in o);
+  ok('one console line per request — {ts, action, title, campaign_id, outcome} — and no html, no subject, no address in it',
+     campLog.length === 1 && JSON.stringify(Object.keys(campLog[0]).sort()) === JSON.stringify(['action', 'campaign_id', 'outcome', 'title', 'ts']) && campLog[0].campaign_id === 'cmp1' && campLog[0].outcome === 'ok' &&
+     !logs.some((l) => l.includes('*|UNSUB|*') || l.includes('October class dates') || l.includes('matthew@atlasglinn.com') || l.includes('info@mastsolutions.com')),
+     JSON.stringify(logs).slice(0, 300));
+
+  mcCampaignCalls.length = 0;
+  const again = await callJson(draftBody({ subject: 'October class dates (v2)', html: HTML.replace('October dates', 'October dates v2'), ga: 'mast-news-2026-10b' }));
+  const patch = mcCampaignCalls.find((c) => c.method === 'PATCH');
+  ok('a second test refreshes the existing save draft — PATCH settings + tracking, PUT content — and creates no second campaign',
+     again.status === 200 && again.body.id === 'cmp1' && mcCampaigns.length === 1 && !mcCampaignCalls.some((c) => c.method === 'POST' && c.path === '/campaigns') &&
+     patch && patch.path === '/campaigns/cmp1' && patch.body.settings.subject_line === 'October class dates (v2)' && patch.body.settings.to_name === '*|FNAME|*' && patch.body.tracking.google_analytics === 'mast-news-2026-10b' &&
+     mcCampaigns[0].html.includes('October dates v2') && mcCampaignCalls.some((c) => /\/actions\/test$/.test(c.path)),
+     JSON.stringify(again.body) + ' ' + JSON.stringify(mcCampaignCalls.map((c) => c.method + ' ' + c.path)));
+  const envTo = { ...envC, CAMPAIGN_TEST_TO: 'proof@mastsolutions.com' };
+  mcCampaignCalls.length = 0;
+  const toEnv = await callJson(draftBody(), { on: envTo });
+  ok('CAMPAIGN_TEST_TO on the Worker replaces the default test address', toEnv.status === 200 && toEnv.body.test_sent_to === 'proof@mastsolutions.com' &&
+     JSON.stringify(mcCampaignCalls.find((c) => /\/actions\/test$/.test(c.path)).body.test_emails) === '["proof@mastsolutions.com"]');
+
+  mcCampaigns.push({ id: 'other1', web_id: 1, status: 'save', emails_sent: 0, send_time: '', settings: { title: 'Some other campaign' } });
+  const sendNoConfirm = await callJson({ action: 'send', title: 'MAST News 2026-10 dates' });
+  const sendWrongConfirm = await callJson({ action: 'send', title: 'MAST News 2026-10 dates', confirm: 'send' });
+  ok('send without confirm "SEND" (missing, or the wrong case) → 400 confirm_required, and nothing is sent',
+     sendNoConfirm.status === 400 && sendNoConfirm.body.error === 'confirm_required' && sendWrongConfirm.status === 400 && !mcCampaignCalls.some((c) => /\/actions\/send$/.test(c.path)));
+  const sendNoRev = await callJson({ action: 'send', title: 'MAST News 2026-10 dates', confirm: 'SEND' });
+  const sendBadRev = await callJson({ action: 'send', title: 'MAST News 2026-10 dates', confirm: 'SEND', revision: 'ABCDEF0123456789' });
+  const sendShortRev = await callJson({ action: 'send', title: 'MAST News 2026-10 dates', confirm: 'SEND', revision: 'abc123' });
+  ok('send without a revision, or with one that is not 16 lowercase hex → 400 invalid, field revision, before any Mailchimp call',
+     [sendNoRev, sendBadRev, sendShortRev].every((r) => r.status === 400 && r.body.field === 'revision') && !mcCampaignCalls.some((c) => /\/actions\/send$/.test(c.path)),
+     JSON.stringify([sendNoRev, sendBadRev, sendShortRev]));
+  const anyRev = '0123456789abcdef';
+  const sendNoDraft = await callJson({ action: 'send', title: 'Never test-sent', confirm: 'SEND', revision: anyRev });
+  ok('send for a title with no save draft → 404 no_draft (a draft under another title is not borrowed)', sendNoDraft.status === 404 && sendNoDraft.body.error === 'no_draft' && !mcCampaignCalls.some((c) => /\/actions\/send$/.test(c.path)), JSON.stringify(sendNoDraft));
+
+  mcChecklist = { is_ready: false, items: [{ type: 'success', id: 'a', heading: 'Audience', details: 'ok' }, { type: 'error', id: 'b', heading: 'Subject line', details: 'Add a subject line' }, { type: 'warning', id: 'c', heading: 'Links', details: 'One link is broken' }] };
+  mcCampaignCalls.length = 0;
+  const notReady = await callJson({ action: 'send', title: 'MAST News 2026-10 dates', confirm: 'SEND', revision: anyRev });
+  ok('send when Mailchimp\'s checklist is not ready → 409 not_ready with the non-success items as {type, heading, details}, and no send',
+     notReady.status === 409 && notReady.body.error === 'not_ready' && notReady.body.problems.length === 2 &&
+     JSON.stringify(notReady.body.problems[0]) === JSON.stringify({ type: 'error', heading: 'Subject line', details: 'Add a subject line' }) && !mcCampaignCalls.some((c) => /\/actions\/send$/.test(c.path)),
+     JSON.stringify(notReady));
+  const testNotReady = await callJson(draftBody());
+  ok('… and a test run reports the same problems in checklist.problems', testNotReady.status === 200 && testNotReady.body.checklist.is_ready === false && testNotReady.body.checklist.problems.length === 2);
+  mcChecklist = { is_ready: true, items: [] };
+
+  const rev = testNotReady.body.revision;
+  const repeat = await callJson(draftBody());
+  ok('the revision is a pure function of what Mailchimp holds: the same draft test-sent again answers the same revision', /^[0-9a-f]{16}$/.test(rev || '') && repeat.body.revision === rev, rev + ' / ' + repeat.body.revision);
+  const draftNow = () => mcCampaigns.find((c) => c.id === 'cmp1');
+  const mismatch = async (label, edit, undo) => {
+    edit(draftNow()); mcCampaignCalls.length = 0;
+    const r = await callJson({ action: 'send', title: 'MAST News 2026-10 dates', confirm: 'SEND', revision: rev });
+    undo(draftNow());
+    ok('send after the ' + label + ' changed in Mailchimp since the test → 409 revision_mismatch {expected, current}, and NO actions/send',
+       r.status === 409 && r.body.error === 'revision_mismatch' && r.body.expected === rev && /^[0-9a-f]{16}$/.test(r.body.current) && r.body.current !== rev &&
+       !mcCampaignCalls.some((c) => /\/actions\/send$/.test(c.path)) && draftNow().status === 'save', JSON.stringify(r));
+  };
+  const keepHtml = draftNow().html, keepSubject = draftNow().settings.subject_line;
+  await mismatch('html', (c) => { c.html = keepHtml.replace('October dates', 'October dates, edited in Mailchimp'); }, (c) => { c.html = keepHtml; });
+  await mismatch('subject line', (c) => { c.settings.subject_line = keepSubject + '!'; }, (c) => { c.settings.subject_line = keepSubject; });
+  await mismatch('recipients (a segment)', (c) => { c.recipients = { ...c.recipients, segment_opts: { saved_segment_id: 7 } }; }, (c) => { delete c.recipients.segment_opts; });
+
+  const htmlBefore = mcCampaigns[0].html, settingsBefore = JSON.stringify(mcCampaigns[0].settings);
+  mcCampaignCalls.length = 0;
+  const sent = await callJson({ action: 'send', title: 'MAST News 2026-10 dates', confirm: 'SEND', revision: rev, html: '<p>swapped</p>', subject: 'swapped' });
+  ok('send with the revision the test answered POSTs actions/send to the draft and answers status, send_time and emails_sent from Mailchimp',
+     sent.status === 200 && sent.body.ok === true && sent.body.action === 'send' && sent.body.id === 'cmp1' && sent.body.status === 'sent' && sent.body.emails_sent === 42 && sent.body.send_time === '2026-10-01T15:00:00+00:00' &&
+     mcCampaignCalls.filter((c) => c.path === '/campaigns/cmp1/actions/send' && c.method === 'POST').length === 1, JSON.stringify(sent));
+  ok('… and send NEVER writes content or settings — no PUT, no PATCH, no campaign create; the html and subject in its body are ignored',
+     writes().every((c) => c.method === 'POST' && /\/actions\/send$/.test(c.path)) && mcCampaigns[0].html === htmlBefore && JSON.stringify(mcCampaigns[0].settings) === settingsBefore,
+     JSON.stringify(writes().map((c) => c.method + ' ' + c.path)));
+  ok('… and the other title\'s draft was not touched', mcCampaigns.find((c) => c.id === 'other1').status === 'save');
+
+  mcCampaignCalls.length = 0;
+  const testAfter = await callJson(draftBody());
+  const sendAfter = await callJson({ action: 'send', title: 'MAST News 2026-10 dates', confirm: 'SEND', revision: rev });
+  ok('once sent: test → 409 already_sent with its id and status, and writes nothing; a second send → 409 already_sent too',
+     testAfter.status === 409 && testAfter.body.error === 'already_sent' && testAfter.body.id === 'cmp1' && testAfter.body.status === 'sent' &&
+     sendAfter.status === 409 && sendAfter.body.error === 'already_sent' && writes().length === 0, JSON.stringify([testAfter, sendAfter]));
+
+  const status = await callJson({ action: 'status', title: 'MAST News 2026-10 dates' });
+  const row = (status.body.campaigns || [])[0] || {};
+  ok('status lists the campaigns carrying the title — {id, web_id, status, emails_sent, send_time} — and only those',
+     status.status === 200 && status.body.campaigns.length === 1 && row.id === 'cmp1' && row.web_id === 9001 && row.status === 'sent' && row.emails_sent === 42 && row.send_time === '2026-10-01T15:00:00+00:00', JSON.stringify(status));
+  ok('… with the opens / clicks summary from /reports for a sent one', row.report && row.report.unique_opens === 20 && row.report.open_rate === 0.476 && row.report.unique_clicks === 5 && row.report.click_rate === 0.119 && mcCampaignCalls.some((c) => c.path === '/reports/cmp1'), JSON.stringify(row));
+  const statusDraft = await callJson({ action: 'status', title: 'Some other campaign' });
+  ok('… and a draft is listed without a report call', statusDraft.status === 200 && statusDraft.body.campaigns.length === 1 && !('report' in statusDraft.body.campaigns[0]) && !mcCampaignCalls.some((c) => c.path === '/reports/other1'));
+
+  reset();
+  const otherKey = '0a'.repeat(16) + '-us9';
+  mcCampaignFail = { on: '/campaigns', status: 401, body: JSON.stringify({ title: 'API Key Invalid', status: 401, detail: 'Your API key ' + mcKey + ' may be invalid; also tried ' + otherKey + ' ' + 'x'.repeat(600) }) };
+  const mcErr = await callJson(draftBody());
+  ok('a Mailchimp refusal → 502 {error mailchimp, status, detail}, detail capped at 300 characters',
+     mcErr.status === 502 && mcErr.body.error === 'mailchimp' && mcErr.body.status === 401 && typeof mcErr.body.detail === 'string' && mcErr.body.detail.length <= 300 && mcErr.body.detail.includes('API Key Invalid'), JSON.stringify(mcErr).slice(0, 400));
+  ok('… and scrubbed: neither the configured key nor another Mailchimp-shaped key survives in the detail',
+     !mcErr.body.detail.includes(mcKey) && !mcErr.body.detail.includes('f'.repeat(32)) && !mcErr.body.detail.includes(otherKey) && mcErr.body.detail.includes('[redacted]'), mcErr.body.detail.slice(0, 200));
+
+  reset();
+  mcCampaigns.push({ id: 'old1', web_id: 5, status: 'sent', emails_sent: 40, send_time: '2026-09-01T15:00:00+00:00', settings: { title: 'MAST News 2026-10 dates' } });
+  for (let i = 0; i < 1000; i++) mcCampaigns.push({ id: 'fill' + i, web_id: 100 + i, status: 'save', emails_sent: 0, send_time: '', settings: { title: 'Filler ' + i } });
+  const deep = await callJson(draftBody());
+  const pages = mcCampaignCalls.filter((c) => c.method === 'GET' && c.path === '/campaigns').map((c) => new URL(c.url).searchParams.get('offset'));
+  ok('a campaign already sent under the title on PAGE 2 of the search (behind 1,000 newer ones) → test answers 409 already_sent and writes nothing',
+     deep.status === 409 && deep.body.error === 'already_sent' && deep.body.id === 'old1' && JSON.stringify(pages) === '["0","1000"]' && writes().length === 0, JSON.stringify(deep) + ' pages=' + JSON.stringify(pages));
+
+  reset();
+  mcListOverride = (offset) => ({ campaigns: [{ id: 'p' + offset, status: 'save', settings: { title: 'Filler' } }], total_items: 1e9 });
+  const capped = await callJson({ action: 'send', title: 'MAST News 2026-10 dates', confirm: 'SEND', revision: anyRev });
+  ok('a search that has not covered total_items after 20 pages stops there and fails CLOSED — 502, no send',
+     capped.status === 502 && capped.body.error === 'mailchimp' && mcCampaignCalls.filter((c) => c.path === '/campaigns').length === 20 && !mcCampaignCalls.some((c) => /\/actions\/send$/.test(c.path)), JSON.stringify(capped));
+  reset(); resetLimits();
 }
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

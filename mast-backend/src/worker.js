@@ -28,7 +28,7 @@ import { directionsAttachment, directionsStatus } from './directions.js';
 import { publicKeyInfo } from './sealed.js';
 import { gearListLines, GEAR_LIST_FALLBACK } from './gear-lists.js';
 import { checkRate, ensureRateSchema, purgeRateLimits, clientIp, lockedFor, noteFailedLogin, dummyFailedLogin, clearFailedLogins, identityLockedFor, noteFailedIdentity, clearFailedIdentity, codeGuessesSpent, noteCodeGuess, clearCodeGuesses, absentGuessId, pendingGuessId, addressDigest, noteCodeMail, CODE_GUESSES_PER_IP } from './ratelimit.js';
-import { ensureCrmSchema, crmSnapshot, audienceCsv, syncAudience, syncOnPayment, syncLead, adminPage, attributionFrom, recordContact, markContactEmailed, recordEvent, handleEvent, handleSubscribe, runJourneys, weeklyDigest, weeklyDigestPeriod } from './crm.js';
+import { ensureCrmSchema, crmSnapshot, audienceCsv, syncAudience, syncOnPayment, syncLead, adminPage, attributionFrom, recordContact, markContactEmailed, recordEvent, handleEvent, handleSubscribe, runJourneys, weeklyDigest, weeklyDigestPeriod, mailchimpCampaign } from './crm.js';
 
 const REPLAY_WINDOW_SECONDS = 300; // reject webhook timestamps older than 5 min
 
@@ -2775,6 +2775,11 @@ async function handleAdmin(request, env, cors, url) {
   if (url.pathname === '/admin/tax/setup' && (request.method === 'POST' || request.method === 'GET')) {
     return await handleTaxSetup(request, env, { ...cors, 'Cache-Control': 'no-store' }, url);
   }
+  // MAST News campaigns (mast-campaign.yml). Mailchimp holds every campaign, so this one reads and writes no D1.
+  if (url.pathname === '/admin/mailchimp/campaign' && request.method === 'POST') {
+    const out = await mailchimpCampaign(env, await request.json().catch(() => null), { scrub: (t) => taxRedact(env, t) });
+    return json(out.body, out.status, { ...cors, 'Cache-Control': 'no-store' });
+  }
   if (!env.DB) return json({ error: 'Database not bound' }, 503, cors);
   const noStore = { ...cors, 'Cache-Control': 'no-store' };
   if (url.pathname === '/admin/crm' && request.method === 'GET') {
@@ -2985,7 +2990,7 @@ export function taxTimeoutMs(env) {
 /** Anything key-shaped, gone — before it leaves the Worker, not in the workflow that happens to print it. */
 function taxRedact(env, value) {
   let t = value == null ? '' : String(value);
-  for (const secret of [env && env.ADMIN_KEY, env && env.STRIPE_SECRET_KEY, env && env.STRIPE_WEBHOOK_SECRET, env && env.RESEND_API_KEY]) {
+  for (const secret of [env && env.ADMIN_KEY, env && env.STRIPE_SECRET_KEY, env && env.STRIPE_WEBHOOK_SECRET, env && env.RESEND_API_KEY, env && env.MAILCHIMP_API_KEY]) {
     if (secret && String(secret).length >= 8) t = t.split(String(secret)).join('[redacted]');
   }
   return t
@@ -3013,6 +3018,8 @@ function taxRedact(env, value) {
     .replace(/gh[pousr]_[A-Za-z0-9]{36,}/g, '[redacted]')
     .replace(/glpat-[A-Za-z0-9_-]{20,}/g, '[redacted]')
     .replace(/appl_[A-Za-z0-9]{20,}/g, '[redacted]')
+    // A Mailchimp key: 32 hex and its data-centre suffix. Unlabelled it would pass the labelled-hex heuristic below.
+    .replace(/[a-fA-F0-9]{32}-us\d{1,3}/g, '[redacted]')
     // The lookahead is what \b was there to do, asked correctly: a Twilio SID is AC/SK and EXACTLY 32 hex, so the match
     // must not eat a prefix of a longer hex run — but a `_` or a letter to the LEFT is the normal case in a log line,
     // not a reason to skip it.
