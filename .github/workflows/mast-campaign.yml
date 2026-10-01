@@ -157,11 +157,14 @@ jobs:
                           if isinstance(p, dict) and isinstance(p.get('details'), str):
                               p = dict(p, details=re.sub(r'\d[\d,]*(?=\s*(?:recipients|email addresses|contacts|subscribers))', 'N', p['details']))
                           fields.append(('checklist.problems[%d]' % i, p))
-                  elif k == 'audience_members':
+                  elif k in ('audience_members', 'emails_sent'):
                       continue  # public repo: run annotations are world-readable, the list size stays private
                   elif k in ('problems', 'campaigns') and isinstance(v, list):
                       if not v: fields.append((k, []))
-                      for i, p in enumerate(v): fields.append(('%s[%d]' % (k, i), p))
+                      for i, p in enumerate(v):
+                          if isinstance(p, dict) and 'emails_sent' in p:
+                              p = dict(p, emails_sent='withheld')   # public repo: annotations AND the job summary are world-readable
+                          fields.append(('%s[%d]' % (k, i), p))
                   else:
                       fields.append((k, v))
           else:
