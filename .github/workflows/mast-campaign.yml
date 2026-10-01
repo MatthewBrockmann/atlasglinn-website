@@ -44,7 +44,7 @@ permissions:
 # the draft. The revision is the safety: a send carries the revision of the test the owner approved, and the Worker sends
 # nothing unless Mailchimp's draft still digests to it, whatever ran in between.
 concurrency:
-  group: mast-campaign-${{ inputs.campaign }}
+  group: mast-campaign   # workflow-wide: every run writes the one Worker-wide CAMPAIGN_RUN_KEY, so runs never overlap
   cancel-in-progress: false
 env:
   WORKER: https://mast-booking-backend.matthew-221.workers.dev
@@ -136,7 +136,7 @@ jobs:
           export CODE="$code"
           rc=0
           python3 - <<'PY' || rc=$?
-          import json, os, sys
+          import json, os, re, sys
           code, key = os.environ['CODE'], os.environ.get('CAMPAIGN_KEY') or '\0'
           raw = open(os.environ['RESP'], encoding='utf-8', errors='replace').read() if os.path.exists(os.environ['RESP']) else ''
           raw = raw.replace(key, '[redacted]')
@@ -152,7 +152,11 @@ jobs:
               for k, v in data.items():
                   if k == 'checklist' and isinstance(v, dict):
                       fields.append(('checklist.is_ready', v.get('is_ready')))
-                      for i, p in enumerate(v.get('problems') or []): fields.append(('checklist.problems[%d]' % i, p))
+                      for i, p in enumerate(v.get('problems') or []):
+                          # public repo: Mailchimp's checklist text carries audience counts; keep them off the annotations
+                          if isinstance(p, dict) and isinstance(p.get('details'), str):
+                              p = dict(p, details=re.sub(r'\d[\d,]*(?=\s*(?:recipients|email addresses|contacts|subscribers))', 'N', p['details']))
+                          fields.append(('checklist.problems[%d]' % i, p))
                   elif k == 'audience_members':
                       continue  # public repo: run annotations are world-readable, the list size stays private
                   elif k in ('problems', 'campaigns') and isinstance(v, list):
