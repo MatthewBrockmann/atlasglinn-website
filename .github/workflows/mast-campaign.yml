@@ -163,7 +163,7 @@ jobs:
                       if not v: fields.append((k, []))
                       for i, p in enumerate(v):
                           if isinstance(p, dict) and 'emails_sent' in p:
-                              p = dict(p, emails_sent='(in the job summary)')   # public repo: send counts stay off annotations
+                              p = dict(p, emails_sent='withheld')   # public repo: annotations AND the job summary are world-readable
                           fields.append(('%s[%d]' % (k, i), p))
                   else:
                       fields.append((k, v))
