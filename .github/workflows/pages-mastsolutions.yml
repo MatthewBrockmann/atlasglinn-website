@@ -202,7 +202,8 @@ jobs:
           set +e
           if gh api -X PUT "repos/$GITHUB_REPOSITORY/pages" -f cname="$DOMAIN" >/dev/null 2>&1; then echo "custom domain set: $DOMAIN"; else echo "::warning::custom domain not set by the workflow token — Settings → Pages → Custom domain: $DOMAIN (one field)"; fi
           sleep 5; gh api "repos/$GITHUB_REPOSITORY/pages" 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print("Pages:", d.get("html_url"), "cname=" + str(d.get("cname")), "status=" + str(d.get("status")), "https=" + str(d.get("https_enforced")))'
-          echo "--- DNS at GoDaddy (Domains → mastsolutions.com) — what serves this: Forwarding mastsolutions.com → https://$DOMAIN (301, forward only; its two apex A rows are GoDaddy's own) and"
+          echo "--- DNS at GoDaddy (Domains → mastsolutions.com) — what serves this (since 2026-10-01; no Forwarding — do not restore it):"
+          echo "   A      @    185.199.108.153 185.199.109.153 185.199.110.153 185.199.111.153  (GitHub Pages: apex → 301 → www, path kept)"
           echo "   CNAME  www  matthewbrockmann.github.io"
           echo "--- DNS now:"; echo "   A mastsolutions.com: $(dig +short A mastsolutions.com @1.1.1.1 | tr '\n' ' ')"; echo "   $DOMAIN: $(dig +short $DOMAIN @1.1.1.1 | tr '\n' ' ')"
           for u in "https://mastsolutions.com/" "https://$DOMAIN/"; do echo "   $u → $(curl -sS -m 30 -o /tmp/p -w '%{http_code} %{redirect_url}' "$u" 2>/dev/null || echo unreachable)  title=[$(grep -o '<title>[^<]*' /tmp/p 2>/dev/null | head -1 | sed 's/<title>//')]"; done
