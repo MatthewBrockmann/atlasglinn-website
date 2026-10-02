@@ -135,8 +135,17 @@ jobs:
           json.dump(body, open(os.environ['BODY'], 'w', encoding='utf-8'))
           print('request: %s "%s" (%d bytes)' % (action, title, os.path.getsize(os.environ['BODY'])))
           PY
-          code=$(curl -sS -m 120 -o "$RESP" -w '%{http_code}' -X POST "$WORKER/admin/mailchimp/campaign" \
-            -H "Content-Type: application/json" -H "X-Campaign-Key: $CAMPAIGN_KEY" --data-binary @"$BODY") || code=000
+          # Retry on 401 only. Run 36962922788 (2026-10-02, a send) passed three probe accepts in a row and its real call
+          # still got 401 one second later: the edge had not finished rolling out the new key. A 401 is answered before
+          # the route runs, so nothing was sent and repeating the call is safe. Any other answer, including a timeout
+          # (000), is final: a send that timed out may have gone out, and the Worker's 409 already_sent guards a re-run.
+          for attempt in 1 2 3 4 5 6 7 8; do
+            code=$(curl -sS -m 120 -o "$RESP" -w '%{http_code}' -X POST "$WORKER/admin/mailchimp/campaign" \
+              -H "Content-Type: application/json" -H "X-Campaign-Key: $CAMPAIGN_KEY" --data-binary @"$BODY") || code=000
+            [ "$code" = 401 ] || break
+            echo "attempt $attempt: 401, the run key has not reached this edge yet; retrying in 5 s"
+            sleep 5
+          done
           export CODE="$code"
           rc=0
           python3 - <<'PY' || rc=$?
