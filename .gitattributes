@@ -3,3 +3,4 @@
 
 # Web-encoded clips served directly by GitHub Pages (Pages does not serve LFS objects)
 images/mast-medical.mp4 -filter -diff -merge -text
+images/mast/email/2026-10-mast-reel.mp4 -filter -diff -merge -text
