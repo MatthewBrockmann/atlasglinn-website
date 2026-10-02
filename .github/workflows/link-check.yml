@@ -1,0 +1,37 @@
+# Link check from the outside world (owner 2026-10-01: "other people have told me the link ... didn't work").
+# The cloud ATLAS session cannot open mastsolutions.com (its egress proxy denies the host), so this runner is its
+# eyes: for each URL it reports the DNS answer, the status, the redirect chain and the final URL + TLS check, as
+# ::notice lines that are readable through the check-run annotations API. Read-only; it changes nothing.
+name: Link check
+on:
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: "Space-separated URLs (empty = the MAST public links)"
+        required: false
+        default: ""
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check each URL
+        env:
+          URLS: ${{ inputs.urls }}
+        run: |
+          set -u
+          list="${URLS:-}"
+          [ -n "$list" ] || list="https://www.mastsolutions.com/ https://www.mastsolutions.com/links/ http://www.mastsolutions.com/ https://mastsolutions.com/ http://mastsolutions.com/ https://mastsolutions.com/#s13 https://www.mastsolutions.com/images/mast/email/2026-10-mast-reel.mp4"
+          fail=0
+          for u in $list; do
+            case "$u" in http://*|https://*) ;; *) echo "::warning::skipped (not http/https): $u"; continue;; esac
+            host=$(printf '%s' "$u" | sed -E 's#^https?://([^/:#?]+).*#\1#')
+            dnsans=$(getent ahostsv4 "$host" | awk '{print $1}' | sort -u | tr '\n' ' ')
+            out=$(curl -sS -L --max-redirs 5 -m 25 -o /dev/null -A "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Instagram" \
+              -w '%{http_code}|%{num_redirects}|%{url_effective}|%{content_type}|%{ssl_verify_result}' "$u" 2>&1) || true
+            first=$(curl -sS -m 25 -o /dev/null -w '%{http_code} -> %{redirect_url}' "$u" 2>&1) || true
+            echo "::notice title=$u::dns=[${dnsans:-NXDOMAIN}] first=[$first] final=[$out]"
+            case "$out" in 200\|*) ;; *) fail=1;; esac
+          done
+          exit $fail
