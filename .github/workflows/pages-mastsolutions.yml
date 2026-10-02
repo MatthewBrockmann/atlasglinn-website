@@ -4,8 +4,11 @@
 # (deploy-mastsolutions.yml) waits on three secrets nobody reachable holds; this one needs none: the runner's own token
 # creates or switches the repository's Pages site to "GitHub Actions" builds, deploys dist/mastsolutions/index.html with
 # the page's asset tree and its build-manifest.json, checks the deployment answers with the MAST page, then sets the
-# custom domain. Live since 2026-09-08 04:16 UTC on the www host: GoDaddy's Forwarding owns the apex A rows
-# (15.197.225.128 / 3.33.251.168, not editable) and forwards mastsolutions.com → https://www.mastsolutions.com (301);
+# custom domain. Live since 2026-09-08 04:16 UTC on the www host. APEX (changed 2026-10-01 ~03:30 UTC, owner-approved):
+# GoDaddy Forwarding is DELETED and the apex A rows are GitHub Pages (185.199.108-111.153), so Pages 301s every
+# mastsolutions.com/<path> to the same path on www. The forwarding only ever handled "/"; every apex path was a 404, and
+# that broke a paid Instagram boost link. Do NOT restore the forward. Measured by link-check runs 36958902434 (before)
+# and 36961252464 (after: http apex /links -> 301 -> 200; https apex waits on GitHub's apex certificate);
 # `CNAME www → matthewbrockmann.github.io` is the row GitHub serves; the custom domain in Settings → Pages is
 # www.mastsolutions.com (GitHub wrote it into the root CNAME file itself). The workflow token cannot change the custom
 # domain (403), so the PUT below is a no-op that only warns.
