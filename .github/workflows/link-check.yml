@@ -31,7 +31,7 @@ jobs:
             out=$(curl -sS -L --max-redirs 5 -m 25 -o /dev/null -A "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Instagram" \
               -w '%{http_code}|%{num_redirects}|%{url_effective}|%{content_type}|%{ssl_verify_result}' "$u" 2>&1) || true
             first=$(curl -sS -m 25 -o /dev/null -w '%{http_code} -> %{redirect_url}' "$u" 2>&1) || true
-            echo "::notice title=$u::dns=[${dnsans:-NXDOMAIN}] first=[$first] final=[$out]"
+            echo "::notice::$u dns=[${dnsans:-NXDOMAIN}] first=[$first] final=[$out]"
             case "$out" in 200\|*) ;; *) fail=1;; esac
           done
           exit $fail
