@@ -77,10 +77,14 @@ jobs:
           echo "CAMPAIGN_KEY=$key" >> "$GITHUB_ENV"
           printf '%s' "$key" | npx wrangler secret put CAMPAIGN_RUN_KEY
           # The secret takes effect with the version wrangler deploys for it; wait until the route accepts the key.
-          for i in $(seq 1 30); do
+          # Three accepts in a row, not one: run 36953108820 (2026-10-02) passed a single probe and the real call that
+          # followed still got 401. Cloudflare rolls the new version out across the edge, so one accept is one isolate.
+          ok=0
+          for i in $(seq 1 40); do
             code=$(curl -sS -m 20 -o /dev/null -w '%{http_code}' -X POST "$WORKER/admin/mailchimp/campaign" \
               -H "Content-Type: application/json" -H "X-Campaign-Key: $key" --data '{"action":"status","title":"run-key-probe"}' || echo 000)
-            if [ "$code" != 401 ] && [ "$code" != 000 ]; then echo "run key accepted after $i check(s) (HTTP $code)"; exit 0; fi
+            if [ "$code" != 401 ] && [ "$code" != 000 ]; then ok=$((ok+1)); else ok=0; fi
+            if [ "$ok" -ge 3 ]; then echo "run key accepted 3 times in a row after $i check(s) (HTTP $code)"; exit 0; fi
             sleep 3
           done
           echo "::error::the Worker never accepted the run key"; exit 1
