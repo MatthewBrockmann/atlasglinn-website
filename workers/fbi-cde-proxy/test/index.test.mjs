@@ -75,9 +75,10 @@ const call = (path, headers = {}, env = ENV, method = 'GET') =>
   worker.fetch(new Request(`https://fbi-cde-proxy.example.workers.dev${path}`, { method, headers }), env, ctx);
 const upstreamCalls = () => calls.filter((u) => u.startsWith('https://api.usa.gov/'));
 
-let signer;
+// One signing key for the whole run, as in production: the Worker keeps its JWK set across requests, and a forced
+// refetch for an unknown kid is floored at once per 60s, so a fresh kid per test would be refused by design.
+const signer = await makeSigner();
 beforeEach(async () => {
-  signer = await makeSigner();
   published = [signer.jwk];
   upstream = async () => new Response('{"offenses":{"rates":{}}}', { status: 200 });
   installMocks();
@@ -157,13 +158,24 @@ test('401: missing, non-Bearer and malformed authorization', async () => {
   assert.equal(upstreamCalls().length, 0);
 });
 
-test('kid rotation: an unknown kid refetches the JWK set once, then verifies', async () => {
+test('kid rotation: an unknown kid refetches the JWK set, at most once per 60s', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() + 10 * 60000 });
   const first = await sign(signer);
   assert.equal((await call(PATH, { authorization: `Bearer ${first}` })).status, 200);
+  const jwksFetches = () => calls.filter((u) => u === JWKS_URL).length;
+  const before = jwksFetches();
   const rotated = await makeSigner();
   published = [signer.jwk, rotated.jwk];
   const r = await call('/summarized/state/NY/violent-crime', { authorization: `Bearer ${await sign(rotated)}` });
   assert.equal(r.status, 200);
+  assert.equal(jwksFetches(), before + 1);
+  for (const kid of ['junk-1', 'junk-2', 'junk-3']) {
+    assert.equal((await call(PATH, { authorization: `Bearer ${await sign(signer, {}, { kid })}` })).status, 401);
+  }
+  assert.equal(jwksFetches(), before + 1, 'garbage kids inside the floor do not refetch');
+  t.mock.timers.tick(61000);
+  assert.equal((await call(PATH, { authorization: `Bearer ${await sign(signer, {}, { kid: 'junk-4' })}` })).status, 401);
+  assert.equal(jwksFetches(), before + 2, 'after the floor, one refetch');
 });
 
 test('404 before auth: disallowed paths, methods and params never reach JWKS or upstream', async () => {

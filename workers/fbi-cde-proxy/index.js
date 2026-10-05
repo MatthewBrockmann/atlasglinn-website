@@ -12,12 +12,13 @@ const JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken
 const UPSTREAM = 'https://api.usa.gov/crime/fbi/cde/summarized/state';
 const CACHE_TTL = 86400;
 const SKEW = 60;
+const FORCED_REFETCH_FLOOR_MS = 60000;
 
 const ROUTE = /^\/summarized\/state\/([A-Z]{2})\/([a-z][a-z-]{1,40})$/;
 const MONTH_YEAR = /^(0[1-9]|1[0-2])-\d{4}$/;
 const ALLOWED_QUERY = new Set(['from', 'to']);
 
-let jwks = { keys: new Map(), expires: 0 };
+let jwks = { keys: new Map(), expires: 0, fetched: 0 };
 
 function json(status, body) {
   return new Response(JSON.stringify(body), {
@@ -40,7 +41,7 @@ function b64urlJson(s) {
 
 async function loadJwks(force) {
   const now = Date.now();
-  if (!force && jwks.expires > now && jwks.keys.size) return jwks.keys;
+  if (jwks.keys.size && (force ? now - jwks.fetched < FORCED_REFETCH_FLOOR_MS : jwks.expires > now)) return jwks.keys;
   const res = await fetch(JWKS_URL);
   if (!res.ok) throw new Error('jwks unavailable');
   const body = await res.json();
@@ -57,7 +58,7 @@ async function loadJwks(force) {
     );
     keys.set(k.kid, key);
   }
-  jwks = { keys, expires: now + maxAge * 1000 };
+  jwks = { keys, expires: now + maxAge * 1000, fetched: now };
   return keys;
 }
 
