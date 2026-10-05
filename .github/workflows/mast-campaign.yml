@@ -15,6 +15,11 @@
 #           the revision, and refuses a title already sent (409 already_sent), a title with no draft (404), a draft
 #           Mailchimp's checklist does not pass (409 not_ready) and a draft that changed since that test in any way, by a
 #           later test run or by hand in Mailchimp (409 revision_mismatch).
+#           A SEND CARRIES WHEN (owner 2026-10-02, after MAST News #2 went out at 11:09 PM instead of the next morning: "it
+#           wasnt suppost to go out until tomorrow morning"). `when` is required: "now" sends at once; a UTC quarter-hour
+#           such as 2026-10-06T14:30Z schedules it in Mailchimp under the same gates, and the campaign is then locked
+#           until it goes or is unscheduled. A send with no `when` posts nothing.
+#   unschedule  returns a scheduled campaign to its draft (confirm "UNSCHEDULE"); the revision is unchanged by it.
 #   status  lists the campaigns carrying the title and, for a sent one, opens and clicks.
 # Every field of the answer is a ::notice:: annotation (a cloud session can read annotations but not job logs; at most ten
 # per step, so the overflow steps below carry the rest) and a row in the job summary. A non-2xx answer is an ::error::
@@ -24,9 +29,9 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "test = draft + test email to the fixed address · send = send the approved draft to the audience (owner's decision) · status = read back"
+        description: "test = draft + test email to the fixed address · send = send the approved draft at `when` (owner's decision) · unschedule = cancel a scheduled send · status = read back"
         type: choice
-        options: [test, send, status]
+        options: [test, send, unschedule, status]
         default: test
       campaign:
         description: "Folder under reference/mailchimp/ holding campaign.json and email.html (lowercase letters, digits, dashes)"
@@ -34,6 +39,11 @@ on:
         required: true
       revision:
         description: "send only: the revision the approved test run printed (16 lowercase hex). Ignored by test and status"
+        type: string
+        required: false
+        default: ""
+      when:
+        description: "send only, REQUIRED: now, or a UTC quarter-hour like 2026-10-06T14:30Z (9:30 AM CT = 14:30Z). Blank = nothing is sent"
         type: string
         required: false
         default: ""
@@ -93,15 +103,21 @@ jobs:
           ACTION: ${{ inputs.action }}
           CAMPAIGN: ${{ inputs.campaign }}
           REVISION: ${{ inputs.revision }}
+          WHEN: ${{ inputs.when }}
         run: |
           set -euo pipefail
-          case "$ACTION" in test|send|status) ;; *) echo "::error::action must be test, send or status (got '$ACTION')"; exit 1;; esac
+          case "$ACTION" in test|send|unschedule|status) ;; *) echo "::error::action must be test, send, unschedule or status (got '$ACTION')"; exit 1;; esac
           # Checked BEFORE it is used in a path: no slash, no dot, so it can only name a folder directly under reference/mailchimp/.
           if ! [[ "$CAMPAIGN" =~ ^[a-z0-9-]{3,60}$ ]]; then
             echo "::error::campaign must match ^[a-z0-9-]{3,60}\$ (a folder name under reference/mailchimp/)"; exit 1
           fi
           if [ "$ACTION" = send ] && ! [[ "$REVISION" =~ ^[0-9a-f]{16}$ ]]; then
             echo "::error::send needs the revision the approved test run printed (16 lowercase hex); nothing was posted"; exit 1
+          fi
+          # The time is the owner's decision, so a send never infers it. Shape only here; the Worker checks the rest
+          # (quarter-hour in UTC, at least 15 minutes out, within a year) and answers 400 field schedule_time.
+          if [ "$ACTION" = send ] && [ "$WHEN" != now ] && ! [[ "$WHEN" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:00)?Z$ ]]; then
+            echo "::error::send needs when: 'now', or a UTC quarter-hour like 2026-10-06T14:30Z (got '${WHEN:-blank}'); nothing was posted"; exit 1
           fi
           [ -n "${CAMPAIGN_KEY:-}" ] || { echo "::error::no run key (the step before should have set it)"; exit 1; }
           export DIR="reference/mailchimp/$CAMPAIGN" BODY="$RUNNER_TEMP/body.json" RESP="$RUNNER_TEMP/resp.json" NOTICES="$RUNNER_TEMP/notices.txt"
@@ -120,8 +136,12 @@ jobs:
           title = meta.get('title') if isinstance(meta, dict) else None
           if not isinstance(title, str) or not title.strip():
               die('%s/campaign.json has no title' % d)
-          if action == 'send':
+          if action == 'send' and os.environ['WHEN'] == 'now':
               body = {'action': 'send', 'title': title, 'confirm': 'SEND', 'revision': os.environ['REVISION']}
+          elif action == 'send':
+              body = {'action': 'schedule', 'title': title, 'confirm': 'SEND', 'revision': os.environ['REVISION'], 'schedule_time': os.environ['WHEN']}
+          elif action == 'unschedule':
+              body = {'action': 'unschedule', 'title': title, 'confirm': 'UNSCHEDULE'}
           elif action == 'status':
               body = {'action': 'status', 'title': title}
           else:

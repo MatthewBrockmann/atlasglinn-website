@@ -757,17 +757,37 @@ export async function syncLead(env, lead) {
 /* MAST News sends, driven by .github/workflows/mast-campaign.yml so the owner can test and send from his phone. A campaign is
    the one in the audience whose settings.title is the request's title. `test` builds or refreshes its draft and test-sends
    it to CAMPAIGN_TEST_TO, never to an address from the request, and answers its `revision`; `send` sends that draft only
-   while Mailchimp still holds that revision, and never writes content or settings; `status` reads back what carries the
+   while Mailchimp still holds that revision, and never writes content or settings; `schedule` is `send` with a delivery time
+   (Mailchimp's actions/schedule) under the same gates; `unschedule` returns a scheduled campaign to its draft; `status` reads back what carries the
    title. CAMPAIGN_BRAND is the owner's 2026-10-01 rule: every MAST email uses the site brand system and links
    the Instagram ("always add a visit our Instagram ... to all Mailchimp"). Keep equal to brand_check.py REQUIRED (brain). */
 export const CAMPAIGN_BRAND = ['#080C14', '#C9A84C', '#1A6BDE', 'Orbitron', 'Rajdhani', 'instagram.com/atlasglinn_mastsolutions'];
-const CAMPAIGN_ACTIONS = ['test', 'send', 'status'];
+const CAMPAIGN_ACTIONS = ['test', 'send', 'schedule', 'unschedule', 'status'];
 const CAMPAIGN_REPLY_DOMAINS = ['@mastsolutions.com', '@atlasglinn.com'];
 const CAMPAIGN_HTML_MAX = 200 * 1024;
 const CAMPAIGN_LOCKED = ['sent', 'sending', 'schedule', 'paused'];
 const CAMPAIGN_PAGE = 1000;          // Mailchimp's maximum count
 const CAMPAIGN_PAGES_MAX = 20;
 const CAMPAIGN_LIST_FIELDS = 'campaigns.id,campaigns.web_id,campaigns.status,campaigns.settings.title,campaigns.emails_sent,campaigns.send_time,total_items';
+
+/** The delivery time for `schedule`, or { error }. Owner 2026-10-02, after MAST News #2 went out at 11:09 PM instead of the
+ *  next morning: "it wasnt suppost to go out until tomorrow morning". A send now carries WHEN (mast-campaign.yml `when`), and
+ *  anything but "now" arrives here. Mailchimp only schedules on the UTC quarter-hour and refuses the past; checking that
+ *  first means a bad time is a 400 that names the rule, not a Mailchimp 400 relayed as a 502 after the gates ran. */
+export function campaignScheduleTime(v, now = Date.now()) {
+  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(v)) {
+    return { error: 'ISO 8601 with a zone, e.g. 2026-10-06T14:30Z' };
+  }
+  const t = Date.parse(v);
+  if (!Number.isFinite(t)) return { error: 'not a real date' };
+  const d = new Date(t);
+  if (d.getUTCSeconds() !== 0 || d.getUTCMilliseconds() !== 0 || d.getUTCMinutes() % 15 !== 0) {
+    return { error: 'Mailchimp schedules on the quarter-hour only (:00, :15, :30, :45)' };
+  }
+  if (t < now + 15 * 60 * 1000) return { error: 'at least 15 minutes from now' };
+  if (t > now + 365 * 86400 * 1000) return { error: 'within a year from now' };
+  return { iso: d.toISOString().replace('.000Z', 'Z') };
+}
 
 function mcFail(status, text) { const e = new Error('mailchimp ' + status); e.mailchimp = { status, text: String(text || '') }; return e; }
 
@@ -848,9 +868,11 @@ export async function mailchimpCampaign(env, body, { scrub = (t) => t } = {}) {
       return done(200, { ok: true, action, title, campaigns });
     }
 
-    if (action === 'send') {
+    if (action === 'send' || action === 'schedule') {
       if (b.confirm !== 'SEND') return done(400, { ok: false, error: 'confirm_required', detail: 'confirm must be "SEND"' });
       if (typeof b.revision !== 'string' || !/^[0-9a-f]{16}$/.test(b.revision)) return invalid('revision', 'the 16-hex revision the approved test answered');
+      const when = action === 'schedule' ? campaignScheduleTime(b.schedule_time) : null;
+      if (when && when.error) return invalid('schedule_time', when.error);
       const found = await campaignsTitled(cfg, title);
       const locked = found.find((c) => CAMPAIGN_LOCKED.includes(c.status));
       if (locked) return done(409, { ok: false, error: 'already_sent', id: locked.id, status: locked.status }, locked.id);
@@ -861,9 +883,23 @@ export async function mailchimpCampaign(env, body, { scrub = (t) => t } = {}) {
       if (!checklist.is_ready) return done(409, { ok: false, error: 'not_ready', id, problems: checklist.problems }, id);
       const current = await campaignRevision(cfg, id);
       if (current !== b.revision) return done(409, { ok: false, error: 'revision_mismatch', id, expected: b.revision, current }, id);
-      await mcCall(cfg, 'POST', `/campaigns/${id}/actions/send`);
+      if (when) await mcCall(cfg, 'POST', `/campaigns/${id}/actions/schedule`, { schedule_time: when.iso });
+      else await mcCall(cfg, 'POST', `/campaigns/${id}/actions/send`);
       const c = await mcCall(cfg, 'GET', `/campaigns/${id}`);
       return done(200, { ok: true, action, id, status: c.status, send_time: c.send_time || null, emails_sent: c.emails_sent ?? 0 }, id);
+    }
+
+    if (action === 'unschedule') {
+      // A scheduled campaign is locked like a sent one (CAMPAIGN_LOCKED has 'schedule'), so this is the only way back to an
+      // editable draft before its time. Its own confirm word, so a send request can never be replayed into it.
+      if (b.confirm !== 'UNSCHEDULE') return done(400, { ok: false, error: 'confirm_required', detail: 'confirm must be "UNSCHEDULE"' });
+      const found = await campaignsTitled(cfg, title);
+      const scheduled = found.find((c) => c.status === 'schedule');
+      if (!scheduled) return done(404, { ok: false, error: 'not_scheduled', statuses: found.map((c) => c.status) });
+      id = scheduled.id;
+      await mcCall(cfg, 'POST', `/campaigns/${id}/actions/unschedule`);
+      const c = await mcCall(cfg, 'GET', `/campaigns/${id}`);
+      return done(200, { ok: true, action, id, status: c.status, send_time: c.send_time || null }, id);
     }
 
     const str = (v) => (typeof v === 'string' ? v.trim() : '');
