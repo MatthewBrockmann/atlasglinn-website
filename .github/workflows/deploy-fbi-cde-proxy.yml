@@ -1,0 +1,96 @@
+# Deploys the FBI CDE proxy Worker (workers/fbi-cde-proxy) when it changes on main, or by hand.
+#
+# Cloudflare credentials: the SAME repository secrets deploy-worker.yml uses, with the same fallback names —
+#   CLOUDFLARE_API_TOKEN (or CF_API_TOKEN / CLOUDFLARE_TOKEN) and CLOUDFLARE_ACCOUNT_ID (or CF_ACCOUNT_ID / the variable).
+# Without a token the job runs the tests and stops with a notice; nothing is deployed.
+#
+# The api.data.gov key: repository secret FBI_CDE_KEY. When it is set it is piped to the Worker secret of the same name
+# after the deploy, on stdin; it is never echoed and never written to a step output. When it is not set the Worker
+# deploys and answers 503 "proxy not configured" until it is.
+name: Deploy FBI CDE proxy Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workers/fbi-cde-proxy/**'
+      - '.github/workflows/deploy-fbi-cde-proxy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-fbi-cde-proxy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workers/fbi-cde-proxy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Tests
+        run: node --test test/index.test.mjs
+      - name: Check for Cloudflare credentials
+        id: creds
+        env:
+          T1: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          T2: ${{ secrets.CF_API_TOKEN }}
+          T3: ${{ secrets.CLOUDFLARE_TOKEN }}
+          K1: ${{ secrets.FBI_CDE_KEY }}
+        run: |
+          have=""
+          [ -n "$T1" ] && have="$have CLOUDFLARE_API_TOKEN"
+          [ -n "$T2" ] && have="$have CF_API_TOKEN"
+          [ -n "$T3" ] && have="$have CLOUDFLARE_TOKEN"
+          [ -n "$K1" ] && have="$have FBI_CDE_KEY"
+          echo "present:${have:- none}"
+          if [ -z "$T1$T2$T3" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No Cloudflare API token reached this job (present:${have:- none}). Tests ran, deploy skipped."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Deploy
+        id: deploy
+        if: steps.creds.outputs.ready == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN || secrets.CLOUDFLARE_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CF_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '3.90.0'
+          workingDirectory: workers/fbi-cde-proxy
+          command: deploy
+      - name: Push FBI_CDE_KEY to the Worker (only when the repository secret is set)
+        if: steps.creds.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN || secrets.CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CF_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+          FBI_CDE_KEY: ${{ secrets.FBI_CDE_KEY }}
+        run: |
+          if [ -z "$FBI_CDE_KEY" ]; then
+            echo "::notice::No FBI_CDE_KEY repository secret: the Worker is deployed and answers 503 'proxy not configured' until it is set and this workflow re-runs."
+            exit 0
+          fi
+          printf '%s' "$FBI_CDE_KEY" | npx --yes wrangler@3.90.0 secret put FBI_CDE_KEY --name fbi-cde-proxy >/dev/null
+          echo "secret FBI_CDE_KEY updated on the Worker"
+      - name: Deployed URL
+        if: steps.creds.outputs.ready == 'true'
+        env:
+          URL: ${{ steps.deploy.outputs.deployment-url }}
+          OUT: ${{ steps.deploy.outputs.command-output }}
+        run: |
+          u="$URL"
+          [ -n "$u" ] || u="$(printf '%s\n' "$OUT" | grep -oE 'https://fbi-cde-proxy\.[a-z0-9-]+\.workers\.dev' | head -1)"
+          echo "deployed: ${u:-(wrangler did not print a workers.dev URL)}"
+          [ -n "$u" ] && echo "### fbi-cde-proxy deployed: $u" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$u" ]; then
+            code=$(curl -s --max-time 15 -o /dev/null -w '%{http_code}' "$u/summarized/state/TX/violent-crime" || true)
+            echo "unauthenticated probe: HTTP $code (expected 401)"
+          fi
