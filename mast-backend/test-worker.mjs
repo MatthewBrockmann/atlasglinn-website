@@ -173,6 +173,8 @@ globalThis.fetch = async (url, init) => {
       camp(m[1]).html = body.html; return reply({ html: body.html });
     }
     if ((m = /^\/campaigns\/([^/]+)\/actions\/test$/.exec(p))) return new Response(null, { status: 204 });
+    if ((m = /^\/campaigns\/([^/]+)\/actions\/schedule$/.exec(p))) { Object.assign(camp(m[1]), { status: 'schedule', send_time: body.schedule_time }); return new Response(null, { status: 204 }); }
+    if ((m = /^\/campaigns\/([^/]+)\/actions\/unschedule$/.exec(p))) { Object.assign(camp(m[1]), { status: 'save', send_time: '' }); return new Response(null, { status: 204 }); }
     if ((m = /^\/campaigns\/([^/]+)\/actions\/send$/.exec(p))) { Object.assign(camp(m[1]), { status: 'sent', emails_sent: 42, send_time: '2026-10-01T15:00:00+00:00' }); return new Response(null, { status: 204 }); }
     if (/^\/campaigns\/[^/]+\/send-checklist$/.test(p)) return reply(mcChecklist);
     if (p.startsWith('/reports/')) return reply({ id: p.split('/')[2], opens: { unique_opens: 20, open_rate: 0.476 }, clicks: { unique_clicks: 5, click_rate: 0.119 } });
@@ -5615,6 +5617,51 @@ console.log('\n── MAST News campaigns: POST /admin/mailchimp/campaign (mast-
   await mismatch('html', (c) => { c.html = keepHtml.replace('October dates', 'October dates, edited in Mailchimp'); }, (c) => { c.html = keepHtml; });
   await mismatch('subject line', (c) => { c.settings.subject_line = keepSubject + '!'; }, (c) => { c.settings.subject_line = keepSubject; });
   await mismatch('recipients (a segment)', (c) => { c.recipients = { ...c.recipients, segment_opts: { saved_segment_id: 7 } }; }, (c) => { delete c.recipients.segment_opts; });
+
+  // schedule / unschedule (owner 2026-10-02: "it wasnt suppost to go out until tomorrow morning" — a send carries WHEN).
+  const quarter = (ms) => new Date(Math.ceil(ms / 900000) * 900000).toISOString().replace('.000Z', 'Z');
+  const at = quarter(Date.now() + 86400000);
+  const sched = (extra) => callJson({ action: 'schedule', title: 'MAST News 2026-10 dates', confirm: 'SEND', revision: rev, ...extra });
+  const scheduleCalls = () => mcCampaignCalls.filter((c) => /\/actions\/(schedule|send)$/.test(c.path));
+  mcCampaignCalls.length = 0;
+  const badTimes = await Promise.all([
+    sched({}),
+    sched({ schedule_time: '2026-10-06T14:30:00' }),
+    sched({ schedule_time: at.replace(/:\d{2}:00Z$/, ':20:00Z') }),
+    sched({ schedule_time: '2020-01-01T00:00:00Z' }),
+    sched({ schedule_time: quarter(Date.now() + 2 * 365 * 86400000) }),
+    sched({ schedule_time: '2026-02-30T14:30:00Z' }),
+  ]);
+  ok('schedule with no time, no zone, off the quarter-hour, in the past, over a year out or not a real date → 400 field schedule_time, and nothing is scheduled or sent',
+     badTimes.every((r) => r.status === 400 && r.body.field === 'schedule_time') && scheduleCalls().length === 0 && draftNow().status === 'save',
+     JSON.stringify(badTimes.map((r) => [r.status, r.body.detail])));
+  const schedNoConfirm = await callJson({ action: 'schedule', title: 'MAST News 2026-10 dates', revision: rev, schedule_time: at });
+  const schedBadRev = await sched({ revision: 'f'.repeat(16), schedule_time: at });
+  ok('schedule passes the same gates as send: no confirm → 400 confirm_required; a revision Mailchimp no longer holds → 409 revision_mismatch; neither schedules',
+     schedNoConfirm.status === 400 && schedNoConfirm.body.error === 'confirm_required' && schedBadRev.status === 409 && schedBadRev.body.error === 'revision_mismatch' &&
+     scheduleCalls().length === 0 && draftNow().status === 'save', JSON.stringify([schedNoConfirm, schedBadRev]));
+  mcCampaignCalls.length = 0;
+  const scheduled = await sched({ schedule_time: at });
+  const schedCall = mcCampaignCalls.find((c) => c.path === '/campaigns/cmp1/actions/schedule');
+  ok('schedule with the approved revision and a future quarter-hour POSTs actions/schedule with that time and answers status "schedule" — and does NOT send',
+     scheduled.status === 200 && scheduled.body.ok === true && scheduled.body.action === 'schedule' && scheduled.body.status === 'schedule' && scheduled.body.send_time === at &&
+     schedCall && schedCall.method === 'POST' && schedCall.body.schedule_time === at && !mcCampaignCalls.some((c) => /\/actions\/send$/.test(c.path)) &&
+     writes().length === 1, JSON.stringify(scheduled) + ' ' + JSON.stringify(writes().map((c) => c.method + ' ' + c.path)));
+  mcCampaignCalls.length = 0;
+  const lockedSend = await callJson({ action: 'send', title: 'MAST News 2026-10 dates', confirm: 'SEND', revision: rev });
+  const lockedTest = await callJson(draftBody());
+  const lockedAgain = await sched({ schedule_time: at });
+  ok('while scheduled the campaign is locked: send, test and a second schedule → 409 already_sent {status: "schedule"}, and nothing is written',
+     [lockedSend, lockedTest, lockedAgain].every((r) => r.status === 409 && r.body.error === 'already_sent' && r.body.status === 'schedule') && writes().length === 0,
+     JSON.stringify([lockedSend, lockedTest, lockedAgain]));
+  const unNoConfirm = await callJson({ action: 'unschedule', title: 'MAST News 2026-10 dates', confirm: 'SEND' });
+  ok('unschedule needs its own confirm word: "SEND" → 400 confirm_required, still scheduled', unNoConfirm.status === 400 && unNoConfirm.body.error === 'confirm_required' && draftNow().status === 'schedule', JSON.stringify(unNoConfirm));
+  mcCampaignCalls.length = 0;
+  const unsched = await callJson({ action: 'unschedule', title: 'MAST News 2026-10 dates', confirm: 'UNSCHEDULE' });
+  const unAgain = await callJson({ action: 'unschedule', title: 'MAST News 2026-10 dates', confirm: 'UNSCHEDULE' });
+  ok('unschedule POSTs actions/unschedule and the draft is back to "save"; a second unschedule → 404 not_scheduled',
+     unsched.status === 200 && unsched.body.status === 'save' && mcCampaignCalls.some((c) => c.method === 'POST' && c.path === '/campaigns/cmp1/actions/unschedule') &&
+     unAgain.status === 404 && unAgain.body.error === 'not_scheduled' && draftNow().status === 'save', JSON.stringify([unsched, unAgain]));
 
   const htmlBefore = mcCampaigns[0].html, settingsBefore = JSON.stringify(mcCampaigns[0].settings);
   mcCampaignCalls.length = 0;
